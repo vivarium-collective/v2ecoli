@@ -3,13 +3,15 @@ name: pdmp-01-metabolism-ode
 investigation: v2ecoli-pdmp
 title: 'Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE'
 claim: |
-  The Millard 2017 kinetic ODE (via pbg-copasi) recovers its published reference state to solver
-  tolerance, and wrapped as MillardPDMPMetabolism with a JAX/Diffrax backend + a consumption_matched
-  ref-growth driver it closes the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble within ±σ at
-  t=600 s on M9-glucose — replacing multi-objective FBA without losing viability (PR #72, merged
-  2026-05-30).
-confidence: Accepted
-status: complete
+  The standalone Millard 2017 kinetic ODE (via pbg-copasi) recovers its published reference state to
+  solver tolerance. The further claim that MillardPDMPMetabolism + a JAX/Diffrax backend + a
+  consumption_matched ref-growth driver "closes the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble
+  within ±σ at t=600 s" is NOT met: the cited figure (reports/figures/pdmp-01/pdmp_vs_phase0.html) shows
+  cell_mass ~ -20 σ and dry_mass ~ -18 σ (up to ~ -600 σ) at t=600 s, and no true W₂ was ever computed
+  (scripts/compare_pdmp_vs_phase0.py computes a single-replicate z-score, not a multi-replicate
+  Wasserstein-2). A clean multi-replicate 600 s W₂ comparison is the pending deliverable.
+confidence: Investigating
+status: running
 phase: Decide
 topic: pdmp
 tags:
@@ -820,9 +822,11 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/pdmp_vs_baseline.html
   description: 'Trajectory overlay: MillardPDMPMetabolism + consumption_matched ref-growth driver vs the Phase-0 reference
     ensemble on M9-glucose. PR #72 closeout artifact.'
-- name: Phase 1 — PDMP vs Phase-0 ensemble (W₂)
+- name: Phase 1 — PDMP vs Phase-0 single-replicate z-score (NOT W₂)
   url: /reports/figures/pdmp-01/pdmp_vs_phase0.html
-  description: W₂ distance between PDMP and Phase-0 ensembles on cell_mass + dry_mass. Within ±σ at t=600 s on M9-glucose.
+  description: 'Single-replicate z-score (NOT a multi-replicate W₂) between PDMP and Phase-0 on cell_mass +
+    dry_mass. The ±σ acceptance is NOT met: cell_mass ~ -20 σ and dry_mass ~ -18 σ (up to ~ -600 σ) at
+    t=600 s on M9-glucose. A true multi-replicate W₂ has not yet been computed.'
 - name: Phase 1 — PR progress report
   url: /reports/figures/pdmp-01/phase1_progress.html
   description: 'Closeout summary for PR #72. Charts: bridge round-trip residual, FBA-bridge architecture, Millard kinetic
@@ -832,12 +836,24 @@ discovery_implications:
   - 'The Millard 2017 SBML loads and integrates via pbg-copasi''s CopasiUTCProcess and recovers the
     BioModels MODEL1505110000 reference steady state to solver tolerance — ODE re-implementation is NOT
     needed; Phase-1 effort goes to the LQR + FBA-bridge.'
-  - 'MillardPDMPMetabolism + the JAX/Diffrax backend + the consumption_matched ref-growth driver close
-    the cell_mass + dry_mass W2 gap to the Phase-0 ensemble within +/-sigma at t=600 s on M9-glucose
-    (PR #72, merged 2026-05-30).'
   remaining_uncertainties:
-  - 'The FBA-bridge composite has not been shown to hold interface statistics across ALL three Phase-0
-    conditions (only M9-glucose is closed); the M9-acetate and M9-glucose+aa W2 audits are pending.'
+  - 'The +/-sigma cell_mass + dry_mass acceptance gate is NOT met: the cited figure
+    (reports/figures/pdmp-01/pdmp_vs_phase0.html) shows cell_mass ~ -20 sigma and dry_mass ~ -18 sigma
+    (up to ~ -600 sigma) at t=600 s on M9-glucose. Moreover no true W2 was ever computed —
+    scripts/compare_pdmp_vs_phase0.py computes a single-replicate z-score, not a multi-replicate
+    Wasserstein-2. A clean multi-replicate 600 s W2 comparison is the pending deliverable; a 250 s pilot
+    is too early to test +/-sigma (Phase-0 cell_mass variance ~ 0 at birth -> z undefined).'
+  - 'Reproducibility caveats surfaced in the just-attempted re-run: (a) the millard_pdmp_baseline
+    composite had a pre-existing broken import (LikelihoodCollector imported from the nonexistent
+    v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*) — its likelihood path was unbuildable
+    until fixed in this refresh; (b) in the DEFAULT ''proportional'' ref-growth mode the composite CRASHES
+    mid-run with "ValueError: Negative values at equilibrium steady state" (v2ecoli/processes/equilibrium.py)
+    and runs only in the ''consumption_matched'' mode; (c) even in consumption_matched mode the LQR Riccati
+    solve fails ("Failed to find a finite solution"; falls back to zero gain) — the outer controller is
+    degenerate.'
+  - 'The FBA-bridge composite has not been shown to hold interface statistics across ANY Phase-0
+    condition; the M9-glucose, M9-acetate and M9-glucose+aa W2 audits are all pending (no condition is
+    closed).'
   - 'The LQR outer-control weights have not passed a Sobol-sensitivity / FIM-conditioning (kappa < 1e8)
     audit, so the causal/teleonomic parameter partition is asserted but not yet proven free of disguised
     free parameters.'
@@ -864,8 +880,9 @@ discovery_implications:
   - mechanism_node_or_edge: metabolism (multi-objective FBA -> kinetic ODE)
     update_type: replace
     rationale: 'Substitute v2ecoli''s multi-objective modular_fba LP with the Millard 2017 kinetic ODE +
-      LQR outer control as the Phase-1-canonical metabolism layer; accepted on M9-glucose, pending the
-      multi-condition FBA-bridge validation.'
+      LQR outer control as the Phase-1-canonical metabolism layer. NOT yet accepted — the ±σ cell_mass /
+      dry_mass gate on M9-glucose is unmet (~ -20 σ / -18 σ at t=600 s) and no true W2 has been computed;
+      the multi-condition FBA-bridge validation is also pending.'
     requires_expert_approval: true
   followup_study_proposals:
   - id: pdmp-01-fba-bridge-multicondition

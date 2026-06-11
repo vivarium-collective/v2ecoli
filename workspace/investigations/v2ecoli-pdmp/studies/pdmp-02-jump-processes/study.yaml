@@ -3,11 +3,14 @@ name: pdmp-02-jump-processes
 investigation: v2ecoli-pdmp
 title: 'Phase 2 — Jump Process Layer: Discrete-Time → Continuous-Time Stochastic'
 claim: |
-  Per-promoter and per-protein Poisson tau-leap samplers land in `poisson` mode and jump variance
-  reaches the listener level (peak |Δcm| 150 fg at the rnap_data listener), but the decisive finding is
-  negative: cell_mass is the WRONG observable for jump-process variance — the consumption_matched
-  homeostat washes per-tick variance out by construction, so Phase-3 inference must anchor on
-  count-level listeners, not mass.
+  Per-promoter and per-protein Poisson tau-leap samplers land in `poisson` mode. The acceptance gate
+  `pdmp-trajectory-distribution-match` FAILED: the cell_mass Poisson Wasserstein-2 grows monotonically
+  9.73 → 15.35 → 49.46. The decisive finding is negative but legitimate: cell_mass is the WRONG
+  observable for jump-process variance — the consumption_matched homeostat washes per-tick variance out
+  by construction, so Phase-3 inference must anchor on count-level listeners, not mass. (The "150 fg"
+  headline is max |Δ cell_mass| = 150 fg between configs — a transient on a single trajectory pair
+  computed in scripts/trajectory_divergence.py on the cell_mass quantity; it is NOT measured at the
+  rnap_data listener, and it cuts against this study's own thesis that cell_mass is the wrong observable.)
 confidence: Investigating
 status: running
 phase: Decide
@@ -246,7 +249,10 @@ expected_behavior:
     observable: trajectory-summary-distribution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: 'GATE FAILED on cell_mass — the Poisson cell_mass Wasserstein-2 grows monotonically 9.73 → 15.35
+      → 49.46 (does NOT converge within tolerance). Per the closeout this is the wrong observable
+      (consumption_matched homeostat washes per-tick variance out of cell_mass), so the negative result
+      is reframed as structural — but the gate itself is FAILED, not passed/accepted.'
   status: stub
 - name: markov-property-verified
   en: Between any two jump events, state evolves deterministically under the ODE; jump times follow ∫ λ(s) ds = E for E ~
@@ -360,8 +366,12 @@ report:
     match v2ecoli baseline summaries within W₂ tolerance.
   main_insight: 'The PDMP contract is the smoking-gun test for stochastic correctness: between-jump deterministic ODE flow
     + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches every propensity bug.'
-  caveat: τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition (max Δλ/λ < 0.03) is monitored
-    at every step and processes get switched to exact SSA when violated >0.1% of the time.
+  caveat: 'τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition (max Δλ/λ
+    < 0.03) is monitored at every step and processes get switched to exact SSA when violated >0.1% of the
+    time. NOTE on provenance: the per-sprint σ/μ/W2 summary table (base_mu/base_sd/pdmp_mu/pdmp_sd/w2_cm,
+    incl. the cell_mass W2 progression 9.73 → 15.35 → 49.46) is HAND-ENTERED in
+    scripts/phase2_progress_report.py (marked "Hardcoded here" so the report survives source-HTML churn) —
+    it is transcribed, not recomputed at render time.'
   key_metrics:
   - label: Anderson-Darling Exp(1) per jump
     status: stub
@@ -703,8 +713,10 @@ embed_visualizations:
   description: Per-gene RNA-init + ribosome-init event-stream diagnostic.
 - name: Phase 2 sprint 4 — trajectory-shape divergence
   url: /reports/figures/pdmp-02/trajectory_divergence.html
-  description: '|Δcell_mass| peaks at 150 fg at the rnap_data listener at t=600 s. Closeout finding: cell_mass is the WRONG
-    observable for jump-process variance — consumption_matched homeostat washes per-tick variance out by construction.'
+  description: 'max |Δ cell_mass| = 150 fg between configs (transient, single trajectory pair; computed in
+    scripts/trajectory_divergence.py on the cell_mass quantity — NOT at the rnap_data listener). Closeout
+    finding: cell_mass is the WRONG observable for jump-process variance — the consumption_matched
+    homeostat washes per-tick variance out by construction.'
 - name: Phase 2 — trajectory divergence in `discrete` mode
   url: /reports/figures/pdmp-02/trajectory_divergence_discrete.html
   description: Same as the aggregate trajectory divergence, restricted to the original discrete-time stochastic branch — for
@@ -719,15 +731,20 @@ embed_visualizations:
 discovery_implications:
   resolved_uncertainties:
   - 'Continuous-time per-promoter / per-protein Poisson tau-leap samplers were implemented and land in
-    `poisson` mode; jump-process variance does propagate to the listener level (peak |Delta cm| = 150 fg
-    at the rnap_data listener at t=600 s).'
+    `poisson` mode. The "150 fg" headline is max |Delta cell_mass| = 150 fg between configs — a transient
+    on a single trajectory pair, computed in scripts/trajectory_divergence.py on the cell_mass quantity
+    (NOT measured at the rnap_data listener, which is a narrative literal absent from the computing
+    script); and it cuts against this study''s own thesis that cell_mass is the wrong observable.'
   - 'cell_mass is decisively the WRONG observable for jump-process variance: the consumption_matched
     homeostat (from Phase 1) washes per-tick variance out of cell_mass by construction. Three controller-
     tuning attempts (tau-EMA, open-loop, sparse injection) all failed to recover mass variance.'
   remaining_uncertainties:
-  - 'The original Phase-2 gate — trajectory-distribution W2 match to the v2ecoli baseline on cell_mass
-    across all Phase-0 conditions — is NOT met and, per the closeout, is the wrong gate; a count-level
-    trajectory-distribution criterion has not yet been formally specified or passed.'
+  - 'The original Phase-2 gate `pdmp-trajectory-distribution-match` — trajectory-distribution W2 match to
+    the v2ecoli baseline on cell_mass across all Phase-0 conditions — FAILED: the Poisson cell_mass W2
+    grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the WRONG gate (cell_mass is the
+    wrong observable), a legitimate negative/structural result — but the gate status is FAILED, not
+    passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been
+    formally specified or passed.'
   - 'The Anderson-Darling Exp(1) exponential-clock verification (>=1e4 inter-event intervals) and the OU
     first-passage division-trigger validation (KS < 0.02) remain unrun.'
   alternate_hypotheses:

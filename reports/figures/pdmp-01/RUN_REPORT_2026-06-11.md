@@ -6,26 +6,34 @@ never committed. Generated on the Mac mini (darwin, 12 cores, 64 GB),
 branch `v2ecoli-pdmp`, worktree `v2e-pdmp-ensemble`. **No study status was
 advanced; this is a run log, not an acceptance.**
 
-## A. Phase-0 reference ensemble (pdmp-00)
+## A. Phase-0 reference ensemble (pdmp-00) — 3 conditions × N=32
 
-| field | value |
+| script | `scripts/run_phase0_trajectory_ensemble.py --n-seeds 32 --n-steps 600 --stride 5` |
 |---|---|
-| script | `scripts/run_phase0_trajectory_ensemble.py --n-seeds 32 --n-steps 600 --stride 5 --parallel ray --num-threads 2` |
 | composite | `baseline` (v2ecoli kFBA Metabolism) |
-| condition | **M9-glucose basal only** (ParCa `out/cache`) |
-| N | **32** seeds (master seeds 0–31) — honest reduced ensemble; the canonical target is 3 conditions × N=64. **Not** N=64. |
+| N | **32** seeds/condition (master seeds 0–31) — honest reduced ensemble; the canonical target is N=64/condition. **Not** N=64. |
 | duration | 600 model-seconds, snapshot every 5 s (121 timepoints/seed) |
-| result | 32/32 seeds succeeded, total wall 294.9 s |
-| endpoint cell_mass | 1461.1 ± 6.9 fg (CV 0.47%) |
-| endpoint dry_mass | 438.6 ± 2.1 fg (CV 0.47%) |
-| endpoint ATP[c] | 7.70e6 ± 3.6e4 (CV 0.47%) |
+
+Endpoint stats at t=600 s (all 32/32 seeds succeeded each):
+
+| condition (ParCa cache) | doubling | wall | cell_mass (fg) | dry_mass (fg) | ATP[c] |
+|---|---|---|---|---|---|
+| M9-glucose (`out/cache`) | 44 min | 295 s | 1461.1 ± 6.9 | 438.6 ± 2.1 | 7.70e6 |
+| M9-acetate (`out/cache-acetate`) | 136 min | 259 s | 374.2 ± 4.8 | 112.3 ± 1.5 | 1.97e6 |
+| M9-glucose+aa (`out/cache-with_aa`) | 25 min | 1796 s | 2958.2 ± 2.7 | 887.6 ± 0.8 | 1.56e7 |
+
+Endpoint mass is ordered by doubling time as expected (25 < 44 < 136 min).
+Glucose + acetate ran via the Ray seed fan-out; **with_aa ran sequentially**
+because the Ray parallel path reliably hit a parquet-emitter `makedirs` race
+on the fixed default run path (serializing the builds avoids it).
 
 Bug fixed this run: mass listener values are pint-femtogram Quantities; the
 prior script `float()`'d them directly, which raised and silently dropped
 every cell_mass/dry_mass snapshot to `None`. Fixed with a `_to_float()`
-unit-strip helper. Raw stores live under `.pbg/runs/phase0-traj/seed_*`
-(gitignored); the durable committed artifacts are the 8 regenerated pdmp-00
-figures + `pdmp-00-characterization/phase0_ensemble_provenance.json`.
+unit-strip helper. Raw stores live under
+`.pbg/runs/phase0-traj{,-acetate,-with_aa}/seed_*` (gitignored); the durable
+committed artifacts are 16 regenerated pdmp-00 figures + the 3-condition
+`pdmp-00-characterization/phase0_ensemble_provenance.json`.
 
 ## B. Phase-1 multi-replicate Wasserstein-2 (pdmp-01)
 
@@ -69,15 +77,24 @@ Because the gate requires both, it is **NOT met**.
    single-replicate z-score figure cited "-18 to -600 σ"; the real
    multi-replicate W₂ shows cell_mass ≈ 3σ and dry_mass < 1σ. The gap is far
    smaller than that figure suggested — but still fails the ±σ gate.
-3. **Single condition, reduced N.** M9-glucose only; PDMP N=12, Phase-0
-   N=32. Not the canonical 3 conditions × N=64.
+3. **Reduced N, single PDMP condition.** The W₂ gate is M9-glucose only;
+   PDMP N=12, Phase-0 N=32. The Phase-0 reference itself now spans 3
+   conditions (§A), but the PDMP-vs-Phase-0 W₂ was run for M9-glucose. Not
+   the canonical N=64.
 
-## C. What did NOT run
+## C. Scope / what was NOT done
 
-- M9-acetate and M9-glucose+aa Phase-0 ensembles (task D) were not run; their
-  pdmp-00 figures remain skeletons and the 3-condition viz is not regenerated.
-- No study was marked Accepted/complete.
+- Phase-0 now covers all 3 canonical conditions at **N=32** each (not the
+  canonical N=64). The PDMP-vs-Phase-0 W₂ (§B) was computed for M9-glucose
+  only — acetate/with_aa PDMP-vs-Phase-0 W₂ was not run.
+- The consumption_matched LQR is degenerate (zero gain); the W₂ gate cannot
+  be read as a genuine distribution comparison until a non-degenerate gain
+  lands.
+- **No study was marked Accepted/complete.** Confidence/status on pdmp-00 and
+  pdmp-01 are unchanged; only factual run logs, provenance, regenerated
+  figures, and the real W₂ were added.
 
-Raw artifacts: `.pbg/runs/pdmp-ensemble-vs-phase0/summary.json` +
-`replicate_*.json` (gitignored). Committed: the regenerated
-`reports/figures/pdmp-01/pdmp_vs_phase0.html` and this report.
+Raw artifacts (gitignored): `.pbg/runs/pdmp-ensemble-vs-phase0/` and
+`.pbg/runs/phase0-traj{,-acetate,-with_aa}/`. Committed: 16 pdmp-00 figures,
+the regenerated `reports/figures/pdmp-01/pdmp_vs_phase0.html`, the
+3-condition provenance JSON, and this report.

@@ -22,9 +22,12 @@ three frames land at, in chronological order:
   (iii) multifork re-initiation: t~88 min -- both daughters re-replicating,
                                  4 replisomes + nested bubbles, the most RNAPs.
 
-``chromosome_domain.child_domains`` is excluded from parquet (ragged column), so
-RNAP-on-bubble placement falls back to all-RNAPs-on-rim unless a gen dill is
-passed via --dill; bubbles and replisomes are unaffected.
+``chromosome_domain__child_domains`` (the parent->child domain tree) is now
+emitted under ``V2ECOLI_EMIT_UNIQUE`` as a flattened ``list<int>`` column
+(aligned to ``chromosome_domain__domain_index``), so daughter-strand RNAPs are
+placed ON the replication bubbles. Older runs that lack the column fall back to
+a ``--dill``-recovered tree, else all-RNAPs-on-rim; bubbles/replisomes are
+unaffected either way.
 
 Usage:
   V2ECOLI_EMIT_UNIQUE is NOT needed here (read-only). Point at the run dir:
@@ -58,6 +61,32 @@ def _domain_children_from_dill(dill_path):
     return out
 
 
+def _domain_children_from_row(row: dict) -> dict:
+    """Build the parent->child domain tree from the emitted unique columns.
+
+    ``chromosome_domain__child_domains`` is a flat list<int> of length
+    ``2*n_domain`` (row-major (n_domain, 2)), aligned to
+    ``chromosome_domain__domain_index``. Negative entries are the no-child
+    placeholder. Returns ``{parent: [child, child]}`` for domains that have
+    real children. Returns ``{}`` if the columns are absent (old runs).
+    """
+    di = row.get("chromosome_domain__domain_index")
+    cd = row.get("chromosome_domain__child_domains")
+    if di is None or cd is None:
+        return {}
+    di = [int(x) for x in di]
+    cd = [int(x) for x in cd]
+    if not di or len(cd) != 2 * len(di):
+        return {}
+    out = {}
+    for i, parent in enumerate(di):
+        kids = [cd[2 * i], cd[2 * i + 1]]
+        kids = [k for k in kids if k >= 0]
+        if kids:
+            out[parent] = kids
+    return out
+
+
 def _snapshot_from_row(row: dict, domain_children: dict) -> dict:
     def _lst(key):
         v = row.get(key)
@@ -68,6 +97,11 @@ def _snapshot_from_row(row: dict, domain_children: dict) -> dict:
     rnap_c = _lst("active_RNAP__coordinates")
     rnap_d = _lst("active_RNAP__domain_index")
     n_dom = len({int(d) for d in rep_d} | {int(d) for d in rnap_d}) or 1
+    # Prefer the per-row emitted domain tree (V2ECOLI_EMIT_UNIQUE now emits
+    # chromosome_domain__child_domains); fall back to a dill-derived tree.
+    row_tree = _domain_children_from_row(row)
+    if row_tree:
+        domain_children = row_tree
     return {
         "time": float(row.get("global_time", 0.0)),
         "n_chromosomes": max(1, len(fc)),
@@ -164,12 +198,24 @@ def main():
     if miss:
         raise SystemExit(f"run missing unique columns {miss} — re-run with V2ECOLI_EMIT_UNIQUE=1")
 
+    # The per-row domain tree (emitted by V2ECOLI_EMIT_UNIQUE) lets the
+    # renderer place daughter-strand RNAPs ON the replication bubbles. If the
+    # run predates that emit, these columns are absent and we fall back to a
+    # dill-derived tree (--dill), else RNAPs go on the rim.
+    tree_cols = ["chromosome_domain__domain_index",
+                 "chromosome_domain__child_domains"]
+    has_tree_cols = all(c in have for c in tree_cols)
+    read_cols = cols + [c for c in tree_cols if c in have]
+
     domain_children = _domain_children_from_dill(a.dill)
-    print(f"domain tree (from dill): {domain_children or 'none — RNAPs on rim'}")
+    if has_tree_cols:
+        print("domain tree: per-row chromosome_domain__child_domains (on-bubble RNAPs)")
+    else:
+        print(f"domain tree (from dill): {domain_children or 'none — RNAPs on rim'}")
 
     df = (pl.scan_parquet(files, hive_partitioning=True)
           .filter(pl.col("agent_id").cast(pl.Utf8).str.contains("^0+$"))
-          .select(cols + ["generation"]).sort("global_time").collect())
+          .select(read_cols + ["generation"]).sort("global_time").collect())
     print(f"{df.height} rows for seed {a.seed}")
 
     picks = _pick_rows(df, domain_children)

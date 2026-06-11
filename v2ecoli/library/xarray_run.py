@@ -58,14 +58,30 @@ _KNOWN_VECTOR_LEAVES: set[str] = {
 # which the plain view filter cannot reach. When enabled we extract the named
 # attribute arrays of the ACTIVE entries (``_entryState`` mask) and emit them
 # as nested keys so the emitter flattens them to ``active_RNAP__coordinates``
-# etc. ``child_domains`` is 2-D/ragged -> excluded (recovered from dills).
+# etc. ``chromosome_domain__child_domains`` (the (n_domain, 2) parent->child
+# domain tree) is FLATTENED row-major to a 1-D list<int> aligned to
+# ``chromosome_domain__domain_index`` so the renderer can place daughter-strand
+# RNAPs on the replication bubbles, not just the rim.
 _EMIT_UNIQUE = os.environ.get("V2ECOLI_EMIT_UNIQUE", "") not in ("", "0", "false", "False")
 _UNIQUE_EMIT_SPEC = {
     "active_RNAP": ["coordinates", "domain_index"],
     "active_replisome": ["coordinates", "domain_index"],
     "full_chromosome": ["unique_index", "domain_index"],
-    "chromosome_domain": ["domain_index"],
+    "chromosome_domain": ["domain_index", "child_domains"],
 }
+
+
+def _flatten_attr(col):
+    """Flatten a unique-store attribute column to a 1-D python list.
+
+    1-D attributes pass through; 2-D ones (child_domains is (n_active, 2)) are
+    flattened row-major so they serialize as a plain list<int> column aligned
+    to domain_index.
+    """
+    arr = np.asarray(col)
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+    return arr.tolist()
 
 
 def _extract_unique_attrs(agent_state: dict) -> dict:
@@ -88,7 +104,7 @@ def _extract_unique_attrs(agent_state: dict) -> dict:
         else:
             active = arr
         out[mol] = {
-            a: (active[a].tolist() if a in names else [])
+            a: (_flatten_attr(active[a]) if a in names else [])
             for a in attrs
         }
     return out

@@ -62,16 +62,39 @@ LISTENER_PATHS = [
 ]
 
 
+def _to_float(v):
+    """Strip units from a listener value (pint Quantity / Unum / plain).
+
+    Mass listener values are unit-bearing (pint femtogram); a bare float() on
+    them raises and silently drops the value. Pull the magnitude first.
+    """
+    if v is None:
+        return None
+    mag = getattr(v, "magnitude", None)       # pint.Quantity
+    if mag is not None:
+        try:
+            return float(mag)
+        except (TypeError, ValueError):
+            return None
+    as_number = getattr(v, "asNumber", None)  # unum.Unum
+    if callable(as_number):
+        try:
+            return float(as_number())
+        except (TypeError, ValueError):
+            return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
 def _get_path(d: dict, path: tuple) -> float | None:
     cur = d
     for k in path:
         if not isinstance(cur, dict) or k not in cur:
             return None
         cur = cur[k]
-    try:
-        return float(cur)
-    except (TypeError, ValueError):
-        return None
+    return _to_float(cur)
 
 
 def _snapshot(state: dict, t: float) -> dict:
@@ -98,8 +121,12 @@ def _endpoint_summary(state: dict, seed: int, wall: float, n_steps: int) -> dict
         agent = {}
     try:
         m = agent.get("listeners", {}).get("mass", {})
-        summary["dry_mass_fg"] = float(m.get("dry_mass", float("nan")))
-        summary["cell_mass_fg"] = float(m.get("cell_mass", float("nan")))
+        dm = _to_float(m.get("dry_mass"))
+        cm = _to_float(m.get("cell_mass"))
+        if dm is not None:
+            summary["dry_mass_fg"] = dm
+        if cm is not None:
+            summary["cell_mass_fg"] = cm
     except Exception:
         pass
     try:

@@ -20,8 +20,6 @@ runtime:
 # optional; missing keys fall back to the default "Vivarium dashboard"
 # branding and an unfiltered registry.
 dashboard:
-  name: "sms-ecoli"                    # rail brand line 1; template renders "dashboard" beneath it
-  logo: assets/sms-ecoli-logo.png      # workspace-relative rail logo
   registry:
     # Per-workspace catalog OVERRIDE: `modules` REPLACES pbg's default 19-pkg
     # catalog (vs `include`, which can only HIDE default entries — it can't

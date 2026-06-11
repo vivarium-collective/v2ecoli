@@ -44,6 +44,7 @@ import numpy as np
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 
 # Phase-0 reference growth rate: average across 8 M9-glucose trajectories
@@ -112,7 +113,7 @@ class RefGrowthDriver(Step):
     proportional-scaling or kFBA-measured constant injection."""
 
     name = "ref-growth-driver"
-    topology = {"bulk": ("bulk",)}
+    topology = {"bulk": ("bulk",), "listeners_mass": ("listeners", "mass")}
 
     config_schema = {
         "growth_rate_per_s": {"_default": DEFAULT_GROWTH_RATE_PER_S},
@@ -146,6 +147,15 @@ class RefGrowthDriver(Step):
         # showed ATP zeros at t≈240 s under full open-loop, so periods
         # should stay much shorter than 240 s.
         "feedback_period_ticks": {"_default": 1},
+        # WATER[c] is osmotic filler, not a consumed precursor: injecting it
+        # at a fixed measured rate (open-loop) lets the water fraction drift as
+        # the cell grows (PDMP-01: +0.43 pp over 600 s -> ~20 fg cell_mass
+        # offset). Instead, regulate WATER[c] CLOSED-LOOP to hold a constant
+        # water fraction (the baseline kFBA's density homeostasis). None =
+        # capture the fraction at the first tick (birth) and hold it; a float
+        # in (0,1) pins it explicitly. Set <=0 to disable and fall back to the
+        # legacy fixed-rate water injection.
+        "target_water_fraction": {"_default": None},
     }
 
     def initialize(self, config):
@@ -216,9 +226,36 @@ class RefGrowthDriver(Step):
                 f"{self.feedback_period_ticks!r}"
             )
         self._tick_count = 0
+        # Closed-loop WATER[c] regulation: position of WATER[c] within the
+        # resolved precursor arrays, and the held water fraction (captured at
+        # birth when target_water_fraction is None).
+        self._water_pos: int | None = None
+        twf = self.parameters.get("target_water_fraction", None)
+        self._target_water_fraction = (
+            float(twf) if twf is not None else None)
+        self._water_frac_held: float | None = (
+            self._target_water_fraction
+            if (self._target_water_fraction is not None
+                and self._target_water_fraction > 0.0)
+            else None)
+        # True once target_water_fraction is a usable value (None default ->
+        # capture at birth; explicit float in (0,1) -> pin; <=0 -> disabled).
+        self._water_regulation_on = not (
+            self._target_water_fraction is not None
+            and self._target_water_fraction <= 0.0)
 
     def inputs(self):
-        return {"bulk": "bulk_array"}
+        return {
+            "bulk": "bulk_array",
+            # Read-only: current mass listener, used to regulate WATER[c] to a
+            # constant water fraction (closed-loop density homeostasis). The
+            # driver writes only bulk.
+            "listeners_mass": {
+                "_type": "node",
+                "_default": {"cell_mass": 0.0, "dry_mass": 0.0,
+                             "water_mass": 0.0},
+            },
+        }
 
     def outputs(self):
         return {"bulk": "bulk_array"}
@@ -248,6 +285,9 @@ class RefGrowthDriver(Step):
                 # zero-rate ones) so we can still match consumption on
                 # them.
                 rates.append(max(0.0, rate))
+            if vid in WATER_BULK_IDS:
+                # position of WATER[c] within the resolved arrays
+                self._water_pos = len(resolved)
             resolved.append(int(idx))
         self._bulk_idx = np.asarray(resolved, dtype=np.int64)
         if self.flux_source in ("measured_kfba", "consumption_matched"):
@@ -357,6 +397,29 @@ class RefGrowthDriver(Step):
                     np.maximum(desired_injection, -current),
                     np.maximum(desired_injection, 0.0),
                 )
+                # WATER[c]: override the open-loop rate target with a
+                # closed-loop one that holds a constant water fraction (density
+                # homeostasis), so cell_mass tracks the already-matching
+                # dry_mass instead of drifting up. WATER[c] is osmotic filler,
+                # not a consumed precursor — an absolute count target is
+                # self-correcting (no other_delta subtraction needed).
+                if self._water_regulation_on and self._water_pos is not None:
+                    mass_in = states.get("listeners_mass") or {}
+                    dry_mass = fg_magnitude(mass_in.get("dry_mass", 0.0))
+                    water_mass = fg_magnitude(mass_in.get("water_mass", 0.0))
+                    wpos = self._water_pos
+                    cur_water = float(current[wpos])
+                    if dry_mass > 0.0 and water_mass > 0.0 and cur_water > 0.0:
+                        if self._water_frac_held is None:
+                            # capture the birth water fraction and hold it
+                            self._water_frac_held = (
+                                water_mass / (dry_mass + water_mass))
+                        f = self._water_frac_held
+                        mw_water_fg = water_mass / cur_water  # live fg/molecule
+                        target_water_count = (
+                            dry_mass * f / (1.0 - f)) / mw_water_fg
+                        desired_injection[wpos] = (
+                            target_water_count - cur_water)
                 raw_delta = desired_injection + self._delta_residual
             else:
                 # No history yet — fall back to constant-rate seed for

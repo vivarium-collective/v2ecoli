@@ -465,8 +465,9 @@ def _get_step_config(
             driver_config,
             core,
         )
-        # Explicit in/out — only reads and writes bulk, nothing else.
-        in_topo = {"bulk": ("bulk",)}
+        # Reads bulk + listeners.mass (read-only, for closed-loop WATER[c]
+        # density regulation); writes only bulk.
+        in_topo = {"bulk": ("bulk",), "listeners_mass": ("listeners", "mass")}
         out_topo = {"bulk": ("bulk",)}
         return instance, instance.topology, 'step', in_topo, out_topo
 

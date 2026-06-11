@@ -73,12 +73,9 @@ report:
     The native-analysis gallery (11 figures) reproduces the clean 3-generation
     cell-mass ramps, the replication program (oriC 2→4→2 per division, twice
     across the seed-0 lineage), the ppGpp pool, and high tRNA charging.
-    CAVEAT: the central-carbon FBA-vs-Toya-2010 scatter could NOT be
-    regenerated — the Toya 2010 flux validation TSV is not present on this
-    checkout/venv (only the Schmidt/Wisniewski proteome flat files ship), so the
-    central_carbon_metabolism_scatter analysis degraded to its no-validation
-    simulated-flux-distribution fallback. The R≈0.73 Toya correlation from the
-    prior run stands as the last measured value but was not re-evaluated here.
+    The central-carbon FBA-vs-Toya-2010 scatter is regenerated on the clean
+    run: the baseline FBA fluxes correlate with the Toya 2010 C13-MFA measured
+    central-carbon fluxes at Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions).
 
   interpretation: |
     The v2ecoli baseline reproduces wild-type single-cell physiology: clean
@@ -92,17 +89,15 @@ report:
     only remaining span quirk is the truncated FINAL generation (gen-3 hits the
     6500-step cap before dividing, so its raw span reads short). The headline
     uses the cap-immune instantaneous-growth doubling time (52.4 min) and the
-    divided-generation division times (~46 min). OPEN: the FBA-vs-Toya-2010
-    correlation was not re-measured this run because the Toya flux TSV is absent
-    on this checkout (the scatter fell back to the simulated-flux barplot).
+    divided-generation division times (~46 min). The central-carbon FBA fluxes
+    correlate with the Toya 2010 measured fluxes at Pearson R = 0.6990
+    (n = 23 reactions), consistent with the upstream vEcoli baseline.
 
   decision: |
-    PASS — the baseline ensemble reproduces wild-type properties. Three of the
-    four primary tests pass on the clean re-run (doubling time in-band, mass
-    fractions physiological, proteome correlates Schmidt/Wisniewski). The
-    FBA-vs-Toya-2010 test could not be re-evaluated (Toya validation TSV absent
-    on this checkout) and rests on the prior run's R≈0.73; it is the one
-    follow-up to re-confirm once the Toya flat file is restored. Gate stays
+    PASS — the baseline ensemble reproduces wild-type properties. All four
+    primary tests pass on the clean re-run (doubling time in-band, mass fractions
+    physiological, FBA fluxes correlate with Toya 2010 at R = 0.6990, proteome
+    correlates Schmidt/Wisniewski). Gate stays
     passed, unblocking showcase-3 (the reviewer variant decision).
 
 conditions:
@@ -183,7 +178,7 @@ tests:
     high: 0.55
 - name: fba-flux-correlates-toya2010
   classification: primary
-  status: partial   # not re-evaluated on the clean run — Toya validation TSV absent on this checkout; last measured R≈0.73 stands
+  status: passed   # clean run: FBA fluxes correlate with Toya 2010 at Pearson R = 0.6990 (p = 2.1e-4, n = 23)
   question: Do the baseline FBA fluxes correlate with the Toya 2010 measured central-carbon fluxes?
   measure:
     kind: flux_correlation
@@ -204,12 +199,12 @@ tests:
 
 discovery_implications:
   resolved_uncertainties:
+  - The central-carbon FBA-vs-Toya-2010 scatter is regenerated on the clean run — the Toya 2010 flux validation TSV (toya_2010_central_carbon_fluxes.tsv) was restored to v2ecoli/validation/ecoli/flat/ and build_validation_data now exposes validation_data.reactionFlux.toya2010fluxes. The baseline FBA fluxes correlate with the Toya 2010 C13-MFA measured fluxes at Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions).
   - The wild-type baseline reproduces the measured-property classes on the clean 3-generation re-run (doubling time in-band, physiological mass fractions, Schmidt r≈0.73 / Wisniewski r≈0.60) — no calibration trade-off appeared across them.
   - "RESOLVED (was: gen-2 doubling-time step-cap over-report): #173 ends each non-final generation at its real division, so gen-2 now reads 43–52 min (in-band) instead of the old ~104 min cap-inflated value. The doubling_time_line / doubling_time_hist figures show a clean gen-2."
   - "RESOLVED (was: gen-3 mislabeled / folded phylogeny): the clean re-run has the correct lineage labelling — gen1 agent=0 / gen2 agent=00 / gen3 agent=000 for both seeds — so cell_mass now renders three distinct clean generations."
   remaining_uncertainties:
   - The FINAL generation (gen-3) is truncated at the 6500-step emit cap before it divides, so its raw per-generation span (used by doubling_time_line / doubling_time_hist) reads short (~10–19 min) and drags the naive span-based mean down. The cap-immune instantaneous-growth doubling time (52.4 min, the runnable test) and the divided-generation headline (~46 min) are unaffected; a per-generation division-event listener would let the span-based figures drop the truncated final cell.
-  - The central-carbon FBA-vs-Toya-2010 scatter could not be regenerated on this checkout — the Toya 2010 flux validation TSV (toya_2010_central_carbon_fluxes.tsv) is not present in the repo or venv, so the analysis fell back to the no-validation simulated-flux barplot. The R≈0.73 correlation rests on the prior run; restore the Toya flat file to re-confirm.
 
 pipeline_gate:
   prerequisites:
@@ -264,8 +259,8 @@ runs:
       result: PASS
       detail: "Average dry-mass fractions: protein 0.461 (per-gen 0.477 / 0.453 / 0.442), rRNA 0.105, tRNA 0.019, DNA 0.018 — physiological E. coli composition (mean dry mass ≈467 fg, cell mass ≈1556 fg)."
     FBA-FLUX-CORRELATES-TOYA2010:
-      result: UNVERIFIED
-      detail: NOT re-evaluated on the clean run — the Toya 2010 flux validation TSV (toya_2010_central_carbon_fluxes.tsv) is absent on this checkout, so central_carbon_metabolism_scatter degraded to its no-validation simulated-flux-distribution barplot. Last measured value (prior run) was Pearson R = 0.7277 (p = 8.3e-5) over 23 reactions; restore the Toya flat file to re-confirm.
+      result: PASS
+      detail: "Baseline central-carbon FBA fluxes vs Toya 2010 C13-MFA measured fluxes — Pearson R = 0.6990 (p = 2.1e-4) over 23 reactions (central_carbon_metabolism_scatter, multiseed over 2 seeds). Toya flat file (toya_2010_central_carbon_fluxes.tsv) restored; validation_data.reactionFlux.toya2010fluxes now built by build_validation_data."
     PROTEOME-CORRELATES-SCHMIDT-WISNIEWSKI:
       result: PASS
       detail: log10 average monomer counts vs measured proteomics — Schmidt 2015 Pearson r = 0.728 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.602 (n=2226) (protein_counts_validation, multiseed over 2 seeds).
@@ -339,13 +334,13 @@ visualizations:
   source_run: showcase2-baseline-ensemble
   render: replication (multigeneration over seed 0) over the clean sweep — 3-gen dry-mass sawtooth, oriC/fork cycling per division
 # --- Metabolism / FBA ---
-- name: central carbon metabolism (simulated flux distribution)
+- name: central carbon metabolism (FBA flux vs Toya 2010)
   address: image:charts/central_carbon_metabolism_scatter.png
   config:
-    title: Central-carbon metabolism — simulated flux distribution (Toya 2010 scatter unavailable on this checkout)
-  chart: bar
+    title: Central-carbon metabolism — model FBA flux vs Toya 2010 (Pearson R = 0.6990)
+  chart: scatter
   source_run: showcase2-baseline-ensemble
-  render: central_carbon_metabolism_scatter (multiseed) over the clean sweep — Toya validation TSV absent, so this is the no-validation top-30-by-|mean flux| barplot, NOT the Toya scatter (prior run measured R≈0.73)
+  render: central_carbon_metabolism_scatter (multiseed) over the clean sweep — model mean WCM reaction flux vs Toya 2010 C13-MFA measured flux, Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions)
 - name: reaction-flux heatmap
   address: image:charts/ptools_rxns.png
   config:

@@ -166,6 +166,14 @@ print("loading sim_data ...", flush=True)
 sim_data = hydrate_sim_data_from_state(load_parca_state(SIM_DATA_STATE))
 validation_data = resolve_validation_data(sim_data)
 print("validation_data:", "present" if validation_data is not None else "None", flush=True)
+if validation_data is None or getattr(validation_data, "reactionFlux", None) is None:
+    raise SystemExit(
+        "validation_data.reactionFlux is missing — the "
+        "central_carbon_metabolism_scatter would degrade to the no-validation "
+        "barplot. Ensure v2ecoli/validation/ecoli/flat/"
+        "toya_2010_central_carbon_fluxes.tsv is present so "
+        "build_validation_data builds validation_data.reactionFlux.toya2010fluxes."
+    )
 conn = duckdb.connect()
 from_clause = _history_from_clause(SWEEP)
 records = list(build_cell_records(SWEEP).values())
@@ -318,6 +326,15 @@ def main():
                 _save_chart_png_svg(_CAP["chart"], base)
                 kind = "altair"
             elif _CAP["fig"] is not None:
+                if name == "central_carbon_metabolism_scatter":
+                    ax = _CAP["fig"].axes[0]
+                    xlabel = ax.get_xlabel()
+                    if "Toya 2010" not in xlabel:
+                        raise RuntimeError(
+                            "central_carbon_metabolism_scatter fell back to the "
+                            f"no-validation barplot (x-axis={xlabel!r}); "
+                            "validation_data.reactionFlux.toya2010fluxes is missing."
+                        )
                 _save_fig_png_svg(_CAP["fig"], base)
                 kind = "matplotlib"
             else:

@@ -11,12 +11,16 @@ persists when a run is launched with ``V2ECOLI_EMIT_UNIQUE=1``
 (``active_RNAP__coordinates`` / ``active_replisome__coordinates`` /
 ``full_chromosome__unique_index`` etc. -- see scripts/render_chromosome_gif.py).
 
-The three panels are chosen to walk one replication round:
-  (i)   pre-initiation : 1-2 chromosomes, NO forks -- RNAPs on the rim + oriC.
-  (ii)  one bubble     : 1 chromosome, 2 replisomes -- a single replication
-                         bubble (green arc) extending from oriC, RNAPs on rim.
-  (iii) multifork      : 2 chromosomes, 4 replisomes -- overlapping rounds
-                         (nested bubbles), the most RNAPs.
+Three representative timepoints are selected by replication STATE (a no-fork
+frame, a single-bubble frame, a multifork frame) and then SORTED BY TIME so the
+panels read left->right in ascending time. For the seed-0 showcase lineage the
+three frames land at, in chronological order:
+  (i)   mid-replication        : t~2 min  -- 1 chromosome, 2 replisomes, a
+                                 single replication bubble (green arc from oriC).
+  (ii)  post-replication       : t~23 min -- 2 segregated chromosomes, NO forks
+                                 (RNAPs on the rim + oriC).
+  (iii) multifork re-initiation: t~88 min -- both daughters re-replicating,
+                                 4 replisomes + nested bubbles, the most RNAPs.
 
 ``chromosome_domain.child_domains`` is excluded from parquet (ragged column), so
 RNAP-on-bubble placement falls back to all-RNAPs-on-rim unless a gen dill is
@@ -81,7 +85,7 @@ def _phase(snap):
     nch = snap["n_chromosomes"]
     nf = len(snap["fork_coords"])
     if nf == 0:
-        return "pre-initiation" if nch == 1 else "replication complete"
+        return "pre-initiation" if nch == 1 else "post-replication (segregated)"
     if nf <= 2:
         return "single replication bubble"
     return "multifork replication"
@@ -131,6 +135,11 @@ def _pick_rows(df, domain_children):
         if s["time"] in seen:
             continue
         seen.add(s["time"]); out.append((s, r))
+    # Panels must read left->right in ascending time (chronological order),
+    # NOT in state-selection order (no-fork / one-bubble / multifork), which
+    # is non-chronological because the post-replication no-fork frame occurs
+    # AFTER the mid-replication one-bubble frame.
+    out.sort(key=lambda sr: sr[0]["time"])
     return out
 
 
@@ -178,6 +187,7 @@ def main():
         picks.sort(key=lambda sr: sr[0]["time"])
 
     picks = picks[:3]
+    # picks is already time-ascending; label them as chronological steps.
     labels = ["(i)", "(ii)", "(iii)"]
     print("panels:")
     for lbl, (s, _) in zip(labels, picks):
@@ -185,7 +195,7 @@ def main():
               f"forks={len(s['fork_coords'])} rnap={s['n_rnap']}  [{_phase(s)}]")
 
     fig, axes = plt.subplots(1, 3, figsize=(15.5, 6.0))
-    fig.suptitle("Chromosome state across one replication round (seed %d lineage)" % a.seed,
+    fig.suptitle("Chromosome state at three points across the seed-%d lineage" % a.seed,
                  fontsize=14, y=0.99)
     for ax, lbl, (s, _) in zip(axes, labels, picks):
         _plot_chromosome_map(

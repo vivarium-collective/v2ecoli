@@ -336,19 +336,20 @@ visualizations:
 - name: chromosome-state snapshots
   address: image:charts/chromosome_snapshots.png
   config:
-    title: Chromosome-state snapshots across one replication round — oriC, replisomes, replication bubbles, and RNAPs on the circular chromosome
+    title: Chromosome state at three points across the seed-0 lineage — oriC, replisomes, replication bubbles, and RNAPs on the circular chromosome
     caption: >-
       Three timepoints from the seed-0 lineage rendered on the circular
-      chromosome. Each rim is anchored by oriC (green dot, top) and Ter (red
-      square, bottom). RNAPs (blue dots) sit at their transcription
-      coordinates; replisomes (gold triangles) mark the active replication
-      forks; replication bubbles (green arcs) trace the newly-synthesized
-      daughter strand from oriC out to each fork. Panel (i) — between rounds:
-      two segregated chromosomes, no active forks (RNAPs + oriC only). Panel
-      (ii) — mid-replication: a single chromosome with one replication bubble,
-      forks roughly halfway from oriC to Ter. Panel (iii) — multifork: both
-      daughter chromosomes have already re-initiated (4 replisomes, nested
-      bubbles near oriC), the overlapping-rounds regime of fast growth. This
+      chromosome, ordered left-to-right in ascending time. Each rim is anchored
+      by oriC (green dot, top) and Ter (red square, bottom). RNAPs (blue dots)
+      sit at their transcription coordinates; replisomes (gold triangles) mark
+      the active replication forks; replication bubbles (green arcs) trace the
+      newly-synthesized daughter strand from oriC out to each fork. Panel (i) —
+      t~2 min, mid-replication: a single chromosome with one replication
+      bubble, two replisomes roughly halfway from oriC to Ter. Panel (ii) —
+      t~23 min, post-replication: two segregated chromosomes, no active forks
+      (RNAPs + oriC only). Panel (iii) — t~88 min, multifork re-initiation:
+      both daughter chromosomes have re-initiated (4 replisomes, nested bubbles
+      near oriC), the overlapping-rounds regime of fast growth. This
       complements the time-series replication panel by showing the spatial
       layout of the replication machinery on the chromosome itself.
   chart: image

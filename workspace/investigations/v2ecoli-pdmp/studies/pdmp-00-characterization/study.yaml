@@ -371,7 +371,8 @@ visualizations:
   description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 pilot — per-seed summary table
 - name: rng-seeding-fix-proof-real
   address: file:reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Per-process RNG fix — real N=8 pilot (CV ≈ 0.5%)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Per-process RNG fix — earlier N=8 pilot
+    (CV ≈ 0.5%); superseded by the current committed N=6 × 250s pilot (ATP[c] CV ≈ 0.029%, .pbg/runs/phase0-traj/)
 - name: phase0-4panel-spaghetti-real
   address: file:reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html
   description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — 4-panel observable spaghetti (real, N=64)

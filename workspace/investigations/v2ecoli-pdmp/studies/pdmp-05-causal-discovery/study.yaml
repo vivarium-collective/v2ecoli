@@ -716,8 +716,9 @@ discovery_implications:
       under the homeostat), and adopting the Phase-3 combined count vector — not more replicates or wider
       priors — will recover decisive Bayes factors.'
     why_plausible: 'Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only
-      observable richness or sigma can move; Phase 3 already showed count vectors give ~100x sharper
-      identification.'
+      observable richness or sigma can move; Phase 3 showed count vectors give a measurable
+      grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid — a diagnostic, not
+      a posterior; the "~100x" framing was a hardcoded literal, not computed).'
     mechanism_elements_affected:
     - inference-observable
     - marginal-likelihood-separation

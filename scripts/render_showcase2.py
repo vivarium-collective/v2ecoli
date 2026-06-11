@@ -280,22 +280,38 @@ def render_traces():
     files = glob.glob(os.path.join(SWEEP, "**", "history", "**", "*.pq"), recursive=True)
     flist = "[" + ",".join("'" + f + "'" for f in files) + "]"
     base = f"SELECT * FROM read_parquet({flist}, hive_partitioning=true)"
+    # Each spec carries a `value_expr`: the SQL expression that resolves the
+    # plotted scalar from its source column. ppgpp_conc is already a scalar
+    # DOUBLE, but fraction_trna_charged is emitted as a per-species LIST[f64]
+    # (one charged fraction per tRNA, ~86 entries) — feeding that list straight
+    # into Altair's y-channel silently renders axes+legend but NO lines, which
+    # is exactly the empty-figure bug. We aggregate it to the mean across tRNA
+    # species (list_aggr(col,'avg')) to recover the intended scalar trace.
     specs = [
         ("ppgpp_trace", "listeners__growth_limits__ppgpp_conc",
+         "listeners__growth_limits__ppgpp_conc",
          "ppGpp pool over the cell cycle (all seeds)", "ppGpp conc (uM)",
          "ppGpp concentration over the cell cycle across both seeds / three "
          "generations of the clean run."),
         ("trna_charged_trace", "listeners__growth_limits__fraction_trna_charged",
-         "tRNA charged fraction over the cell cycle (all seeds)", "fraction tRNA charged",
-         "Charged-tRNA fraction over the cell cycle across both seeds / three "
-         "generations; remains high (~0.9+)."),
+         "list_aggr(listeners__growth_limits__fraction_trna_charged, 'avg')",
+         "tRNA charged fraction over the cell cycle (all seeds)",
+         "mean fraction tRNA charged",
+         "Mean charged-tRNA fraction (averaged across the 86 tRNA species) over "
+         "the cell cycle across both seeds / three generations; remains high "
+         "(~0.95-0.98)."),
     ]
-    for name, col, title, ylab, interp in specs:
+    for name, col, value_expr, title, ylab, interp in specs:
         df = conn.sql(
             f"SELECT lineage_seed, generation, agent_id, global_time AS time, "
-            f"{col} AS value FROM ({base}) WHERE {col} IS NOT NULL "
+            f"{value_expr} AS value FROM ({base}) WHERE {col} IS NOT NULL "
             f"ORDER BY lineage_seed, generation, global_time"
         ).pl().to_pandas()
+        if df.empty or df["value"].notna().sum() == 0:
+            raise RuntimeError(
+                f"trace {name!r} produced no plottable data from column {col!r} "
+                f"(value_expr={value_expr!r}); refusing to emit an empty figure"
+            )
         df["series"] = ("seed " + df["lineage_seed"].astype(str)
                         + " gen " + df["generation"].astype(str))
         chart = (

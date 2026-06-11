@@ -246,22 +246,24 @@ runs:
   parquet: .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline
   result: PASS
   outcomes:
-    # NOTE: the two runnable tests' authored keys are lowercase to match their
-    # tests[].name exactly, so the evaluator's computed_outcomes reconcile
-    # (keyed by test.name) produces agree/divergent instead of no_authored.
-    # The two correlation tests stay UPPERCASE (they are agent-bucketed —
-    # correlation is not a supported run-data op — so reconcile is no_authored
-    # for them regardless of key case).
+    # NOTE: ALL authored outcome keys are lowercase to match their tests[].name
+    # EXACTLY. For the two runnable tests (doubling-time / mass-fraction) this
+    # lets the evaluator's computed_outcomes reconcile (keyed by test.name)
+    # produce agree/divergent. For the two correlation tests (agent-bucketed —
+    # correlation is not a supported run-data op, so computed_outcomes is
+    # no_authored) the lowercase key is what lets the REPORT surface the authored
+    # PASS pill: walkthrough.js does out = outcomeByTest[t.name], so an
+    # UPPERCASE-keyed authored outcome would render as "pending" instead of PASS.
     doubling-time-in-band:
       result: PASS
       detail: "Divided-generation division times: gen-1 = 43 min (both seeds), gen-2 = 43 min (seed 0) / 52 min (seed 1) → mean of divided gens ≈ 46 min; cap-immune instantaneous-growth measure (runnable test) = 52.4 min over the full lineage. In-band for the baseline glucose condition. The old ~104 min gen-2 step-cap over-report is resolved by #173; the final gen-3 cell is truncated at the 6500-step cap (raw span ~10–19 min) so it is excluded from the division-time headline."
     mass-fraction-physiological:
       result: PASS
       detail: "Average dry-mass fractions: protein 0.461 (per-gen 0.477 / 0.453 / 0.442), rRNA 0.105, tRNA 0.019, DNA 0.018 — physiological E. coli composition (mean dry mass ≈467 fg, cell mass ≈1556 fg)."
-    FBA-FLUX-CORRELATES-TOYA2010:
+    fba-flux-correlates-toya2010:
       result: PASS
       detail: "Baseline central-carbon FBA fluxes vs Toya 2010 C13-MFA measured fluxes — Pearson R = 0.6990 (p = 2.1e-4) over 23 reactions (central_carbon_metabolism_scatter, multiseed over 2 seeds). Toya flat file (toya_2010_central_carbon_fluxes.tsv) restored; validation_data.reactionFlux.toya2010fluxes now built by build_validation_data."
-    PROTEOME-CORRELATES-SCHMIDT-WISNIEWSKI:
+    proteome-correlates-schmidt-wisniewski:
       result: PASS
       detail: log10 average monomer counts vs measured proteomics — Schmidt 2015 Pearson r = 0.728 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.602 (n=2226) (protein_counts_validation, multiseed over 2 seeds).
 

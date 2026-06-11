@@ -482,7 +482,7 @@ def _get_step_config(
     # → _get_special_step → silently returns None and the step is
     # dropped from the composite).
     if step_name == 'likelihood_collector':
-        from v2ecoli.steps.listeners.likelihood_collector import LikelihoodCollector
+        from v2ecoli.steps.derivers.likelihood_collector import LikelihoodCollector
         instance = _make_instance(LikelihoodCollector, {}, core)
         topo = getattr(instance, 'topology', {})
         if callable(topo):

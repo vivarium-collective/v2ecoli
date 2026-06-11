@@ -95,6 +95,18 @@ def run_pdmp(
     build_wall = time.perf_counter() - t0
     print(f"  PDMP build: {build_wall:.1f}s", flush=True)
 
+    def _to_float(v):
+        """Strip units from a listener value (pint Quantity / Unum / plain)."""
+        if v is None:
+            return 0.0
+        mag = getattr(v, "magnitude", None)      # pint.Quantity
+        if mag is not None:
+            return float(mag)
+        as_number = getattr(v, "asNumber", None)  # unum.Unum
+        if callable(as_number):
+            return float(as_number())
+        return float(v)
+
     times, cell_masses, dry_masses = [], [], []
     sim_time = 0
     t_run = time.perf_counter()
@@ -103,8 +115,8 @@ def run_pdmp(
         sim_time += sample_every_s
         mass = (c.state["agents"]["0"].get("listeners") or {}).get("mass") or {}
         times.append(sim_time)
-        cell_masses.append(float(mass.get("cell_mass") or 0.0))
-        dry_masses.append(float(mass.get("dry_mass") or 0.0))
+        cell_masses.append(_to_float(mass.get("cell_mass")))
+        dry_masses.append(_to_float(mass.get("dry_mass")))
     run_wall = time.perf_counter() - t_run
     print(f"  PDMP run wall: {run_wall:.1f}s for {duration_s}s sim", flush=True)
     return (

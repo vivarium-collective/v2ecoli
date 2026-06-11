@@ -399,28 +399,28 @@ visualizations:
   description: Phase 0 — ensemble growth rate(t) (real, N=32 × 600s, M9-glucose)
 - name: phase0-3cond-cell-mass
   address: file:reports/figures/pdmp-00/phase0_3cond_cell_mass.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cell mass(t) overlay across 3 conditions
+  description: Phase 0 — cell mass(t) overlay across 3 conditions (real, N=32 each: M9-glucose / acetate / glucose+aa)
 - name: phase0-3cond-endpoint-box
   address: file:reports/figures/pdmp-00/phase0_3cond_endpoint_box.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — 3-condition endpoint boxplots (N=64 each)
+  description: Phase 0 — 3-condition endpoint boxplots (real, N=32 each)
 - name: phase0-3cond-growth-rate
   address: file:reports/figures/pdmp-00/phase0_3cond_growth_rate.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — growth rate(t) overlay across 3 conditions
+  description: Phase 0 — growth rate(t) overlay across 3 conditions (real, N=32 each)
 - name: phase0-3cond-w2-heatmap
   address: file:reports/figures/pdmp-00/phase0_3cond_w2_heatmap.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cross-condition W₁ distance
+  description: Phase 0 — cross-condition endpoint W₁ distance (real, N=32 each; scipy 1-Wasserstein, normalised by M9-glucose σ)
 - name: phase0-acetate-cell-mass-auto
   address: file:reports/figures/pdmp-00/phase0_acetate_cell_mass_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-acetate) — ensemble cell mass(t)
+  description: Phase 0 (M9-acetate) — ensemble cell mass(t) (real, N=32 × 600s)
 - name: phase0-acetate-endpoint-atp-auto
   address: file:reports/figures/pdmp-00/phase0_acetate_endpoint_ATP_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-acetate) — ATP[c] endpoint per seed
+  description: Phase 0 (M9-acetate) — ATP[c] endpoint per seed (real, N=32 × 600s)
 - name: phase0-with-aa-cell-mass-auto
   address: file:reports/figures/pdmp-00/phase0_with_aa_cell_mass_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-glucose+aa) — ensemble cell mass(t)
+  description: Phase 0 (M9-glucose+aa) — ensemble cell mass(t) (real, N=32 × 600s)
 - name: phase0-with-aa-endpoint-atp-auto
   address: file:reports/figures/pdmp-00/phase0_with_aa_endpoint_ATP_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-glucose+aa) — ATP[c] endpoint per seed
+  description: Phase 0 (M9-glucose+aa) — ATP[c] endpoint per seed (real, N=32 × 600s)
 design_status: approved
 implementation_status: prototype
 simulation_status: ran

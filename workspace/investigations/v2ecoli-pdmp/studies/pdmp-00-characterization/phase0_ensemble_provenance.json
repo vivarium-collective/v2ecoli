@@ -4,18 +4,49 @@
   "date": "2026-06-11",
   "machine": "Mac mini (darwin, 12 cores, 64 GB)",
   "git_branch": "v2ecoli-pdmp",
-  "condition": "M9-glucose basal (ParCa cache out/cache, --mode full)",
   "composite": "baseline (v2ecoli kFBA Metabolism)",
-  "n_seeds_requested": 32,
-  "n_seeds_successful": 32,
   "n_steps": 600,
   "snapshot_stride_s": 5,
   "timepoints_per_seed": 121,
   "master_seeds": "0..31",
-  "execution": "Ray fan-out, 2 BLAS threads/worker (~6 concurrent), sequential-identical results",
-  "total_wall_seconds": 294.92,
-  "raw_store": ".pbg/runs/phase0-traj/seed_*/ (trajectory.json + summary.json; gitignored, NOT committed)",
-  "committed_artifacts": [
+  "conditions": {
+    "M9-glucose": {
+      "parca_cache": "out/cache (basal, doubling 44 min)",
+      "out_root": ".pbg/runs/phase0-traj",
+      "execution": "Ray fan-out, 2 threads/worker",
+      "n_seeds_requested": 32, "n_seeds_successful": 32, "total_wall_seconds": 294.92,
+      "endpoint_at_t600": {
+        "cell_mass_fg": {"mean": 1461.1, "std": 6.9, "cv_pct": 0.47},
+        "dry_mass_fg":  {"mean": 438.6,  "std": 2.1, "cv_pct": 0.47},
+        "ATP_c_count":  {"mean": 7.701e6, "std": 3.6e4, "cv_pct": 0.47}
+      }
+    },
+    "M9-acetate": {
+      "parca_cache": "out/cache-acetate (acetate, doubling 136 min)",
+      "out_root": ".pbg/runs/phase0-traj-acetate",
+      "execution": "Ray fan-out, 2 threads/worker",
+      "n_seeds_requested": 32, "n_seeds_successful": 32, "total_wall_seconds": 259.26,
+      "endpoint_at_t600": {
+        "cell_mass_fg": {"mean": 374.2, "std": 4.8, "cv_pct": 1.29},
+        "dry_mass_fg":  {"mean": 112.3, "std": 1.5, "cv_pct": 1.32},
+        "ATP_c_count":  {"mean": 1.972e6}
+      }
+    },
+    "M9-glucose+aa": {
+      "parca_cache": "out/cache-with_aa (with_aa, doubling 25 min)",
+      "out_root": ".pbg/runs/phase0-traj-with_aa",
+      "execution": "SEQUENTIAL (Ray parallel hit a parquet-emitter makedirs race on the fixed default path; sequential serializes the builds and avoids it)",
+      "n_seeds_requested": 32, "n_seeds_successful": 32, "total_wall_seconds": 1796.0,
+      "endpoint_at_t600": {
+        "cell_mass_fg": {"mean": 2958.2, "std": 2.7, "cv_pct": 0.09},
+        "dry_mass_fg":  {"mean": 887.6,  "std": 0.8, "cv_pct": 0.09},
+        "ATP_c_count":  {"mean": 1.559e7}
+      }
+    }
+  },
+  "biology_check": "Endpoint cell/dry mass ordered by doubling time as expected: glucose+aa (25 min) > glucose (44 min) > acetate (136 min). Growth-rate separation is the headline Phase-0 deliverable.",
+  "raw_store": ".pbg/runs/phase0-traj{,-acetate,-with_aa}/seed_*/ (trajectory.json + summary.json; gitignored, NOT committed)",
+  "committed_figures": [
     "reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html",
     "reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html",
     "reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html",
@@ -23,18 +54,21 @@
     "reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html",
     "reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html",
     "reports/figures/pdmp-00/phase0_cv_growth_AUTO.html",
-    "reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html"
+    "reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html",
+    "reports/figures/pdmp-00/phase0_acetate_cell_mass_AUTO.html",
+    "reports/figures/pdmp-00/phase0_acetate_endpoint_ATP_AUTO.html",
+    "reports/figures/pdmp-00/phase0_with_aa_cell_mass_AUTO.html",
+    "reports/figures/pdmp-00/phase0_with_aa_endpoint_ATP_AUTO.html",
+    "reports/figures/pdmp-00/phase0_3cond_cell_mass.html",
+    "reports/figures/pdmp-00/phase0_3cond_growth_rate.html",
+    "reports/figures/pdmp-00/phase0_3cond_endpoint_box.html",
+    "reports/figures/pdmp-00/phase0_3cond_w2_heatmap.html"
   ],
-  "endpoint_stats_at_t600": {
-    "cell_mass_fg": {"n": 32, "mean": 1461.1239, "std": 6.9088, "cv_pct": 0.4728, "min": 1447.667, "max": 1477.3317},
-    "dry_mass_fg":  {"n": 32, "mean": 438.6145,  "std": 2.0831, "cv_pct": 0.4749, "min": 434.5621, "max": 443.492},
-    "ATP_c_count":  {"n": 32, "mean": 7701117.88, "std": 36345.80, "cv_pct": 0.472, "min": 7630287, "max": 7786453}
-  },
   "notes": [
-    "Honest reduced ensemble: N=32 (the canonical Phase-0 reference target is 3 conditions x N=64). This run is M9-glucose ONLY, N=32. Do not cite as N=64.",
-    "Bug fixed this run: mass listener values are pint femtogram Quantities; the prior script float()'d them directly and silently dropped every cell_mass/dry_mass snapshot to None. Fixed via a _to_float() unit-strip helper (commit on this branch).",
-    "Cross-seed CV ~0.47% on all three endpoint observables — the per-process RNG seeding produces distinct-but-tight replicates (no longer bit-identical).",
-    "Acetate and glucose+aa conditions were NOT run here; their pdmp-00 figures remain skeletons.",
+    "Honest ensemble size: N=32 per condition (the canonical Phase-0 target is N=64 per condition). 3 conditions x N=32. Do NOT cite as N=64.",
+    "Bug fixed this run: mass listener values are pint femtogram Quantities; the prior script float()'d them directly and silently dropped every cell_mass/dry_mass snapshot to None. Fixed via a _to_float() unit-strip helper.",
+    "Cross-seed CV is tight (0.1-1.3%) on all endpoint observables; per-process RNG seeding gives distinct-but-tight replicates (not bit-identical).",
+    "phase0_3cond_w2_heatmap uses scipy.stats.wasserstein_distance = 1-Wasserstein (W1), labelled as W1; it is a cross-CONDITION distance, distinct from the pdmp-01 PDMP-vs-Phase-0 W2 gate.",
     "No study status was advanced; this is a factual run log only."
   ]
 }

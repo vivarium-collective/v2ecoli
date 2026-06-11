@@ -333,6 +333,28 @@ visualizations:
   chart: line
   source_run: showcase2-baseline-ensemble
   render: replication (multigeneration over seed 0) over the clean sweep — 3-gen dry-mass sawtooth, oriC/fork cycling per division
+- name: chromosome-state snapshots
+  address: image:charts/chromosome_snapshots.png
+  config:
+    title: Chromosome state at three points across the seed-0 lineage — oriC, replisomes, replication bubbles, and RNAPs on the circular chromosome
+    caption: >-
+      Three timepoints from the seed-0 lineage rendered on the circular
+      chromosome, ordered left-to-right in ascending time. Each rim is anchored
+      by oriC (green dot, top) and Ter (red square, bottom). RNAPs (blue dots)
+      sit at their transcription coordinates; replisomes (gold triangles) mark
+      the active replication forks; replication bubbles (green arcs) trace the
+      newly-synthesized daughter strand from oriC out to each fork. Panel (i) —
+      t~2 min, mid-replication: a single chromosome with one replication
+      bubble, two replisomes roughly halfway from oriC to Ter. Panel (ii) —
+      t~23 min, post-replication: two segregated chromosomes, no active forks
+      (RNAPs + oriC only). Panel (iii) — t~88 min, multifork re-initiation:
+      both daughter chromosomes have re-initiated (4 replisomes, nested bubbles
+      near oriC), the overlapping-rounds regime of fast growth. This
+      complements the time-series replication panel by showing the spatial
+      layout of the replication machinery on the chromosome itself.
+  chart: image
+  source_run: showcase2-baseline-chromo
+  render: scripts/render_chromosome_snapshots.py over .pbg/runs/showcase2-baseline-chromo (seed-0 3-gen lineage emitted with V2ECOLI_EMIT_UNIQUE=1) — reuses _plot_chromosome_map; RNAP-on-bubble falls back to all-on-rim (chromosome_domain.child_domains is excluded from parquet)
 # --- Metabolism / FBA ---
 - name: central carbon metabolism (FBA flux vs Toya 2010)
   address: image:charts/central_carbon_metabolism_scatter.png

@@ -314,11 +314,10 @@ source = { git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=ma
 [[package]]
 name = "bigraph-schema"
 version = "1.4.1"
-source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#25e78d041f092a273d9c538ceb8b2474f3609fb8" }
+source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#d9a92adb2409921b1a0bf104da37b436fa1f5860" }
 dependencies = [
     { name = "fire" },
     { name = "numpy" },
-    { name = "orjson" },
     { name = "pandas" },
     { name = "parsimonious" },
     { name = "pint" },
@@ -2581,7 +2580,7 @@ wheels = [
 [[package]]
 name = "pbg-copasi"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main#a50651eaa725fcbcec8d0ccaf5496fa3499388a6" }
+source = { git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main#c5604b7ba9785d0b43c7d00d53a2023b4ce4a28f" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "copasi-basico" },
@@ -2594,7 +2593,7 @@ dependencies = [
 [[package]]
 name = "pbg-emitters"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#772403751e74ec6e3309b662c4d4bb682f68794e" }
+source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#2e5b4afc027ce61521fffd860d1df7c9bfdb7868" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -2619,8 +2618,8 @@ xarray = [
 
 [[package]]
 name = "pbg-superpowers"
-version = "0.10.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#9d56b68bd67ab8d1e43a6ce69843109a2a3e2789" }
+version = "0.14.0"
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#b99c5612c1064351dfe2f3f9b4311aa0e597390c" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
@@ -2629,6 +2628,7 @@ dependencies = [
     { name = "process-bigraph" },
     { name = "pypdf" },
     { name = "pyyaml" },
+    { name = "ruamel-yaml" },
 ]
 
 [[package]]
@@ -2684,6 +2684,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9f/4a/0883b8e3802965322523f0b200ecf33d31f10991d0401162f4b23c698b42/platformdirs-4.9.6.tar.gz", hash = "sha256:3bfa75b0ad0db84096ae777218481852c0ebc6c727b3168c1b9e0118e458cf0a", size = 29400, upload-time = "2026-04-09T00:04:10.812Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/75/a6/a0a304dc33b49145b21f4808d763822111e67d1c3a32b524a1baf947b6e1/platformdirs-4.9.6-py3-none-any.whl", hash = "sha256:e61adb1d5e5cb3441b4b7710bea7e4c12250ca49439228cc1021c00dcfac0917", size = 21348, upload-time = "2026-04-09T00:04:09.463Z" },
+]
+
+[[package]]
+name = "plotly"
+version = "6.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "narwhals" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/94/fd/d72c292d78aadb93d1a9bcd76bf3c678271040c7cf10abe5788b33040a39/plotly-6.8.0.tar.gz", hash = "sha256:e088e7ddc68d4f70e3d66659224727a45296d71d2b8284181862d3d8f1f0d88f", size = 6915161, upload-time = "2026-06-03T18:33:40.226Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f9/14/abe5ce876ab5b66ee3c691bf537fcd43d037aea55d447aacf74630a8f31e/plotly-6.8.0-py3-none-any.whl", hash = "sha256:13c5c4a0f70b74cab1913eda0de49b826df5931708eb6f9c3010040614700ec8", size = 9902055, upload-time = "2026-06-03T18:33:34.26Z" },
 ]
 
 [[package]]
@@ -2780,8 +2793,8 @@ wheels = [
 
 [[package]]
 name = "process-bigraph"
-version = "1.4.12"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#3c20767b313e3f74eefc28a90b5e5cadcceef30d" }
+version = "1.4.17"
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#edbc0a638b484846606b626e2e8651de8df255b9" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },
@@ -4039,6 +4052,7 @@ dependencies = [
     { name = "pbg-copasi" },
     { name = "pbg-emitters", extra = ["parquet", "xarray"] },
     { name = "pbg-superpowers" },
+    { name = "plotly" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
     { name = "pymunk" },
@@ -4057,6 +4071,9 @@ dev = [
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
 ]
+ray = [
+    { name = "ray" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -4072,11 +4089,13 @@ requires-dist = [
     { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
+    { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main" },
     { name = "pymunk" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.3" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
+    { name = "ray", marker = "extra == 'ray'", specifier = ">=2.10" },
     { name = "requests" },
     { name = "scipy" },
     { name = "spatio-flux", git = "https://github.com/vivarium-collective/spatio-flux.git?branch=main" },
@@ -4087,7 +4106,7 @@ requires-dist = [
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
     { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
 ]
-provides-extras = ["dev", "parquet", "xarray", "emitters"]
+provides-extras = ["dev", "parquet", "xarray", "emitters", "ray"]
 
 [[package]]
 name = "vecoli"
@@ -4167,8 +4186,8 @@ wheels = [
 
 [[package]]
 name = "viva-munk"
-version = "0.0.1"
-source = { git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main#26220477b76fbae37daa14cfb81d224034a42729" }
+version = "0.0.2"
+source = { git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main#3d4d107a0ca0d80fd1533d93183c5eafb0558bc2" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "bigraph-viz" },
@@ -4201,7 +4220,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#637466f0a6dc03b06cdfe05b81eaf7f169aa469f" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#c929e75705f32a53f713506c871e704bab678781" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },

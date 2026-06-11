@@ -105,16 +105,25 @@ def _flatten_keys(d: dict, prefix: str = "") -> Any:
             yield full
 
 
-def extract_output_metadata_from_state(state: dict, view: list[dict]) -> dict:
+def extract_output_metadata_from_state(
+    state: dict,
+    view: list[dict],
+    named_metadata: dict | None = None,
+) -> dict:
     """Inspect a live composite state + a view config; build XArrayEmitter
-    ``output_metadata`` with integer-indexed coord arrays for vector leaves.
+    ``output_metadata`` with coord arrays for vector leaves.
 
     XArrayEmitter consumes ``config["output_metadata"]`` at construction time
     to learn the per-leaf coord arrays (which determine each variable's
     additional dimension beyond the time axis). Scalar leaves get no coord
     (and the storage allocates a scalar slot per emit step). Vector leaves
-    need a coord array — currently defaults to integer indices
-    ``list(range(N))`` where N is the vector length discovered in state.
+    need a coord array.
+
+    When ``named_metadata`` is provided (typically the return value of
+    ``v2ecoli.library.output_metadata.output_metadata(composite.state)``),
+    element names from annotated listener ``outputs()`` schemas are preferred
+    over the default integer-index ``range(N)`` fallback.  Un-annotated vector
+    leaves still get ``range(N)`` so nothing breaks for them.
 
     The returned dict mirrors the view's path structure (so
     ``make_coords`` can resolve each leaf via ``get_in``).
@@ -125,10 +134,20 @@ def extract_output_metadata_from_state(state: dict, view: list[dict]) -> dict:
 
     Output is shaped RELATIVE to the view root: e.g. for view
     ``root=('listeners',)`` with a vector leaf ``monomer_counts``, the result
-    is ``{'monomer_counts': [0..N-1]}`` — NOT ``{'listeners': {...}}``.
+    is ``{'monomer_counts': [0..N-1]}`` (integers, fallback) or
+    ``{'monomer_counts': [name1, name2, ...]}`` (names, when annotated).
     TreeView.make_coords does ``get_in(coords, root.metadata_path)`` where
     metadata_path is ``()`` for plain listener roots, then walks the leaf
     paths from there. So the coords dict must be flat under the view root.
+
+    Args:
+        state: Composite state dict.
+        view: XArrayEmitter view config (list of root/variables dicts).
+        named_metadata: Optional store-relative metadata dict from
+            ``output_metadata(state)``.  When a leaf's full store path
+            (root_path + leaf_input_path) is present in this dict, its value
+            is used as the coord array instead of ``range(N)``.  Pass ``None``
+            (default) to keep the legacy ``range(N)`` behaviour for all leaves.
     """
     cell = (state.get("agents") or {}).get("0") or state
     if not isinstance(cell, dict):
@@ -155,9 +174,28 @@ def extract_output_metadata_from_state(state: dict, view: list[dict]) -> dict:
             arr = np.asarray(value)
             if arr.ndim == 0 or arr.size <= 1:
                 continue  # scalar — no coord needed
-            # Build integer coord = 0..N-1 and nest it under leaf path
-            # (RELATIVE to root — see docstring).
-            coord = list(range(int(arr.shape[0])))
+
+            # Prefer element names from named_metadata when available.
+            # Navigate named_metadata by root_path + leaf_input_path.
+            named_coord: list | None = None
+            if named_metadata is not None:
+                nm: Any = named_metadata
+                for k in root_path:
+                    if not isinstance(nm, dict):
+                        nm = None
+                        break
+                    nm = nm.get(k)
+                for k in leaf_input_path:
+                    if not isinstance(nm, dict):
+                        nm = None
+                        break
+                    nm = nm.get(k)
+                if isinstance(nm, (list, tuple)) and len(nm) == arr.shape[0]:
+                    named_coord = list(nm)
+
+            coord = named_coord if named_coord is not None else list(range(int(arr.shape[0])))
+
+            # Nest coord under leaf path RELATIVE to root (see docstring).
             cursor_out = out
             for k in leaf_input_path[:-1]:
                 cursor_out = cursor_out.setdefault(k, {})
@@ -424,16 +462,35 @@ def run_multigen_xarray(
     if dropped:
         print(f"[xarray_run] dropped {dropped} view leaf(s) absent from composite state")
     view = filtered_view
-    output_metadata = extract_output_metadata_from_state(state_after_warmup, view)
+    # Harvest element-name labels from listener outputs() schemas via the
+    # registry walker, then feed them to extract_output_metadata_from_state
+    # so XArrayEmitter uses real IDs (e.g. monomer names) as coord arrays
+    # instead of the integer-index fallback.
+    from v2ecoli.library.output_metadata import output_metadata as _get_named_metadata
+    named_metadata = _get_named_metadata(state_after_warmup)
+    output_metadata = extract_output_metadata_from_state(
+        state_after_warmup, view, named_metadata=named_metadata)
     if output_metadata:
         print(f"[xarray_run] discovered vector coord arrays for: "
               f"{list(_flatten_keys(output_metadata))}")
 
+    from v2ecoli.steps.division import daughter_phylogeny_id
+
+    # ``followed`` = the inner-composite key for the tracked cell. The inner
+    # Division step always names its mother "0", so EVERY division yields
+    # daughters "00"/"01" regardless of lineage depth — the followed key can be
+    # REUSED by a daughter ("00" -> "00"/"01"). Detecting division by
+    # ``followed in agents`` (which stays True on reuse) folded the last
+    # generation's post-division daughter into the parent partition. Detect
+    # division structurally (a NEW agent id appeared = an ``_add`` this chunk)
+    # and carry a SEPARATE ``partition_agent_id`` along the true phylogeny
+    # ("0" -> "00" -> "000") for the zarr generation/agent_id metadata.
     followed = initial_agent_id
+    partition_agent_id = initial_agent_id
     gen = 1
     em = _build_emitter(
         core=core, store_path=store_path, view=view,
-        metadata_base=metadata_base, generation=gen, agent_id=followed,
+        metadata_base=metadata_base, generation=gen, agent_id=partition_agent_id,
         output_metadata=output_metadata, buffer_size=buffer_size,
     )
     # ``done`` counts ticks already advanced past tick 0 (we used 1 for the
@@ -441,6 +498,16 @@ def run_multigen_xarray(
     done = 1
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
+
+    def _emit_followed(emitter, agents_map, key):
+        if key not in agents_map:
+            return
+        payload = _filter_agent_state(agents_map[key], view)
+        emitter.update({
+            "time": float(done),
+            "global_time": float(done),
+            "agents": {key: payload},
+        })
 
     while done < max_steps and gen <= max_generations:
         try:
@@ -452,29 +519,43 @@ def run_multigen_xarray(
         agents = (composite.state or {}).get("agents") or {}
         curr_ids = set(agents.keys())
 
-        if followed in agents:
-            payload = _filter_agent_state(agents[followed], view)
-            em.update({
-                "time": float(done),
-                "global_time": float(done),
-                "agents": {followed: payload},
-            })
+        divided, _detected_daughter = division_detector(prev_ids, curr_ids)
+        new_ids = curr_ids - prev_ids
+        if not divided and new_ids:
+            divided = True
 
-        divided, daughter = division_detector(prev_ids, curr_ids)
-        if divided and daughter:
-            em.close(success=True)
-            followed = daughter
-            gen += 1
-            gens_seen.append(gen)
-            if gen > max_generations:
-                break
-            em = _build_emitter(
-                core=core, store_path=store_path, view=view,
-                metadata_base=metadata_base, generation=gen, agent_id=followed,
-                output_metadata=output_metadata, buffer_size=buffer_size,
-            )
+        if not divided:
+            _emit_followed(em, agents, followed)
+            prev_ids = curr_ids
+            continue
 
-        prev_ids = curr_ids
+        # --- DIVISION: end this generation here; the parent partition must NOT
+        # receive the post-division daughter row. ---
+        if gen >= max_generations:
+            # Generation cap reached: stop (don't fold the daughter in).
+            break
+
+        survivors = sorted(curr_ids)
+        inner_next = next((i for i in survivors if i.endswith("0")), None)
+        if inner_next is None:
+            inner_next = survivors[0] if survivors else None
+        if inner_next is None:
+            break
+
+        em.close(success=True)
+        followed = inner_next
+        partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
+        gen += 1
+        gens_seen.append(gen)
+        em = _build_emitter(
+            core=core, store_path=store_path, view=view,
+            metadata_base=metadata_base, generation=gen,
+            agent_id=partition_agent_id, output_metadata=output_metadata,
+            buffer_size=buffer_size,
+        )
+        # Emit the daughter's birth row into the NEW generation's store.
+        _emit_followed(em, (composite.state or {}).get("agents") or {}, followed)
+        prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
 
     try:
         em.close(success=True)

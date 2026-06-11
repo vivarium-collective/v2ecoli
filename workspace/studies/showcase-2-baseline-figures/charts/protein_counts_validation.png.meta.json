@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781180777.082177,
+  "title": "Proteome vs Schmidt 2015 / Wisniewski 2014",
+  "interpretation": "log10 average monomer counts vs measured proteomics (Schmidt 2015, Wisniewski 2014); multiseed over 2 seeds.",
+  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+}

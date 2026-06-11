@@ -375,28 +375,28 @@ visualizations:
     (CV ≈ 0.5%); superseded by the current committed N=6 × 250s pilot (ATP[c] CV ≈ 0.029%, .pbg/runs/phase0-traj/)
 - name: phase0-4panel-spaghetti-real
   address: file:reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — 4-panel observable spaghetti (real, N=64)
+  description: Phase 0 — 4-panel observable spaghetti (real, N=32 × 600s, M9-glucose)
 - name: phase0-cell-mass-ensemble-real
   address: file:reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 cell mass ensemble (real, N=64)
+  description: Phase 0 cell mass ensemble (real, N=32 × 600s, M9-glucose)
 - name: phase0-cv-growth-diagnostic-real
   address: file:reports/figures/pdmp-00/phase0_cv_growth_diagnostic_REAL.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cross-seed CV(t) (real, N=64)
+  description: Phase 0 — cross-seed CV(t) (real, N=32 × 600s, M9-glucose)
 - name: phase0-growth-rate-ensemble-real
   address: file:reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 growth rate ensemble (real, N=64)
+  description: Phase 0 growth rate ensemble (real, N=32 × 600s, M9-glucose)
 - name: phase0-cell-mass-ensemble-auto
   address: file:reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — ensemble cell mass(t)
+  description: Phase 0 — ensemble cell mass(t) (real, N=32 × 600s, M9-glucose)
 - name: phase0-cv-growth-auto
   address: file:reports/figures/pdmp-00/phase0_cv_growth_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cross-seed CV(t)
+  description: Phase 0 — cross-seed CV(t) (real, N=32 × 600s, M9-glucose)
 - name: phase0-endpoint-atp-auto
   address: file:reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — ATP[c] endpoint per seed
+  description: Phase 0 — ATP[c] endpoint per seed (real, N=32 × 600s, M9-glucose)
 - name: phase0-growth-rate-ensemble-auto
   address: file:reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — ensemble growth rate(t)
+  description: Phase 0 — ensemble growth rate(t) (real, N=32 × 600s, M9-glucose)
 - name: phase0-3cond-cell-mass
   address: file:reports/figures/pdmp-00/phase0_3cond_cell_mass.html
   description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cell mass(t) overlay across 3 conditions

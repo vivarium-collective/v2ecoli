@@ -203,6 +203,11 @@ def main():
                    help="ParCa cache dir (default: out/cache, M9-glucose basal)")
     p.add_argument("--out-root", default=str(DEFAULT_OUT_ROOT),
                    help="output dir (default: .pbg/runs/phase0-traj)")
+    p.add_argument("--parallel", choices=("ray", "sequential"), default="sequential",
+                   help="fan seeds across Ray workers (default: sequential)")
+    p.add_argument("--num-threads", type=int, default=None,
+                   help="BLAS threads per Ray worker; also caps concurrency "
+                        "(cores//threads workers). Default cores//n_seeds.")
     args = p.parse_args()
 
     if not Path(args.cache_dir).is_dir():
@@ -211,16 +216,29 @@ def main():
     out_root.mkdir(parents=True, exist_ok=True)
 
     print(f"Phase 0 trajectory ensemble: N={args.n_seeds} × {args.n_steps} steps "
-          f"(snapshot every {args.stride}s, cache={args.cache_dir}, out={out_root})")
+          f"(snapshot every {args.stride}s, cache={args.cache_dir}, out={out_root}, "
+          f"parallel={args.parallel})")
+    run_kwargs = dict(n_steps=args.n_steps, stride=args.stride,
+                      cache_dir=str(args.cache_dir), out_root=out_root)
     t0 = time.time()
-    results = []
-    for seed in range(args.n_seeds):
-        try:
-            results.append(run_one(seed, args.n_steps, args.stride,
-                                   args.cache_dir, out_root))
-        except Exception as e:
-            print(f"  seed={seed:02d}: FAILED -- {type(e).__name__}: {e}")
-            results.append({"seed": seed, "error": str(e), "type": type(e).__name__})
+    if args.parallel == "ray":
+        from v2ecoli.library.parallel_seeds import run_seeds_parallel
+        pr = run_seeds_parallel(
+            range(args.n_seeds), run_one, mode="ray",
+            run_kwargs=run_kwargs, num_threads=args.num_threads,
+        )
+        results = [r if r is not None else {"seed": i, "error": "worker returned None"}
+                   for i, r in enumerate(pr.results)]
+        print(f"  Ray fan-out: mode={pr.mode} workers~={pr.n_threads_per_worker and 12 // pr.n_threads_per_worker} "
+              f"threads/worker={pr.n_threads_per_worker} crit-path={pr.wall_s}s")
+    else:
+        results = []
+        for seed in range(args.n_seeds):
+            try:
+                results.append(run_one(seed, **run_kwargs))
+            except Exception as e:
+                print(f"  seed={seed:02d}: FAILED -- {type(e).__name__}: {e}")
+                results.append({"seed": seed, "error": str(e), "type": type(e).__name__})
     total_wall = time.time() - t0
 
     successful = [r for r in results if "error" not in r]

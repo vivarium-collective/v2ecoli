@@ -20,6 +20,7 @@ once, in one place:
 """
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 from typing import Any, Callable
@@ -49,6 +50,48 @@ _KNOWN_VECTOR_LEAVES: set[str] = {
     "RNAP_coordinates",
     "ribosome_coordinates",
 }
+
+
+# Env-gated unique-store emit (V2ECOLI_EMIT_UNIQUE=1): mirror of the
+# parquet_run path. The chromosome-state renderer needs per-molecule genomic
+# coordinates that live in the agent's structured ``unique`` numpy arrays --
+# which the plain view filter cannot reach. When enabled we extract the named
+# attribute arrays of the ACTIVE entries (``_entryState`` mask) and emit them
+# as nested keys so the emitter flattens them to ``active_RNAP__coordinates``
+# etc. ``child_domains`` is 2-D/ragged -> excluded (recovered from dills).
+_EMIT_UNIQUE = os.environ.get("V2ECOLI_EMIT_UNIQUE", "") not in ("", "0", "false", "False")
+_UNIQUE_EMIT_SPEC = {
+    "active_RNAP": ["coordinates", "domain_index"],
+    "active_replisome": ["coordinates", "domain_index"],
+    "full_chromosome": ["unique_index", "domain_index"],
+    "chromosome_domain": ["domain_index"],
+}
+
+
+def _extract_unique_attrs(agent_state: dict) -> dict:
+    """Pull active-entry attribute arrays out of an agent's ``unique`` store.
+
+    Returns ``{mol: {attr: [values...]}}`` for the active entries of each
+    configured unique molecule, ready to merge into the emit payload (flattens
+    to ``<mol>__<attr>`` columns).
+    """
+    out: dict = {}
+    unique = (agent_state or {}).get("unique") or {}
+    for mol, attrs in _UNIQUE_EMIT_SPEC.items():
+        arr = unique.get(mol)
+        if arr is None or not hasattr(arr, "dtype") or arr.dtype.names is None:
+            out[mol] = {a: [] for a in attrs}
+            continue
+        names = set(arr.dtype.names)
+        if "_entryState" in names:
+            active = arr[arr["_entryState"].view(np.bool_)]
+        else:
+            active = arr
+        out[mol] = {
+            a: (active[a].tolist() if a in names else [])
+            for a in attrs
+        }
+    return out
 
 
 def view_from_emit_paths(
@@ -496,6 +539,8 @@ def run_multigen_xarray(
         if key not in agents_map:
             return
         payload = _filter_agent_state(agents_map[key], view)
+        if _EMIT_UNIQUE:
+            payload = {**payload, **_extract_unique_attrs(agents_map[key])}
         emitter.update({
             "time": float(done),
             "global_time": float(done),

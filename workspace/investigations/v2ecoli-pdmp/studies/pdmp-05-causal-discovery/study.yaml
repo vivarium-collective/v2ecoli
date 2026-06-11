@@ -274,8 +274,10 @@ expected_behavior:
     observable: posterior-recovery-rate
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
-  status: stub
+    note: NOT IMPLEMENTED — never built. No genes are wired; the delivered work is a 5-point synthetic transcript_init_prob_scale
+      sweep (scripts/phase5_bayes_factor_stub.py), not a gene-function benchmark. No Russian-Roulette / pseudo-marginal estimator
+      over genes, no active-inference / EIG loop, no SBC.
+  status: planned
 - name: genome-wide-resource-estimate
   en: Per-annotation compute cost on the benchmark extrapolates to a defensible total compute estimate for genome-wide scaling
     (≥4000 E. coli genes); the estimate identifies the binding constraint (compute time, memory, or convergence).
@@ -715,12 +717,12 @@ embed_visualizations:
     re-run sprints 1-3 with sprint-13''s combined count-vector observable.'
 - name: Phase 5 — per-gene Bayes factor (planned)
   url: /reports/figures/pdmp-05/bayes_factor_per_gene.html
-  description: Per-gene Bayes factor against null annotation under the Phase-5 marginal-likelihood pipeline. Planned for sprint
-    4+.
+  description: PLANNED PLACEHOLDER (synthetic, not a result) — per-gene Bayes factor against null annotation under the Phase-5
+    marginal-likelihood pipeline; never built, no genes wired. Planned for sprint 4+.
 - name: Phase 5 — active-inference EIG (planned)
   url: /reports/figures/pdmp-05/active_inference_eig.html
-  description: Expected information gain for in-silico interventions under candidate gene-function hypotheses. Planned for
-    sprint 5+.
+  description: PLANNED PLACEHOLDER (synthetic, not a result) — expected information gain for in-silico interventions under
+    candidate gene-function hypotheses; never built (no active-inference / EIG loop). Planned for sprint 5+.
 - name: Phase 5 — per-gene Bayes factor (v2 stub)
   url: /reports/figures/pdmp-05/bayes_factor_per_gene_v2.html
   description: Earlier hand-coded stub. Superseded by sprint-1 (bayes_factor_stub.html) and sprint-2 (pseudo_marginal_diagnostic.html).
@@ -729,7 +731,8 @@ embed_visualizations:
   description: 'Companion to active-inference EIG: per-intervention EIG ranking. Planned for sprint 5+.'
 - name: Phase 5 — PC algorithm DAG (planned)
   url: /reports/figures/pdmp-05/pc_algorithm_dag.html
-  description: Recovered causal DAG via PC algorithm on Phase-3 likelihood summaries. Planned for sprint 5+.
+  description: PLANNED PLACEHOLDER (illustrative, not a result) — recovered causal DAG via PC algorithm on Phase-3 likelihood
+    summaries; not built. Planned for sprint 5+.
 discovery_implications:
   resolved_uncertainties:
   - 'The Bayes-factor / model-comparison shape works on the Phase-3 ABC infrastructure (a 5-hypothesis

@@ -3,12 +3,13 @@ name: pdmp-03-inference
 investigation: v2ecoli-pdmp
 title: 'Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface'
 claim: |
-  A full likelihood → emission → XArrayEmitter(zarr) → ABC-SMC pipeline works end-to-end, and the
-  load-bearing result is the architectural pivot from self-calibrated log-likelihoods to count-based ABC
-  distances: count metrics give ~100× sharper Ts identification, and the combined count vector
-  sqrt(d_rna² + d_ribosome²) reaches 3.06× truth-vs-next-nearest separation — the Phase-3-canonical ABC
-  distance.
-confidence: Accepted
+  A likelihood → emission → XArrayEmitter(zarr) → rejection-ABC pipeline runs end-to-end on a
+  self-generated toy parameter grid. The load-bearing observation is the shift from self-calibrated
+  log-likelihoods toward count-based distances: on a self-generated 3×3 (Ts, Ps) grid (N=4 replicates,
+  60 s) the combined count vector sqrt(d_rna² + d_ribosome²) gives a higher truth-vs-next-nearest-CELL
+  grid-separation ratio (3.06×) than the aggregate log-likelihood (2.39×). These are grid-separation
+  diagnostics on a self-generated grid — NOT a posterior, credible interval, or validated ABC distance.
+confidence: Investigating
 status: running
 phase: Decide
 topic: pdmp
@@ -102,7 +103,7 @@ description: "Phase 3 of the v2ecoli → PDMP roadmap. With the PDMP in place\nf
   (e.g., zero-inflated NegBin) use log-sum-exp with the standard\nshift trick. Pairwise / Kahan summation order for cross-cell\n\
   population reductions so the result is independent of trajectory\nordering and reproducible across hardware.\n\nABC-SMC\
   \ schedule. ε-decay set adaptively at the quantile q=0.5\nof the previous population's distance, with a minimum population\n\
-  size N=1000 and a terminating ESS < 0.5·N (resample) or wall-\nclock cap. Distance: Mahalanobis on a hand-picked summary\
+  size N=1000 and a terminating ESS < 0.5·N (resample) or wall-\nclock cap. Distance (PLANNED, NOT YET IMPLEMENTED — the current pilot uses an unweighted SSE/Euclidean distance with no covariance and no condition-number/kappa guard): Mahalanobis on a hand-picked summary\
   \ vector\n(growth rate, mean log-mRNA per high-coverage gene, mean\nlog-protein per high-coverage gene, key metabolite log-conc).\n\
   We report posterior ESS and the proposal acceptance rate at\nevery SMC step.\n\nPosterior calibration. Simulation-Based\
   \ Calibration (Talts et\nal. 2018): for K=1000 SBC draws of (θ*, y*) from the prior +\nforward model, run ABC-SMC and record\
@@ -359,8 +360,10 @@ planned_runs:
 - name: abc-smc-synthetic-recovery
   status: scaffold-pilot-done
   n_steps: '30 particles × 3 rounds = 90 forward sims (~66s wall)'
-  details: 'PILOT 2026-05-25. scripts/run_abc_smc_pilot.py runs minimal ABC-SMC on Millard with
-    known-truth parameters. Setup: take 2 Millard kinetic parameters (PTS_4.kF, ENO.Vmax), generate
+  details: 'PILOT 2026-05-25. scripts/run_abc_smc_pilot.py runs a minimal iterated rejection-ABC with
+    box-narrowing (NOT true SMC — no importance weights or transition kernel) on Millard with
+    known-truth parameters. NOTE: the 2 inferred parameters are Millard COPASI kinetic parameters,
+    unrelated to the PDMP jump processes this study is about. Setup: take 2 Millard kinetic parameters (PTS_4.kF, ENO.Vmax), generate
     "observations" by running Millard at default values, hide the true parameters, sample log-uniform
     priors around default ±50%, run 3 SMC rounds with top-25% acceptance. Round-by-round threshold:
     1.8e-4 → 1.8e-4 → 4.3e-5 (narrowing). Final-round min distance 5.5e-6. Viz at
@@ -399,16 +402,16 @@ visualizations:
   description: SBC workflow
 - name: abc-posterior-shrinkage-real
   address: file:reports/figures/pdmp-03/abc_posterior_shrinkage_real.html
-  description: ABC-SMC posterior shrinkage over rounds
+  description: PLANNED — rejection-ABC pilot shrinkage over rounds. This figure does not exist on disk.
 - name: ppc-coverage-real
   address: file:reports/figures/pdmp-03/ppc_coverage_real.html
-  description: Posterior predictive — held-out coverage
+  description: PLANNED — posterior predictive held-out coverage. No PPC has been run and this figure does not exist on disk.
 - name: sbc-rank-histogram-real
   address: file:reports/figures/pdmp-03/sbc_rank_histogram_real.html
-  description: SBC rank histogram — calibration check
+  description: PLANNED — SBC rank histogram calibration check. SBC has not been run and this figure does not exist on disk.
 - name: abc-posterior-2d
   address: file:reports/figures/pdmp-03/abc_posterior_2d.html
-  description: ABC-SMC 2D posterior (real)
+  description: PLANNED — 2D grid-distance map (not a posterior). This figure does not exist on disk.
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
@@ -504,7 +507,8 @@ simulation_set:
 tests:
 - name: sbc-calibration-uniform-rank
   classification: primary
-  description: 'ABC-SMC posterior of kinetic-ODE parameters is calibrated under Simulation-Based Calibration (Talts 2018):
+  status: planned
+  description: 'PLANNED / NOT RUN — the cited script scripts/run_sbc.py does not exist and SBC has not been run. Intended check: ABC-SMC posterior of kinetic-ODE parameters is calibrated under Simulation-Based Calibration (Talts 2018):
     the rank-histogram of true parameter values within posterior draws is uniform (Cramér–von Mises p > 0.05) across L=200
     synthetic experiments. The fundamental check that the inference machinery is correct — deviations diagnose specific failure
     modes.'
@@ -522,7 +526,8 @@ tests:
   - cook2006
 - name: posterior-shrinks-with-data
   classification: primary
-  description: Posterior 95% interval width monotonically decreases with the size of the observed dataset (1, 10, 100, 1000
+  status: planned
+  description: PLANNED / NOT RUN — the cited script scripts/run_abc_smc.py does not exist. Intended check; Posterior 95% interval width monotonically decreases with the size of the observed dataset (1, 10, 100, 1000
     observation points). Asymptote at <30% of the prior width with 1000 points — confirms the data is informative for the
     posterior. Constant width = inference is ignoring the data.
   measure:
@@ -538,7 +543,8 @@ tests:
   - beaumont2010
 - name: ppc-coverage-95-pct
   classification: supporting
-  description: 'Posterior predictive check: ≥95% of held-out Phase 0 ensemble observations fall within the posterior predictive
+  status: planned
+  description: 'PLANNED / NOT RUN — the cited script scripts/run_ppc.py does not exist; no PPC has been run. Intended posterior predictive check: ≥95% of held-out Phase 0 ensemble observations fall within the posterior predictive
     95% interval. Higher = overconfidence; lower = underconfidence.'
   measure:
     source: scripts/run_ppc.py
@@ -562,8 +568,10 @@ embed_visualizations:
   description: Posterior shrinkage diagnostic over SMC generations.
 - name: Phase 3 sprint 12 — count-based ABC distance
   url: /reports/figures/pdmp-03/abc_count_metric.html
-  description: Combined count vector sqrt(d_rna² + d_ribosome²) reaches 3.06× truth-vs-next-nearest separation — the Phase-3-canonical
-    ABC distance, 100× sharper Ts identification than aggregate log-likelihood.
+  description: On a self-generated 3×3 (Ts, Ps) parameter grid (N=4 replicates, 60 s), the combined count vector
+    sqrt(d_rna² + d_ribosome²) gives a higher truth-vs-next-nearest-CELL grid-separation ratio (3.06×) than the
+    aggregate log-likelihood (2.39×). A grid-separation diagnostic on a self-generated toy grid — NOT a posterior,
+    a credible interval, or a validated "canonical" ABC distance.
 - name: Phase 3 sprint 11 — multi-observable ABC
   url: /reports/figures/pdmp-03/abc_multi_observable.html
   description: Per-channel vs aggregate ABC. Diagnoses the self-calibration issue that motivated the pivot to count-based
@@ -574,7 +582,10 @@ embed_visualizations:
     partially cancels. Per-channel distances break the ridge.'
 - name: Phase 3 sprint 9 — sequential ε refinement
   url: /reports/figures/pdmp-03/abc_smc_sequential.html
-  description: Posterior collapses to {truth} as ε tightens through p95/p75/p50/p25/p05 quantiles.
+  description: On the self-generated scale grid, the smallest-distance node is retained as ε tightens through
+    p95/p75/p50/p25/p05 quantiles. The "observed" data is generated at scale=1.0 — itself a grid node — so retaining
+    scale=1.0 is tautological, not a posterior collapse. (The "~4× below the next-closest" figure is a hardcoded
+    string literal in the script, not a computed value.)
 - name: Phase 3 sprint 7 — ABC-SMC stub
   url: /reports/figures/pdmp-03/abc_smc_stub.html
   description: First ABC stub at scale-vs-distance, before the noise-floor recalibration.
@@ -587,8 +598,8 @@ embed_visualizations:
     by the embed-wiring sweep — refine the name and description if a richer caption is wanted.
 - name: Sbc Per Parameter
   url: /reports/figures/pdmp-03/sbc_per_parameter.html
-  description: Auto-wired existing figure at /reports/figures/pdmp-03/sbc_per_parameter.html. Promoted from disk by the embed-wiring
-    sweep — refine the name and description if a richer caption is wanted.
+  description: PLANNED / SYNTHETIC PLACEHOLDER — the on-disk sbc_per_parameter.html is a labelled-PLANNED stub
+    with synthetic content; no SBC per-parameter analysis has been run.
 discovery_implications:
   resolved_uncertainties:
   - 'The inference substrate is built and runs end-to-end: per-tick emission for both initiation
@@ -597,9 +608,11 @@ discovery_implications:
   - 'The emitted aggregate likelihood is self-calibrated log P(simulated | simulated_param), NOT the
     ABC-correct log P(observed | proposed); switching to count-based ABC distances is the architectural
     fix.'
-  - 'Count-based ABC distances identify the parameter channel they are causally linked to: total_rna_init
-    alone gives ~150x row-separation along the Ts axis, and the combined count vector reaches 3.06x
-    truth-vs-next-nearest separation (vs 2.39x for aggregate log-likelihood).'
+  - 'On a self-generated 3x3 (Ts, Ps) toy grid (N=4 replicates, 60 s), count-based distances separate the
+    truth node from its next-nearest CELL better than aggregate log-likelihood: the combined count vector
+    reaches a 3.06x grid-separation ratio (vs 2.39x for aggregate log-likelihood). These are grid-separation
+    diagnostics, not a posterior or credible interval. No script computes a "row-separation" metric — the
+    earlier "~150x row-separation" figure was not actually computed.'
   remaining_uncertainties:
   - 'SBC rank-uniformity (chi^2 p > 0.05 over >=1000 draws) and >=85% empirical coverage of 90% credible
     intervals — the gate that converts "we have likelihoods" into "inference-ready likelihoods" — have
@@ -626,8 +639,10 @@ discovery_implications:
   mechanism_update_proposals:
   - mechanism_node_or_edge: abc-distance (aggregate-LL -> count-based)
     update_type: replace
-    rationale: 'Adopt the combined count vector sqrt(d_rna^2 + d_ribosome^2) as the Phase-3-canonical ABC
-      distance; it is ~100x sharper on Ts and ~28% better-separated than aggregate log-likelihood.'
+    rationale: 'Adopt the combined count vector sqrt(d_rna^2 + d_ribosome^2) as the candidate ABC distance;
+      on the self-generated 3x3 toy grid it is ~28% better-separated (truth-vs-next-nearest CELL, 3.06x vs
+      2.39x) than aggregate log-likelihood. Grid-separation diagnostic only — not validated as a posterior or
+      a "canonical" distance.'
     requires_expert_approval: true
   followup_study_proposals:
   - id: pdmp-03-sbc-coverage

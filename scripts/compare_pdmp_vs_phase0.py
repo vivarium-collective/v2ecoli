@@ -223,8 +223,13 @@ def make_viz(t_p0, cm_p0, dm_p0, t_pdmp, cm_pdmp, dm_pdmp,
     )
     fig.tight_layout()
 
-    cm_max_abs_z = float(np.max(np.abs(cm_z[np.isfinite(cm_z)]))) if cm_z.size else float("nan")
-    dm_max_abs_z = float(np.max(np.abs(dm_z[np.isfinite(dm_z)]))) if dm_z.size else float("nan")
+    # Early timepoints can have ~0 Phase-0 std (cells near-identical at birth)
+    # -> z = inf, filtered out. Guard against an all-nonfinite z array so a
+    # short / low-variance run reports NaN instead of crashing the reduction.
+    cm_z_finite = cm_z[np.isfinite(cm_z)]
+    dm_z_finite = dm_z[np.isfinite(dm_z)]
+    cm_max_abs_z = float(np.max(np.abs(cm_z_finite))) if cm_z_finite.size else float("nan")
+    dm_max_abs_z = float(np.max(np.abs(dm_z_finite))) if dm_z_finite.size else float("nan")
     return fig, {
         "n_phase0": int(n_p0),
         "t_pdmp_first": float(t_pdmp[0]) if t_pdmp.size else None,

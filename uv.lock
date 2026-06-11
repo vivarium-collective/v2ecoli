@@ -2619,7 +2619,7 @@ xarray = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#b99c5612c1064351dfe2f3f9b4311aa0e597390c" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#76db14d978b7cc33a2eccb3954dc90eef97d78f0" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
@@ -4220,7 +4220,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#c929e75705f32a53f713506c871e704bab678781" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#13becebc19e7c231cf883614da5b1c543ef31cdc" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },

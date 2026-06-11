@@ -400,76 +400,76 @@ visualizations:
     chart.
 - name: bridge-translation-residual
   address: file:reports/figures/pdmp-01/bridge_translation_residual.html
-  description: Bridge round-trip residual
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Bridge round-trip residual
 - name: fba-bridge-architecture
   address: file:reports/figures/pdmp-01/fba_bridge_architecture.html
-  description: FBA-bridge architecture
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) FBA-bridge architecture
 - name: millard-atp-drain-v2
   address: file:reports/figures/pdmp-01/millard_atp_drain_v2.html
   description: Millard 2017 — ATP drain (6-panel)
 - name: millard-published-ref-state
   address: file:reports/figures/pdmp-01/millard_published_ref_state.html
-  description: Millard reference-state validation
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard reference-state validation
 - name: species-mapping-coverage
   address: file:reports/figures/pdmp-01/species_mapping_coverage.html
-  description: Mapping coverage
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Mapping coverage
 - name: millard-real-4panel-trajectory
   address: file:reports/figures/pdmp-01/millard_real_4panel_trajectory.html
-  description: Millard 2017 — 4-panel trajectory (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — 4-panel trajectory (real)
 - name: millard-real-energy-charge
   address: file:reports/figures/pdmp-01/millard_real_energy_charge.html
-  description: Millard 2017 — adenylate energy charge (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — adenylate energy charge (real)
 - name: millard-real-full-species-heatmap
   address: file:reports/figures/pdmp-01/millard_real_full_species_heatmap.html
-  description: Millard 2017 — full 67-species heatmap (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — full 67-species heatmap (real)
 - name: millard-real-phase-plane-atp-pep
   address: file:reports/figures/pdmp-01/millard_real_phase_plane_atp_pep.html
-  description: Millard 2017 — ATP vs PEP phase plane (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — ATP vs PEP phase plane (real)
 - name: millard-real-redox-balance
   address: file:reports/figures/pdmp-01/millard_real_redox_balance.html
-  description: Millard 2017 — redox balance (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — redox balance (real)
 - name: millard-real-pert-anoxia
   address: file:reports/figures/pdmp-01/millard_real_pert_anoxia.html
-  description: Millard 2017 — anoxia (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — anoxia (real)
 - name: millard-real-pert-atp-drop-50pct
   address: file:reports/figures/pdmp-01/millard_real_pert_atp_drop_50pct.html
-  description: Millard 2017 — atp_drop_50pct (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — atp_drop_50pct (real)
 - name: millard-real-pert-baseline-long
   address: file:reports/figures/pdmp-01/millard_real_pert_baseline_long.html
-  description: Millard 2017 — baseline_long (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — baseline_long (real)
 - name: millard-real-pert-coa-drain
   address: file:reports/figures/pdmp-01/millard_real_pert_coa_drain.html
-  description: Millard 2017 — coa_drain (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — coa_drain (real)
 - name: millard-real-pert-glc-starve
   address: file:reports/figures/pdmp-01/millard_real_pert_glc_starve.html
-  description: Millard 2017 — glc_starve (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — glc_starve (real)
 - name: millard-real-pert-glc-uptake-2x
   address: file:reports/figures/pdmp-01/millard_real_pert_glc_uptake_2x.html
-  description: Millard 2017 — glc_uptake_2x (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — glc_uptake_2x (real)
 - name: millard-real-pert-nadh-overflow
   address: file:reports/figures/pdmp-01/millard_real_pert_nadh_overflow.html
-  description: Millard 2017 — nadh_overflow (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — nadh_overflow (real)
 - name: millard-real-pert-phosphate-drop
   address: file:reports/figures/pdmp-01/millard_real_pert_phosphate_drop.html
-  description: Millard 2017 — phosphate_drop (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — phosphate_drop (real)
 - name: millard-real-perturbation-matrix
   address: file:reports/figures/pdmp-01/millard_real_perturbation_matrix.html
-  description: Millard 2017 — perturbation × species matrix (real)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Millard 2017 — perturbation × species matrix (real)
 - name: lqr-best-tuning-state
   address: file:reports/figures/pdmp-01/lqr_best_tuning_state.html
-  description: LQR — best tuning trajectories
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) LQR — best tuning trajectories
 - name: lqr-sobol-scatter
   address: file:reports/figures/pdmp-01/lqr_sobol_scatter.html
-  description: LQR — RMS tracking error across (Q, R) scan
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) LQR — RMS tracking error across (Q, R) scan
 - name: lqr-sobol-top5-tracking
   address: file:reports/figures/pdmp-01/lqr_sobol_top5_tracking.html
-  description: LQR — top-5 tracking-error trajectories
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) LQR — top-5 tracking-error trajectories
 - name: phase1-3cond-6panel
   address: file:reports/figures/pdmp-01/phase1_3cond_6panel.html
-  description: Phase 1 — 6 metabolites × 3 conditions
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 1 — 6 metabolites × 3 conditions
 - name: phase1-3cond-atp-trajectory
   address: file:reports/figures/pdmp-01/phase1_3cond_atp_trajectory.html
-  description: Phase 1 — coupled Millard+Bridge ATP(t) across 3 conditions
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 1 — coupled Millard+Bridge ATP(t) across 3 conditions
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -787,11 +787,11 @@ tests:
   cites:
   - villani2008
 embed_visualizations:
-- name: Bridge round-trip residual
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Bridge round-trip residual
   url: /reports/figures/pdmp-01/bridge_translation_residual.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/bridge_translation_residual.html. Inlined into
     the downloaded report as iframe srcdoc.
-- name: FBA-bridge architecture
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) FBA-bridge architecture
   url: /reports/figures/pdmp-01/fba_bridge_architecture.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/fba_bridge_architecture.html. Inlined into the
     downloaded report as iframe srcdoc.
@@ -807,17 +807,17 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/millard_multi_perturbation.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/millard_multi_perturbation.html. Inlined into
     the downloaded report as iframe srcdoc.
-- name: Millard reference-state validation
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Millard reference-state validation
   url: /reports/figures/pdmp-01/millard_published_ref_state.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/millard_published_ref_state.html. Inlined into
     the downloaded report as iframe srcdoc.
-- name: Mapping coverage
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Mapping coverage
   url: /reports/figures/pdmp-01/species_mapping_coverage.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/species_mapping_coverage.html. Inlined into the
     downloaded report as iframe srcdoc.
-- name: Phase 1 — kinetic-constraint curves
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 1 — kinetic-constraint curves
   url: /reports/figures/pdmp-01/kinetic_constraint_curves.html
-  description: Michaelis-Menten kinetic constraint envelopes per substrate.
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Michaelis-Menten kinetic constraint envelopes per substrate.
 - name: Phase 1 — PDMP metabolism vs v2ecoli baseline
   url: /reports/figures/pdmp-01/pdmp_vs_baseline.html
   description: 'Trajectory overlay: MillardPDMPMetabolism + consumption_matched ref-growth driver vs the Phase-0 reference

@@ -366,8 +366,7 @@ planned_runs:
     unrelated to the PDMP jump processes this study is about. Setup: take 2 Millard kinetic parameters (PTS_4.kF, ENO.Vmax), generate
     "observations" by running Millard at default values, hide the true parameters, sample log-uniform
     priors around default ±50%, run 3 SMC rounds with top-25% acceptance. Round-by-round threshold:
-    1.8e-4 → 1.8e-4 → 4.3e-5 (narrowing). Final-round min distance 5.5e-6. Viz at
-    reports/figures/pdmp-03/abc_posterior_{shrinkage_real, 2d}.html. SCAFFOLD because: only 2 parameters,
+    1.8e-4 → 1.8e-4 → 4.3e-5 (narrowing). Final-round min distance 5.5e-6. SCAFFOLD because: only 2 parameters,
     only 30 particles, only 3 rounds — full target is 100s of parameters + 1000s of particles + ≥8
     rounds. But the machinery works end-to-end + populates posterior-shrinks-with-data primary test
     with real data.'
@@ -400,18 +399,6 @@ visualizations:
 - name: sbc-workflow
   address: file:reports/figures/pdmp-03/sbc_workflow.html
   description: SBC workflow
-- name: abc-posterior-shrinkage-real
-  address: file:reports/figures/pdmp-03/abc_posterior_shrinkage_real.html
-  description: PLANNED — rejection-ABC pilot shrinkage over rounds. This figure does not exist on disk.
-- name: ppc-coverage-real
-  address: file:reports/figures/pdmp-03/ppc_coverage_real.html
-  description: PLANNED — posterior predictive held-out coverage. No PPC has been run and this figure does not exist on disk.
-- name: sbc-rank-histogram-real
-  address: file:reports/figures/pdmp-03/sbc_rank_histogram_real.html
-  description: PLANNED — SBC rank histogram calibration check. SBC has not been run and this figure does not exist on disk.
-- name: abc-posterior-2d
-  address: file:reports/figures/pdmp-03/abc_posterior_2d.html
-  description: PLANNED — 2D grid-distance map (not a posterior). This figure does not exist on disk.
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood

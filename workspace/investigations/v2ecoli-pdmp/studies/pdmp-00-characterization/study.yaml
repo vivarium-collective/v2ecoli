@@ -359,67 +359,67 @@ visualizations:
     bug. Banner-flagged red. Blocks the Phase 0 N>=64 target until fixed.
 - name: markov-blanket-metabolism
   address: file:reports/figures/pdmp-00/markov_blanket_metabolism.html
-  description: Markov blanket — v2ecoli metabolism
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Markov blanket — v2ecoli metabolism
 - name: v2ecoli-baseline-v2
   address: file:reports/figures/pdmp-00/v2ecoli_baseline_v2.html
   description: v2ecoli baseline — bootstrap (6-panel)
 - name: phase0-pilot-single-condition-real
   address: file:reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html
-  description: Phase 0 pilot — single condition × N=8 endpoint
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 pilot — single condition × N=8 endpoint
 - name: phase0-pilot-summary-table
   address: file:reports/figures/pdmp-00/phase0_pilot_summary_table.html
-  description: Phase 0 pilot — per-seed summary table
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 pilot — per-seed summary table
 - name: rng-seeding-fix-proof-real
   address: file:reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
-  description: Per-process RNG fix — real N=8 pilot (CV ≈ 0.5%)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Per-process RNG fix — real N=8 pilot (CV ≈ 0.5%)
 - name: phase0-4panel-spaghetti-real
   address: file:reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html
-  description: Phase 0 — 4-panel observable spaghetti (real, N=64)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — 4-panel observable spaghetti (real, N=64)
 - name: phase0-cell-mass-ensemble-real
   address: file:reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html
-  description: Phase 0 cell mass ensemble (real, N=64)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 cell mass ensemble (real, N=64)
 - name: phase0-cv-growth-diagnostic-real
   address: file:reports/figures/pdmp-00/phase0_cv_growth_diagnostic_REAL.html
-  description: Phase 0 — cross-seed CV(t) (real, N=64)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cross-seed CV(t) (real, N=64)
 - name: phase0-growth-rate-ensemble-real
   address: file:reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html
-  description: Phase 0 growth rate ensemble (real, N=64)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 growth rate ensemble (real, N=64)
 - name: phase0-cell-mass-ensemble-auto
   address: file:reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html
-  description: Phase 0 — ensemble cell mass(t)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — ensemble cell mass(t)
 - name: phase0-cv-growth-auto
   address: file:reports/figures/pdmp-00/phase0_cv_growth_AUTO.html
-  description: Phase 0 — cross-seed CV(t)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cross-seed CV(t)
 - name: phase0-endpoint-atp-auto
   address: file:reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html
-  description: Phase 0 — ATP[c] endpoint per seed
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — ATP[c] endpoint per seed
 - name: phase0-growth-rate-ensemble-auto
   address: file:reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html
-  description: Phase 0 — ensemble growth rate(t)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — ensemble growth rate(t)
 - name: phase0-3cond-cell-mass
   address: file:reports/figures/pdmp-00/phase0_3cond_cell_mass.html
-  description: Phase 0 — cell mass(t) overlay across 3 conditions
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cell mass(t) overlay across 3 conditions
 - name: phase0-3cond-endpoint-box
   address: file:reports/figures/pdmp-00/phase0_3cond_endpoint_box.html
-  description: Phase 0 — 3-condition endpoint boxplots (N=64 each)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — 3-condition endpoint boxplots (N=64 each)
 - name: phase0-3cond-growth-rate
   address: file:reports/figures/pdmp-00/phase0_3cond_growth_rate.html
-  description: Phase 0 — growth rate(t) overlay across 3 conditions
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — growth rate(t) overlay across 3 conditions
 - name: phase0-3cond-w2-heatmap
   address: file:reports/figures/pdmp-00/phase0_3cond_w2_heatmap.html
-  description: Phase 0 — cross-condition W₁ distance
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — cross-condition W₁ distance
 - name: phase0-acetate-cell-mass-auto
   address: file:reports/figures/pdmp-00/phase0_acetate_cell_mass_AUTO.html
-  description: Phase 0 (M9-acetate) — ensemble cell mass(t)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-acetate) — ensemble cell mass(t)
 - name: phase0-acetate-endpoint-atp-auto
   address: file:reports/figures/pdmp-00/phase0_acetate_endpoint_ATP_AUTO.html
-  description: Phase 0 (M9-acetate) — ATP[c] endpoint per seed
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-acetate) — ATP[c] endpoint per seed
 - name: phase0-with-aa-cell-mass-auto
   address: file:reports/figures/pdmp-00/phase0_with_aa_cell_mass_AUTO.html
-  description: Phase 0 (M9-glucose+aa) — ensemble cell mass(t)
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-glucose+aa) — ensemble cell mass(t)
 - name: phase0-with-aa-endpoint-atp-auto
   address: file:reports/figures/pdmp-00/phase0_with_aa_endpoint_ATP_AUTO.html
-  description: Phase 0 (M9-glucose+aa) — ATP[c] endpoint per seed
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 (M9-glucose+aa) — ATP[c] endpoint per seed
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -511,7 +511,7 @@ planned_runs:
   n_steps: 1000
   details: Profile-instrumented single-cell baseline. Wraps every process invocation with timeit + tracemalloc so per-step
     compute is decomposed into FBA-LP / RNG-draw / store-marshalling / topology-traversal / emitter-I/O buckets. Produces
-    reports/figures/pdmp-00/profile_decomposition_bars.html with real means ± std over ≥1000 step samples.
+    reports/figures/pdmp-00/profile_decomposition_bars.html (NOT IN CHECKOUT — pending regeneration from re-run) with real means ± std over ≥1000 step samples.
 conditions:
   baseline:
     composite: v2ecoli.composites.diagnostic.diagnostic
@@ -723,7 +723,7 @@ tests:
   cites:
   - macklin2020
 embed_visualizations:
-- name: Markov blanket — v2ecoli metabolism
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Markov blanket — v2ecoli metabolism
   url: /reports/figures/pdmp-00/markov_blanket_metabolism.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/markov_blanket_metabolism.html. Inlined into
     the downloaded report as iframe srcdoc.
@@ -743,18 +743,18 @@ embed_visualizations:
   url: /reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html. Inlined into the
     downloaded report as iframe srcdoc.
-- name: Phase 0 — RNG seeding fix verification
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — RNG seeding fix verification
   url: /reports/figures/pdmp-00/rng_seeding_fix_proof.html
-  description: Empirical proof that per-process RNG seeding correctly decorrelates seed→trajectory mapping.
-- name: Phase 0 — per-condition growth-rate baseline
+  description: (NOT IN CHECKOUT — pending regeneration from re-run) Empirical proof that per-process RNG seeding correctly decorrelates seed→trajectory mapping. NOTE — this proof figure is pending regeneration from the re-run; the RNG-seeding-fix conclusion rests instead on the committed tests/test_seed_diversity.py (which passes), not on this absent figure.
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — per-condition growth-rate baseline
   url: /reports/figures/pdmp-00/per_condition_growth_rate.html
   description: v2ecoli baseline ensemble growth rates per nutrient condition (M9-glucose, M9-acetate, M9-glucose+aa). Phase
     0 reference for every subsequent study.
-- name: Phase 0 — per-process compute decomposition
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — per-process compute decomposition
   url: /reports/figures/pdmp-00/profile_decomposition_bars.html
   description: Per-tick cost decomposed by Process. Reference profile that Phase 4 sprint 1 replaced with the marshalling-aware
     version.
-- name: Phase 0 — Markov-blanket variable categorization
+- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — Markov-blanket variable categorization
   url: /reports/figures/pdmp-00/variable_categorization_bars.html
   description: Categorical breakdown of the WCM state into input / sufficient-statistic / output buckets — the interface contract
     every later study tests against.

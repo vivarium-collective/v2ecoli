@@ -343,7 +343,7 @@ visualizations:
       by oriC (green dot, top) and Ter (red square, bottom). RNAPs (blue dots)
       sit at their transcription coordinates; replisomes (gold triangles) mark
       the active replication forks; replication bubbles (green arcs) trace the
-      newly-synthesized daughter strand from oriC out to each fork. Panel (i) —
+      newly-synthesized daughter strand from oriC out to each fork. RNAPs that are transcribing a newly-replicated daughter strand are drawn ON the bubble arc (resolved by the per-RNAP chromosome domain against the emitted parent->child domain tree); RNAPs on the parent strand stay on the rim. Panel (i) —
       t~2 min, mid-replication: a single chromosome with one replication
       bubble, two replisomes roughly halfway from oriC to Ter. Panel (ii) —
       t~23 min, post-replication: two segregated chromosomes, no active forks
@@ -354,7 +354,7 @@ visualizations:
       layout of the replication machinery on the chromosome itself.
   chart: image
   source_run: showcase2-baseline-chromo
-  render: scripts/render_chromosome_snapshots.py over .pbg/runs/showcase2-baseline-chromo (seed-0 3-gen lineage emitted with V2ECOLI_EMIT_UNIQUE=1) — reuses _plot_chromosome_map; RNAP-on-bubble falls back to all-on-rim (chromosome_domain.child_domains is excluded from parquet)
+  render: scripts/render_chromosome_snapshots.py over .pbg/runs/showcase2-baseline-chromo (seed-0 3-gen lineage emitted with V2ECOLI_EMIT_UNIQUE=1) — reuses _plot_chromosome_map; daughter-strand RNAPs are placed ON the replication bubbles using the per-row chromosome_domain__child_domains tree (now emitted as a flattened list<int> column under V2ECOLI_EMIT_UNIQUE), aligned to chromosome_domain__domain_index
 # --- Metabolism / FBA ---
 - name: central carbon metabolism (FBA flux vs Toya 2010)
   address: image:charts/central_carbon_metabolism_scatter.png

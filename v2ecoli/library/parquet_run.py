@@ -48,13 +48,16 @@ from v2ecoli.library.output_metadata import output_metadata as _get_output_metad
 # the named attribute arrays of the ACTIVE entries (``_entryState`` mask) and
 # emit them as TOP-LEVEL nested keys so ParquetEmitter flattens them to the
 # columns the renderer reads: ``active_RNAP__coordinates`` etc. (no ``unique__``
-# prefix). ``child_domains`` is 2-D/ragged -> excluded (recovered from dills).
+# prefix). ``chromosome_domain__child_domains`` is the (n_domain, 2) parent->child
+# domain tree; it is FLATTENED row-major to a 1-D ``list<int>`` of length
+# ``2*n_domain`` (aligned to ``chromosome_domain__domain_index``) so the renderer
+# can place daughter-strand RNAPs on the replication bubbles, not just the rim.
 _EMIT_UNIQUE = os.environ.get("V2ECOLI_EMIT_UNIQUE", "") not in ("", "0", "false", "False")
 _UNIQUE_EMIT_SPEC = {
     "active_RNAP": ["coordinates", "domain_index"],
     "active_replisome": ["coordinates", "domain_index"],
     "full_chromosome": ["unique_index", "domain_index"],
-    "chromosome_domain": ["domain_index"],
+    "chromosome_domain": ["domain_index", "child_domains"],
 }
 
 
@@ -64,6 +67,20 @@ def _unique_emit_schema() -> dict:
         mol: {attr: "any" for attr in attrs}
         for mol, attrs in _UNIQUE_EMIT_SPEC.items()
     }
+
+
+def _flatten_attr(col):
+    """Flatten a unique-store attribute column to a 1-D python list.
+
+    1-D attributes (coordinates, domain_index) pass through. 2-D attributes
+    (child_domains is (n_active, 2)) are flattened row-major to a flat
+    list<int> of length 2*n_active so they serialize as a plain parquet list
+    column, aligned to domain_index.
+    """
+    arr = np.asarray(col)
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+    return arr.tolist()
 
 
 def _extract_unique_attrs(agent_state: dict) -> dict:
@@ -86,7 +103,7 @@ def _extract_unique_attrs(agent_state: dict) -> dict:
         else:
             active = arr
         out[mol] = {
-            a: (active[a].tolist() if a in names else [])
+            a: (_flatten_attr(active[a]) if a in names else [])
             for a in attrs
         }
     return out

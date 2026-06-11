@@ -14,10 +14,18 @@ claim: |
   (W₂/σ = 3.0, 95% CI [18.5, 23.2]); dry_mass = 1.80 fg (W₂/σ = 0.86, 95% CI [1.31, 2.41]).
   dry_mass falls within ±σ, but cell_mass is ~3σ high, so the ±σ gate is NOT met for both observables.
   Two honest caveats: (1) the consumption_matched LQR Riccati solve went DEGENERATE (zero gain) on all
-  12 replicates, so the PDMP "ensemble" is near-deterministic (per-replicate σ ≈ 0.47 fg vs Phase-0 6.9 fg)
-  and the W₂ is dominated by a ~20 fg mean offset rather than distribution spread; (2) this is the real
-  multi-replicate W₂ that the prior single-replicate z-score figure ("-18 to -600 σ") only gestured at —
-  the actual gap is far smaller than that figure implied, but still does not meet the gate.
+  12 replicates of THIS run, so the metabolism was effectively UNCONTROLLED — the PDMP "ensemble" is
+  near-deterministic (per-replicate σ ≈ 0.47 fg vs Phase-0 6.9 fg) and the W₂ is dominated by a ~20 fg
+  mean offset rather than distribution spread; (2) this is the real multi-replicate W₂ that the prior
+  single-replicate z-score figure ("-18 to -600 σ") only gestured at — the actual gap is far smaller
+  than that figure implied, but still does not meet the gate.
+  UPDATE 2026-06-11: caveat (1)'s ROOT CAUSE is now fixed (commit cc6a72d). The LQR linearization stored
+  A = I + J (a finite-difference +I artifact), which made the stable Millard Jacobian look anti-stable
+  and the Riccati solve infeasible → silent zero gain. With the true Jacobian J + a conserved-moiety
+  CARE shift, the controller now yields a real stabilizing gain (||K|| ≈ 4.4, regression-tested). Since
+  the LQR actively modulates glycolytic params back into the Millard ODE, a re-run with the working
+  controller is the pending follow-up to measure whether closed-loop control tightens the cell_mass gap
+  toward the ±σ gate (not yet run; outcome unknown — do NOT assume it closes the gate).
 confidence: Investigating
 status: running
 phase: Decide

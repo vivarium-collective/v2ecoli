@@ -467,11 +467,23 @@ def run_multigen_xarray(
         print(f"[xarray_run] discovered vector coord arrays for: "
               f"{list(_flatten_keys(output_metadata))}")
 
+    from v2ecoli.steps.division import daughter_phylogeny_id
+
+    # ``followed`` = the inner-composite key for the tracked cell. The inner
+    # Division step always names its mother "0", so EVERY division yields
+    # daughters "00"/"01" regardless of lineage depth — the followed key can be
+    # REUSED by a daughter ("00" -> "00"/"01"). Detecting division by
+    # ``followed in agents`` (which stays True on reuse) folded the last
+    # generation's post-division daughter into the parent partition. Detect
+    # division structurally (a NEW agent id appeared = an ``_add`` this chunk)
+    # and carry a SEPARATE ``partition_agent_id`` along the true phylogeny
+    # ("0" -> "00" -> "000") for the zarr generation/agent_id metadata.
     followed = initial_agent_id
+    partition_agent_id = initial_agent_id
     gen = 1
     em = _build_emitter(
         core=core, store_path=store_path, view=view,
-        metadata_base=metadata_base, generation=gen, agent_id=followed,
+        metadata_base=metadata_base, generation=gen, agent_id=partition_agent_id,
         output_metadata=output_metadata,
     )
     # ``done`` counts ticks already advanced past tick 0 (we used 1 for the
@@ -479,6 +491,16 @@ def run_multigen_xarray(
     done = 1
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
+
+    def _emit_followed(emitter, agents_map, key):
+        if key not in agents_map:
+            return
+        payload = _filter_agent_state(agents_map[key], view)
+        emitter.update({
+            "time": float(done),
+            "global_time": float(done),
+            "agents": {key: payload},
+        })
 
     while done < max_steps and gen <= max_generations:
         try:
@@ -490,29 +512,42 @@ def run_multigen_xarray(
         agents = (composite.state or {}).get("agents") or {}
         curr_ids = set(agents.keys())
 
-        if followed in agents:
-            payload = _filter_agent_state(agents[followed], view)
-            em.update({
-                "time": float(done),
-                "global_time": float(done),
-                "agents": {followed: payload},
-            })
+        divided, _detected_daughter = division_detector(prev_ids, curr_ids)
+        new_ids = curr_ids - prev_ids
+        if not divided and new_ids:
+            divided = True
 
-        divided, daughter = division_detector(prev_ids, curr_ids)
-        if divided and daughter:
-            em.close(success=True)
-            followed = daughter
-            gen += 1
-            gens_seen.append(gen)
-            if gen > max_generations:
-                break
-            em = _build_emitter(
-                core=core, store_path=store_path, view=view,
-                metadata_base=metadata_base, generation=gen, agent_id=followed,
-                output_metadata=output_metadata,
-            )
+        if not divided:
+            _emit_followed(em, agents, followed)
+            prev_ids = curr_ids
+            continue
 
-        prev_ids = curr_ids
+        # --- DIVISION: end this generation here; the parent partition must NOT
+        # receive the post-division daughter row. ---
+        if gen >= max_generations:
+            # Generation cap reached: stop (don't fold the daughter in).
+            break
+
+        survivors = sorted(curr_ids)
+        inner_next = next((i for i in survivors if i.endswith("0")), None)
+        if inner_next is None:
+            inner_next = survivors[0] if survivors else None
+        if inner_next is None:
+            break
+
+        em.close(success=True)
+        followed = inner_next
+        partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
+        gen += 1
+        gens_seen.append(gen)
+        em = _build_emitter(
+            core=core, store_path=store_path, view=view,
+            metadata_base=metadata_base, generation=gen,
+            agent_id=partition_agent_id, output_metadata=output_metadata,
+        )
+        # Emit the daughter's birth row into the NEW generation's store.
+        _emit_followed(em, (composite.state or {}).get("agents") or {}, followed)
+        prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
 
     try:
         em.close(success=True)

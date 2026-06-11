@@ -36,6 +36,17 @@ claim: |
   cell_mass mean offset (PDMP mean 1481.0 fg vs Phase-0 1461.1 fg), NOT a missing-control or missing-variance
   problem; active glycolytic modulation does not steer the endpoint toward the Phase-0 distribution. The ±σ
   gate remains NOT met. Next step is a multi-condition / offset-source investigation, not a control re-tune.
+  OFFSET ROOT-CAUSED 2026-06-11: the ~20 fg cell_mass gap is ENTIRELY in the water submass — dry_mass
+  matches Phase-0 (Δdry = -0.9 fg) but Δwater = +20.8 fg. It is a DYNAMICS drift, not initialization:
+  both ensembles start at water fraction ≈ 0.700 at birth; Phase-0 holds it flat (0.7005→0.6998, density
+  homeostasis) but the PDMP path drifts UP to 0.7045 (+0.0043) over 600 s. Cause: the consumption_matched
+  ref_growth_driver injects WATER[c] OPEN-LOOP at a fixed sampled net rate (treating water like a consumed
+  precursor) rather than CLOSED-LOOP regulating it to the cell density the way the baseline kFBA does, so
+  a fixed water flux cannot hold the fraction as the cell grows. Fix options: (a) give the driver a
+  listeners.mass input and inject water to hold cell density ~1100 g/L (true closed loop, robust); or
+  (b) tie the water injection to the driver's own dry-precursor injection so water mass tracks dry growth
+  (self-contained, no topology change). Either closes the offset if water fraction is held constant
+  (cell_mass would then track the already-matching dry_mass). Verification: re-run the 600 s W₂ on the mini.
 confidence: Investigating
 status: running
 phase: Decide

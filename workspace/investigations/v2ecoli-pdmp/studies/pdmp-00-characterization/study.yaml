@@ -399,7 +399,7 @@ visualizations:
   description: Phase 0 — ensemble growth rate(t) (real, N=32 × 600s, M9-glucose)
 - name: phase0-3cond-cell-mass
   address: file:reports/figures/pdmp-00/phase0_3cond_cell_mass.html
-  description: Phase 0 — cell mass(t) overlay across 3 conditions (real, N=32 each: M9-glucose / acetate / glucose+aa)
+  description: 'Phase 0 — cell mass(t) overlay across 3 conditions (real, N=32 each: M9-glucose / acetate / glucose+aa)'
 - name: phase0-3cond-endpoint-box
   address: file:reports/figures/pdmp-00/phase0_3cond_endpoint_box.html
   description: Phase 0 — 3-condition endpoint boxplots (real, N=32 each)

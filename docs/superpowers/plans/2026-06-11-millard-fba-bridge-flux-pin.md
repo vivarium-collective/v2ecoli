@@ -231,9 +231,11 @@ In `millard_pdmp_metabolism.py`: add `"central_fluxes": InPlaceDict()` to
 per-reaction fluxes and emit them. Concretely (adapt the basico call/column to
 Task 0 Step 1's finding):
 ```python
-# in update(), after the basico integration advances the model:
+# in update(), after the basico integration advances the model.
+# DISCOVERY (Task 0): basico has NO get_reaction_fluxes(); use get_reactions()
+# which returns a DataFrame indexed by reaction name with a 'flux' column (mM/s).
 try:
-    fl = basico.get_reaction_fluxes()           # DataFrame, index=reaction name
+    fl = basico.get_reactions()                 # DataFrame, index=reaction name
     central_fluxes = {str(r): float(fl.loc[r, "flux"]) for r in fl.index}
 except Exception:
     central_fluxes = {}

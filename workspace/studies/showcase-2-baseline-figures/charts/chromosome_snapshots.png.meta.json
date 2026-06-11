@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-chromo",
+  "rendered_at": 1781200623.5732448,
+  "title": "Chromosome-state snapshots across one replication round (seed-0 lineage)",
+  "interpretation": "Three timepoints from the seed-0 lineage walk one replication round on the circular chromosome. oriC (green, top) and Ter (red, bottom) anchor each rim; RNAPs (blue dots) decorate the chromosome at their transcription coordinates; replisomes (gold triangles) sit at the active forks; replication bubbles (green arcs) trace the newly-synthesized daughter strand from oriC to each fork. (i) between rounds: two segregated chromosomes, no forks. (ii) mid-replication: one chromosome with a single bubble, forks ~halfway to Ter. (iii) multifork: both daughter chromosomes have re-initiated (4 replisomes, nested bubbles near oriC) -- the overlapping-rounds regime of fast growth. RNAP-on-bubble placement falls back to all-on-rim (chromosome_domain.child_domains is a ragged column excluded from parquet).",
+  "command": "scripts/render_chromosome_snapshots.py over .pbg/runs/showcase2-baseline-chromo (2 seeds x 3 gens, emitted with V2ECOLI_EMIT_UNIQUE=1 so the active_RNAP / active_replisome / full_chromosome unique coordinate columns are present); reuses v2ecoli.visualizations.workflow ._plot_chromosome_map; matplotlib -> PNG/SVG."
+}

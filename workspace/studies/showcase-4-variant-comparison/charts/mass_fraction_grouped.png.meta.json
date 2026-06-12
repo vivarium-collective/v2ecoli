@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase4-variant-sweep",
+  "rendered_at": 1781267180.814549,
+  "title": "Mean dry-mass fractions per variant (protein/rRNA/tRNA/DNA/small-mol)",
+  "interpretation": "media-succinate shifts composition most: protein fraction up to 0.532 (vs 0.461 baseline) and small-mol down to 0.325 (vs 0.391). The other variants cluster near baseline.",
+  "command": "scripts/render_variant_comparison.py: 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase4-variants/showcase4_variants parquet (5-variant x 2-seed sweep); variant_metadata {0:baseline,1:ppgpp-off,2:dnaA-2x,3:elong-down,4:media-succinate}; Altair->PNG/SVG via vl_convert."
+}

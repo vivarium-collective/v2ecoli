@@ -183,16 +183,23 @@ def export_report(page, base_url: str, slug: str, out_path: Path,
     if state["download"] is None:
         return False, "no report produced within 120s"
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    state["download"].save_as(out_path)
-    html = out_path.read_text(encoding="utf-8", errors="replace")
+    # Validate BEFORE writing out_path. The gh-pages copy step publishes every
+    # file under the output dir, so writing an invalid report here would
+    # OVERWRITE a previously-good published copy with a stripped one (exactly
+    # what happened on the first real run: the pinned CI dashboard generated the
+    # pdmp report with zero figure embeds, and it clobbered the good gh-pages
+    # version). Read from Playwright's temp download and only save_as on success,
+    # so a failed report leaves no file → the copy step preserves the last-good.
+    html = Path(state["download"].path()).read_text(encoding="utf-8", errors="replace")
     size = len(html)
     embeds = html.count("<iframe") + html.count("srcdoc") + html.count("data:image")
     if size < MIN_REPORT_BYTES:
-        return False, f"report too small ({size} B < {MIN_REPORT_BYTES})"
+        return False, f"report too small ({size} B < {MIN_REPORT_BYTES}); not published"
     if expect_figures and embeds == 0:
         return False, (f"{size} B but ZERO figure embeds while studies reference "
-                       f"figures — report was silently stripped")
+                       f"figures — report stripped; not published (kept last-good)")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    state["download"].save_as(out_path)
     return True, f"{size:,} B, {embeds} embed-markers"
 
 

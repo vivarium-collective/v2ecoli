@@ -13,3 +13,11 @@ from v2ecoli.visualizations import (
 __all__: list[str] = [
     "network", "benchmark", "v1_v2", "multigeneration", "colony", "workflow",
 ]
+
+# Register the v2ecoli units resolver onto the shared Visualization base so
+# every v2ecoli visualization labels axes from the declared port schema.
+from pbg_superpowers.visualization import Visualization as _Visualization
+from v2ecoli.library.units_resolver import V2EcoliUnitsResolver as _V2EcoliUnitsResolver
+
+if _Visualization.units_resolver is None:
+    _Visualization.units_resolver = _V2EcoliUnitsResolver()

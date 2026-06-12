@@ -17,6 +17,7 @@ from typing import Any
 
 from pbg_superpowers.visualization import Visualization
 
+from v2ecoli.library.units_resolver import units_figure_to_html
 from v2ecoli.visualizations._helpers import (
     render_document,
     group_by_generation,
@@ -159,7 +160,7 @@ class MultigenerationVisualization(Visualization):
         fig.tight_layout()
         # figure_to_html returns a complete <img …> tag (labels the absolute-mass
         # y-axis from the declared schema); embedded directly below, no <img> wrapper.
-        plot_html = Visualization.figure_to_html(
+        plot_html = units_figure_to_html(
             fig, [(ax_abs, "y", "listeners.mass.dry_mass")]
         )
 

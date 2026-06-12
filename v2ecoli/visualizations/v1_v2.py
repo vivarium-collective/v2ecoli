@@ -18,6 +18,7 @@ warnings.filterwarnings("ignore")
 
 from pbg_superpowers.visualization import Visualization
 
+from v2ecoli.library.units_resolver import units_finalize_figure
 from v2ecoli.visualizations._helpers import render_document
 
 # ---------------------------------------------------------------------------
@@ -78,7 +79,7 @@ def _plot_comparison(datasets: dict, metric: str, ylabel: str, title: str,
     ax.legend()
     ax.grid(True, alpha=0.3)
     if obs_path:
-        Visualization.finalize_figure(fig, [(ax, "y", obs_path)])
+        units_finalize_figure(fig, [(ax, "y", obs_path)])
     return _fig_to_b64(fig)
 
 

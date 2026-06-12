@@ -88,3 +88,38 @@ def test_resolver_is_callable():
     r = V2EcoliUnitsResolver()
     assert r("listeners.mass.cell_mass") == "fg"     # delegates to build_units_index
     assert r("nonexistent.path") is None
+
+
+# --- resilient figure wrappers -------------------------------------------
+
+def test_units_figure_to_html_fallback_when_base_lacks_hook(monkeypatch):
+    """When the installed base has no figure_to_html, the wrapper still works."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import v2ecoli.library.units_resolver as ur
+
+    class _StaleBase:           # a base that predates the units hook
+        pass
+
+    monkeypatch.setattr(ur, "_base_visualization", lambda: _StaleBase)
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [0, 1])
+    ax.set_ylabel("Mass")
+    html = ur.units_figure_to_html(fig, [(ax, "y", "listeners.mass.cell_mass")])
+    assert html.startswith('<img src="data:image/png;base64,')
+    assert html.count("<img") == 1
+
+
+def test_units_finalize_figure_fallback_labels_axis(monkeypatch):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import v2ecoli.library.units_resolver as ur
+
+    monkeypatch.setattr(ur, "_base_visualization", lambda: None)
+    fig, ax = plt.subplots()
+    ax.set_ylabel("Mass")
+    ur.units_finalize_figure(fig, [(ax, "y", "listeners.mass.cell_mass")])
+    assert ax.get_ylabel() == "Mass (fg)"
+    plt.close(fig)

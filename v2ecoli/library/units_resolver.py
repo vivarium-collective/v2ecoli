@@ -211,3 +211,74 @@ class V2EcoliUnitsResolver:
 
     def __call__(self, path: Optional[str]) -> Optional[str]:
         return resolve_unit(build_units_index(), path)
+
+
+# ---------------------------------------------------------------------------
+# Resilient figure helpers — prefer the shared base hook, fall back locally
+# ---------------------------------------------------------------------------
+#
+# v2ecoli visualizations label axes via the pluggable hook on the shared
+# ``pbg_superpowers.visualization.Visualization`` base. But the installed base
+# may transiently lack that hook (the units-aware base PR is not merged yet, or
+# a concurrent session reinstalled the non-editable git build into the shared
+# venv). These wrappers delegate to the base hook when it is present and apply
+# the identical labeling locally otherwise, so v2ecoli rendering never crashes
+# on a stale base. Once the base PR is merged and pinned, the delegate path is
+# always taken and the fallback is dead weight (cheap to keep for safety).
+
+
+def _base_visualization():
+    """Return the shared Visualization base class, or None if unavailable."""
+    try:
+        from pbg_superpowers.visualization import Visualization
+        return Visualization
+    except Exception:
+        return None
+
+
+def units_finalize_figure(fig, axis_units=()):
+    """Append schema units to matplotlib axis labels in-place.
+
+    ``axis_units`` is an iterable of ``(ax, which, path)`` with ``which`` in
+    ``{'x', 'y'}``. Delegates to ``Visualization.finalize_figure`` when present;
+    otherwise applies the same labeling via the v2ecoli resolver. Returns ``fig``.
+    """
+    base = _base_visualization()
+    if base is not None and hasattr(base, "finalize_figure"):
+        return base.finalize_figure(fig, axis_units)
+    resolver = V2EcoliUnitsResolver()
+    for ax, which, path in axis_units:
+        unit = resolver(path)
+        if not unit:
+            continue
+        if which == "y" and hasattr(ax, "set_ylabel"):
+            ax.set_ylabel(format_axis_label(ax.get_ylabel(), unit))
+        elif which == "x" and hasattr(ax, "set_xlabel"):
+            ax.set_xlabel(format_axis_label(ax.get_xlabel(), unit))
+    return fig
+
+
+def units_figure_to_html(fig, axis_units=(), *, dpi=150, close=True):
+    """Finalize axis units, then serialize a matplotlib figure to an ``<img>``.
+
+    Delegates to ``Visualization.figure_to_html`` when present; otherwise
+    finalizes locally via :func:`units_finalize_figure` and serializes the same
+    way the base hook does. Returns a complete ``<img>`` tag.
+    """
+    base = _base_visualization()
+    if base is not None and hasattr(base, "figure_to_html"):
+        return base.figure_to_html(fig, axis_units, dpi=dpi, close=close)
+    import base64
+    import io
+    units_finalize_figure(fig, axis_units)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=dpi, bbox_inches="tight")
+    buf.seek(0)
+    b64 = base64.b64encode(buf.read()).decode("ascii")
+    if close:
+        try:
+            import matplotlib.pyplot as plt
+            plt.close(fig)
+        except Exception:
+            pass
+    return f'<img src="data:image/png;base64,{b64}" style="max-width:100%"/>'

@@ -20,6 +20,7 @@ from html import escape
 from typing import Any
 
 from pbg_superpowers.visualization import Visualization
+from v2ecoli.library.units_resolver import units_figure_to_html
 
 from v2ecoli.visualizations._helpers import render_document
 
@@ -62,7 +63,7 @@ def _plot_mass(history, title=''):
     if not history or len(history) < 2:
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.text(0.5, 0.5, 'No data', ha='center', va='center')
-        return Visualization.figure_to_html(fig)
+        return units_figure_to_html(fig)
 
     times = _np_array([s.get('global_time', s.get('time', 0)) for s in history])
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
@@ -93,7 +94,7 @@ def _plot_mass(history, title=''):
     fig.tight_layout()
     # figure_to_html returns a full <img …> tag; the call site embeds it directly
     # (no surrounding <img> wrapper) to avoid double-wrapping.
-    return Visualization.figure_to_html(
+    return units_figure_to_html(
         fig,
         [(axes[1], 'y', 'listeners.mass.cell_mass')],
     )

@@ -1011,10 +1011,10 @@ findings:
     default pin set.'
   evidence:
     from_run: 'millard_fba_bridge_harness (full WCM + Millard source + coupler, M9-glucose)'
-    observed: 'held pins (glycolysis+PPP): median |rel err| = 0, 100% within 10%; curating off-on-glucose pathways cut pin-relaxation 57%->45%; core TCA remains growth-coupled (relaxes); viable'
+    observed: 'held pins (glycolysis+PPP): median |rel err| = 0, 100% within 10%; curating off-on-glucose pathways cut pin-relaxation 57%->45%; core TCA remains growth-coupled (relaxes); viable. TRANSFORMATIVE not confirmatory: all pinned reactions differ >10% from the unpinned WCM FBA (Millard drives ~2x glycolytic flux; PGK/ENO/PDH near-zero unpinned) -- the kinetic model genuinely steers the WCM. BUG found+parked: 6 isozyme-split reactions (PFK/FBA/PYK core glycolysis + SDH/PPC/PTA) had base-id pins SILENTLY IGNORED (WCM FBA has 9460 enzyme-resolved variant ids, no single base id); moved to needs_variant_pinning + a guard test (active pins now 22, all valid fba ids).'
   provenance:
     run_ids: [millard_fba_bridge_harness]
-  next_action: 'Per-condition pin sets (acetate growth would activate glyoxylate); investigate growth-coupling the TCA pin to the WCM biomass demand rather than Millard standalone flux.'
+  next_action: 'Implement variant/sum-level pinning to restore PFK/FBA/PYK (core glycolysis) to the held set; per-condition pin sets; growth-couple the TCA pin to WCM biomass demand.'
 - id: lqr-not-the-cell-mass-cause
   kind: computational
   status: novel

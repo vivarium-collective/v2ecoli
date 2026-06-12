@@ -22,13 +22,6 @@ tags:
 - active-inference
 - xarray-emitter
 created: '2026-05-24'
-parent_studies:
-- study: pdmp-03-inference
-  condition: tests-passed
-  relation: leads-to
-- study: pdmp-04-compilation
-  condition: tests-passed
-  relation: leads-to
 question: 'Can the compiled, likelihood-equipped PDMP WCM support Bayesian
 
   model comparison for gene-function annotation — recovering known

@@ -26,10 +26,6 @@ tags:
 - gillespie
 - xarray-emitter
 created: '2026-05-24'
-parent_studies:
-- study: pdmp-01-metabolism-ode
-  condition: tests-passed
-  relation: leads-to
 question: 'Can v2ecoli''s discrete-time stochastic layer (Poisson gene-
 
   expression draws scaled by timestep/doubling time, the teleonomic

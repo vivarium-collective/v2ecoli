@@ -103,10 +103,6 @@ tags:
 - causal-teleonomic
 - xarray-emitter
 created: '2026-05-24'
-parent_studies:
-- study: pdmp-00-characterization
-  condition: tests-passed
-  relation: leads-to
 question: 'Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
 
   and energy metabolism, wrapped in a linear-quadratic regulator

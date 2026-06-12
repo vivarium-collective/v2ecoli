@@ -28,10 +28,6 @@ tags:
 - hpc
 - xarray-emitter
 created: '2026-05-24'
-parent_studies:
-- study: pdmp-02-jump-processes
-  condition: tests-passed
-  relation: leads-to
 question: 'Can the Phase 2 PDMP be exported to a high-performance compiled
 
   representation (Catalyst.jl / ModelingToolkit with symbolic

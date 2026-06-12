@@ -308,7 +308,12 @@ def test_output_metadata_nested_state():
 
 @pytest.mark.fast
 def test_counts_deriver_outputs_monomer_counts_is_string_type():
-    """CountsDeriver.outputs() declares monomer_counts as 'monomer_counts_vec' (a string type name)."""
+    """CountsDeriver.outputs() declares monomer_counts as a string type name.
+
+    It is wrapped in ``overwrite[...]`` so the per-step apply is SET, not the
+    Array default ACCUMULATE (which inflated counts ~10^3x — see the
+    monomer-counts accumulate-listener fix).
+    """
     from v2ecoli.steps.derivers.counts_deriver import CountsDeriver
 
     monomer_ids = ["MONA_[c]", "MONB_[c]", "MONC_[c]"]
@@ -323,8 +328,9 @@ def test_counts_deriver_outputs_monomer_counts_is_string_type():
 
     schema = instance.outputs()
     monomer_schema = schema["listeners"]["monomer_counts"]
-    assert monomer_schema == 'monomer_counts_vec', (
-        "monomer_counts should be the string 'monomer_counts_vec'; got: %r" % monomer_schema
+    assert monomer_schema == 'overwrite[monomer_counts_vec]', (
+        "monomer_counts should be the string 'overwrite[monomer_counts_vec]' "
+        "(SET semantics); got: %r" % monomer_schema
     )
 
 

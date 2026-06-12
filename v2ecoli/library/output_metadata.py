@@ -78,6 +78,24 @@ def extract_metadata(schema: dict, _properties: bool = False) -> Any:
 # ---------------------------------------------------------------------------
 
 
+def _labels_from_node(node: Any) -> Any:
+    """Recover ``_labels`` from a resolved type node, unwrapping wrappers.
+
+    A bare ``LabeledArray`` carries ``_labels`` directly.  When the port is
+    wrapped for apply-semantics (e.g. ``overwrite[monomer_counts_vec]`` to get
+    SET instead of the Array default ACCUMULATE), the labels live on the inner
+    ``_value``.  Walk one level of ``_value`` so wrapped labeled vectors still
+    surface their element names.
+    """
+    labels = getattr(node, '_labels', None)
+    if labels:
+        return labels
+    inner = getattr(node, '_value', None)
+    if inner is not None:
+        return getattr(inner, '_labels', None)
+    return None
+
+
 def _extract_labels_recursive(schema: Any, core: Any) -> Any:
     """Recursively extract element-name labels from a port schema.
 
@@ -105,7 +123,7 @@ def _extract_labels_recursive(schema: Any, core: Any) -> Any:
         if core is not None:
             try:
                 node = core.access(schema)
-                labels = getattr(node, '_labels', None)
+                labels = _labels_from_node(node)
                 if labels:
                     return list(labels)
             except Exception:
@@ -126,7 +144,7 @@ def _extract_labels_recursive(schema: Any, core: Any) -> Any:
         if isinstance(type_str, str) and core is not None:
             try:
                 node = core.access(type_str)
-                labels = getattr(node, '_labels', None)
+                labels = _labels_from_node(node)
                 if labels:
                     return list(labels)
             except Exception:

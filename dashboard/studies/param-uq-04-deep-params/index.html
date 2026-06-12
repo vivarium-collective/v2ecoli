@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study: param-uq-04-deep-params</title>
+<link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
+</head>
+<body>
+<main class="study-page">
+<header class="study-header">
+  <h1 class="study-title">
+    <span class="study-name" id="study-name" data-slug="param-uq-04-deep-params" title="param-uq-04-deep-params">Deep physiological parameters — sensitivity to sim_data attributes via ParCa-level injection.</span>
+    
+    
+    
+    <span class="status-pill gate-status gate-status-pending" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: pending</span>
+    
+    
+    
+    
+  </h1>
+</header>
+
+
+<div id="readiness-panel" data-slug="param-uq-04-deep-params"></div>
+
+
+
+
+
+
+<style>
+.status-detail-panel{margin:8px 0 14px 0;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+.status-detail-panel h2{margin:0 0 6px 0;font-size:0.82em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:600}
+.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
+.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
+/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
+.gate-status-blocked          { background:#e5e7eb; color:#374151 }
+.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
+.gate-status-passed           { background:#d1fae5; color:#065f46 }
+.gate-status-failed           { background:#fee2e2; color:#991b1b }
+.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
+.status-pill.gate-status{font-weight:500}
+</style>
+<details class="status-detail-panel" aria-label="Multi-axis status detail" open>
+  <summary class="study-fold-summary">Status detail (Pass A multi-axis)</summary>
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Design</span>
+    <span class="status-chip ">complete</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Implementation</span>
+    <span class="status-chip ">planned</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Simulation</span>
+    <span class="status-chip ">planned</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Evaluation</span>
+    <span class="status-chip ">planned</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Gate</span>
+    <span class="status-chip gate-status-pending">pending</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Expert review</span>
+    <span class="status-chip ">pending</span>
+  </div>
+  
+  
+</details>
+
+
+
+
+
+
+<style>
+.spine-summary{margin:6px 0 14px 0;border:1px solid #cbd5e1;border-left-width:5px;border-radius:6px;background:#f8fafc;font-size:0.9em}
+.spine-summary:empty{display:none}
+.spine-summary-head{padding:7px 14px 4px 14px;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700}
+.spine-row{display:flex;align-items:baseline;gap:10px;padding:4px 14px;border-top:1px solid #eef2f6}
+.spine-key{min-width:92px;color:#475569;font-weight:600;font-size:0.85em;text-transform:uppercase;letter-spacing:0.03em}
+.spine-val{flex:1;color:#1e293b}
+.spine-jump{white-space:nowrap}
+.spine-jump a,.spine-val a{color:#3b82f6;text-decoration:none}
+.spine-jump a:hover,.spine-val a:hover{text-decoration:underline}
+.spine-label{font-size:0.8em;color:#64748b;font-weight:500}
+.spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
+.spine-div{font-weight:600;color:#92400e}
+</style>
+<div id="spine-summary" class="spine-summary" data-slug="param-uq-04-deep-params"></div>
+
+<nav class="study-tabs" aria-label="Study sections">
+  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
+  
+  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
+  
+  
+  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
+  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
+  
+  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
+  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
+  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+</nav>
+<style>
+.phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
+.phase-design   { background:#e0e7ff; color:#3730a3 }
+.phase-build    { background:#fef3c7; color:#92400e }
+.phase-simulate { background:#dbeafe; color:#1e40af }
+.phase-evaluate { background:#fce7f3; color:#9d174d }
+.phase-decide   { background:#d1fae5; color:#065f46 }
+.classification-pill{display:inline-block;font-size:0.7em;padding:1px 8px;border-radius:9999px;margin-right:4px;font-weight:500}
+.classification-primary    { background:#fee2e2; color:#991b1b }
+.classification-supporting { background:#dbeafe; color:#1e40af }
+.classification-diagnostic { background:#fef3c7; color:#92400e }
+.classification-regression { background:#e5e7eb; color:#374151 }
+.sim-status-pill{display:inline-block;font-size:0.72em;padding:1px 8px;border-radius:9999px;margin-left:4px}
+.sim-status-ready  { background:#d1fae5; color:#065f46 }
+.sim-status-gated  { background:#fef3c7; color:#92400e }
+.sim-status-running{ background:#dbeafe; color:#1e40af }
+.sim-status-ran    { background:#d1fae5; color:#065f46 }
+.purpose-callout{margin-bottom:10px;padding:10px 14px;border-radius:4px;line-height:1.55}
+.purpose-callout strong{margin-right:6px}
+.followup-list{display:flex;flex-direction:column;gap:10px}
+.followup-card{padding:10px 14px;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.93em}
+.followup-card.followup-kind-existing{border-left-color:#3b82f6;background:#eff6ff}
+.followup-card.followup-kind-infrastructure_fix{border-left-color:#dc2626;background:#fef2f2}
+.followup-card.followup-kind-calibration_task{border-left-color:#f59e0b;background:#fefce8}
+.followup-card.followup-kind-expert_question{border-left-color:#a855f7;background:#faf5ff}
+.followup-card.followup-kind-new{border-left-color:#10b981;background:#f0fdf4}
+.followup-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.followup-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-effort{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-family:ui-monospace,monospace}
+.followup-status{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-status.status-blocked{background:#fef3c7;color:#92400e}
+.followup-status.status-done{background:#d1fae5;color:#065f46}
+.followup-title{flex:1;font-size:1em}
+.followup-why,.followup-unblocks,.followup-acceptance,.followup-hypothesis{margin:4px 0 0 0;font-size:0.92em;line-height:1.45}
+.followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
+.btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
+.btn-seed-followup:hover{background:#3b82f6;color:#fff}
+.charts-panel{margin-top:18px;display:flex;flex-direction:column;gap:18px}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px 12px 12px}
+/* SVGs scale to fit their card; preserves aspect ratio so a 1400×484
+   chart shrinks instead of overflowing horizontally + clipping. */
+.chart-card svg,.chart-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+.chart-caption{font-size:0.83em;color:#475569;margin-top:4px;line-height:1.4}
+/* findings */
+.findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
+.finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
+.finding-card.finding-status-confirms{border-left-color:#10b981}
+.finding-card.finding-status-partial{border-left-color:#f59e0b}
+.finding-card.finding-status-contradicts{border-left-color:#dc2626}
+.finding-card.finding-status-novel{border-left-color:#8b5cf6}
+.finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
+.finding-status-confirms .finding-status-glyph{color:#10b981}
+.finding-status-partial .finding-status-glyph{color:#f59e0b}
+.finding-status-contradicts .finding-status-glyph{color:#dc2626}
+.finding-status-novel .finding-status-glyph{color:#8b5cf6}
+.finding-id{font-family:ui-monospace,monospace;font-size:0.78em;color:#475569;background:#f1f5f9;padding:1px 6px;border-radius:3px}
+.finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
+.finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
+.finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
+.finding-explanation em{color:#475569;font-style:normal;font-weight:600}
+.finding-expert{margin:6px 0;padding:6px 10px;background:#fafafa;border:1px solid #e2e8f0;border-radius:4px}
+.finding-expert summary{cursor:pointer;font-size:0.85em;color:#475569;font-weight:500}
+.finding-expert-quote{border-left:3px solid #6366f1;margin:6px 0 4px 0;padding:6px 10px;background:#fafbff;font-style:italic;color:#1e1b4b;font-size:0.92em;line-height:1.5}
+.finding-expert-note{font-size:0.88em;color:#475569;margin-top:4px;font-style:italic}
+.finding-next{padding:6px 10px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:3px;font-size:0.9em;margin-top:8px;line-height:1.5}
+.finding-next strong{color:#065f46}
+/* discovery implications */
+.di-group{margin:14px 0}
+.di-group h3{margin:0 0 6px 0;font-size:0.95em}
+.di-uncertainties{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}
+.di-unc{flex:1;min-width:220px}
+.di-unc h4{margin:0 0 4px 0;font-size:0.88em}
+.di-unc-resolved h4{color:#065f46}
+.di-unc-remaining h4{color:#92400e}
+.di-unc ul{margin:0 0 0 18px;padding:0;font-size:0.9em;line-height:1.45}
+.di-card{padding:10px 14px;margin:8px 0;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.92em}
+.di-card-stmt{font-size:0.98em;line-height:1.5}
+.di-card-why{margin:4px 0 0 0;color:#475569;line-height:1.45}
+.di-card-line{margin:4px 0 0 0;font-size:0.88em;color:#475569;line-height:1.4}
+.di-lbl{color:#475569;font-weight:600;font-size:0.85em}
+.di-mech-card{border-left-color:#a855f7;background:#faf5ff}
+.di-mech-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.di-update-chip{font-size:0.7em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3}
+.di-conf-change{font-size:0.78em;color:#475569;font-family:ui-monospace,monospace}
+.di-approval-badge{font-size:0.68em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e}
+.di-fup-card{border-left-color:#10b981;background:#f0fdf4}
+.di-gain-high{background:#d1fae5;color:#065f46}
+.di-gain-medium{background:#fef3c7;color:#92400e}
+.di-gain-low{background:#e5e7eb;color:#374151}
+.di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+</style>
+
+<section class="study-tab-panel active" data-kind="overview" id="panel-overview">
+  <div class="study-overview">
+
+    
+    
+    
+    <div class="overview-section narrative-card" data-narrative-card="report">
+      <h2 class="overview-label">📋 Report — executive summary
+        <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
+      </h2>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Verdict</span>
+          <input type="text" class="narrative-input" data-narrative-path="report.verdict"
+                 value="pending"
+                 placeholder="e.g. passing | passing-with-caveats | failing-bio | not-yet-run">
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Confidence</span>
+          <select class="narrative-input" data-narrative-path="report.confidence">
+            <option value="">(unset)</option>
+            <option value="high" >high</option>
+            <option value="medium" >medium</option>
+            <option value="low" >low</option>
+          </select>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Evidence quality</span>
+          <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
+                 value="pending — study not yet run"
+                 placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Main insight</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="report.main_insight"
+                    placeholder="One sentence: the single most important thing this study taught us."></textarea>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Caveat</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="report.caveat"
+                    placeholder="One sentence: the headline limitation a reviewer needs to know."></textarea>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Conclusion</span>
+          <textarea class="narrative-input narrative-textarea" rows="3"
+                    data-narrative-path="report.conclusion"
+                    placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
+        </label>
+      </div>
+    </div>
+
+    <div class="biology-glance">
+      
+      <div class="biology-summary-callout">
+        <h2 class="biology-glance-label">Biology — what this study is about</h2>
+        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                  data-narrative-path="biological_summary"
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+      </div>
+
+      
+      
+      <div class="study-card">
+        <h2 class="biology-glance-label">Study card</h2>
+        <table class="study-card-table">
+          <tr><th>Goal</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.goal"
+                   value=""
+                   placeholder="One sentence — the single most important thing this study does.">
+          </td></tr>
+          <tr><th>Mechanism</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.mechanism"
+                   value=""
+                   placeholder="One paragraph — how the biology gets the result.">
+          </td></tr>
+          <tr><th>Why before next</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.why_before_next"
+                   value=""
+                   placeholder="Why this study must finish before the next one in the DAG.">
+          </td></tr>
+          <tr><th>Expected result</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.expected_result"
+                   value=""
+                   placeholder="Literature-stated success criterion.">
+          </td></tr>
+          <tr><th>Main expert question</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.main_expert_question"
+                   value=""
+                   placeholder="The one question this study most wants an expert to answer.">
+          </td></tr>
+        </table>
+      </div>
+
+      
+
+      
+    </div>
+
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Purpose</h2>
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> How sensitive are growth/mass observables to the DEEP physiological sim_data
+parameters (e.g., transcription rnap active fractions, metabolism
+kinetic_objective_weight / secretion_penalty_coeff, mass cell_dry_mass_fraction)
+that the uqEcoli demo varies — and which dominate?
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Pipeline gate</summary>
+      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+      </p>
+      
+      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+        <code>param-uq-00-screen</code>
+      </div>
+      
+      
+      
+    </details>
+    
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Key assumptions</summary>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">The uqEcoli parameter bounds (RNAP fractions, FBA weights, mass fraction) are
+meaningful uncertainty ranges for v2ecoli. They may need re-calibration if
+v2ecoli&#39;s ParCa pipeline has shifted the baseline physiological state since
+the original uqEcoli work.
+</li><li style="margin:2px 0">Per-sample ParCa cache rebuilds are feasible within the available compute
+budget (~2.5 min/rebuild on the Mac mini). A budget of n=30 train + 10 test
+samples implies ~100 min of ParCa rebuild time in addition to simulation time.
+</li>
+      </ul>
+    </details>
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Behavioral tests</h2>
+      
+      
+      
+      
+      
+      <p style="margin:0">
+        <strong>1</strong> tests defined —
+          <span class="classification-pill classification-primary">1 primary</span>
+        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+      </p>
+    </div>
+    
+
+    
+
+    
+
+    
+    
+
+    <div class="overview-section">
+      <h2 class="overview-label">Status</h2>
+      <select id="status-select" data-field="status" class="overview-status-select">
+        <option value="planned"     selected>planned</option>
+        <option value="running"     >running</option>
+        <option value="ran"         >ran</option>
+        <option value="complete"    >complete</option>
+        <option value="failed"      >failed</option>
+      </select>
+      
+    </div>
+
+    <div class="study-counts-strip">
+      <div class="count-cell">
+        <strong>1</strong>
+        <span class="count-label">simulations</span>
+      </div>
+      <div class="count-cell">
+        <strong>0</strong>
+        <span class="count-label">readouts</span>
+      </div>
+      <div class="count-cell">
+        <strong>0</strong>
+        <span class="count-label">requirements</span>
+      </div>
+      <div class="count-cell">
+        <strong>0</strong>
+        <span class="count-label">runs</span>
+      </div>
+    </div>
+
+    
+    <div id="feedback-tracked-panel"></div>
+
+  </div>
+</section>
+
+
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+
+  
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>baseline</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+
+    
+    <div class="cond-block">
+      
+      <div class="cond-block-title">
+        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span>
+        <span class="cond-ei-required-badge" title="3 required-before-run">3 required</span>
+      </div>
+      <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
+      <table class="cond-table cond-expert-table" data-study="param-uq-04-deep-params">
+        <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Current</th><th>Range</th><th>Gate</th><th></th></tr></thead>
+        <tbody>
+          
+          
+          
+          
+          <tr data-ei-name="sim-data-injection-required">
+            <td title=""><code>sim-data-injection-required</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-req">required</span>
+              
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('param-uq-04-deep-params', 'sim-data-injection-required', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="parca-rebuild-cost">
+            <td title=""><code>parca-rebuild-cost</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-req">required</span>
+              
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('param-uq-04-deep-params', 'parca-rebuild-cost', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="pbg-uq-extension-needed">
+            <td title=""><code>pbg-uq-extension-needed</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-req">required</span>
+              
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('param-uq-04-deep-params', 'pbg-uq-extension-needed', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+  </div>
+  
+
+  
+
+  
+</section>
+
+
+
+
+
+<section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
+  <h3>Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">param-uq-04-deep-params-baseline</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>baseline</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      <strong>Tests applied:</strong> 1 · 
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+</section>
+
+
+<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
+  <div class="baseline-list">
+    
+    <article class="baseline-entry" data-baseline-name="param-uq-04-deep-params">
+      <header class="baseline-entry-header">
+        <h3 class="baseline-entry-name">param-uq-04-deep-params</h3>
+        <code class="baseline-entry-fqn">baseline</code>
+      </header>
+      
+      <table class="baseline-params">
+        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+        <tbody>
+          
+          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
+          
+        </tbody>
+      </table>
+      
+      <div class="baseline-entry-actions">
+        <button class="btn-run-baseline" data-baseline-name="param-uq-04-deep-params">Run</button>
+        <button class="btn-baseline-remove" data-baseline-name="param-uq-04-deep-params">Remove</button>
+      </div>
+    </article>
+    
+  </div>
+
+  <details class="baseline-add-form">
+    <summary class="btn-baseline-add">+ Add composite</summary>
+    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
+      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
+      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
+  <div class="observables-section">
+    <h3 class="section-title">Observables</h3>
+    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    
+    
+    <p class="empty-message">No observables declared yet.</p>
+    
+
+    <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
+      <summary class="btn-baseline-add">+ Add observable from bigraph state</summary>
+      <div class="bigraph-picker" style="display: grid; grid-template-columns: minmax(360px, 2fr) 1fr; gap: 16px; margin-top: 10px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <input type="search" id="bigraph-filter" placeholder="Filter paths (regex)…"
+                   style="flex:1; padding:4px 6px; font-size:0.9em;">
+            <button class="btn-mini" onclick="_reloadBigraphPaths()">Reload</button>
+          </div>
+          <div id="bigraph-tree" style="border:1px solid #e2e8f0; border-radius:4px; padding:8px; max-height:520px; overflow:auto; font-family: ui-monospace, monospace; font-size:0.82em; background:#fafafa;">
+            <span class="muted">Click "Reload" or expand this panel to load the path tree.</span>
+          </div>
+          <div id="bigraph-source-info" class="muted" style="font-size:0.75em; margin-top:4px;"></div>
+        </div>
+        <aside style="border:1px solid #e2e8f0; border-radius:4px; padding:10px; background:#fff;">
+          <h4 style="margin:0 0 6px 0; font-size:0.9em;">Selected path</h4>
+          <div id="bigraph-selected" class="muted" style="font-size:0.85em;">Pick a leaf on the left.</div>
+          <h4 style="margin:12px 0 6px 0; font-size:0.9em;">Observable spec</h4>
+          <p class="muted" style="margin:0 0 6px 0; font-size:0.78em;">Copy into <code>studies/param-uq-04-deep-params/study.yaml</code> under <code>observables:</code>.</p>
+          <textarea id="bigraph-spec" readonly rows="8"
+                    style="width:100%; font-family: ui-monospace, monospace; font-size:0.78em; box-sizing: border-box;"></textarea>
+          <button class="btn-mini" onclick="_copyBigraphSpec()" style="margin-top:6px;">Copy</button>
+        </aside>
+      </div>
+    </details>
+    <script>
+      // Lazy load the bigraph tree the first time the observables panel
+      // becomes visible OR the details element opens.
+      (function() {
+        var loaded = false;
+        function load() {
+          if (loaded) return; loaded = true; _reloadBigraphPaths();
+        }
+        document.getElementById('bigraph-picker-details')
+                .addEventListener('toggle', function() {
+                  if (this.open) load();
+                });
+        // Also load on tab activation if the panel is already visible.
+        document.querySelector('[data-kind="observables"].study-tab')
+                .addEventListener('click', function() { setTimeout(load, 50); });
+      })();
+
+      function _reloadBigraphPaths() {
+        var tree = document.getElementById('bigraph-tree');
+        var info = document.getElementById('bigraph-source-info');
+        tree.innerHTML = '<span class="muted">Loading…</span>';
+        info.textContent = '';
+        fetch('/api/study-bigraph-paths?study=param-uq-04-deep-params', {headers: {Accept: 'application/json'}})
+          .then(function(r) { return r.json().then(function(j) { return {ok: r.ok, body: j}; }); })
+          .then(function(res) {
+            if (!res.ok) {
+              tree.innerHTML = '<span style="color:#b91c1c;">' + (res.body.error || 'failed to load') + '</span>';
+              if (res.body.looked_in) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">looked in: ' + res.body.looked_in.join(', ') + '</span>';
+              }
+              if (res.body.hint) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">hint: ' + res.body.hint + '</span>';
+              }
+              return;
+            }
+            window._bigraphNodes = res.body.nodes || [];
+            info.textContent = res.body.composite + '  ·  ' + res.body.source_file + '  ·  ' + res.body.node_count + ' leaves (max_depth=' + res.body.max_depth + ')';
+            _renderBigraphTree(window._bigraphNodes, '');
+          });
+      }
+
+      // Render the flat list as a nested <ul>. Group nodes by path[0..n] so
+      // siblings collapse under shared parents.
+      function _renderBigraphTree(nodes, filter) {
+        var tree = document.getElementById('bigraph-tree');
+        tree.innerHTML = '';
+        var rx = null;
+        if (filter) { try { rx = new RegExp(filter, 'i'); } catch (e) {} }
+        // Build a nested object: tree[seg] = {__leaf?:node, __children?:tree}
+        var root = {};
+        nodes.forEach(function(n) {
+          var p = n.path;
+          if (rx && !rx.test(p.join('.'))) return;
+          var cursor = root;
+          for (var i = 0; i < p.length - 1; i++) {
+            var seg = p[i];
+            if (!cursor[seg]) cursor[seg] = {__children: {}};
+            cursor = cursor[seg].__children;
+          }
+          var last = p[p.length - 1];
+          if (!cursor[last]) cursor[last] = {};
+          cursor[last].__leaf = n;
+        });
+
+        function render(level, container, prefix) {
+          Object.keys(level).sort().forEach(function(seg) {
+            var entry = level[seg];
+            var li = document.createElement('li');
+            li.style.listStyle = 'none';
+            li.style.margin = '1px 0';
+
+            var fullPath = prefix.concat([seg]);
+            var leaf = entry.__leaf;
+            var children = entry.__children;
+
+            if (leaf && !children) {
+              // Pure leaf — clickable.
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'bigraph-leaf-btn';
+              btn.style.cssText = 'background:none; border:none; padding:2px 4px; cursor:pointer; text-align:left; font-family:inherit; font-size:inherit; color:#1d4ed8; width:100%;';
+              btn.innerHTML = '<span style="color:#9ca3af;">·</span> ' + seg
+                + ' <span class="muted" style="font-size:0.85em;">(' + leaf.kind
+                + (leaf.fields ? ': ' + leaf.fields.join(', ') : '')
+                + (leaf.length !== undefined ? ', n=' + leaf.length : '')
+                + ')</span>';
+              btn.onclick = function() { _selectBigraphLeaf(leaf); };
+              li.appendChild(btn);
+            } else {
+              // Has children — make collapsible.
+              var det = document.createElement('details');
+              det.open = (prefix.length < 2);  // expand top-2 levels by default
+              var sum = document.createElement('summary');
+              sum.style.cursor = 'pointer';
+              sum.innerHTML = '<strong>' + seg + '</strong>';
+              det.appendChild(sum);
+              var ul = document.createElement('ul');
+              ul.style.cssText = 'margin:0 0 0 14px; padding:0;';
+              render(children, ul, fullPath);
+              det.appendChild(ul);
+              li.appendChild(det);
+              if (leaf) {  // both a leaf and has children — rare
+                var hint = document.createElement('span');
+                hint.className = 'muted';
+                hint.style.fontSize = '0.78em';
+                hint.textContent = ' (' + leaf.kind + ')';
+                sum.appendChild(hint);
+              }
+            }
+            container.appendChild(li);
+          });
+        }
+
+        var ul = document.createElement('ul');
+        ul.style.cssText = 'margin:0; padding:0;';
+        render(root, ul, []);
+        tree.appendChild(ul);
+      }
+
+      function _selectBigraphLeaf(leaf) {
+        var sel = document.getElementById('bigraph-selected');
+        sel.innerHTML = '<code style="font-size:0.85em;">' + leaf.path.join('.') + '</code>'
+          + '<br><span class="muted" style="font-size:0.78em;">kind: ' + leaf.kind
+          + (leaf.fields ? ', fields: [' + leaf.fields.join(', ') + ']' : '')
+          + (leaf.length !== undefined ? ', length: ' + leaf.length : '')
+          + (leaf.preview !== undefined ? ', value: ' + leaf.preview : '')
+          + '</span>';
+        // Suggest a slug from the last segment, with -<parent> for disambiguation if generic.
+        var last = leaf.path[leaf.path.length - 1] || 'obs';
+        var second = leaf.path[leaf.path.length - 2] || '';
+        var slug = (last === 'count' || last === 'id' || second.length > 0 && /listeners?$/.test(second))
+          ? (second + '_' + last).replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()
+          : last.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+        var pathStr = leaf.path.join('.');
+        var spec;
+        if (leaf.kind === 'structured_array') {
+          spec = '- name: ' + slug + '_by_id\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Bulk count by molecule id. Replace EXAMPLE_ID with the actual id\n'
+            + '    (e.g. "MONOMER0-160[c]" for DnaA).\n'
+            + '  store_path: ' + pathStr + '\n'
+            + '  index_by: {type: bulk_id, value: "EXAMPLE_ID"}\n';
+        } else if (leaf.kind === 'array') {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Array listener at ' + pathStr + ' (length=' + leaf.length + ' at snapshot time).\n'
+            + '    If this is indexed by id (e.g. tu_id, tf_id), add index_by:.\n'
+            + '  store_path: ' + pathStr + '\n';
+        } else {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: "Scalar observable at ' + pathStr + '"\n'
+            + '  store_path: ' + pathStr + '\n';
+        }
+        document.getElementById('bigraph-spec').value = spec;
+      }
+
+      function _copyBigraphSpec() {
+        var ta = document.getElementById('bigraph-spec');
+        if (!ta.value) return;
+        ta.select();
+        document.execCommand('copy');
+      }
+
+      document.getElementById('bigraph-filter').addEventListener('input', function(e) {
+        if (window._bigraphNodes) _renderBigraphTree(window._bigraphNodes, e.target.value);
+      });
+    </script>
+
+    
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="variants" id="panel-variants">
+  <div class="variants-list">
+    
+    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    
+  </div>
+
+  <details class="variant-add-form-wrapper">
+    <summary class="btn-variant-new">+ New variant</summary>
+    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Base composite:
+        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
+          <option value="">— pick a baseline composite —</option>
+          
+          <option value="param-uq-04-deep-params" data-composite-id="baseline">param-uq-04-deep-params (baseline)</option>
+          
+        </select>
+      </label>
+      <div id="variant-new-params" class="param-form">
+        <p class="muted">Pick a base composite to see its parameters.</p>
+      </div>
+      <button type="submit">Save variant</button>
+    </form>
+  </details>
+
+  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
+  <dialog id="variant-edit-dialog">
+    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
+      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
+      <div id="variant-edit-params" class="param-form"></div>
+      <menu>
+        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
+        <button type="submit">Save</button>
+      </menu>
+    </form>
+  </dialog>
+</section>
+
+<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
+  <div class="interventions-list">
+    
+    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
+    
+  </div>
+
+  <details class="intervention-add-form-wrapper">
+    <summary class="btn-intervention-new">+ New intervention</summary>
+    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <div class="runs-section">
+    <h3 class="section-title">Runs</h3>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Per-run record of what was executed. Visualizations live in the
+      <a href="#" onclick="_setStudyTab('visualizations');return false">Visualizations</a> tab.
+    </p>
+    <table id="runs-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Variant / Baseline</th>
+          <th>Composite</th>
+          <th>Steps</th>
+          <th>Started (UTC)</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Test results</th>
+          <th>Model changes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        
+      </tbody>
+    </table>
+    <div class="runs-actions">
+      <button class="btn-compare-selected">Compare selected</button>
+      <button class="btn-clear-runs danger">Clear all runs</button>
+    </div>
+  </div>
+
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <div class="tests-header">
+    <h3>Behavioral Tests</h3>
+    <p class="muted" style="margin: 0 0 8px 0;">
+      Each prediction below is paired with a precise <code>given / measure / expect</code>
+      rule so one English sentence auto-generates one pytest assertion. The
+      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
+      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
+      against the latest simulation run.
+    </p>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="run-tests-btn" class="btn-primary">Run tests</button>
+      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+    </div>
+    <div class="tests-config" style="margin-top: 6px;">
+      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-deep-param-injection-feasible-and-ranked"
+        data-pytest-node="deep-param-injection-feasible-and-ranked"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">deep-param-injection-feasible-and-ranked</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Can the deep sim_data parameters be injected cleanly (ParCa rebuild per sample,
+no simulation crashes), and does a single parameter robustly dominate total-order
+Sobol across growth/mass observables?
+</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "(TBD) Will measure (1) crash-free completion rate across all samples and\n(2) max total-order Sobol across the 6 candidate deep params. A dominant\nparameter is defined as total-order Sobol \u2265 0.5.\n", "kind": "authored", "measured_value": null}
+expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+  </ul>
+  
+</section>
+
+<section class="study-tab-panel" data-kind="visualizations" id="panel-visualizations" hidden>
+  <div class="viz-section">
+
+    
+    
+
+    <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
+    <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+      These charts re-render each time the page loads, against the most recent simulation in the study's <code>runs.db</code>.
+      They are also embedded into the downloadable investigation HTML report.
+    </p>
+    <div id="viz-charts-panel" class="charts-panel"></div>
+    <h3 class="section-title" style="margin-top:24px">Registered visualization modules</h3>
+    <div id="viz-list">
+      
+      <p class="muted" style="margin:0">No registered viz modules. The composite's default workflow + topology visualizations apply automatically when running.</p>
+      
+    </div>
+    <button class="btn-add-viz" style="margin-top:8px">+ Add visualization</button>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
+
+  
+  
+  
+  
+  
+  
+  
+  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
+      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+    </h2>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Each track is independent. <em>Regression</em> answers "does the code
+      still build and run cleanly?", <em>biological</em> answers "does the
+      model match the literature?", <em>explanatory</em> answers "did we
+      learn something new?". Set the result + basis for each as the runs
+      complete.
+    </p>
+    <div class="narrative-grid">
+      <label class="narrative-row">
+        <span class="narrative-label">Regression compatibility</span>
+        <select class="narrative-input" data-narrative-path="conclusion_verdicts.regression_compatibility.result">
+          <option value="">(unset)</option>
+          <option value="PASS" >PASS</option>
+          <option value="FAIL" >FAIL</option>
+          <option value="MIXED" >MIXED</option>
+          <option value="PENDING" >PENDING</option>
+        </select>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Regression basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Biological validation</span>
+        <select class="narrative-input" data-narrative-path="conclusion_verdicts.biological_validation.result">
+          <option value="">(unset)</option>
+          <option value="PASS" >PASS</option>
+          <option value="FAIL" >FAIL</option>
+          <option value="MIXED" >MIXED</option>
+          <option value="PENDING" >PENDING</option>
+        </select>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Biological basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Explanatory gain</span>
+        <select class="narrative-input" data-narrative-path="conclusion_verdicts.explanatory_gain.result">
+          <option value="">(unset)</option>
+          <option value="POSITIVE" >POSITIVE</option>
+          <option value="NEUTRAL" >NEUTRAL</option>
+          <option value="NEGATIVE" >NEGATIVE</option>
+          <option value="PENDING" >PENDING</option>
+        </select>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Explanatory basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+      </label>
+    </div>
+  </div>
+
+  
+  
+  
+  <div class="conclusions-grid">
+    <div class="conclusion-field">
+      <h3>Claims</h3>
+      <textarea id="conclusion-claims" rows="6" data-section="Claims"></textarea>
+    </div>
+    <div class="conclusion-field">
+      <h3>Evidence</h3>
+      <textarea id="conclusion-evidence" rows="6" data-section="Evidence"></textarea>
+    </div>
+    <div class="conclusion-field">
+      <h3>Limitations</h3>
+      <textarea id="conclusion-limitations" rows="6" data-section="Limitations"></textarea>
+    </div>
+    <div class="conclusion-field">
+      <h3>Next steps</h3>
+      <textarea id="conclusion-next-steps" rows="6" data-section="Next steps"></textarea>
+    </div>
+  </div>
+  <p class="muted">Saved as one markdown blob in study.yaml.conclusion with H2 headers.</p>
+  
+
+</section>
+
+</main>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard" };</script>
+<script src="/v2ecoli/dashboard/assets/data-source.js"></script>
+<script>
+window._studyName = "param-uq-04-deep-params";
+window._study = null;  // populated by _bootstrapStudy() in study-detail.js
+
+// Save handler for the Conditions → Model settings editable rows.
+// POSTs to /api/study-expert-input-set (route kept for back-compat)
+// which patches study.yaml in place.
+// On success: flashes "saved" + updates the row's data-current attribute.
+// On failure: flashes the error (HTTP body) for ~5s.
+function _saveExpertInput(studyName, eiName, btn) {
+  var row = btn.closest('tr');
+  var input = row && row.querySelector('.cond-ei-input');
+  var flash = row && row.querySelector('.cond-ei-flash');
+  if (!input || !flash) return;
+  var raw = (input.value || '').trim();
+  // Coerce numeric inputs so yaml carries the right type
+  var val = raw;
+  if (input.type === 'number' && raw !== '') {
+    var n = Number(raw);
+    if (!isNaN(n)) val = n;
+  } else if (raw === '') {
+    val = null;
+  }
+  btn.disabled = true;
+  flash.className = 'cond-ei-flash';
+  flash.style.display = '';
+  flash.textContent = 'saving…';
+  fetch('/api/study-expert-input-set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({study: studyName, name: eiName, current: val}),
+  }).then(function(r) {
+    return r.text().then(function(t) { return {ok: r.ok, status: r.status, body: t}; });
+  }).then(function(res) {
+    if (res.ok) {
+      flash.className = 'cond-ei-flash saved';
+      flash.textContent = '✓ saved';
+      setTimeout(function() { flash.style.display = 'none'; }, 2500);
+    } else {
+      flash.className = 'cond-ei-flash error';
+      flash.textContent = '✗ ' + (res.body || ('HTTP ' + res.status));
+    }
+  }).catch(function(err) {
+    flash.className = 'cond-ei-flash error';
+    flash.textContent = '✗ ' + String(err);
+  }).finally(function() {
+    btn.disabled = false;
+  });
+}
+
+// ── Seed a child study from this study's discovery_implications /
+//    follow_up_studies and make it appear in the investigation graph ──────
+// Both POST /api/study-seed-followup. On success they flash an inline
+// confirmation on the clicked button, then refresh the surface the user is
+// in: when embedded inside the investigation iframe, ask the parent to
+// re-render the investigation detail (and reload as a fallback); standalone,
+// reload the page so the seeded child is reflected.
+//
+// NOTE: these are defined AFTER /study-detail.js loads (see the script order
+// below) so they take precedence over the legacy _seedFollowupStudy there,
+// which navigates away instead of refreshing the embedded investigation.
+function _flashSeedBtn(btn, text, ok) {
+  if (!btn) return;
+  btn.textContent = text;
+  btn.style.borderColor = ok ? '#10b981' : '#dc2626';
+  btn.style.color = ok ? '#065f46' : '#991b1b';
+}
+function _afterSeedRefresh() {
+  // Embedded inside the investigation iframe → refresh the parent's graph.
+  if (window.parent && window.parent !== window) {
+    try {
+      if (window.parent._refreshInvestigationDetail) {
+        window.parent._refreshInvestigationDetail();
+        return;
+      }
+    } catch (e) { /* cross-origin or missing — fall through to reload */ }
+    try { window.parent.location.reload(); return; } catch (e) { /* fall through */ }
+  }
+  location.reload();
+}
+function _seedFollowup(payload, btn) {
+  var orig = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; _flashSeedBtn(btn, '… seeding', true); }
+  fetch('/api/study-seed-followup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(function(r) {
+    return r.json().then(function(d) { return {ok: r.ok, status: r.status, body: d}; })
+      .catch(function() { return {ok: r.ok, status: r.status, body: {}}; });
+  }).then(function(res) {
+    if (!res.ok || (res.body && res.body.error)) {
+      _flashSeedBtn(btn, '✗ ' + ((res.body && res.body.error) || ('HTTP ' + res.status)), false);
+      if (btn) btn.disabled = false;
+      return;
+    }
+    _flashSeedBtn(btn, '✓ added', true);
+    setTimeout(_afterSeedRefresh, 600);
+  }).catch(function(err) {
+    _flashSeedBtn(btn, '✗ ' + String(err), false);
+    if (btn) btn.disabled = false;
+  });
+}
+function _seedFollowupStudy(parent, idx) {
+  _seedFollowup({parent: parent, followup_idx: idx}, window.event && window.event.target);
+}
+function _seedFollowupProposal(parent, proposalId) {
+  _seedFollowup({parent: parent, proposal_id: proposalId}, window.event && window.event.target);
+}
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script src="/v2ecoli/dashboard/assets/study-detail.js"></script>
+<script>
+// Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
+// defines its own navigate-away _seedFollowupStudy). The embedded
+// investigation view prefers staying in place over a full navigation.
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+</body>
+</html>

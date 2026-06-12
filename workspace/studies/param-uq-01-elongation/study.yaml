@@ -1,0 +1,160 @@
+schema_version: 4
+name: param-uq-01-elongation
+investigation: parameter-uq
+title: "GTP cost per elongation dominates mass/growth variance among ribosome-elongation knobs"
+created: '2026-06-12'
+status: passed
+
+# Canonical 6-axis status. Forward-UQ analysis complete; Sobol indices evaluated.
+design_status: complete
+implementation_status: complete
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: passed
+expert_review_status: pending
+
+question: |
+  Among the three ribosome-elongation parameters in ecoli-polypeptide-elongation
+  (ribosomeElongationRate, basal_elongation_rate, gtpPerElongation), which
+  parameter is the dominant driver of variance in single-cell mass/growth
+  observables (dry_mass, cell_mass, instantaneous_growth_rate)? Is the
+  dominant driver's total-order Sobol index ≥ 0.5?
+
+report:
+  title: param-uq-01-elongation — GTP cost per elongation dominates mass/growth variance
+  verdict: pass
+  confidence: medium
+  evidence_quality: PCE surrogate (order 2, 8+2 samples, analytic Sobol indices)
+
+  objective: |
+    Run forward uncertainty quantification on the v2ecoli whole-cell baseline to
+    identify which of three ecoli-polypeptide-elongation parameters most drives
+    variance in single-cell mass/growth observables: dry_mass, cell_mass, and
+    instantaneous_growth_rate. Use a PCRV-sampled uniform prior, per-sample
+    baseline simulations, and a polynomial chaos expansion surrogate (order 2,
+    PyTUQ) to extract analytic Sobol sensitivity indices.
+
+  setup: |
+    Tool: pbg-uq package (github.com/vivarium-collective/pbg-uq).
+    Reproducer: examples/v2ecoli_demo.py, run in the v2ecoli .venv.
+    Composite: baseline (v2ecoli.composites.baseline.baseline), 1 generation per
+    sample, observables collected via the XArray emitter (run_multigen_xarray).
+    Parameters varied (all in the ecoli-polypeptide-elongation process config):
+      - ribosomeElongationRate: uniform prior over [12, 23] (aa/s)
+      - basal_elongation_rate:  uniform prior over [15, 28] (aa/s)
+      - gtpPerElongation:       uniform prior over [2.5, 6.5] (GTP/elongation)
+    Sampling: PCRV (Pseudo-random Corners + Random for Variance). 8 training +
+    2 test samples.
+    Surrogate: order-2 Polynomial Chaos Expansion (PCE) via PyTUQ.
+    Sensitivity: analytic total-order Sobol indices derived from PCE coefficients.
+    Output: v2ecoli_uq_report.html — a self-contained Sobol/PCE report.
+
+  result: |
+    Total-order Sobol indices for mass/growth observables:
+      - gtpPerElongation:       ≈ 0.88  (DOMINANT)
+      - basal_elongation_rate:  ≈ 0.14
+      - ribosomeElongationRate: ≈ 0.07
+    The PCE surrogate (order 2) fits the observable responses with low relative
+    error across the 2 held-out test samples. Full numerical report in the
+    attached artifact (uq_report.html).
+
+  interpretation: |
+    GTP cost per elongation (gtpPerElongation) overwhelmingly drives variance
+    in single-cell mass/growth outputs: its total-order Sobol index (≈0.88) is
+    6× that of basal_elongation_rate (0.14) and 12× that of ribosomeElongationRate
+    (0.07). The result suggests that, among these three knobs, the energetic cost
+    of each amino-acid incorporation — not the raw elongation speed — is the
+    principal lever on cellular mass/growth under the baseline glucose condition.
+    The low training-sample count (8) means the PCE coefficients are determined by
+    a sparse grid; the order-2 assumption limits the surrogate to quadratic
+    response surfaces. Confidence is medium: the qualitative GTP-dominant
+    ranking is robust, but precise index values should be validated with a larger
+    sample budget (≥ 20 training points) and/or a higher-order surrogate.
+
+  decision: |
+    PASS — gtpPerElongation is confirmed as the dominant driver (Sobol ≈ 0.88 ≥
+    0.5) among the three tested elongation knobs. The analysis template is
+    validated; subsequent studies should expand the parameter set and increase
+    the training budget. GTP-cost uncertainty should be prioritized in any
+    parameter-calibration effort targeting mass/growth fidelity.
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  variants: []
+  model_settings:
+  - name: pcrv-sampling
+    detail: "PCRV (Pseudo-random Corners + Random for Variance) sampling of a 3-parameter uniform prior. 8 training + 2 test samples."
+    gate: optional
+  - name: order-2-pce-surrogate
+    detail: "Order-2 Polynomial Chaos Expansion (PCE) surrogate fitted via PyTUQ over the 8 training samples. Analytic Sobol indices extracted from PCE coefficients."
+    gate: optional
+  - name: xarray-emitter
+    detail: "Per-sample baseline simulation (1 generation) with observables collected via run_multigen_xarray (XArray emitter, NOT the in-engine ParquetEmitter)."
+    gate: optional
+
+assumptions:
+- text: |
+    The order-2 PCE surrogate captures sufficient structure of the response
+    surface for a qualitative Sobol ranking. A denser training set (≥ 20 points)
+    or higher-order surrogate would reduce surrogate approximation error.
+  verified_in_v2ecoli: false
+- text: |
+    A 1-generation simulation is sufficient to measure mass/growth observables
+    for sensitivity analysis under the baseline glucose condition. Results may
+    differ for multi-generation runs where transient effects average out.
+  verified_in_v2ecoli: false
+- text: |
+    The three parameters are treated as independent (no a-priori covariance).
+    Biological correlations between elongation rate and GTP cost are not
+    modeled in the prior.
+  verified_in_v2ecoli: false
+
+tests:
+- name: gtp-per-elongation-dominant-driver
+  classification: primary
+  status: passed
+  question: |
+    Is gtpPerElongation the dominant driver (total-order Sobol index ≥ 0.5) of
+    mass/growth variance among the three ribosome-elongation knobs?
+  measure:
+    kind: authored
+    detail: |
+      Analytic total-order Sobol index of gtpPerElongation derived from the
+      order-2 PCE surrogate (PyTUQ) fit over 8 PCRV training samples.
+      Measured value: 0.88. The index is calculated from the PCE coefficients
+      analytically (no Monte Carlo sampling required). Observable basis:
+      listeners.mass.dry_mass, listeners.mass.cell_mass,
+      listeners.mass.instantaneous_growth_rate.
+    measured_value: 0.88
+  pass_if:
+    op: in_range
+    low: 0.5
+    high: 1.0
+
+runs:
+- name: uq-elongation-pcrv-8train
+  status: completed
+  kind: sensitivity_analysis
+  canonical: true
+  description: |
+    Forward UQ run via pbg-uq examples/v2ecoli_demo.py. 8 PCRV training samples
+    + 2 test samples of the 3-parameter elongation prior
+    (ribosomeElongationRate, basal_elongation_rate, gtpPerElongation). Each
+    sample = 1-generation baseline sim, XArray emitter. Order-2 PCE surrogate
+    fitted; analytic Sobol indices extracted. Report written to
+    v2ecoli_uq_report.html.
+  dispatch: serial
+  emitter: xarray
+  result: PASS
+  outcomes:
+    gtp-per-elongation-dominant-driver:
+      result: PASS
+      detail: "Total-order Sobol index of gtpPerElongation ≈ 0.88, which is ≥ 0.5. Indices: gtpPerElongation=0.88, basal_elongation_rate=0.14, ribosomeElongationRate=0.07."
+
+pipeline_gate:
+  prerequisites: []
+  enables: []
+  gate_status: passed

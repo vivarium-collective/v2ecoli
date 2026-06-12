@@ -1,0 +1,43 @@
+schema_version: 2
+name: parameter-uq
+title: "Parameter UQ — global sensitivity of v2ecoli"
+created: '2026-06-12'
+status: running
+
+question: |
+  Which sim_data parameters drive variance in v2ecoli single-cell observables?
+  Starting with the ribosome-elongation subsystem, forward uncertainty
+  quantification (PCRV-sampled PCE surrogate + analytic Sobol indices) identifies
+  which elongation knobs most control mass/growth variance, setting a template for
+  a systematic global-sensitivity sweep across the full parameter space.
+
+executive:
+  what_is_this: |
+    A forward UQ investigation using the pbg-uq package to identify dominant
+    sources of parameter-driven variance in the v2ecoli whole-cell baseline.
+    Each study samples a set of sim_data parameters from a uniform prior, runs
+    per-sample baseline simulations (1 generation, XArray emitter), fits an
+    order-2 Polynomial Chaos Expansion (PCE) surrogate via PyTUQ, and extracts
+    analytic Sobol sensitivity indices. The first study (param-uq-01-elongation)
+    targets three ribosome-elongation parameters; subsequent studies will expand
+    the analysis to other subsystems.
+  verdict: |
+    In the ecoli-polypeptide-elongation process, GTP cost per elongation
+    (gtpPerElongation) is the dominant driver of mass/growth variance among the
+    three elongation knobs tested, with a total-order Sobol index of ≈0.88.
+    The other two knobs (basal_elongation_rate ≈0.14, ribosomeElongationRate
+    ≈0.07) have substantially smaller contributions. The PCE surrogate (order 2,
+    8 training + 2 test samples) fits the observable responses with low relative
+    error.
+  verdict_status: in-progress
+  verdict_detail: |
+    param-uq-01-elongation is complete and evaluated: the GTP-dominant result is
+    confirmed at gate_status = passed. Expansion to additional subsystems
+    (transcription, metabolism, replication) is planned in subsequent studies.
+
+studies:
+- param-uq-01-elongation
+
+acceptance_criteria:
+- study: param-uq-01-elongation
+  behavior: gtp-per-elongation-dominant-driver

@@ -76,6 +76,16 @@ from v2ecoli.library.schema_types import (
 )
 
 
+# dnaA autoregulation constants (dnaa-4 / Rashmi mechanism)
+DNAA_TU_IDX = 2778        # TU00259[c] — verify against the cache before a real run
+AUTOREG_STRENGTH = 0.8    # s; 0 disables, 1 fully silences at f=1
+
+
+def _autoreg_factor(promoter_fraction: float, strength: float) -> float:
+    """Linear repression (1 - s*f); f in [0,1]."""
+    return 1.0 - strength * promoter_fraction
+
+
 # Register default topology for this process, associating it with process name
 NAME = "ecoli-transcript-initiation"
 TOPOLOGY = {
@@ -88,6 +98,7 @@ TOPOLOGY = {
     "listeners": ("listeners",),
     "timestep": ("timestep",),
     "ppgpp_state": ("ppgpp_state",),
+    "dnaa_hydrolysis": ("process_state", "dnaa_hydrolysis"),
 }
 
 
@@ -321,6 +332,9 @@ class TranscriptInitiation(Step):
                 'basal_prob': {'_type': 'array[float]', '_default': []},
                 'frac_active_rnap': {'_type': 'float', '_default': 0.0},
             },
+            'dnaa_hydrolysis': {
+                'promoter_fraction': {'_type': 'float', '_default': 0.0},
+            },
         }
 
     def outputs(self):
@@ -442,6 +456,17 @@ class TranscriptInitiation(Step):
                     1.0 - self.promoter_init_probs[is_fixed].sum()
                 ) / self.promoter_init_probs[~is_fixed].sum()
                 self.promoter_init_probs[~is_fixed] *= scaleTheRestBy
+
+            # dnaA autoregulation (dnaa-4 / Rashmi mechanism):
+            # scale dnaA promoter init-probs by (1 - s*f) where f = bound fraction
+            # of dnaA-box sites from the dnaa_hydrolysis port.
+            promoter_fraction = float(
+                states.get("dnaa_hydrolysis", {}).get("promoter_fraction", 0.0))
+            if promoter_fraction > 0.0 and AUTOREG_STRENGTH > 0.0:
+                dnaa_promoters = (TU_index == DNAA_TU_IDX)
+                if dnaa_promoters.any():
+                    self.promoter_init_probs[dnaa_promoters] *= _autoreg_factor(
+                        promoter_fraction, AUTOREG_STRENGTH)
 
         # If there are no chromosomes in the cell, set all probs to zero
         else:

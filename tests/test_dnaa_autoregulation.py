@@ -22,3 +22,14 @@ def test_promoter_fraction_from_pool_state():
 
     # No promoter sites at all → 0.0
     assert _promoter_fraction(np.zeros(5, np.int8), bound_form) == 0.0
+
+    # Saturated extreme: all promoter sites bound → 1.0
+    assert _promoter_fraction(np.array([POOL_PROMOTER_HIGH, POOL_PROMOTER_HIGH], np.int8), np.array([1, 1], np.int8)) == 1.0
+
+
+def test_autoreg_scaling_factor():
+    from v2ecoli.processes.transcript_initiation import _autoreg_factor
+    assert _autoreg_factor(0.0, 0.8) == 1.0
+    assert abs(_autoreg_factor(1.0, 0.8) - 0.2) < 1e-9
+    assert abs(_autoreg_factor(0.5, 0.8) - 0.6) < 1e-9
+    assert _autoreg_factor(1.0, 0.0) == 1.0

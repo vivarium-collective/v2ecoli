@@ -28,6 +28,7 @@ The returned dict feeds into:
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import numpy as np
@@ -128,6 +129,14 @@ def _extract_labels_recursive(schema: Any, core: Any) -> Any:
                     return list(labels)
             except Exception:
                 pass
+            # Parametric-wrapper path: a port declared as ``overwrite[<name>]``
+            # (or ``maybe[...]`` etc.) wraps a labeled vector. When the inner
+            # type is registered as a schema dict (``register_labeled_array``),
+            # the wrapper node doesn't surface the inner ``_labels`` directly,
+            # so peel one ``wrapper[inner]`` level and resolve the inner name.
+            m = re.match(r'^\w+\[(.+)\]$', schema.strip())
+            if m:
+                return _extract_labels_recursive(m.group(1), core)
         return None
 
     if not isinstance(schema, dict):

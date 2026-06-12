@@ -9,7 +9,7 @@ import warnings
 from v2ecoli.library.schema import numpy_schema, listener_schema, attrs
 from v2ecoli.library.schema_types import ACTIVE_RNAP_ARRAY, RNA_ARRAY, ACTIVE_RIBOSOME_ARRAY
 from v2ecoli.library.ecoli_step import EcoliStep as Step
-from v2ecoli.types.labeled_array import LabeledArray
+from v2ecoli.types.labeled_array import register_labeled_array
 
 # topology_registry removed — topology defined as class attribute
 from v2ecoli.processes.transcript_elongation import get_mapping_arrays
@@ -85,13 +85,11 @@ class RnapData(Step):
         # Register named labeled-array type for rna_init_event_per_cistron so
         # the output_metadata walker can recover cistron IDs without sim_data.
         if self.core is not None:
-            self.core.register_type(
-                'rna_init_event_per_cistron_vec',
-                LabeledArray(
-                    _shape=(self.n_cistrons,),
-                    _data=np.dtype('int64'),
-                    _labels=tuple(self.cistron_ids),
-                ),
+            register_labeled_array(
+                self.core, 'rna_init_event_per_cistron_vec',
+                shape=(self.n_cistrons,),
+                data=np.dtype('int64'),
+                labels=tuple(self.cistron_ids),
             )
 
     def update_condition(self, timestep, states):

@@ -63,7 +63,14 @@ jobs:
       - name: Build dashboard snapshot
         # Builds the static SPA bundle (all investigations + studies) and strips
         # bigraph-loom source maps. No sim run / ParCa cache needed.
-        run: uv run scripts/publish_dashboard.sh reports/published/dashboard
+        #
+        # Run inside the activated venv rather than via `uv run`: `uv run`
+        # re-syncs the env to uv.lock first, which would UNDO the previous step's
+        # ad-hoc install of vivarium-dashboard@main and drop the
+        # `vivarium-dashboard-publish` console script (-> exit 127).
+        run: |
+          source .venv/bin/activate
+          bash scripts/publish_dashboard.sh reports/published/dashboard
 
       - name: Publish to gh-pages
         # Surgical: replace ONLY dashboard/ on gh-pages via a worktree. Never

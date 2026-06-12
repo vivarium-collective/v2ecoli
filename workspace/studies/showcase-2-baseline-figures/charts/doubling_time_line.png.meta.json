@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781237205.7215538,
+  "title": "Doubling time over the lineage (cap-immune instantaneous trace)",
+  "interpretation": "Cap-immune instantaneous doubling time t2 = ln(2)/mu from the per-timestep specific growth rate (listeners.mass.instantaneous_growth_rate) over the whole lineage - many samples (one per emitted step), not 3 generational points. The trace is STABLE at ~44-52 min (mean ~52 min, matching the runnable doubling-time-in-band test); it does NOT decline. The old per-generation line appeared to 'go down' only because the FINAL generation is truncated at the 6500-step emit cap before it divides, so its raw span read short (~10-19 min) - an artifact. The lower panel keeps per-generation division-time markers with that truncated final generation excluded.",
+  "command": "scripts/render_showcase2.py doubling_time_{line,hist}: cap-immune instantaneous t2=ln(2)/mu trace over the clean showcase2 sweep parquet; Altair->PNG/SVG via vl_convert."
+}

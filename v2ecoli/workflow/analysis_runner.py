@@ -201,9 +201,24 @@ def _group_key_str(scale: str, key: tuple) -> str:
     return "all"
 
 
-def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
+def run_analyses(sweep_dir: str, analysis_options: dict,
+                 sim_data_path: str | None = None) -> dict:
     """Run the analyses named in ``analysis_options`` over the sweep's cells,
-    write ``analysis.json``, and return the nested results."""
+    write ``analysis.json``, and return the nested results.
+
+    Parameters
+    ----------
+    sweep_dir:
+        Directory containing the sweep's history parquet and (optionally) a
+        co-located sim_data pickle.
+    analysis_options:
+        ``{scale: {name: params}}`` mapping selecting which analyses to run.
+    sim_data_path:
+        Optional explicit path to a sim_data pickle.  When provided, the
+        pickle is loaded directly (no glob search under ``sweep_dir``).
+        When ``None`` (default), ``resolve_sim_data(sweep_dir)`` is called
+        as before.
+    """
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
 
@@ -220,7 +235,11 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
             import duckdb
             _ctx["conn"] = duckdb.connect()
             _ctx["from_clause"] = _history_from_clause(sweep_dir)
-            _ctx["sim_data"] = resolve_sim_data(sweep_dir)
+            if sim_data_path is not None:
+                from v2ecoli.library.sim_data import LoadSimData
+                _ctx["sim_data"] = LoadSimData(sim_data_path=sim_data_path).sim_data
+            else:
+                _ctx["sim_data"] = resolve_sim_data(sweep_dir)
             _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
         return (_ctx["conn"], _ctx["from_clause"],
                 _ctx["sim_data"], _ctx["validation_data"])
@@ -263,8 +282,18 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
                         })
                         if out.get("view"):
                             vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
-                            with open(vp, "w") as vf:
+                            with open(vp, "w", encoding="utf-8") as vf:
                                 vf.write(out["view"])
+                        data = out.get("data")
+                        if isinstance(data, dict) and data.get("tsv"):
+                            ptools_dir = os.path.join(sweep_dir, "ptools")
+                            os.makedirs(ptools_dir, exist_ok=True)
+                            tsv_path = os.path.join(
+                                ptools_dir,
+                                f"{name}__{gstr.replace('/', '_')}.tsv",
+                            )
+                            with open(tsv_path, "w", encoding="utf-8") as tf:
+                                tf.write(data["tsv"])
                         per_group[gstr] = out.get("data", {})
                     except Exception as e:
                         per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}

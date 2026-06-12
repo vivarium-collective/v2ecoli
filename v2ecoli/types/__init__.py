@@ -5,6 +5,7 @@ from v2ecoli.types.method import Method
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.process import StepInstance, ProcessInstance
+from v2ecoli.types.labeled_array import LabeledArray
 from v2ecoli.types.stores import (
     InPlaceDict, SetStore, DerivedProperties, ListenerStore, AccumulateFloat,
 )
@@ -70,7 +71,9 @@ from bigraph_schema.schema import (
 )
 
 # bigraph-schema 6fa6c63 added its own Quantity at key 'quantity'; v2ecoli's
-# Quantity has a custom _serialize_state, so prefer v2ecoli's on collision.
+# Quantity (custom _serialize_state + parameterized units) stays registered at
+# the key, and these dispatches prefer it when a bigraph-schema Quantity meets
+# it during resolve.
 @_resolve.dispatch
 def _resolve_bs_quantity_v2(current: _BSQuantity, update: Quantity, path=None):
     return update
@@ -361,6 +364,10 @@ ECOLI_TYPES = {
     'derived_properties': DerivedProperties,
     'listener_store': DerivedProperties,  # back-compat alias
     'accumulate_float': AccumulateFloat,
+    # Self-describing emitters: base class for named labeled-vector types.
+    # Processes register named instances (e.g. 'monomer_counts_vec') in their
+    # initialize() so the output_metadata walker can recover element labels.
+    'labeled_array': LabeledArray,
 }
 
 # Study-evaluation framework enums (target_class, verdict_result,

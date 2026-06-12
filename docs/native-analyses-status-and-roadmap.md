@@ -118,6 +118,20 @@ scripts/ptools_server.sh status    # is it up?
 scripts/ptools_server.sh restart   # force a clean container (use this, not `docker start` — see gotchas)
 ```
 
+To **paint a run's ptools TSV** onto the EcoCyc Cellular Overview (auto-loaded,
+no manual upload), pass one of the emitted `ptools/*.tsv` (or a `ptools_overview_*`
+file) to the launcher:
+
+```sh
+scripts/ptools_launch.sh <sweep>/ptools/ptools_rna__<group>.tsv   # class inferred → opens the painted map
+```
+
+It stages the file into the server (this image's Omics Viewer only loads
+server-local files) and opens `celOv.shtml?omics=t&url=…&class=…&column1=1-N`.
+(The vivarium-dashboard "Launch ptools" button does the same thing for a study
+run once `ui.ptools_server_url` is set; locally the launcher script is the
+reliable path since the data must live on the PTools server.)
+
 The manual steps below explain what that script does and why.
 
 **1. A container runtime.** On macOS without Docker Desktop, colima gives a

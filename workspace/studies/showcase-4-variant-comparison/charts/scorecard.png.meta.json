@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase4-variant-sweep",
+  "rendered_at": 1781267180.814549,
+  "title": "Variant scorecard (delta vs baseline) \u2014 7 metrics x 5 variants",
+  "interpretation": "The headline summary. Each cell is a measured metric colored by its normalized delta vs baseline. media-succinate is the strongest multi-axis contrast (dry mass 271 vs 492 fg, max oriC 2 vs 4, Toya r -0.058, protein fraction 0.532); ppgpp-off is strongest on regulation/growth (mean ppGpp 120.6 vs 64.8, doubling 61.6 vs 51.1 min); dnaA-2x is partial (Toya r 0.457); elong-down is near-baseline.",
+  "command": "scripts/render_variant_comparison.py: 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase4-variants/showcase4_variants parquet (5-variant x 2-seed sweep); variant_metadata {0:baseline,1:ppgpp-off,2:dnaA-2x,3:elong-down,4:media-succinate}; Altair->PNG/SVG via vl_convert."
+}

@@ -52,8 +52,17 @@ def _fig_to_b64(fig) -> str:
     return base64.b64encode(buf.read()).decode("ascii")
 
 
-def _plot_comparison(datasets: dict, metric: str, ylabel: str, title: str) -> str:
-    """Single metric overlay plot for all available engines. Returns base64 PNG."""
+def _plot_comparison(datasets: dict, metric: str, ylabel: str, title: str,
+                     obs_path: str | None = None) -> str:
+    """Single metric overlay plot for all available engines. Returns base64 PNG.
+
+    ``_plot_comparison`` is a SHARED helper feeding several panels through the
+    shared ``_img`` wrapper, so it keeps the bare-base64 contract. When
+    ``obs_path`` is given, the y-axis label is decorated with the declared
+    schema unit via ``Visualization.finalize_figure`` before serialization
+    (instead of ``figure_to_html``, which would change the return contract and
+    double-wrap the other panels).
+    """
     import matplotlib.pyplot as plt  # lazy — only imported when rendering
     fig, ax = plt.subplots(figsize=(10, 4))
     for key, label, color, ls in _ENGINES:
@@ -68,6 +77,8 @@ def _plot_comparison(datasets: dict, metric: str, ylabel: str, title: str) -> st
     ax.set_title(title)
     ax.legend()
     ax.grid(True, alpha=0.3)
+    if obs_path:
+        Visualization.finalize_figure(fig, [(ax, "y", obs_path)])
     return _fig_to_b64(fig)
 
 
@@ -143,7 +154,8 @@ def _render_comparison_html(datasets: dict, duration: float, title: str) -> str:
     plots: dict[str, str] = {}
     has_data = any(datasets.get(k, {}).get("snapshots") for k, _, _, _ in _ENGINES)
     if has_data:
-        plots["dry_mass"]   = _plot_comparison(datasets, "dry_mass",   "Dry Mass (fg)",       "Dry Mass Over Time")
+        plots["dry_mass"]   = _plot_comparison(datasets, "dry_mass",   "Dry Mass",            "Dry Mass Over Time",
+                                                obs_path="listeners.mass.dry_mass")
         plots["cell_mass"]  = _plot_comparison(datasets, "cell_mass",  "Cell Mass (fg)",       "Cell Mass (wet)")
         plots["growth_rate"] = _plot_comparison(datasets, "instantaneous_growth_rate",
                                                 "Growth Rate (1/s)", "Instantaneous Growth Rate")

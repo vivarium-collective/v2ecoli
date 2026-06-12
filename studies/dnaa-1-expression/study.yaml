@@ -963,6 +963,9 @@ runs:
       evaluated_by: agent
       reason: observable 'listeners.rnap_data.rna_init_event_per_cistron' not resolvable
       reconcile: no_authored
+  generations: 8
+  sim_minutes: 456
+  n_readouts: 181
 simulation_set:
 - name: dnaa1-mechA-vtuning
   kind: single-daughters-multigen-lineage

@@ -359,6 +359,9 @@ runs:
       evaluated_by: agent
       reason: "unsupported op: 'cv_at_phase_below'"
       reconcile: no_authored
+  generations: 7
+  sim_minutes: 331
+  n_readouts: 181
 simulation_set:
 - name: dnaa0-succinate-steady-state
   kind: single-daughters-multigen-lineage

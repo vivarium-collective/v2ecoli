@@ -610,6 +610,9 @@ runs:
       operator: oric_initiations_per_generation/exactly_one_initiation_per_generation
       detail: 'gens with != 1 initiation: [(1, 5954.0), (2, 5832.0), (3, 6221.0), (4, 5737.0), (5, 5901.0), (6, 6194.0), (7, 6016.0), (8, 8332.0), (9, 44.0)]'
       reconcile: divergent
+  generations: 9
+  sim_minutes: 500
+  n_readouts: 181
 tests:
 - name: dnaa-atp-fraction-in-band-0.2-0.5
   classification: primary

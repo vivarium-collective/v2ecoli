@@ -1,0 +1,2 @@
+{"source_run_id":"dnaa4_autoreg_hill_v15e3 (V=1.5e-3)",
+ "caption":"The autoregulation loop: dnaA-promoter occupancy f swings 0->1 across the cell cycle, and the transcription factor (1 - 0.8*f, Hill form) rides inversely — full transcription when the promoter is unbound (low DnaA), repressed once it saturates (high DnaA). This is the negative feedback that caps the peak."}

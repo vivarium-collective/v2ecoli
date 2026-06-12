@@ -9,6 +9,7 @@ from v2ecoli.workflow.analyses import ptools_proteins  # noqa: F401
 from v2ecoli.workflow.analyses import mass_fraction_voronoi  # noqa: F401
 from v2ecoli.workflow.analyses import central_carbon_metabolism_scatter  # noqa: F401
 from v2ecoli.workflow.analyses import ptools_multiscale  # noqa: F401
+from v2ecoli.workflow.analyses import ptools_overview  # noqa: F401
 from v2ecoli.workflow.analyses import dummy  # noqa: F401
 from v2ecoli.workflow.analyses import mass_fraction_summary_view  # noqa: F401
 from v2ecoli.workflow.analyses import replication  # noqa: F401

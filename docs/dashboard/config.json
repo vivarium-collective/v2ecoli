@@ -1,0 +1,7 @@
+{
+  "mode": "snapshot",
+  "smsApiBase": "",
+  "repo": "https://github.com/vivarium-collective/v2ecoli.git",
+  "commit": "83ba84369a3a5dcf197f399b0e45d04ecb39b7f0",
+  "generated_from_ref": "investigation/dnaa-replication-v3"
+}

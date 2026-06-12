@@ -15,3 +15,77 @@ def test_ccm_scatter_registered_multiseed():
     from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, Analysis
     cls = ANALYSIS_REGISTRY["central_carbon_metabolism_scatter"]
     assert issubclass(cls, Analysis) and cls.scale == "multiseed"
+
+
+def _gen_bounds(conn, abs_sql):
+    return {
+        int(g): (float(lo), float(hi))
+        for g, lo, hi in conn.sql(
+            f"SELECT generation, min(global_time), max(global_time) "
+            f"FROM ({abs_sql}) GROUP BY generation ORDER BY generation"
+        ).fetchall()
+    }
+
+
+def test_cumulative_time_leaves_absolute_clock_untouched():
+    """v2ecoli's parquet emitter already carries an absolute clock across
+    generations; cumulative_time_history must NOT re-offset it (the old
+    version double-offset, inserting a spurious time gap and stretching the
+    lineage axis)."""
+    import duckdb
+    from v2ecoli.workflow.analyses._helpers import cumulative_time_history
+
+    conn = duckdb.connect()
+    # gen 1: 0..100, gen 2: 110..200 — already absolute, gen2 starts after gen1.
+    raw = (
+        "SELECT 1 AS generation, t AS global_time FROM (SELECT unnest([0,50,100]) t) "
+        "UNION ALL "
+        "SELECT 2, t FROM (SELECT unnest([110,150,200]) t)"
+    )
+    bounds = _gen_bounds(conn, cumulative_time_history(raw))
+    assert bounds == {1: (0.0, 100.0), 2: (110.0, 200.0)}
+
+
+def test_cumulative_time_stacks_per_generation_reset_clock():
+    """When global_time resets to 0 each generation (xarray path), the
+    generations must be stacked end-to-end, correctly for >2 generations."""
+    import duckdb
+    from v2ecoli.workflow.analyses._helpers import cumulative_time_history
+
+    conn = duckdb.connect()
+    raw = (
+        "SELECT 1 AS generation, t AS global_time FROM (SELECT unnest([0,100,200]) t) "
+        "UNION ALL SELECT 2, t FROM (SELECT unnest([0,100,200,300]) t) "
+        "UNION ALL SELECT 3, t FROM (SELECT unnest([0,100]) t)"
+    )
+    bounds = _gen_bounds(conn, cumulative_time_history(raw))
+    # gen1 0..200; gen2 starts at 201, ends 501; gen3 starts 502, ends 602.
+    assert bounds == {1: (0.0, 200.0), 2: (201.0, 501.0), 3: (502.0, 602.0)}
+
+
+def test_validation_data_exposes_toya2010_reaction_flux():
+    """Regression guard for the PR #175 degradation: build_validation_data must
+    expose ``.reactionFlux.toya2010fluxes`` so central_carbon_metabolism_scatter
+    renders the model-vs-Toya scatter instead of the no-validation barplot.
+
+    Reads the Toya 2010 flat TSV directly (no sim_data needed for reactionFlux),
+    so it does not require a ParCa cache.
+    """
+    from v2ecoli.library.validation_data import _ReactionFlux
+    from wholecell.utils import units
+
+    rf = _ReactionFlux()
+    toya = rf.toya2010fluxes
+    assert len(toya) > 0
+    # Structured array with the fields the analysis reads.
+    assert "reactionID" in toya.dtype.names
+    assert "reactionFlux" in toya.dtype.names
+    assert "reactionFluxStdev" in toya.dtype.names
+    # Fluxes are Unum quantities convertible to mmol/g/h (the analysis calls
+    # ``.asNumber(units.mmol / units.g / units.h)`` on them).
+    mmol_per_g_per_h = units.mmol / units.g / units.h
+    flux0 = toya["reactionFlux"][0].asNumber(mmol_per_g_per_h)
+    assert isinstance(flux0, float)
+    # The canonical Toya dataset starts with TRANS-RXN-157 at 10.17 mmol/g/h.
+    ids = list(toya["reactionID"])
+    assert "TRANS-RXN-157" in ids

@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781180775.721789,
+  "title": "Doubling time vs generation (per seed)",
+  "interpretation": "Per-generation doubling time derived from the emitted global_time span over the clean 3-generation run. With #173 each generation now ends at its own division, so the gen-2 step-cap over-report artifact (~63-104 min) is gone; all generations sit in the physiological band.",
+  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+}

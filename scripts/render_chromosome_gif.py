@@ -43,11 +43,37 @@ def _domain_children_from_dill(dill_path):
     return out
 
 
+def _domain_children_from_row(row: dict) -> dict:
+    """Build the parent->child domain tree from emitted unique columns.
+
+    ``chromosome_domain__child_domains`` is a flat list<int> of length
+    ``2*n_domain`` aligned to ``chromosome_domain__domain_index`` (negatives =
+    no-child placeholder). Returns ``{}`` when the columns are absent.
+    """
+    di = row.get("chromosome_domain__domain_index")
+    cd = row.get("chromosome_domain__child_domains")
+    if di is None or cd is None:
+        return {}
+    di = [int(x) for x in di]
+    cd = [int(x) for x in cd]
+    if not di or len(cd) != 2 * len(di):
+        return {}
+    out = {}
+    for i, parent in enumerate(di):
+        kids = [k for k in (cd[2 * i], cd[2 * i + 1]) if k >= 0]
+        if kids:
+            out[parent] = kids
+    return out
+
+
 def _snapshot_from_row(row: dict, domain_children: dict) -> dict:
     """Build the snapshot dict _plot_chromosome_map expects from a parquet row."""
     def _lst(key):
         v = row.get(key)
         return list(v) if v is not None else []
+    row_tree = _domain_children_from_row(row)
+    if row_tree:
+        domain_children = row_tree
     fc = _lst("full_chromosome__unique_index")
     rep_c = _lst("active_replisome__coordinates")
     rep_d = _lst("active_replisome__domain_index")
@@ -88,11 +114,18 @@ def main():
     miss = [c for c in cols if c not in have]
     if miss:
         raise SystemExit(f"run missing unique columns {miss} — re-run with V2ECOLI_EMIT_UNIQUE=1")
+    tree_cols = ["chromosome_domain__domain_index",
+                 "chromosome_domain__child_domains"]
+    has_tree_cols = all(c in have for c in tree_cols)
+    read_cols = cols + [c for c in tree_cols if c in have]
     domain_children = _domain_children_from_dill(a.dill)
-    print(f"domain tree (from dill): {domain_children or 'none — RNAPs on rim'}")
+    if has_tree_cols:
+        print("domain tree: per-row chromosome_domain__child_domains (on-bubble RNAPs)")
+    else:
+        print(f"domain tree (from dill): {domain_children or 'none — RNAPs on rim'}")
     df = (pl.scan_parquet(files, hive_partitioning=True)
           .filter(pl.col("agent_id").cast(pl.Utf8).str.contains("^0+$"))
-          .select(cols).sort("global_time").collect())
+          .select(read_cols).sort("global_time").collect())
     # subsample by time
     t = df["global_time"].to_numpy()
     keep, last = [], -1e9

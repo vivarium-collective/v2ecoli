@@ -45,3 +45,22 @@ def test_units_from_schema_nested(core):
     assert index["listeners.fba_results.conc_updates"] == "mM"
     assert index["timestep"] == "s"
     assert "bulk" not in index           # unitless leaves are omitted
+
+
+from v2ecoli.library.units_resolver import build_units_index
+
+def test_build_units_index_covers_known_listeners():
+    index = build_units_index()           # builds its own core; memoized
+    # cell mass is declared quantity[float,fg] on multiple listener inputs
+    assert index.get("listeners.mass.cell_mass") == "fg"
+    # at least one concentration (mM) and one rate (1/s) somewhere
+    units = set(index.values())
+    assert "mM" in units
+    assert any(u in ("1/s", "1 / second") for u in units)
+    # index is non-trivial
+    assert len(index) > 10
+
+def test_build_units_index_is_memoized():
+    a = build_units_index()
+    b = build_units_index()
+    assert a is b                          # same cached object

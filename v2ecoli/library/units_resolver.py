@@ -10,6 +10,7 @@ labels. No sim_data is loaded.
 """
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Optional
 
 
@@ -75,3 +76,80 @@ def units_from_schema(schema: Any, core: Any, _prefix: str = "") -> dict[str, st
         child_prefix = f"{_prefix}.{key}" if _prefix else key
         index.update(units_from_schema(sub, core, child_prefix))
     return index
+
+
+def _iter_process_classes():
+    """Yield (name, class) for baseline composite process/step classes.
+
+    Best-effort enumeration for schema introspection only — uses the static
+    ``PARTITIONED_PROCESSES`` registry plus the explicitly-imported listener
+    classes. Import failures (optional deps) are skipped silently.
+    """
+    try:
+        from v2ecoli.composites._helpers import PARTITIONED_PROCESSES
+    except Exception:
+        PARTITIONED_PROCESSES = {}
+    for name, cls in (PARTITIONED_PROCESSES or {}).items():
+        yield name, cls
+
+    explicit = []
+    for modpath, clsname in [
+        ("v2ecoli.processes.equilibrium", "Equilibrium"),
+        ("v2ecoli.processes.metabolism", "Metabolism"),
+        ("v2ecoli.processes.two_component_system", "TwoComponentSystem"),
+    ]:
+        try:
+            mod = __import__(modpath, fromlist=[clsname])
+            explicit.append((clsname, getattr(mod, clsname)))
+        except Exception:
+            continue
+    for item in explicit:
+        yield item
+
+
+def _instantiate(cls, core):
+    """Best-effort instance for schema introspection only.
+
+    Tries a normal ``cls(config={}, core=core)`` first; if ``__init__`` is
+    config-dependent and raises, falls back to a bare ``cls.__new__(cls)``
+    instance. The ``inputs()``/``outputs()`` schema declarations in v2ecoli
+    processes are pure (they do not read ``self``), so the bare instance still
+    yields the declared port types. Returns ``None`` if both paths fail.
+    """
+    try:
+        return cls(config={}, core=core)
+    except Exception:
+        pass
+    try:
+        return cls.__new__(cls)
+    except Exception:
+        return None
+
+
+def _index_from_classes(core) -> dict[str, str]:
+    index: dict[str, str] = {}
+    for name, cls in _iter_process_classes():
+        inst = _instantiate(cls, core)
+        if inst is None:
+            continue
+        for method in ("inputs", "outputs"):
+            try:
+                schema = getattr(inst, method)()
+            except Exception:
+                continue
+            if isinstance(schema, dict):
+                index.update(units_from_schema(schema, core))
+    return index
+
+
+@lru_cache(maxsize=1)
+def build_units_index() -> dict[str, str]:
+    """Composite-wide ``dotted-path -> unit`` index, built once and cached.
+
+    Reads declared port types from the baseline process classes. No sim_data is
+    loaded. Returns the same dict object on repeat calls (callers must treat it
+    as read-only).
+    """
+    from v2ecoli.core import build_core
+    core = build_core()
+    return _index_from_classes(core)

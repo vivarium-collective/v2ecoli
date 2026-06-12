@@ -54,6 +54,9 @@ from v2ecoli.composites._helpers import (
     _get_special_step,
     _expand_flushes,
     set_default_emitter_decl,
+    set_emitter_override,
+    set_null_emitter_override,
+    _find_workspace_root,
     CachedConfigLoader,
     FLUSH,
     PARTITIONED_PROCESSES,
@@ -418,7 +421,44 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             "default": {},
             "description": "Declarative '<process>.<key>': value config overrides (variants)",
         },
+        # --- Biological feature toggles (insert/remove feature-module steps) ---
+        "ppgpp_regulation": {
+            "type": "bool",
+            "default": True,
+            "description": "Enable ppGpp-mediated regulation of transcription "
+                           "initiation (ppgpp-initiation step). On by default.",
+        },
+        "trna_attenuation": {
+            "type": "bool",
+            "default": False,
+            "description": "Enable tRNA transcriptional attenuation "
+                           "(trna-attenuation-config step). Off by default.",
+        },
+        "supercoiling": {
+            "type": "bool",
+            "default": False,
+            "description": "Enable DNA supercoiling dynamics (dna-supercoiling-step "
+                           "+ dna_supercoiling_listener). Off by default.",
+        },
+        "mass_conservation": {
+            "type": "bool",
+            "default": False,
+            "description": "Enable the opt-in runtime mass-conservation check "
+                           "(ecoli-mass-conservation step). Off by default — the "
+                           "residual is not yet calibrated, so it warns each tick.",
+        },
+        # --- Observation sink selection ---
+        "emitter": {
+            "type": "string",
+            "choices": ["parquet", "sqlite", "xarray", "null"],
+            "default": "parquet",
+            "description": "Observation sink for the internal 'emitter' step: "
+                           "parquet (hive-partitioned column store, default), "
+                           "sqlite (persistent time-series db), xarray "
+                           "(in-memory labelled arrays), or null (global_time only).",
+        },
     },
+    default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     emitters=[
         {
@@ -436,6 +476,11 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
 )
 def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
              config_overrides: dict | None = None,
+             ppgpp_regulation: bool = True,
+             trna_attenuation: bool = False,
+             supercoiling: bool = False,
+             mass_conservation: bool = False,
+             emitter: str = "parquet",
              bundle: dict | None = None) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
@@ -443,14 +488,21 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     ``v2ecoli/composite.py:_build_from_cache``.  Returns a plain dict
     suitable for ``Composite(doc, core=core)``; does NOT wrap in Composite.
 
-    Note: ``features`` is fixed to ``DEFAULT_FEATURES`` and is not a caller-
-    visible parameter.
+    The biological feature set is assembled from the boolean toggles
+    (``ppgpp_regulation`` on by default; the rest off) plus any opt-in
+    modules a caller registered via :func:`enable_features` (back-compat).
 
     Args:
         core: bigraph-schema core.  If None, one is created via build_core().
         seed: Random seed for stochastic initialisation.
         cache_dir: Path to the ParCa cache directory (must contain
             ``initial_state.json`` and ``sim_data_cache.dill``).
+        ppgpp_regulation: insert the ppGpp-regulation feature module (default on).
+        trna_attenuation: insert the tRNA-attenuation feature module (default off).
+        supercoiling: insert the DNA-supercoiling feature module (default off).
+        mass_conservation: insert the mass-conservation check (default off).
+        emitter: observation sink for the internal 'emitter' step — one of
+            ``parquet`` (default), ``sqlite``, ``xarray``, ``null``.
         bundle: optional pre-loaded cache bundle (as returned by
             ``load_cache_bundle``). When given, the cache is not re-read from
             ``cache_dir`` — lets callers building many composites from the same
@@ -485,8 +537,21 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 
-    features = list(DEFAULT_FEATURES) + [
-        f for f in _EXTRA_FEATURES if f not in DEFAULT_FEATURES]
+    # Assemble the feature set from the explicit boolean toggles. Order follows
+    # FEATURE_MODULES so insertions are deterministic. The legacy
+    # _EXTRA_FEATURES / enable_features() global is still honoured (back-compat
+    # for callers like scripts/pr_session_report.py and the mass-conservation
+    # behavior test) and unions in any modules it requested.
+    _toggle_features = {
+        'ppgpp_regulation': ppgpp_regulation,
+        'trna_attenuation': trna_attenuation,
+        'supercoiling': supercoiling,
+        'mass_conservation': mass_conservation,
+    }
+    features = [name for name, on in _toggle_features.items() if on]
+    for f in _EXTRA_FEATURES:
+        if f not in features:
+            features.append(f)
 
     cell_state = {}
     cell_state.update(initial_state)
@@ -549,13 +614,67 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     execution_layers = build_execution_layers(features)
     flow_order = [step for layer in execution_layers for step in layer]
 
-    # Publish this generator's declared default emitter (parquet — see the
-    # @composite_generator(emitters=[...]) below) so the 'emitter' step picks
-    # it up when no external override is set. Cleared in finally so it never
-    # leaks into a later composite built in the same process. External
-    # parquet/sqlite/null overrides still win — see set_default_emitter_decl.
+    # Resolve the 'emitter' param to the right override / declared-default so
+    # the internal 'emitter' step materialises the chosen sink. The selection
+    # only adjusts this generator's OWN scoped knobs (the declared default decl
+    # + the sqlite/null overrides it sets here); it is restored in the finally
+    # so nothing leaks into a later composite built in the same process. Any
+    # EXTERNAL override a caller set before this build (set_parquet_emitter_override
+    # / set_emitter_override / set_null_emitter_override) still wins, because
+    # _get_special_step checks those external overrides before the declared
+    # default and we only set our own override when none is already active.
+    import v2ecoli.composites._helpers as _h  # noqa: PLC0415
+
+    if emitter not in ("parquet", "sqlite", "xarray", "null"):
+        raise ValueError(
+            f"emitter={emitter!r} not recognised; expected one of "
+            "parquet, sqlite, xarray, null.")
+
     _emitter_decls = emitter_defaults(baseline)
-    set_default_emitter_decl(_emitter_decls[0] if _emitter_decls else None)
+    _default_decl = _emitter_decls[0] if _emitter_decls else None
+
+    # Snapshot external overrides so we can detect 'caller already pinned one'
+    # and restore them exactly on exit.
+    _ext_parquet = _h._PARQUET_EMITTER_OVERRIDE
+    _ext_sqlite = _h._EMITTER_OVERRIDE
+    _ext_null = _h._NULL_EMITTER_OVERRIDE
+    _any_external = (_ext_parquet is not None or _ext_sqlite is not None
+                     or _ext_null)
+
+    set_default_emitter_decl(_default_decl)
+
+    if emitter == "xarray" and not _any_external:
+        # XArray is emitted OUT OF BAND by the workflow/lineage runner: its
+        # transducer + view describe per-composite variable shapes that are only
+        # knowable lazily on the first populated emit tick (see
+        # workflow/lineage.py:_emit_xarray), so there is no self-contained
+        # in-document XArrayEmitter step. We therefore mirror the canonical
+        # xarray contract here: minimise the INTERNAL 'emitter' step to
+        # global_time only (set_null_emitter_override) and let the external
+        # XArray sink own persistence. Selecting 'xarray' in a plain
+        # build_composite/dashboard run thus behaves like 'null' internally;
+        # the real XArray output appears when run under the lineage workflow.
+        import warnings
+        warnings.warn(
+            "emitter='xarray': the internal emitter is minimised to global_time "
+            "only; real XArray persistence is produced out-of-band by the "
+            "lineage workflow runner (v2ecoli.workflow.lineage), not by this "
+            "in-document emitter step.")
+        set_null_emitter_override(True)
+    elif emitter == "sqlite" and not _any_external:
+        # Minimal persistent SQLite sink. Resolve the workspace-shared DB (the
+        # dashboard's Simulations-DB tab aggregates from it); fall back to out/.
+        _ws_root = _find_workspace_root()
+        _sqlite_dir = (str(_ws_root / ".pbg") if _ws_root is not None
+                       else "out")
+        set_emitter_override({
+            "file_path": _sqlite_dir,
+            "db_file": "composite-runs.db",
+        })
+    elif emitter == "null" and not _any_external:
+        set_null_emitter_override(True)
+    # emitter == "parquet": the declared parquet default (set above) is used.
+
     _process_cache = {}
     try:
         for step_name in flow_order:
@@ -573,6 +692,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
                         instance, topology, edge_type=edge_type)
     finally:
         set_default_emitter_decl(None)
+        # Restore external overrides to exactly their pre-build values (we only
+        # ever changed them when none was active, so this clears ours).
+        set_emitter_override(_ext_sqlite)
+        set_null_emitter_override(_ext_null)
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():

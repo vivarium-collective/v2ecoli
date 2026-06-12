@@ -17,40 +17,40 @@ E.&nbsp;coli (real tFBA <code>ecoli-metabolism</code>) with the Millard&nbsp;201
 central-carbon ODE wired in as a flux source that mechanistically pins the
 mapped FBA reactions via <code>fba-flux-coupler</code>.</p>
 <div>
- <span class="kpi">ticks: 120 s</span>
- <span class="kpi">wall: 32.6 s</span>
- <span class="kpi">pinned reactions (map): 36</span>
+ <span class="kpi">ticks: 30 s</span>
+ <span class="kpi">wall: 8.8 s</span>
+ <span class="kpi">pinned reactions (map): 28</span>
 </div>
 
 <h2>(a) Pin fidelity — realized FBA flux vs ODE-pinned bound</h2>
 <div>
- <span class="kpi">held-pin obs: 1240</span>
- <span class="kpi">relaxed-pin obs: 2017</span>
+ <span class="kpi">held-pin obs: 348</span>
+ <span class="kpi">relaxed-pin obs: 285</span>
  <span class="kpi">median |rel.err| (held): 0</span>
  <span class="kpi">held within 10%: 100%</span>
 </div>
 <table><thead><tr><th>FBA reaction</th><th>pinned bound</th>
 <th>realized flux</th><th>|rel err|</th></tr></thead>
-<tbody><tr><td>2PGADEHYDRAT-RXN</td><td>40.37</td><td>40.37</td><td>0.00%</td></tr><tr><td>3PGAREARR-RXN</td><td>40.36</td><td>40.36</td><td>0.00%</td></tr><tr><td>6PGLUCONOLACT-RXN</td><td>3.993</td><td>3.993</td><td>0.00%</td></tr><tr><td>GAPOXNPHOSPHN-RXN</td><td>42.79</td><td>42.79</td><td>0.00%</td></tr><tr><td>GLU6PDEHYDROG-RXN</td><td>6.736</td><td>6.736</td><td>0.00%</td></tr><tr><td>PGLUCISOM-RXN</td><td>18.24</td><td>18.24</td><td>0.00%</td></tr><tr><td>PGLUCONDEHYDRAT-RXN</td><td>1.065</td><td>1.065</td><td>0.00%</td></tr><tr><td>PHOSGLYPHOS-RXN</td><td>42.79</td><td>42.79</td><td>0.00%</td></tr><tr><td>PYRUVDEH-RXN</td><td>43.58</td><td>43.58</td><td>0.00%</td></tr><tr><td>RIB5PISOM-RXN</td><td>1.627</td><td>1.627</td><td>0.00%</td></tr><tr><td>RIBULP3EPIM-RXN</td><td>1.304</td><td>1.304</td><td>0.00%</td></tr><tr><td>TRIOSEPISOMERIZATION-RXN</td><td>20.21</td><td>20.21</td><td>0.00%</td></tr></tbody></table>
+<tbody><tr><td>2PGADEHYDRAT-RXN</td><td>7.988</td><td>7.988</td><td>0.00%</td></tr><tr><td>3PGAREARR-RXN</td><td>7.975</td><td>7.975</td><td>0.00%</td></tr><tr><td>6PGLUCONOLACT-RXN</td><td>1.526</td><td>1.526</td><td>0.00%</td></tr><tr><td>GAPOXNPHOSPHN-RXN</td><td>8.391</td><td>8.391</td><td>0.00%</td></tr><tr><td>GLU6PDEHYDROG-RXN</td><td>1.525</td><td>1.525</td><td>0.00%</td></tr><tr><td>PGLUCISOM-RXN</td><td>3.238</td><td>3.238</td><td>0.00%</td></tr><tr><td>PGLUCONDEHYDRAT-RXN</td><td>0.386</td><td>0.386</td><td>0.00%</td></tr><tr><td>PHOSGLYPHOS-RXN</td><td>8.393</td><td>8.393</td><td>0.00%</td></tr><tr><td>PYRUVDEH-RXN</td><td>9.587</td><td>9.587</td><td>0.00%</td></tr><tr><td>RIB5PISOM-RXN</td><td>0.6061</td><td>0.6061</td><td>0.00%</td></tr><tr><td>RIBULP3EPIM-RXN</td><td>0.5691</td><td>0.5691</td><td>0.00%</td></tr><tr><td>TRIOSEPISOMERIZATION-RXN</td><td>3.905</td><td>3.905</td><td>0.00%</td></tr></tbody></table>
 
 <h2>(b) Feasibility</h2>
 <div>
  <span class="kpi">ticks with &ge;1 relaxed pin:
-   119/120
-   (99%)</span>
+   29/30
+   (97%)</span>
 </div>
 <table><thead><tr><th>most-relaxed reaction</th><th>tick count</th></tr></thead>
-<tbody><tr><td>MALATE-DEH-RXN</td><td>119</td></tr><tr><td>ACONITATEDEHYDR-RXN</td><td>119</td></tr><tr><td>PEPSYNTH-RXN</td><td>119</td></tr><tr><td>ISOCIT-CLEAV-RXN</td><td>119</td></tr><tr><td>SUCCCOASYN-RXN</td><td>119</td></tr><tr><td>CITSYN-RXN</td><td>119</td></tr><tr><td>ACETATE--COA-LIGASE-RXN</td><td>119</td></tr><tr><td>KDPGALDOL-RXN</td><td>119</td></tr><tr><td>2OXOGLUTARATEDEH-RXN</td><td>119</td></tr><tr><td>MALSYN-RXN</td><td>119</td></tr><tr><td>ISOCITDEH-RXN</td><td>119</td></tr><tr><td>ACETATEKIN-RXN</td><td>119</td></tr><tr><td>FUMHYDR-RXN</td><td>119</td></tr><tr><td>ACONITATEHYDR-RXN</td><td>119</td></tr><tr><td>PYRNUTRANSHYDROGEN-RXN</td><td>119</td></tr><tr><td>PEPCARBOXYKIN-RXN</td><td>119</td></tr><tr><td>RIB5PISOM-RXN</td><td>47</td></tr><tr><td>RIBULP3EPIM-RXN</td><td>47</td></tr><tr><td>6PGLUCONOLACT-RXN</td><td>47</td></tr><tr><td>PGLUCONDEHYDRAT-RXN</td><td>47</td></tr></tbody></table>
+<tbody><tr><td>2OXOGLUTARATEDEH-RXN</td><td>29</td></tr><tr><td>SUCCCOASYN-RXN</td><td>29</td></tr><tr><td>ISOCITDEH-RXN</td><td>29</td></tr><tr><td>FUMHYDR-RXN</td><td>29</td></tr><tr><td>CITSYN-RXN</td><td>29</td></tr><tr><td>KDPGALDOL-RXN</td><td>29</td></tr><tr><td>ACETATEKIN-RXN</td><td>29</td></tr><tr><td>ACONITATEHYDR-RXN</td><td>29</td></tr><tr><td>ACONITATEDEHYDR-RXN</td><td>29</td></tr><tr><td>PYRNUTRANSHYDROGEN-RXN</td><td>29</td></tr></tbody></table>
 
 <h2>(c) Viability</h2>
 <div>
  <span class="kpi ok">
    dry_mass finite &amp; positive: True</span>
- <span class="kpi">dry_mass: 379.8 &rarr; 389.8 fg</span>
+ <span class="kpi">dry_mass: 379.8 &rarr; 382.2 fg</span>
  <span class="kpi">central metabolites: 67</span>
  <span class="kpi ok">
    non-finite central samples: 0</span>
 </div>
 <p>dry_mass over the run:</p>
-<svg width="600" height="120" style="border:1px solid #ddd;background:#fafafa"><polyline fill="none" stroke="#2b6cb0" stroke-width="1.5" points="0.0,116.0 5.0,115.3 10.1,114.3 15.1,113.4 20.2,112.5 25.2,111.6 30.3,110.8 35.3,110.0 40.3,109.1 45.4,108.2 50.4,107.2 55.5,106.3 60.5,105.4 65.5,104.4 70.6,103.5 75.6,102.5 80.7,101.5 85.7,100.6 90.8,99.6 95.8,98.6 100.8,97.7 105.9,96.7 110.9,95.8 116.0,94.9 121.0,93.9 126.1,92.9 131.1,92.0 136.1,91.0 141.2,90.1 146.2,89.1 151.3,88.2 156.3,87.3 161.3,86.3 166.4,85.4 171.4,84.5 176.5,83.6 181.5,82.6 186.6,81.7 191.6,80.8 196.6,79.9 201.7,79.0 206.7,78.0 211.8,77.2 216.8,76.3 221.8,75.3 226.9,74.4 231.9,73.5 237.0,72.5 242.0,71.6 247.1,70.7 252.1,69.8 257.1,68.9 262.2,68.0 267.2,67.1 272.3,66.1 277.3,65.3 282.4,64.4 287.4,63.5 292.4,62.6 297.5,61.7 302.5,60.8 307.6,59.9 312.6,59.0 317.6,58.1 322.7,57.1 327.7,56.2 332.8,55.3 337.8,54.4 342.9,53.5 347.9,52.6 352.9,51.6 358.0,50.7 363.0,49.8 368.1,48.9 373.1,48.0 378.2,47.0 383.2,46.1 388.2,45.1 393.3,44.2 398.3,43.3 403.4,42.3 408.4,41.4 413.4,40.4 418.5,39.5 423.5,38.6 428.6,37.6 433.6,36.6 438.7,35.7 443.7,34.7 448.7,33.7 453.8,32.8 458.8,31.8 463.9,30.9 468.9,29.9 473.9,28.9 479.0,27.9 484.0,26.9 489.1,26.0 494.1,25.0 499.2,24.0 504.2,23.0 509.2,22.0 514.3,21.0 519.3,20.0 524.4,19.0 529.4,18.0 534.5,17.0 539.5,16.0 544.5,15.0 549.6,14.0 554.6,13.0 559.7,12.0 564.7,11.0 569.7,10.0 574.8,9.0 579.8,8.0 584.9,7.0 589.9,6.0 595.0,5.0 600.0,4.0"/></svg>
+<svg width="600" height="120" style="border:1px solid #ddd;background:#fafafa"><polyline fill="none" stroke="#2b6cb0" stroke-width="1.5" points="0.0,116.0 20.7,113.0 41.4,109.1 62.1,105.2 82.8,101.5 103.4,97.9 124.1,94.4 144.8,90.8 165.5,87.2 186.2,83.4 206.9,79.5 227.6,75.5 248.3,71.7 269.0,67.8 289.7,63.9 310.3,59.8 331.0,55.8 351.7,51.7 372.4,47.6 393.1,43.6 413.8,39.5 434.5,35.7 455.2,31.7 475.9,27.8 496.6,23.8 517.2,19.9 537.9,15.9 558.6,11.9 579.3,8.0 600.0,4.0"/></svg>
 </body></html>

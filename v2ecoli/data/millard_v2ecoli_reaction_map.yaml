@@ -36,7 +36,6 @@ pins:
   ENO:  [{fba: "2PGADEHYDRAT-RXN", scale: 1.0}]         # PGA2 = PEP (enolase = 2-phosphoglycerate dehydratase)
   PYK:  [{fba: "PEPDEPHOS-RXN", scale: 1.0}]            # ADP + PEP -> ATP + PYR (pyruvate kinase)
   PDH:  [{fba: "PYRUVDEH-RXN", scale: 1.0}]             # COA + NAD + PYR = ACCOA + NADH + HCO3 (pyruvate dehydrogenase)
-  FBP:  [{fba: "F16BDEPHOS-RXN", scale: 1.0}]           # FDP -> F6P + P (fructose-1,6-bisphosphatase)
 
   # --- Pentose phosphate pathway (oxidative + isomerase/epimerase) ---
   ZWF:  [{fba: "GLU6PDEHYDROG-RXN", scale: 1.0}]        # G6P + NADP = GL6P + NADPH (glucose-6-P dehydrogenase)
@@ -57,22 +56,15 @@ pins:
   SK:   [{fba: "SUCCCOASYN-RXN", scale: 1.0}]           # ADP + SUCCOA + P = ATP + COA + SUC (succinyl-CoA synthetase)
   SDH:  [{fba: "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN", scale: 1.0}]  # SUC -> FUM (succinate dehydrogenase; Millard lumps FAD/FADH2, EcoCyc uses ubiquinone)
   FUMA: [{fba: "FUMHYDR-RXN", scale: 1.0}]              # FUM = MAL (fumarase)
-  MQO:  [{fba: "MALATE-DEHYDROGENASE-ACCEPTOR-RXN", scale: 1.0}]  # MAL + Q = OAA + QH2 (malate:quinone oxidoreductase)
-  MDH:  [{fba: "MALATE-DEH-RXN", scale: 1.0}]           # OAA <-> MAL (NAD malate dehydrogenase; Millard MDH has NAD modifiers)
 
   # --- Glyoxylate shunt ---
-  ACEA: [{fba: "ISOCIT-CLEAV-RXN", scale: 1.0}]         # ICIT = GLX + SUC (isocitrate lyase)
-  ACEB: [{fba: "MALSYN-RXN", scale: 1.0}]               # ACCOA + GLX = COA + MAL (malate synthase)
 
   # --- Anaplerotic / PEP-pyruvate-oxaloacetate node ---
   PPC:  [{fba: "PEPCARBOX-RXN", scale: 1.0}]            # PEP + HCO3 = OAA + P (PEP carboxylase)
-  PCK:  [{fba: "PEPCARBOXYKIN-RXN", scale: 1.0}]        # ATP + OAA = ADP + PEP + HCO3 (PEP carboxykinase)
-  PPS:  [{fba: "PEPSYNTH-RXN", scale: 1.0}]             # ATP + PYR = AMP + PEP + P (PEP synthase)
 
   # --- Acetate / acetyl-CoA overflow ---
   PTA:  [{fba: "PHOSACETYLTRANS-RXN", scale: 1.0}]      # ACCOA + P = COA + ACP (phosphotransacetylase)
   ACK:  [{fba: "ACETATEKIN-RXN", scale: 1.0}]           # ACP + ADP = ACE + ATP (acetate kinase)
-  ACS:  [{fba: "ACETATE--COA-LIGASE-RXN", scale: 1.0}]  # ACE + ATP + COA -> ACCOA + AMP + 2P (acetyl-CoA synthetase)
 
   # --- Redox shuttle ---
   PNT:  [{fba: "PYRNUTRANSHYDROGEN-RXN", scale: 1.0}]   # NAD + NADPH = NADH + NADP (pyridine-nucleotide transhydrogenase)
@@ -113,3 +105,18 @@ millard_only:
   - "XCH_ACE1"        # ACE = ACEp (acetate exchange)
   - "XCH_ACE2"        # ACEp = ACEx (acetate exchange)
   - "_ACE_OUT"        # ACEx -> (acetate efflux boundary)
+
+# Valid mappings, but the reaction is OFF/low on M9-glucose in the WCM (glyoxylate
+# shunt, gluconeogenic, acetate uptake) or stoichiometrically inconsistent with the
+# WCM TCA cycle (MDH/MQO: Millard routes ~10x the cyclic flux through malate). Pinning
+# these to Millard's standalone steady-state over-constrains the glucose LP -> they were
+# relaxed every tick. Excluded from the default pin set; revisit per-condition.
+conditional_off_on_glucose:
+  FBP:  [{fba: "F16BDEPHOS-RXN", scale: 1.0}]           # FDP -> F6P + P (fructose-1,6-bisphosphatase)
+  MQO:  [{fba: "MALATE-DEHYDROGENASE-ACCEPTOR-RXN", scale: 1.0}]  # MAL + Q = OAA + QH2 (malate:quinone oxidoreductase)
+  MDH:  [{fba: "MALATE-DEH-RXN", scale: 1.0}]           # OAA <-> MAL (NAD malate dehydrogenase; Millard MDH has NAD modifiers)
+  ACEA: [{fba: "ISOCIT-CLEAV-RXN", scale: 1.0}]         # ICIT = GLX + SUC (isocitrate lyase)
+  ACEB: [{fba: "MALSYN-RXN", scale: 1.0}]               # ACCOA + GLX = COA + MAL (malate synthase)
+  PCK:  [{fba: "PEPCARBOXYKIN-RXN", scale: 1.0}]        # ATP + OAA = ADP + PEP + HCO3 (PEP carboxykinase)
+  PPS:  [{fba: "PEPSYNTH-RXN", scale: 1.0}]             # ATP + PYR = AMP + PEP + P (PEP synthase)
+  ACS:  [{fba: "ACETATE--COA-LIGASE-RXN", scale: 1.0}]  # ACE + ATP + COA -> ACCOA + AMP + 2P (acetyl-CoA synthetase)

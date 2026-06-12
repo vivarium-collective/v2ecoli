@@ -1003,14 +1003,18 @@ findings:
   kind: computational
   status: novel
   statement: 'The FBA-bridge flux-pin integrates the Millard kinetic ODE into the WCM FBA: for the
-    reactions whose pin holds, the realized FBA flux equals the ODE-pinned bound exactly, so the
-    kinetic model mechanistically sets central-carbon flux inside the LP.'
+    reactions whose pin holds, the realized FBA flux equals the ODE-pinned bound exactly. The pinnable
+    SCOPE is glycolysis + pentose-phosphate, where Millard''s standalone steady state matches the WCM
+    glucose state. The TCA cycle relaxes because its flux is set by the WCM''s growth/energy demand, not
+    the standalone kinetic model (not a sign/scale bug -- the ODE fluxes are positive and sensible);
+    glyoxylate/gluconeogenic/acetate-uptake reactions are off on glucose and were curated out of the
+    default pin set.'
   evidence:
-    from_run: 'millard_fba_bridge_harness (full WCM + Millard source + coupler, M9-glucose 120s)'
-    observed: 'held pins: median |rel err| = 0, 100% within 10%; glycolysis+PPP hold, TCA+anaplerotic relax; viable (dry_mass 379.8->389.8 fg)'
+    from_run: 'millard_fba_bridge_harness (full WCM + Millard source + coupler, M9-glucose)'
+    observed: 'held pins (glycolysis+PPP): median |rel err| = 0, 100% within 10%; curating off-on-glucose pathways cut pin-relaxation 57%->45%; core TCA remains growth-coupled (relaxes); viable'
   provenance:
     run_ids: [millard_fba_bridge_harness]
-  next_action: 'Curate which reactions to co-pin (reduce the TCA-relaxation rate) + per-reaction sign/scale.'
+  next_action: 'Per-condition pin sets (acetate growth would activate glyoxylate); investigate growth-coupling the TCA pin to the WCM biomass demand rather than Millard standalone flux.'
 - id: lqr-not-the-cell-mass-cause
   kind: computational
   status: novel

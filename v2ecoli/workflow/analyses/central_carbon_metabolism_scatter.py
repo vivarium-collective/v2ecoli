@@ -147,7 +147,11 @@ class CentralCarbonMetabolismScatter(Analysis):
         )
 
         # --- 7. Branch: with vs. without validation_data ---------------------
-        if validation_data is not None:
+        # The Toya comparison needs ``validation_data.reactionFlux``; the minimal
+        # v2ecoli validation loader only provides ``.protein`` (schmidt/wisniewski),
+        # so guard on the specific attribute, not just non-None — otherwise fall
+        # back to the no-validation flux bar chart below.
+        if validation_data is not None and getattr(validation_data, "reactionFlux", None) is not None:
             # Full Toya 2010 comparison scatter (faithful port)
             toyaReactions = validation_data.reactionFlux.toya2010fluxes["reactionID"]
             toyaFluxes = validation_data.reactionFlux.toya2010fluxes["reactionFlux"]

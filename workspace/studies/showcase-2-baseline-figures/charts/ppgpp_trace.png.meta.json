@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781180777.239667,
+  "title": "ppGpp pool over the cell cycle (all seeds)",
+  "interpretation": "ppGpp concentration over the cell cycle across both seeds / three generations of the clean run.",
+  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+}

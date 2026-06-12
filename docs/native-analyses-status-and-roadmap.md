@@ -9,7 +9,7 @@ This document records what the native-analyses effort delivered, what was delibe
 
 ## TL;DR
 
-vEcoli's DuckDB/`sim_data` analyses now run **natively inside v2ecoli** as process-bigraph `Analysis` steps — no vEcoli `Analysis`/`plot()` wrapper, no sms-api/HPC. **24 analyses are ported and tested.** The **ptools omics data pipeline works end-to-end** (v2ecoli sim → EcoCyc-frame-ID × timepoint TSVs in the exact Pathway-Tools format). The **ptools _visualization_ is not built yet** (the ports emit data, not a rendered map); that's the main roadmap item.
+vEcoli's DuckDB/`sim_data` analyses now run **natively inside v2ecoli** as process-bigraph `Analysis` steps — no vEcoli `Analysis`/`plot()` wrapper, no sms-api/HPC. **24 analyses are ported and tested.** The **ptools omics data pipeline works end-to-end** (v2ecoli sim → EcoCyc-frame-ID × timepoint TSVs in the exact Pathway-Tools format). The **ptools Cellular-Overview visualization is now wired** via the `ptools_overview` step, which turns those TSVs into upload-ready Omics Viewer datasets and launches the painted EcoCyc map against a running `sms-ptools` server (see Roadmap Tier 3 + the appendix on running the server).
 
 ---
 
@@ -18,7 +18,7 @@ vEcoli's DuckDB/`sim_data` analyses now run **natively inside v2ecoli** as proce
 ### The `Analysis` abstraction (in `main`)
 - `Analysis(V2Step)` — sibling of the record-based `AnalysisStep`; declares DuckDB `conn` + scale-scoped `history_sql` + ParCa `sim_data` input ports; emits `{view: html, data: map}`. Shared `ANALYSIS_REGISTRY`.
 - Runner (`workflow/analysis_runner.py`) provisions one DuckDB connection + the paired `sim_data` per run, builds a per-scale `history_sql`, writes `data → analysis.json` and `view → <sweep>/viz/*.html`.
-- Dashboard already surfaces `<study>/viz/*.html`; a server-side picker edit to list `Analysis` classes is **pending** (see roadmap).
+- Dashboard integration is **done** (generic, no per-analysis code): vivarium-dashboard reads `v2ecoli.workflow.analysis.ANALYSIS_REGISTRY` to list `Analysis` classes in its picker, runs the ones declared in a study's `analyses:` list via a post-run hook (`_run_study_analyses` → `analysis_runner.run_analyses`), and surfaces the resulting `<sweep>/viz/*.html` per study/investigation (`_discover_viz_html_files` / `_discover_investigation_viz_html_files`). Any registered analysis (incl. `ptools_overview`) appears automatically once v2ecoli is importable in the serving venv. See vivarium-dashboard `docs/post-run-analyses.md`.
 
 ### 24 ported analyses (`Analysis`, DuckDB/`sim_data`)
 | Scale | Analyses |
@@ -66,16 +66,140 @@ Output types: the **ptools** modules emit **data** (frame-ID × timepoint TSV); 
 The ptools data pipeline is done; the *visualization* is not. In increasing depth:
 1. **Tier 1 — native render.** Give the ptools ports a `view` (Plotly/Altair heatmap of the frame-ID × timepoint matrix), so they render in the dashboard's Visualizations tab instead of returning raw TSV.
 2. **Tier 2 — BioCyc annotation.** Resolve `EG#####` frame IDs to readable reaction/compound/pathway names (vEcoli's `biocyc_service` queries `websvc.biocyc.org`; or use the reconstruction flat files offline). Lets the viz group/label by pathway.
-3. **Tier 3 — Pathway Tools Omics Viewer.** Feed the TSVs to the licensed `sms-ptools` Pathway Tools server (ports 1555/5008) and embed the painted EcoCyc cellular-overview map — the signature "ptools visualization." Coupled to the licensed image; biggest lift.
+3. **Tier 3 — Pathway Tools Omics Viewer. ✓ DONE (`ptools_overview` step).** The
+   `ptools_overview` Analysis (single scale; `v2ecoli/workflow/analyses/ptools_overview.py`)
+   reuses `ptools_rna`/`rxns`/`proteins`, reformats their `$`-indexed TSVs into
+   upload-ready Omics Viewer datasets (genes / reactions / proteins, with the `$`
+   header commented out and provenance + entity-type headers added), and emits a
+   `view` that launches the live Cellular Overview (`celOv.shtml`) and offers a
+   one-click download of each dataset plus the exact upload recipe. `data["tsv"]`
+   is a combined "mixture" file (one upload paints all three). Ingestion is the
+   Omics Viewer's manual file upload (no documented auto-load URL). Verified
+   end-to-end against `sms-ptools:0.8.2`: emitted `EG#####`/reaction frame IDs
+   resolve in the live ECOLI PGDB. Run the server per the appendix below.
 
-### B. Dashboard surfacing
-- Redo + commit the `vivarium-dashboard` `server.py` picker edit (`_list_visualization_classes` lists `Analysis` classes). The earlier edit was lost when that repo's WIP branch moved; it's inert until v2ecoli is importable in the serving venv.
+### B. Dashboard surfacing — DONE
+The `vivarium-dashboard` integration is merged (on its `main`) and is **generic**
+— it reads `v2ecoli.workflow.analysis.ANALYSIS_REGISTRY` directly, so no
+per-analysis dashboard change is needed:
+- **Picker** lists every registered `Analysis` class (`_build_analysis_options`).
+- **Post-run hook** runs the analyses declared in a study's `analyses:` list
+  (`name` + optional `params`, matching a registry key) after each run, via
+  `_run_study_analyses` → `analysis_runner.run_analyses`.
+- **Surfacing**: the emitted `<sweep>/viz/*.html` are discovered per study
+  (`_discover_viz_html_files`) and per investigation
+  (`_discover_investigation_viz_html_files`) and shown in the Visualizations area.
+
+So `ptools_overview` (and any future analysis) shows up automatically. The only
+prerequisites are operational: v2ecoli must be importable in the dashboard's
+serving venv (cf. the pbg editable-install gap), and — for the painted
+overview — the external `sms-ptools` server must be running (see the appendix /
+`scripts/ptools_server.sh`). Reference: vivarium-dashboard `docs/post-run-analyses.md`.
 
 ### C. Other follow-ups
 - **`validation_data`:** the current minimal loader covers Schmidt/Wisniewski protein counts only. A fuller `ValidationDataEcoli` port (or adding a `validation/` tier to the **ecoli-sources** package, which is reconstruction-only today) would generalize it.
 - **Emit completeness:** if the descoped analyses are ever wanted, re-enable their listeners in the emit features (a clutter trade-off) and re-run.
 - **`ecocyc_table`:** port when its size is worth the effort.
 - **DRY:** the ptools modules share `build_query`/`read_outputs`; further consolidation into `_helpers.py` is possible.
+
+---
+
+## Appendix: Running the `sms-ptools` Pathway Tools server locally
+
+The Tier 3 viz needs a live Pathway Tools server. It ships as the licensed
+`sms-ptools` image on GitHub Container Registry (private to the
+`vivarium-collective` org). Verified working on Apple-Silicon macOS via colima.
+
+**TL;DR — once authenticated (step 2 below), just use the helper:**
+
+```sh
+scripts/ptools_server.sh up        # idempotent: starts a fresh container, waits until ready
+scripts/ptools_server.sh status    # is it up?
+scripts/ptools_server.sh restart   # force a clean container (use this, not `docker start` — see gotchas)
+```
+
+To **paint a run's ptools TSV** onto the EcoCyc Cellular Overview (auto-loaded,
+no manual upload), pass one of the emitted `ptools/*.tsv` (or a `ptools_overview_*`
+file) to the launcher:
+
+```sh
+scripts/ptools_launch.sh <sweep>/ptools/ptools_rna__<group>.tsv   # class inferred → opens the painted map
+```
+
+It stages the file into the server (this image's Omics Viewer only loads
+server-local files) and opens `celOv.shtml?omics=t&url=…&class=…&column1=1-N`.
+(The vivarium-dashboard "Launch ptools" button does the same thing for a study
+run once `ui.ptools_server_url` is set; locally the launcher script is the
+reliable path since the data must live on the PTools server.)
+
+The manual steps below explain what that script does and why.
+
+**1. A container runtime.** On macOS without Docker Desktop, colima gives a
+headless daemon + the `docker` CLI. **Give the VM ≥ 8 GiB** — the overview's
+tile generation OOM-kills Pathway Tools (exit 137) under colima's 2 GiB default:
+
+```sh
+brew install colima docker
+colima start --cpu 4 --memory 8   # boots the Linux VM + Docker daemon
+# (after a reboot: `colima start` again; `brew services start colima` to autostart)
+```
+
+**2. Authenticate to GHCR.** The package is private, so you need a **classic**
+GitHub PAT with the `read:packages` scope (fine-grained tokens and the `gh`
+CLI's default token do **not** work for org-owned packages), and your account
+must be granted read access to the package:
+
+```sh
+docker login ghcr.io -u <your-github-username>   # paste the classic PAT as the password
+```
+
+**3. Pull + run.** The image is **amd64-only**, so on Apple Silicon pass
+`--platform linux/amd64` (colima runs it under qemu emulation — startup is slow,
+~1 min, because Pathway Tools loads the full EcoCyc KB):
+
+```sh
+docker pull  --platform linux/amd64 ghcr.io/vivarium-collective/sms-ptools:0.8.2
+docker run -d --platform linux/amd64 --name sms-ptools --restart unless-stopped \
+  -e SERVER_HOST_NAME=localhost \
+  -p 1555:1555 -p 5008:5008 \
+  ghcr.io/vivarium-collective/sms-ptools:0.8.2
+docker logs -f sms-ptools          # wait for "Starting Pathway Tools WWW server at http://localhost:1555/"
+```
+
+The `SERVER_HOST_NAME` override matters: the image defaults to a
+Kubernetes-internal hostname (`ptools.sms-api-eks.svc.cluster.local`) that won't
+resolve locally; set it to `localhost`.
+
+**Gotchas (learned the hard way):**
+- **OOM.** Browsing the overview triggers on-demand tile generation, which is
+  memory-hungry; under a 2 GiB VM the container dies with exit `137` mid-session
+  ("Safari can't connect"). Give the VM ≥ 8 GiB (above).
+- **Never `docker start` a stopped container.** It reuses the dirty filesystem,
+  whose stale Xvfb `/tmp/.X1-lock` makes Pathway Tools fail with `cannot open
+  the display: :1` and drop into a Lisp REPL — the web server never starts. To
+  restart, **recreate fresh** (`docker rm -f sms-ptools` then `docker run …`, or
+  `scripts/ptools_server.sh restart`).
+- `--restart unless-stopped` lets the container come back after a daemon/VM
+  restart.
+
+**Ports:**
+- **1555** — WWW server. Serves the **Cellular Overview Omics Viewer**
+  (`/overviewsWeb/celOv.shtml?orgid=ECOLI`), an OpenLayers app that paints a
+  tab-delimited time-series data file onto the EcoCyc overview map. This is the
+  target for the Tier 3 "painted overview." Returns HTTP 200 once booted.
+- **5008** — pythoncyc Python API (its own non-HTTP socket protocol; a plain
+  GET/POST yields no HTTP response). Use this for **querying/annotating** the
+  PGDB (e.g. resolving `EG#####` frame IDs → names for Tier 2), not painting.
+
+The omics-viewer's expected data format is the same `$`-indexed, frame-ID ×
+timepoint TSV the ptools analyses already emit (`<sweep>/ptools/*.tsv`); see
+`htdocs/time-series.txt` / `htdocs/sample.dat` in the container for the canonical
+omics-viewer example format.
+
+> **Note:** As of 2026-06, neither vEcoli (`ptools_viz` branch) nor sms-api
+> contains code that actually feeds the TSVs to this server — both only *emit*
+> the TSVs. sms-api orchestrates SLURM jobs and delegates painting to vEcoli,
+> but the painting client was never written. The v2ecoli integration is net-new.
 
 ---
 

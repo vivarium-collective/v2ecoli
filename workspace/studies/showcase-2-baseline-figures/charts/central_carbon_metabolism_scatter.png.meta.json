@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781182713.022645,
+  "title": "Central-carbon FBA fluxes vs Toya 2010 (Pearson R = 0.6990)",
+  "interpretation": "Baseline central-carbon FBA fluxes vs Toya 2010 C13-MFA measured fluxes (multiseed over 2 seeds). Model mean WCM reaction flux vs Toya 2010 measured flux: Pearson R = 0.6990 (p = 2.1e-4) over 23 reactions; the y=x diagonal and per-point error bars are shown.",
+  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+}

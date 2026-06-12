@@ -65,10 +65,62 @@ def test_proving_set_end_to_end(tmp_path):
     first_rx = next(iter(rxns.values()))
     assert "error" not in first_rx, f"ptools_rxns errored (pairing?): {first_rx}"
 
+    # ptools TSV files written to sweep/ptools/
+    rna_tsvs = _glob.glob(str(sweep / "ptools" / "ptools_rna__*.tsv"))
+    assert rna_tsvs, "no ptools_rna TSV written under sweep/ptools/"
+    rxns_tsvs = _glob.glob(str(sweep / "ptools" / "ptools_rxns__*.tsv"))
+    assert rxns_tsvs, "no ptools_rxns TSV written under sweep/ptools/"
+    # TSV content sanity: first non-comment row should start with "$"
+    with open(rna_tsvs[0]) as f:
+        header = f.readline().rstrip("\n")
+    assert header.startswith("$"), f"ptools_rna TSV header does not start with '$': {header!r}"
+
+    # ptools view htmls written to sweep/viz/
+    rna_htmls = _glob.glob(str(sweep / "viz" / "ptools_rna__*.html"))
+    assert rna_htmls, "no ptools_rna view HTML written under sweep/viz/"
+
     # multiseed VIEW analysis wrote a viz html
     assert res["multiseed"]["central_carbon_metabolism_scatter"]
     viz = _glob.glob(str(sweep / "viz" / "central_carbon_metabolism_scatter*.html"))
     assert viz, "no viz html written for ccm_scatter"
 
     # analysis.json written
+    assert _os.path.isfile(str(sweep / "analysis.json"))
+
+
+@_pytest.mark.skipif(_ref_history_dir() is None or not _os.path.isfile(_PAIRED_SIMDATA),
+                     reason="reference sweep parquet or paired sim_data absent")
+def test_explicit_sim_data_path(tmp_path):
+    """run_analyses with an explicit sim_data_path uses that pickle (no glob).
+
+    The sweep directory has the parquet history symlinked in but NO sim_data
+    pickle at the sweep root — so resolve_sim_data(sweep_dir) would raise
+    FileNotFoundError.  Providing sim_data_path bypasses the glob entirely.
+    """
+    import v2ecoli.workflow.analyses  # noqa: F401  (register ports)
+    from v2ecoli.workflow.analysis_runner import run_analyses
+
+    sweep = tmp_path / "sweep_explicit_simdata"
+    sweep.mkdir()
+    # Link in the history parquet but deliberately omit any sim_data pickle
+    # at the sweep root — this proves the explicit path is used, not the glob.
+    (sweep / "history").symlink_to(_os.path.abspath(_ref_history_dir()))
+
+    opts = {
+        "single": {"ptools_rna": {"n_tp": 8}},
+    }
+    # Pass the sim_data path explicitly; the sweep dir has no co-located pickle.
+    res = run_analyses(str(sweep), opts, sim_data_path=_PAIRED_SIMDATA)
+
+    rna = res["single"]["ptools_rna"]
+    assert rna, "ptools_rna produced no per-group result"
+    first = next(iter(rna.values()))
+    assert "error" not in first, f"ptools_rna errored with explicit sim_data_path: {first}"
+    assert first.get("filename") == "ptools_rna.tsv"
+
+    # TSV written via the explicit sim_data path
+    rna_tsvs = _glob.glob(str(sweep / "ptools" / "ptools_rna__*.tsv"))
+    assert rna_tsvs, "no ptools_rna TSV written when using explicit sim_data_path"
+
+    # analysis.json present
     assert _os.path.isfile(str(sweep / "analysis.json"))

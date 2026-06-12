@@ -1,0 +1,50 @@
+# Build context excludes for the v2ecoli software image (docker/podman).
+# Goal: ship ONLY source + the locked env. Keep history, IDE state, runtime
+# artefacts, and derived data (esp. the ParCa cache) out of the image — the
+# cache is staged at job time, never baked. Mirrors .gitignore where relevant.
+
+# Version control / CI / IDE — never needed at runtime, and .git is ~2 GB.
+.git
+.github
+.idea
+.claude
+.vscode
+
+# Python / build artefacts (regenerable inside the image by `uv sync`)
+.venv
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+build
+dist
+*.so
+
+# uv / pip / test caches that would otherwise enter the context
+.uv-cache
+.cache
+.pytest_cache
+.ruff_cache
+.mypy_cache
+
+# Derived simulation data — explicitly excluded. The ParCa cache (out/cache)
+# is computed or S3-staged at job time, not baked into the image.
+out
+*.cPickle
+*.dill
+*.pickle
+
+# Process-bigraph / dashboard runtime state (regenerable; not source)
+.pbg
+**/runs.db
+**/runs.db-shm
+**/runs.db-wal
+.dashboard.log
+reports
+
+# Docs / OS cruft — not part of the runnable software
+docs
+.DS_Store
+
+# The image build files themselves
+Dockerfile
+.dockerignore

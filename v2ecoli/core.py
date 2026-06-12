@@ -61,7 +61,27 @@ def build_core():
         core.register_link("XArrayEmitter", XArrayEmitter)
     except Exception:
         pass
+    # Pulled-in external composites (pbg-ketchup): register its Process classes
+    # so local:KetchupEstimator resolves in dashboard runs. Guarded — a missing
+    # pbg_ketchup must never break build_core for the rest of v2ecoli.
+    try:
+        from pbg_ketchup import KetchupEstimator, KetchupDynamicEstimator
+        core.register_link("KetchupEstimator", KetchupEstimator)
+        core.register_link("KetchupDynamicEstimator", KetchupDynamicEstimator)
+    except Exception:
+        pass
     return core
+
+
+# Importing v2ecoli.core also registers the pulled-in pbg-ketchup composite
+# *generators* (the @composite_generator decorators fire on import), so the
+# dashboard's run subprocess — which does `from v2ecoli.core import build_core`
+# then looks up the generator in the registry — can resolve ketchup_baseline /
+# ketchup_dynamic. Guarded so it's a no-op when pbg-ketchup isn't installed.
+try:
+    import pbg_ketchup.composites  # noqa: F401
+except Exception:
+    pass
 
 
 @functools.lru_cache(maxsize=4)

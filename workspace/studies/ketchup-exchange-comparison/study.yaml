@@ -5,12 +5,12 @@ title: v2ecoli baseline central-carbon exchange phenotype vs KETCHUP kinetic mod
 created: '2026-06-12'
 status: evaluated
 
-# Canonical 6-axis status. Grade-only study (no new sim): the v2ecoli baseline
-# vector is the pinned population_phenotype_basal reference; the KETCHUP
-# reference fluxes come from the pbg-ketchup wrapper.
+# Canonical 6-axis status. The KETCHUP kinetic models run as real dashboard
+# simulations (KetchupEstimator / KetchupDynamicEstimator, IPOPT); the v2ecoli
+# baseline side is the pinned population_phenotype_basal reference vector.
 design_status: complete
 implementation_status: complete
-simulation_status: not-applicable
+simulation_status: complete
 evaluation_status: evaluated
 gate_status: passed
 expert_review_status: pending
@@ -70,13 +70,30 @@ assumptions:
   verified_in_v2ecoli: true
 
 conditions:
+  # The runnable models in this investigation ARE the KETCHUP kinetic models
+  # (from pbg-ketchup); the v2ecoli baseline is the pinned reference vector they
+  # are graded against. Each composite below is a real, dashboard-runnable
+  # KetchupEstimator / KetchupDynamicEstimator estimation that emits its fitted
+  # fluxes / kinetic parameters.
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    composite: pbg_ketchup.composites.estimation.ketchup_baseline
     params:
+      model_name: k-ecoli74
       seed: 0
-    # The MEASURED side is the pinned population_phenotype_basal baseline
-    # ensemble mean (no new sim); seed 0 anchors the condition only.
-  variants: []
+      solver_options: /Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt
+  variants:
+  - name: k-ecoli307
+    composite: pbg_ketchup.composites.estimation.ketchup_baseline
+    params:
+      model_name: k-ecoli307
+      seed: 0
+      solver_options: /Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt
+  - name: fdh-dynamic
+    composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
+    params:
+      model_name: FDH
+      seed: 0
+      solver_options: /Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt
   model_settings:
   - name: ketchup-k-ecoli74-reference
     gate: optional
@@ -118,6 +135,27 @@ pipeline_gate:
   gate_status: passed
 
 runs:
+- name: ketchup-k-ecoli74-estimation
+  status: completed
+  kind: simulation
+  composite: pbg_ketchup.composites.estimation.ketchup_baseline
+  description: "Real KETCHUP/IPOPT steady-state fit of k-ecoli74 (KetchupEstimator), run through the dashboard composite-runner; emits fitted exchange fluxes, SSE, status, parameter count. 986 params / 108 fluxes."
+  dispatch: local
+  emitter: sqlite
+- name: ketchup-k-ecoli307-estimation
+  status: completed
+  kind: simulation
+  composite: pbg_ketchup.composites.estimation.ketchup_baseline
+  description: "Real KETCHUP/IPOPT fit of k-ecoli307 (2476 params / 305 fluxes), run through the dashboard composite-runner."
+  dispatch: local
+  emitter: sqlite
+- name: ketchup-fdh-dynamic-estimation
+  status: completed
+  kind: simulation
+  composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
+  description: "Real KETCHUP/IPOPT time-series fit of cell-free FDH (KetchupDynamicEstimator), run through the dashboard composite-runner; fits NADH(t) across 9 conditions."
+  dispatch: local
+  emitter: sqlite
 - name: ketchup-exchange-comparison-grade
   status: completed
   kind: analysis
@@ -142,3 +180,27 @@ runs:
     v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange:
       result: PARTIAL
       detail: "flux_scatter R^2 = -0.53 over 5 matched + 1 lost (acetate). Same pattern as k-ecoli74 (the two KETCHUP models agree closely): directions consistent, magnitudes diverge (O2 -9.4 vs -136, CO2 +33 vs +146), acetate +71 absent in v2ecoli. NH3 closer here (v2ecoli -136 vs -81)."
+- name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600
+  status: completed
+  timestamp: 1781291221.6566389
+  emitter:
+    kind: unknown
+  params: '{"model_name": "k-ecoli74", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+- name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291117__17c61b
+  status: failed
+  timestamp: 1781291119.6608388
+  emitter:
+    kind: unknown
+  params: '{"model_name": "k-ecoli74", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+- name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291240__39a3de
+  status: completed
+  timestamp: 1781291254.439636
+  emitter:
+    kind: unknown
+  params: '{"model_name": "k-ecoli307", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+- name: pbg_ketchup.composites.dynamic.ketchup_dynamic__1781291254__d95513
+  status: completed
+  timestamp: 1781291260.063742
+  emitter:
+    kind: unknown
+  params: '{"model_name": "FDH", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'

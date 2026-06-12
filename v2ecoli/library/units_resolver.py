@@ -10,8 +10,11 @@ labels. No sim_data is loaded.
 """
 from __future__ import annotations
 
+import logging
 from functools import lru_cache
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def _unit_from_node(node: Any, _depth: int = 0) -> Optional[str]:
@@ -122,7 +125,13 @@ def _instantiate(cls, core):
         pass
     try:
         return cls.__new__(cls)
-    except Exception:
+    except Exception as exc:
+        logger.debug(
+            "units_resolver: skipping %r — could not instantiate for schema "
+            "introspection: %r",
+            getattr(cls, "__name__", cls),
+            exc,
+        )
         return None
 
 
@@ -135,7 +144,14 @@ def _index_from_classes(core) -> dict[str, str]:
         for method in ("inputs", "outputs"):
             try:
                 schema = getattr(inst, method)()
-            except Exception:
+            except Exception as exc:
+                logger.debug(
+                    "units_resolver: skipping %s.%s() — schema introspection "
+                    "raised, dropping its unit contribution: %r",
+                    name,
+                    method,
+                    exc,
+                )
                 continue
             if isinstance(schema, dict):
                 index.update(units_from_schema(schema, core))

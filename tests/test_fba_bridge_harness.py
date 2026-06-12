@@ -1,7 +1,9 @@
 import warnings; warnings.filterwarnings("ignore")
+import pytest
 from v2ecoli import build_composite
 
 
+@pytest.mark.sim
 def test_harness_runs_and_pins_central_flux():
     c = build_composite("millard_fba_bridge_harness", cache_dir="out/cache", seed=0)
     c.run(10)  # 10 s; must not crash

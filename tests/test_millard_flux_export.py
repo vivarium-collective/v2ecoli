@@ -1,7 +1,9 @@
 import warnings; warnings.filterwarnings("ignore")
+import pytest
 from v2ecoli import build_composite
 
 
+@pytest.mark.sim
 def test_millard_emits_central_fluxes():
     c = build_composite("millard_pdmp_baseline", with_ref_growth=True,
                         ref_growth_flux_source="consumption_matched", seed=0)

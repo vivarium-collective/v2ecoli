@@ -9,6 +9,7 @@ from v2ecoli.workflow.analyses import ptools_proteins  # noqa: F401
 from v2ecoli.workflow.analyses import mass_fraction_voronoi  # noqa: F401
 from v2ecoli.workflow.analyses import central_carbon_metabolism_scatter  # noqa: F401
 from v2ecoli.workflow.analyses import ptools_multiscale  # noqa: F401
+from v2ecoli.workflow.analyses import ptools_overview  # noqa: F401
 from v2ecoli.workflow.analyses import dummy  # noqa: F401
 from v2ecoli.workflow.analyses import mass_fraction_summary_view  # noqa: F401
 from v2ecoli.workflow.analyses import replication  # noqa: F401
@@ -22,3 +23,14 @@ from v2ecoli.workflow.analyses import new_gene_counts  # noqa: F401
 from v2ecoli.workflow.analyses import average_monomer_counts  # noqa: F401
 from v2ecoli.workflow.analyses import subgenerational_expression_table  # noqa: F401
 from v2ecoli.workflow.analyses import protein_counts_validation  # noqa: F401
+
+# Cross-variant COMPARISON analyses (variant-comparison study, showcase-4):
+# overlay / group / delta baseline + variants instead of one-panel-per-variant.
+from v2ecoli.workflow.analyses import growth_overlay  # noqa: F401
+from v2ecoli.workflow.analyses import doubling_time_grouped  # noqa: F401
+from v2ecoli.workflow.analyses import mass_fraction_grouped  # noqa: F401
+from v2ecoli.workflow.analyses import replication_overlay  # noqa: F401
+from v2ecoli.workflow.analyses import proteome_delta  # noqa: F401
+from v2ecoli.workflow.analyses import fba_flux_overlay  # noqa: F401
+from v2ecoli.workflow.analyses import regulation_overlay  # noqa: F401
+from v2ecoli.workflow.analyses import scorecard  # noqa: F401

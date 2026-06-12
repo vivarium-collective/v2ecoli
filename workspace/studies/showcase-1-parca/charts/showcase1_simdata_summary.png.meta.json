@@ -1,0 +1,8 @@
+{
+  "source_run_id": "showcase1-parca-full-2026-06-09",
+  "rendered_at": 1781063835.685262,
+  "title": "sim_data summary \u2014 FULL ParCa proof (51 vs 7 conditions)",
+  "command": ".venv/bin/python studies/showcase-1-parca/sims/fig2_simdata_summary.py --fixture out/sim_data-showcase/parca_state.pkl.gz --out studies/showcase-1-parca/charts",
+  "interpretation": "Structural inventory of the rebuilt sim_data: 4538 genes (cistrons), 3277 transcription units, 4309 protein monomers, 1118 complexes, 9460 metabolic reactions. Headline panel: 51 TF conditions fitted (--mode full) vs the 7 of --mode fast (debug, rejected) \u2014 this is the proof the build is the full ParCa, not the fast/debug one that mis-calibrates dnaA/replication.",
+  "note": "Counts from a hydrated SimulationDataEcoli off out/sim_data-showcase/parca_state.pkl.gz."
+}

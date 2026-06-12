@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781180776.627669,
+  "title": "Metabolic reaction-flux heatmap (reaction x timepoint)",
+  "interpretation": "FBA base-reaction fluxes across the cell cycle (seed 0, gen 1); |flux| on a log10 color scale with reactions sorted by magnitude. The active band (top) vs inactive reactions (bottom) is legible; fluxes are stable across the cycle.",
+  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+}

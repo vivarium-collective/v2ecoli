@@ -288,6 +288,8 @@ def run_multigen_sqlite(
         Caller should query the db directly.
     """
     from process_bigraph.emitter import SQLiteEmitter
+    from pbg_emitters.sqlite_emitter import save_simulation_metadata
+    from v2ecoli.library.output_metadata import output_metadata as _get_output_metadata
 
     if division_detector is None:
         def division_detector(prev: set[str], curr: set[str]) -> tuple[bool, str | None]:
@@ -317,6 +319,26 @@ def run_multigen_sqlite(
         "subsample": 1,
         "batch_size": 1,
     }, core=core or composite.core)
+
+    # Harvest element-name labels from listener outputs() schemas and persist
+    # them in the simulations table metadata column (JSON). Recoverable via
+    # load_simulation_metadata(db_file, run_id)["metadata"]["output_metadata"].
+    # Note: SQLiteEmitter has no flatten_dict / METADATA_PREFIX mechanism like
+    # ParquetEmitter — the catalog is stored as a single JSON blob, not as
+    # individual queryable columns. This is a best-effort store; the parquet
+    # path provides richer per-field read-back via field_metadata().
+    _named_metadata: dict = _get_output_metadata(composite.state or {})
+    if _named_metadata:
+        print(f"[multigen_sqlite] persisting output_metadata labels for: "
+              f"{list(_named_metadata.keys())}")
+        try:
+            save_simulation_metadata(
+                db_path,
+                run_id,
+                metadata={"output_metadata": _named_metadata},
+            )
+        except Exception as _e:
+            print(f"[multigen_sqlite] output_metadata persist failed: {_e!r}")
 
     import gc
 

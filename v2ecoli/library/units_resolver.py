@@ -41,3 +41,37 @@ def unit_from_type(type_str: Any, core: Any) -> Optional[str]:
     except Exception:
         return None
     return _unit_from_node(node)
+
+
+def units_from_schema(schema: Any, core: Any, _prefix: str = "") -> dict[str, str]:
+    """Walk a port-schema value into a flat ``dotted-path -> unit`` dict.
+
+    Mirrors the traversal in ``output_metadata._extract_labels_recursive`` but
+    records units instead of element labels. Leaves with no unit are omitted.
+
+    Handles: bare string type names (``'quantity[float,fg]'``), typed-leaf
+    dicts (``{'_type': '...', '_default': ...}``), and nested port dicts.
+    """
+    index: dict[str, str] = {}
+
+    if isinstance(schema, str):
+        unit = unit_from_type(schema, core)
+        if unit and _prefix:
+            index[_prefix] = unit
+        return index
+
+    if not isinstance(schema, dict):
+        return index
+
+    if "_type" in schema:
+        unit = unit_from_type(schema.get("_type"), core)
+        if unit and _prefix:
+            index[_prefix] = unit
+        return index
+
+    for key, sub in schema.items():
+        if key.startswith("_"):
+            continue
+        child_prefix = f"{_prefix}.{key}" if _prefix else key
+        index.update(units_from_schema(sub, core, child_prefix))
+    return index

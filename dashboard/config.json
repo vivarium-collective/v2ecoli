@@ -1,7 +1,7 @@
 {
   "mode": "snapshot",
   "smsApiBase": "",
-  "repo": "https://github.com/vivarium-collective/v2ecoli.git",
-  "commit": "e5d061cf91bb16e9d37979213330eabfc7ea8c42",
-  "generated_from_ref": "feat/publish-dashboard-from-main"
+  "repo": "https://github.com/vivarium-collective/v2ecoli",
+  "commit": "6651f509e7fd15985d1c485a24a94b72a0593c28",
+  "generated_from_ref": "fix/publish-dashboard-build-invocation"
 }

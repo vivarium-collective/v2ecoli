@@ -235,14 +235,14 @@
         <label class="narrative-row">
           <span class="narrative-label">Verdict</span>
           <input type="text" class="narrative-input" data-narrative-path="report.verdict"
-                 value=""
+                 value="informational"
                  placeholder="e.g. passing | passing-with-caveats | failing-bio | not-yet-run">
         </label>
         <label class="narrative-row">
           <span class="narrative-label">Confidence</span>
           <select class="narrative-input" data-narrative-path="report.confidence">
             <option value="">(unset)</option>
-            <option value="high" >high</option>
+            <option value="high" selected>high</option>
             <option value="medium" >medium</option>
             <option value="low" >low</option>
           </select>
@@ -250,7 +250,7 @@
         <label class="narrative-row">
           <span class="narrative-label">Evidence quality</span>
           <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
-                 value=""
+                 value="Schema-derived inventory (no simulation required)"
                  placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
         </label>
         <label class="narrative-row narrative-row-wide">
@@ -835,6 +835,30 @@ dimension as a navigable reference.
   <div class="viz-section">
 
     
+    
+    <div class="embed-viz-section" style="margin-bottom:24px">
+      <h3 class="section-title">Embedded visualizations</h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Self-contained HTML pages produced by the study's runner. Each iframe
+        below is a standalone artefact you can also open in a separate tab.
+      </p>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">units_atlas</strong>
+          <a href="/reports/figures/units-atlas-01-readout-inventory/units_atlas.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (10 KB) from reports/figures/units-atlas-01-readout-inventory/.</p>
+        
+        <iframe src="/reports/figures/units-atlas-01-readout-inventory/units_atlas.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="units_atlas"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
     
 
     <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>

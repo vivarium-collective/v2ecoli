@@ -91,23 +91,8 @@ jobs:
           # Regenerate the landing-page investigation list (between the
           # auto-investigations markers in index.html) so the root gallery lists
           # every investigation with a published report — no hand-curation.
-          frag="$PWD/reports/published/investigations_index.html"
-          if [ -f "$frag" ] && [ -f /tmp/ghp/index.html ]; then
-            python3 - "$frag" /tmp/ghp/index.html <<'PY'
-import pathlib, sys
-frag = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").strip()
-idx = pathlib.Path(sys.argv[2])
-html = idx.read_text(encoding="utf-8")
-begin_tag, end_tag = "<!-- BEGIN auto-investigations", "<!-- END auto-investigations -->"
-b, e = html.find(begin_tag), html.find(end_tag)
-if b != -1 and e != -1:
-    b_close = html.find("-->", b) + 3
-    idx.write_text(html[:b_close] + "\n" + frag + "\n" + html[e:], encoding="utf-8")
-    print("index.html investigation list regenerated")
-else:
-    print("auto-investigations markers not found; index.html left unchanged")
-PY
-          fi
+          python3 scripts/inject_index_fragment.py \
+            reports/published/investigations_index.html /tmp/ghp/index.html
           cd /tmp/ghp
           git add investigations/*.html index.html
           if git diff --cached --quiet; then

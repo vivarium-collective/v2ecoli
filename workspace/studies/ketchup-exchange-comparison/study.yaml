@@ -22,39 +22,43 @@ question: |
   graded by the report-card flux_scatter criterion?
 
 report:
-  title: "ketchup-exchange-comparison — v2ecoli baseline vs KETCHUP k-ecoli74 / k-ecoli307"
+  title: "ketchup-exchange-comparison — v2ecoli baseline vs KETCHUP k-ecoli74/307 + Millard 2017"
   verdict: partial
   confidence: high
-  evidence_quality: report-card flux_scatter over 6 shared central-carbon exchanges
+  evidence_quality: multi-axis report cards (whole-vector R^2 + per-metabolite rel-tol) over 3 kinetic models
   objective: |
     Grade the v2ecoli whole-cell baseline central-carbon exchange-flux vector
-    against two external KETCHUP kinetic models (used as report-card reference
-    sources) to quantify cross-model agreement on byproduct partitioning. This
-    is a CHARACTERIZATION, not a v2ecoli pass/fail — divergence between a
-    whole-cell FBA baseline and core 13C-MFA-style kinetic models is expected;
-    the goal is to measure and audit it via the PR #134 report-card grader.
+    against THREE kinetic models (used as report-card reference sources) —
+    KETCHUP k-ecoli74, KETCHUP k-ecoli307, and the Millard 2017 central-carbon
+    ODE — to characterize which kinetic regime v2ecoli's baseline byproduct
+    partitioning resembles. A CHARACTERIZATION, not a v2ecoli pass/fail.
   setup: |
-    MEASURED = v2ecoli baseline exchange fluxes (the pinned
-    population_phenotype_basal reference, 20-seed ensemble mean), restricted to
-    the 6 shared central-carbon exchanges and glucose-normalized to -100.
-    REFERENCE = KETCHUP k-ecoli74 / k-ecoli307 fitted exchange fluxes (from the
-    pbg-ketchup KetchupEstimator; boundary reactions mapped to EcoCyc compound
-    IDs, glucose-normalized). Graded by report_card.py's flux_scatter criterion
-    (identity-line R^2 on signed matched fluxes + appeared/disappeared).
+    MEASURED = v2ecoli baseline exchange fluxes (pinned population_phenotype_basal
+    reference, 20-seed ensemble mean), glucose-normalized to -100. REFERENCES =
+    (1) KETCHUP k-ecoli74 / k-ecoli307 fitted exchange fluxes (pbg-ketchup
+    KetchupEstimator, boundary reactions → EcoCyc IDs); (2) the Millard 2017 ODE
+    (millard2017_metabolism / COPASI, the flux source of millard_fba_bridge_harness;
+    glucose + acetate only). Each model graded by report_card.py with a
+    whole-vector flux_scatter axis PLUS per-metabolite rel_tol axes (O2/CO2/NH3).
   finding: |
-    PARTIAL match. The 5 quantitatively-matched exchanges agree in DIRECTION
-    (glucose/O2/NH3/SO4 uptake −, CO2 secretion +) but diverge sharply in
-    MAGNITUDE: per 100 glucose the KETCHUP core models respire far more
-    (O2 ~-135 vs v2ecoli -9.4; CO2 ~+145 vs +33). Acetate is a QUALITATIVE
-    mismatch — both KETCHUP models secrete ~+71 acetate where v2ecoli's baseline
-    shows none (grader flags it "lost"). Identity-line R^2 = -0.68 (vs k-ecoli74)
-    and -0.53 (vs k-ecoli307). The two KETCHUP models agree closely with each
-    other, so this is a v2ecoli-vs-core-kinetic-model divergence, dominated by
-    v2ecoli's anomalously low baseline O2:glucose (~0.09, flagged for review).
+    v2ecoli's baseline phenotype lines up with a GLUCOSE-LIMITED kinetic model,
+    not the batch-aerobic MFA cores.
+      • Millard 2017 ODE — WITHIN_TOL (R^2 = 1.00): both v2ecoli and Millard run
+        glucose-limited with NO acetate overflow. (Narrow: Millard exchanges only
+        glucose + acetate.)
+      • KETCHUP k-ecoli74 / k-ecoli307 — MISMATCH (R^2 = -0.89 / -0.72): directions
+        agree (uptake −, CO2 secretion +) but per 100 glucose the cores respire
+        far harder (O2 ≈ -135 vs v2ecoli -9; CO2 ≈ +145 vs +33) and secrete acetate
+        (≈ +71, absent in v2ecoli → 'lost'). Per-metabolite axes confirm: O2 and
+        CO2 mismatch, NH3 drift.
+    The two KETCHUP models agree closely with each other (shared K-FIT lineage).
+    Caveat flagged for review: v2ecoli's baseline O2:glucose is anomalously low
+    (~0.09), which drives much of the magnitude divergence.
   report_cards:
   - docs/report_cards/ketchup_vs_baseline/index.html
   - docs/report_cards/ketchup_vs_baseline/k-ecoli74.html
   - docs/report_cards/ketchup_vs_baseline/k-ecoli307.html
+  - docs/report_cards/ketchup_vs_baseline/millard2017.html
 
 assumptions:
 - text: |
@@ -94,16 +98,27 @@ conditions:
       model_name: FDH
       seed: 0
       solver_options: /Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt
+  # Millard 2017 participates as a report-card REFERENCE (model_settings below),
+  # not a runnable variant: its composite is a file-discovered YAML spec, and
+  # that run path doesn't substitute ${model_source}, so it can't run as a
+  # dashboard sim. Its central-carbon flux vector comes from the ODE directly
+  # (scripts/ketchup_baseline_report_cards.py → millard_exchange.json).
   model_settings:
+  - name: v2ecoli-baseline-reference
+    gate: optional
+    detail: "The MEASURED model: v2ecoli whole-cell baseline exchange fluxes, from the pinned population_phenotype_basal reference (20-seed ensemble mean). A fresh full-WCM run needs a ParCa cache (not run here)."
   - name: ketchup-k-ecoli74-reference
     gate: optional
-    detail: "KETCHUP k-ecoli74 (108-reaction core) used as a report-card reference source; fitted exchange fluxes from pbg-ketchup (github.com/vivarium-collective/pbg-ketchup)."
+    detail: "KETCHUP k-ecoli74 (108-reaction core) reference source; fitted exchange fluxes from pbg-ketchup (github.com/vivarium-collective/pbg-ketchup)."
   - name: ketchup-k-ecoli307-reference
     gate: optional
-    detail: "KETCHUP k-ecoli307 (305-reaction) used as a report-card reference source; fitted exchange fluxes from pbg-ketchup."
-  - name: glucose-normalized-flux-scatter
+    detail: "KETCHUP k-ecoli307 (305-reaction) reference source; fitted exchange fluxes from pbg-ketchup."
+  - name: millard2017-reference
     gate: optional
-    detail: "Both sides normalized to glucose uptake = -100; graded by report_card.py flux_scatter (identity-line R^2 on signed matched fluxes), cross-model thresholds R^2>=0.8 good / >=0.4 moderate."
+    detail: "Millard 2017 central-carbon ODE (millard2017_metabolism, COPASI) — the flux source of millard_fba_bridge_harness. Covers glucose + acetate only (no O2/CO2/NH3/SO4 exchange). The full FBA-bridge harness needs a ParCa cache and is not run here."
+  - name: glucose-normalized-multiaxis-cards
+    gate: optional
+    detail: "All models glucose-normalized to -100; graded by report_card.py with a whole-vector flux_scatter axis (identity-line R^2) PLUS per-metabolite rel_tol axes (O2/CO2/NH3, 30% tol)."
 
 tests:
 - name: v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange
@@ -124,7 +139,18 @@ tests:
   measure:
     kind: flux_scatter
     reference: KETCHUP k-ecoli307
-    detail: "Identity-line R^2 over the 6 shared glucose-normalized central-carbon exchange fluxes, plus appeared/disappeared, via report_card.py."
+    detail: "Whole-vector flux_scatter R^2 + per-metabolite rel_tol (O2/CO2/NH3) vs KETCHUP k-ecoli307, via report_card.py."
+  pass_if:
+    op: correlates
+    r2_min: 0.8
+- name: v2ecoli-baseline-matches-millard2017-exchange
+  classification: primary
+  status: passed
+  question: Does the v2ecoli baseline central-carbon exchange vector match the Millard 2017 ODE (flux_scatter R^2)?
+  measure:
+    kind: flux_scatter
+    reference: Millard 2017 ODE
+    detail: "Whole-vector flux_scatter R^2 vs the Millard 2017 central-carbon ODE (glucose + acetate only), via report_card.py."
   pass_if:
     op: correlates
     r2_min: 0.8
@@ -176,10 +202,13 @@ runs:
     # the pill as 'pending' (walkthrough.js: outcomeByTest[t.name]).
     v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange:
       result: PARTIAL
-      detail: "flux_scatter R^2 = -0.68 over 5 matched + 1 lost (acetate). Directions agree (glucose/O2/NH3/SO4 uptake −, CO2 secretion +); magnitudes diverge (per 100 glucose: O2 -9.4 vs -135, CO2 +33 vs +144); v2ecoli secretes no acetate vs KETCHUP +71 (qualitative 'lost'). Expected whole-cell-FBA vs core-kinetic divergence, characterized not failed."
+      detail: "Report card: MISMATCH (whole-vector R^2 = -0.89, 4 matched + 2 lost [acetate, SO4]; per-metabolite O2/CO2 mismatch). Directions agree but v2ecoli respires far less per glucose (O2 -9 vs -135, CO2 +33 vs +144) and secretes no acetate (KETCHUP +71). PARTIAL = directionally consistent, quantitatively divergent — expected whole-cell-FBA vs batch-MFA core divergence."
     v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange:
       result: PARTIAL
-      detail: "flux_scatter R^2 = -0.53 over 5 matched + 1 lost (acetate). Same pattern as k-ecoli74 (the two KETCHUP models agree closely): directions consistent, magnitudes diverge (O2 -9.4 vs -136, CO2 +33 vs +146), acetate +71 absent in v2ecoli. NH3 closer here (v2ecoli -136 vs -81)."
+      detail: "Report card: MISMATCH (whole-vector R^2 = -0.72; same pattern as k-ecoli74, the two KETCHUP models agree closely). NH3 closer here (v2ecoli -136 vs -81). Directions consistent, magnitudes + acetate overflow diverge."
+    v2ecoli-baseline-matches-millard2017-exchange:
+      result: PASS
+      detail: "Report card: WITHIN_TOL (R^2 = 1.00 over the 1 active shared exchange). v2ecoli's baseline AGREES with the Millard 2017 ODE: both glucose-limited with NO acetate overflow. Millard exchanges only glucose + acetate (no O2/CO2/NH3/SO4), so the match is narrow but directionally and qualitatively clean — v2ecoli's phenotype lines up with a glucose-limited kinetic model, not the batch-aerobic KETCHUP cores."
 - name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600
   status: completed
   timestamp: 1781291221.6566389

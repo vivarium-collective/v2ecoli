@@ -1,37 +1,52 @@
 <!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KETCHUP ↔ v2ecoli baseline — exchange-flux report cards</title>
+<title>v2ecoli baseline vs kinetic models — exchange-flux report cards</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  max-width:880px;margin:0 auto;padding:30px;color:#0f172a;background:#f8fafc}
-h1{font-size:22px} p{color:#334155;line-height:1.55}
-table{border-collapse:collapse;width:100%;margin:18px 0;background:#fff;
+  max-width:920px;margin:0 auto;padding:30px;color:#0f172a;background:#f8fafc}
+h1{font-size:22px} h2{font-size:15px;text-transform:uppercase;letter-spacing:.04em;
+  color:#475569;border-bottom:2px solid #cbd5e1;padding-bottom:5px;margin-top:30px}
+p{color:#334155;line-height:1.55}
+table{border-collapse:collapse;width:100%;margin:14px 0;background:#fff;
   border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
 th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #eef2f6;font-size:14px}
 th{background:#f1f5f9;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
-td.n{text-align:right;font-variant-numeric:tabular-nums}
+td.n{text-align:right;font-variant-numeric:tabular-nums} td.ref{font-weight:650;background:#f8fafc}
+td.na{text-align:right;color:#cbd5e1}
 code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12px}
-.links{display:flex;gap:14px;margin:18px 0}
-.cardlink{flex:1;display:block;padding:14px 16px;border-radius:10px;text-decoration:none;
-  color:#0f172a;border:1px solid #e2e8f0;background:#fff}
-.cardlink b{display:block;font-size:15px} .cardlink span{font-size:12px;color:#475569}
+.links{display:flex;gap:12px;margin:14px 0;flex-wrap:wrap}
+.cardlink{flex:1;min-width:230px;display:block;padding:14px 16px;border-radius:10px;
+  text-decoration:none;color:#0f172a;border:1px solid #e2e8f0;background:#fff}
+.cardlink b{display:block;font-size:15px} .cardlink span{display:block;font-size:12px;color:#475569}
+.cardlink .ov{margin-top:4px;font-weight:600}
 .cardlink.mismatch{border-left:4px solid #dc2626} .cardlink.drift{border-left:4px solid #d97706}
-.cardlink.within_tol{border-left:4px solid #059669}
-.note{font-size:13px;color:#64748b;border-left:3px solid #cbd5e1;padding:6px 12px;background:#fff}
+.cardlink.within_tol{border-left:4px solid #059669} .cardlink.ungraded{border-left:4px solid #94a3b8}
+.results{background:#fff;border:1px solid #e2e8f0;border-left:4px solid #2563eb;
+  border-radius:10px;padding:16px 18px;font-size:14px;line-height:1.6}
+.note{font-size:13px;color:#64748b;margin-top:10px}
 </style></head><body>
-<h1>KETCHUP kinetic models ↔ v2ecoli baseline</h1>
-<p>Behavioral report cards (PR #134 grader) comparing the central-carbon
-<b>exchange-flux phenotype</b> of two KETCHUP kinetic models against the v2ecoli
-whole-cell baseline, under glucose-minimal aerobic growth. All fluxes are
-glucose-normalized to −100 (uptake −, secretion +); the <code>flux_scatter</code>
-criterion grades identity-line R² over the shared central-carbon exchanges.</p>
-<div class="links"><a class='cardlink mismatch' href='k-ecoli74.html'><b>k-ecoli74</b><span>R² = -0.6808 · 5 matched · 0 appeared · 1 lost</span></a><a class='cardlink mismatch' href='k-ecoli307.html'><b>k-ecoli307</b><span>R² = -0.5321 · 5 matched · 0 appeared · 1 lost</span></a></div>
-<table><thead><tr><th>exchange (per 100 glucose)</th><th>v2ecoli baseline</th>
-<th>k-ecoli74</th><th>k-ecoli307</th></tr></thead><tbody><tr><td>glucose <code>GLC[p]</code></td><td class='n'>-100.0</td><td class='n'>-100.0</td><td class='n'>-100.0</td></tr><tr><td>O₂ <code>OXYGEN-MOLECULE[p]</code></td><td class='n'>-9.3</td><td class='n'>-135.1</td><td class='n'>-135.8</td></tr><tr><td>CO₂ <code>CARBON-DIOXIDE[p]</code></td><td class='n'>+33.2</td><td class='n'>+144.3</td><td class='n'>+145.9</td></tr><tr><td>acetate <code>ACET[p]</code></td><td class='n'>+0.0</td><td class='n'>+70.5</td><td class='n'>+71.3</td></tr><tr><td>ammonium <code>AMMONIUM[c]</code></td><td class='n'>-136.4</td><td class='n'>-54.3</td><td class='n'>-80.6</td></tr><tr><td>sulfate <code>SULFATE[p]</code></td><td class='n'>-0.0</td><td class='n'>-1.6</td><td class='n'>-1.8</td></tr></tbody></table>
-<p class="note">Both KETCHUP core-metabolism models predict substantially more
-respiration (O₂, CO₂) and acetate overflow per glucose than v2ecoli's baseline
-FBA, which is near-fermentative with no overflow — the dominant disagreement.
-KETCHUP fluxes are at the bounded fit (status maxIterations); v2ecoli values are
-the 20-seed ensemble mean. The comparison is over shared central-carbon
-exchanges only. Generated 2026-06-12 12:59.</p>
+<h1>v2ecoli baseline ↔ kinetic models: central-carbon exchange</h1>
+<p>Behavioral report cards (PR #134 grader) grading the v2ecoli whole-cell
+baseline exchange phenotype against three kinetic models as reference sources —
+two KETCHUP models (<a href="https://github.com/vivarium-collective/pbg-ketchup">pbg-ketchup</a>)
+and the Millard 2017 central-carbon ODE (the flux source of
+<code>millard_fba_bridge_harness</code>). Each card is multi-axis: a whole-vector
+<code>flux_scatter</code> R² plus per-metabolite rel-tol axes.</p>
+
+<h2>Results</h2>
+<div class="results"><b>v2ecoli ↔ Millard 2017 agree</b> on the overflow axis: both run glucose-limited with <b>no acetate secretion</b> (✓ matches — but Millard only exchanges glucose + acetate, so the match is over 2 metabolites). <b>Both KETCHUP core models diverge</b> (✗ diverges): per 100 glucose they respire far harder (O₂ ≈ −135 vs v2ecoli −9; CO₂ ≈ +145 vs +33) and secrete acetate (≈ +71, absent in v2ecoli → 'appeared'/'lost'). So v2ecoli's baseline phenotype lines up with a glucose-limited kinetic model, not with batch-aerobic 13C-MFA core models.</div>
+
+<h2>Report cards</h2>
+<div class="links"><a class='cardlink mismatch' href='k-ecoli74.html'><b>KETCHUP k-ecoli74</b><span>R² = -0.8859 · 4 matched · 0 appeared · 2 lost</span><span class='ov'>overall: mismatch</span></a><a class='cardlink mismatch' href='k-ecoli307.html'><b>KETCHUP k-ecoli307</b><span>R² = -0.7190 · 4 matched · 0 appeared · 2 lost</span><span class='ov'>overall: mismatch</span></a><a class='cardlink within_tol' href='millard2017.html'><b>Millard 2017 ODE</b><span>R² = 1.0000 · 1 matched · 0 appeared · 0 lost</span><span class='ov'>overall: within tol</span></a></div>
+
+<h2>Exchange fluxes (per 100 glucose)</h2>
+<table><thead><tr><th>exchange</th><th>v2ecoli (ref)</th>
+<th>KETCHUP k-ecoli74</th><th>KETCHUP k-ecoli307</th><th>Millard 2017</th></tr></thead>
+<tbody><tr><td>glucose <code>GLC[p]</code></td><td class='n ref'>-100</td><td class='n'>-100</td><td class='n'>-100</td><td class='n'>-100</td></tr><tr><td>O₂ <code>OXYGEN-MOLECULE[p]</code></td><td class='n ref'>-9</td><td class='n'>-135</td><td class='n'>-136</td><td class='na'>—</td></tr><tr><td>CO₂ <code>CARBON-DIOXIDE[p]</code></td><td class='n ref'>+33</td><td class='n'>+144</td><td class='n'>+146</td><td class='na'>—</td></tr><tr><td>acetate <code>ACET[p]</code></td><td class='n ref'>+0</td><td class='n'>+71</td><td class='n'>+71</td><td class='n'>+0</td></tr><tr><td>ammonium <code>AMMONIUM[c]</code></td><td class='n ref'>-136</td><td class='n'>-54</td><td class='n'>-81</td><td class='na'>—</td></tr><tr><td>sulfate <code>SULFATE[p]</code></td><td class='n ref'>-0</td><td class='n'>-2</td><td class='n'>-2</td><td class='na'>—</td></tr></tbody></table>
+<p class="note">Uptake −, secretion +. Millard 2017 only exchanges glucose +
+acetate (—  = not represented). KETCHUP fluxes at the bounded fit; v2ecoli is the
+20-seed population_phenotype_basal ensemble mean; Millard at ODE steady state.
+The full <code>millard_fba_bridge_harness</code> (Millard ODE coupled to v2ecoli
+FBA over the full WCM) needs a ParCa cache and is not run here — its central-carbon
+flux source is the ODE used above. Generated 2026-06-12 15:22.</p>
 </body></html>

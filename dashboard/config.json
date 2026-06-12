@@ -2,6 +2,6 @@
   "mode": "snapshot",
   "smsApiBase": "",
   "repo": "https://github.com/vivarium-collective/v2ecoli",
-  "commit": "6651f509e7fd15985d1c485a24a94b72a0593c28",
-  "generated_from_ref": "fix/publish-dashboard-build-invocation"
+  "commit": "2d047a515db207200c06add787befe2163bc6028",
+  "generated_from_ref": "main"
 }

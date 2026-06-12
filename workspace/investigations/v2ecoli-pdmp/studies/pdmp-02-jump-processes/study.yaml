@@ -788,3 +788,17 @@ discovery_implications:
       against an OU analytical CDF (KS < 0.02).'
     expected_information_gain: medium
     expert_gate_required: false
+findings:
+- id: trajectory-match-gate-failed-cellmass-wrong-observable
+  kind: computational
+  status: contradicts
+  statement: 'The Phase-2 trajectory-distribution-match gate FAILED on cell_mass: the Poisson tau-leap
+    Wasserstein-2 grows monotonically rather than converging. The decisive (negative) finding is that
+    cell_mass is the WRONG observable for jump-process variance -- the consumption_matched homeostat
+    washes per-tick variance out by construction -- redirecting Phase-3 inference onto count-level listeners.'
+  evidence:
+    from_run: phase2 progress (Poisson tau-leap vs baseline)
+    observed: 'cell_mass Poisson W2 grows 9.73 -> 15.35 -> 49.46 (monotonic; gate NOT met)'
+  expected:
+    range: [0.0, 9.73]
+  next_action: 'Re-anchor the distribution-match test on count-level listeners (rnap_data / ribosome_data / monomer_counts).'

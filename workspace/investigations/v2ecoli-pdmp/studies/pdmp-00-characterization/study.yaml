@@ -819,3 +819,22 @@ discovery_implications:
       full coverage (no unschematized subprocess).'
     expected_information_gain: medium
     expert_gate_required: false
+findings:
+- id: rng-seed-diversity-fixed
+  kind: computational
+  status: confirms
+  statement: 'Per-process RNG seeding (crc32(process_name, master_seed)) makes multi-seed
+    ensembles genuinely diverge; v2ecoli''s bare `seed` only seeded the allocator, leaving
+    ensembles bit-identical.'
+  evidence:
+    from_test: test_baseline_diverges_under_different_seeds
+    observed: 'N=6 x 250s M9-glucose pilot ATP[c] CV ~ 0.029% across seeds (>0); tests/test_seed_diversity.py PASS'
+  next_action: 'Extend to the committed 3-condition reference ensemble for the full interface standard.'
+- id: phase0-reference-ensemble-real
+  kind: computational
+  status: confirms
+  statement: 'A real 3-condition Phase-0 reference ensemble now exists (M9-glucose / acetate /
+    +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim.'
+  evidence:
+    from_run: phase0-traj{,-acetate,-with_aa} (N=32 x 600s, M9-glucose/acetate/+aa)
+    observed: '96 committed trajectory runs; cell/dry/water masses finite and growing'

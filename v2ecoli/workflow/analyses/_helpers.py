@@ -328,6 +328,65 @@ def chart_to_html(chart, title: str = "") -> str:
     return f'<div class="analysis-view">{html}</div>'
 
 
+def variant_label_map(variant_metadata: Optional[dict] = None) -> dict[int, str]:
+    """Extract an ``int variant -> display name`` map from ``variant_metadata``.
+
+    The analysis runner passes the per-analysis config dict through as
+    ``variant_metadata`` (analysis_runner.py ~line 281).  For the
+    variant-comparison analyses the caller is expected to supply the runner's
+    ``variant_metadata`` int->name mapping (e.g.
+    ``{0: "baseline", 1: "ppgpp-off", ...}``); the keys may arrive as ints or
+    as JSON-stringified ints.  Any non-int-like keys (ordinary config options
+    such as ``skip_n_gens``) are ignored.
+
+    Returns ``{}`` when no variant entries are present — callers should then
+    fall back to labelling variants by their integer id.
+    """
+    out: dict[int, str] = {}
+    for k, v in (variant_metadata or {}).items():
+        try:
+            ik = int(k)
+        except (TypeError, ValueError):
+            continue
+        out[ik] = str(v)
+    return out
+
+
+def variant_display_expr(
+    variant_metadata: Optional[dict] = None,
+    col: str = "variant",
+    out_name: str = "variant_name",
+) -> str:
+    """A DuckDB CASE expression mapping ``col`` (int variant) to a display name.
+
+    Falls back to ``'variant ' || CAST(col AS VARCHAR)`` for any variant not
+    present in the map, so every variant always gets a legible label.
+    """
+    label_map = variant_label_map(variant_metadata)
+    whens = " ".join(
+        f"WHEN {int(k)} THEN '{str(v).replace(chr(39), chr(39) * 2)}'"
+        for k, v in sorted(label_map.items())
+    )
+    fallback = f"'variant ' || CAST({col} AS VARCHAR)"
+    if not whens:
+        return f"{fallback} AS {out_name}"
+    return f"CASE {col} {whens} ELSE {fallback} END AS {out_name}"
+
+
+def variant_sort_order(df_variants, variant_metadata: Optional[dict] = None) -> list[str]:
+    """Display-name sort order for a set of variant ints (ascending by id).
+
+    ``df_variants`` is any iterable of variant integers present in the data.
+    Returns the corresponding display names in ascending-variant order, so
+    baseline (variant 0) sorts first and Altair legends/x-axes are stable.
+    """
+    label_map = variant_label_map(variant_metadata)
+    order: list[str] = []
+    for v in sorted({int(x) for x in df_variants}):
+        order.append(label_map.get(v, f"variant {v}"))
+    return order
+
+
 def ptools_heatmap_view(
     df: "pd.DataFrame",  # noqa: F821
     title: str,

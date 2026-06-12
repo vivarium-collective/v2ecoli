@@ -11,7 +11,7 @@ claim: |
   diagnostics on a self-generated grid — NOT a posterior, credible interval, or validated ABC distance.
 confidence: Investigating
 status: running
-phase: Decide
+phase: Design
 topic: pdmp
 tags:
 - pdmp

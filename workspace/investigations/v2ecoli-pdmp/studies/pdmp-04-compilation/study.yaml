@@ -14,7 +14,7 @@ claim: |
   direction: a column-centric runtime over per-Process JIT.
 confidence: Investigating
 status: running
-phase: Decide
+phase: Design
 topic: pdmp
 tags:
 - pdmp

@@ -10,7 +10,7 @@ claim: |
   observable choice.
 confidence: Investigating
 status: running
-phase: Decide
+phase: Design
 topic: pdmp
 tags:
 - pdmp

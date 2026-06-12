@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-12 12:47",
+  "generated": "2026-06-12 12:59",
   "shared": [
     "GLC[p]",
     "OXYGEN-MOLECULE[p]",
@@ -19,8 +19,8 @@
   "graded": {
     "k-ecoli74": {
       "verdict": "mismatch",
-      "r2": 0.26879833275937903,
-      "meter": "R\u00b2 = 0.2688 \u00b7 5 matched \u00b7 1 appeared \u00b7 0 lost",
+      "r2": -0.6808153856533461,
+      "meter": "R\u00b2 = -0.6808 \u00b7 5 matched \u00b7 0 appeared \u00b7 1 lost",
       "normalized": [
         -100.0,
         -135.0915,
@@ -32,8 +32,8 @@
     },
     "k-ecoli307": {
       "verdict": "mismatch",
-      "r2": 0.36761400656498255,
-      "meter": "R\u00b2 = 0.3676 \u00b7 5 matched \u00b7 1 appeared \u00b7 0 lost",
+      "r2": -0.5320719208661966,
+      "meter": "R\u00b2 = -0.5321 \u00b7 5 matched \u00b7 0 appeared \u00b7 1 lost",
       "normalized": [
         -100.0,
         -135.8164,

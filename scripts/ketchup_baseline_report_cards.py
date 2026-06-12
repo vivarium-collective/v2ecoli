@@ -58,11 +58,14 @@ def main():
 
     generated = time.strftime("%Y-%m-%d %H:%M")
     graded = {}
+    # Framework-native orientation (PR #134 design: grade v2ecoli's behavior
+    # against a reference *source*): MEASURED = v2ecoli baseline, REFERENCE =
+    # each KETCHUP kinetic model.
     for model in ("k-ecoli74", "k-ecoli307"):
         reference = {
-            "title": f"KETCHUP {model} vs v2ecoli baseline — central-carbon exchange",
-            "stimulus": {"reference_model": "v2ecoli baseline (FBA)",
-                         "measured_model": f"KETCHUP {model}"},
+            "title": f"v2ecoli baseline vs KETCHUP {model} — central-carbon exchange",
+            "stimulus": {"reference_model": f"KETCHUP {model}",
+                         "measured_model": "v2ecoli baseline (FBA)"},
             "footer": "Behavioral report card (PR #134 grader) · exchange fluxes "
                       "glucose-normalized to -100 · shared central-carbon metabolites only.",
             "axes": {
@@ -70,14 +73,15 @@ def main():
                     "group": "Exchange fluxes",
                     "label": "Central-carbon exchange (glucose-normalized)",
                     "units": "flux per 100 glucose",
-                    "how": "KETCHUP fitted exchange fluxes vs v2ecoli baseline FBA, "
+                    "how": "v2ecoli baseline FBA exchange fluxes graded against the "
+                           f"KETCHUP {model} kinetic model as the reference source; "
                            "both normalized to glucose uptake = -100; signed "
                            "(uptake −, secretion +).",
                     "plot": "flux_scatter",
                     "criterion": {
                         "type": "flux_scatter",
                         "flux_ids": SHARED,
-                        "ref_vector": v2_norm,
+                        "ref_vector": cand[model],   # KETCHUP = reference
                         "active_eps": 1e-6,
                         "qual_eps": 1e-3,
                         # cross-MODEL comparison thresholds (not regression-tight):
@@ -88,7 +92,7 @@ def main():
             },
         }
         card = {"fluxes": {"exchange": {
-            "vector": cand[model], "std": [0.0] * len(SHARED), "n_cells": 1}}}
+            "vector": v2_norm, "std": [0.0] * len(SHARED), "n_cells": 1}}}  # v2ecoli = measured
 
         report = grade_card(card, reference)
         html = render_html(card, reference, model_ref=model, generated=generated)

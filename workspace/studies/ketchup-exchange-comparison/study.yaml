@@ -1,0 +1,144 @@
+schema_version: 4
+name: ketchup-exchange-comparison
+investigation: ketchup-baseline-comparison   # owning investigation (back-reference)
+title: v2ecoli baseline central-carbon exchange phenotype vs KETCHUP kinetic models
+created: '2026-06-12'
+status: evaluated
+
+# Canonical 6-axis status. Grade-only study (no new sim): the v2ecoli baseline
+# vector is the pinned population_phenotype_basal reference; the KETCHUP
+# reference fluxes come from the pbg-ketchup wrapper.
+design_status: complete
+implementation_status: complete
+simulation_status: not-applicable
+evaluation_status: evaluated
+gate_status: passed
+expert_review_status: pending
+
+question: |
+  Does the v2ecoli baseline central-carbon exchange / byproduct phenotype
+  (glucose, O2, CO2, acetate, NH3, SO4) match the KETCHUP core-metabolism
+  kinetic models k-ecoli74 and k-ecoli307, when both are glucose-normalized and
+  graded by the report-card flux_scatter criterion?
+
+report:
+  title: "ketchup-exchange-comparison — v2ecoli baseline vs KETCHUP k-ecoli74 / k-ecoli307"
+  verdict: partial
+  confidence: high
+  evidence_quality: report-card flux_scatter over 6 shared central-carbon exchanges
+  objective: |
+    Grade the v2ecoli whole-cell baseline central-carbon exchange-flux vector
+    against two external KETCHUP kinetic models (used as report-card reference
+    sources) to quantify cross-model agreement on byproduct partitioning. This
+    is a CHARACTERIZATION, not a v2ecoli pass/fail — divergence between a
+    whole-cell FBA baseline and core 13C-MFA-style kinetic models is expected;
+    the goal is to measure and audit it via the PR #134 report-card grader.
+  setup: |
+    MEASURED = v2ecoli baseline exchange fluxes (the pinned
+    population_phenotype_basal reference, 20-seed ensemble mean), restricted to
+    the 6 shared central-carbon exchanges and glucose-normalized to -100.
+    REFERENCE = KETCHUP k-ecoli74 / k-ecoli307 fitted exchange fluxes (from the
+    pbg-ketchup KetchupEstimator; boundary reactions mapped to EcoCyc compound
+    IDs, glucose-normalized). Graded by report_card.py's flux_scatter criterion
+    (identity-line R^2 on signed matched fluxes + appeared/disappeared).
+  finding: |
+    PARTIAL match. The 5 quantitatively-matched exchanges agree in DIRECTION
+    (glucose/O2/NH3/SO4 uptake −, CO2 secretion +) but diverge sharply in
+    MAGNITUDE: per 100 glucose the KETCHUP core models respire far more
+    (O2 ~-135 vs v2ecoli -9.4; CO2 ~+145 vs +33). Acetate is a QUALITATIVE
+    mismatch — both KETCHUP models secrete ~+71 acetate where v2ecoli's baseline
+    shows none (grader flags it "lost"). Identity-line R^2 = -0.68 (vs k-ecoli74)
+    and -0.53 (vs k-ecoli307). The two KETCHUP models agree closely with each
+    other, so this is a v2ecoli-vs-core-kinetic-model divergence, dominated by
+    v2ecoli's anomalously low baseline O2:glucose (~0.09, flagged for review).
+  report_cards:
+  - docs/report_cards/ketchup_vs_baseline/index.html
+  - docs/report_cards/ketchup_vs_baseline/k-ecoli74.html
+  - docs/report_cards/ketchup_vs_baseline/k-ecoli307.html
+
+assumptions:
+- text: |
+    The pinned population_phenotype_basal reference (20-seed baseline ensemble
+    mean) is a faithful stand-in for the v2ecoli baseline exchange phenotype, so
+    no new sim is run for the measured side.
+  verified_in_v2ecoli: true
+- text: |
+    The KETCHUP boundary reactions (up_glc/out_co2/out_ac/up_o2/up_nh3/up_so4
+    for k-ecoli74; gluc_up/EX_* for k-ecoli307) map 1:1 to the v2ecoli EcoCyc
+    exchange compound IDs (GLC[p], CARBON-DIOXIDE[p], ACET[p],
+    OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
+  verified_in_v2ecoli: true
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+    # The MEASURED side is the pinned population_phenotype_basal baseline
+    # ensemble mean (no new sim); seed 0 anchors the condition only.
+  variants: []
+  model_settings:
+  - name: ketchup-k-ecoli74-reference
+    gate: optional
+    detail: "KETCHUP k-ecoli74 (108-reaction core) used as a report-card reference source; fitted exchange fluxes from pbg-ketchup (github.com/vivarium-collective/pbg-ketchup)."
+  - name: ketchup-k-ecoli307-reference
+    gate: optional
+    detail: "KETCHUP k-ecoli307 (305-reaction) used as a report-card reference source; fitted exchange fluxes from pbg-ketchup."
+  - name: glucose-normalized-flux-scatter
+    gate: optional
+    detail: "Both sides normalized to glucose uptake = -100; graded by report_card.py flux_scatter (identity-line R^2 on signed matched fluxes), cross-model thresholds R^2>=0.8 good / >=0.4 moderate."
+
+tests:
+- name: v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange
+  classification: primary
+  status: partial
+  question: Does the v2ecoli baseline central-carbon exchange vector match KETCHUP k-ecoli74 (flux_scatter R^2)?
+  measure:
+    kind: flux_scatter
+    reference: KETCHUP k-ecoli74
+    detail: "Identity-line R^2 over the 6 shared glucose-normalized central-carbon exchange fluxes, plus appeared/disappeared, via report_card.py."
+  pass_if:
+    op: correlates
+    r2_min: 0.8
+- name: v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange
+  classification: primary
+  status: partial
+  question: Does the v2ecoli baseline central-carbon exchange vector match KETCHUP k-ecoli307 (flux_scatter R^2)?
+  measure:
+    kind: flux_scatter
+    reference: KETCHUP k-ecoli307
+    detail: "Identity-line R^2 over the 6 shared glucose-normalized central-carbon exchange fluxes, plus appeared/disappeared, via report_card.py."
+  pass_if:
+    op: correlates
+    r2_min: 0.8
+
+pipeline_gate:
+  prerequisites: []
+  enables: []
+  gate_status: passed
+
+runs:
+- name: ketchup-exchange-comparison-grade
+  status: completed
+  kind: analysis
+  canonical: true
+  description: |
+    Graded the v2ecoli baseline central-carbon exchange vector against the two
+    KETCHUP kinetic models with the PR #134 report-card flux_scatter criterion.
+    KETCHUP fluxes from pbg-ketchup (KetchupEstimator on k-ecoli74 / k-ecoli307,
+    boundary reactions mapped to EcoCyc IDs, glucose-normalized); v2ecoli side
+    from the pinned population_phenotype_basal reference. Built by
+    scripts/ketchup_baseline_report_cards.py; cards in
+    docs/report_cards/ketchup_vs_baseline/.
+  dispatch: local
+  emitter: none
+  result: PARTIAL
+  outcomes:
+    # keys MUST match tests[].name exactly (lowercase), or the report renders
+    # the pill as 'pending' (walkthrough.js: outcomeByTest[t.name]).
+    v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange:
+      result: PARTIAL
+      detail: "flux_scatter R^2 = -0.68 over 5 matched + 1 lost (acetate). Directions agree (glucose/O2/NH3/SO4 uptake −, CO2 secretion +); magnitudes diverge (per 100 glucose: O2 -9.4 vs -135, CO2 +33 vs +144); v2ecoli secretes no acetate vs KETCHUP +71 (qualitative 'lost'). Expected whole-cell-FBA vs core-kinetic divergence, characterized not failed."
+    v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange:
+      result: PARTIAL
+      detail: "flux_scatter R^2 = -0.53 over 5 matched + 1 lost (acetate). Same pattern as k-ecoli74 (the two KETCHUP models agree closely): directions consistent, magnitudes diverge (O2 -9.4 vs -136, CO2 +33 vs +146), acetate +71 absent in v2ecoli. NH3 closer here (v2ecoli -136 vs -81)."

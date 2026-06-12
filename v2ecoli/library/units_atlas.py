@@ -15,6 +15,7 @@ _DIMENSION_BY_UNIT = {
     "fg": "mass", "g": "mass", "pg": "mass",
     "s": "time", "min": "time", "h": "time",
     "mM": "concentration", "mmol/L": "concentration", "M": "concentration",
+    "uM": "concentration", "nM": "concentration", "M/L": "concentration",
     "1/s": "rate", "1/h": "rate", "1/min": "rate",
     "nt": "count", "aa": "count", "count": "count",
     "L": "volume", "fL": "volume",
@@ -62,8 +63,6 @@ def _sample_magnitudes(run_dir: Any, paths: list[str]) -> dict:
     out: dict = {}
     try:
         from v2ecoli.library.parquet_viz import load_run_history
-        if run_dir is True:
-            run_dir = None  # caller may pass True to mean "latest"; resolve below
         df = load_run_history(run_dir) if run_dir else None
     except Exception:
         return out

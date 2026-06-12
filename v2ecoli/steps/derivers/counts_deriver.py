@@ -27,7 +27,7 @@ unique-molecule section.
 import numpy as np
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
-from v2ecoli.types.labeled_array import LabeledArray
+from v2ecoli.types.labeled_array import register_labeled_array
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
 from v2ecoli.library.schema_types import (
     RNA_ARRAY,
@@ -205,13 +205,11 @@ class CountsDeriver(Step):
         # initialize() (not outputs()) ensures the type is in the core before
         # Composite() resolves port schemas.
         if self.core is not None:
-            self.core.register_type(
-                'monomer_counts_vec',
-                LabeledArray(
-                    _shape=(self.n_monomers,),
-                    _data=np.dtype('int64'),
-                    _labels=tuple(self.monomer_ids),
-                ),
+            register_labeled_array(
+                self.core, 'monomer_counts_vec',
+                shape=(self.n_monomers,),
+                data=np.dtype('int64'),
+                labels=tuple(self.monomer_ids),
             )
 
         # ---------------- unique-molecule counts ----------------

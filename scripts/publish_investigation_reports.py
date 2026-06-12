@@ -57,6 +57,59 @@ def discover_investigations(ws_root: Path) -> list[str]:
     )
 
 
+def _load_investigation_yaml(ws_root: Path, slug: str) -> dict:
+    """Read an investigation's investigation.yaml (nested or flat layout)."""
+    for base in (ws_root / "workspace" / "investigations", ws_root / "investigations"):
+        p = base / slug / "investigation.yaml"
+        if p.is_file():
+            return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+    return {}
+
+
+def build_index_fragment(ws_root: Path, slugs: list[str]) -> str:
+    """Build the ``<div class="invest">`` blocks for the gh-pages landing page.
+
+    Generated from each investigation.yaml (title, status, a short description,
+    study list) so the root gallery lists EVERY investigation that has a
+    published report — no hand-curation. Injected between the
+    ``auto-investigations`` markers in ``index.html`` by the publish workflow.
+    """
+    import html as _h
+
+    blocks: list[str] = []
+    for slug in slugs:
+        spec = _load_investigation_yaml(ws_root, slug)
+        title = str(spec.get("title") or slug)
+        status_raw = str(spec.get("status") or "").strip()
+        status_label = status_raw.replace("_", " ") or "—"
+        status_class = status_raw or "in_progress"
+
+        # Description: prefer executive.what_is_this, else the question; collapse
+        # whitespace and truncate so the gallery card stays compact.
+        execu = spec.get("executive") if isinstance(spec.get("executive"), dict) else {}
+        desc = str(execu.get("what_is_this") or spec.get("question") or "").strip()
+        desc = " ".join(desc.split())
+        if len(desc) > 300:
+            desc = desc[:297].rstrip() + "…"
+
+        studies = [s.get("name") if isinstance(s, dict) else s
+                   for s in (spec.get("studies") or [])]
+        studies = [str(s) for s in studies if s]
+        meta = f"{len(studies)} stud{'y' if len(studies) == 1 else 'ies'}"
+        if 0 < len(studies) <= 4:
+            meta += " · " + " · ".join(studies)
+
+        blocks.append(
+            '<div class="invest">\n'
+            f'  <h3><a href="investigations/{_h.escape(slug)}.html">{_h.escape(title)}</a>\n'
+            f'      <span class="pill {_h.escape(status_class)}">{_h.escape(status_label)}</span></h3>\n'
+            f'  <p>{_h.escape(desc)}</p>\n'
+            f'  <p class="meta">{_h.escape(meta)}</p>\n'
+            '</div>'
+        )
+    return "\n\n".join(blocks)
+
+
 def study_figure_count(ws_root: Path, slug: str) -> int:
     """How many figure HTMLs the investigation's studies reference on disk.
 
@@ -138,7 +191,12 @@ def export_report(page, base_url: str, slug: str, out_path: Path,
     promise with the HTML and surface any rejection. Failures return in seconds
     with the real error (e.g. a study 404).
     """
-    page.goto(base_url, wait_until="networkidle", timeout=45_000)
+    # Use "domcontentloaded", NOT "networkidle": the dashboard SPA fires
+    # background /api/* calls (the build_core registry subprocess, the live
+    # git-status poll) that may never go idle within the timeout under CI —
+    # which made every report fail with a goto timeout. Readiness is gated
+    # precisely by the wait_for_function below instead.
+    page.goto(base_url, wait_until="domcontentloaded", timeout=45_000)
     page.wait_for_function(
         "typeof window._generateInvestigationReport === 'function' "
         "&& typeof window._openInvestigationDetail === 'function'",
@@ -178,16 +236,23 @@ def export_report(page, base_url: str, slug: str, out_path: Path,
     if state["download"] is None:
         return False, "no report produced within 120s"
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    state["download"].save_as(out_path)
-    html = out_path.read_text(encoding="utf-8", errors="replace")
+    # Validate BEFORE writing out_path. The gh-pages copy step publishes every
+    # file under the output dir, so writing an invalid report here would
+    # OVERWRITE a previously-good published copy with a stripped one (exactly
+    # what happened on the first real run: the pinned CI dashboard generated the
+    # pdmp report with zero figure embeds, and it clobbered the good gh-pages
+    # version). Read from Playwright's temp download and only save_as on success,
+    # so a failed report leaves no file → the copy step preserves the last-good.
+    html = Path(state["download"].path()).read_text(encoding="utf-8", errors="replace")
     size = len(html)
     embeds = html.count("<iframe") + html.count("srcdoc") + html.count("data:image")
     if size < MIN_REPORT_BYTES:
-        return False, f"report too small ({size} B < {MIN_REPORT_BYTES})"
+        return False, f"report too small ({size} B < {MIN_REPORT_BYTES}); not published"
     if expect_figures and embeds == 0:
         return False, (f"{size} B but ZERO figure embeds while studies reference "
-                       f"figures — report was silently stripped")
+                       f"figures — report stripped; not published (kept last-good)")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    state["download"].save_as(out_path)
     return True, f"{size:,} B, {embeds} embed-markers"
 
 
@@ -246,6 +311,16 @@ def main() -> int:
                 proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 proc.kill()
+
+    # Regenerate the landing-page investigation list from ALL discovered
+    # investigations (not just this run's --only subset), so the gh-pages root
+    # gallery always lists every investigation with a published report.
+    all_slugs = discover_investigations(ws_root)
+    fragment = build_index_fragment(ws_root, all_slugs)
+    index_fragment_path = out_dir / "investigations_index.html"
+    index_fragment_path.write_text(fragment + "\n", encoding="utf-8")
+    print(f"wrote landing-page fragment ({len(all_slugs)} investigations) to "
+          f"{index_fragment_path}")
 
     failed = [s for s, (ok, _) in results.items() if not ok]
     print(f"\n{len(results) - len(failed)}/{len(results)} reports published to "

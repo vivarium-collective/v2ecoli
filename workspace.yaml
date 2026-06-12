@@ -4,6 +4,7 @@ created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
 layout:
+  studies: workspace/studies
   investigations: workspace/investigations
   references: workspace/references
   experiments: workspace/experiments
@@ -48,3 +49,16 @@ references_pdfs:
   sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
 server:
   enabled: true
+dashboard:
+  # Registry tab: show ONLY this repo's own process/type classes. Without this
+  # the grid lists every installed pbg-* package's classes (pbg-cellpack, …)
+  # auto-registered by allocate_core(). Display-only allow-list by top-level
+  # package; discovery is unchanged.
+  registry:
+    include: [v2ecoli]
+  # Sources page: surface the ecoli-sources bundle (the ParCa/reconstruction
+  # input files) with links — inherited files link to the pinned ecoli-sources
+  # GitHub commit, local overrides to this repo. See v2ecoli/dashboard_sources.py.
+  data_sources:
+    provider: "v2ecoli.dashboard_sources:enumerate_sources"
+    label: "ecoli-sources"

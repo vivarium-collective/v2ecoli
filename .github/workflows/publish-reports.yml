@@ -88,12 +88,17 @@ jobs:
           git worktree add /tmp/ghp gh-pages
           mkdir -p /tmp/ghp/investigations
           cp reports/published/investigations/*.html /tmp/ghp/investigations/
+          # Regenerate the landing-page investigation list (between the
+          # auto-investigations markers in index.html) so the root gallery lists
+          # every investigation with a published report — no hand-curation.
+          python3 scripts/inject_index_fragment.py \
+            reports/published/investigations_index.html /tmp/ghp/index.html
           cd /tmp/ghp
-          git add investigations/*.html
+          git add investigations/*.html index.html
           if git diff --cached --quiet; then
             echo "no report content changed; skipping commit"
           else
-            git commit -m "gh-pages: republish investigation reports (automated, ${GITHUB_SHA::7})"
+            git commit -m "gh-pages: republish investigation reports + landing list (automated, ${GITHUB_SHA::7})"
             git push origin gh-pages
             echo "published $(ls investigations/*.html | wc -l) investigation reports"
           fi

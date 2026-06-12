@@ -28,6 +28,48 @@ def dimension_of(unit: str) -> str:
     return _DIMENSION_BY_UNIT.get(unit, "other")
 
 
+# One-line description of what each physical dimension captures in the model.
+_DIMENSION_DESC = {
+    "mass": "Cell and component masses — the whole-cell mass budget the growth "
+            "and division logic balances (cell, dry, protein, RNA mass).",
+    "concentration": "Molecular concentrations — metabolite pools, FBA target "
+                     "and updated concentrations, and growth-limiting species "
+                     "the metabolism solver reads and writes.",
+    "rate": "Per-time rates — reaction and process velocities (e.g. equilibrium "
+            "reaction rates) expressed per second.",
+    "time": "Durations and timesteps — the simulation clock and per-process "
+            "step sizes that pace the cell cycle.",
+    "count": "Molecule counts — discrete copy numbers (nucleotides, amino "
+             "acids, bulk species) the stochastic processes act on.",
+    "volume": "Cell volume — the compartment size that links counts to "
+              "concentrations.",
+    "length": "Lengths — spatial extents (e.g. cell length).",
+    "other": "Composite or flux-like units that don't fall into a single base "
+             "dimension (e.g. g·s/L, mmol/g/h).",
+}
+
+
+def dimension_description(dim: str) -> str:
+    """Human-readable one-liner for a physical dimension; '' if unknown."""
+    return _DIMENSION_DESC.get(dim, "")
+
+
+def format_magnitude(x: Optional[float]) -> str:
+    """Format a sampled magnitude compactly: ~4 sig figs, scientific for
+    very small/large values, an en-dash for missing values."""
+    if x is None:
+        return "—"
+    try:
+        ax = abs(float(x))
+    except (TypeError, ValueError):
+        return "—"
+    if ax == 0:
+        return "0"
+    if ax < 1e-3 or ax >= 1e6:
+        return f"{x:.3e}"
+    return f"{x:.4g}"
+
+
 def build_atlas(run_dir: Optional[Any] = None) -> dict:
     """Return ``{dimension: [row, ...], '_flags': [...]}``.
 
@@ -62,8 +104,9 @@ def _sample_magnitudes(run_dir: Any, paths: list[str]) -> dict:
     """
     out: dict = {}
     try:
+        from pathlib import Path
         from v2ecoli.library.parquet_viz import load_run_history
-        df = load_run_history(run_dir) if run_dir else None
+        df = load_run_history(Path(run_dir)) if run_dir else None
     except Exception:
         return out
     if df is None:

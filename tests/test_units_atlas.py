@@ -25,3 +25,15 @@ def test_build_atlas_flags_dimensionless(monkeypatch):
     # a separate scan; assert the API returns a 'flags' channel.
     atlas = build_atlas()
     assert isinstance(atlas.get("_flags", []), list)
+
+
+def test_units_atlas_visualization_renders_table():
+    from v2ecoli.visualizations.units_atlas import UnitsAtlasVisualization
+    from v2ecoli.core import build_core
+    viz = UnitsAtlasVisualization(config={"title": "Units Atlas"}, core=build_core())
+    viz.accumulate({})            # atlas is schema-derived; state may be empty
+    html = viz.render()
+    assert "Units Atlas" in html
+    assert "fg" in html and "mM" in html
+    assert "listeners.mass.cell_mass" in html
+    assert "<table" in html

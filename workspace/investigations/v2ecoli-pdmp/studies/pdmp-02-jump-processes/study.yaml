@@ -797,8 +797,10 @@ findings:
     cell_mass is the WRONG observable for jump-process variance -- the consumption_matched homeostat
     washes per-tick variance out by construction -- redirecting Phase-3 inference onto count-level listeners.'
   evidence:
-    from_run: phase2 progress (Poisson tau-leap vs baseline)
+    from_run: 'phase2-progress (Poisson tau-leap vs baseline)'
     observed: 'cell_mass Poisson W2 grows 9.73 -> 15.35 -> 49.46 (monotonic; gate NOT met)'
   expected:
     range: [0.0, 9.73]
+  provenance:
+    run_ids: [phase2-progress]
   next_action: 'Re-anchor the distribution-match test on count-level listeners (rnap_data / ribosome_data / monomer_counts).'

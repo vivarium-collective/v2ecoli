@@ -992,10 +992,12 @@ findings:
   statement: 'On M9-glucose the PDMP-Phase-1 cell_mass + dry_mass endpoint distributions match the
     Phase-0 reference within +/-sigma (the W2 acceptance gate) after the closed-loop WATER[c] fix.'
   evidence:
-    from_run: pdmp-ensemble-vs-phase0 (N=12 PDMP consumption_matched vs N=32 Phase-0, 600s)
+    from_run: 'pdmp-ensemble-vs-phase0 (N=12 PDMP consumption_matched vs N=32 Phase-0, 600s)'
     observed: 'cell_mass W2/sigma = 1.00 (was 3.02); dry_mass W2/sigma = 1.09'
   expected:
     range: [0.0, 2.0]
+  provenance:
+    run_ids: [pdmp-ensemble-vs-phase0]
   next_action: 'Confirm the gate on M9-acetate and M9-glucose+aa (multi-condition).'
 - id: fba-bridge-flux-pin-works
   kind: computational
@@ -1004,8 +1006,10 @@ findings:
     reactions whose pin holds, the realized FBA flux equals the ODE-pinned bound exactly, so the
     kinetic model mechanistically sets central-carbon flux inside the LP.'
   evidence:
-    from_run: millard_fba_bridge_harness (full WCM + Millard source + coupler, M9-glucose 120s)
+    from_run: 'millard_fba_bridge_harness (full WCM + Millard source + coupler, M9-glucose 120s)'
     observed: 'held pins: median |rel err| = 0, 100% within 10%; glycolysis+PPP hold, TCA+anaplerotic relax; viable (dry_mass 379.8->389.8 fg)'
+  provenance:
+    run_ids: [millard_fba_bridge_harness]
   next_action: 'Curate which reactions to co-pin (reduce the TCA-relaxation rate) + per-reaction sign/scale.'
 - id: lqr-not-the-cell-mass-cause
   kind: computational

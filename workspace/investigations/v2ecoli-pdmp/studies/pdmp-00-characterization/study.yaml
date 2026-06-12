@@ -836,5 +836,7 @@ findings:
   statement: 'A real 3-condition Phase-0 reference ensemble now exists (M9-glucose / acetate /
     +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim.'
   evidence:
-    from_run: phase0-traj{,-acetate,-with_aa} (N=32 x 600s, M9-glucose/acetate/+aa)
+    from_run: 'phase0-traj{,-acetate,-with_aa} (N=32 x 600s)'
     observed: '96 committed trajectory runs; cell/dry/water masses finite and growing'
+  provenance:
+    run_ids: [phase0-traj, phase0-traj-acetate, phase0-traj-with_aa]

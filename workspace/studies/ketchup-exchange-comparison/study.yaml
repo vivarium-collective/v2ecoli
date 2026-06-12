@@ -98,6 +98,10 @@ conditions:
       model_name: FDH
       seed: 0
       solver_options: /Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt
+  - name: v2ecoli-baseline
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      cache_dir: out/cache
   # Millard 2017 participates as a report-card REFERENCE (model_settings below),
   # not a runnable variant: its composite is a file-discovered YAML spec, and
   # that run path doesn't substitute ${model_source}, so it can't run as a
@@ -106,7 +110,7 @@ conditions:
   model_settings:
   - name: v2ecoli-baseline-reference
     gate: optional
-    detail: "The MEASURED model: v2ecoli whole-cell baseline exchange fluxes, from the pinned population_phenotype_basal reference (20-seed ensemble mean). A fresh full-WCM run needs a ParCa cache (not run here)."
+    detail: "The MEASURED model: v2ecoli whole-cell baseline. Now also a runnable dashboard variant (v2ecoli-baseline, off a built ParCa cache at out/cache). The report-card MEASURED vector still uses the pinned population_phenotype_basal reference (20-seed ensemble mean) — a better estimate than a short fresh single-cell run."
   - name: ketchup-k-ecoli74-reference
     gate: optional
     detail: "KETCHUP k-ecoli74 (108-reaction core) reference source; fitted exchange fluxes from pbg-ketchup (github.com/vivarium-collective/pbg-ketchup)."
@@ -233,3 +237,21 @@ runs:
   emitter:
     kind: unknown
   params: '{"model_name": "FDH", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+- name: v2ecoli.composites.baseline.baseline__1781294008__810680
+  status: completed
+  timestamp: 1781294020.363904
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "out/cache"}'
+- name: v2ecoli.composites.baseline.baseline__1781292628__c9cf06
+  status: failed
+  timestamp: 1781292633.446089
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "out/cache"}'
+- name: v2ecoli.composites.millard2017_metabolism__1781292303__cbfeeb
+  status: failed
+  timestamp: 1781292307.564183
+  emitter:
+    kind: unknown
+  params: '{}'

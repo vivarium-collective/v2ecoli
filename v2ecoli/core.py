@@ -61,6 +61,18 @@ def build_core():
         core.register_link("XArrayEmitter", XArrayEmitter)
     except Exception:
         pass
+    # Placeholder labeled-vector types so a SERIALIZED composite (the dashboard
+    # composite-runner builds documents via build_generator, which doesn't run
+    # the derivers' initialize() side-effects) can resolve ``overwrite[<vec>]``
+    # port schemas at realize time. CountsDeriver / RnapData re-register these
+    # with their real shape + element labels in initialize(); the labels are
+    # what the output_metadata walker reads. Resolution only needs the type to
+    # exist, so a bare array placeholder is enough.
+    for _vec in ('monomer_counts_vec', 'rna_init_event_per_cistron_vec'):
+        try:
+            core.register_type(_vec, {'_inherit': 'array', '_data': 'int64'})
+        except Exception:
+            pass
     # Pulled-in external composites (pbg-ketchup): register its Process classes
     # so local:KetchupEstimator resolves in dashboard runs. Guarded — a missing
     # pbg_ketchup must never break build_core for the rest of v2ecoli.

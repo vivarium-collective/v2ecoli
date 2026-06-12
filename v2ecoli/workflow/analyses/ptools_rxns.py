@@ -16,6 +16,7 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
 from v2ecoli.workflow.analyses.ptools_rna import consolidate_timepoints
 
 
@@ -58,6 +59,15 @@ class PtoolsRxns(Analysis):
     scale = "single"
     config_schema = {"n_tp": "integer", "time_unit": "string"}
 
+    def _do_read_outputs(
+        self,
+        history_sql: str,
+        conn: DuckDBPyConnection,
+        columns=None,
+    ):
+        """Delegate to module-level read_outputs (overridable by mixins)."""
+        return read_outputs(history_sql, conn, columns)
+
     def analyze(
         self,
         *,
@@ -75,7 +85,7 @@ class PtoolsRxns(Analysis):
             params["time_unit"] = "minutes"
 
         output_columns = ["listeners__fba_results__base_reaction_fluxes"]
-        output_df = read_outputs(history_sql, conn, output_columns)
+        output_df = self._do_read_outputs(history_sql, conn, output_columns)
 
         # Drop timestep-0 row where FBA hasn't run yet (flux array is empty at
         # t=0 because metabolism hasn't been called).  v2ecoli deviation: vEcoli
@@ -128,4 +138,19 @@ class PtoolsRxns(Analysis):
         tsv = ptools_rxns_df.to_csv(
             sep="\t", index=True, header=True, float_format="%.4f"
         )
-        return {"data": {"filename": "ptools_rxns.tsv", "tsv": tsv}}
+        # Flux magnitudes are extremely heavy-tailed: a handful of central-
+        # carbon reactions carry O(10) flux while most of the ~hundreds of
+        # active reactions carry <0.1 (and ~3/4 of all base reactions carry
+        # exactly 0).  On a linear color scale the few large reactions saturate
+        # the range and the entire matrix renders as a flat ~0 field with no
+        # visible band structure.  Render on a log10 color scale and sort
+        # reactions by descending magnitude so the decade-spanning structure is
+        # legible across all reactions.
+        view = ptools_heatmap_view(
+            ptools_rxns_df,
+            "Reaction fluxes (reaction × timepoint)",
+            log_color=True,
+            sort_rows=True,
+            color_label="|flux| (mmol/gDCW/h)",
+        )
+        return {"data": {"filename": "ptools_rxns.tsv", "tsv": tsv}, "view": view}

@@ -27,6 +27,8 @@ namespace: "millard2017 reactions -> v2ecoli FBA reactions"
 pins:
   # --- Glycolysis / gluconeogenesis ---
   PGI:  [{fba: "PGLUCISOM-RXN", scale: 1.0}]            # G6P = F6P (glucose-6-P isomerase)
+  PFK:  [{fba: "6PFRUCTPHOS-RXN__6PFK-1-CPX", scale: 1.0}]   # ATP + F6P = ADP + FDP (PfkA, dominant isozyme variant; PfkB minor left free)
+  FBA:  [{fba: "F16ALDOLASE-RXN__FRUCBISALD-CLASSII", scale: 1.0}]  # FDP = DAP + GAP (FbaA class-II, the glycolytic aldolase variant)
   TPI:  [{fba: "TRIOSEPISOMERIZATION-RXN", scale: 1.0}] # DAP = GAP (triose-phosphate isomerase)
   GDH:  [{fba: "GAPOXNPHOSPHN-RXN", scale: 1.0}]        # GAP + NAD + P = BPG + NADH (GAPDH)
   PGK:  [{fba: "PHOSGLYPHOS-RXN", scale: 1.0}]          # ADP + BPG = ATP + PGA3 (phosphoglycerate kinase)
@@ -123,8 +125,6 @@ conditional_off_on_glucose:
 # setReactionFluxBounds). Excluded until variant/sum-level pinning is implemented.
 # NOTE: PFK/FBA/PYK are core glycolysis -- restoring them would extend the held set.
 needs_variant_pinning:
-  PFK:  [{fba: "6PFRUCTPHOS-RXN", scale: 1.0}]          # ATP + F6P = ADP + FDP (6-phosphofructokinase)
-  FBA:  [{fba: "F16ALDOLASE-RXN", scale: 1.0}]          # FDP = DAP + GAP (fructose-1,6-bisphosphate aldolase)
   PYK:  [{fba: "PEPDEPHOS-RXN", scale: 1.0}]            # ADP + PEP -> ATP + PYR (pyruvate kinase)
   SDH:  [{fba: "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN", scale: 1.0}]  # SUC -> FUM (succinate dehydrogenase; Millard lumps FAD/FADH2, EcoCyc uses ubiquinone)
   PPC:  [{fba: "PEPCARBOX-RXN", scale: 1.0}]            # PEP + HCO3 = OAA + P (PEP carboxylase)

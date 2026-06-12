@@ -40,13 +40,18 @@ def test_mapped_ids_exist_in_wcm():
 
     base_ids = set(base_ids)
     m = load_reaction_map(MAP_PATH)
+    # A pin id is either a base reaction id (single-isozyme) or an
+    # enzyme-resolved variant '<base>__<cplx>' / '<base> (reverse)'. Strip the
+    # variant suffix and check the base reaction is real.
+    def _base(fid):
+        return fid.split("__")[0].split(" (")[0]
     missing = {
         millard: fba
         for millard, targets in m.items()
         for fba, _scale in targets
-        if fba not in base_ids
+        if _base(fba) not in base_ids
     }
-    assert not missing, f"mapped fba ids not in WCM base_reaction_ids: {missing}"
+    assert not missing, f"mapped fba ids whose base reaction is not in WCM base_reaction_ids: {missing}"
 
 
 def _find_base_reaction_ids(composite):

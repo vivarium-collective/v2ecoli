@@ -1,0 +1,38 @@
+{
+  "artifacts": [
+    [
+      "initial_state.json",
+      "present",
+      "10.39 MB"
+    ],
+    [
+      "sim_data_cache.dill",
+      "present",
+      "164.92 MB"
+    ],
+    [
+      "metadata.json",
+      "present",
+      "210 B"
+    ],
+    [
+      "cache_version.json",
+      "present",
+      "1.1 KB"
+    ]
+  ],
+  "initial_state": [
+    [
+      "bulk molecule species",
+      "16,321"
+    ],
+    [
+      "unique molecule types",
+      "11"
+    ],
+    [
+      "top-level state stores",
+      "bulk, unique, environment, boundary"
+    ]
+  ]
+}

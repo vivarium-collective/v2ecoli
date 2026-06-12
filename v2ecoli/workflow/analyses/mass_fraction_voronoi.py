@@ -22,70 +22,16 @@ from duckdb import DuckDBPyConnection
 
 from wholecell.utils import units
 from wholecell.utils.voronoi_plot_main import VoronoiMaster
-import wholecell.utils.voronoi_plot_main as _vpm
 
 from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analyses import _wholecell_compat
 from v2ecoli.workflow.analyses._shims import bulk_count_matrix
 from v2ecoli.workflow.render import fig_to_html
 
-# ---------------------------------------------------------------------------
-# matplotlib 3.10 compat + wholecell VoronoiMaster bug fixes
-#
-# Bug 1: Polygon(xy, closed) → Polygon(xy, closed=closed)
-#   matplotlib 3.10 made `closed` keyword-only.  voronoi_plot_main does
-#   `from matplotlib.patches import Polygon` at module level, so we patch the
-#   name in *that* module's namespace rather than in matplotlib itself.
-#
-# Bug 2: _add_labels recurses on [label, site] leaf pairs
-#   The method checks `isinstance(element, list)` and recurses, but
-#   [label_string, coordinate_array] is also a list — causing it to iterate
-#   over the string label and fail with IndexError.  We detect a leaf pair by
-#   checking: len==2, first element is str, second is not str.
-# ---------------------------------------------------------------------------
-_OrigPoly = _vpm.Polygon
-
-class _Poly310(_OrigPoly):  # type: ignore[misc]
-    def __init__(self, xy, closed=True, **kwargs):
-        super().__init__(xy, closed=closed, **kwargs)
-
-_vpm.Polygon = _Poly310
-
-
-def _fixed_add_labels(self, label_site_list, font_size, ax):
-    """Replacement for VoronoiMaster._add_labels that handles leaf pairs."""
-    for element in label_site_list:
-        # Leaf: [label_string, (x, y)]
-        if (
-            isinstance(element, (list, tuple))
-            and len(element) == 2
-            and isinstance(element[0], str)
-            and not isinstance(element[1], str)
-        ):
-            ax.text(
-                element[1][0],
-                element[1][1],
-                element[0],
-                fontsize=font_size,
-                horizontalalignment="center",
-                verticalalignment="center",
-            )
-        elif isinstance(element, (list, tuple)):
-            _fixed_add_labels(self, element, font_size, ax)
-
-_vpm.VoronoiMaster._add_labels = _fixed_add_labels
-
-
-def _fixed_compute_error(self, polygon_value_list, total_value, total_area):
-    """Replacement that skips broken leaf-pair traversal.
-
-    The installed wholecell version has the same isinstance(list) confusion
-    as _add_labels: it recurses on [polygon, value] leaf pairs instead of
-    handling them directly.  Since _compute_error is only used for the
-    verbose area-error print (verbose=False by default), returning 0 is safe.
-    """
-    return 0.0
-
-_vpm.VoronoiMaster._compute_error = _fixed_compute_error
+# matplotlib 3.10 compat + wholecell VoronoiMaster bug fixes (Polygon closed
+# kwarg, _add_labels / _compute_error leaf-pair recursion) are centralized in
+# _wholecell_compat; apply once at import time.
+_wholecell_compat.apply()
 
 
 # ---------------------------------------------------------------------------

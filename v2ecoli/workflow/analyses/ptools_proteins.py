@@ -20,6 +20,7 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
 from v2ecoli.workflow.analyses._shims import (
     bulk_count_matrix,
     ACTIVE_RIBOSOME_SQL,
@@ -80,6 +81,15 @@ class PtoolsProteins(Analysis):
     scale = "single"
     config_schema = {"n_tp": "integer", "time_unit": "string"}
 
+    def _do_read_outputs(
+        self,
+        history_sql: str,
+        conn: DuckDBPyConnection,
+        columns=None,
+    ):
+        """Delegate to module-level read_outputs (overridable by mixins)."""
+        return read_outputs(history_sql, conn, columns)
+
     def analyze(
         self,
         *,
@@ -106,7 +116,7 @@ class PtoolsProteins(Analysis):
             ACTIVE_RIBOSOME_SQL, # Shim B: active ribosome (sum of per-transcript list)
         ]
 
-        output_df = read_outputs(history_sql, conn, output_columns)
+        output_df = self._do_read_outputs(history_sql, conn, output_columns)
 
         # Shim A: reorder bulk__count columns to sim_data order
         bulk_mtx = bulk_count_matrix(output_df, sim_data)
@@ -184,4 +194,7 @@ class PtoolsProteins(Analysis):
         tsv = ptools_proteins_df.to_csv(
             sep="\t", index=True, header=True, float_format="%.4f"
         )
-        return {"data": {"filename": "ptools_proteins.tsv", "tsv": tsv}}
+        view = ptools_heatmap_view(
+            ptools_proteins_df, "Protein counts (monomer × timepoint)"
+        )
+        return {"data": {"filename": "ptools_proteins.tsv", "tsv": tsv}, "view": view}

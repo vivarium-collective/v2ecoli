@@ -31,6 +31,7 @@ dependencies = [
     "biopython",
     "sympy",
     "pandas",
+    "plotly>=5.0",
     "ecoli-sources",
     "numba",
     "unum",
@@ -59,6 +60,9 @@ dev = ["pytest-timeout>=2.3", "pytest-xdist>=3.6"]
 parquet = []
 xarray = []
 emitters = ["v2ecoli[parquet,xarray]"]
+# Parallel multiseed runs: one Ray worker process per seed (see
+# v2ecoli.library.parallel_seeds + workspace.yaml runtime.parallel: ray).
+ray = ["ray>=2.10"]
 
 [project.scripts]
 v2ecoli-parca = "v2ecoli.cli.parca:main"

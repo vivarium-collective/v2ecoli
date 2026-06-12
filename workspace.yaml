@@ -32,6 +32,10 @@ layout:
 runtime:
   default_emitter: parquet  # 'parquet' | 'sqlite' | 'xarray'
   max_generations: 8        # multi-gen cap (xarray + parquet runs) — bumped for PDMP validation ensembles
+  # Multiseed parallelism: 'ray' runs one worker process per seed (parity with
+  # vEcoli — see docs/perf/). Unset/None = sequential. Needs `v2ecoli[ray]`.
+  # Runners use v2ecoli.library.parallel_seeds.run_seeds_parallel(mode=<this>).
+  parallel:                 # 'ray' | null
 observables: []
 visualizations: []
 simulations: []

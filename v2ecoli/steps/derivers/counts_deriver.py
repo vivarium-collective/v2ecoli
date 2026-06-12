@@ -127,7 +127,13 @@ class CountsDeriver(Step):
                     'partial_rRNA_counts': {'_type': f'overwrite[array[{self.n_rRNA_TU},integer]]', '_default': []},
                     'partial_rRNA_cistron_counts': {'_type': f'overwrite[array[{self.n_rRNA_cistron},integer]]', '_default': []},
                 },
-                'monomer_counts': 'monomer_counts_vec',
+                # ``overwrite[...]`` gives SET semantics. The bare Array type's
+                # default apply is ACCUMULATE (element-wise add), which would
+                # add each step's true monomer-count vector to the prior store
+                # value — producing a linear ramp (~N x the real count after N
+                # steps) and inflating monomer_counts by ~10^3 x. The sibling
+                # rna_counts fields are protected the same way (overwrite[...]).
+                'monomer_counts': 'overwrite[monomer_counts_vec]',
                 'unique_molecule_counts': 'map[integer]',
             },
         }

@@ -1,7 +1,7 @@
 {
   "source_run_id": "showcase2-baseline-clean",
-  "rendered_at": 1781180775.847561,
-  "title": "Distribution of doubling times across the ensemble",
-  "interpretation": "Histogram of per-generation doubling times across the 2-seed x 3-gen ensemble. Clean per-generation division times (no step-cap inflation).",
-  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+  "rendered_at": 1781237205.86639,
+  "title": "Distribution of doubling times across the ensemble (cap-immune)",
+  "interpretation": "Histogram of the cap-immune instantaneous doubling time t2 = ln(2)/mu over all emitted timesteps in the 2-seed x 3-gen ensemble (many samples). Tight distribution centred near ~52 min; immune to the final-generation step-cap truncation that biased the old per-cell-span histogram toward a spurious low-end bin.",
+  "command": "scripts/render_showcase2.py doubling_time_{line,hist}: cap-immune instantaneous t2=ln(2)/mu trace over the clean showcase2 sweep parquet; Altair->PNG/SVG via vl_convert."
 }

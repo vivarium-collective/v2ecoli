@@ -20,3 +20,11 @@ def count_surrogate_sample(theta, calib, n_obs, rng):
 def count_summary(counts) -> np.ndarray:
     c = np.asarray(counts, dtype=float)
     return np.array([c.mean(), c.std()])
+
+def calibrate_from_counts(samples) -> dict:
+    """Fit the surrogate (mu0, phi) from measured per-replicate count samples."""
+    import numpy as np
+    s = np.asarray(samples, dtype=float)
+    mean, var = float(s.mean()), float(s.var())
+    return {"mu0": mean, "phi": fit_negbinom_dispersion(mean, var),
+            "theta_ref": 1.0}

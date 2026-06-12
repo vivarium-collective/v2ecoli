@@ -26,3 +26,13 @@ def test_summary_shape():
     s = count_summary(np.array([1.0, 2.0, 3.0, 4.0]))
     assert s.shape == (2,)            # [mean, std]
     assert abs(s[0] - 2.5) < 1e-9
+
+def test_calibrate_from_counts():
+    import numpy as np
+    from v2ecoli.inference.count_surrogate import calibrate_from_counts
+    rng = np.random.default_rng(0)
+    samples = rng.negative_binomial(8, 8/(8+40), size=5000).astype(float)
+    calib = calibrate_from_counts(samples)
+    assert abs(calib["mu0"] - 40) < 2
+    assert abs(calib["phi"] - 8) < 3
+    assert calib["theta_ref"] == 1.0

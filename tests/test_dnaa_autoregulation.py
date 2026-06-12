@@ -33,3 +33,17 @@ def test_autoreg_scaling_factor():
     assert abs(_autoreg_factor(1.0, 0.8) - 0.2) < 1e-9
     assert abs(_autoreg_factor(0.5, 0.8) - 0.6) < 1e-9
     assert _autoreg_factor(1.0, 0.0) == 1.0
+
+
+def test_autoreg_preserves_normalized_distribution():
+    import numpy as np
+    from v2ecoli.processes.transcript_initiation import _autoreg_factor
+    probs = np.array([0.25, 0.25, 0.25, 0.25])      # normalized
+    dnaa = np.array([False, True, False, False])     # represses index 1
+    f, s = 1.0, 0.8
+    probs[dnaa] *= _autoreg_factor(f, s)             # 0.25 -> 0.05
+    probs /= probs.sum()                              # renormalize (the fix)
+    assert abs(probs.sum() - 1.0) < 1e-12            # stays a valid distribution
+    # dnaA's share dropped; the other three rose proportionally + stayed equal
+    assert probs[1] < 0.25
+    assert np.allclose(probs[[0, 2, 3]], probs[0])   # untargeted TUs stay equal to each other

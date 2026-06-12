@@ -467,6 +467,11 @@ class TranscriptInitiation(Step):
                 if dnaa_promoters.any():
                     self.promoter_init_probs[dnaa_promoters] *= _autoreg_factor(
                         promoter_fraction, AUTOREG_STRENGTH)
+                    # Renormalize: promoter_init_probs is a distribution consumed by
+                    # multinomial (which forces the last element to the remainder), so
+                    # the repressed dnaA mass must redistribute proportionally, not pile
+                    # onto the last promoter. Repression of dnaA is preserved (p is tiny).
+                    self.promoter_init_probs /= self.promoter_init_probs.sum()
 
         # If there are no chromosomes in the cell, set all probs to zero
         else:

@@ -178,7 +178,7 @@ expected_behavior:
     observable: state-variable-category-map
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: interface-schemas-typed
   en: Each of metabolism, transcription, translation, replication, division, membrane has a typed PB interface schema covering
@@ -190,7 +190,7 @@ expected_behavior:
     observable: process-bigraph-interface-schemas
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: reference-xarray-3-conditions
   en: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across ≥3 distinct environmental
@@ -203,7 +203,7 @@ expected_behavior:
     observable: xarray-interface-dataset
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: profile-marshalling-vs-essential
   en: Per-step compute is decomposed into marshalling overhead vs. essential computation, motivating (or refuting) the Phase
@@ -215,7 +215,7 @@ expected_behavior:
     observable: per-step-profile-report
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-replicate-ensemble-N64
   en: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic replicates. Per-observable MCSE
@@ -227,7 +227,7 @@ expected_behavior:
     observable: per-condition-replicate-count
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-stiffness-classification
   en: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ| / min|λ|) is estimated
@@ -240,7 +240,7 @@ expected_behavior:
     observable: jacobian-spectrum-summary
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-bootstrap-cis-on-interface-stats
   en: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries a bootstrap 95% confidence
@@ -252,7 +252,7 @@ expected_behavior:
     observable: interface-summary-CI
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 baseline:
 - name: v2ecoli-diagnostic
@@ -445,18 +445,18 @@ readouts:
     pending (task #39).'
 - name: interface-schemas
   status: planned
-  path: TBD — planned at v2ecoli/<process>/interface.schema.json
+  path: planned output: v2ecoli/<process>/interface.schema.json (not yet produced)
   units: PB schema
   notes: Typed PB interface schema per major subprocess (metabolism, transcription, translation, replication, division, membrane).
 - name: per-step-compute-profile
   status: planned
-  path: TBD — planned at .pbg/runs/<id>/profile.json
+  path: planned output: .pbg/runs/<id>/profile.json (not yet produced)
   units: ms per bucket
   notes: '5 buckets: FBA LP solve / RNG / store-process marshalling / topology traversal / emitter I/O. Mean +/- std over
     >=1000 step samples + bootstrap 95% CI.'
 - name: variable-categorisation-map
   status: planned
-  path: TBD — planned at studies/pdmp-00/variable_categories.yaml
+  path: planned output: studies/pdmp-00/variable_categories.yaml (not yet produced)
   units: category enum + numerical-sensitivity tier
   notes: 'Every state variable: ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact + stiffness/CV/coupling-strength
     tier.'

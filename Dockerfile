@@ -5,8 +5,10 @@
 # (out/cache) is computed (`scripts/build_cache.py`) or fetched at job time, never baked.
 #
 # Ray comes from v2ecoli's own lock (2.55.x), so the Ray version matches across every
-# node of a cluster. On AWS, the Ray entrypoint + AWS CLI are layered on top of this image
-# by sms-cdk/docker/ray.Dockerfile (built with BASE_IMAGE=<this image>).
+# node of a cluster. This image is SELF-CONTAINED for AWS Batch multi-node-parallel runs:
+# it bundles the AWS CLI and the generic Batch-MNP Ray entrypoint (docker/ray-batch-
+# entrypoint.sh), so no downstream layering is required — sms-api builds it (workload-owned,
+# like vEcoli's image) and sms-cdk only provides the MNP job def + build infra.
 #
 # Build (from the repo root):
 #   docker build -t v2ecoli:dev .
@@ -46,3 +48,25 @@ RUN printf 'export PATH="/app/v2ecoli/.venv/bin:$PATH"\n' > /etc/profile.d/10-v2
 
 # Sanity: the package imports and Ray is present at the locked version.
 RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
+
+# ─── AWS Batch multi-node-parallel (Ray) runtime layer ───────────────────────
+# Make the image self-contained for Ray-on-Batch: the AWS CLI (stages the ParCa
+# cache in + the zarr results out, per the entrypoint's RAY_STAGE_*/RAY_OUT_* env)
+# and the generic Batch-MNP Ray entrypoint. The image runs as root with WORKDIR
+# /app/v2ecoli, so the entrypoint can stage the cache under /app. The entrypoint is
+# env-driven and a no-op outside Batch, so it doesn't affect local/dev use.
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+ && case "$(uname -m)" in \
+      x86_64)  awscli_url="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" ;; \
+      aarch64) awscli_url="https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" ;; \
+      *) echo "unsupported arch: $(uname -m)" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL "$awscli_url" -o /tmp/awscliv2.zip \
+ && unzip -q /tmp/awscliv2.zip -d /tmp \
+ && /tmp/aws/install \
+ && rm -rf /tmp/aws /tmp/awscliv2.zip \
+ && apt-get clean && rm -rf /var/lib/apt/lists/* \
+ && aws --version
+
+COPY docker/ray-batch-entrypoint.sh /opt/ray-batch-entrypoint.sh
+RUN chmod +x /opt/ray-batch-entrypoint.sh

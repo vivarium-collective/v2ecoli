@@ -20,14 +20,33 @@ hypothesis: |
 
 executive:
   what_is_this: |
-    A forward UQ investigation using the pbg-uq package to identify dominant
-    sources of parameter-driven variance in the v2ecoli whole-cell baseline.
-    Each study samples a set of sim_data parameters from a uniform prior, runs
-    per-sample baseline simulations (1 generation, XArray emitter), fits an
-    order-2 Polynomial Chaos Expansion (PCE) surrogate via PyTUQ, and extracts
-    analytic Sobol sensitivity indices. The first study (param-uq-01-elongation)
-    targets three ribosome-elongation parameters; subsequent studies will expand
-    the analysis to other subsystems.
+    A multi-study forward UQ investigation using the pbg-uq package to identify
+    dominant sources of parameter-driven variance in the v2ecoli whole-cell
+    baseline. The program proceeds in a structured graph:
+
+    1. param-uq-00-screen (EXECUTED): A low/high parameter screen over 7
+       config-reachable knobs identifies the 3 that actually move instantaneous
+       growth rate (>2% response), defining the effective UQ surface.
+
+    2. param-uq-01-elongation (EXECUTED): Full PCE-based forward UQ on the 3
+       effective knobs (120-step window, n=30+10, 3 PCRV seeds) confirms that
+       basal_elongation_rate dominates (Sobol ≈ 0.97), correcting an earlier
+       artifact (v2ecoli PR #197).
+
+    3. param-uq-02-observables (RUNNING): Extends the elongation-ranking check
+       to dry_mass and cell_mass over a 360-step window (n=24+8, 2 seeds),
+       testing whether basal_elongation_rate dominance holds across observables.
+
+    4. param-uq-03-growth-stratified (PLANNED): Cell-cycle-stratified Sobol
+       analysis (10 θ bins, birth→division) to determine whether parameter
+       influence is uniform or episodic across the cell cycle (RFC006 strategy 4).
+       Requires multi-generation runs (~2760 steps/gen) and a pbg-uq strategy
+       extension.
+
+    5. param-uq-04-deep-params (PLANNED): Sensitivity to the deeper
+       SimulationDataEcoli physiological parameters (RNAP fractions, FBA weights,
+       mass fractions) via sim_data-level injection + per-sample ParCa cache
+       rebuild. Needs a new pbg-uq injection adapter.
   verdict: |
     The ribosome's translation basal_elongation_rate robustly DOMINATES variance in
     instantaneous growth rate among the effective config-reachable elongation knobs
@@ -45,6 +64,14 @@ executive:
     rate), and ran an adequate, robustness-checked budget (n=30+10, 3 seeds). The
     finding is mechanistically expected — basal_elongation_rate directly sets
     ribosome speed → protein-synthesis flux → growth rate.
+
+    The broader program is underway: param-uq-00-screen (EXECUTED) established the
+    effective parameter surface; param-uq-02-observables (RUNNING) is testing
+    multi-observable robustness at 360 steps; param-uq-03-growth-stratified and
+    param-uq-04-deep-params are PLANNED — the former requires multi-generation
+    runs + pbg-uq strategy extension, the latter requires sim_data injection +
+    ParCa-level cache rebuilds. The core elongation finding stands while the
+    roadmap executes.
   decisions_needed:
   - question: Expand to the DEEP sim_data physiological parameters (ParCa-level injection)?
     context: |
@@ -72,8 +99,16 @@ scientific_argument:
   - "This CORRECTS an earlier artifact; the original demo's 'GTP-dominant 0.88' was a carryover bug (v2ecoli PR #197), and 2 of its 3 params were inert."
 
 at_a_glance:
+- study: param-uq-00-screen
+  role: "Foundational parameter screen: identifies the 3 config-reachable knobs that actually move growth rate (>2% response) and excludes 4 inert ones, defining the effective UQ surface for studies 01–03."
 - study: param-uq-01-elongation
   role: "Robustly finds translation basal_elongation_rate dominates growth-rate variance (Sobol ≈ 0.97) among effective elongation knobs — after fixing the carryover bug (PR #197) and screening to effective params."
+- study: param-uq-02-observables
+  role: "Tests whether the elongation dominance finding holds for dry_mass/cell_mass over a 360-step window (ensemble running; results pending)."
+- study: param-uq-03-growth-stratified
+  role: "PLANNED: determines whether parameter influence on growth/mass is uniform or stage-dependent across the cell cycle (10 θ bins, requires multi-gen runs + pbg-uq extension)."
+- study: param-uq-04-deep-params
+  role: "PLANNED: extends UQ to deep SimulationDataEcoli physiological parameters (RNAP fractions, FBA weights, mass fraction) via ParCa-level injection — out of reach of the current config_overrides path."
 
 biological_story: |
   Translation is one of the cell's largest energy sinks, so it is natural to ask
@@ -91,8 +126,14 @@ biological_story: |
   budget — turned a misleading number into a trustworthy one.
 
 studies:
+- param-uq-00-screen
 - param-uq-01-elongation
+- param-uq-02-observables
+- param-uq-03-growth-stratified
+- param-uq-04-deep-params
 
 acceptance_criteria:
+- study: param-uq-00-screen
+  behavior: screen-identifies-effective-knobs
 - study: param-uq-01-elongation
   behavior: single-elongation-knob-robustly-dominates

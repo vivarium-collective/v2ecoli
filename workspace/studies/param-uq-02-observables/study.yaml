@@ -1,0 +1,121 @@
+schema_version: 4
+name: param-uq-02-observables
+investigation: parameter-uq
+title: "Multi-observable robustness — does basal_elongation_rate dominance hold for mass observables over a longer window?"
+created: '2026-06-12'
+status: running
+
+# Canonical 6-axis status.
+design_status: complete
+implementation_status: complete
+simulation_status: running
+evaluation_status: pending
+gate_status: pending
+expert_review_status: pending
+
+# Investigation-graph node fields.
+claim: |
+  (pending) Testing whether the elongation ranking from param-uq-01 (growth rate)
+  also holds for dry_mass/cell_mass over a 360-step window.
+confidence: Investigating
+
+question: |
+  Over a longer (360-step) window, do dry_mass and cell_mass become responsive to
+  the 3 effective elongation knobs, and does basal_elongation_rate remain dominant
+  across observables?
+
+report:
+  title: param-uq-02-observables — multi-observable elongation sensitivity (360-step)
+  verdict: pending
+  confidence: pending
+  evidence_quality: pending — ensemble running
+
+  objective: |
+    Test whether the dominant finding from param-uq-01-elongation (basal_elongation_rate
+    dominates instantaneous_growth_rate) generalises to mass observables (dry_mass,
+    cell_mass) when the simulation window is extended to 360 steps (~12% of a
+    generation). At 120 steps, mass observables move <0.16% and carry no parameter
+    signal; 360 steps gives more time for the mass accumulation pathway to respond.
+
+  setup: |
+    Same 3 effective knobs identified by the screen (param-uq-01):
+    - basal_elongation_rate: [15, 28] aa/s
+    - kS: [60, 140] (dimensionless)
+    - chrom.basal_elongation_rate: [700, 1200] nt/s
+
+    Window: 360 simulation steps.
+    Observables: dry_mass, cell_mass, instantaneous_growth_rate.
+    Budget: n=24 train + 8 test, 2 PCRV seeds.
+    Sensitivity: per-observable Sobol indices from order-2 PCE.
+    Reproducer: pbg-uq examples/v2ecoli_uq_observables.py.
+
+  result: |
+    RESULTS PENDING — ensemble running.
+
+  interpretation: |
+    (pending)
+
+  decision: |
+    (pending)
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  variants: []
+  model_settings:
+  - name: extended-window
+    detail: "360-step window (vs 120 in param-uq-01) to allow mass observables to accumulate a parameter signal."
+    gate: optional
+  - name: multi-observable
+    detail: "Three observables tracked simultaneously: dry_mass, cell_mass, instantaneous_growth_rate."
+    gate: optional
+  - name: same-effective-params
+    detail: "Same 3 knobs from the param-uq-00-screen; no additional screening needed."
+    gate: optional
+
+assumptions:
+- text: |
+    Extending to 360 steps is sufficient for dry_mass and cell_mass to accumulate
+    a detectable response to elongation-rate perturbations. If mass observables
+    remain unresponsive at 360 steps, multi-generation runs would be needed.
+  verified_in_v2ecoli: false
+- text: |
+    The same 3 effective knobs from the 120-step screen remain effective at 360
+    steps. No new knobs are expected to become effective at longer windows.
+  verified_in_v2ecoli: false
+
+tests:
+- name: dominance-holds-across-observables
+  classification: primary
+  status: pending
+  question: |
+    Does basal_elongation_rate remain the dominant knob (total-order Sobol >0.5)
+    across all three observables (dry_mass, cell_mass, instantaneous_growth_rate)?
+  measure:
+    kind: authored
+    detail: |
+      (TBD — awaiting ensemble completion) Will measure basal_elongation_rate
+      total-order Sobol for each observable and check dominance.
+    measured_value: null
+  pass_if:
+    op: in_range
+    low: 0.5
+    high: 1.0
+
+runs: []
+
+visualizations:
+- name: Sobol indices by observable
+  address: image:charts/sobol_by_observable.png
+  config:
+    title: "Per-observable Sobol sensitivity — 3 effective knobs, 360-step window"
+  chart: image
+  render: "(pending) Per-observable Sobol bar chart comparing basal_elongation_rate, kS, chrom.basal_elongation_rate across dry_mass, cell_mass, instantaneous_growth_rate."
+
+pipeline_gate:
+  prerequisites:
+  - param-uq-01-elongation
+  enables: []
+  gate_status: pending

@@ -1,0 +1,47 @@
+{
+  "generated": "2026-06-12 12:47",
+  "shared": [
+    "GLC[p]",
+    "OXYGEN-MOLECULE[p]",
+    "CARBON-DIOXIDE[p]",
+    "ACET[p]",
+    "AMMONIUM[c]",
+    "SULFATE[p]"
+  ],
+  "v2ecoli_norm": [
+    -100.0,
+    -9.3494,
+    33.1929,
+    0.0,
+    -136.3851,
+    -0.0003
+  ],
+  "graded": {
+    "k-ecoli74": {
+      "verdict": "mismatch",
+      "r2": 0.26879833275937903,
+      "meter": "R\u00b2 = 0.2688 \u00b7 5 matched \u00b7 1 appeared \u00b7 0 lost",
+      "normalized": [
+        -100.0,
+        -135.0915,
+        144.2685,
+        70.5194,
+        -54.3219,
+        -1.5918
+      ]
+    },
+    "k-ecoli307": {
+      "verdict": "mismatch",
+      "r2": 0.36761400656498255,
+      "meter": "R\u00b2 = 0.3676 \u00b7 5 matched \u00b7 1 appeared \u00b7 0 lost",
+      "normalized": [
+        -100.0,
+        -135.8164,
+        145.8599,
+        71.3049,
+        -80.6394,
+        -1.7943
+      ]
+    }
+  }
+}

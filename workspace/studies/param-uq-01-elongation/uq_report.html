@@ -267,8 +267,8 @@ svg text { font-family: 'Inter', -apple-system, sans-serif; }
 <!-- Key metrics -->
 <div class="metrics">
   <div class="metric"><div class="value">3</div><div class="label">Parameters</div></div>
-  <div class="metric"><div class="value">3</div><div class="label">Observables</div></div>
-  <div class="metric"><div class="value">8</div><div class="label">Train Samples</div></div>
+  <div class="metric"><div class="value">1</div><div class="label">Observables</div></div>
+  <div class="metric"><div class="value">30</div><div class="label">Train Samples</div></div>
   <div class="metric"><div class="value">2</div><div class="label">PCE Order</div></div>
 </div>
 
@@ -276,9 +276,9 @@ svg text { font-family: 'Inter', -apple-system, sans-serif; }
 <div class="callout callout-info">
   <div class="icon">&#x1F3AF;</div>
   <div class="detail">
-    <div class="title">Top Driver: <code>gtpPerElongation</code></div>
-    <div class="desc">Explains 88.2% of total output variance
-      (S<sub>Ti</sub>&nbsp;=&nbsp;0.8820).</div>
+    <div class="title">Top Driver: <code>ecoli-polypeptide-elongation.basal_elongation_rate</code></div>
+    <div class="desc">Explains 95.8% of total output variance
+      (S<sub>Ti</sub>&nbsp;=&nbsp;0.9580).</div>
   </div>
 </div>
 
@@ -286,7 +286,7 @@ svg text { font-family: 'Inter', -apple-system, sans-serif; }
 <div class="section">
   <h2>Tracked Observables</h2>
   <p class="section-desc">Output variables used to compute sensitivity indices.</p>
-  <div class="obs-list"><span class="obs-pill">dry_mass</span><span class="obs-pill">cell_mass</span><span class="obs-pill">instantaneous_growth_rate</span></div>
+  <div class="obs-list"><span class="obs-pill">igr</span></div>
 </div>
 
 <div class="strategy-divider">Sobol Sensitivity Analysis</div>
@@ -304,30 +304,30 @@ svg text { font-family: 'Inter', -apple-system, sans-serif; }
 <line x1="55" y1="230.0" x2="680" y2="230.0" stroke="#333355" stroke-width="1"/>
 <text x="47" y="234.0" text-anchor="end" font-size="11" fill="#94a3b8">0.00</text>
 <line x1="55" y1="190.0" x2="680" y2="190.0" stroke="#333355" stroke-width="1"/>
-<text x="47" y="194.0" text-anchor="end" font-size="11" fill="#94a3b8">0.18</text>
+<text x="47" y="194.0" text-anchor="end" font-size="11" fill="#94a3b8">0.20</text>
 <line x1="55" y1="150.0" x2="680" y2="150.0" stroke="#333355" stroke-width="1"/>
-<text x="47" y="154.0" text-anchor="end" font-size="11" fill="#94a3b8">0.36</text>
+<text x="47" y="154.0" text-anchor="end" font-size="11" fill="#94a3b8">0.40</text>
 <line x1="55" y1="110.0" x2="680" y2="110.0" stroke="#333355" stroke-width="1"/>
-<text x="47" y="114.0" text-anchor="end" font-size="11" fill="#94a3b8">0.54</text>
+<text x="47" y="114.0" text-anchor="end" font-size="11" fill="#94a3b8">0.60</text>
 <line x1="55" y1="70.0" x2="680" y2="70.0" stroke="#333355" stroke-width="1"/>
-<text x="47" y="74.0" text-anchor="end" font-size="11" fill="#94a3b8">0.72</text>
+<text x="47" y="74.0" text-anchor="end" font-size="11" fill="#94a3b8">0.80</text>
 <line x1="55" y1="30.0" x2="680" y2="30.0" stroke="#333355" stroke-width="1"/>
-<text x="47" y="34.0" text-anchor="end" font-size="11" fill="#94a3b8">0.90</text>
-<rect x="65.4" y="214.0" width="72.9" height="16.0" fill="#6366f1" rx="3"><title>ribosomeElongationRate
-S_Ti = 0.0718</title></rect>
-<rect x="148.8" y="222.4" width="72.9" height="7.6" fill="#f59e0b" rx="3"><title>ribosomeElongationRate
-S_i = 0.0342</title></rect>
-<text x="159.2" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 159.2 246)">ribosomeElongationRate</text>
-<rect x="273.8" y="199.0" width="72.9" height="31.0" fill="#6366f1" rx="3"><title>basal_elongation_rate
-S_Ti = 0.1395</title></rect>
-<rect x="357.1" y="217.6" width="72.9" height="12.4" fill="#f59e0b" rx="3"><title>basal_elongation_rate
-S_i = 0.0560</title></rect>
-<text x="367.5" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 367.5 246)">basal_elongation_rate</text>
-<rect x="482.1" y="34.0" width="72.9" height="196.0" fill="#6366f1" rx="3"><title>gtpPerElongation
-S_Ti = 0.8820</title></rect>
-<rect x="565.4" y="48.5" width="72.9" height="181.5" fill="#f59e0b" rx="3"><title>gtpPerElongation
-S_i = 0.8165</title></rect>
-<text x="575.8" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 575.8 246)">gtpPerElongation</text>
+<text x="47" y="34.0" text-anchor="end" font-size="11" fill="#94a3b8">1.00</text>
+<rect x="65.4" y="38.4" width="72.9" height="191.6" fill="#6366f1" rx="3"><title>ecoli-polypeptide-elongation.basal_elongation_rate
+S_Ti = 0.9580</title></rect>
+<rect x="148.8" y="39.4" width="72.9" height="190.6" fill="#f59e0b" rx="3"><title>ecoli-polypeptide-elongation.basal_elongation_rate
+S_i = 0.9530</title></rect>
+<text x="159.2" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 159.2 246)">ecoli-polypeptide-elongation.basal_elongation_rate</text>
+<rect x="273.8" y="222.7" width="72.9" height="7.3" fill="#6366f1" rx="3"><title>ecoli-polypeptide-elongation.kS
+S_Ti = 0.0363</title></rect>
+<rect x="357.1" y="224.8" width="72.9" height="5.2" fill="#f59e0b" rx="3"><title>ecoli-polypeptide-elongation.kS
+S_i = 0.0261</title></rect>
+<text x="367.5" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 367.5 246)">ecoli-polypeptide-elongation.kS</text>
+<rect x="482.1" y="226.8" width="72.9" height="3.2" fill="#6366f1" rx="3"><title>ecoli-chromosome-replication.basal_elongation_rate
+S_Ti = 0.0161</title></rect>
+<rect x="565.4" y="227.9" width="72.9" height="2.1" fill="#f59e0b" rx="3"><title>ecoli-chromosome-replication.basal_elongation_rate
+S_i = 0.0104</title></rect>
+<text x="575.8" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 575.8 246)">ecoli-chromosome-replication.basal_elongation_rate</text>
 <rect x="65" y="38" width="12" height="12" fill="#6366f1" rx="2"/>
 <text x="81" y="48" font-size="11" fill="#e2e8f0">Total (S_Ti)</text>
 <rect x="165" y="38" width="12" height="12" fill="#f59e0b" rx="2"/>
@@ -339,14 +339,14 @@ S_i = 0.8165</title></rect>
 <th>S_i (First)</th><th>Interaction</th>
 </tr></thead>
 <tbody>
-<tr><td class="rank">1</td><td><code>gtpPerElongation</code></td><td><div class="bar-cell"><div class="bar" style="width:88%"></div><span>0.8820</span></div></td>
-<td>0.8165</td><td>0.0654</td>
+<tr><td class="rank">1</td><td><code>ecoli-polypeptide-elongation.basal_elongation_rate</code></td><td><div class="bar-cell"><div class="bar" style="width:96%"></div><span>0.9580</span></div></td>
+<td>0.9530</td><td>0.0049</td>
 </tr>
-<tr><td class="rank">2</td><td><code>basal_elongation_rate</code></td><td><div class="bar-cell"><div class="bar" style="width:14%"></div><span>0.1395</span></div></td>
-<td>0.0560</td><td>0.0835</td>
+<tr><td class="rank">2</td><td><code>ecoli-polypeptide-elongation.kS</code></td><td><div class="bar-cell"><div class="bar" style="width:4%"></div><span>0.0363</span></div></td>
+<td>0.0261</td><td>0.0102</td>
 </tr>
-<tr><td class="rank">3</td><td><code>ribosomeElongationRate</code></td><td><div class="bar-cell"><div class="bar" style="width:7%"></div><span>0.0718</span></div></td>
-<td>0.0342</td><td>0.0376</td>
+<tr><td class="rank">3</td><td><code>ecoli-chromosome-replication.basal_elongation_rate</code></td><td><div class="bar-cell"><div class="bar" style="width:2%"></div><span>0.0161</span></div></td>
+<td>0.0104</td><td>0.0057</td>
 </tr>
 </tbody>
 </table></div>
@@ -365,9 +365,7 @@ S_i = 0.8165</title></rect>
 <th>Output</th><th>Rel. Err. (train)</th><th>Rel. Err. (test)</th>
 </tr></thead>
 <tbody>
-<tr><td><code>dry_mass</code></td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0000</td><td style="text-align:right;font-variant-numeric:tabular-nums">0.3193</td></tr>
-<tr><td><code>cell_mass</code></td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0000</td><td style="text-align:right;font-variant-numeric:tabular-nums">0.3186</td></tr>
-<tr><td><code>instantaneous_growth_rate</code></td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0000</td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0426</td></tr>
+<tr><td><code>igr</code></td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0109</td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0167</td></tr>
 </tbody>
 </table></div>
 </div>
@@ -407,9 +405,9 @@ S_i = 0.8165</title></rect>
 
 <script>
 (function() {
-  const S = {"pop_coeffs": [[342.41801743590156, -1.2864544971070242, 24.242492354602184, -88.43088451808298, 26.62552167414975, -32.28361433746867, 18.87940927901952, 13.29938126007145, 45.315694026259116, -63.51587642704061]], "multi_indices": [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]], "bounds": [[12.0, 23.0], [15.0, 28.0], [2.5, 6.5]]};
-  const PARAMS = ["ribosomeElongationRate", "basal_elongation_rate", "gtpPerElongation"];
-  const OBS = ["dry_mass", "cell_mass", "instantaneous_growth_rate"];
+  const S = {"pop_coeffs": [[0.00021807252264237446, 1.826420399157615e-05, 2.685342518268526e-06, 1.9561437350913755e-06, -6.504083662932378e-06, -2.2994911793588816e-06, -5.220652378215895e-07, -2.096801956815671e-06, -2.49369355730355e-06, -3.832745756941262e-07]], "multi_indices": [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]], "bounds": [[15.0, 28.0], [60.0, 140.0], [700.0, 1200.0]]};
+  const PARAMS = ["ecoli-polypeptide-elongation.basal_elongation_rate", "ecoli-polypeptide-elongation.kS", "ecoli-chromosome-replication.basal_elongation_rate"];
+  const OBS = ["igr"];
   const nP = PARAMS.length;
   const nObs = OBS.length;
   const bounds = S.bounds;

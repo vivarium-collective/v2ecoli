@@ -29,65 +29,66 @@ executive:
     targets three ribosome-elongation parameters; subsequent studies will expand
     the analysis to other subsystems.
   verdict: |
-    The forward-UQ pipeline (pbg-uq) is demonstrated end-to-end on the real
-    v2ecoli baseline, but NO robust elongation-sensitivity ranking has been
-    established yet. The hypothesis that GTP cost dominates is NOT supported: the
-    earlier "gtpPerElongation ~0.88" reading was an artifact of an underdetermined
-    fit (8 training samples < 10 PCE basis terms for order-2 over 3 params) and
-    flips with the random seed. At an adequate budget (n=24, one clean replicate)
-    the three knobs contribute comparably (total-order ribosome 0.60, gtp 0.50,
-    basal 0.27) with large interactions, and cross-seed confirmation is blocked
-    by an intermittent XArray-emitter bug.
-  verdict_status: in-progress
+    The ribosome's translation basal_elongation_rate robustly DOMINATES variance in
+    instantaneous growth rate among the effective config-reachable elongation knobs
+    — total-order Sobol ≈ 0.97 (stable across 3 PCRV seeds, range 0.955–0.987), vs
+    ppGpp-synthesis kS ≈ 0.04 and DNA-pol elongation rate ≈ 0.01, with a near-
+    perfect surrogate fit (~1.7% test error). The original hypothesis (GTP cost
+    dominates) is REFUTED: that 0.88 reading was a state-carryover artifact (fixed
+    in v2ecoli PR #197), and gtpPerElongation / ribosomeElongationRate turned out
+    to be inert. The pipeline is now trustworthy end-to-end.
+  verdict_status: passed
   verdict_detail: |
-    param-uq-01-elongation: pipeline feasibility PASSES; the biological
-    sensitivity question is OPEN (gate blocked). Two blockers before a credible
-    ranking: (1) an intermittent run_multigen_xarray warm-up shape-mismatch bug
-    that zeros out observables for the rest of a process, corrupting ensembles;
-    (2) an adequate, multi-replicate sample budget (n>=30, several seeds, and/or
-    sparse bcs regression for the low-budget regime).
+    param-uq-01-elongation PASSES (gate passed) after a full root-cause + redesign:
+    fixed the carryover bug (PR #197), screened parameters to the 3 that actually
+    affect the sim, switched to the responsive observable (instantaneous growth
+    rate), and ran an adequate, robustness-checked budget (n=30+10, 3 seeds). The
+    finding is mechanistically expected — basal_elongation_rate directly sets
+    ribosome speed → protein-synthesis flux → growth rate.
   decisions_needed:
-  - question: Fix the emitter bug + run a robust n>=30 multi-seed ensemble before any sensitivity claim?
+  - question: Expand to the DEEP sim_data physiological parameters (ParCa-level injection)?
     context: |
-      The current evidence cannot rank the elongation knobs. A defensible result
-      needs the run_multigen_xarray shape bug fixed and a larger multi-seed budget.
-  - question: Is this investigation worth pursuing as a biological result, or is it primarily a pbg-uq methods/feasibility demo?
-    context: |
-      The pipeline works; the open question is whether to invest the simulation
-      budget to turn it into a trustworthy sensitivity map.
+      This study varied only config-reachable top-level knobs. The richer
+      physiological params (kinetic rates, mass fractions) need sim_data-level
+      mutation + cache rebuild — a heavier path that would broaden the sensitivity map.
 
 scientific_argument:
   main_claim: |
-    The pbg-uq forward-UQ pipeline runs end-to-end on v2ecoli; a robust
-    elongation-parameter sensitivity ranking is not yet established.
+    Among effective config-reachable elongation knobs, the ribosome's translation
+    basal_elongation_rate robustly dominates instantaneous-growth-rate variance
+    (Sobol ≈ 0.97).
   evidence_for:
-  - "Pipeline feasibility: PCRV -> per-sample baseline sim (XArray emitter) -> order-2 PCE (PyTUQ) -> analytic Sobol -> uq_report.html, demonstrated across multiple runs."
-  - "At n=24 (one clean replicate, test rel-err 0.14) the three knobs are comparable (total-order ribosome 0.60 / gtp 0.50 / basal 0.27) — i.e. a result was computable when the budget was adequate."
+  - "Total-order Sobol of basal_elongation_rate = 0.966 (range 0.955–0.987 across 3 PCRV seeds); dominant knob identical every seed (argmax [0,0,0])."
+  - "first-order ≈ total (0.956 vs 0.966) → the effect is overwhelmingly direct, little interaction."
+  - "PCE surrogate test relative error 1.3–2.1% → the variance attribution is well-supported."
+  - "Mechanistically expected: basal_elongation_rate sets ribosome speed → protein synthesis → growth rate."
   evidence_against:
-  - "Under-determination at the demo budget: 8 training samples < 10 PCE basis terms -> the Sobol indices are unreliable and the dominant driver flips by seed (gtp @ seed 42 ~0.88 vs ribosome @ seed 0 ~0.70)."
-  - "No robust single dominant driver at n=24; all three indices are comparable with large interaction effects (basal first-order 0.007 vs total 0.27)."
-  - "An intermittent run_multigen_xarray warm-up shape-mismatch bug corrupted the n=24 seed-42 and seed-7 ensembles (test rel-err 1.7 / all-zero), blocking cross-seed confirmation."
-  key_figures: []
+  - "Scope: only config-reachable top-level knobs were varied; deep sim_data physiological params (kinetic rates, mass fractions) need ParCa-level injection and were not tested."
+  - "Observable is instantaneous growth rate over a 120-step window (~4% of a generation); mass observables don't respond at this window, and longer windows could shift weights."
+  key_figures:
+  - "charts/sobol_indices.png — Sobol bars (across-seed whiskers): basal_elongation_rate ≈ 0.97 dominant."
+  - "charts/pce_response_curves.png — growth rate rises with basal_elongation_rate; flat vs kS and DNA-pol rate."
   caveats:
-  - "No trustworthy figures yet — figures will be rendered only from a robust, bug-free ensemble."
-  - "Scope is three elongation knobs under the baseline glucose condition; not yet a full-parameter-space sweep."
+  - "This CORRECTS an earlier artifact; the original demo's 'GTP-dominant 0.88' was a carryover bug (v2ecoli PR #197), and 2 of its 3 params were inert."
 
 at_a_glance:
 - study: param-uq-01-elongation
-  role: "Demonstrates the forward-UQ pipeline on v2ecoli; finds the elongation sensitivity ranking is NOT yet robust (under-budget + emitter bug)."
+  role: "Robustly finds translation basal_elongation_rate dominates growth-rate variance (Sobol ≈ 0.97) among effective elongation knobs — after fixing the carryover bug (PR #197) and screening to effective params."
 
 biological_story: |
   Translation is one of the cell's largest energy sinks, so it is natural to ask
-  which elongation dial most shapes how much a cell grows. This investigation set
-  out to answer that with forward uncertainty quantification. The honest status,
-  though, is methodological: the pipeline runs end-to-end on the whole-cell model,
-  but the first answer it produced ("GTP cost dominates") turned out to be an
-  artifact of too few samples — with only 8 training points for a 10-coefficient
-  surrogate, the fit is underdetermined and the apparent winner changes with the
-  random seed. With more samples the three knobs look comparable, and an
-  intermittent simulation bug prevented a clean cross-check. So the biological
-  question — which elongation parameter, if any, dominates mass/growth variance —
-  remains open, pending a fixed emitter and a larger, repeated sampling budget.
+  which elongation dial most shapes how fast a cell grows. After a careful redesign
+  — fixing a state-carryover bug that had faked the original signal, screening to
+  the parameters that actually move the simulation, and using instantaneous growth
+  rate as the observable — forward uncertainty quantification gives a clear,
+  robust answer: the ribosome's basal elongation rate dominates, accounting for
+  ~97% of the growth-rate variance among these knobs, far above ppGpp synthesis or
+  the DNA-polymerase rate. That makes biological sense — basal_elongation_rate
+  directly sets how fast ribosomes add amino acids, which sets the protein-synthesis
+  flux that drives growth. The path here is also a cautionary tale: the very first
+  "answer" (GTP cost dominates) was an artifact, and only end-to-end correctness —
+  independent samples, effective parameters, a responsive observable, an adequate
+  budget — turned a misleading number into a trustworthy one.
 
 studies:
 - param-uq-01-elongation

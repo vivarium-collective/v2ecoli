@@ -445,18 +445,18 @@ readouts:
     pending (task #39).'
 - name: interface-schemas
   status: planned
-  path: planned output: v2ecoli/<process>/interface.schema.json (not yet produced)
+  path: planned, not yet produced -- v2ecoli/<process>/interface.schema.json (not yet produced)
   units: PB schema
   notes: Typed PB interface schema per major subprocess (metabolism, transcription, translation, replication, division, membrane).
 - name: per-step-compute-profile
   status: planned
-  path: planned output: .pbg/runs/<id>/profile.json (not yet produced)
+  path: planned, not yet produced -- .pbg/runs/<id>/profile.json (not yet produced)
   units: ms per bucket
   notes: '5 buckets: FBA LP solve / RNG / store-process marshalling / topology traversal / emitter I/O. Mean +/- std over
     >=1000 step samples + bootstrap 95% CI.'
 - name: variable-categorisation-map
   status: planned
-  path: planned output: studies/pdmp-00/variable_categories.yaml (not yet produced)
+  path: planned, not yet produced -- studies/pdmp-00/variable_categories.yaml (not yet produced)
   units: category enum + numerical-sensitivity tier
   notes: 'Every state variable: ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact + stiffness/CV/coupling-strength
     tier.'

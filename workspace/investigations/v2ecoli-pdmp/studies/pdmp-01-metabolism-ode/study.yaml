@@ -251,7 +251,7 @@ expected_behavior:
     observable: process-bigraph-process
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: implemented
   note: 'Verified 2026-05-24: Millard 2017 SBML (BioModels MODEL1505110000) loads + simulates via pbg-copasi CopasiUTCProcess;
     published reference state recovered (G6P=0.86mM, F6P=0.26mM, FDP=0.28mM, PEP=1.0mM, PYR=0.24mM, ATP=2.57mM, ADP=0.60mM,
@@ -267,7 +267,7 @@ expected_behavior:
     observable: bridged-composite
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: interface-matches-reference
   en: ODE + LQR interface statistics (growth rate, glucose uptake, key intermediate concentrations, ATP/NADH production) match
@@ -279,7 +279,7 @@ expected_behavior:
     observable: interface-statistic-comparison
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: causal-teleonomic-partition
   en: Every parameter introduced in this study is labelled causal (kinetic constant, enzyme abundance, SBML rate-law constant
@@ -292,7 +292,7 @@ expected_behavior:
     observable: parameter-catalog
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: predictor-corrector-shim
   en: The ODE integrates continuously within each v2ecoli timestep via a predictor-corrector shim; discontinuities are localized
@@ -304,7 +304,7 @@ expected_behavior:
     observable: integration-record
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-solver-convergence-richardson
   en: Step-doubling Richardson extrapolation confirms LSODA at (rtol=1e-6, atol=1e-9) attains its claimed order; reported
@@ -316,7 +316,7 @@ expected_behavior:
     observable: step-doubling-richardson-error
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-w2-against-phase0-ensemble
   en: Per-interface-variable W₂(p_ODE, p_phase0) falls within the bootstrap 95% CI of the Phase 0 self-replicate W₂ spread
@@ -329,7 +329,7 @@ expected_behavior:
     observable: wasserstein2-per-variable
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-fim-identifiability
   en: Fisher Information Matrix at the reference parameter point, computed via automatic differentiation of the likelihood
@@ -342,7 +342,7 @@ expected_behavior:
     observable: fim-condition-number
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-lqr-sobol-sensitivity
   en: First-order and total Sobol indices for every LQR weight on (steady-state growth rate, glucose uptake flux, ATP yield).
@@ -354,7 +354,7 @@ expected_behavior:
     observable: sobol-first-order-and-total
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 baseline:
 - name: millard2017-via-pbg-copasi
@@ -506,23 +506,23 @@ readouts:
     values.
 - name: fba-bridge-flux-seam
   status: planned
-  path: TBD — planned at v2ecoli_pdmp/composites/fba_bridge.schema.json
+  path: planned, not yet produced -- v2ecoli_pdmp/composites/fba_bridge.schema.json
   units: flux name -> source (ODE or FBA)
   notes: Which fluxes the Millard ODE exports vs which v2ecoli kFBA consumes. The contract negotiated in this study.
 - name: lqr-sobol-indices
   status: planned
-  path: TBD — planned at out/trajectories/lqr_sobol.csv
+  path: planned, not yet produced -- out/trajectories/lqr_sobol.csv
   units: dimensionless Sobol index
   notes: First-order + total Sobol on growth rate, glucose uptake, ATP yield. LQR weights with total < 0.01 are flagged free-parameter
     rot.
 - name: w2-per-metabolite
   status: planned
-  path: TBD — planned at out/trajectories/w2_millard_vs_phase0.csv
+  path: planned, not yet produced -- out/trajectories/w2_millard_vs_phase0.csv
   units: Wasserstein-2 distance (mM)
   notes: 'Per interface variable. Gating: within Phase-0 bootstrap CI of self-replicate spread.'
 - name: fim-conditioning
   status: planned
-  path: TBD — planned at out/trajectories/fim_kappa.csv
+  path: planned, not yet produced -- out/trajectories/fim_kappa.csv
   units: condition number kappa
   notes: 'Per causal parameter. Required: kappa(FIM) < 10^8 before inference-ready claim.'
 planned_runs:

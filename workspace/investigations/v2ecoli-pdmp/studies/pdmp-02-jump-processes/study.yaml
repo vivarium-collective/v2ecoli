@@ -220,7 +220,7 @@ expected_behavior:
     observable: propensity-function-source
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: division-first-passage
   en: Division events occur as first-passage crossings of a threshold in cell volume or total protein mass; the teleonomic
@@ -232,7 +232,7 @@ expected_behavior:
     observable: division-event-record
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: pdmp-trajectory-distribution-match
   en: Summary statistics over PDMP trajectory ensembles (growth rate distribution, mean mRNA/protein abundances per gene,
@@ -260,7 +260,7 @@ expected_behavior:
     observable: between-jump-evolution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-exponential-clock-anderson-darling
   en: Cumulative hazard ∫λ(s)ds at successive events for each jump process passes an Anderson-Darling Exp(1) test (α=0.05)
@@ -272,7 +272,7 @@ expected_behavior:
     observable: cumulative-hazard-distribution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-fpt-analytical-validation
   en: The first-passage implementation, applied to an OU process with analytically known FPT distribution, recovers the analytical
@@ -284,7 +284,7 @@ expected_behavior:
     observable: ornstein-uhlenbeck-fpt-distribution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-tau-leap-validity
   en: For every τ-leaping jump process, the leap-condition (max Δλ/λ < 0.03) is monitored; fraction of timesteps where it
@@ -296,7 +296,7 @@ expected_behavior:
     observable: leap-condition-fraction-violated
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-trajectory-w2-mcse
   en: Trajectory-distribution comparison vs v2ecoli baseline uses W₂ on summary distributions over N≥200 PDMP trajectories
@@ -309,7 +309,7 @@ expected_behavior:
     observable: w2-with-MCSE
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 baseline:
 - name: pdmp-jump-runner-tbd
@@ -409,24 +409,24 @@ study_card:
 readouts:
 - name: anderson-darling-results
   status: planned
-  path: TBD — planned at out/trajectories/ad_exp1_per_jump.csv
+  path: planned, not yet produced -- out/trajectories/ad_exp1_per_jump.csv
   units: A-D statistic + p-value
   notes: 'Per jump process (transcription, translation, division, competition). >=10^4 inter-event intervals each. Gating:
     p > 0.05.'
 - name: fpt-distribution
   status: planned
-  path: TBD — planned at out/trajectories/fpt_division.csv
+  path: planned, not yet produced -- out/trajectories/fpt_division.csv
   units: first-passage time (s)
   notes: 'Cell-volume threshold crossing. OU analytical validation: KS distance < 0.02 vs analytical CDF.'
 - name: trajectory-w2
   status: planned
-  path: TBD — planned at out/trajectories/pdmp_w2_vs_baseline.csv
+  path: planned, not yet produced -- out/trajectories/pdmp_w2_vs_baseline.csv
   units: W2 distance per summary stat
   notes: Growth rate, mean per-gene mRNA/protein, division-time CV. N>=200 trajectories. Within tolerance across all Phase
     0 conditions = gating.
 - name: markov-property-record
   status: planned
-  path: TBD — planned at out/trajectories/markov_segments.json
+  path: planned, not yet produced -- out/trajectories/markov_segments.json
   units: bit-equivalence result per re-sim
   notes: Re-simulate jump-segments with same (state, RNG-seed); verify bit-identical deterministic ODE flow between jumps.
 planned_runs:

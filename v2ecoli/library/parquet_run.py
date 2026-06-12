@@ -24,8 +24,11 @@ queried independently.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Callable
+
+import numpy as np
 
 from v2ecoli.library.sqlite_run import (
     _normalize_emit_paths,
@@ -36,6 +39,75 @@ from v2ecoli.library.sqlite_run import (
     _merge_into,
     prune_to_followed_lineage,
 )
+from v2ecoli.library.output_metadata import output_metadata as _get_output_metadata
+
+# Env-gated unique-store emit (V2ECOLI_EMIT_UNIQUE=1): the chromosome-state
+# renderer (scripts/render_chromosome_gif.py) needs per-molecule genomic
+# coordinates that live in the agent's structured ``unique`` numpy arrays —
+# which the plain-dict emit-path filter cannot reach. When enabled we extract
+# the named attribute arrays of the ACTIVE entries (``_entryState`` mask) and
+# emit them as TOP-LEVEL nested keys so ParquetEmitter flattens them to the
+# columns the renderer reads: ``active_RNAP__coordinates`` etc. (no ``unique__``
+# prefix). ``chromosome_domain__child_domains`` is the (n_domain, 2) parent->child
+# domain tree; it is FLATTENED row-major to a 1-D ``list<int>`` of length
+# ``2*n_domain`` (aligned to ``chromosome_domain__domain_index``) so the renderer
+# can place daughter-strand RNAPs on the replication bubbles, not just the rim.
+_EMIT_UNIQUE = os.environ.get("V2ECOLI_EMIT_UNIQUE", "") not in ("", "0", "false", "False")
+_UNIQUE_EMIT_SPEC = {
+    "active_RNAP": ["coordinates", "domain_index"],
+    "active_replisome": ["coordinates", "domain_index"],
+    "full_chromosome": ["unique_index", "domain_index"],
+    "chromosome_domain": ["domain_index", "child_domains"],
+}
+
+
+def _unique_emit_schema() -> dict:
+    """Emit-schema fragment declaring the unique coordinate columns."""
+    return {
+        mol: {attr: "any" for attr in attrs}
+        for mol, attrs in _UNIQUE_EMIT_SPEC.items()
+    }
+
+
+def _flatten_attr(col):
+    """Flatten a unique-store attribute column to a 1-D python list.
+
+    1-D attributes (coordinates, domain_index) pass through. 2-D attributes
+    (child_domains is (n_active, 2)) are flattened row-major to a flat
+    list<int> of length 2*n_active so they serialize as a plain parquet list
+    column, aligned to domain_index.
+    """
+    arr = np.asarray(col)
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+    return arr.tolist()
+
+
+def _extract_unique_attrs(agent_state: dict) -> dict:
+    """Pull active-entry attribute arrays out of an agent's ``unique`` store.
+
+    Returns ``{mol: {attr: [values...]}}`` for the active entries of each
+    configured unique molecule, ready to merge into the emit payload (flattens
+    to ``<mol>__<attr>`` parquet columns).
+    """
+    out: dict = {}
+    unique = (agent_state or {}).get("unique") or {}
+    for mol, attrs in _UNIQUE_EMIT_SPEC.items():
+        arr = unique.get(mol)
+        if arr is None or not hasattr(arr, "dtype") or arr.dtype.names is None:
+            out[mol] = {a: [] for a in attrs}
+            continue
+        names = set(arr.dtype.names)
+        if "_entryState" in names:
+            active = arr[arr["_entryState"].view(np.bool_)]
+        else:
+            active = arr
+        out[mol] = {
+            a: (_flatten_attr(active[a]) if a in names else [])
+            for a in attrs
+        }
+    return out
+
 
 
 def run_multigen_parquet(
@@ -97,7 +169,23 @@ def run_multigen_parquet(
     emit_schema = _build_emit_schema(leaves)
     if root_leaves:
         _merge_into(emit_schema, _build_emit_schema(root_leaves))
+    if _EMIT_UNIQUE:
+        _merge_into(emit_schema, _unique_emit_schema())
+        print("[multigen_parquet] V2ECOLI_EMIT_UNIQUE=1 -> emitting unique "
+              "coordinate columns: "
+              + ", ".join(f"{m}__{a}" for m, aa in _UNIQUE_EMIT_SPEC.items() for a in aa))
     out_dir = str(Path(out_dir).resolve())
+
+    # Harvest element-name labels from listener outputs() schemas. Labels are
+    # registered in the type core during initialize(), so they are present in
+    # composite.state immediately — no warmup tick required (unlike the xarray
+    # path which also needs vector shapes from live state values).
+    # Un-annotated composites return {} → backward-compat: no output_metadata
+    # key is added and existing runs are unaffected.
+    _named_metadata: dict = _get_output_metadata(composite.state or {})
+    if _named_metadata:
+        print(f"[multigen_parquet] discovered output_metadata labels for: "
+              f"{list(_named_metadata.keys())}")
 
     def _make_emitter(agent_id: str, generation: int) -> ParquetEmitter:
         metadata: dict[str, Any] = {
@@ -111,6 +199,11 @@ def run_multigen_parquet(
             metadata["study_slug"] = study_slug
         if investigation_slug:
             metadata["investigation_slug"] = investigation_slug
+        # Merge element-name labels into config metadata so ParquetEmitter
+        # persists them via flatten_dict as output_metadata__<path> columns
+        # in the configuration parquet. Recoverable via field_metadata().
+        if _named_metadata:
+            metadata["output_metadata"] = _named_metadata
 
         return ParquetEmitter(
             config={
@@ -129,15 +222,47 @@ def run_multigen_parquet(
         )
 
     import gc
+    from v2ecoli.steps.division import daughter_phylogeny_id
 
     max_steps = int(max_steps)
+    # ``followed`` = the key the inner composite uses for the cell we track.
+    # The inner Division step always names its mother "0", so EVERY division
+    # produces daughters "00"/"01" regardless of lineage depth — the followed
+    # key can be REUSED by a daughter ("00" -> "00"/"01"). So we must NOT detect
+    # division by ``followed in agents`` (it stays True when a daughter reuses
+    # the id) — that bug folded the last generation's post-division daughter
+    # into the parent generation's partition. Instead detect division
+    # structurally (a new agent id appeared = an ``_add`` = a division this
+    # chunk) and carry a SEPARATE ``partition_agent_id`` that increments along
+    # the true phylogeny ("0" -> "00" -> "000") for the hive layout.
     followed = initial_agent_id
+    partition_agent_id = initial_agent_id
     gen = int(initial_generation)
     done = 0
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
 
-    em = _make_emitter(followed, gen)
+    def _emit(agents_map: dict, agent_key: str, emitter) -> None:
+        if agent_key not in agents_map:
+            return
+        payload = _filter_agent_state(agents_map[agent_key], leaves)
+        # ParquetEmitter takes the flat tick state directly — no
+        # `agents/<id>/` wrapper (which is sqlite-only convention).
+        update_state: dict = {"global_time": float(done), **payload}
+        if _EMIT_UNIQUE:
+            _merge_into(update_state, _extract_unique_attrs(agents_map[agent_key]))
+        if root_leaves:
+            _merge_into(
+                update_state,
+                _filter_root_state(composite.state or {}, root_leaves),
+            )
+        try:
+            emitter.update(update_state)
+        except Exception as e:
+            print(f"[multigen_parquet] emit failed at tick {done}: "
+                  f"{type(e).__name__}: {str(e)[:120]}")
+
+    em = _make_emitter(partition_agent_id, gen)
 
     try:
         while done < max_steps:
@@ -152,65 +277,66 @@ def run_multigen_parquet(
             agents = (composite.state or {}).get("agents") or {}
             curr_ids = set(agents.keys())
 
-            if followed in agents:
-                payload = _filter_agent_state(agents[followed], leaves)
-                # ParquetEmitter takes the flat tick state directly — no
-                # `agents/<id>/` wrapper (which is sqlite-only convention).
-                update_state: dict = {"global_time": float(done), **payload}
-                if root_leaves:
-                    _merge_into(
-                        update_state,
-                        _filter_root_state(composite.state or {}, root_leaves),
-                    )
-                try:
-                    em.update(update_state)
-                except Exception as e:
-                    print(f"[multigen_parquet] emit failed at tick {done}: "
-                          f"{type(e).__name__}: {str(e)[:120]}")
-            else:
-                # Followed agent disappeared — division. Pick daughter if we
-                # have generations left, else stop.
-                if gen >= max_generations:
-                    break
-                divided, daughter = division_detector(prev_ids, curr_ids)
-                if not divided or daughter is None:
-                    remaining = sorted(curr_ids)
-                    if not remaining:
-                        break
-                    daughter = remaining[0]
+            # A division this chunk = a new agent id surfaced (an ``_add``).
+            # This is robust to the inner step reusing the followed id for a
+            # daughter (the case that previously slipped past ``followed in
+            # agents`` and ran the last generation past its own division).
+            divided, _detected_daughter = division_detector(prev_ids, curr_ids)
+            new_ids = curr_ids - prev_ids
+            if not divided and new_ids:
+                divided = True
 
-                # Rotate the emitter: close the current generation's hive,
-                # open a fresh one keyed on the new generation + daughter.
-                em.close(success=True)
-                followed = daughter
-                gen += 1
-                gens_seen.append(gen)
-                em = _make_emitter(followed, gen)
-
-                if single_daughters:
-                    dropped = prune_to_followed_lineage(composite, followed)
+            if not divided:
+                # No division: emit the followed cell into this generation's
+                # partition.
+                _emit(agents, followed, em)
+                prev_ids = curr_ids
+                if single_daughters and n >= 50:
                     gc.collect()
-                    print(f"[multigen_parquet] gen {gen} → following agent "
-                          f"{followed!r} at tick {done} (single_daughters: "
-                          f"dropped {dropped} sibling agent(s) + ran gc)")
-                else:
-                    print(f"[multigen_parquet] gen {gen} → following agent "
-                          f"{followed!r} at tick {done}")
+                continue
 
-                # Emit the gen-handoff marker.
-                if followed in agents:
-                    payload = _filter_agent_state(agents[followed], leaves)
-                    update_state = {"global_time": float(done), **payload}
-                    if root_leaves:
-                        _merge_into(
-                            update_state,
-                            _filter_root_state(composite.state or {}, root_leaves),
-                        )
-                    try:
-                        em.update(update_state)
-                    except Exception:
-                        pass
-            prev_ids = curr_ids
+            # --- DIVISION: end this generation here. The parent's partition
+            # must NOT receive the post-division daughter row. ---
+            if gen >= max_generations:
+                # Generation cap reached: stop following. The daughter is
+                # intentionally dropped (its generation wasn't requested) rather
+                # than folded into the parent partition.
+                break
+
+            # Choose the inner survivor to follow: prefer a daughter whose id
+            # ends in "0" (vEcoli single-daughter convention), else any agent.
+            survivors = sorted(curr_ids)
+            inner_next = next((i for i in survivors if i.endswith("0")), None)
+            if inner_next is None:
+                inner_next = survivors[0] if survivors else None
+            if inner_next is None:
+                break
+
+            # Rotate the emitter: close the parent generation's hive, open a
+            # fresh one keyed on the next generation + the true phylogeny id
+            # ("0" -> "00" -> "000"), independent of the inner key's reuse.
+            em.close(success=True)
+            followed = inner_next
+            partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
+            gen += 1
+            gens_seen.append(gen)
+            em = _make_emitter(partition_agent_id, gen)
+
+            if single_daughters:
+                dropped = prune_to_followed_lineage(composite, followed)
+                gc.collect()
+                print(f"[multigen_parquet] gen {gen} → following inner agent "
+                      f"{followed!r} (partition agent_id={partition_agent_id!r}) "
+                      f"at tick {done} (single_daughters: dropped {dropped} "
+                      f"sibling agent(s) + ran gc)")
+            else:
+                print(f"[multigen_parquet] gen {gen} → following inner agent "
+                      f"{followed!r} (partition agent_id={partition_agent_id!r}) "
+                      f"at tick {done}")
+
+            # Emit the daughter's birth row into the NEW generation's partition.
+            _emit((composite.state or {}).get("agents") or {}, followed, em)
+            prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
             if single_daughters and n >= 50:
                 gc.collect()
     finally:

@@ -25,6 +25,7 @@ concurrency:
 jobs:
   fast-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +60,10 @@ jobs:
 
   behavior-tests:
     runs-on: ubuntu-latest
+    # Job cap so a hang (e.g. an import/collection hang from a dep bump) fails
+    # in minutes, not GitHub's 6h default. Normal run is ~9 min; cold ParCa
+    # cache build adds headroom.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -110,6 +115,10 @@ jobs:
         run: uv run python scripts/build_cache.py
 
       - name: Run simulation-based behavior tests
+        # Tight step cap: the 7 sim tests target ~9 min. A hang here (test body,
+        # or an import/collection hang at pytest startup that pytest-timeout's
+        # per-test cap can't catch) fails fast at 15 min instead of running on.
+        timeout-minutes: 15
         env:
           CI: 'true'
         # -n auto: pytest-xdist parallelism. The 7 behavior tests are
@@ -134,6 +143,7 @@ jobs:
     # scripts/validate_status.py for the 7 rules. Runs in parallel with
     # the test jobs; ~1s total — no uv sync needed, just PyYAML.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 

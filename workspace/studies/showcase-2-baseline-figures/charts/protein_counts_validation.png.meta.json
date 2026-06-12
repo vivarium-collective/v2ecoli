@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-monomer-rerun",
+  "rendered_at": 1781237983.622486,
+  "title": "Proteome vs Schmidt 2015 / Wisniewski 2014",
+  "interpretation": "log10 average monomer counts vs measured proteomics (Schmidt 2015, Wisniewski 2014); multiseed over 2 seeds. Regenerated after the monomer_counts accumulate-listener fix (counts_deriver now emits monomer_counts with SET semantics, not the Array-default ACCUMULATE that inflated counts ~10^3x). Points now lie along the y=x parity line; Pearson r(log) = 0.73 (Schmidt) / 0.61 (Wisniewski) \u2014 the expected proteome-validation spread.",
+  "command": "scripts/rerun_showcase2_monomers.py (2-seed x 2-gen, emits listeners.monomer_counts) + protein_counts_validation analysis; Altair->PNG/SVG via vl_convert."
+}

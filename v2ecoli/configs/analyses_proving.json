@@ -5,6 +5,7 @@
       "ptools_rna": {"n_tp": 8},
       "ptools_rxns": {"n_tp": 8},
       "ptools_proteins": {"n_tp": 8},
+      "ptools_overview": {"n_tp": 8, "ptools_host": "localhost", "ptools_port": 1555},
       "mass_fraction_voronoi": {}
     },
     "multiseed": {

@@ -55,6 +55,59 @@ class CellMass(Analysis):
         df = conn.sql(sql).pl()
         df = df.with_columns([(pl.col("time") / 60).alias("time_min")])
 
+        # Build a per-cell line key.  Each drawn line must be exactly ONE cell's
+        # monotonic growth ramp.  In a clean vEcoli run the partition tuple
+        # ``(variant, lineage_seed, generation, agent_id)`` already uniquely
+        # identifies a cell, so that tuple is the natural detail key.  v2ecoli
+        # runs, however, can emit MORE than one cell into a single
+        # ``(generation, agent_id)`` partition (an extra division whose daughter
+        # was not re-labelled with a new generation/agent_id) — the showcase-2
+        # baseline does exactly this, packing a gen-3 daughter into the gen-2
+        # partition.  Joining those two cells into one line draws a spurious
+        # vertical sawtooth (mass halves at the hidden division) which reads as
+        # "extra generations".  Detect the division robustly from the
+        # ``dry_mass_fold_change`` reset (it returns to ~1.0 at every birth) and
+        # bump a sub-cell counter, so each real cell becomes its own line
+        # regardless of how the partitions were labelled.  This also degrades
+        # correctly for >2 true generations.
+        df = df.with_columns(
+            [
+                # A division is a sharp drop in fold-change back toward 1.0
+                # (mass roughly halves).  Flag any row whose fold-change fell by
+                # more than 25% from the previous row within the same partition.
+                (
+                    pl.col("listeners__mass__dry_mass_fold_change")
+                    < 0.75
+                    * pl.col("listeners__mass__dry_mass_fold_change").shift(1)
+                )
+                .fill_null(False)
+                .over(["variant", "lineage_seed", "generation", "agent_id"])
+                .alias("_is_birth")
+            ]
+        )
+        df = df.with_columns(
+            [
+                pl.col("_is_birth")
+                .cast(pl.Int64)
+                .cum_sum()
+                .over(["variant", "lineage_seed", "generation", "agent_id"])
+                .alias("_subcell")
+            ]
+        )
+        df = df.with_columns(
+            [
+                pl.concat_str(
+                    [
+                        pl.col("lineage_seed").cast(pl.Utf8),
+                        pl.col("generation").cast(pl.Utf8),
+                        pl.col("agent_id").cast(pl.Utf8),
+                        pl.col("_subcell").cast(pl.Utf8),
+                    ],
+                    separator="_",
+                ).alias("cell_id")
+            ]
+        )
+
         variant_names = dict(variant_metadata or {})
         variants = df.select("variant").unique().to_series().to_list()
 
@@ -80,7 +133,7 @@ class CellMass(Analysis):
                 .encode(
                     x=base_x, color=base_color,
                     tooltip=tooltip_fields + ["listeners__mass__dry_mass:Q"],
-                    detail="lineage_seed:N",
+                    detail="cell_id:N",
                     y=alt.Y("listeners__mass__dry_mass:Q", title="Dry Mass (fg)",
                             scale=alt.Scale(nice=False)),
                 )
@@ -93,7 +146,7 @@ class CellMass(Analysis):
                     x=base_x, color=base_color,
                     tooltip=tooltip_fields
                     + ["listeners__mass__dry_mass_fold_change:Q"],
-                    detail="lineage_seed:N",
+                    detail="cell_id:N",
                     y=alt.Y("listeners__mass__dry_mass_fold_change:Q",
                             title="Normalized Dry Mass",
                             scale=alt.Scale(nice=False)),

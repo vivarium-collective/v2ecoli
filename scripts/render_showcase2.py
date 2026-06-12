@@ -243,15 +243,23 @@ FIGS = [
      "Voronoi treemap of biomass components at cell birth vs division (seed 0, "
      "gen 1): nucleic acids, metabolites, protein. Areas proportional to mass."),
     ("doubling_time_line", "multivariant", None,
-     "Doubling time vs generation (per seed)",
-     "Per-generation doubling time derived from the emitted global_time span over "
-     "the clean 3-generation run. With #173 each generation now ends at its own "
-     "division, so the gen-2 step-cap over-report artifact (~63-104 min) is gone; "
-     "all generations sit in the physiological band."),
+     "Doubling time over the lineage (cap-immune instantaneous trace)",
+     "Cap-immune instantaneous doubling time t2 = ln(2)/mu from the per-timestep "
+     "specific growth rate (listeners.mass.instantaneous_growth_rate) over the whole "
+     "lineage — many samples (one per emitted step), not 3 generational points. The "
+     "trace is STABLE at ~44-52 min (mean ~52 min, matching the runnable "
+     "doubling-time-in-band test); it does NOT decline. The old per-generation line "
+     "appeared to 'go down' only because the FINAL generation is truncated at the "
+     "6500-step emit cap before it divides, so its raw span read short (~10-19 min) — "
+     "an artifact. The lower panel keeps per-generation division-time markers with "
+     "that truncated final generation excluded."),
     ("doubling_time_hist", "multivariant", None,
-     "Distribution of doubling times across the ensemble",
-     "Histogram of per-generation doubling times across the 2-seed x 3-gen "
-     "ensemble. Clean per-generation division times (no step-cap inflation)."),
+     "Distribution of doubling times across the ensemble (cap-immune)",
+     "Histogram of the cap-immune instantaneous doubling time t2 = ln(2)/mu over all "
+     "emitted timesteps in the 2-seed x 3-gen ensemble (many samples). Tight "
+     "distribution centred near ~52 min; immune to the final-generation step-cap "
+     "truncation that biased the old per-cell-span histogram toward a spurious "
+     "low-end bin."),
     ("replication", "multigeneration", seed0,
      "Chromosome replication across a lineage (oriC 2->4->2)",
      "oriC / replisome / fork dynamics across the seed-0 3-generation lineage. "

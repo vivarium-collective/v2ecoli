@@ -23,3 +23,16 @@ def test_sbc_ranks_uniform_on_self_consistent_toy():
                   rng=rng)
     assert res["chi2_p"] > 0.05                  # rank histogram is uniform
     assert len(res["ranks"]) == 150
+
+
+def test_sbc_on_calibrated_surrogate_runs_and_is_uniform():
+    import numpy as np
+    from v2ecoli.inference.count_surrogate import count_surrogate_sample, count_summary
+    from v2ecoli.inference.sbc import run_sbc
+    calib = {"mu0": 40.0, "phi": 8.0}
+    def simulate(theta, r):
+        return count_summary(count_surrogate_sample(theta, calib, 300, r))
+    res = run_sbc(simulate, prior=(0.2, 3.0), n_sbc=60,
+                  abc_kwargs=dict(n_particles=200, n_generations=6),
+                  rng=np.random.default_rng(0))
+    assert res["chi2_p"] > 0.01     # uniform (loose bound for small n_sbc)

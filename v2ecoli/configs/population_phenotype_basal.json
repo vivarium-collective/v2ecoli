@@ -1,0 +1,20 @@
+{
+  "_doc": "Canonical stimulus for the v1 meta-tier basal-phenotype report card. Runs an N-seed x M-generation basal (no-variant) ensemble and grades growth + biomass composition over the post-burn-in window. This config produces both the pinned reference (run once on blessed main) and any candidate model's card (re-run to grade). generation_lower_bound drops the inoculation transient; it MUST match the value baked into the pinned reference.",
+  "experiment_id": "population_phenotype_basal",
+  "generations": 8,
+  "n_init_sims": 4,
+  "single_daughters": true,
+  "lineage_seed": 0,
+  "different_seeds_per_variant": false,
+  "skip_baseline": false,
+  "cache_dir": "out/cache",
+  "out_dir": "out/population_phenotype_basal",
+  "time_step": 1.0,
+  "max_duration_per_gen": 3600.0,
+  "variants": {},
+  "analysis_options": {
+    "multiseed": {
+      "population_phenotype_basal": {"generation_lower_bound": 3}
+    }
+  }
+}

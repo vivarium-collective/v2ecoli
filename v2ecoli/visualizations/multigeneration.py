@@ -17,6 +17,7 @@ from typing import Any
 
 from pbg_superpowers.visualization import Visualization
 
+from v2ecoli.library.units_resolver import units_figure_to_html
 from v2ecoli.visualizations._helpers import (
     render_document,
     group_by_generation,
@@ -143,7 +144,8 @@ class MultigenerationVisualization(Visualization):
             gen_boundaries.append(cumulative_t)
 
         for ax, ylabel, ax_title in (
-            (ax_abs,  "Mass (fg)",                         "Absolute mass"),
+            # Unit on ax_abs comes from the declared listeners.mass.dry_mass schema.
+            (ax_abs,  "Mass",                              "Absolute mass"),
             (ax_fold, "Fold change (within each generation)", "Per-generation fold change"),
         ):
             for b in gen_boundaries[:-1]:
@@ -156,7 +158,11 @@ class MultigenerationVisualization(Visualization):
 
         ax_fold.set_xlabel("Cumulative time (min)")
         fig.tight_layout()
-        plot_b64 = _fig_to_b64(fig)
+        # figure_to_html returns a complete <img …> tag (labels the absolute-mass
+        # y-axis from the declared schema); embedded directly below, no <img> wrapper.
+        plot_html = units_figure_to_html(
+            fig, [(ax_abs, "y", "listeners.mass.dry_mass")]
+        )
 
         # ---- per-generation summary table ------------------------------
         # Build synthetic GenerationResult-like summaries from the grouped rows.
@@ -276,7 +282,7 @@ class MultigenerationVisualization(Visualization):
 
 <h2>Mass across generations</h2>
 <div class="plot">
-  <img src="data:image/png;base64,{plot_b64}" alt="multigeneration mass plot">
+  {plot_html}
 </div>
 
 <p style="color:#94a3b8; font-size:0.85em; margin-top:48px;">

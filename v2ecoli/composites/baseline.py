@@ -578,7 +578,15 @@ def baseline(
 
     if bundle is None:
         bundle = load_cache_bundle(cache_dir)
-    initial_state = bundle["initial_state"]
+    # Deep-copy initial_state: a reused bundle (e.g. one load_cache_bundle()
+    # shared across many baseline() calls, as in parameter sweeps / UQ ensembles)
+    # otherwise hands every composite the SAME initial_state arrays. v2ecoli's
+    # in-place bulk arrays then mutate that shared state during run(), so each
+    # subsequent build resumes from the previous run's advanced state (mass
+    # accumulates across samples, eventually triggering a spurious mid-run
+    # division). configs is already deep-copied below for the same reason —
+    # initial_state needs the same isolation.
+    initial_state = copy.deepcopy(bundle["initial_state"])
     configs = bundle["configs"]
     if config_overrides:
         # Deep-copy before patching: load_cache_bundle returns the cache dict

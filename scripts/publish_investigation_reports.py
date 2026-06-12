@@ -138,7 +138,12 @@ def export_report(page, base_url: str, slug: str, out_path: Path,
     promise with the HTML and surface any rejection. Failures return in seconds
     with the real error (e.g. a study 404).
     """
-    page.goto(base_url, wait_until="networkidle", timeout=45_000)
+    # Use "domcontentloaded", NOT "networkidle": the dashboard SPA fires
+    # background /api/* calls (the build_core registry subprocess, the live
+    # git-status poll) that may never go idle within the timeout under CI —
+    # which made every report fail with a goto timeout. Readiness is gated
+    # precisely by the wait_for_function below instead.
+    page.goto(base_url, wait_until="domcontentloaded", timeout=45_000)
     page.wait_for_function(
         "typeof window._generateInvestigationReport === 'function' "
         "&& typeof window._openInvestigationDetail === 'function'",

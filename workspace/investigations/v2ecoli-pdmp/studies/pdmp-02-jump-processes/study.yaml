@@ -804,3 +804,19 @@ findings:
   provenance:
     run_ids: [phase2-progress]
   next_action: 'Re-anchor the distribution-match test on count-level listeners (rnap_data / ribosome_data / monomer_counts).'
+- id: jump-variance-lives-at-count-level
+  kind: computational
+  status: confirms
+  statement: 'Empirical confirmation of the Phase-2 redirect: across 4 seeds at 250 steps, every
+    AGGREGATE observable (cell_mass, dry_mass, total monomer, ATP[c] count) washes out to ~0.028%
+    cross-seed CV, while the DIRECT jump-event count (cumulative transcription-initiation events,
+    rnap_data.rna_init_event) shows 0.85% CV -- ~30x higher. So the jump-process stochasticity is
+    real but lives at the per-event count level, not in aggregate mass/pool observables the
+    consumption_matched homeostat regulates -- which is exactly why Phase-3 inference must anchor on
+    count-level listeners.'
+  evidence:
+    from_run: 'baseline N=4 x 250 steps tick-by-tick (scripts/phase2_count_variance.py)'
+    observed: 'CV: cell_mass 0.0285%, dry_mass 0.0288%, monomer 0.0273%, ATP 0.0283%, cumulative rna_init 0.846% (~30x)'
+  provenance:
+    run_ids: [phase2-count-variance-diagnostic]
+  next_action: 'Build the count-level distribution-match gate (rna_init / monomer counts) as the Phase-2/3 acceptance criterion.'

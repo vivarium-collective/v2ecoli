@@ -83,10 +83,28 @@ DNAA_TU_IDX = 2778        # TU00259[c] — verified against cache_dnaa4_autoreg
 # s; 0 disables, 1 fully silences at f=1. Env-overridable so the no-autoreg
 # control run (DNAA_AUTOREG_STRENGTH=0) shares one code path with the experiment.
 AUTOREG_STRENGTH = float(os.environ.get("DNAA_AUTOREG_STRENGTH", "0.8"))
+# Repression curve: "linear" = (1 - s*f); "hill" = (1 - s * f^n/(K^n+f^n)).
+# Hill gives a sharper switch — LESS repression at low promoter occupancy (lifts
+# the cell-cycle trough), MORE once f crosses K (caps the peak). Per Rashmi's
+# handoff open question + the linear run's over-repression of the trough.
+AUTOREG_FORM = os.environ.get("DNAA_AUTOREG_FORM", "linear")
+AUTOREG_HILL_N = float(os.environ.get("DNAA_AUTOREG_HILL_N", "4"))
+AUTOREG_HILL_K = float(os.environ.get("DNAA_AUTOREG_HILL_K", "0.5"))
 
 
-def _autoreg_factor(promoter_fraction: float, strength: float) -> float:
-    """Linear repression (1 - s*f); f in [0,1]."""
+def _autoreg_factor(promoter_fraction: float, strength: float,
+                    form: str | None = None, n: float | None = None,
+                    K: float | None = None) -> float:
+    """Transcription-scaling factor from promoter occupancy f in [0,1].
+
+    linear: ``1 - s*f``. hill: ``1 - s * f^n / (K^n + f^n)`` — sharper switch.
+    """
+    form = form if form is not None else AUTOREG_FORM
+    if form == "hill":
+        n = n if n is not None else AUTOREG_HILL_N
+        K = K if K is not None else AUTOREG_HILL_K
+        f = promoter_fraction
+        return 1.0 - strength * (f ** n) / (K ** n + f ** n)
     return 1.0 - strength * promoter_fraction
 
 

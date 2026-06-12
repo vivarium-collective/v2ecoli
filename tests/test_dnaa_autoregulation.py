@@ -35,6 +35,24 @@ def test_autoreg_scaling_factor():
     assert _autoreg_factor(1.0, 0.0) == 1.0
 
 
+def test_autoreg_hill_form_lifts_the_trough():
+    """Hill (n=4,K=0.5) represses LESS at low f than linear (lifts the cell-cycle
+    trough) and stays in sync at f=K=0.5; this is the fix for linear over-repression."""
+    from v2ecoli.processes.transcript_initiation import _autoreg_factor
+    s = 0.8
+    # f=0 -> no repression in either form
+    assert _autoreg_factor(0.0, s, form="hill") == 1.0
+    # at low f (0.25, below K) Hill barely represses; linear cuts 20%
+    hill_lo = _autoreg_factor(0.25, s, form="hill")
+    lin_lo = _autoreg_factor(0.25, s, form="linear")
+    assert hill_lo > lin_lo            # Hill lifts the trough
+    assert hill_lo > 0.93              # ~0.953: almost no early-cycle repression
+    # at f=K=0.5 both cut by s*0.5 = 0.4 -> 0.6
+    assert abs(_autoreg_factor(0.5, s, form="hill") - 0.6) < 1e-9
+    # monotonic: more repression as f rises
+    assert _autoreg_factor(0.9, s, form="hill") < _autoreg_factor(0.5, s, form="hill")
+
+
 def test_autoreg_preserves_normalized_distribution():
     import numpy as np
     from v2ecoli.processes.transcript_initiation import _autoreg_factor

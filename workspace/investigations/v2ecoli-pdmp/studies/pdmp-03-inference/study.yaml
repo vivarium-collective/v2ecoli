@@ -667,3 +667,19 @@ findings:
   provenance:
     run_ids: [phase3-surrogate-calibration, phase3-abc-smc-recovery, phase3-sbc-k150, phase3-ppc]
   next_action: 'Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.'
+- id: abc-smc-multiparameter-identifiable
+  kind: computational
+  status: confirms
+  statement: 'Phase-3 increment 2: the ABC-SMC engine generalizes to vector theta (independent per-dim
+    perturbation kernel + product importance weights; scalar back-compat preserved). A 2-parameter joint
+    inference of (count mean-scale, dispersion-scale) from count data is recovered and per-parameter
+    SBC-validated, with a weak posterior correlation -- i.e. the two parameters are JOINTLY IDENTIFIABLE
+    from the [mean, std] summary. HONEST SCOPE: uses a SYNTHETIC overdispersed surrogate (mu0=40, phi0=8)
+    because the real WCM transcription count is Poisson (no dispersion to infer); this validates the
+    multi-parameter machinery for when richer overdispersed/multi-modal WCM observables are added.'
+  evidence:
+    from_run: 'scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom)'
+    observed: 'recovery [1.185, 0.993] vs truth [1.2, 1.0]; posterior corr=+0.12 (weak -> identifiable); 2-param SBC K=80 chi2_p mean-scale=0.78 PASS, disp-scale=0.62 PASS'
+  provenance:
+    run_ids: [phase3-abc-smc-2d]
+  next_action: 'Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.'

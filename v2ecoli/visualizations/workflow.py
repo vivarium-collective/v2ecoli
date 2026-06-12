@@ -20,6 +20,7 @@ from html import escape
 from typing import Any
 
 from pbg_superpowers.visualization import Visualization
+from v2ecoli.library.units_resolver import units_figure_to_html
 
 from v2ecoli.visualizations._helpers import render_document
 
@@ -62,7 +63,7 @@ def _plot_mass(history, title=''):
     if not history or len(history) < 2:
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.text(0.5, 0.5, 'No data', ha='center', va='center')
-        return _fig_to_b64(fig)
+        return units_figure_to_html(fig)
 
     times = _np_array([s.get('global_time', s.get('time', 0)) for s in history])
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
@@ -83,14 +84,20 @@ def _plot_mass(history, title=''):
     axes[0].grid(True, alpha=0.15)
 
     axes[1].set_xlabel('Time (min)')
-    axes[1].set_ylabel('Mass (fg)')
+    # Unit comes from the declared listeners.mass.cell_mass schema (quantity[float,fg]).
+    axes[1].set_ylabel('Mass')
     axes[1].set_title('Absolute Mass')
     axes[1].legend(fontsize=7)
     axes[1].grid(True, alpha=0.15)
 
     fig.suptitle(title, fontsize=13)
     fig.tight_layout()
-    return _fig_to_b64(fig)
+    # figure_to_html returns a full <img …> tag; the call site embeds it directly
+    # (no surrounding <img> wrapper) to avoid double-wrapping.
+    return units_figure_to_html(
+        fig,
+        [(axes[1], 'y', 'listeners.mass.cell_mass')],
+    )
 
 
 def _plot_growth(history):
@@ -1053,7 +1060,8 @@ Simulation pipeline &middot; process-bigraph <code>Composite.run()</code></p>
         if plots.get('ppgpp_dynamics'):
             html += f'<div class="plot"><img src="data:image/png;base64,{plots["ppgpp_dynamics"]}" alt="ppGpp Dynamics"></div>\n'
         if plots.get('mass_simple'):
-            html += f'<div class="plot"><img src="data:image/png;base64,{plots["mass_simple"]}" alt="Mass Trajectory"></div>\n'
+            # mass_simple is already a complete <img …> tag (Visualization.figure_to_html).
+            html += f'<div class="plot">{plots["mass_simple"]}</div>\n'
 
         v2_wall = long.get('wall_time', 0)
         v2_rate = long_dur / v2_wall if v2_wall > 0 else 0

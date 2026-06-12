@@ -15,12 +15,15 @@ def test_baseline_function_is_registered():
 
 @pytest.mark.fast
 def test_baseline_function_signature():
-    """The generator takes (core, *, seed, cache_dir, config_overrides, bundle)."""
+    """The generator takes (core, *, seed, cache_dir, config_overrides,
+    feature toggles, emitter, bundle)."""
     import inspect
     from v2ecoli.composites.baseline import baseline
     sig = inspect.signature(baseline)
     assert set(sig.parameters) == {
-        "core", "seed", "cache_dir", "config_overrides", "bundle"}
+        "core", "seed", "cache_dir", "config_overrides",
+        "ppgpp_regulation", "trna_attenuation", "supercoiling",
+        "mass_conservation", "emitter", "bundle"}
 
 
 @pytest.mark.sim

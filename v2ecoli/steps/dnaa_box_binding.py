@@ -111,8 +111,24 @@ FORM_BOUND_ATP = 1
 FORM_BOUND_ADP = 2
 
 # K_d values in molar (mol / L).
-KD_HIGH_M = 1e-9    # 1 nM — chromosomal_high, oriC_high, promoter_high
+KD_HIGH_M = 3e-9    # 3 nM — chromosomal_high, oriC_high, promoter_high
+# dnaa-4: loosened from 1→3 nM so the dnaA-promoter de-occupies at low [DnaA],
+# enabling the negative-feedback signal to de-repress transcription.
 KD_LOW_M = 100e-9   # 100 nM — oriC_low (ATP only)
+
+def _promoter_fraction(pool_label: np.ndarray, bound_form: np.ndarray) -> float:
+    """Bound fraction of the dnaA-promoter sites — the autoregulation signal.
+
+    Published on the dnaa_hydrolysis port each tick so transcript_initiation
+    can read it as the negative-feedback input for dnaA self-autoregulation.
+    """
+    prom_mask = (pool_label == POOL_PROMOTER_HIGH)
+    n_total = int(prom_mask.sum())
+    if n_total == 0:
+        return 0.0
+    n_bound = int((bound_form[prom_mask] != FORM_FREE).sum())
+    return float(n_bound) / float(n_total)
+
 
 # DnaA-ATP intrinsic hydrolysis rate. Bound DnaA-ATP hydrolyzes at the same
 # rate as free DnaA-ATP (Sekimizu 1987, k = 0.046 / min). bf8b82e's equilibrium
@@ -202,6 +218,7 @@ class DnaABoxBinding(Step):
             'next_update_time': 'overwrite[float[s]]',
             'dnaa_hydrolysis': {
                 'bound_count': 'overwrite[integer]',
+                'promoter_fraction': 'overwrite[float]',
             },
         }
 
@@ -552,6 +569,9 @@ class DnaABoxBinding(Step):
             new_bound_form[drop_rows] = FORM_FREE
             actual_bound_adp -= drop
 
+        # dnaa-4: promoter occupancy signal for dnaA self-autoregulation.
+        promoter_fraction = _promoter_fraction(pool_label, new_bound_form)
+
         # New DnaA_bound boolean.
         new_bound = (new_bound_form != FORM_FREE)
 
@@ -599,6 +619,8 @@ class DnaABoxBinding(Step):
             # SAME hydrolysis events rather than independently re-sampling.
             "dnaa_hydrolysis": {
                 "bound_count": int(delta_h_bound),
+                # dnaa-4: promoter occupancy for dnaA negative feedback.
+                "promoter_fraction": promoter_fraction,
             },
         }
         if bulk_update:

@@ -1,0 +1,217 @@
+schema_version: 4
+name: showcase-6-equivalence-large
+investigation: v2ecoli-baseline-showcase   # owning investigation (back-reference)
+title: "v1↔v2 equivalence at scale: a large (16×16) baseline ensemble graded against vEcoli"
+created: '2026-06-12'
+status: in_progress   # legacy back-compat; canonical axes below
+
+# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+#   REQUIRED top-level: schema_version, name, question, conditions, tests, status
+#   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
+
+# Canonical 6-axis status. Design + config wired; the large ensembles run on the
+# mini (v2 16×16 + a matched vEcoli 16×16 reference from the in-repo vEcoli source).
+design_status: complete
+implementation_status: complete   # config + card machinery (PR #134) in place
+simulation_status: pending        # 16×16 v2 + vEcoli reference ensembles run on the mini
+evaluation_status: pending
+gate_status: pending
+expert_review_status: pending
+
+question: |
+  Is the v2ecoli wild-type baseline still "the same E. coli" as vEcoli (v1) when
+  measured at LARGE ensemble scale? This study applies the PR #134 behavioral
+  report-card approach (population_phenotype_basal in its v1↔v2 *equivalence*
+  reference mode) to a large multi-generation baseline ensemble — 16 seeds × 16
+  generations — and grades v2's emergent population phenotype against a matched
+  vEcoli 16×16 reference within tolerance. #134 exercised the same loop at 8×16
+  as a demo; this study scales it to a population large enough to tighten the
+  omics/flux equivalence axes and to read v2's multi-generation behavior (the
+  in-process sawtooth, #142) honestly against v1.
+
+report:
+  title: showcase-6 — v1↔v2 equivalence of the baseline phenotype at large (16×16) scale
+  verdict: pending
+  confidence: pending
+  evidence_quality: matched 16×16 v2 vs vEcoli ensembles + reference-driven typed-criteria report card (PR #134)
+
+  objective: |
+    Establish whether the v2ecoli wild-type baseline population phenotype is
+    equivalent (within tolerance) to vEcoli's at large ensemble scale. The
+    instrument is the population_phenotype_basal report card (PR #134) rendered
+    in its vs_vecoli equivalence mode: the SAME 21-axis / 5-group card
+    (Physiology · Composition · Ribosomes · Exchange fluxes · Gene expression),
+    graded against a matched vEcoli ("v1") ensemble rather than v2's self-pin.
+    Scale is 16 seeds × 16 generations (2× the seeds of the #134 8×16 demo),
+    burn-in generation_lower_bound=3.
+
+  setup: |
+    Card kind: population phenotypes (emergent behaviors over a seeds × gens
+    ensemble; cell-level aggregation — time-mean within a cell, then population
+    stats across cells). Reference mode: v1↔v2 equivalence (vs vEcoli).
+
+    MEASURED (v2) side: v2ecoli.composites.baseline.baseline driven by the basal
+    stimulus config v2ecoli/configs/population_phenotype_basal_16x16.json
+    (16 seeds × 16 generations, single_daughters, burn-in 3), resumed from a
+    full-ParCa cache (out/cache_full, 51 TF conditions). Dispatched Ray-parallel
+    (run_seeds_parallel) on the Mac mini with the parquet store as authoritative
+    (the in-engine ParquetEmitter is a RAM trap — use the sidecar). The card is
+    regenerated over the existing sweep with `v2ecoli-analyze <sweep> --config
+    configs/population_phenotype_basal_16x16.json` (no re-sim).
+
+    REFERENCE (vEcoli / v1) side: a matched 16×16 vEcoli ensemble produced from
+    the vEcoli source ALREADY AVAILABLE WITHIN v2ecoli (the in-repo vEcoli /
+    comparison-harness machinery used by the other v1↔v2 comparison reports —
+    NOT an external SMS/vecoli-benchmarking checkout). The reference is pinned
+    with scripts/pin_vecoli_equivalence_reference.py, which reuses the self-pin
+    reference as the presentation/criterion template and swaps in v1's per-cell
+    distributions (it carries self-contained cross-implementation readers for
+    the two v1↔v2 emit-schema differences — vEcoli's cumulative `time` vs
+    `global_time`, and positional `bulk` vs paired `bulk__id`/`bulk__count`), so
+    the shared analysis_runner stays untouched. The v1 commit is stamped in the
+    reference's stimulus.blessed_model_ref.
+
+    RENDER: reports/population_phenotype_basal_report.py --reference
+    docs/report_cards/population_phenotype_basal/vs_vecoli/vecoli_reference.json
+    --no-vectors → docs/report_cards/population_phenotype_basal/vs_vecoli/
+    report_card.{html,md} (regenerated at 16×16 for this study).
+
+  result: |
+    PENDING — the 16×16 v2 and vEcoli reference ensembles run on the mini. The
+    headline will be the per-group equivalence verdict table (within_tol / drift
+    / mismatch / ungraded) plus the diagnostics the card bakes in: a sim-health
+    banner, a seed-vs-generation variance decomposition + stationarity flag, an
+    exchange-flux significance floor, and the gene-expression outlier-gene
+    tables. #134's 8×16 demo found Physiology / Composition / Ribosomes
+    equivalent within tolerance, exchange-flux metabolism as the divergence
+    (O₂/CO₂ respiration deficit — issue #143), and gene expression highly
+    correlated (R² ≈ 0.93–0.94) but below the strict self-pin band; this study
+    re-reads those axes at larger scale.
+
+  interpretation: |
+    PENDING. The question is whether the #134 8×16 equivalence picture holds,
+    tightens, or shifts at 16×16: do the within-tolerance axes stay within
+    tolerance with the larger sample, does the exchange-flux metabolic
+    divergence persist, and does the gene-expression outlier set stay coherent?
+    The larger seed count is specifically aimed at the omics/flux axes (more
+    cells → tighter ensemble-mean vectors).
+
+  decision: |
+    PENDING — verdict filled once the matched 16×16 ensembles are graded.
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+      cache_dir: out/cache_full
+    # NOTE: the RUN is NOT a single seed-0 cell. seed 0 anchors the baseline
+    # condition; the actual MEASURED run is a 16-seed × 16-generation basal
+    # ensemble (population_phenotype_basal_16x16.json) dispatched Ray-parallel
+    # via run_seeds_parallel. The report card's population phenotypes are
+    # computed over that ensemble (cell-level aggregation, burn-in 3).
+  variants: []
+  model_settings:
+  - name: reference-mode-v1v2-equivalence
+    detail: "Report card rendered in its vs_vecoli equivalence mode — graded against a matched vEcoli (v1) ensemble, not v2's self-pin. 'Equivalence is a reference mode, not a card' (PR #134)."
+  - name: large-ensemble-16x16
+    detail: "16 seeds × 16 generations (2× the seeds of the #134 8×16 demo, same lineage depth); burn-in generation_lower_bound=3. Both the v2 and the vEcoli reference ensembles are run at this matched scale."
+  - name: ray-parallel-dispatch
+    detail: "Seeds fanned out Ray-parallel via run_seeds_parallel on the mini."
+  - name: parquet-authoritative
+    detail: "Parquet sidecar is the authoritative store; the in-engine ParquetEmitter is a RAM trap and is avoided."
+  - name: vecoli-source-in-repo
+    detail: "The vEcoli (v1) reference ensemble is produced from the vEcoli source already available within v2ecoli (the comparison-harness machinery used by the other v1↔v2 reports), NOT an external checkout."
+
+assumptions:
+- text: |
+    A matched 16×16 vEcoli reference can be generated from the in-repo vEcoli
+    source and pinned with pin_vecoli_equivalence_reference.py; v1 and v2 share
+    cistron/monomer/flux ordering exactly, so the omics/flux vectors align
+    positionally with no ID remapping (verified at 8×16 in #134).
+  verified_in_v2ecoli: false
+- text: |
+    The population_phenotype_basal report card (PR #134) grades the SAME 21
+    axes at 16×16 as at 8×16 — scale changes the population statistics, not the
+    axis definitions or criteria — so the equivalence verdict at large scale is
+    directly comparable to the #134 8×16 demo.
+  verified_in_v2ecoli: false
+- text: |
+    v2's single-process multi-generation lineage runner sawtooths (in-process
+    state accumulation → degrade → divide-fail → reset-from-cache; #142); at
+    16 generations the burn-in (generation_lower_bound=3) and the card's
+    stationarity flag / variance decomposition surface this honestly rather than
+    letting it corrupt the graded window.
+  verified_in_v2ecoli: false
+
+tests:
+# The report card grades each group with a typed criterion (ttest / rel_tol /
+# r2 / flux_scatter) earning a 4-state verdict (within_tol / drift / mismatch /
+# ungraded). These are graded by the card, not the run-data DSL, so they are
+# evaluated_by agent (non-run-data kind), like showcase-2's correlation tests.
+- name: physiology-equivalent-to-vecoli
+  classification: primary
+  status: pending
+  question: Is v2's physiology group (doubling time, cell mass/volume, oriC, replication timing) equivalent to vEcoli within tolerance at 16×16?
+  measure:
+    kind: report_card_group
+    reference: vEcoli 16×16 (v1)
+    detail: "Physiology axes graded by ttest (Welch, magnitude bands + p-guard) vs the matched vEcoli reference; 4-state verdict per axis."
+  pass_if:
+    op: equivalent_within_tol
+- name: composition-equivalent-to-vecoli
+  classification: primary
+  status: pending
+  question: Are v2's biomass mass fractions (protein / RNA / DNA) equivalent to vEcoli within tolerance at 16×16?
+  measure:
+    kind: report_card_group
+    reference: vEcoli 16×16 (v1)
+    detail: "Composition axes graded by ttest vs the matched vEcoli reference."
+  pass_if:
+    op: equivalent_within_tol
+- name: ribosomes-equivalent-to-vecoli
+  classification: primary
+  status: pending
+  question: Are v2's ribosome axes (total, active fraction, elongation rate, production) equivalent to vEcoli within tolerance at 16×16?
+  measure:
+    kind: report_card_group
+    reference: vEcoli 16×16 (v1)
+    detail: "Ribosome axes graded by ttest; v1's 30S/50S counts read via a positional-bulk index adapter (IDs identical, only the access pattern differs)."
+  pass_if:
+    op: equivalent_within_tol
+- name: exchange-fluxes-equivalent-to-vecoli
+  classification: primary
+  status: pending
+  question: Are v2's exchange fluxes equivalent to vEcoli at 16×16, or does the #143 metabolic (O₂/CO₂) divergence persist at scale?
+  measure:
+    kind: report_card_group
+    reference: vEcoli 16×16 (v1)
+    detail: "Exchange-flux signed scatter + KPIs vs the matched vEcoli reference; near-floor exchanges that flip on/off are shown but held below a significance floor so FBA jitter doesn't drive the verdict. #134's 8×16 demo found this group to be the divergence (O₂/CO₂ respiration deficit, issue #143)."
+  pass_if:
+    op: equivalent_within_tol
+- name: gene-expression-correlates-vecoli
+  classification: primary
+  status: pending
+  question: Does v2's transcriptome/proteome correlate with vEcoli at 16×16 (and does the outlier-gene set stay coherent)?
+  measure:
+    kind: report_card_group
+    reference: vEcoli 16×16 (v1)
+    detail: "Transcriptome + proteome graded by r2 over ensemble-mean count vectors; companion outlier-gene tables (top log2-fold-change disagreements, labelled with gene symbol + EcoCyc name). #134's 8×16 demo: R² ≈ 0.93–0.94, below the strict self-pin band; coherent outlier set (thr operon, cytochrome bd-I up in v2)."
+  pass_if:
+    op: correlates
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties:
+  - "Whether the #134 8×16 equivalence picture (Physiology/Composition/Ribosomes within tolerance; exchange-flux metabolism the divergence; gene expression correlated but below the self-pin band) holds, tightens, or shifts at 16×16. PENDING the matched ensembles."
+  - "Feasibility + wall-time of a matched 16×16 vEcoli reference run from the in-repo vEcoli source — the v1 side is the heavier/less-certain half of the run."
+  followup_study_proposals: []
+
+pipeline_gate:
+  prerequisites:
+  - showcase-2-baseline-figures
+  enables: []
+  gate_status: pending
+
+runs: []        # filled when the 16×16 v2 + vEcoli reference ensembles run on the mini
+visualizations: []  # the rendered vs_vecoli report card (embedded inline-SVG plots) + per-group verdict views

@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase4-variant-sweep",
+  "rendered_at": 1781267180.814549,
+  "title": "Cell mass + instantaneous growth rate, all 5 variants overlaid",
+  "interpretation": "media-succinate (green) has the lowest cell-mass trajectory (~270 vs ~490 fg) and lowest growth rate; ppgpp-off's instantaneous growth rate decays over the run. The other variants track baseline closely.",
+  "command": "scripts/render_variant_comparison.py: 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase4-variants/showcase4_variants parquet (5-variant x 2-seed sweep); variant_metadata {0:baseline,1:ppgpp-off,2:dnaA-2x,3:elong-down,4:media-succinate}; Altair->PNG/SVG via vl_convert."
+}

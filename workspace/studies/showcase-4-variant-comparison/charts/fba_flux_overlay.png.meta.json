@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase4-variant-sweep",
+  "rendered_at": 1781267180.814549,
+  "title": "Central-carbon flux delta vs baseline (per reaction) + Toya-2010 r",
+  "interpretation": "media-succinate produces the largest central-carbon flux shifts (TCA / succinate-entry reactions: SUCCINATE-DEHYDROGENASE, 2OXOGLUTARATEDEH, MALATE-DEH) and its Toya-2010 correlation collapses to -0.058 (baseline 0.727). dnaA-2x drops Toya r to 0.457; ppgpp-off slightly raises it to 0.764.",
+  "command": "scripts/render_variant_comparison.py: 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase4-variants/showcase4_variants parquet (5-variant x 2-seed sweep); variant_metadata {0:baseline,1:ppgpp-off,2:dnaA-2x,3:elong-down,4:media-succinate}; Altair->PNG/SVG via vl_convert."
+}

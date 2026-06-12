@@ -228,3 +228,113 @@ def test_parquet_run_disk_size_smaller_than_text(tmp_path, core):
     rows = pl.read_parquet(str(gen1_dir / "*.pq"))
     assert "listeners__count" in rows.columns
     assert len(rows) == 40
+
+
+def _structured_unique(dtype_fields, rows, active_mask):
+    """Build a structured numpy array like the agent ``unique`` store entries."""
+    import numpy as np
+    arr = np.zeros(len(rows), dtype=dtype_fields)
+    for i, r in enumerate(rows):
+        for name, val in r.items():
+            arr[name][i] = val
+    arr["_entryState"] = active_mask
+    return arr
+
+
+class _UniqueStubComposite(_StubComposite):
+    """Stub composite that also carries a structured ``unique`` store so the
+    V2ECOLI_EMIT_UNIQUE path has active-entry coordinate arrays to extract."""
+
+    def __init__(self, core, initial_agent_id: str = "0"):
+        super().__init__(core, initial_agent_id=initial_agent_id, divide_at_tick=None)
+        import numpy as np
+        rnap_dt = [("_entryState", np.int8), ("coordinates", np.int64),
+                   ("domain_index", np.int32)]
+        repl_dt = [("_entryState", np.int8), ("coordinates", np.int64),
+                   ("domain_index", np.int32)]
+        # 3 RNAP entries, the last is INACTIVE (_entryState=0) -> must be dropped.
+        rnap = _structured_unique(
+            rnap_dt,
+            [{"coordinates": 100, "domain_index": 0},
+             {"coordinates": -200, "domain_index": 0},
+             {"coordinates": 999, "domain_index": 0}],
+            active_mask=[1, 1, 0],
+        )
+        repl = _structured_unique(
+            repl_dt,
+            [{"coordinates": 50000, "domain_index": 1},
+             {"coordinates": -50000, "domain_index": 2}],
+            active_mask=[1, 1],
+        )
+        self.state["agents"][initial_agent_id]["unique"] = {
+            "active_RNAP": rnap,
+            "active_replisome": repl,
+        }
+
+
+@pytest.mark.fast
+def test_unique_emit_flag_off_no_unique_columns(tmp_path, core, monkeypatch):
+    """Without V2ECOLI_EMIT_UNIQUE the unique coordinate columns are absent."""
+    monkeypatch.delenv("V2ECOLI_EMIT_UNIQUE", raising=False)
+    # The flag is read at import time, so force it off on the module too.
+    import v2ecoli.library.parquet_run as pr
+    monkeypatch.setattr(pr, "_EMIT_UNIQUE", False)
+
+    comp = _UniqueStubComposite(core, initial_agent_id="0")
+    pr.run_multigen_parquet(
+        comp, experiment_id="uniq_off", out_dir=tmp_path / "out",
+        emit_paths=["listeners/count"], max_steps=10, max_generations=1,
+        chunk=5, initial_agent_id="0", batch_size=2, threaded=False,
+    )
+    gen1_dir = (
+        tmp_path / "out" / "uniq_off" / "history"
+        / "experiment_id=uniq_off" / "variant=0" / "lineage_seed=0"
+        / "generation=1" / "agent_id=0"
+    )
+    rows = pl.read_parquet(str(gen1_dir / "*.pq"))
+    assert "active_RNAP__coordinates" not in rows.columns
+    assert "active_replisome__coordinates" not in rows.columns
+
+
+@pytest.mark.fast
+def test_unique_emit_flag_on_emits_active_coordinates(tmp_path, core, monkeypatch):
+    """V2ECOLI_EMIT_UNIQUE=1 emits the active-entry unique coordinate columns."""
+    monkeypatch.setenv("V2ECOLI_EMIT_UNIQUE", "1")
+    import v2ecoli.library.parquet_run as pr
+    # Flip the module-level latch (it was computed at import time).
+    monkeypatch.setattr(pr, "_EMIT_UNIQUE", True)
+
+    comp = _UniqueStubComposite(core, initial_agent_id="0")
+    pr.run_multigen_parquet(
+        comp, experiment_id="uniq_on", out_dir=tmp_path / "out",
+        emit_paths=["listeners/count"], max_steps=10, max_generations=1,
+        chunk=5, initial_agent_id="0", batch_size=2, threaded=False,
+    )
+    gen1_dir = (
+        tmp_path / "out" / "uniq_on" / "history"
+        / "experiment_id=uniq_on" / "variant=0" / "lineage_seed=0"
+        / "generation=1" / "agent_id=0"
+    )
+    rows = pl.read_parquet(str(gen1_dir / "*.pq")).sort("global_time")
+    for col in ("active_RNAP__coordinates", "active_RNAP__domain_index",
+                "active_replisome__coordinates", "active_replisome__domain_index"):
+        assert col in rows.columns, f"missing unique column {col}"
+    # Only the 2 ACTIVE RNAP entries survive the _entryState mask (999 dropped).
+    first_rnap = list(rows["active_RNAP__coordinates"][0])
+    assert sorted(first_rnap) == [-200, 100], first_rnap
+    first_repl = sorted(rows["active_replisome__coordinates"][0])
+    assert first_repl == [-50000, 50000], first_repl
+
+
+@pytest.mark.fast
+def test_extract_unique_attrs_masks_inactive(core):
+    """_extract_unique_attrs returns only active entries; missing molecule -> empty."""
+    import v2ecoli.library.parquet_run as pr
+    comp = _UniqueStubComposite(core, initial_agent_id="0")
+    agent = comp.state["agents"]["0"]
+    out = pr._extract_unique_attrs(agent)
+    assert sorted(out["active_RNAP"]["coordinates"]) == [-200, 100]
+    assert out["active_RNAP"]["domain_index"] == [0, 0]
+    # Molecules absent from this agent's unique store -> empty lists, no crash.
+    assert out["full_chromosome"]["unique_index"] == []
+    assert out["chromosome_domain"]["domain_index"] == []

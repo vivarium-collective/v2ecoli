@@ -189,13 +189,21 @@ runs:
   cache_dir: out/cache-showcase
   result: PASS
   outcomes:
-    PARCA-BUILDS-FULL-51-CONDITIONS:
+    # Authored outcome keys are lowercase to match each tests[].name EXACTLY, so
+    # the report (walkthrough.js: out = outcomeByTest[t.name]) surfaces the
+    # PASS/PASS/PARTIAL pills instead of "pending". These are ParCa-artifact
+    # checks (condition_count / artifacts_present / parca_compare) — non-run-data
+    # measure kinds — so the run-data evaluator agent-buckets them and computes
+    # no verdict (this run has no parquet/zarr store, only the ParCa cache); the
+    # authored outcomes below ARE the verdicts. See tests[].classification for
+    # the (authored) primary tagging.
+    parca-builds-full-51-conditions:
       result: PASS
       detail: 51 TF conditions fitted (--mode full, 142.4 s on the mini); 51 = full vs 7 = fast/debug.
-    CACHE-BUNDLE-COMPLETE:
+    cache-bundle-complete:
       result: PASS
       detail: All four artifacts present in out/cache-showcase — initial_state.json (10.39 MB), sim_data_cache.dill (164.92 MB), metadata.json (210 B), cache_version.json (1.1 KB).
-    SIM_DATA-REPRODUCES-PARCA-COMPARISON:
+    sim_data-reproduces-parca-comparison:
       result: PARTIAL
       detail: |
         Verified at structural-inventory + simulation-readiness level (4538 genes /
@@ -204,6 +212,8 @@ runs:
         parca_compare HTML diff was not re-run — it needs vivarium-ecoli
         --save-intermediates reference checkpoints, absent on the mini this session.
 
+  computed_outcomes:
+    _status: store_unresolved
 visualizations:
 - name: source-file manifest
   address: image:charts/showcase1_source_manifest.png

@@ -274,6 +274,10 @@ def _build_millard_pdmp_edge(core: Any, *, tick_s: float = 1.0,
     }
     out_topo = {
         "species_concentrations": ("shared", "central_metabolites"),
+        # Per-reaction fluxes (mM/s) published to the agent-root
+        # ('central_fluxes',) store that FBAFluxCoupler reads (its topology
+        # declares ('central_fluxes',)).
+        "central_fluxes": ("central_fluxes",),
         "control_applied": ("shared", "control_applied"),
         "bulk": ("bulk",),
     }
@@ -899,6 +903,11 @@ def millard_pdmp_baseline(
         'gtp_to_hydrolyze': 0,
         'aa_count_diff': np.zeros(21),
     })
+
+    # Agent-root central_fluxes store: Millard publishes per-reaction fluxes
+    # (mM/s) here and FBAFluxCoupler reads them (its topology is the agent-
+    # root ('central_fluxes',), not the shared/ one).
+    cell_state.setdefault('central_fluxes', {})
 
     # Millard-PDMP shared stores
     cell_state.setdefault('shared', {})

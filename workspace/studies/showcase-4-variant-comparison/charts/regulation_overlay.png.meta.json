@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase4-variant-sweep",
+  "rendered_at": 1781267180.814549,
+  "title": "ppGpp pool + tRNA charged fraction over the cell cycle, all 5 variants",
+  "interpretation": "ppgpp-off (orange) ppGpp pool RISES to ~230 by end-of-run (highest of all; mean 120.6, 1.86x baseline) \u2014 this is de-repression, NOT a collapse: disabling ppGpp regulation removes the feedback the allocation reads but not ppGpp synthesis. Other variants stay ~50-85. tRNA charged fraction is pinned at ~0.97 across every variant.",
+  "command": "scripts/render_variant_comparison.py: 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase4-variants/showcase4_variants parquet (5-variant x 2-seed sweep); variant_metadata {0:baseline,1:ppgpp-off,2:dnaA-2x,3:elong-down,4:media-succinate}; Altair->PNG/SVG via vl_convert."
+}

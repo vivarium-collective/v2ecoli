@@ -62,6 +62,8 @@ Outputs:
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 from scipy.optimize import root as scipy_root
 
@@ -134,7 +136,9 @@ def _promoter_fraction(pool_label: np.ndarray, bound_form: np.ndarray) -> float:
 # rate as free DnaA-ATP (Sekimizu 1987, k = 0.046 / min). bf8b82e's equilibrium
 # step hydrolyzes the FREE pool only; this step additionally hydrolyzes the
 # BOUND pool, in-place (bound box-ATP → bound box-ADP on the same row).
-HYDROLYSIS_RATE_PER_MIN = 0.046
+# Env-overridable (drives the ATP-fraction setpoint); default 0.046 keeps dnaa-3
+# behavior, dnaa-4 sets DNAA_HYDROLYSIS_RATE_PER_MIN=0.025 per Rashmi's handoff.
+HYDROLYSIS_RATE_PER_MIN = float(os.environ.get("DNAA_HYDROLYSIS_RATE_PER_MIN", "0.046"))
 
 
 class DnaABoxBinding(Step):

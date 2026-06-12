@@ -43,6 +43,8 @@ TODO:
   - match sigma factors to promoters
 """
 
+import os
+
 import numpy as np
 import scipy.sparse
 import matplotlib.pyplot as plt
@@ -77,8 +79,10 @@ from v2ecoli.library.schema_types import (
 
 
 # dnaA autoregulation constants (dnaa-4 / Rashmi mechanism)
-DNAA_TU_IDX = 2778        # TU00259[c] — verify against the cache before a real run
-AUTOREG_STRENGTH = 0.8    # s; 0 disables, 1 fully silences at f=1
+DNAA_TU_IDX = 2778        # TU00259[c] — verified against cache_dnaa4_autoreg
+# s; 0 disables, 1 fully silences at f=1. Env-overridable so the no-autoreg
+# control run (DNAA_AUTOREG_STRENGTH=0) shares one code path with the experiment.
+AUTOREG_STRENGTH = float(os.environ.get("DNAA_AUTOREG_STRENGTH", "0.8"))
 
 
 def _autoreg_factor(promoter_fraction: float, strength: float) -> float:

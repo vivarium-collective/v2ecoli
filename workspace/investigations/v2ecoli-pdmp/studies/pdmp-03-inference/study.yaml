@@ -11,7 +11,7 @@ claim: |
   diagnostics on a self-generated grid — NOT a posterior, credible interval, or validated ABC distance.
 confidence: Investigating
 status: running
-phase: Design
+phase: Build
 topic: pdmp
 tags:
 - pdmp
@@ -151,7 +151,8 @@ expected_behavior:
 - name: abc-posterior-recovery-on-synthetic
   en: 'On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the ground truth at the published
     credible level using summary statistics: growth rate, mean mRNA/protein abundances, metabolite concentrations. (Gating
-    criterion.)'
+    criterion.) INCREMENT 1 (2026-06-12) PASSES for the transcription-count channel on a WCM-calibrated surrogate:
+    scripts/run_abc_smc.py recovers theta_true=1.2 -> 90% CI [1.198, 1.201]. See findings. Full multi-modality + full-WCM remains.'
   given:
     condition: synthetic-truth-data
   measure:
@@ -199,7 +200,9 @@ expected_behavior:
   status: stub
 - name: uq-sbc-coverage
   en: 'Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90% credible intervals
-    achieve ≥85% empirical coverage. Hard requirement before claiming "inference-ready" for Phase 5.'
+    achieve ≥85% empirical coverage. Hard requirement before claiming "inference-ready" for Phase 5. INCREMENT 1 (2026-06-12):
+    scripts/run_sbc.py (now EXISTS) passes at K=150 on the WCM-calibrated surrogate (χ² p=0.576); PPC coverage 0.91. The
+    full K=1000 multi-modality full-WCM gate remains. SBC correctly rejected an under-converged ABC (ng=6) before passing at ng=12.'
   given:
     condition: K1000-sbc-draws
   measure:
@@ -644,3 +647,23 @@ discovery_implications:
       workarounds are unnecessary; regression-test against the sprint-1 and sprint-13 cases.'
     expected_information_gain: medium
     expert_gate_required: false
+findings:
+- id: abc-smc-sbc-validated-on-count-surrogate
+  kind: computational
+  status: confirms
+  statement: 'Phase-3 increment 1: a real ABC-SMC (importance weights + Gaussian perturbation kernel +
+    adaptive-epsilon schedule) recovers a transcription-init rate from count-level observations, validated
+    by Simulation-Based Calibration AND a posterior-predictive check. The forward model is a
+    negative-binomial count surrogate calibrated ONCE to real WCM rna_init_event statistics (mu0=12593,
+    Poisson limit). This replaces the prior grid-diagnostic phase3_abc_* scripts with the cited-but-missing
+    run_abc_smc / run_sbc / run_ppc. HONEST SCOPE: validated on the WCM-calibrated count LIKELIHOOD (single
+    parameter, K=150 SBC), NOT the full WCM in the ABC loop (deferred to the Phase-4 compiled runtime) and
+    NOT the K=1000 multi-modality full gate. A real methodological finding fell out: the WCM Poisson
+    posterior is sharp (~300x tighter than a toy), so ABC needs n_generations=12 to converge -- SBC
+    correctly REJECTED an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).'
+  evidence:
+    from_run: 'phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)'
+    observed: 'recovery theta_true=1.2 -> post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS)'
+  provenance:
+    run_ids: [phase3-surrogate-calibration, phase3-abc-smc-recovery, phase3-sbc-k150, phase3-ppc]
+  next_action: 'Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.'

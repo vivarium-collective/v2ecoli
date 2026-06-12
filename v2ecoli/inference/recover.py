@@ -5,7 +5,7 @@ from v2ecoli.inference.abc_smc import abc_smc
 
 
 def recover(calib, theta_true, n_obs, rng, *, prior=(0.2, 3.0),
-            n_particles=400, n_generations=6):
+            n_particles=400, n_generations=12):
     """Recover a scalar theta on synthetic count data via ABC-SMC.
 
     Draws an observed summary from the calibrated count surrogate at

@@ -20,6 +20,7 @@ once, in one place:
 """
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 from typing import Any, Callable
@@ -49,6 +50,64 @@ _KNOWN_VECTOR_LEAVES: set[str] = {
     "RNAP_coordinates",
     "ribosome_coordinates",
 }
+
+
+# Env-gated unique-store emit (V2ECOLI_EMIT_UNIQUE=1): mirror of the
+# parquet_run path. The chromosome-state renderer needs per-molecule genomic
+# coordinates that live in the agent's structured ``unique`` numpy arrays --
+# which the plain view filter cannot reach. When enabled we extract the named
+# attribute arrays of the ACTIVE entries (``_entryState`` mask) and emit them
+# as nested keys so the emitter flattens them to ``active_RNAP__coordinates``
+# etc. ``chromosome_domain__child_domains`` (the (n_domain, 2) parent->child
+# domain tree) is FLATTENED row-major to a 1-D list<int> aligned to
+# ``chromosome_domain__domain_index`` so the renderer can place daughter-strand
+# RNAPs on the replication bubbles, not just the rim.
+_EMIT_UNIQUE = os.environ.get("V2ECOLI_EMIT_UNIQUE", "") not in ("", "0", "false", "False")
+_UNIQUE_EMIT_SPEC = {
+    "active_RNAP": ["coordinates", "domain_index"],
+    "active_replisome": ["coordinates", "domain_index"],
+    "full_chromosome": ["unique_index", "domain_index"],
+    "chromosome_domain": ["domain_index", "child_domains"],
+}
+
+
+def _flatten_attr(col):
+    """Flatten a unique-store attribute column to a 1-D python list.
+
+    1-D attributes pass through; 2-D ones (child_domains is (n_active, 2)) are
+    flattened row-major so they serialize as a plain list<int> column aligned
+    to domain_index.
+    """
+    arr = np.asarray(col)
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+    return arr.tolist()
+
+
+def _extract_unique_attrs(agent_state: dict) -> dict:
+    """Pull active-entry attribute arrays out of an agent's ``unique`` store.
+
+    Returns ``{mol: {attr: [values...]}}`` for the active entries of each
+    configured unique molecule, ready to merge into the emit payload (flattens
+    to ``<mol>__<attr>`` columns).
+    """
+    out: dict = {}
+    unique = (agent_state or {}).get("unique") or {}
+    for mol, attrs in _UNIQUE_EMIT_SPEC.items():
+        arr = unique.get(mol)
+        if arr is None or not hasattr(arr, "dtype") or arr.dtype.names is None:
+            out[mol] = {a: [] for a in attrs}
+            continue
+        names = set(arr.dtype.names)
+        if "_entryState" in names:
+            active = arr[arr["_entryState"].view(np.bool_)]
+        else:
+            active = arr
+        out[mol] = {
+            a: (_flatten_attr(active[a]) if a in names else [])
+            for a in attrs
+        }
+    return out
 
 
 def view_from_emit_paths(
@@ -496,6 +555,8 @@ def run_multigen_xarray(
         if key not in agents_map:
             return
         payload = _filter_agent_state(agents_map[key], view)
+        if _EMIT_UNIQUE:
+            payload = {**payload, **_extract_unique_attrs(agents_map[key])}
         emitter.update({
             "time": float(done),
             "global_time": float(done),

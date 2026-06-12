@@ -1,7 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-ensemble",
-  "rendered_at": 1781068693.8051698,
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781185351.873888,
   "title": "tRNA charged fraction over the cell cycle (all seeds)",
-  "interpretation": "Mean fraction of charged tRNA (averaged across tRNA species) for all 4 seeds. Stays high (~0.92-0.98), consistent with amino-acid-replete exponential growth; mild dips track transient ribosome/charging dynamics. x-axis in minutes.",
-  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+  "interpretation": "Mean charged-tRNA fraction (averaged across the 86 tRNA species) over the cell cycle across both seeds / three generations; remains high (~0.95-0.98).",
+  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
 }

@@ -18,7 +18,7 @@ vEcoli's DuckDB/`sim_data` analyses now run **natively inside v2ecoli** as proce
 ### The `Analysis` abstraction (in `main`)
 - `Analysis(V2Step)` — sibling of the record-based `AnalysisStep`; declares DuckDB `conn` + scale-scoped `history_sql` + ParCa `sim_data` input ports; emits `{view: html, data: map}`. Shared `ANALYSIS_REGISTRY`.
 - Runner (`workflow/analysis_runner.py`) provisions one DuckDB connection + the paired `sim_data` per run, builds a per-scale `history_sql`, writes `data → analysis.json` and `view → <sweep>/viz/*.html`.
-- Dashboard already surfaces `<study>/viz/*.html`; a server-side picker edit to list `Analysis` classes is **pending** (see roadmap).
+- Dashboard integration is **done** (generic, no per-analysis code): vivarium-dashboard reads `v2ecoli.workflow.analysis.ANALYSIS_REGISTRY` to list `Analysis` classes in its picker, runs the ones declared in a study's `analyses:` list via a post-run hook (`_run_study_analyses` → `analysis_runner.run_analyses`), and surfaces the resulting `<sweep>/viz/*.html` per study/investigation (`_discover_viz_html_files` / `_discover_investigation_viz_html_files`). Any registered analysis (incl. `ptools_overview`) appears automatically once v2ecoli is importable in the serving venv. See vivarium-dashboard `docs/post-run-analyses.md`.
 
 ### 24 ported analyses (`Analysis`, DuckDB/`sim_data`)
 | Scale | Analyses |
@@ -78,8 +78,23 @@ The ptools data pipeline is done; the *visualization* is not. In increasing dept
    end-to-end against `sms-ptools:0.8.2`: emitted `EG#####`/reaction frame IDs
    resolve in the live ECOLI PGDB. Run the server per the appendix below.
 
-### B. Dashboard surfacing
-- Redo + commit the `vivarium-dashboard` `server.py` picker edit (`_list_visualization_classes` lists `Analysis` classes). The earlier edit was lost when that repo's WIP branch moved; it's inert until v2ecoli is importable in the serving venv.
+### B. Dashboard surfacing — DONE
+The `vivarium-dashboard` integration is merged (on its `main`) and is **generic**
+— it reads `v2ecoli.workflow.analysis.ANALYSIS_REGISTRY` directly, so no
+per-analysis dashboard change is needed:
+- **Picker** lists every registered `Analysis` class (`_build_analysis_options`).
+- **Post-run hook** runs the analyses declared in a study's `analyses:` list
+  (`name` + optional `params`, matching a registry key) after each run, via
+  `_run_study_analyses` → `analysis_runner.run_analyses`.
+- **Surfacing**: the emitted `<sweep>/viz/*.html` are discovered per study
+  (`_discover_viz_html_files`) and per investigation
+  (`_discover_investigation_viz_html_files`) and shown in the Visualizations area.
+
+So `ptools_overview` (and any future analysis) shows up automatically. The only
+prerequisites are operational: v2ecoli must be importable in the dashboard's
+serving venv (cf. the pbg editable-install gap), and — for the painted
+overview — the external `sms-ptools` server must be running (see the appendix /
+`scripts/ptools_server.sh`). Reference: vivarium-dashboard `docs/post-run-analyses.md`.
 
 ### C. Other follow-ups
 - **`validation_data`:** the current minimal loader covers Schmidt/Wisniewski protein counts only. A fuller `ValidationDataEcoli` port (or adding a `validation/` tier to the **ecoli-sources** package, which is reconstruction-only today) would generalize it.
@@ -102,6 +117,20 @@ scripts/ptools_server.sh up        # idempotent: starts a fresh container, waits
 scripts/ptools_server.sh status    # is it up?
 scripts/ptools_server.sh restart   # force a clean container (use this, not `docker start` — see gotchas)
 ```
+
+To **paint a run's ptools TSV** onto the EcoCyc Cellular Overview (auto-loaded,
+no manual upload), pass one of the emitted `ptools/*.tsv` (or a `ptools_overview_*`
+file) to the launcher:
+
+```sh
+scripts/ptools_launch.sh <sweep>/ptools/ptools_rna__<group>.tsv   # class inferred → opens the painted map
+```
+
+It stages the file into the server (this image's Omics Viewer only loads
+server-local files) and opens `celOv.shtml?omics=t&url=…&class=…&column1=1-N`.
+(The vivarium-dashboard "Launch ptools" button does the same thing for a study
+run once `ui.ptools_server_url` is set; locally the launcher script is the
+reliable path since the data must live on the PTools server.)
 
 The manual steps below explain what that script does and why.
 

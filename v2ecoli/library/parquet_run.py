@@ -24,8 +24,11 @@ queried independently.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Callable
+
+import numpy as np
 
 from v2ecoli.library.sqlite_run import (
     _normalize_emit_paths,
@@ -37,6 +40,74 @@ from v2ecoli.library.sqlite_run import (
     prune_to_followed_lineage,
 )
 from v2ecoli.library.output_metadata import output_metadata as _get_output_metadata
+
+# Env-gated unique-store emit (V2ECOLI_EMIT_UNIQUE=1): the chromosome-state
+# renderer (scripts/render_chromosome_gif.py) needs per-molecule genomic
+# coordinates that live in the agent's structured ``unique`` numpy arrays —
+# which the plain-dict emit-path filter cannot reach. When enabled we extract
+# the named attribute arrays of the ACTIVE entries (``_entryState`` mask) and
+# emit them as TOP-LEVEL nested keys so ParquetEmitter flattens them to the
+# columns the renderer reads: ``active_RNAP__coordinates`` etc. (no ``unique__``
+# prefix). ``chromosome_domain__child_domains`` is the (n_domain, 2) parent->child
+# domain tree; it is FLATTENED row-major to a 1-D ``list<int>`` of length
+# ``2*n_domain`` (aligned to ``chromosome_domain__domain_index``) so the renderer
+# can place daughter-strand RNAPs on the replication bubbles, not just the rim.
+_EMIT_UNIQUE = os.environ.get("V2ECOLI_EMIT_UNIQUE", "") not in ("", "0", "false", "False")
+_UNIQUE_EMIT_SPEC = {
+    "active_RNAP": ["coordinates", "domain_index"],
+    "active_replisome": ["coordinates", "domain_index"],
+    "full_chromosome": ["unique_index", "domain_index"],
+    "chromosome_domain": ["domain_index", "child_domains"],
+}
+
+
+def _unique_emit_schema() -> dict:
+    """Emit-schema fragment declaring the unique coordinate columns."""
+    return {
+        mol: {attr: "any" for attr in attrs}
+        for mol, attrs in _UNIQUE_EMIT_SPEC.items()
+    }
+
+
+def _flatten_attr(col):
+    """Flatten a unique-store attribute column to a 1-D python list.
+
+    1-D attributes (coordinates, domain_index) pass through. 2-D attributes
+    (child_domains is (n_active, 2)) are flattened row-major to a flat
+    list<int> of length 2*n_active so they serialize as a plain parquet list
+    column, aligned to domain_index.
+    """
+    arr = np.asarray(col)
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+    return arr.tolist()
+
+
+def _extract_unique_attrs(agent_state: dict) -> dict:
+    """Pull active-entry attribute arrays out of an agent's ``unique`` store.
+
+    Returns ``{mol: {attr: [values...]}}`` for the active entries of each
+    configured unique molecule, ready to merge into the emit payload (flattens
+    to ``<mol>__<attr>`` parquet columns).
+    """
+    out: dict = {}
+    unique = (agent_state or {}).get("unique") or {}
+    for mol, attrs in _UNIQUE_EMIT_SPEC.items():
+        arr = unique.get(mol)
+        if arr is None or not hasattr(arr, "dtype") or arr.dtype.names is None:
+            out[mol] = {a: [] for a in attrs}
+            continue
+        names = set(arr.dtype.names)
+        if "_entryState" in names:
+            active = arr[arr["_entryState"].view(np.bool_)]
+        else:
+            active = arr
+        out[mol] = {
+            a: (_flatten_attr(active[a]) if a in names else [])
+            for a in attrs
+        }
+    return out
+
 
 
 def run_multigen_parquet(
@@ -98,6 +169,11 @@ def run_multigen_parquet(
     emit_schema = _build_emit_schema(leaves)
     if root_leaves:
         _merge_into(emit_schema, _build_emit_schema(root_leaves))
+    if _EMIT_UNIQUE:
+        _merge_into(emit_schema, _unique_emit_schema())
+        print("[multigen_parquet] V2ECOLI_EMIT_UNIQUE=1 -> emitting unique "
+              "coordinate columns: "
+              + ", ".join(f"{m}__{a}" for m, aa in _UNIQUE_EMIT_SPEC.items() for a in aa))
     out_dir = str(Path(out_dir).resolve())
 
     # Harvest element-name labels from listener outputs() schemas. Labels are
@@ -173,6 +249,8 @@ def run_multigen_parquet(
         # ParquetEmitter takes the flat tick state directly — no
         # `agents/<id>/` wrapper (which is sqlite-only convention).
         update_state: dict = {"global_time": float(done), **payload}
+        if _EMIT_UNIQUE:
+            _merge_into(update_state, _extract_unique_attrs(agents_map[agent_key]))
         if root_leaves:
             _merge_into(
                 update_state,

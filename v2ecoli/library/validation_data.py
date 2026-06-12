@@ -36,6 +36,8 @@ from pathlib import Path
 
 import numpy as np
 
+from wholecell.utils import units
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -216,11 +218,86 @@ class _Protein:
 # Top-level validation object
 # ---------------------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# ReactionFlux sub-object (Toya 2010 C13 central-carbon fluxes)
+# ---------------------------------------------------------------------------
+
+class _ReactionFlux:
+    """Exposes ``toya2010fluxes`` as a Unum-valued structured array.
+
+    Faithfully replicates vEcoli's
+    ``validation/ecoli/validation_data.py::ReactionFlux._loadToya2010Fluxes``,
+    reading the flat file ``toya_2010_central_carbon_fluxes.tsv`` (copied from
+    CovertLab/vivarium-ecoli).  Columns:
+
+        reactionID                                            -> reactionID
+        "flux (units.mmol / units.g / units.h)"               -> reactionFlux
+        "flux standard deviation (units.mmol / units.g / units.h)"
+                                                              -> reactionFluxStdev
+
+    Fluxes/stdevs are stored as Unum quantities in ``mmol/g/h`` so the analysis
+    can call ``.asNumber(units.mmol / units.g / units.h)`` exactly as it does
+    against the upstream ValidationData object.
+    """
+
+    _FLUX_UNITS = units.mmol / units.g / units.h
+
+    def __init__(self):
+        rows = _read_tsv("toya_2010_central_carbon_fluxes.tsv")
+        if not rows:
+            raise ValueError("toya_2010_central_carbon_fluxes.tsv is empty")
+        # The flux/stdev headers carry a units suffix in parentheses; match by
+        # prefix so a header tweak upstream does not silently break the load.
+        keys = list(rows[0].keys())
+
+        def _col(prefix):
+            for k in keys:
+                if k.startswith(prefix):
+                    return k
+            raise KeyError(
+                f"toya TSV missing a column starting with {prefix!r}; have {keys}"
+            )
+
+        rid_col = _col("reactionID")
+        flux_col = _col("flux (")
+        stdev_col = _col("flux standard deviation")
+
+        n = len(rows)
+        arr = np.zeros(
+            n,
+            dtype=[
+                ("reactionID", "U100"),
+                ("reactionFlux", object),
+                ("reactionFluxStdev", object),
+            ],
+        )
+        for idx, row in enumerate(rows):
+            arr[idx]["reactionID"] = row[rid_col]
+            arr[idx]["reactionFlux"] = float(row[flux_col]) * self._FLUX_UNITS
+            arr[idx]["reactionFluxStdev"] = float(row[stdev_col]) * self._FLUX_UNITS
+        self.toya2010fluxes = arr
+
+
 class _ValidationData:
     """Minimal validation data container for v2ecoli analysis porting."""
 
     def __init__(self, sim_data):
         self.protein = _Protein(sim_data)
+        # reactionFlux is independent of sim_data (Toya 2010 is a static
+        # experimental dataset); load it if the flat file is present so the
+        # central_carbon_metabolism_scatter analysis renders the real
+        # model-vs-Toya scatter. Missing TSV -> None (other analyses unaffected).
+        try:
+            self.reactionFlux = _ReactionFlux()
+        except FileNotFoundError as exc:
+            warnings.warn(
+                f"reactionFlux validation data unavailable ({exc}); "
+                "central_carbon_metabolism_scatter will fall back to the "
+                "simulated-flux bar chart.",
+                stacklevel=2,
+            )
+            self.reactionFlux = None
 
 
 def build_validation_data(sim_data) -> _ValidationData:

@@ -33,9 +33,10 @@ executive:
        basal_elongation_rate dominates (Sobol ≈ 0.97), correcting an earlier
        artifact (v2ecoli PR #197).
 
-    3. param-uq-02-observables (RUNNING): Extends the elongation-ranking check
-       to dry_mass and cell_mass over a 360-step window (n=24+8, 2 seeds),
-       testing whether basal_elongation_rate dominance holds across observables.
+    3. param-uq-02-observables (EXECUTED): Over a 360-step window the mass
+       observables become responsive and basal_elongation_rate dominates them
+       (dry_mass/cell_mass Sobol ~0.86). Discovery: the growth-rate ranking is
+       window-dependent — kS overtakes basal_elongation_rate by 360 steps.
 
     4. param-uq-03-growth-stratified (PLANNED): Cell-cycle-stratified Sobol
        analysis (10 θ bins, birth→division) to determine whether parameter
@@ -104,7 +105,7 @@ at_a_glance:
 - study: param-uq-01-elongation
   role: "Robustly finds translation basal_elongation_rate dominates growth-rate variance (Sobol ≈ 0.97) among effective elongation knobs — after fixing the carryover bug (PR #197) and screening to effective params."
 - study: param-uq-02-observables
-  role: "Tests whether the elongation dominance finding holds for dry_mass/cell_mass over a 360-step window (ensemble running; results pending)."
+  role: "EXECUTED: basal_elongation_rate dominance HOLDS for mass observables (dry_mass/cell_mass Sobol ~0.86) over a 360-step window; KEY DISCOVERY — the growth-rate ranking is window-dependent (kS overtakes basal by 360 steps)."
 - study: param-uq-03-growth-stratified
   role: "PLANNED: determines whether parameter influence on growth/mass is uniform or stage-dependent across the cell cycle (10 θ bins, requires multi-gen runs + pbg-uq extension)."
 - study: param-uq-04-deep-params

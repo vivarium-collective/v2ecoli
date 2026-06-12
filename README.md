@@ -34,9 +34,10 @@ Two things follow from that:
   **investigations** (a research question) and **studies** (the simulations that
   answer it) — browsable and runnable in the
   [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard).
-  The current tree carries the `colonies` and `v2ecoli-pdmp` investigations
-  across seven studies (`workspace/`). New science is added as a study, not a
-  patch to a monolith.
+  The current tree carries three investigations — `v2ecoli-baseline-showcase`,
+  `v2ecoli-pdmp`, and `colonies` — under `workspace/`, each publishing a
+  self-contained [investigation report](#all-investigation-reports--one-self-contained-report-per-research-question).
+  New science is added as a study, not a patch to a monolith.
 
 The biology stays faithful to upstream. v2ecoli reproduces vEcoli's cell-cycle
 trajectories from birth to division — across dry mass, mass composition
@@ -96,6 +97,18 @@ results, and comparison benchmarks follow.
 >
 > Browse every investigation, viewer, and benchmark from the
 > **[report gallery landing → vivarium-collective.github.io/v2ecoli/](https://vivarium-collective.github.io/v2ecoli/)**.
+
+### All investigation reports — *one self-contained report per research question*
+
+Every investigation in `workspace/investigations/` publishes a self-contained,
+interactive report at `investigations/<slug>.html`. Each walks its research
+question end-to-end: overview → studies → figures → reviewer decisions.
+
+| Investigation | Report | Research question |
+|---|---|---|
+| **Baseline Showcase** ⭐ | **[v2ecoli-baseline-showcase.html](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)** | Can v2ecoli rebuild the ParCa from raw ecoli-sources and reproduce the vEcoli baseline cell cycle? |
+| **PDMP reformulation** | **[v2ecoli-pdmp.html](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-pdmp.html)** | Can the hybrid whole-cell model be incrementally transformed into a piecewise-deterministic (PDMP) formulation — including the Millard kinetic-ODE → FBA flux bridge? |
+| **Colonies** | **[colonies.html](https://vivarium-collective.github.io/v2ecoli/investigations/colonies.html)** | How many whole-cell *E. coli* agents fit per HPC node, and at what per-cell wall-time? |
 
 ### Interactive model viewers — *explore the model in your browser*
 

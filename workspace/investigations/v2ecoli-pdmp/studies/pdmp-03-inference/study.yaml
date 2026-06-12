@@ -663,7 +663,7 @@ findings:
     correctly REJECTED an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).'
   evidence:
     from_run: 'phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)'
-    observed: 'recovery theta_true=1.2 -> post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS)'
+    observed: 'recovery theta_true=1.2 -> post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS). Posterior SHRINKS WITH DATA: CI90 width 0.0068 (n_obs=25) -> 0.0034 (100) -> 0.0019 (400) -> 0.0013 (1600), truth contained at every n; ~1/sqrt(n) through n=400 (ABC eps-resolution floors the shrinkage at the tightest end)'
   provenance:
     run_ids: [phase3-surrogate-calibration, phase3-abc-smc-recovery, phase3-sbc-k150, phase3-ppc]
   next_action: 'Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.'

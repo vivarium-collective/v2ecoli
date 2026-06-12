@@ -64,3 +64,27 @@ def test_build_units_index_is_memoized():
     a = build_units_index()
     b = build_units_index()
     assert a is b                          # same cached object
+
+
+from v2ecoli.library.units_resolver import (
+    resolve_unit, format_axis_label, V2EcoliUnitsResolver,
+)
+
+def test_resolve_unit_hit_miss():
+    index = {"listeners.mass.cell_mass": "fg"}
+    assert resolve_unit(index, "listeners.mass.cell_mass") == "fg"
+    assert resolve_unit(index, "global_time") is None
+    assert resolve_unit(index, "") is None
+    # array element / sub-leaf path falls back to parent
+    assert resolve_unit(index, "listeners.mass.cell_mass.3") == "fg"
+
+def test_format_axis_label():
+    assert format_axis_label("Mass", "fg") == "Mass (fg)"
+    assert format_axis_label("Mass", None) == "Mass"
+    assert format_axis_label("Mass (fg)", "fg") == "Mass (fg)"   # idempotent
+    assert format_axis_label("", "fg") == "(fg)"
+
+def test_resolver_is_callable():
+    r = V2EcoliUnitsResolver()
+    assert r("listeners.mass.cell_mass") == "fg"     # delegates to build_units_index
+    assert r("nonexistent.path") is None

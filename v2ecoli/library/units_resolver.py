@@ -153,3 +153,45 @@ def build_units_index() -> dict[str, str]:
     from v2ecoli.core import build_core
     core = build_core()
     return _index_from_classes(core)
+
+
+def resolve_unit(units_index: dict, path: Optional[str]) -> Optional[str]:
+    """Look up the unit for an observable path; tolerate array/sub-leaf paths.
+
+    Exact match first; otherwise strip trailing ``.<segment>`` components (array
+    indices, sub-leaves) and retry against the parent path. Returns ``None`` for
+    unitless or unknown paths.
+    """
+    if not path or not units_index:
+        return None
+    if path in units_index:
+        return units_index[path]
+    parts = path.split(".")
+    while len(parts) > 1:
+        parts = parts[:-1]
+        parent = ".".join(parts)
+        if parent in units_index:
+            return units_index[parent]
+    return None
+
+
+def format_axis_label(base_label: str, unit: Optional[str]) -> str:
+    """Append ``(unit)`` to a label, idempotently. ``None`` unit -> unchanged."""
+    if not unit:
+        return base_label
+    label = (base_label or "").rstrip()
+    if label.endswith(f"({unit})"):
+        return label
+    return f"{label} ({unit})".strip()
+
+
+class V2EcoliUnitsResolver:
+    """Callable ``path -> unit`` resolver backed by the cached composite index.
+
+    Registered onto the Visualization base class so every v2ecoli viz can label
+    axes from the declared schema. Reads the live declarations (no persisted
+    snapshot); the underlying index is memoized by ``build_units_index``.
+    """
+
+    def __call__(self, path: Optional[str]) -> Optional[str]:
+        return resolve_unit(build_units_index(), path)

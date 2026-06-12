@@ -14,14 +14,19 @@ gate_status: blocked   # biological ranking not established: under-budget + an i
 
 # Investigation-graph node fields (the "Finds" headline + confidence badge).
 claim: |
-  The pbg-uq forward-UQ pipeline runs end-to-end on the real v2ecoli baseline,
-  BUT a robust elongation-parameter sensitivity ranking is NOT yet established.
-  At the original demo budget (8 training samples < 10 PCE basis terms) the fit
-  is underdetermined and the dominant driver flips with the random seed; at n=24
-  (one clean replicate) the three knobs contribute comparably (total-order Sobol
-  ≈ 0.27–0.60) with large interactions, and cross-seed confirmation is blocked by
-  an intermittent XArray-emitter bug.
-confidence: Investigating
+  Root-caused (2026-06-12): the demo's apparent elongation "sensitivity" was an
+  ARTIFACT and the experiment as designed cannot produce a real ranking. Three
+  compounding defects: (1) a state-carryover bug — baseline() shared
+  bundle['initial_state'] across samples, so mass accumulated by sample index
+  (fixed in v2ecoli PR #197); with it fixed, identical params give identical
+  output. (2) 2 of 3 parameters are effectively inert — ribosomeElongationRate is
+  overwritten at runtime each step (config value ignored), and gtpPerElongation
+  has negligible effect on mass/growth at feasible run lengths; only
+  basal_elongation_rate moves the observables, weakly. (3) the 60-step window is
+  far too short (a generation is ~2760 s) for mass observables to respond. A
+  trustworthy study needs effective parameters, a much longer window, and a
+  memory-leak fix before any sensitivity claim.
+confidence: Refuted
 
 question: |
   (1) Can the pbg-uq forward-UQ pipeline (PCRV sampling -> PCE surrogate ->
@@ -71,7 +76,10 @@ report:
     - Adequate budget (n=24, ONE clean replicate, seed 0; mean test rel-err 0.14):
       the three knobs are COMPARABLE — total-order ribosome 0.60, gtp 0.50,
       basal 0.27 — with large interaction effects (basal first-order 0.007 vs
-      total 0.27). No single robustly-dominant driver.
+      total 0.27). No single robustly-dominant driver. CAVEAT: this n=24 run
+      also predates the PR #197 carryover fix, so these numbers are themselves
+      carryover-contaminated — NOT a clean measurement, listed only to show the
+      instability.
     - Cross-seed confirmation BLOCKED: an intermittent simulation/emitter bug
       (run_multigen_xarray warm-up: "shape mismatch: value array of shape (2,2)
       could not be broadcast to indexing result of shape (0,2)") corrupts a run
@@ -80,21 +88,40 @@ report:
       all-zero) and are not usable.
 
   interpretation: |
-    The forward-UQ machinery is demonstrated, but no defensible biological
-    sensitivity conclusion can be drawn yet. The earlier "gtpPerElongation
-    dominates (Sobol ~0.88)" reading was an ARTIFACT of the underdetermined n=8
-    fit — it does not survive a change of seed or an adequate sample budget. At
-    adequate sampling the elongation knobs appear to contribute comparably with
-    substantial interactions. A confident ranking requires (a) a larger,
-    multi-replicate budget (n>=30, several seeds; and/or sparse `bcs` regression
-    suited to the low-budget regime), and (b) fixing the intermittent
-    XArray-emitter shape bug so ensembles do not silently corrupt.
+    Full root-cause (2026-06-12). The earlier "gtpPerElongation dominates
+    (Sobol ~0.88)" reading was an ARTIFACT, and deeper diagnosis shows the
+    experiment as designed cannot yield a real ranking:
+    - STATE CARRYOVER (now fixed, v2ecoli PR #197): baseline() took
+      bundle['initial_state'] by reference (while deep-copying configs), so a
+      reused bundle let v2ecoli's in-place bulk arrays carry cell state across
+      samples. Mass accumulated by sample index; the "sensitivity" was that
+      drift. The accumulated mass eventually forced a mid-run division → the
+      2-agent state crashed the single-agent emitter view (the "shape (2,2) vs
+      (0,2)" bug). With the deep-copy fix, identical params give identical output.
+    - INERT PARAMETERS: with carryover removed, ribosomeElongationRate (12 vs 23)
+      and gtpPerElongation (2.5 vs 6.5) produce byte-identical output even at 600
+      steps. ribosomeElongationRate is overwritten at runtime each step (line ~410
+      of polypeptide_elongation.py), so the config value is ignored;
+      gtpPerElongation only touches GTP/energy accounting, which doesn't move
+      mass/growth measurably in feasible windows. Only basal_elongation_rate has
+      a (weak) effect on instantaneous_growth_rate.
+    - WINDOW TOO SHORT: 60 sim-seconds is ~2% of a generation (~2760 s); fresh-cell
+      mass barely moves, so mass observables carry almost no parameter signal.
+    - MEMORY LEAK: ~340 MB/iteration even with state isolated — composites/zarr
+      not released — which limits in-process ensemble size.
+    Net: a trustworthy sensitivity study requires a redesign (effective params,
+    a much longer run window, the leak fixed / subprocess isolation), not just
+    more samples — more samples cannot reveal sensitivity to inert parameters.
 
   decision: |
-    PARTIAL — pipeline feasibility PASSES; the elongation-sensitivity question is
-    OPEN (gate blocked). Next steps: fix the run_multigen_xarray shape-mismatch
-    bug, then run a robust multi-seed ensemble at n>=30 before asserting any
-    ranking. Do not cite the n=8 "GTP-dominant" number as a result.
+    REFRAMED — pipeline feasibility PASSES; the elongation-sensitivity question is
+    UNANSWERABLE with this design (gate blocked). The one real fix landed:
+    v2ecoli PR #197 (deep-copy initial_state). Do NOT cite the n=8 "GTP-dominant"
+    number. A real study needs: (1) parameters that actually drive the observables
+    (basal_elongation_rate works; ribosomeElongationRate is runtime-overwritten —
+    pick effective knobs, possibly from other subsystems); (2) a run window that is
+    a substantial fraction of a generation; (3) the ~340 MB/iter leak fixed or
+    per-sample subprocess isolation; then a multi-seed n>=30 ensemble.
 
 conditions:
   baseline:

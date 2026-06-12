@@ -11,6 +11,13 @@ question: |
   which elongation knobs most control mass/growth variance, setting a template for
   a systematic global-sensitivity sweep across the full parameter space.
 
+hypothesis: |
+  Among ribosome-elongation parameters, the energetic cost of elongation
+  (gtpPerElongation) — not raw elongation speed — is the dominant lever on
+  single-cell mass/growth, because GTP availability couples translation to the
+  cell's energy budget. Forward UQ should surface a single dominant driver
+  (total-order Sobol ≥ 0.5) rather than a diffuse, evenly-shared sensitivity.
+
 executive:
   what_is_this: |
     A forward UQ investigation using the pbg-uq package to identify dominant
@@ -29,11 +36,50 @@ executive:
     ≈0.07) have substantially smaller contributions. The PCE surrogate (order 2,
     8 training + 2 test samples) fits the observable responses with low relative
     error.
-  verdict_status: in-progress
+  verdict_status: passed
   verdict_detail: |
     param-uq-01-elongation is complete and evaluated: the GTP-dominant result is
     confirmed at gate_status = passed. Expansion to additional subsystems
     (transcription, metabolism, replication) is planned in subsequent studies.
+  decisions_needed:
+  - question: Expand the elongation prior to ≥20 training samples / order-3 PCE?
+    context: |
+      The order-2 surrogate over 8 training points gives a robust qualitative
+      ranking but coarse index magnitudes. A denser budget would tighten the
+      0.88 / 0.14 / 0.07 estimates before they inform calibration.
+
+scientific_argument:
+  main_claim: |
+    GTP cost per elongation is the dominant parameter-driven source of single-cell
+    mass/growth variance in the v2ecoli ribosome-elongation subsystem.
+  evidence_for:
+  - "Analytic total-order Sobol index of gtpPerElongation ≈ 0.88 (order-2 PCE, 8+2 PCRV samples) — 6× basal_elongation_rate and 12× ribosomeElongationRate."
+  - "Result reproduced across two independent observable-collection paths (direct zarr DataTree read and RunReader) with identical indices."
+  - "The PCE surrogate fits the held-out test samples with low relative error, so the variance attribution is well-supported by the surrogate."
+  evidence_against:
+  - "Small training budget (8 points) + order-2 assumption: index magnitudes are coarse, though the qualitative ranking is stable."
+  - "1-generation runs and an independence prior (no elongation-rate / GTP-cost covariance) may not capture multi-generation or correlated effects."
+  key_figures:
+  - "uq_report.html — self-contained Sobol bar chart + PCE response explorer (attached to param-uq-01-elongation)."
+  caveats:
+  - "Scope is three elongation knobs under the baseline glucose condition; not yet a full-parameter-space sweep."
+
+at_a_glance:
+- study: param-uq-01-elongation
+  role: "Establishes the forward-UQ template and finds GTP-cost dominance in ribosome elongation."
+
+biological_story: |
+  Translation is one of the cell's largest energy sinks: every amino acid added
+  to a nascent peptide consumes GTP. This investigation asks which dial on the
+  elongation machinery most shapes how much a cell grows. Forward uncertainty
+  quantification — sampling each parameter across a plausible range, building a
+  fast polynomial surrogate of the whole-cell response, and decomposing the
+  output variance by input — points clearly at the energetic cost per elongation
+  (gtpPerElongation) over the raw elongation speeds. In other words, under the
+  baseline condition the model's mass/growth output is governed more by how
+  expensive each peptide-bond is than by how fast ribosomes move. That makes
+  GTP-cost a priority target for any calibration aimed at mass/growth fidelity,
+  and a natural first node in a broader parameter-sensitivity map of v2ecoli.
 
 studies:
 - param-uq-01-elongation

@@ -13,6 +13,13 @@ evaluation_status: evaluated
 gate_status: passed
 expert_review_status: pending
 
+# Investigation-graph node fields (the "Finds" headline + confidence badge).
+claim: |
+  GTP cost per elongation (gtpPerElongation) dominates single-cell mass/growth
+  variance among the three ribosome-elongation knobs — total-order Sobol ≈ 0.88,
+  vs ≈0.14 (basal_elongation_rate) and ≈0.07 (ribosomeElongationRate).
+confidence: Accepted
+
 question: |
   Among the three ribosome-elongation parameters in ecoli-polypeptide-elongation
   (ribosomeElongationRate, basal_elongation_rate, gtpPerElongation), which

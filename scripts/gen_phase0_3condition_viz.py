@@ -56,10 +56,15 @@ p.caption{{color:#475569;font-size:0.85em;line-height:1.4}}
 </style></head>
 <body><div class="wrap">
   <h1>{title}</h1>
-  <p><span class="tag">real-data</span><span class="tag diag">3 conditions × N=64 × 600 s</span></p>
+  <p><span class="tag">real-data</span><span class="tag diag">{nlabel}</span></p>
   <div class="fig"><img src='data:image/png;base64,{png_b64}' alt='{title}' /></div>
   <p class="caption">{caption}</p>
 </div></body></html>"""
+
+
+# Actual per-condition ensemble size, set in main() from loaded data so every
+# label reports the real N (never a hardcoded 64).
+NLABEL = "3 conditions × N=? × 600 s"
 
 
 def _save(name: str, title: str, caption: str, pinned_h: int = 760):
@@ -68,7 +73,8 @@ def _save(name: str, title: str, caption: str, pinned_h: int = 760):
     plt.close()
     buf.seek(0)
     png_b64 = base64.b64encode(buf.read()).decode("ascii")
-    html = TEMPLATE.format(title=title, caption=caption, png_b64=png_b64, pinned_h=pinned_h)
+    html = TEMPLATE.format(title=title, caption=caption, png_b64=png_b64,
+                           pinned_h=pinned_h, nlabel=NLABEL)
     out = FIG_DIR / f"{name}.html"
     out.write_text(html, encoding="utf-8")
     print(f"  + {out}")
@@ -156,14 +162,18 @@ def viz_3cond_endpoint_box():
             patch.set_facecolor(c); patch.set_alpha(0.7)
         ax.set_ylabel(ylabel)
         ax.grid(True, alpha=0.3, axis="y")
-    fig.suptitle("Phase 0 — 3-condition endpoint state (N=64 each)", y=1.005, fontsize=12)
+    def _n(r):
+        v = load_condition_endpoint(r, "dry_mass_fg")
+        return 0 if v is None else len(v)
+    nseed = max((_n(r) for _, r, _ in CONDITIONS), default=0)
+    fig.suptitle(f"Phase 0 — 3-condition endpoint state (N={nseed} each)", y=1.005, fontsize=12)
     plt.tight_layout()
     _save("phase0_3cond_endpoint_box",
-          "Phase 0 — 3-condition endpoint boxplots (N=64 each)",
+          f"Phase 0 — 3-condition endpoint boxplots (N={nseed} each)",
           (
             "Endpoint ATP[c] count and dry mass per replicate, grouped by nutrient "
             "condition. Box = IQR, line = median, whiskers = 1.5× IQR, points = outliers. "
-            "Real data from three N=64 × 600 s ensembles (M9-glucose / M9-acetate / "
+            f"Real data from three N={nseed} × 600 s ensembles (M9-glucose / M9-acetate / "
             "M9-glucose+amino-acids). Cross-condition spread is large (consistent with "
             "biology: doubling times 44 / 136 / 25 min) and within-condition spread is "
             "small (the per-process RNG fix gives clean ensemble divergence)."
@@ -239,10 +249,16 @@ def viz_w2_heatmap():
 
 
 def main():
+    global NLABEL
     if not all(Path(c[1]).is_dir() for c in CONDITIONS):
         print("WARN: not all condition dirs present yet; viz will use what's available")
         for label, root, _ in CONDITIONS:
             print(f"  {label}: {root} {'OK' if Path(root).is_dir() else 'MISSING'}")
+    def _n(r):
+        v = load_condition_endpoint(r, "dry_mass_fg")
+        return 0 if v is None else len(v)
+    nseed = max((_n(r) for _, r, _ in CONDITIONS), default=0)
+    NLABEL = f"3 conditions × N={nseed} × 600 s"
     viz_3cond_overlay(
         observable="listeners.mass.cell_mass",
         ylabel="Cell mass (fg)",
@@ -250,9 +266,10 @@ def main():
         name="phase0_3cond_cell_mass",
         caption=(
             "Mean cell mass over the 600 s cycle for each condition, "
-            "with ±1 SD bands. Real-data: M9-glucose+amino-acids accumulates mass fastest "
-            "(doubling 25 min, ends ~860 fg), M9-glucose is intermediate (44 min, ~440 fg), "
-            "M9-acetate slowest (136 min, ~115 fg) — biology consistent across all three."
+            "with ±1 SD bands (N=32 each). Real-data: M9-glucose+amino-acids accumulates "
+            "cell mass fastest (doubling 25 min, ends ~2960 fg), M9-glucose is intermediate "
+            "(44 min, ~1460 fg), M9-acetate slowest (136 min, ~374 fg) — biology consistent "
+            "across all three (endpoint dry mass ~888 / 439 / 112 fg respectively)."
         ),
     )
     viz_3cond_overlay(

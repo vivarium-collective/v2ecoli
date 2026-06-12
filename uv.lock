@@ -2619,7 +2619,7 @@ xarray = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#b99c5612c1064351dfe2f3f9b4311aa0e597390c" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#37f6bcf25420d5fe9a78ae04601de94301b355bc" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },

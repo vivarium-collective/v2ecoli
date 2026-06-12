@@ -447,6 +447,7 @@ def run_multigen_xarray(
     chunk: int = 60,
     initial_agent_id: str = "0",
     overwrite: bool = True,
+    buffer_size: int = 3,
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
 ) -> dict:
     """Run a v2ecoli composite past divisions, swapping XArrayEmitters per generation.
@@ -463,6 +464,12 @@ def run_multigen_xarray(
       chunk: how many ticks between emitter updates.
       initial_agent_id: agent_id to start following.
       overwrite: if True, delete ``store_path`` before starting.
+      buffer_size: XArrayEmitter transducer buffer size. Default 3 (NOT the
+        config builder's 4): the installed pbg-emitters trips an
+        ``assert not include_static`` in its ``flush(final=True)`` path when the
+        buffer is exactly full at close (i.e. ``n_updates % buffer_size == 0``);
+        3 is the value the single-generation runner uses to dodge it. Override
+        only if you know the emit count won't land on a multiple of it.
       division_detector: optional ``(prev_ids, curr_ids) -> (divided?, daughter_id|None)``.
         Default: detect division when ``len(curr) > len(prev)`` and pick the
         first new agent_id sorted.
@@ -543,7 +550,7 @@ def run_multigen_xarray(
     em = _build_emitter(
         core=core, store_path=store_path, view=view,
         metadata_base=metadata_base, generation=gen, agent_id=partition_agent_id,
-        output_metadata=output_metadata,
+        output_metadata=output_metadata, buffer_size=buffer_size,
     )
     # ``done`` counts ticks already advanced past tick 0 (we used 1 for the
     # coord-discovery warm-up so first chunk completes at done = 1 + chunk).
@@ -605,6 +612,7 @@ def run_multigen_xarray(
             core=core, store_path=store_path, view=view,
             metadata_base=metadata_base, generation=gen,
             agent_id=partition_agent_id, output_metadata=output_metadata,
+            buffer_size=buffer_size,
         )
         # Emit the daughter's birth row into the NEW generation's store.
         _emit_followed(em, (composite.state or {}).get("agents") or {}, followed)
@@ -612,7 +620,15 @@ def run_multigen_xarray(
 
     try:
         em.close(success=True)
-    except Exception as e:
-        print(f"[multigen_xarray] close failed: {str(e)[:80]}")
+    except AssertionError:
+        # Known pbg-emitters quirk: flush(final=True) asserts when the buffer
+        # is exactly full at close. Buffers flushed mid-run are already on
+        # disk; only the (full, just-flushed) trailing buffer is at risk — and
+        # with buffer_size=3 the full-buffer flush already wrote it. Log + keep
+        # the run rather than losing every generation's data to the assert.
+        print("[multigen_xarray] close hit pbg-emitters final-flush assert "
+              "(buffer full at close); flushed data retained.")
+    except Exception as e:  # noqa: BLE001
+        print(f"[multigen_xarray] close failed: {type(e).__name__}: {str(e)[:80]}")
 
     return {"steps": done, "generations": gens_seen, "store": str(store_path)}

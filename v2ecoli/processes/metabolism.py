@@ -89,6 +89,9 @@ TOPOLOGY = {
     "global_time": ("global_time",),
     "timestep": ("timestep",),
     "next_update_time": ("next_update_time", "metabolism"),
+    # FBA-bridge: Millard-ODE-derived hard flux pins written by the coupler at
+    # the agent root as {fba_reaction_id: flux_bound}.
+    "pinned_flux_targets": ("pinned_flux_targets",),
 }
 
 # Unit conversion constants for FBA flux -> molecule count conversion:
@@ -103,6 +106,38 @@ CONVERSION_UNITS = MASS_UNITS * TIME_UNITS / VOLUME_UNITS  # g*s/L
 GDCW_BASIS = units.mmol / units.g / units.h  # FBA flux units
 
 USE_KINETICS = True
+
+
+def apply_flux_pins_with_fallback(fba, pins, *, set_hard_bound, open_bounds,
+                                  set_soft_target, is_feasible):
+    """Hard-pin each reaction; relax to a soft target any whose hard pin makes
+    the LP infeasible. Returns the list of relaxed reaction ids.
+
+    The fba-mutating operations are injected as callables so this logic is
+    unit-testable without a real FBA solver and API-agnostic at the call site:
+
+        set_hard_bound(rid, v) -> pin reaction `rid` to flux exactly `v`
+        open_bounds(rid)       -> un-pin `rid` (restore its default lb/ub)
+        set_soft_target(rid, v)-> set a soft kinetic target of `v` for `rid`
+        is_feasible()          -> True iff the LP solves with the current bounds
+
+    Relaxation is LIFO: the most-recently-added pin is relaxed first, since the
+    pin order reflects the coupler's priority (earlier == higher priority).
+    """
+    if not pins:
+        return []
+    for rid, v in pins.items():
+        set_hard_bound(rid, v)
+    relaxed = []
+    while not is_feasible() and len(relaxed) < len(pins):
+        candidates = [r for r in pins if r not in relaxed]
+        if not candidates:
+            break
+        rid = candidates[-1]            # LIFO: relax the most-recently-added
+        open_bounds(rid)
+        set_soft_target(rid, pins[rid])
+        relaxed.append(rid)
+    return relaxed
 
 
 class Metabolism(Step):
@@ -187,6 +222,9 @@ class Metabolism(Step):
             'global_time': {'_type': 'float[s]', '_default': 0.0},
             'timestep': {'_type': 'integer[s]', '_default': 1},
             'next_update_time': {'_type': 'float[s]', '_default': 1.0},
+            # FBA-bridge: {fba_reaction_id: flux_bound} hard pins from the
+            # Millard ODE coupler. Absent/empty -> no pins -> no-op.
+            'pinned_flux_targets': {'_type': 'map[float]', '_default': {}},
         }
 
     def outputs(self):
@@ -236,6 +274,12 @@ class Metabolism(Step):
                     'target_fluxes_upper': {'_type': 'overwrite[array[float]]', '_default': []},
                     'target_fluxes_lower': {'_type': 'overwrite[array[float]]', '_default': []},
                     'target_aa_conc': {'_type': 'overwrite[array[float[mM]]]', '_default': []},
+                },
+                # FBA-bridge diagnostics: which pinned reactions had their hard
+                # pin relaxed to a soft target because the pin made the LP
+                # infeasible this tick.
+                'fba_bridge': {
+                    'relaxed_reactions': {'_type': 'overwrite[list[string]]', '_default': []},
                 },
             },
             'next_update_time': 'overwrite[float]',
@@ -451,6 +495,83 @@ class Metabolism(Step):
         return (delta_metabolites_final, metabolite_counts_final,
                 delta_nutrients, converted_exchange_fluxes, reaction_fluxes)
 
+    def _apply_flux_pins(self, fba, pinned_flux_targets):
+        """Hard-pin each Millard-ODE-derived reaction flux before the LP solve,
+        relaxing to a soft target any pin that makes the LP infeasible.
+
+        Returns the list of relaxed reaction ids (written to
+        ``listeners.fba_bridge.relaxed_reactions``). A missing/empty
+        ``pinned_flux_targets`` is a no-op, leaving the LP identical to today.
+
+        The real fba operations are bound here and injected into the
+        unit-tested ``apply_flux_pins_with_fallback`` helper:
+
+          * hard pin  -> ``setReactionFluxBounds(rid, lowerBounds=v, upperBounds=v)``
+          * un-pin    -> reset to the WCM default bounds (lb=0, ub=inf)
+          * feasibility -> attempt a single solve; infeasible raises (status
+            code != GLP_OPT), which we catch
+          * soft target -> ``setKineticTarget`` *only* for reactions that were
+            initialized as kinetic targets; for other reactions no soft nudge
+            is available, so opening the bounds alone restores feasibility.
+        """
+        if not pinned_flux_targets:
+            return []
+
+        # Drop pins for unknown reaction ids and clamp to the non-negative net
+        # flux that setReactionFluxBounds requires (reverse flux is a separate
+        # reaction id in this FBA formulation).
+        valid_ids = getattr(self, "_pin_valid_reaction_ids", None)
+        if valid_ids is None:
+            valid_ids = set(fba.getReactionIDs().tolist())
+            self._pin_valid_reaction_ids = valid_ids
+        kinetic_target_ids = getattr(fba, "_kineticTargetFluxes", set())
+
+        pins = {}
+        for rid, v in pinned_flux_targets.items():
+            if rid not in valid_ids:
+                print(f"Warning: ignoring flux pin for unknown reaction '{rid}'")
+                continue
+            pins[rid] = max(float(v), 0.0)
+        if not pins:
+            return []
+
+        def set_hard_bound(rid, v):
+            fba.setReactionFluxBounds(
+                rid, lowerBounds=v, upperBounds=v, raiseForReversible=False
+            )
+
+        def open_bounds(rid):
+            fba.setReactionFluxBounds(
+                rid, lowerBounds=0.0, upperBounds=np.inf, raiseForReversible=False
+            )
+
+        def set_soft_target(rid, v):
+            # setKineticTarget only accepts reactions pre-initialized as
+            # kinetic targets. For others the open-bounds un-pin above is the
+            # whole relaxation; record but skip the (unavailable) soft nudge.
+            if rid in kinetic_target_ids:
+                fba.setKineticTarget(rid, v)
+            else:
+                print(
+                    f"Warning: relaxed flux pin '{rid}' has no kinetic target "
+                    "slot; un-pinned without a soft target"
+                )
+
+        def is_feasible():
+            try:
+                fba.solve(0)  # single attempt; raises if status != GLP_OPT
+                return True
+            except Exception:
+                return False
+
+        return apply_flux_pins_with_fallback(
+            fba, pins,
+            set_hard_bound=set_hard_bound,
+            open_bounds=open_bounds,
+            set_soft_target=set_soft_target,
+            is_feasible=is_feasible,
+        )
+
     def _do_update(self, timestep, states):
         # At t=0, resolve molecule-name -> bulk-index maps (runs once).
         if self.metabolite_idx is None:
@@ -586,6 +707,13 @@ class Metabolism(Step):
         # Solve FBA problem and update states
         n_retries = 3
         fba = self.model.fba
+
+        # FBA-bridge: hard-pin Millard-ODE-derived reaction fluxes (if any)
+        # before solving; relax any pin that makes the LP infeasible.
+        relaxed_reactions = self._apply_flux_pins(
+            fba, states.get("pinned_flux_targets", {})
+        )
+
         fba.solve(n_retries)
 
         # Pull all per-tick LP result arrays in one pass — batched numpy
@@ -658,6 +786,9 @@ class Metabolism(Step):
                     "target_aa_conc": [
                         self.aa_targets.get(id_, 0.0) for id_ in self.aa_names
                     ],
+                },
+                "fba_bridge": {
+                    "relaxed_reactions": relaxed_reactions,
                 },
             },
             "next_update_time": states["global_time"] + states["timestep"],

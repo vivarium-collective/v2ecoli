@@ -1,0 +1,109 @@
+name: Publish investigation reports
+
+# Regenerate every investigation's self-contained HTML report and publish it to
+# the gh-pages branch at investigations/<slug>.html. The report is built by the
+# vivarium-dashboard SPA client-side, so we serve the dashboard headlessly and
+# drive its "Generate report" button via Playwright
+# (scripts/publish_investigation_reports.py).
+#
+# This is a DEPLOY job (post-merge to main), not a PR gate — a failure here
+# never blocks a merge. It only ever writes investigations/*.html on gh-pages;
+# the hand-maintained viewers, comparison reports, and gallery index there are
+# left untouched.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only republish when something that changes a report changed.
+      - 'workspace/**'
+      - 'reports/figures/**'
+      - 'scripts/publish_investigation_reports.py'
+      - '.github/workflows/publish-reports.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-reports
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # push to the gh-pages branch
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12.9
+
+      - name: Install dependencies (incl. vivarium-dashboard)
+        # Unlike the test jobs, the report generator NEEDS vivarium-dashboard
+        # (it serves the SPA). The dashboard's hatchling build works again now
+        # that bigraph-schema is un-pinned, so a full sync is fine; the `|| uv
+        # sync` fallback keeps the job alive if an optional extra fails to build.
+        run: uv sync --extra dev || uv sync
+
+      - name: Install Playwright + Chromium
+        # Playwright is only needed by this deploy job, so install it into the
+        # project env here rather than carrying it as a project dependency.
+        run: |
+          uv pip install playwright
+          uv run playwright install --with-deps chromium
+
+      - name: Generate investigation reports
+        id: gen
+        # Spawns `vivarium-dashboard serve`, drives each investigation's report
+        # export headlessly, writes reports/published/investigations/<slug>.html.
+        # Keep going on a per-report failure so good reports still publish; the
+        # script's exit code is recorded for the final status gate.
+        run: |
+          set +e
+          uv run python scripts/publish_investigation_reports.py \
+            --workspace . --out reports/published
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Publish generated reports to gh-pages
+        # Surgical: copy ONLY the freshly-generated investigations/*.html onto
+        # gh-pages via a worktree. Never deletes — a report that failed to
+        # regenerate keeps its previous published copy. Commits only on a diff.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          generated=(reports/published/investigations/*.html)
+          if [ ${#generated[@]} -eq 0 ]; then
+            echo "no reports were generated; nothing to publish"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git worktree add /tmp/ghp gh-pages
+          mkdir -p /tmp/ghp/investigations
+          cp reports/published/investigations/*.html /tmp/ghp/investigations/
+          cd /tmp/ghp
+          git add investigations/*.html
+          if git diff --cached --quiet; then
+            echo "no report content changed; skipping commit"
+          else
+            git commit -m "gh-pages: republish investigation reports (automated, ${GITHUB_SHA::7})"
+            git push origin gh-pages
+            echo "published $(ls investigations/*.html | wc -l) investigation reports"
+          fi
+
+      - name: Fail if any report failed to generate
+        # Run AFTER publishing so good reports ship even when one fails. Makes a
+        # generation failure visible without blocking the others.
+        run: |
+          code="${{ steps.gen.outputs.exit_code }}"
+          if [ "$code" != "0" ]; then
+            echo "::error::one or more investigation reports failed to generate (publish_investigation_reports.py exit $code)"
+            exit 1
+          fi

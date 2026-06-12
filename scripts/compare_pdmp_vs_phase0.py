@@ -95,6 +95,18 @@ def run_pdmp(
     build_wall = time.perf_counter() - t0
     print(f"  PDMP build: {build_wall:.1f}s", flush=True)
 
+    def _to_float(v):
+        """Strip units from a listener value (pint Quantity / Unum / plain)."""
+        if v is None:
+            return 0.0
+        mag = getattr(v, "magnitude", None)      # pint.Quantity
+        if mag is not None:
+            return float(mag)
+        as_number = getattr(v, "asNumber", None)  # unum.Unum
+        if callable(as_number):
+            return float(as_number())
+        return float(v)
+
     times, cell_masses, dry_masses = [], [], []
     sim_time = 0
     t_run = time.perf_counter()
@@ -103,8 +115,8 @@ def run_pdmp(
         sim_time += sample_every_s
         mass = (c.state["agents"]["0"].get("listeners") or {}).get("mass") or {}
         times.append(sim_time)
-        cell_masses.append(float(mass.get("cell_mass") or 0.0))
-        dry_masses.append(float(mass.get("dry_mass") or 0.0))
+        cell_masses.append(_to_float(mass.get("cell_mass")))
+        dry_masses.append(_to_float(mass.get("dry_mass")))
     run_wall = time.perf_counter() - t_run
     print(f"  PDMP run wall: {run_wall:.1f}s for {duration_s}s sim", flush=True)
     return (
@@ -211,8 +223,13 @@ def make_viz(t_p0, cm_p0, dm_p0, t_pdmp, cm_pdmp, dm_pdmp,
     )
     fig.tight_layout()
 
-    cm_max_abs_z = float(np.max(np.abs(cm_z[np.isfinite(cm_z)]))) if cm_z.size else float("nan")
-    dm_max_abs_z = float(np.max(np.abs(dm_z[np.isfinite(dm_z)]))) if dm_z.size else float("nan")
+    # Early timepoints can have ~0 Phase-0 std (cells near-identical at birth)
+    # -> z = inf, filtered out. Guard against an all-nonfinite z array so a
+    # short / low-variance run reports NaN instead of crashing the reduction.
+    cm_z_finite = cm_z[np.isfinite(cm_z)]
+    dm_z_finite = dm_z[np.isfinite(dm_z)]
+    cm_max_abs_z = float(np.max(np.abs(cm_z_finite))) if cm_z_finite.size else float("nan")
+    dm_max_abs_z = float(np.max(np.abs(dm_z_finite))) if dm_z_finite.size else float("nan")
     return fig, {
         "n_phase0": int(n_p0),
         "t_pdmp_first": float(t_pdmp[0]) if t_pdmp.size else None,

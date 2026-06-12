@@ -1,0 +1,13 @@
+# Generated report-card artifacts.
+#
+# Rendered report cards (self-contained HTML with inline SVG/base64 plots) and
+# the pinned reference fixtures are *generated* deliverables — regenerated from
+# the pin scripts + render CLIs, not hand-edited. They are committed so the
+# cards are shareable, but they dominate the diff (two cards are ~52k lines
+# each). Mark them generated + non-diffable so GitHub collapses them in review
+# and excludes them from language stats; the code + pin scripts are what gets
+# reviewed.
+
+docs/report_cards/**/*.html            linguist-generated=true -diff
+tests/fixtures/population_phenotype_basal_reference.json  linguist-generated=true -diff
+docs/report_cards/**/vecoli_reference.json               linguist-generated=true -diff

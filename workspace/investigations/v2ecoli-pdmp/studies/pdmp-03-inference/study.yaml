@@ -122,7 +122,7 @@ expected_behavior:
     observable: likelihood-library
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: accumulator-runs-alongside-pdmp
   en: The likelihood accumulator computes log-likelihood contributions from ODE segments (continuous-measurement likelihoods)
@@ -134,7 +134,7 @@ expected_behavior:
     observable: log-likelihood-trace
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: observe-intervene-effects
   en: The Vivarium runner supports observe(variable, likelihood) and intervene(variable, value) as first-class algebraic effects,
@@ -146,7 +146,7 @@ expected_behavior:
     observable: vivarium-algebraic-effect-set
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: abc-posterior-recovery-on-synthetic
   en: 'On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the ground truth at the published
@@ -160,7 +160,7 @@ expected_behavior:
     observable: posterior-recovery-metric
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: uq-likelihood-dispersion-fit-with-ci
   en: Per-modality dispersion / noise parameters (NegBin φ for RNA-seq, σ for log-normal proteomics, σ_μ for growth, per-metabolite
@@ -172,7 +172,7 @@ expected_behavior:
     observable: dispersion-parameters-with-95-CI
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: uq-accumulator-numerical-stability
   en: Log-likelihood accumulation maintains log-space throughout; no underflows recorded across N=10⁴ test runs. log-sum-exp
@@ -184,7 +184,7 @@ expected_behavior:
     observable: log-likelihood-underflow-rate
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: uq-abc-ess-and-acceptance
   en: ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC step; runs are terminated cleanly when ESS falls
@@ -196,7 +196,7 @@ expected_behavior:
     observable: ess-and-acceptance-per-step
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: uq-sbc-coverage
   en: 'Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90% credible intervals
@@ -210,7 +210,7 @@ expected_behavior:
     observable: sbc-rank-histogram AND credible-interval-coverage
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 - name: uq-mahalanobis-distance-justified
   en: Mahalanobis distance uses the empirical summary-statistic covariance from N≥200 PDMP runs at the prior mean. Condition
@@ -222,7 +222,7 @@ expected_behavior:
     observable: summary-statistic-covariance
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Full acceptance band set as this test is built out.
   status: stub
 baseline:
 - name: pdmp-with-likelihood-accumulator-tbd
@@ -327,24 +327,24 @@ study_card:
 readouts:
 - name: likelihood-dispersion-fits
   status: planned
-  path: TBD — planned at out/trajectories/likelihood_fits.csv
+  path: 'planned output: out/trajectories/likelihood_fits.csv (not yet produced)'
   units: MLE +/- 95% CI
   notes: 'Per modality: NegBin phi (RNA-seq), log-normal sigma (proteomics), normal-on-log sigma_mu (growth), per-metabolite
     sigma (metabolomics).'
 - name: log-likelihood-accumulator
   status: planned
-  path: TBD — planned at .pbg/runs/<id>/log_likelihood.zarr
+  path: 'planned output: .pbg/runs/<id>/log_likelihood.zarr (not yet produced)'
   units: log-likelihood units
   notes: 'Time-series of incremental log-L contributions from ODE segments + jump events. Required: zero underflows over 10^4
     test runs.'
 - name: abc-smc-posterior
   status: planned
-  path: TBD — planned at .pbg/runs/<id>/posterior_particles.zarr
+  path: 'planned output: .pbg/runs/<id>/posterior_particles.zarr (not yet produced)'
   units: particle samples + weights
   notes: 'ABC-SMC convergence trace: ESS, proposal acceptance rate, epsilon-decay schedule per SMC step.'
 - name: sbc-rank-histogram
   status: planned
-  path: TBD — planned at out/trajectories/sbc_ranks.csv
+  path: 'planned output: out/trajectories/sbc_ranks.csv (not yet produced)'
   units: rank in [0, K]
   notes: 'K=1000 SBC draws. Gating: chi^2 uniformity p > 0.05 + 90% CI coverage >= 85% empirical.'
 planned_runs:

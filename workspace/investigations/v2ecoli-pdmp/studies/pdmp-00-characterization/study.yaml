@@ -357,22 +357,9 @@ visualizations:
   address: file:reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
   description: First ensemble attempt — 3 seeds produced bit-identical trajectories. Surfaces the per-process RNG seeding
     bug. Banner-flagged red. Blocks the Phase 0 N>=64 target until fixed.
-- name: markov-blanket-metabolism
-  address: file:reports/figures/pdmp-00/markov_blanket_metabolism.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Markov blanket — v2ecoli metabolism
 - name: v2ecoli-baseline-v2
   address: file:reports/figures/pdmp-00/v2ecoli_baseline_v2.html
   description: v2ecoli baseline — bootstrap (6-panel)
-- name: phase0-pilot-single-condition-real
-  address: file:reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 pilot — single condition × N=8 endpoint
-- name: phase0-pilot-summary-table
-  address: file:reports/figures/pdmp-00/phase0_pilot_summary_table.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 pilot — per-seed summary table
-- name: rng-seeding-fix-proof-real
-  address: file:reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Per-process RNG fix — earlier N=8 pilot
-    (CV ≈ 0.5%); superseded by the current committed N=6 × 250s pilot (ATP[c] CV ≈ 0.029%, .pbg/runs/phase0-traj/)
 - name: phase0-4panel-spaghetti-real
   address: file:reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html
   description: Phase 0 — 4-panel observable spaghetti (real, N=32 × 600s, M9-glucose)
@@ -511,8 +498,8 @@ planned_runs:
   status: planned
   n_steps: 1000
   details: Profile-instrumented single-cell baseline. Wraps every process invocation with timeit + tracemalloc so per-step
-    compute is decomposed into FBA-LP / RNG-draw / store-marshalling / topology-traversal / emitter-I/O buckets. Produces
-    reports/figures/pdmp-00/profile_decomposition_bars.html (NOT IN CHECKOUT — pending regeneration from re-run) with real means ± std over ≥1000 step samples.
+    compute is decomposed into FBA-LP / RNG-draw / store-marshalling / topology-traversal / emitter-I/O buckets. Will produce
+    a profile-decomposition figure with real means ± std over ≥1000 step samples once the diagnostic harness lands.
 conditions:
   baseline:
     composite: v2ecoli.composites.diagnostic.diagnostic
@@ -724,10 +711,6 @@ tests:
   cites:
   - macklin2020
 embed_visualizations:
-- name: (NOT IN CHECKOUT — pending regeneration from re-run) Markov blanket — v2ecoli metabolism
-  url: /reports/figures/pdmp-00/markov_blanket_metabolism.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/markov_blanket_metabolism.html. Inlined into
-    the downloaded report as iframe srcdoc.
 - name: v2ecoli baseline 100 steps
   url: /reports/figures/pdmp-00/v2ecoli_baseline_100step.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_baseline_100step.html. Inlined into the
@@ -744,21 +727,6 @@ embed_visualizations:
   url: /reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html. Inlined into the
     downloaded report as iframe srcdoc.
-- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — RNG seeding fix verification
-  url: /reports/figures/pdmp-00/rng_seeding_fix_proof.html
-  description: (NOT IN CHECKOUT — pending regeneration from re-run) Empirical proof that per-process RNG seeding correctly decorrelates seed→trajectory mapping. NOTE — this proof figure is pending regeneration from the re-run; the RNG-seeding-fix conclusion rests instead on the committed tests/test_seed_diversity.py (which passes), not on this absent figure.
-- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — per-condition growth-rate baseline
-  url: /reports/figures/pdmp-00/per_condition_growth_rate.html
-  description: v2ecoli baseline ensemble growth rates per nutrient condition (M9-glucose, M9-acetate, M9-glucose+aa). Phase
-    0 reference for every subsequent study.
-- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — per-process compute decomposition
-  url: /reports/figures/pdmp-00/profile_decomposition_bars.html
-  description: Per-tick cost decomposed by Process. Reference profile that Phase 4 sprint 1 replaced with the marshalling-aware
-    version.
-- name: (NOT IN CHECKOUT — pending regeneration from re-run) Phase 0 — Markov-blanket variable categorization
-  url: /reports/figures/pdmp-00/variable_categorization_bars.html
-  description: Categorical breakdown of the WCM state into input / sufficient-statistic / output buckets — the interface contract
-    every later study tests against.
 discovery_implications:
   resolved_uncertainties:
   - 'The per-process RNG-seeding bug — diagnosed via a 3-seed pilot that produced CV 0.000% across seeds

@@ -129,7 +129,7 @@ expected_behavior:
     observable: compiled-model-artefact
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: column-centric-state
   en: Per-step marshalling overhead is reduced to a small fraction (target <10%) of essential numerical computation, vs. the
@@ -141,7 +141,7 @@ expected_behavior:
     observable: per-step-marshalling-fraction
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: vivarium-api-inversion
   en: Process definitions consist of (local state schema, ODE vector field, jump propensities) only; the runtime handles topology
@@ -153,7 +153,7 @@ expected_behavior:
     observable: declarative-process-spec
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: 10cubed-parallel-trajectories
   en: ≥10³ parallel single-cell trajectories run with throughput at least one order of magnitude above v2ecoli baseline. (Gating
@@ -165,7 +165,7 @@ expected_behavior:
     observable: parallel-throughput-benchmark
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-compiled-vs-reference-w2-5sigma
   en: W₂(p_compiled, p_phase2) ≤ 5·σ_MC across N=10⁴ trajectories for every Phase 0 condition. Confirms compilation doesn't
@@ -177,7 +177,7 @@ expected_behavior:
     observable: w2-compiled-vs-phase2
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-deterministic-fp-summation
   en: Parallel reductions (per-trajectory log-likelihoods, summary statistics) use pairwise or Kahan summation and give bit-identical
@@ -189,7 +189,7 @@ expected_behavior:
     observable: parallel-reduction-result-stability
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-1-over-sqrt-N-variance-scaling
   en: Doubling trajectory count halves ABC posterior variance (within MC noise) — the 1/√N scaling expected of independent
@@ -201,7 +201,7 @@ expected_behavior:
     observable: posterior-variance-vs-N
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-precision-mode-validated
   en: Any FP32 deployment passes both (a) bit-equivalence test on a held-out trajectory subset vs FP64 reference and (b) ABC
@@ -213,7 +213,7 @@ expected_behavior:
     observable: fp32-vs-fp64-posterior-equivalence
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 baseline:
 - name: pdmp-catalyst-runner-tbd
@@ -306,22 +306,22 @@ study_card:
 readouts:
 - name: catalyst-export-artefact
   status: planned
-  path: TBD — planned at compiled_pdmp.jl
+  path: 'planned output: compiled_pdmp.jl (not yet produced)'
   units: Julia source + binary
   notes: Catalyst.jl + ModelingToolkit compiled model with symbolic Jacobian + automatic sensitivity equations.
 - name: per-step-profile-compiled
   status: planned
-  path: TBD — planned at out/trajectories/compiled_profile.csv
+  path: 'planned output: out/trajectories/compiled_profile.csv (not yet produced)'
   units: ms per bucket
   notes: 'Same 5 buckets as Phase 0. Gating: marshalling fraction < 10% of total.'
 - name: parallel-throughput
   status: planned
-  path: TBD — planned at out/trajectories/throughput_vs_n_trajectories.csv
+  path: 'planned output: out/trajectories/throughput_vs_n_trajectories.csv (not yet produced)'
   units: trajectories per second
   notes: 'Sweep parallelism N in {10, 100, 1000, 10000}. Gating: >=10^3 parallel.'
 - name: abc-posterior-variance-vs-walltime
   status: planned
-  path: TBD — planned at out/trajectories/abc_posterior_efficiency.csv
+  path: 'planned output: out/trajectories/abc_posterior_efficiency.csv (not yet produced)'
   units: posterior std * wall-clock-s
   notes: 'Standard MCMC efficiency metric. Required: 1/sqrt(N) scaling on doubling parallelism.'
 planned_runs:

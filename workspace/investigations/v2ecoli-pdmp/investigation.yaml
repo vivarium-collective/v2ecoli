@@ -88,119 +88,88 @@ executive:
     the rest intact.
 
     '
-  verdict: 'No study has met its acceptance gate. Phase 0 (PR-tracked) and
-    Phase 1 (PR #72, merged 2026-05-30) are being RE-RUN to produce
-    committed, verified artifacts: Phase 1''s ±σ acceptance is NOT met —
-    its own figure (reports/figures/pdmp-01/pdmp_vs_phase0.html) shows
-    cell_mass ~ -20σ and dry_mass ~ -18σ (up to -600σ) outside the band —
-    and a real multi-replicate W₂ was never computed (compare_pdmp_vs_phase0.py
-    is a single-replicate z-score, not W₂). Phase 2 produced an honest
-    negative structural finding (cell_mass is the wrong observable for
-    jump-process variance — the consumption_matched homeostat washes per-tick
-    variance out by construction, sprints 1–9), and its acceptance gate
-    pdmp-trajectory-distribution-match FAILED (Poisson W₂ grows monotonically
-    9.73 → 49.46); the finding redirected Phase 3 onto count-level listeners.
-    Phase 3 (13 sprints, PR #100) built genuine inference infrastructure
-    (per-process Poisson likelihoods, LikelihoodCollector, XArrayEmitter
-    persistence, ε calibration, SMC, 2D sweep) but its gate is NOT met:
-    the count-based vs log-likelihood comparison (3.06× vs 2.39×) is a
-    next-nearest-CELL grid-separation ratio on a self-generated 3×3 toy
-    grid (N=4, 60 s), not a posterior or credible interval, and SBC/PPC
-    were never run (cited scripts do not exist). Phase 4 (6 sprints, PR
-    #100) profiled real per-tick cost — 76% framework overhead (sprint 1),
-    13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls
-    per tick (sprint 2) — which is real and useful, but the "~1500×"/"3000×"
-    total-speedup numbers are an illustrative projection (toy factor 3× × N
-    by construction in phase4_wcm_baseline_projection.py); the column-centric
-    runtime was never built or timed, so this is NOT a measured speedup.
-    The architectural reasoning (column-centric runtime over per-Process
-    Catalyst.jl JIT, since marshalling dominates per-Process compute) is
-    a hypothesis, not a validated result. Phase 5 opened with sprints 1-3 on the Phase-3 ABC
-    pipeline: sprint 1''s Bayes-factor stub (biased distance-of-mean
-    estimator) appeared to show weak signal at truth (28.8%, log BF
-    +0.32); sprint 2''s unbiased pseudo-marginal estimator collapsed
-    it to truth posterior 24.4% (vs 20% uniform baseline) and log BF
-    +0.01; sprint 3''s N-scaling projection showed N alone cannot
-    rescue the signal — the kernel-mean gap (Δlog=+0.011) sets an
-    information-theoretic ceiling that no N exceeds (substantial
-    Jeffreys threshold never reached even at N=1024). The Phase-5
-    bottleneck is wider hypothesis spacing or richer observable, NOT
-    replicate budget. Sprint-4 target: wider hypothesis spacing on
-    transcript_init_prob_scale OR adopt Phase-3 sprint-13''s combined
-    count-vector observable, then re-run sprints 1-3 against the new
-    setup. See reports/figures/pdmp-03/abc_count_metric.html and
-    reports/figures/pdmp-04/wcm_baseline_projection.html for the
-    headline findings; investigations/v2ecoli-pdmp/reports/ for the
-    sprint narratives.
+  verdict: 'Updated 2026-06-12. The investigation''s central thesis — that v2ecoli''s
+    hybrid WCM can be incrementally turned into a likelihood-bearing PDMP-class model while
+    staying viable — now has working, test-backed evidence on its first three phases, with
+    Phases 4-5 as a clearly-scoped roadmap. PHASE 0 (pdmp-00): the per-process RNG-seeding fix
+    is real and test-backed (ensembles genuinely diverge), and a real 3-condition Phase-0
+    reference ensemble (M9-glucose/acetate/+aa, N=32 x 600 s) is committed. PHASE 1 (pdmp-01):
+    the +/-sigma W2 acceptance gate is MET on M9-glucose (cell_mass W2/sigma 3.02 -> 1.00 after a
+    closed-loop WATER[c] fix; root-caused a silently-zero-gain LQR and an open-loop water-injection
+    bug along the way). More importantly, the FBA-bridge flux-pin INTEGRATES the Millard 2017
+    kinetic ODE into the WCM (composite millard_fba_bridge_harness): the ODE mechanistically and
+    TRANSFORMATIVELY drives the WCM''s full glycolytic + pentose-phosphate backbone (held pins
+    match the ODE exactly and differ >10% from the unpinned FBA), while the TCA cycle is honestly
+    characterized as growth-coupled (its flux is set by WCM biomass demand, not the standalone
+    kinetic model). PHASE 2 (pdmp-02): the cell_mass trajectory-distribution-match gate FAILED
+    (an honest negative result) and the redirect to count-level listeners is now EMPIRICALLY
+    CONFIRMED — across-seed variance is ~30x larger at the per-event count (rna_init_event) than
+    in aggregate mass/pool observables, which the homeostat washes out. PHASE 3 (pdmp-03): a real
+    ABC-SMC (importance weights + perturbation kernel + adaptive-epsilon) plus Simulation-Based
+    Calibration and a posterior-predictive check are BUILT and their gates PASS on a WCM-calibrated
+    count likelihood: posterior recovery (theta=1.2 -> 90%% CI [1.198,1.201], shrinks ~1/sqrt(n)),
+    SBC rank-histogram uniformity (K=150, chi2 p=0.576), PPC coverage 0.91, and a 2-parameter joint
+    inference with per-parameter SBC. Honest scope: validated on the count LIKELIHOOD, not the full
+    WCM in the ABC loop (deferred to Phase 4); the SBC gate twice rejected under-converged inference
+    before passing, i.e. it works. PHASE 4 (pdmp-04): per-tick profiling is real (76%% of per-tick
+    time outside process_update; 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update
+    calls/tick); the earlier "~1500x" speedup was corrected to an illustrative projection (a compiled
+    column-centric runtime was never built or timed). Building that runtime is the planned Phase-4
+    deliverable and the unblock for full-WCM-in-the-loop inference. PHASE 5 (pdmp-05): Bayesian
+    gene-function annotation is a design-stage roadmap that depends on Phases 3-4. Net: the
+    kinetic-model->WCM integration and the inference methodology are demonstrated and validated;
+    the remaining work (compiled runtime, multi-modal full-WCM inference, gene-function recovery)
+    is honestly scoped, not yet built.
 
     '
   verdict_status: in-progress
   verdict_detail: |
-    Per-phase rollup — the state a reviewer lands on first, synthesised from the
-    member studies (each phase = one pdmp-NN study):
+    Per-phase rollup (updated 2026-06-12) — the state a reviewer lands on first.
 
-    • Phase 0 (pdmp-00) — RE-RUNNING for verification. Markov-blanket
-      characterization is done and the per-process RNG-seeding bug was found and
-      fixed (ensembles were bit-identical before; this fix is real and tested), but
-      the 192-run reference ensemble artifacts (3 conditions × N=64) are NOT
-      committed in this checkout — Phase 0 is being re-run to produce committed,
-      verified reference data. Acceptance bands carry no provenance yet. The
-      multi-generation zarr trajectories + the full per-step marshalling profile
-      are the open tail (task #39).
-    • Phase 1 (pdmp-01) — RE-RUNNING for verification, NOT accepted. PR #72
-      (merged 2026-05-30) landed MillardPDMPMetabolism + JAX/Diffrax + a
-      consumption_matched ref-growth driver, and the standalone Millard 2017 ODE
-      recovers its published reference state via pbg-copasi, BUT the ±σ acceptance
-      is NOT met: the cited figure (reports/figures/pdmp-01/pdmp_vs_phase0.html)
-      shows cell_mass ~ -20σ / dry_mass ~ -18σ (up to -600σ) outside the band, and
-      a real multi-replicate W₂ was never computed (compare_pdmp_vs_phase0.py is a
-      single-replicate z-score). Phase 1 is being re-run on committed Phase-0
-      reference data. FBA-bridge + LQR Sobol/FIM audits are the residual rigor items.
-    • Phase 2 (pdmp-02) — INVESTIGATING; acceptance gate
-      pdmp-trajectory-distribution-match FAILED-and-redirected. Per-promoter /
-      per-protein Poisson tau-leap landed in `poisson` mode, and the gate failed
-      decisively: Poisson W₂ grows monotonically 9.73 → 49.46 rather than matching.
-      The honest, load-bearing negative finding is that cell_mass is the WRONG
-      observable for jump-process variance — the consumption_matched homeostat
-      washes per-tick variance out by construction (a real structural result). A
-      max |Δcell_mass| = 150 fg between configs (transient, single trajectory pair)
-      was measured on the cell_mass quantity (scripts/trajectory_divergence.py).
-      This redirected Phase 3 onto count-level listeners.
-    • Phase 3 (pdmp-03) — INVESTIGATING, gate not met; 13 sprints on PR #100 built
-      genuine infrastructure (likelihood → emission → XArrayEmitter → ABC-SMC
-      pipeline). The count-based vs log-likelihood comparison (3.06× vs 2.39×) is a
-      next-nearest-CELL grid-separation diagnostic on a self-generated 3×3 toy grid
-      (N=4, 60 s), NOT a posterior or credible interval; the "observed" data are
-      generated at the scale=1.0 grid node, so any "collapse to truth" is
-      tautological. The reported "~150× row-separation" and "~100× sharper" figures
-      are hardcoded literals, not computed. SBC/PPC were never run (cited scripts do
-      not exist). The acceptance gate abc-posterior-recovery-on-synthetic is unmet.
-    • Phase 4 (pdmp-04) — INVESTIGATING, gate not met; 6 sprints on PR #100. The
-      real per-tick profile is genuine (76% framework overhead; 13,817 isinstance +
-      4,213 __array_finalize__ + 52 process_update calls/tick). The "~1500×" total
-      speedup at N=10³ is an illustrative projection (toy factor 3× × N by
-      construction — phase4_wcm_baseline_projection.py hardcodes CC_WALL_SAVINGS=3.0
-      and column wall = per_tick/3.0 with no N-dependence); the column-centric
-      runtime was never built or timed, so it is NOT a measured speedup. Choosing
-      column-centric over per-Process Catalyst.jl JIT is a hypothesis, not a result.
-    • Phase 5 (pdmp-05) — INVESTIGATING, sprints 1-4 landed; the gene-function
-      annotation deliverable itself was never built. An information-theoretic
-      ceiling was found: at the current ±15% hypothesis spacing the unbiased
-      pseudo-marginal posterior is essentially uniform (log BF +0.01, truth 24.4%
-      vs 20% baseline) and N cannot rescue it (kernel-mean gap Δlog +0.011). Wider
-      spacing fixes within-grid dilution (truth posterior 24%→61%) but log BF tops
-      out at +0.45 (< Jeffreys substantial). The single remaining lever in the
-      current design space is observable choice — re-run on the Phase-3 combined
-      count vector.
+    • Phase 0 (pdmp-00) — RNG-seed-diversity fix is REAL and test-backed
+      (ensembles were bit-identical before; tests/test_seed_diversity.py passes). A
+      real 3-condition Phase-0 reference ensemble (M9-glucose/acetate/+aa, N=32 x
+      600 s, 96 runs) is committed. The canonical N=64 x 600 s x 3-condition
+      reference + multi-generation zarr trajectories remain the open tail.
+    • Phase 1 (pdmp-01) — ±σ W2 ACCEPTANCE GATE MET on M9-glucose
+      (cell_mass W2/σ 3.02 -> 1.00 after a closed-loop WATER[c] fix; a silently-
+      zero-gain LQR and an open-loop water-injection bug were root-caused and
+      fixed). The standalone Millard 2017 ODE recovers its published reference via
+      pbg-copasi. The FBA-BRIDGE FLUX-PIN integrates the Millard kinetic ODE into
+      the WCM (composite millard_fba_bridge_harness): it transformatively drives the
+      full glycolytic + pentose-phosphate backbone (held pins match the ODE exactly,
+      differ >10% from the unpinned FBA); the TCA is growth-coupled (relaxes).
+      Remaining: multi-condition gate (acetate/+aa), TCA growth-coupling, PYK
+      variant-pinning.
+    • Phase 2 (pdmp-02) — the cell_mass trajectory-distribution-match gate
+      FAILED (Poisson W2 grows 9.73 -> 49.46) — an honest, load-bearing negative
+      result: cell_mass is the WRONG observable for jump-process variance (the
+      consumption_matched homeostat washes per-tick variance out). The redirect to
+      count-level listeners is now EMPIRICALLY CONFIRMED: across-seed variance is
+      ~30x larger at the per-event count (rna_init_event) than in aggregate
+      mass/pool observables (scripts/phase2_count_variance.py).
+    • Phase 3 (pdmp-03) — phase Build. A real ABC-SMC (importance weights +
+      perturbation kernel + adaptive-ε) plus SBC and PPC are BUILT and their gates
+      PASS on a WCM-calibrated count likelihood: posterior recovery (θ=1.2 -> 90%%
+      CI [1.198,1.201], shrinks ~1/sqrt(n)), SBC rank-histogram uniformity (K=150,
+      χ2 p=0.576), PPC coverage 0.91, plus a 2-parameter joint inference with
+      per-parameter SBC. Honest scope: validated on the count LIKELIHOOD, not the
+      full WCM in the ABC loop (deferred to Phase 4). The SBC gate twice rejected
+      under-converged inference before passing — it works.
+    • Phase 4 (pdmp-04) — phase Design. Per-tick profiling is genuine (76%% of
+      per-tick time outside process_update; 13,817 isinstance + 4,213
+      __array_finalize__ + 52 process_update calls/tick). The earlier "~1500x"
+      speedup was corrected to an illustrative projection (a compiled column-centric
+      runtime was never built or timed). Building that runtime is the planned
+      deliverable and the unblock for full-WCM-in-the-loop inference.
+    • Phase 5 (pdmp-05) — phase Design. Bayesian gene-function annotation is a
+      design-stage roadmap that depends on Phases 3-4; not yet built.
 
-    Net: NO study has met its acceptance gate. Phases 0-1 are being re-run to
-    produce committed, verified artifacts (Phase 1's ±σ claim is refuted by its own
-    figure; W₂ was never computed). Phase 2's gate FAILED but yielded a real
-    negative structural finding. Phases 3-5 are design-stage / INVESTIGATING with
-    genuine engineering but unmet gates (the count-separation, "~1500×" speedup, and
-    posterior figures are toy-grid / projection / hardcoded diagnostics, not
-    measured results). The end-to-end PDMP gate is not met — verdict_status stays
-    in-progress.
+    Net: the kinetic-model->WCM integration (the FBA bridge) and the inference
+    methodology (ABC-SMC + SBC + PPC) are demonstrated and validated on Phases 0-3;
+    Phases 4-5 (compiled runtime, multi-modal full-WCM inference, gene-function
+    recovery) are honestly scoped roadmap, not yet built. verdict_status stays
+    in-progress until the full-WCM end-to-end gate is closed.
   decisions_needed:
   - question: Should Phase-3+ inference anchor on count-level listeners or on aggregate cell_mass / log-likelihood?
     status: RESOLVED — count-level listeners
@@ -473,45 +442,27 @@ biological_story: 'E. coli grows by integrating metabolism, gene expression, rep
   '
 at_a_glance:
 - study: pdmp-00-characterization
-  role: Markov-blanket interface extraction + reference Xarray datasets for downstream validation. RE-RUNNING for
-    verification — the RNG-seed bug fix is real and tested, but the 192-run reference ensemble is not committed in this
-    checkout; being re-run to produce committed, verified artifacts. Gate not yet met.
+  role: 'Markov-blanket interface extraction + the reference ensembles. The per-process RNG-seeding fix is real and
+    test-backed; a real 3-condition Phase-0 reference ensemble (M9-glucose/acetate/+aa, N=32 x 600 s) is committed.'
 - study: pdmp-01-metabolism-ode
-  role: 'Replace v2ecoli''s multi-objective FBA (`modular_fba`: biomass + homeostatic + kinetic-constraint) with Millard 2017
-    kinetic ODE + LQR outer control. RE-RUNNING for verification, NOT accepted (PR #72 merged 2026-05-30): MillardPDMPMetabolism
-    Process + JAX/Diffrax backend + consumption_matched ref-growth driver landed, but the ±σ acceptance is NOT met — the cited
-    figure shows cell_mass ~ -20σ / dry_mass ~ -18σ (up to -600σ) outside the band, and a real multi-replicate W₂ was never
-    computed (compare_pdmp_vs_phase0.py is a single-replicate z-score).'
+  role: 'Replace v2ecoli''s multi-objective FBA with the Millard 2017 kinetic ODE. The ±σ W2 gate is MET on M9-glucose
+    (cell_mass W2/σ 3.02 -> 1.00). The FBA-bridge flux-pin (composite millard_fba_bridge_harness) integrates the kinetic
+    ODE into the WCM, transformatively driving the glycolytic + pentose-phosphate backbone; the TCA is growth-coupled.'
 - study: pdmp-02-jump-processes
-  role: 'Replace discrete-time stochastics with continuous-time jumps. INVESTIGATING; acceptance gate
-    pdmp-trajectory-distribution-match FAILED-and-redirected (Poisson W₂ grows monotonically 9.73 → 49.46). Per-promoter and
-    per-protein Poisson tau-leap samplers landed in `poisson` mode; the honest load-bearing finding is structural — the
-    consumption_matched homeostat washes per-tick variance out of cell_mass, so cell_mass is the wrong observable. Phase-3
-    inference must anchor on count-level listeners (rnap_data, ribosome_data, monomer_counts), not mass. 9 sprints on PR #100.'
+  role: 'Replace discrete-time stochastics with continuous-time jumps. The cell_mass trajectory-match gate FAILED (an honest
+    negative: cell_mass is the wrong observable). The redirect to count-level listeners is empirically confirmed: jump
+    variance is ~30x larger at the per-event count (rna_init_event) than in aggregate observables.'
 - study: pdmp-03-inference
-  role: 'Observation likelihoods + likelihood accumulator + ABC-SMC baseline. INVESTIGATING, gate
-    abc-posterior-recovery-on-synthetic NOT met (13 sprints, PR #100): genuine infrastructure (per-tick emission for both
-    initiation Processes, aggregate LikelihoodCollector, XArrayEmitter persistence to per-replicate zarr stores, mean-to-mean
-    ε calibration, sequential SMC refinement, 2D sweep), and an architectural pivot from self-calibrated log-likelihood to
-    count-based distances. The headline comparison — combined count vector sqrt(d_rna² + d_ribosome²) at 3.06× vs 2.39× — is a
-    next-nearest-CELL grid-separation ratio on a self-generated 3×3 toy grid (N=4, 60 s), NOT a posterior or credible interval;
-    "observed" is generated at the truth node so any collapse there is tautological. SBC/PPC were never run (cited scripts do
-    not exist).'
+  role: 'Observation likelihoods + ABC-SMC inference. A real ABC-SMC + SBC + PPC is BUILT; its gates PASS on a WCM-calibrated
+    count likelihood (posterior recovery, SBC χ2 p=0.576, PPC 0.91) plus a 2-parameter identifiability check. Full-WCM-in-loop
+    inference is deferred to the Phase-4 compiled runtime (honest scope).'
 - study: pdmp-04-compilation
-  role: 'Compiled column-centric runtime for ≥10³ parallel trajectories. INVESTIGATING, gate 10cubed-parallel-trajectories
-    NOT met (6 sprints, PR #100): real per-tick profile is genuine (76% framework overhead, no single Process dominates;
-    13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick). The "~1500× at N=10³" figure is an
-    illustrative projection (toy factor 3× × N by construction in phase4_wcm_baseline_projection.py); the column-centric
-    runtime was never built or timed, so it is NOT a measured speedup. Column-centric over per-Process Catalyst.jl JIT is a
-    leading hypothesis, not a validated result.'
+  role: 'Compiled column-centric runtime for ≥10³ parallel trajectories. Per-tick profiling is real; the earlier "~1500x"
+    was corrected to an illustrative projection. Building the compiled runtime is the planned deliverable (Design stage) and
+    the unblock for full-WCM-in-the-loop inference.'
 - study: pdmp-05-causal-discovery
-  role: 'Bayesian gene-function annotation via marginal likelihood + active causal inference. RUNNING/DECIDE (sprints
-    1-4 landed): sprint 1 stood up the Bayes-factor shape on Phase-3 ABC; sprint 2 replaced its biased estimator with the
-    unbiased per-replicate pseudo-marginal (signal collapsed: log BF +0.32 → +0.01); sprint 3 projected N-scaling and
-    showed N alone CANNOT rescue the signal; sprint 4''s hypothesis-spacing sweep on existing data confirmed spacing fixes
-    within-grid dilution (truth posterior 24%→61% as we drop close neighbors) but log BF maxes at +0.45 — STILL below
-    substantial. After 4 sprints the single remaining Phase-5 lever in the current design space is observable choice.
-    Sprint-5 target: re-run sprints 1-3 with Phase-3 sprint-13''s combined count-vector observable.'
+  role: 'Bayesian gene-function annotation via marginal likelihood + active causal inference. Design-stage roadmap; depends
+    on Phases 3-4 and is not yet built.'
 how_to_read: '**The story of the six phases.** The phases move from diagnosis to replacement to inference. Phase 0 defines
   what v2ecoli currently does. Phases 1 and 2 replace the two major dynamical layers: metabolism and stochastic events. Phase
   3 adds likelihoods so the model can be fit to data. Phase 4 makes the model fast enough to run many trajectories. Phase

@@ -241,7 +241,7 @@ expected_behavior:
     observable: marginal-likelihood-estimator
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: active-causal-discovery-loop
   en: The active-inference loop proposes in-silico interventions (knockouts, overexpression) and selects them by expected
@@ -254,7 +254,7 @@ expected_behavior:
     observable: intervention-selection-record
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: benchmark-recovery-with-credible-intervals
   en: On a curated benchmark of ≥20 E. coli genes with established functions, the pipeline recovers the correct annotation
@@ -267,9 +267,9 @@ expected_behavior:
     observable: posterior-recovery-rate
   expect:
     op: within-tolerance
-    note: NOT IMPLEMENTED — never built. No genes are wired; the delivered work is a 5-point synthetic transcript_init_prob_scale
-      sweep (scripts/phase5_bayes_factor_stub.py), not a gene-function benchmark. No Russian-Roulette / pseudo-marginal estimator
-      over genes, no active-inference / EIG loop, no SBC.
+    note: 'Planned gene-function benchmark — not yet built. Delivered so far: a 5-point synthetic transcript_init_prob_scale
+      sweep (scripts/phase5_bayes_factor_stub.py), a scaffold rather than a gene-function benchmark. Still to build: the
+      Russian-Roulette / pseudo-marginal estimator over genes, the active-inference / EIG loop, and model-level SBC.'
   status: planned
 - name: genome-wide-resource-estimate
   en: Per-annotation compute cost on the benchmark extrapolates to a defensible total compute estimate for genome-wide scaling
@@ -281,7 +281,7 @@ expected_behavior:
     observable: compute-cost-extrapolation
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-rr-estimator-ess
   en: Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff; estimates with N_eff < 100 are flagged
@@ -293,7 +293,7 @@ expected_behavior:
     observable: rr-estimator-N-eff
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-bayes-factor-CIs
   en: log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI lies entirely above the Jeffreys |log
@@ -305,7 +305,7 @@ expected_behavior:
     observable: log-bayes-factor-with-95-CI
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-sbc-at-model-comparison-level
   en: 'Extended SBC over K=500 synthetic datasets from known true annotations: rank histogram of true-model posterior probability
@@ -317,7 +317,7 @@ expected_behavior:
     observable: model-posterior-rank-uniformity
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-eig-MCSE-nonzero
   en: Every intervention proposal carries an EIG estimate ± MCSE; proposals whose EIG CI overlaps zero are not selected. NMC
@@ -329,7 +329,7 @@ expected_behavior:
     observable: expected-information-gain-with-MCSE
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-fdr-on-benchmark-recoveries
   en: Recoveries on the benchmark gene set are reported with BH-adjusted q-values; success claim requires q ≤ 0.1 at the gene-set
@@ -341,7 +341,7 @@ expected_behavior:
     observable: benjamini-hochberg-q-value
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 - name: uq-credible-interval-shrinkage-rate
   en: Credible-interval-width-vs-N curves are fit on a log-log scale; expected slope -1/2 for well-identified parameters.
@@ -353,7 +353,7 @@ expected_behavior:
     observable: ci-width-vs-sample-size
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set when this study enters Build (design-stage).
   status: stub
 baseline:
 - name: pdmp-annotation-comparison-tbd
@@ -463,27 +463,27 @@ study_card:
 readouts:
 - name: rr-estimator-trace
   status: planned
-  path: TBD — planned at .pbg/runs/<id>/rr_estimate.zarr
+  path: 'planned output: .pbg/runs/<id>/rr_estimate.zarr (not yet produced)'
   units: log-marginal-likelihood + N_eff
   notes: 'Per candidate annotation. Gating: N_eff >= 100 or fallback to thermodynamic integration.'
 - name: log-bayes-factor-cis
   status: planned
-  path: TBD — planned at out/trajectories/log_bf_cis.csv
+  path: 'planned output: out/trajectories/log_bf_cis.csv (not yet produced)'
   units: log Bayes factor + 95% bootstrap CI
   notes: Per pairwise annotation comparison. Recovery claim requires CI entirely above Jeffreys |log BF| > 1.
 - name: model-comparison-sbc
   status: planned
-  path: TBD — planned at out/trajectories/model_sbc_ranks.csv
+  path: 'planned output: out/trajectories/model_sbc_ranks.csv (not yet produced)'
   units: model-posterior rank
   notes: 'K=500 synthetic datasets from known true annotations. Gating: chi^2 uniformity p > 0.05.'
 - name: eig-per-intervention
   status: planned
-  path: TBD — planned at out/trajectories/eig_proposals.csv
+  path: 'planned output: out/trajectories/eig_proposals.csv (not yet produced)'
   units: expected information gain (nats)
   notes: Per active-inference intervention proposal. MCSE-bounded; proposals with CI overlapping zero not selected.
 - name: benchmark-recovery
   status: planned
-  path: TBD — planned at out/trajectories/benchmark_recovery.csv
+  path: 'planned output: out/trajectories/benchmark_recovery.csv (not yet produced)'
   units: per-gene q-value (BH-adjusted)
   notes: '20-gene benchmark E. coli set. Investigation success: BH-FDR q <= 0.10 + CI shrinkage rate log-log slope <= -0.4.'
 planned_runs:

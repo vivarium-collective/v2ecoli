@@ -24,7 +24,10 @@ Two things follow from that:
 
 - **Composition is a first-class operation.** Every process declares typed
   input/output ports, so building a model is wiring, not patching. A whole cell
-  is one `build_composite("baseline")` call; a colony embeds many cells through a
+  is one `build_composite("baseline")` call; the `millard_fba_bridge_harness`
+  composite keeps that baseline FBA metabolism but pins its central-carbon flux to
+  the Millard 2017 kinetic ODE (the v2ecoli-pdmp investigation's kinetic-into-WCM
+  bridge); a colony embeds many cells through a
   single bridge process; a kinetic-metabolism variant is a *different wiring of
   the same parts*. Swapping a subsystem is a one-line change, not a fork.
 - **The repository is a pbg research workspace.** Alongside the model code live

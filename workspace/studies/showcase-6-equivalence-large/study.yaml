@@ -316,11 +316,16 @@ runs:
       result: PASS
       detail: "21-axis v1 reference pinned (docs/report_cards/population_phenotype_basal/vs_vecoli/vecoli_reference.json, 1.1 MB, blessed_model_ref b237873e, gen_lb 3) from the 185-cell matched ensemble."
 
-visualizations:
+visualizations: []  # the report card is a self-contained pre-rendered HTML artifact, surfaced via embed_visualizations (below) rather than the chart pipeline (which renders studies/<name>/charts/*.png|svg)
+
+# The 16×16 v1↔v2 equivalence report card — a pre-rendered, self-contained
+# inline-SVG HTML artifact (per-axis verdict tables for all 5 groups + violin /
+# log-log scatter / signed-flux plots + sim-health banner + gene-expression
+# outlier-gene tables). Surfaced in the dashboard study Visualizations tab as an
+# embedded iframe (auto-discovered from reports/figures/<study>/*.html and served
+# at /reports/figures/<study>/...). Canonical copy lives at
+# docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.html.
+embed_visualizations:
 - name: v1↔v2 equivalence report card (16×16)
-  address: file:docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.html
-  config:
-    title: "v1↔v2 equivalence at 16×16 — 21-axis report card (overall MISMATCH: 12 ✓ / 6 ≈ / 3 ✗, driven by O₂/CO₂ + transcriptome R²)"
-  chart: report_card
-  source_run: v2-16x16-parallel-ensemble
-  render: "reports/population_phenotype_basal_report.py --analysis out/ppb16_parallel/parquet/analysis.json --reference .../vs_vecoli/vecoli_reference.json --sweep-dir out/ppb16_parallel/parquet --gen-lb 3 --model-ref bd2123d2. Self-contained inline-SVG card: per-axis verdict tables (Physiology/Composition/Ribosomes/Exchange fluxes/Gene expression), violin + log-log scatter + signed flux-scatter plots, sim-health banner, and gene-expression outlier-gene tables."
+  url: /reports/figures/showcase-6-equivalence-large/report_card.html
+  description: "21-axis v1↔v2 equivalence card at 16×16 — overall MISMATCH (12 within_tol / 6 drift / 3 mismatch), driven by O₂/CO₂ exchange (#143) + transcriptome R²=0.946. Rendered by reports/population_phenotype_basal_report.py against the v2 256-cell ensemble vs the pinned 185-cell vEcoli reference."

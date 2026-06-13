@@ -1,0 +1,72 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Phase 2 — Jump Process Layer: Discrete-Time → Continuous-Time Stochastic — study plan summary</title>
+<style>
+body{font-family:system-ui;max-width:1280px;margin:1em auto;padding:0 1em;color:#0f172a}
+h1{font-size:1.5em;border-bottom:2px solid #e2e8f0;padding-bottom:0.4em}
+h2{font-size:1.2em;color:#1e40af;margin-top:1.8em}
+h3{font-size:1.0em;color:#334155;margin-top:1.3em}
+.meta{color:#64748b;font-size:0.9em;margin-top:-0.3em}
+.cap{color:#475569;font-size:0.94em;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:0.7em 0;font-size:0.9em}
+table th,table td{border:1px solid #e2e8f0;padding:7px 11px;text-align:left;vertical-align:top}
+table th{background:#f8fafc;color:#475569;font-size:0.85em;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+table tr:nth-child(even) td{background:#fcfcfd}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:0.92em;color:#334155}
+.section{background:#fafbfc;border-left:4px solid #3b82f6;padding:0.5em 1em;margin:1em 0}
+.section h2{margin-top:0.5em}
+.dim{color:#94a3b8;font-style:italic;font-size:0.92em}
+.gantt{font-family:ui-monospace,monospace;font-size:0.83em;color:#475569;background:#fafbfc;padding:9px 13px;border-radius:6px;overflow-x:auto;white-space:pre}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;margin:0.5em 0}
+.kv .k{color:#64748b;font-size:0.85em}
+.kv .v{color:#0f172a}
+</style></head>
+<body>
+<h1>Phase 2 — Jump Process Layer: Discrete-Time → Continuous-Time Stochastic</h1>
+<p class='meta'>pdmp-02-jump-processes</p>
+
+
+    <div class='kv'>
+      <span class='k'>Phase</span><span class='v'>Design</span>
+      <span class='k'>Status</span><span class='v'><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></span>
+      <span class='k'>Depends on</span><span class='v'><code>pdmp-01-metabolism-ode</code></span>
+      <span class='k'>Enables</span><span class='v'><code>pdmp-03-inference, pdmp-04-compilation</code></span>
+      <span class='k'># planned runs</span><span class='v'>3</span>
+      <span class='k'># readouts</span><span class='v'>4</span>
+      <span class='k'># tests (predictions)</span><span class='v'>8</span>
+      <span class='k'># variants</span><span class='v'>5</span>
+    </div>
+
+<div class='section'>
+<h2>Simulation plan</h2>
+<p class='cap'>Planned + completed runs for this study, in execution order. [##] = ran/completed; [--] = planned; [!!] = blocked.</p>
+<div class='gantt'>[--]  anderson-darling-validation                 n_steps=10⁴ inter-event intervals per jump  status=planned
+[--]  ou-fpt-analytical                           n_steps=10⁴ trajectories  status=planned
+[--]  trajectory-distribution-N200                n_steps=200       status=planned</div>
+<h3>Per-run detail</h3>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>n_steps</th><th>details</th></tr></thead><tbody><tr><td>anderson-darling-validation</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>10⁴ inter-event intervals per jump</code></td><td>exponential-clock A-D test per jump process (α=0.05)</td></tr><tr><td>ou-fpt-analytical</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>10⁴ trajectories</code></td><td>first-passage validation: KS distance vs analytical CDF &lt; 0.02</td></tr><tr><td>trajectory-distribution-N200</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>200</code></td><td>N=200 PDMP trajectories per condition; W₂ summary-distribution match vs v2ecoli baseline ensemble</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Readouts — what we measure</h2>
+<p class='cap'>The observables this study captures + the on-disk path where they land.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>path</th><th>units</th><th>notes</th></tr></thead><tbody><tr><td><code>anderson-darling-results</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/ad_exp1_per_jump.csv</code></td><td>A-D statistic + p-value</td><td>Per jump process (transcription, translation, division, competition). &gt;=10^4 inter-event intervals each. Gating: p &gt; 0.05.</td></tr><tr><td><code>fpt-distribution</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/fpt_division.csv</code></td><td>first-passage time (s)</td><td>Cell-volume threshold crossing. OU analytical validation: KS distance &lt; 0.02 vs analytical CDF.</td></tr><tr><td><code>trajectory-w2</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/pdmp_w2_vs_baseline.csv</code></td><td>W2 distance per summary stat</td><td>Growth rate, mean per-gene mRNA/protein, division-time CV. N&gt;=200 trajectories. Within tolerance across all Phase 0 conditions = gating.</td></tr><tr><td><code>markov-property-record</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/markov_segments.json</code></td><td>bit-equivalence result per re-sim</td><td>Re-simulate jump-segments with same (state, RNG-seed); verify bit-identical deterministic ODE flow between jumps.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Tests — what passes / fails</h2>
+<p class='cap'>The structured predictions this study evaluates. Each test maps to a measurement + a decision criterion.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>given</th><th>prediction (en)</th></tr></thead><tbody><tr><td><code>jump-process-from-kinetics</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>all-jump-processes</td><td>Every jump process (transcription, translation, division, competition) has a propensity function derived from measured or curated kinetic constants — no scaling by simulation timestep, no teleonomic &quot;rates&quot; derived from doubling-t</td></tr><tr><td><code>division-first-passage</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-generation</td><td>Division events occur as first-passage crossings of a threshold in cell volume or total protein mass; the teleonomic doubling-time check is removed from the model.</td></tr><tr><td><code>pdmp-trajectory-distribution-match</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>M9-glucose AND M9-acetate AND M9-glucose-aa</td><td>Summary statistics over PDMP trajectory ensembles (growth rate distribution, mean mRNA/protein abundances per gene, division-time CV) match the v2ecoli baseline distributions within specified tolerance across all ≥3 Phase 0 conditions. (Gat</td></tr><tr><td><code>markov-property-verified</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-segment</td><td>Between any two jump events, state evolves deterministically under the ODE; jump times follow ∫ λ(s) ds = E for E ~ Exp(1). Verified by re-simulating segments with the same RNG seed and checking bit-identical determinism.</td></tr><tr><td><code>uq-exponential-clock-anderson-darling</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-jump-process</td><td>Cumulative hazard ∫λ(s)ds at successive events for each jump process passes an Anderson-Darling Exp(1) test (α=0.05) over ≥10⁴ inter-event intervals. The smoking-gun correctness test for a stochastic-jump implementation.</td></tr><tr><td><code>uq-fpt-analytical-validation</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>analytical-test-problem</td><td>The first-passage implementation, applied to an OU process with analytically known FPT distribution, recovers the analytical CDF to KS distance &lt; 0.02 over N=10⁴ trajectories before being deployed on the WCM division mechanism.</td></tr><tr><td><code>uq-tau-leap-validity</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>tau-leaping-processes</td><td>For every τ-leaping jump process, the leap-condition (max Δλ/λ &lt; 0.03) is monitored; fraction of timesteps where it is violated must be &lt;0.1% across the run. Above threshold, τ is shrunk or the process is switched to exact SSA.</td></tr><tr><td><code>uq-trajectory-w2-mcse</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>N200-per-condition</td><td>Trajectory-distribution comparison vs v2ecoli baseline uses W₂ on summary distributions over N≥200 PDMP trajectories per condition; the W₂ MCSE is reported and required &lt;10% of the cross-condition effect size before any tolerance decisio</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Variants — planned configurations</h2>
+<p class='cap'>Distinct parameterisations / perturbations to be run.</p>
+<table class='ut'><thead><tr><th>name</th><th>description</th><th>params</th></tr></thead><tbody><tr><td><code>transcription-jump-from-kinetics</code></td><td>Replace v2ecoli&#x27;s scaled-Poisson transcription with continuous-time jumps from measured initiation/elongation rate constants. Propensity λ = k_init × [RNAP_free] × [promoter] for each gene.</td><td><code>{&#x27;backend&#x27;: &#x27;exact-SSA-or-tau-leap&#x27;, &#x27;leap_condition&#x27;: &#x27;Δλ/λ &lt; 0.03&#x27;}</code></td></tr><tr><td><code>translation-jump-from-kinetics</code></td><td>Same treatment for translation: propensity λ = k_elong × [ribosome_bound] × [aa_charged]. τ-leaping for the ribosome-elongation channel; exact next-reaction for rare initiation events.</td><td><code>{&#x27;backend&#x27;: &#x27;hybrid-tau-leap-plus-exact&#x27;}</code></td></tr><tr><td><code>division-first-passage</code></td><td>Cell division as a first-passage time on cell volume crossing a threshold under the coupled ODE+jump dynamics. Validated against the OU-process analytical FPT before deployment.</td><td><code>{&#x27;threshold_observable&#x27;: &#x27;cell_volume&#x27;, &#x27;validation&#x27;: &#x27;OU-FPT-analytical&#x27;}</code></td></tr><tr><td><code>competition-jumps</code></td><td>Replace v2ecoli&#x27;s global resource-reallocation correction step with affinity-based competition jumps. Each shared resource has affinity-weighted propensity to be drawn by each competing process.</td><td><code>{&#x27;affinities&#x27;: &#x27;from-Michaelis-constants&#x27;}</code></td></tr><tr><td><code>full-pdmp-coupled</code></td><td>Phase 1 ODE + all 4 jump processes coupled under the PDMP runner. The complete deliverable.</td><td><code>{&#x27;runner&#x27;: &#x27;Vivarium-PDMP-experimental&#x27;}</code></td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Proceed condition (gate to next phase)</h2>
+<p class='cap' style='white-space:pre-wrap'>Continuous-time jump propensities (transcription, translation, division, resource competition) pass the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS distance &lt; 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov property bit-verified.</p>
+</div>
+
+</body></html>

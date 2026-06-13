@@ -1,5 +1,5 @@
 {
-  "generated": "2026-06-12 15:22",
+  "generated": "2026-06-12 22:49",
   "v2ecoli": {
     "GLC[p]": -100.0,
     "OXYGEN-MOLECULE[p]": -9.349,
@@ -32,6 +32,14 @@
       "ACET[p]": 0.0,
       "AMMONIUM[c]": null,
       "SULFATE[p]": null
+    },
+    "fba-bridge": {
+      "GLC[p]": -100.0,
+      "OXYGEN-MOLECULE[p]": -25.711,
+      "CARBON-DIOXIDE[p]": 0.0,
+      "ACET[p]": 0.0,
+      "AMMONIUM[c]": -188.276,
+      "SULFATE[p]": -1.422
     }
   },
   "graded": {
@@ -66,6 +74,18 @@
       "n_matched": 2,
       "axes": {
         "fluxes.exchange": "within_tol"
+      }
+    },
+    "fba-bridge": {
+      "overall": "mismatch",
+      "r2": 0.6541547849550151,
+      "meter": "R\u00b2 = 0.6542 \u00b7 3 matched \u00b7 1 appeared \u00b7 1 lost",
+      "n_matched": 6,
+      "axes": {
+        "fluxes.exchange": "mismatch",
+        "metab.OXYGEN-MOLECULE[p]": "mismatch",
+        "metab.CARBON-DIOXIDE[p]": "mismatch",
+        "metab.AMMONIUM[c]": "within_tol"
       }
     }
   }

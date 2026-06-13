@@ -386,7 +386,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
       
       
       <p style="margin:0">
-        <strong>3</strong> tests defined —
+        <strong>4</strong> tests defined —
           <span class="classification-pill classification-primary">3 primary</span>
         <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
       </p>
@@ -414,7 +414,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
 
     <div class="study-counts-strip">
       <div class="count-cell">
-        <strong>4</strong>
+        <strong>5</strong>
         <span class="count-label">simulations</span>
       </div>
       <div class="count-cell">
@@ -426,7 +426,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
-        <strong>11</strong>
+        <strong>12</strong>
         <span class="count-label">runs</span>
       </div>
     </div>
@@ -462,7 +462,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         
         <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
         
-        <span class="cond-pill"><span class="cond-pill-k">solver_options</span>=<code>/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt</code></span>
+        <span class="cond-pill"><span class="cond-pill-k">solver_options</span>=<code></code></span>
         
       </div>
       
@@ -471,7 +471,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
 
     
     <div class="cond-block">
-      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(4)</span></div>
       <table class="cond-table">
         <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
         <tbody>
@@ -490,7 +490,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
                 
                 <div><span class="cond-pill-k">seed</span>=<code>0</code></div>
                 
-                <div><span class="cond-pill-k">solver_options</span>=<code>/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt</code></div>
+                <div><span class="cond-pill-k">solver_options</span>=<code></code></div>
                 
               
             </td>
@@ -511,7 +511,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
                 
                 <div><span class="cond-pill-k">seed</span>=<code>0</code></div>
                 
-                <div><span class="cond-pill-k">solver_options</span>=<code>/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt</code></div>
+                <div><span class="cond-pill-k">solver_options</span>=<code></code></div>
                 
               
             </td>
@@ -535,6 +535,25 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
             <td></td>
           </tr>
           
+          <tr>
+            <td><code>fba-bridge</code></td>
+            <td>
+              <code>v2ecoli.composites.millard_fba_bridge_harness</code>
+              
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></div>
+                
+                <div><span class="cond-pill-k">seed</span>=<code>0</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
         </tbody>
       </table>
     </div>
@@ -544,7 +563,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
     <div class="cond-block">
       
       <div class="cond-block-title">
-        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(5)</span>
+        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(7)</span>
         
       </div>
       <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
@@ -671,6 +690,64 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
           
           
           
+          <tr data-ei-name="fba-bridge-reference">
+            <td title=""><code>fba-bridge-reference</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('ketchup-exchange-comparison', 'fba-bridge-reference', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="ketchup-fdh-dynamic-figure">
+            <td title=""><code>ketchup-fdh-dynamic-figure</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('ketchup-exchange-comparison', 'ketchup-fdh-dynamic-figure', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
           <tr data-ei-name="glucose-normalized-multiaxis-cards">
             <td title=""><code>glucose-normalized-multiaxis-cards</code></td>
             <td></td>
@@ -714,7 +791,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
 
 
 <section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
-  <h3>Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(4 runs planned)</span></h3>
+  <h3>Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(5 runs planned)</span></h3>
   <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
   
   
@@ -833,6 +910,35 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
   </div>
   
   
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">fba-bridge</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.millard_fba_bridge_harness</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
 </section>
 
 
@@ -853,7 +959,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
           
           <tr><td><code>seed</code></td><td><code>0</code></td></tr>
           
-          <tr><td><code>solver_options</code></td><td><code>/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt</code></td></tr>
+          <tr><td><code>solver_options</code></td><td><code></code></td></tr>
           
         </tbody>
       </table>
@@ -1106,7 +1212,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
           
           <tr><td><code>seed</code></td><td><code>0</code></td></tr>
           
-          <tr><td><code>solver_options</code></td><td><code>/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt</code></td></tr>
+          <tr><td><code>solver_options</code></td><td><code></code></td></tr>
           
           </tbody>
         </table>
@@ -1136,7 +1242,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
           
           <tr><td><code>seed</code></td><td><code>0</code></td></tr>
           
-          <tr><td><code>solver_options</code></td><td><code>/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt</code></td></tr>
+          <tr><td><code>solver_options</code></td><td><code></code></td></tr>
           
           </tbody>
         </table>
@@ -1172,6 +1278,34 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <button class="btn-variant-edit" data-variant-name="v2ecoli-baseline">Edit params</button>
         <button class="btn-variant-delete" data-variant-name="v2ecoli-baseline">Delete</button>
         <button class="btn-variant-run" data-variant-name="v2ecoli-baseline">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="fba-bridge"
+             data-base-composite="ketchup-exchange-comparison">
+      <header class="variant-row-header">
+        <h3 class="variant-name">fba-bridge</h3>
+        <span class="variant-base">based on <code>ketchup-exchange-comparison</code></span>
+        <span class="variant-overrides-count muted">2 override(s)</span>
+      </header>
+      
+      <details class="variant-overrides-detail">
+        <summary>Parameter overrides</summary>
+        <table class="variant-overrides-table">
+          <tbody>
+          
+          <tr><td><code>cache_dir</code></td><td><code>out/cache</code></td></tr>
+          
+          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
+          
+          </tbody>
+        </table>
+      </details>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="fba-bridge">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="fba-bridge">Delete</button>
+        <button class="btn-variant-run" data-variant-name="fba-bridge">Run</button>
       </div>
     </article>
     
@@ -1416,10 +1550,55 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
                 
                 
               
+                
+              
               <span class="ok" title="authored pass">✓ 1</span>
               
               
               <span class="muted" style="font-size:0.85em"> (authored)</span>
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="">View</button>
+            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            <button class="btn-delete-run" data-run-id="">Delete</button>
+          </td>
+        </tr>
+        
+        
+        
+        <tr id="run-ketchup-fba-bridge-run"
+            data-run-id=""
+            data-spec-id=""
+            data-started-at="">
+          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
+          <td>
+            v2ecoli.composites.millard_fba_bridge_harness
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">v2ecoli.composites.millard_fba_bridge_harness</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-completed">completed</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+            
+              <span class="muted">—</span>
             
           </td>
           <td>
@@ -1807,6 +1986,11 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         
         
       
+        
+        
+      
+    
+  
     
   
     
@@ -1940,6 +2124,44 @@ expect:  {"op": "correlates", "r2_min": 0.8}</pre>
       
     </li>
     
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-v2ecoli-baseline-matches-fba-bridge-exchange"
+        data-pytest-node="v2ecoli-baseline-matches-fba-bridge-exchange"
+        data-classification="secondary"
+        data-result="PARTIAL"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fde68a; color: #92400e">◐ partial</span>
+        <span class="classification-pill classification-secondary">secondary</span>
+        <strong style="font-size: 0.9em;">v2ecoli-baseline-matches-fba-bridge-exchange</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">How close is the v2ecoli + Millard FBA-bridge exchange vector to the bare v2ecoli baseline (flux_scatter R^2)?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Report card: MISMATCH but the CLOSEST candidate (whole-vector R^2 = +0.65 — POSITIVE, vs the bare cores&#39; negative R^2; 3 matched, 1 appeared, 1 lost). Pinning v2ecoli&#39;s central-carbon FBA to the Millard ODE deepens respiration ~3× (O2 ≈ -26 vs baseline -9 per 100 glucose, toward but well below the cores&#39; -135) while keeping the baseline&#39;s acetate-free, CO2-quiet exchange signature. Live whole-cell run, viable (dry_mass 380→385 fg over 60 ticks).</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Whole-vector flux_scatter R^2 + per-metabolite rel_tol vs the live FBA-bridge exchange vector (time-averaged external_exchange_fluxes), via report_card.py.", "kind": "flux_scatter", "reference": "v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness, live run)"}
+expect:  {"op": "correlates", "r2_min": 0.8}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
   </ul>
   
 </section>
@@ -1948,6 +2170,90 @@ expect:  {"op": "correlates", "r2_min": 0.8}</pre>
   <div class="viz-section">
 
     
+    
+    <div class="embed-viz-section" style="margin-bottom:24px">
+      <h3 class="section-title">Embedded visualizations</h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Self-contained HTML pages produced by the study's runner. Each iframe
+        below is a standalone artefact you can also open in a separate tab.
+      </p>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">1-v2ecoli+millard-fba-bridge</strong>
+          <a href="/reports/figures/ketchup-exchange-comparison/1-v2ecoli+millard-fba-bridge.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (53 KB) from reports/figures/ketchup-exchange-comparison/.</p>
+        
+        <iframe src="/reports/figures/ketchup-exchange-comparison/1-v2ecoli+millard-fba-bridge.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="1-v2ecoli+millard-fba-bridge"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">2-ketchup-k-ecoli307</strong>
+          <a href="/reports/figures/ketchup-exchange-comparison/2-ketchup-k-ecoli307.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (48 KB) from reports/figures/ketchup-exchange-comparison/.</p>
+        
+        <iframe src="/reports/figures/ketchup-exchange-comparison/2-ketchup-k-ecoli307.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="2-ketchup-k-ecoli307"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">3-ketchup-k-ecoli74</strong>
+          <a href="/reports/figures/ketchup-exchange-comparison/3-ketchup-k-ecoli74.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (49 KB) from reports/figures/ketchup-exchange-comparison/.</p>
+        
+        <iframe src="/reports/figures/ketchup-exchange-comparison/3-ketchup-k-ecoli74.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="3-ketchup-k-ecoli74"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">4-millard2017-ode</strong>
+          <a href="/reports/figures/ketchup-exchange-comparison/4-millard2017-ode.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (29 KB) from reports/figures/ketchup-exchange-comparison/.</p>
+        
+        <iframe src="/reports/figures/ketchup-exchange-comparison/4-millard2017-ode.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="4-millard2017-ode"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">5-ketchup-fdh-dynamic</strong>
+          <a href="/reports/figures/ketchup-exchange-comparison/5-ketchup-fdh-dynamic.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (29 KB) from reports/figures/ketchup-exchange-comparison/.</p>
+        
+        <iframe src="/reports/figures/ketchup-exchange-comparison/5-ketchup-fdh-dynamic.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="5-ketchup-fdh-dynamic"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
     
 
     <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>

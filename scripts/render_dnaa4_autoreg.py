@@ -130,16 +130,30 @@ def render_charts(autoreg_dir: str, control_dir: str, out_dir: str) -> None:
         fig.savefig(f"{out_dir}/dnaa4_pool_band.{e}", dpi=140)
     plt.close(fig)
 
-    # 2) promoter occupancy swing + transcription factor — minutes + boundaries
-    fig, ax = plt.subplots(figsize=(10, 4.5))
-    sub = ad.filter(pl.col("generation") >= 3)
-    t = sub["abs_min"].to_numpy(); occ = sub["promoter_occ"].to_numpy()
-    ax.plot(t, occ, lw=0.8, color="#7c3aed", label="dnaA-promoter occupancy f")
-    ax.plot(t, 1.0 - 0.8 * occ, lw=0.8, color="#16a34a", label="transcription factor (Hill)")
-    _gridlines(ax, sub)
-    ax.set_ylim(0, 1.05); ax.set_xlabel("simulation time (min)"); ax.set_ylabel("fraction")
-    ax.set_title("dnaa-4: promoter occupancy drives transcription repression")
-    ax.legend(fontsize=8); fig.tight_layout()
+    # 2) The feedback loop, made legible — a 2-panel ZOOM to a few representative
+    #    generations (the old all-16-gen overlay filled into solid blocks). Top:
+    #    DnaA pool. Bottom: dnaA-promoter occupancy f. Aligned in time so the loop
+    #    reads directly: DnaA up -> promoter fills -> transcription repressed -> pool capped.
+    gens_all = sorted(set(int(g) for g in ad["generation"].to_list()))
+    win = [g for g in gens_all if g >= 6][:4] or [g for g in gens_all if g >= 3][:4]
+    sub = ad.filter(pl.col("generation").is_in(win))
+    t = sub["abs_min"].to_numpy(); bnd = _gen_boundaries(sub)
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    ax1.axhspan(300, 800, color="green", alpha=0.10, label="target band [300,800]")
+    ax1.plot(t, sub["total_dnaa"].to_numpy(), lw=1.2, color="#1f77b4")
+    ax1.set_ylabel("total DnaA\n(bulk+bound)"); ax1.legend(fontsize=7, loc="upper right")
+    ax1.set_title("dnaa-4: the autoregulation feedback loop (" + str(len(win)) + " representative generations)\n"
+                  "DnaA accumulates (top) → dnaA-promoter fills (bottom, f) → transcription repressed → DnaA pool capped",
+                  fontsize=10)
+    ax2.plot(t, sub["promoter_occ"].to_numpy(), lw=1.2, color="#7c3aed")
+    ax2.axhline(0.5, color="#9ca3af", ls=":", lw=0.8)
+    ax2.text(t[0], 0.53, "Hill K=0.5 (repression switch)", fontsize=7, color="#6b7280")
+    ax2.set_ylim(0, 1.05); ax2.set_ylabel("dnaA-promoter\noccupancy f")
+    ax2.set_xlabel("simulation time (min)  ·  dotted = cell division (lineage boundary)")
+    for ax in (ax1, ax2):
+        for b in bnd:
+            ax.axvline(b, color="#cbd5e1", lw=0.9, ls=":", zorder=0)
+    fig.tight_layout()
     for e in ("png", "svg"):
         fig.savefig(f"{out_dir}/dnaa4_promoter_swing.{e}", dpi=140)
     plt.close(fig)

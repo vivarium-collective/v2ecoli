@@ -20,7 +20,8 @@ import os
 import subprocess
 
 from v2ecoli.library.report_card import (
-    card_from_analysis, load_json, merge_vectors, render_html, render_markdown,
+    card_from_analysis, grade_card, load_json, merge_vectors, render_html,
+    render_markdown, verdict_json,
 )
 
 
@@ -76,6 +77,14 @@ def main() -> None:
     os.makedirs(out_dir, exist_ok=True)
     model_ref = args.model_ref or _git_sha()
     generated = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    import json
+    report = grade_card(card, reference)
+    with open(os.path.join(out_dir, "report_card_verdict.json"), "w", encoding="utf-8") as f:
+        json.dump(verdict_json(report, model_ref=model_ref,
+                               reference_model=reference.get("stimulus", {}).get(
+                                   "reference_model", reference.get("reference_model", "")),
+                               generated=generated), f, indent=2)
 
     md = render_markdown(card, reference, model_ref=model_ref, generated=generated)
     html = render_html(card, reference, model_ref=model_ref, generated=generated)

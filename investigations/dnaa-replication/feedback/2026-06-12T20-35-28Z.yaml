@@ -32,10 +32,12 @@ responses:
       (Hill mean 248-430 at V=1.5e-3, 238-450 at V=2.0e-3). That's HOMEOSTASIS — the autoregulation makes
       DnaA robust to V (working as designed), so V is the wrong lever, and V=2.0e-3 also destabilized the
       metabolism (NegativeCountsError ~gen7). The right lever is the FEEDBACK STRENGTH: weakening it
-      (Hill s 0.8->0.6) at a stable V=1.5e-3 lifted the setpoint into band — DnaA gen-mean 282-602, oscillating
-      within [300,800] vs the control's runaway (chart dnaa4_pool_band, updated). Brief cell-cycle-extreme
-      excursions remain (division-troughs ~250, pre-division peaks ~850); s~0.7 would tuck the peak under 800.
-      The homeostasis finding is now the headline of the dnaa-4 report.
+      (Hill s 0.8->0.6) at a stable V=1.5e-3 lifted the setpoint TOWARD band vs the control's runaway (chart
+      dnaa4_pool_band, updated). CORRECTION: the strict per-generation spine evaluator shows the s=0.6 setpoint
+      still dips below 300 on the trough gens (232-298), so DnaA is NEAR band but NOT cleanly in-band yet (band
+      test = PARTIAL) — s~0.7 (or higher) is genuinely needed to lift the homeostatic trough past 300, not just
+      cosmetic. cell-cycle-preserved PASSES (oriC 1<->2, periodic mass-doubling). The homeostasis finding (DnaA
+      robust to V; the lever is feedback strength) is the headline of the dnaa-4 report.
       (2) "Time axis in minutes + demarcate lineage boundaries." Done — the pool + promoter charts now use a
       simulation-time (min) x-axis with dotted vertical lines at each generation boundary.
   study-dnaa-4-autoregulation-charts:

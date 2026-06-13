@@ -148,27 +148,47 @@ tests:
 - name: dnaa-pool-self-stabilizes-in-band-no-V
   criterion: DnaA pool stays WITHIN [300,800] across ≥6 generations with NO V override (the thing a constitutive V could not do steadily).
   status: evaluated
-  result: PASS
-  detail: Hill s=0.6 holds DnaA gen-mean 282-602 oscillating within [300,800] across 16 gens (vs control 618-1178). Brief cell-cycle-extreme excursions (trough ~250, peak ~850); setpoint lifted via feedback strength not V.
+  result: PARTIAL
+  detail: 'NEAR band, not cleanly in: peak capped + amplitude dampened, but the strict per-gen evaluator shows trough gens 232-298 below the 300 floor. Needs s~0.7 (homeostatic setpoint lifted further). Computed FAIL (strict per-gen) vs PARTIAL human read.'
+  classification: primary
+  measure:
+    kind: generation_average
+    path: MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.chromosomal_high_bound_adp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_high_bound_adp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp + listeners.replication_data.promoter_high_bound_adp
+    window: gen_steady_state
+  pass_if:
+    op: generation_average_in_range
+    low: 300
+    high: 800
 - name: per-gen-drift-reduced-vs-fixed-V
   criterion: per-generation DnaA mean drift is reduced vs the fixed-V runs (which ramped 73→880 at V=1e-3).
   status: evaluated
   result: PASS
-  detail: 'Feedback dampens the amplitude: control 618-1178 -> Hill 248-430 (the fixed-V ramp is flattened).'
+  detail: 'Feedback dampens the amplitude vs fixed V (control 618-1178 -> autoreg ~280-600).'
+  classification: secondary
 - name: cell-cycle-preserved
   criterion: oriC 1↔2, one initiation per generation, periodic mass-doubling — preserved under feedback.
   status: evaluated
   result: PASS
-  detail: oriC 1<->2 (max 2, 0 re-init ticks), clean 16/16 divisions under feedback.
+  detail: oriC 1<->2 (1.72 in [1,2]), periodic mass-doubling, clean 16/16 divisions under feedback — code-confirmed.
+  classification: primary
+  measure:
+    kind: snapshot_window
+    path: listeners.replication_data.number_of_oric
+    window: full_lineage_from_gen_0
+  pass_if:
+    op: in_range
+    low: 1
+    high: 2
 - name: closes-the-v-tension-stretch
   criterion: STRETCH — holds the in-band pool AND the ~1/min dnaA init rate simultaneously (no constitutive V achieved both — the dnaa-1 tension).
   status: evaluated
 
   result: PARTIAL
-  detail: Caps the peak (1567->635) that no constitutive V could hold; full in-band + rate stretch needs calibration.
+  detail: Caps the peak the V-sweep showed no constitutive V could; full in-band not yet (band PARTIAL).
+  classification: stretch
 report:
   title: dnaa-4 — DnaA negative autoregulation (self-stabilizing the pool)
-  verdict: mechanism-validated-homeostasis; band-centering via feedback-strength (calibration pending)
+  verdict: mechanism-validated-homeostasis; NEAR-band (band PARTIAL, needs s~0.7); cell-cycle PASS
   confidence: demonstrated-mechanism
   evidence_quality: 3 completed 16-gen runs (control vs linear vs Hill autoreg, V=1.5e-3)
   objective: |
@@ -176,7 +196,7 @@ report:
     occupancy) so the DnaA pool self-stabilizes in-band without the manual V
     override, and test whether this dissolves the dnaa-1/dnaa-2 V tension + drift.
 
-  conclusion: "KEY FINDING — HOMEOSTASIS (V-sweep 0.70/1.0/1.5/2.0e-3): the autoregulation makes the DnaA level INSENSITIVE to the constitutive expression rate V. Raising V sends the no-autoregulation control over-shooting ever harder (steady-gen mean ~562 -> 662 -> 1178 -> 1815 at V=0.70/1.0/1.5/2.0e-3, peak to 2416), but the autoregulated run holds DnaA at a near-constant homeostatic setpoint (Hill mean 248-430 at V=1.5e-3, 238-450 at V=2.0e-3 — essentially unchanged). The feedback simply represses more as the dnaA-promoter saturates, cancelling the extra expression. This is the autoregulation working AS DESIGNED — a stronger result than landing any single V in band: the DnaA setpoint is robust to V and is tuned by the FEEDBACK STRENGTH (s, Hill K), NOT by V. (Corollary: Rashmi's 'increase V to lift DnaA into band' is cancelled by the homeostasis; and V=2.0e-3 also destabilized the metabolism — NegativeCountsError on PROTON ~gen 7. So band-centering proceeds via s / Hill-K at a stable V, e.g. s=0.6 — not via V.)\n\ndnaA self-autoregulation RESOLVES the V-tension the dnaa-3 V-sweep proved no constitutive V could: with feedback OFF (control, V=1.5e-3) the DnaA pool over-shoots (peak 1567, mean to 1178); with feedback ON it caps the peak hard (1567->635, ~2.5x) and dampens the cell-cycle amplitude. The repression FORM matters (Rashmi's open question, answered with data): the linear (1-0.8f) form over-represses the trough (216), so the Hill form (n=4,K=0.5) — less repression at low promoter occupancy — is correct, lifting the trough to 248. Re-initiation stays controlled (oriC<=2) throughout. NOT YET fully band-centered: the Hill trough sits ~50 below the 300 floor and ATP-fraction min ~0.04 below 0.2 — final centering is K/s/k_h calibration, not a mechanism question. Implementation note: the autoreg scaling required a probability renormalization (a review caught that scaling one TU in the multinomial distribution without renormalizing pile-up the freed mass on an arbitrary promoter).\n\nBAND-CENTERING (Rashmi 2026-06-12): since V is cancelled by the homeostasis, the setpoint was lifted into band by WEAKENING the feedback (Hill s 0.8->0.6) at a stable V=1.5e-3 — DnaA gen-mean now 282-602, oscillating within [300,800] vs the control's runaway to 1567 (run dnaa4_autoreg_hill_s06_v15e3). A feedback-strength trade-off remains: s=0.6 lifts the setpoint in-band but the peak grazes ~850; s=0.8 caps the peak at 635 but sits the setpoint low — s~0.7 is the likely balance. The cell-cycle amplitude is intrinsically near the band's full width."
+  conclusion: "KEY FINDING — HOMEOSTASIS (V-sweep 0.70/1.0/1.5/2.0e-3): the autoregulation makes the DnaA level INSENSITIVE to the constitutive expression rate V. Raising V sends the no-autoregulation control over-shooting ever harder (steady-gen mean ~562 -> 662 -> 1178 -> 1815 at V=0.70/1.0/1.5/2.0e-3, peak to 2416), but the autoregulated run holds DnaA at a near-constant homeostatic setpoint (Hill mean 248-430 at V=1.5e-3, 238-450 at V=2.0e-3 — essentially unchanged). The feedback simply represses more as the dnaA-promoter saturates, cancelling the extra expression. This is the autoregulation working AS DESIGNED — a stronger result than landing any single V in band: the DnaA setpoint is robust to V and is tuned by the FEEDBACK STRENGTH (s, Hill K), NOT by V. (Corollary: Rashmi's 'increase V to lift DnaA into band' is cancelled by the homeostasis; and V=2.0e-3 also destabilized the metabolism — NegativeCountsError on PROTON ~gen 7. So band-centering proceeds via s / Hill-K at a stable V, e.g. s=0.6 — not via V.)\n\ndnaA self-autoregulation RESOLVES the V-tension the dnaa-3 V-sweep proved no constitutive V could: with feedback OFF (control, V=1.5e-3) the DnaA pool over-shoots (peak 1567, mean to 1178); with feedback ON it caps the peak hard (1567->635, ~2.5x) and dampens the cell-cycle amplitude. The repression FORM matters (Rashmi's open question, answered with data): the linear (1-0.8f) form over-represses the trough (216), so the Hill form (n=4,K=0.5) — less repression at low promoter occupancy — is correct, lifting the trough to 248. Re-initiation stays controlled (oriC<=2) throughout. NOT YET fully band-centered: the Hill trough sits ~50 below the 300 floor and ATP-fraction min ~0.04 below 0.2 — final centering is K/s/k_h calibration, not a mechanism question. Implementation note: the autoreg scaling required a probability renormalization (a review caught that scaling one TU in the multinomial distribution without renormalizing pile-up the freed mass on an arbitrary promoter).\n\nBAND-CENTERING (Rashmi 2026-06-12): since V is cancelled by the homeostasis, the setpoint was lifted into band by WEAKENING the feedback (Hill s 0.8->0.6) at a stable V=1.5e-3 — DnaA gen-mean now 282-602, oscillating within [300,800] vs the control's runaway to 1567 (run dnaa4_autoreg_hill_s06_v15e3). A feedback-strength trade-off remains: s=0.6 lifts the setpoint in-band but the peak grazes ~850; s=0.8 caps the peak at 635 but sits the setpoint low — s~0.7 is the likely balance. The cell-cycle amplitude is intrinsically near the band's full width.\n\nCORRECTION (strict spine eval, 2026-06-12): the per-generation band evaluator shows the s=0.6 setpoint DIPS BELOW 300 on the trough gens (232-298) — so dnaa-4 is NEAR band (peak capped, amplitude dampened, cell cycle preserved/PASS) but NOT cleanly in-band; the 'gen-mean 282-602 in band' read was from a looser render-script window. Band test = PARTIAL (computed FAIL strict / PARTIAL human). s~0.7 is genuinely needed to lift the homeostatic trough past 300, not cosmetic polish."
 next_action: |
   1. Confirm the cheapest wiring: add the DnaA-ATP→TU00259 negative recruitment
      edge in ParCa (forced to survive the fit), calibrate basal, drop V, run →
@@ -200,16 +220,37 @@ runs:
   n_readouts: 196
   computed_outcomes:
     dnaa-pool-self-stabilizes-in-band-no-V:
-      evaluated_by: agent
-      reason: missing measure block
+      result: FAIL
+      measured_value:
+        3: 489.3774
+        4: 423.0441
+        5: 498.8818
+        6: 577.5241
+        7: 594.2511
+        8: 767.373
+        9: 793.2583
+        10: 817.275
+        11: 724.1201
+        12: 666.4538
+        13: 802.7243
+        14: 787.2839
+        15: 696.8732
+        16: 657.957
+        17: 654.0833
+      evaluated_by: code
+      operator: generation_average/generation_average_in_range
+      detail: 'gens out of [300.0, 800.0]: [(10, 817.275), (13, 802.724)]'
       reconcile: no_authored
     per-gen-drift-reduced-vs-fixed-V:
       evaluated_by: agent
       reason: missing measure block
       reconcile: no_authored
     cell-cycle-preserved:
-      evaluated_by: agent
-      reason: missing measure block
+      result: PASS
+      measured_value: 1.658637
+      evaluated_by: code
+      operator: snapshot_window/in_range
+      detail: 1.659 in [1.0, 2.0]
       reconcile: no_authored
     closes-the-v-tension-stretch:
       evaluated_by: agent
@@ -228,16 +269,37 @@ runs:
   n_readouts: 196
   computed_outcomes:
     dnaa-pool-self-stabilizes-in-band-no-V:
-      evaluated_by: agent
-      reason: missing measure block
+      result: FAIL
+      measured_value:
+        3: 246.5183
+        4: 197.3802
+        5: 272.2603
+        6: 232.7495
+        7: 264.408
+        8: 219.5082
+        9: 220.1812
+        10: 328.4757
+        11: 320.6085
+        12: 338.1102
+        13: 274.5487
+        14: 354.5495
+        15: 343.6913
+        16: 309.0551
+        17: 216.2
+      evaluated_by: code
+      operator: generation_average/generation_average_in_range
+      detail: 'gens out of [300.0, 800.0]: [(3, 246.518), (4, 197.38), (5, 272.26), (6, 232.749), (7, 264.408), (8, 219.508), (9, 220.181), (13, 274.549), (17, 216.2)]'
       reconcile: no_authored
     per-gen-drift-reduced-vs-fixed-V:
       evaluated_by: agent
       reason: missing measure block
       reconcile: no_authored
     cell-cycle-preserved:
-      evaluated_by: agent
-      reason: missing measure block
+      result: PASS
+      measured_value: 1.589419
+      evaluated_by: code
+      operator: snapshot_window/in_range
+      detail: 1.589 in [1.0, 2.0]
       reconcile: no_authored
     closes-the-v-tension-stretch:
       evaluated_by: agent
@@ -256,16 +318,37 @@ runs:
   n_readouts: 196
   computed_outcomes:
     dnaa-pool-self-stabilizes-in-band-no-V:
-      evaluated_by: agent
-      reason: missing measure block
+      result: FAIL
+      measured_value:
+        3: 290.8291
+        4: 234.5169
+        5: 243.0018
+        6: 247.1288
+        7: 209.9369
+        8: 206.2526
+        9: 236.8919
+        10: 325.3506
+        11: 254.0189
+        12: 209.0397
+        13: 201.5655
+        14: 216.785
+        15: 292.8516
+        16: 235.6719
+        17: 247.8191
+      evaluated_by: code
+      operator: generation_average/generation_average_in_range
+      detail: 'gens out of [300.0, 800.0]: [(3, 290.829), (4, 234.517), (5, 243.002), (6, 247.129), (7, 209.937), (8, 206.253), (9, 236.892), (11, 254.019), (12, 209.04), (13, 201.566), (14, 216.785), (15, 292.852), (16, 235.672), (17, 247.819)]'
       reconcile: no_authored
     per-gen-drift-reduced-vs-fixed-V:
       evaluated_by: agent
       reason: missing measure block
       reconcile: no_authored
     cell-cycle-preserved:
-      evaluated_by: agent
-      reason: missing measure block
+      result: PASS
+      measured_value: 1.682755
+      evaluated_by: code
+      operator: snapshot_window/in_range
+      detail: 1.683 in [1.0, 2.0]
       reconcile: no_authored
     closes-the-v-tension-stretch:
       evaluated_by: agent
@@ -284,18 +367,42 @@ runs:
   n_readouts: 196
   computed_outcomes:
     dnaa-pool-self-stabilizes-in-band-no-V:
-      evaluated_by: agent
-      reason: missing measure block
+      result: FAIL
+      measured_value:
+        3: 298.172
+        4: 231.8716
+        5: 272.6253
+        6: 322.2827
+        7: 311.1051
+        8: 301.5249
+        9: 429.5247
+        10: 430.9267
+        11: 306.1958
+        12: 254.2054
+        13: 418.0302
+        14: 355.9922
+        15: 307.1953
+        16: 292.6004
+        17: 282.1406
+      evaluated_by: code
+      operator: generation_average/generation_average_in_range
+      detail: 'gens out of [300.0, 800.0]: [(3, 298.172), (4, 231.872), (5, 272.625), (12, 254.205), (16, 292.6), (17, 282.141)]'
       reconcile: no_authored
     per-gen-drift-reduced-vs-fixed-V:
       evaluated_by: agent
       reason: missing measure block
       reconcile: no_authored
     cell-cycle-preserved:
-      evaluated_by: agent
-      reason: missing measure block
+      result: PASS
+      measured_value: 1.717973
+      evaluated_by: code
+      operator: snapshot_window/in_range
+      detail: 1.718 in [1.0, 2.0]
       reconcile: no_authored
     closes-the-v-tension-stretch:
       evaluated_by: agent
       reason: missing measure block
       reconcile: no_authored
+conclusion_logic:
+  if_primary_tests_pass: Autoregulation holds DnaA in-band with cell cycle preserved -> the V-tension is closed by feedback; proceed to multi-seed robustness + the ~1/min rate stretch.
+  if_primary_tests_fail: Tune the feedback strength (Hill s / K) at stable V to center the band; k_h for the ATP-fraction. The homeostasis means V is not the lever.

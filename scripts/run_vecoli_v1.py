@@ -40,12 +40,38 @@ try:
     sim.build_ecoli()
     load_time = time.time() - t0
 
+    def _find_base_reaction_ids(node, _seen=None):
+        """Recursively locate a metabolism process carrying base_reaction_ids
+        in the vivarium process tree. Best-effort: None if not found."""
+        ids = getattr(node, 'base_reaction_ids', None)
+        if ids is not None and hasattr(ids, '__len__') and len(ids) > 100:
+            return [str(x) for x in ids]
+        if isinstance(node, dict):
+            for v in node.values():
+                got = _find_base_reaction_ids(v)
+                if got:
+                    return got
+        return None
+
+    base_reaction_ids = _find_base_reaction_ids(sim.ecoli.processes)
+    flux_acc = [None, 0]  # mutable [sum_vector, n_ticks] for time-mean flux
+
     def snap(t):
         """Extract snapshot from the vivarium engine state."""
         from ecoli.library.schema import not_a_process
         state = experiment.state.get_value(condition=not_a_process)
         agents = state.get('agents', {})
         cell = next(iter(agents.values()), {}) if agents else {}
+        # Accumulate per-reaction base flux for the flux-divergence section.
+        brf = cell.get('listeners', {}).get('fba_results', {}).get('base_reaction_fluxes')
+        if brf is not None:
+            arr = np.asarray(brf, dtype=float)
+            if arr.ndim == 1 and arr.size:
+                if flux_acc[0] is None:
+                    flux_acc[0] = np.zeros_like(arr)
+                if flux_acc[0].shape == arr.shape:
+                    flux_acc[0] = flux_acc[0] + arr
+                    flux_acc[1] += 1
         mass = cell.get('listeners', {}).get('mass', {})
         unique = cell.get('unique', {})
         # Per-type active unique-molecule counts (rich species detail).
@@ -127,6 +153,13 @@ try:
         'speed': total / wall_time if wall_time > 0 else 0,
         'snapshots': snapshots,
     }
+
+    # Per-reaction time-mean FBA flux + labels (additive, best-effort).
+    if base_reaction_ids and flux_acc[0] is not None and flux_acc[1]:
+        _mean = flux_acc[0] / flux_acc[1]
+        if len(base_reaction_ids) == _mean.size:
+            result['base_reaction_ids'] = base_reaction_ids
+            result['base_reaction_flux_mean'] = [float(x) for x in _mean]
 
     with open(result_path, 'w') as f:
         json.dump(result, f)

@@ -5,7 +5,7 @@ created: '2026-06-09'
 status: active
 
 # This is a DEMONSTRATION investigation, not a hypothesis test. It walks a
-# reviewer through the v2ecoli pipeline end-to-end in five studies:
+# reviewer through the v2ecoli pipeline end-to-end in six studies:
 #   1. rebuild the ParCa in full from the ~133 ecoli-sources files,
 #   2. run the wild-type baseline single-cell→division ensemble and show it
 #      reproduces wild-type E. coli properties,
@@ -141,6 +141,7 @@ at_a_glance:
   - showcase-3-variant-decide: stop at a reviewer DECISION — which perturbation best demonstrates v2ecoli's response (4 candidates proposed)
   - showcase-4-variant-comparison: RUN all four candidates as a 5-variant sweep + 8 comparison figures; rank the contrasts (media-succinate strongest; ppGpp-off de-represses; dnaA-2x partial; elong-down near-null)
   - showcase-5-next-direction-decide: stop at the NEXT-direction DECISION, seeded from the showcase-4 ranking (deepen media / chase ppGpp-off / push dnaA / rescue elong-down)
+  - showcase-6-equivalence-large: apply the PR #134 report-card approach as a v1↔v2 EQUIVALENCE instrument at LARGE scale — a 16×16 baseline ensemble graded against a matched vEcoli reference (population_phenotype_basal vs_vecoli mode); reads whether the 8×16 equivalence picture holds at scale (Physiology/Composition/Ribosomes within tol, exchange-flux metabolism the divergence, gene expression correlated)
 
 studies:
 - showcase-1-parca
@@ -148,6 +149,7 @@ studies:
 - showcase-3-variant-decide
 - showcase-4-variant-comparison
 - showcase-5-next-direction-decide
+- showcase-6-equivalence-large
 
 acceptance_criteria:
 - {study: showcase-1-parca, behavior: parca-rebuilds-full-51-conditions-from-ecoli-sources}
@@ -155,6 +157,7 @@ acceptance_criteria:
 - {study: showcase-3-variant-decide, behavior: reviewer-selects-perturbation-variant-to-run}
 - {study: showcase-4-variant-comparison, behavior: five-variant-sweep-ranks-perturbation-contrasts-vs-baseline}
 - {study: showcase-5-next-direction-decide, behavior: reviewer-selects-next-direction-from-showcase-4-ranking}
+- {study: showcase-6-equivalence-large, behavior: large-16x16-baseline-ensemble-equivalent-to-vecoli-within-tolerance}
 
 proposed_inputs:
   _note: |

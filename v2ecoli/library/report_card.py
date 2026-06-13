@@ -132,6 +132,44 @@ def grade_card(card: dict, reference: dict) -> dict:
     return {"overall": worst, "axes": axes_out}
 
 
+def _slug_group(label: str) -> str:
+    """'Exchange fluxes' -> 'exchange_fluxes'; 'Gene expression' -> 'gene_expression'."""
+    return (label or "ungrouped").strip().lower().replace("&", "and").replace(" ", "_")
+
+
+def verdict_json(report: dict, *, model_ref: str = "", reference_model: str = "",
+                 generated: str = "") -> dict:
+    """Serialize a grade_card() report into the machine-readable v1 verdict schema.
+
+    grade_card returns FLAT axes keyed by path, each carrying a `group` label and
+    a `verdict`. This regroups them by slugged group name and computes each
+    group's verdict as the worst (most severe) axis verdict in that group.
+    """
+    groups: dict[str, dict] = {}
+    for path, ax in (report.get("axes") or {}).items():
+        gslug = _slug_group(ax.get("group", ""))
+        g = groups.setdefault(gslug, {"verdict": "ungraded", "axes": []})
+        v = ax.get("verdict", "ungraded")
+        g["axes"].append({
+            "id": path,
+            "label": ax.get("label", path),
+            "verdict": v,
+            "value": ax.get("value"),
+            "meter": ax.get("meter"),
+            "detail": ax.get("detail") or {},
+        })
+        if _RANK.get(v, 0) > _RANK.get(g["verdict"], 0):
+            g["verdict"] = v
+    return {
+        "schema": "report_card_verdict/v1",
+        "model_ref": model_ref,
+        "reference_model": reference_model,
+        "generated": generated,
+        "overall": report.get("overall", "ungraded"),
+        "groups": groups,
+    }
+
+
 def _fmt_value(a: dict) -> str:
     """The headline value cell. For vector axes (r2 / flux_scatter) the graded
     value is a unitless R² — show it as such; for scalar axes it's a measured

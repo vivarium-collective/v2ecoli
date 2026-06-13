@@ -88,6 +88,32 @@ def _fba_summary(cell):
     return out
 
 
+def _base_reaction_ids(cell):
+    """Labels for the base_reaction_fluxes vector, read off the live metabolism
+    process instance (config-only, not in the state tree). None if absent."""
+    node = cell.get('ecoli-metabolism')
+    inst = node.get('instance') if isinstance(node, dict) else None
+    ids = getattr(inst, 'base_reaction_ids', None)
+    return [str(x) for x in ids] if ids is not None and len(ids) else None
+
+
+def _accum_flux(cell, acc):
+    """Running (sum, count) of the per-reaction base flux vector, for a
+    time-mean over the run. Guards on shape so a malformed tick is skipped."""
+    brf = cell.get('listeners', {}).get('fba_results', {}).get('base_reaction_fluxes')
+    if brf is None:
+        return acc
+    arr = np.asarray(brf, dtype=float)
+    if arr.ndim != 1 or arr.size == 0:
+        return acc
+    s, n = acc
+    if s is None:
+        s = np.zeros_like(arr)
+    if s.shape != arr.shape:
+        return (s, n)
+    return (s + arr, n + 1)
+
+
 def snap(t, cell):
     mass = cell.get('listeners', {}).get('mass', {})
     unique = cell.get('unique', {})
@@ -131,6 +157,8 @@ load_time = time.time() - t0
 
 cell = composite.state['agents']['0']
 snapshots = [snap(0, cell)]
+base_reaction_ids = _base_reaction_ids(cell)
+flux_acc = (None, 0)  # (sum_vector, n_ticks) → time-mean per base reaction
 
 t0 = time.time()
 total = 0
@@ -164,6 +192,7 @@ while total < duration:
         'realtime_x': chunk / chunk_wall if chunk_wall else 0.0,
     })
     snapshots.append(snap(total, cell))
+    flux_acc = _accum_flux(cell, flux_acc)
 
 wall_time = time.time() - t0
 # ru_maxrss is bytes on macOS (darwin), kilobytes on Linux.
@@ -181,6 +210,15 @@ result = {
     'step_times': step_times,
     'snapshots': snapshots,
 }
+
+# Per-reaction time-mean FBA flux + labels, for the flux-divergence section
+# (additive; absent on engines without a metabolism listener).
+_fsum, _fn = flux_acc
+if base_reaction_ids and _fsum is not None and _fn:
+    _mean = (_fsum / _fn)
+    if len(base_reaction_ids) == _mean.size:
+        result['base_reaction_ids'] = base_reaction_ids
+        result['base_reaction_flux_mean'] = [float(x) for x in _mean]
 
 with open(result_path, 'w') as f:
     json.dump(result, f)

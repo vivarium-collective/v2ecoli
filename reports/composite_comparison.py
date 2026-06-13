@@ -177,6 +177,10 @@ def _metrics(data: dict) -> dict:
         "unique_final": (last.get("unique_counts") or {}),
         "_snaps": snaps,
         "_steps": steps,
+        # per-reaction time-mean FBA flux + labels (absent on engines without a
+        # metabolism listener / flux capture)
+        "_flux_ids": data.get("base_reaction_ids") or [],
+        "_flux_mean": data.get("base_reaction_flux_mean") or [],
     }
 
 
@@ -494,6 +498,187 @@ def _bridge_section(cols):
             f"<table><thead>{head}</thead><tbody>{''.join(rows)}</tbody></table>")
 
 
+# Materiality gates for the per-reaction flux diff: ignore numerically
+# negligible reactions (abs floor) and require a real relative gap so float
+# noise / tiny fluxes don't dominate the ranking.
+_FLUX_ABS_FLOOR = 1e-3   # mmol/gDCW/h — below this a reaction is ~inactive
+_FLUX_REL_GATE = 0.25    # ≥25% relative difference to count as "material"
+
+
+def _ec_bucket(rid):
+    """Coarse pathway bucket from the EC-class prefix of an EC-style id;
+    EcoCyc frame ids (RXN-…, TRANS-RXN…) fall through to 'named reaction'."""
+    parts = rid.split("-")[0].split(".")
+    if parts and parts[0].isdigit():
+        return {
+            "1": "oxidoreductase (redox)", "2": "transferase", "3": "hydrolase",
+            "4": "lyase", "5": "isomerase", "6": "ligase",
+            "7": "translocase/transport",
+        }.get(parts[0], "other (EC)")
+    if rid.startswith("TRANS-RXN") or rid.startswith("RXN0-") and "TRANS" in rid:
+        return "transport (named)"
+    return "named reaction"
+
+
+def _flux_divergence_section(cols, ref_idx=0):
+    """Per-reaction FBA flux divergence across engines — opens up the single
+    aggregate 'FBA objective' / 'central flux |mean|' numbers into which
+    specific base reactions (and pathways) actually carry different flux.
+
+    Each engine that captured per-reaction flux gets a column; divergence is
+    measured vs the reference engine. Ranked by |Δflux| vs reference.
+    """
+    fcols = [(i, c) for i, c in enumerate(cols)
+             if c.get("_flux_ids") and c.get("_flux_mean")]
+    if len(fcols) < 2:
+        return ""  # need ≥2 engines with per-reaction flux to compare
+
+    flux_is = [i for i, _ in fcols]
+    ref_i = ref_idx if ref_idx in flux_is else flux_is[0]
+    refc = cols[ref_i]
+    ref_map = dict(zip(refc["_flux_ids"], refc["_flux_mean"]))
+    maps = {i: dict(zip(c["_flux_ids"], c["_flux_mean"])) for i, c in fcols}
+    other_is = [i for i in flux_is if i != ref_i]
+
+    # union of reaction ids (reference order first, then any extras)
+    all_ids, seen = list(refc["_flux_ids"]), set(refc["_flux_ids"])
+    for i in other_is:
+        for r in cols[i]["_flux_ids"]:
+            if r not in seen:
+                seen.add(r); all_ids.append(r)
+
+    recs = []
+    for r in all_ids:
+        rv = ref_map.get(r)
+        maxabs = maxrel = 0.0
+        flip = False
+        for i in other_is:
+            v = maps[i].get(r)
+            if v is None or rv is None:
+                continue
+            d = abs(v - rv)
+            maxabs = max(maxabs, d)
+            maxrel = max(maxrel, d / max(abs(v), abs(rv), 1e-12))
+            if (rv > _FLUX_ABS_FLOOR and v < -_FLUX_ABS_FLOOR) or \
+               (rv < -_FLUX_ABS_FLOOR and v > _FLUX_ABS_FLOOR):
+                flip = True
+        recs.append({
+            "rid": r, "ref": rv, "vals": {i: maps[i].get(r) for i in other_is},
+            "bucket": _ec_bucket(r), "maxabs": maxabs, "maxrel": maxrel,
+            "flip": flip,
+            "material": maxabs >= _FLUX_ABS_FLOOR and maxrel >= _FLUX_REL_GATE,
+        })
+
+    material = sorted([x for x in recs if x["material"]],
+                      key=lambda x: x["maxabs"], reverse=True)
+    flips = [x for x in material if x["flip"]]
+
+    # structural set diff: reactions in the reference network missing from each
+    # other engine, and vice-versa
+    ref_set = set(refc["_flux_ids"])
+    struct = []
+    for i in other_is:
+        s = set(cols[i]["_flux_ids"])
+        struct.append((i, sorted(ref_set - s), sorted(s - ref_set)))
+
+    # pathway roll-up: Σ|Δflux| by EC bucket
+    bucket = {}
+    for x in material:
+        b = bucket.setdefault(x["bucket"], [0, 0.0])
+        b[0] += 1; b[1] += x["maxabs"]
+    pr = sorted(bucket.items(), key=lambda kv: kv[1][1], reverse=True)
+
+    def fmt(v):
+        return "—" if v is None else f"{v:.3g}"
+
+    # ---- structure summary ----
+    struct_lines = [f"<li>base reactions: " + ", ".join(
+        f"{html.escape(cols[i]['engine'])} <b>{len(cols[i]['_flux_ids'])}</b>"
+        for i in flux_is) + "</li>"]
+    for i, ref_missing, extra in struct:
+        en = html.escape(cols[i]["engine"])
+        rn = html.escape(refc["engine"])
+        bits = []
+        if ref_missing:
+            shown = ", ".join(f"<code>{html.escape(x)}</code>" for x in ref_missing[:8])
+            more = f" +{len(ref_missing)-8} more" if len(ref_missing) > 8 else ""
+            bits.append(f"{len(ref_missing)} in {rn} not in {en} ({shown}{more})")
+        if extra:
+            shown = ", ".join(f"<code>{html.escape(x)}</code>" for x in extra[:8])
+            more = f" +{len(extra)-8} more" if len(extra) > 8 else ""
+            bits.append(f"{len(extra)} in {en} not in {rn} ({shown}{more})")
+        struct_lines.append(f"<li>{en} vs {rn}: " +
+                            ("; ".join(bits) if bits else "identical reaction set") +
+                            "</li>")
+    n_shared = len([x for x in recs if x["ref"] is not None
+                    and all(x["vals"][i] is not None for i in other_is)])
+    struct_html = (f"<ul class='note' style='margin:0 0 12px;padding-left:18px'>"
+                   f"{''.join(struct_lines)}</ul>"
+                   f"<p class='note'><b>{len(material)}</b> reactions carry "
+                   f"materially different flux (|Δ| ≥ {_FLUX_ABS_FLOOR:g}, "
+                   f"rel ≥ {_FLUX_REL_GATE:.0%}) vs "
+                   f"{html.escape(refc['engine'])} (the reference).</p>")
+
+    # ---- pathway roll-up ----
+    pr_rows = "".join(
+        f"<tr><td class='metric'>{html.escape(name)}</td><td>{n}</td>"
+        f"<td>{tot:.3g}</td></tr>" for name, (n, tot) in pr[:14])
+    pr_html = (f"<table><thead><tr><th>Pathway / EC bucket</th>"
+               f"<th>#reactions</th><th>Σ|Δflux|</th></tr></thead>"
+               f"<tbody>{pr_rows}</tbody></table>")
+
+    # ---- sign-flip table ----
+    if flips:
+        head = "<tr><th>Reaction (direction differs)</th>" + "".join(
+            f"<th>{html.escape(cols[i]['engine'])}</th>" for i in flux_is) + "</tr>"
+        frows = []
+        for x in flips[:20]:
+            cells = [f"<td class='metric'><code>{html.escape(x['rid'])}</code></td>",
+                     f"<td>{fmt(x['ref'])}</td>"]
+            cells += [f"<td>{fmt(x['vals'][i])}</td>" for i in other_is]
+            frows.append("<tr>" + "".join(cells) + "</tr>")
+        flip_html = (f"<h3 style='font-size:14px;margin:18px 0 4px'>"
+                     f"Sign-flipped reactions ({len(flips)}) — flux reverses "
+                     f"direction</h3><table><thead>{head}</thead>"
+                     f"<tbody>{''.join(frows)}</tbody></table>")
+    else:
+        flip_html = ("<p class='note'>No reaction reverses direction between the "
+                     "engines.</p>")
+
+    # ---- top-N reactions ----
+    head = ("<tr><th>Reaction</th><th>Pathway/EC</th>"
+            + "".join(f"<th>{html.escape(cols[i]['engine'])}"
+                      + ("<div class='ref'>reference</div>" if i == ref_i else "")
+                      + "</th>" for i in flux_is)
+            + "<th>Δ vs ref</th><th>rel</th></tr>")
+    trows = []
+    for x in material[:40]:
+        cells = [f"<td class='metric'><code>{html.escape(x['rid'])}</code></td>",
+                 f"<td class='metric'>{html.escape(x['bucket'])}</td>",
+                 f"<td>{fmt(x['ref'])}</td>"]
+        cells += [f"<td>{fmt(x['vals'][i])}</td>" for i in other_is]
+        cells += [f"<td>{x['maxabs']:.3g}</td>", f"<td>{x['maxrel']:.0%}</td>"]
+        trows.append("<tr>" + "".join(cells) + "</tr>")
+    top_html = (f"<h3 style='font-size:14px;margin:18px 0 4px'>"
+                f"Top {min(40, len(material))} reactions by |Δflux| vs "
+                f"{html.escape(refc['engine'])}</h3>"
+                f"<table><thead>{head}</thead><tbody>{''.join(trows)}</tbody></table>")
+
+    return (f"<h2>Per-reaction flux divergence (metabolism deep-dive)</h2>"
+            f"<p class='note'>Opens up the single <em>FBA objective</em> / "
+            f"<em>central flux |mean|</em> numbers above: each row is a "
+            f"<b>base reaction</b> (isozyme / fwd-rev variants lumped), flux is "
+            f"the per-reaction signed mean over the run (mmol·gDCW⁻¹·h⁻¹). "
+            f"Caveat: FBA has <b>alternate optimal solutions</b>, so reversible "
+            f"reactions and TCA/PPP branch points can differ even at matched "
+            f"growth — a near-identical FBA objective can still hide per-pathway "
+            f"flux reshuffling, which is exactly what this section surfaces.</p>"
+            f"{struct_html}"
+            f"<h3 style='font-size:14px;margin:18px 0 4px'>Pathways with the "
+            f"largest flux divergence</h3>{pr_html}"
+            f"{flip_html}{top_html}")
+
+
 def build_html(results, duration, ref_idx=0):
     cols = [_metrics(r) for r in results]
     ref = cols[ref_idx]
@@ -542,6 +727,7 @@ def build_html(results, duration, ref_idx=0):
   <table><thead>{head}</thead><tbody>{''.join(body)}</tbody></table>
   {_runtime_section(cols)}
   {_bridge_section(cols)}
+  {_flux_divergence_section(cols, ref_idx)}
   {_overlay_section(cols)}
   {_trajectory_section(cols)}
   {_species_section(cols, ref_idx)}

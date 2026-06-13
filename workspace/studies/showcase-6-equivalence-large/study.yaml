@@ -15,7 +15,7 @@ design_status: complete
 implementation_status: complete   # config + card machinery (PR #134) in place
 simulation_status: complete       # v2 256/256 cells + vEcoli 185-cell matched reference run on the mini
 evaluation_status: evaluated      # 21-axis card graded: 12 within_tol / 6 drift / 3 mismatch
-gate_status: passed               # instrument ran end-to-end; equivalence picture characterized at scale
+gate_status: failed               # card-driven: 2 of 5 groups FAIL (exchange_fluxes O₂/CO₂ #143; gene_expression transcriptome below strict band). Equivalence criterion not fully met — partial equivalence (3/5 groups within tolerance).
 expert_review_status: pending
 
 question: |
@@ -196,51 +196,56 @@ tests:
   status: passed   # 4 within_tol / 2 minor drift (oriC -6.3%, repl-init -7.2%), no mismatch
   question: Is v2's physiology group (doubling time, cell mass/volume, oriC, replication timing) equivalent to vEcoli within tolerance at 16×16?
   measure:
-    kind: report_card_group
-    reference: vEcoli 16×16 (v1)
-    detail: "Physiology axes graded by ttest (Welch, magnitude bands + p-guard) vs the matched vEcoli reference; 4-state verdict per axis."
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: physiology
+    detail: "Physiology axes graded by ttest (Welch, magnitude bands + p-guard) vs the matched vEcoli reference; group verdict = worst axis (4 within_tol / 2 drift → drift → PASS+caveat)."
   pass_if:
-    op: equivalent_within_tol
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
 - name: composition-equivalent-to-vecoli
   classification: primary
   status: passed   # 3/3 within_tol (protein +3.3%, RNA -1.5%, DNA +1.0%)
   question: Are v2's biomass mass fractions (protein / RNA / DNA) equivalent to vEcoli within tolerance at 16×16?
   measure:
-    kind: report_card_group
-    reference: vEcoli 16×16 (v1)
-    detail: "Composition axes graded by ttest vs the matched vEcoli reference."
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: composition
+    detail: "Composition axes graded by ttest vs the matched vEcoli reference; group verdict = worst axis (3/3 within_tol → PASS)."
   pass_if:
-    op: equivalent_within_tol
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
 - name: ribosomes-equivalent-to-vecoli
   classification: primary
   status: passed   # 2 within_tol (active fraction, elongation) / 2 minor drift (total -5.8%, rRNA-init -8.7%), no mismatch
   question: Are v2's ribosome axes (total, active fraction, elongation rate, production) equivalent to vEcoli within tolerance at 16×16?
   measure:
-    kind: report_card_group
-    reference: vEcoli 16×16 (v1)
-    detail: "Ribosome axes graded by ttest; v1's 30S/50S counts read via a positional-bulk index adapter (IDs identical, only the access pattern differs)."
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: ribosomes
+    detail: "Ribosome axes graded by ttest; v1's 30S/50S counts read via a positional-bulk index adapter. Group verdict = worst axis (2 within_tol / 2 drift → drift → PASS+caveat)."
   pass_if:
-    op: equivalent_within_tol
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
 - name: exchange-fluxes-equivalent-to-vecoli
   classification: primary
   status: failed   # DIVERGENCE (expected, #143): O₂ -40.4% ✗ + CO₂ -20.3% ✗ mismatch; overall fingerprint R²=0.9989 ✓, glucose/ammonium ✓
   question: Are v2's exchange fluxes equivalent to vEcoli at 16×16, or does the #143 metabolic (O₂/CO₂) divergence persist at scale?
   measure:
-    kind: report_card_group
-    reference: vEcoli 16×16 (v1)
-    detail: "Exchange-flux signed scatter + KPIs vs the matched vEcoli reference; near-floor exchanges that flip on/off are shown but held below a significance floor so FBA jitter doesn't drive the verdict. #134's 8×16 demo found this group to be the divergence (O₂/CO₂ respiration deficit, issue #143)."
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: exchange_fluxes
+    detail: "Exchange-flux signed scatter + KPIs vs the matched vEcoli reference; near-floor exchanges held below a significance floor. Group verdict = worst axis (O₂/CO₂ mismatch → FAIL); overall fingerprint R²=0.9989. The #143 respiration divergence."
   pass_if:
-    op: equivalent_within_tol
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
 - name: gene-expression-correlates-vecoli
   classification: primary
-  status: partial   # highly correlated but below strict 0.99 band: transcriptome R²=0.946 ✗, proteome R²=0.961 ≈ drift
+  status: failed   # card worst-of: transcriptome R²=0.946 below strict 0.99 band → mismatch → FAIL (proteome R²=0.961 drift). Strict-band artifact; TOST would soften (see open question).
   question: Does v2's transcriptome/proteome correlate with vEcoli at 16×16 (and does the outlier-gene set stay coherent)?
   measure:
-    kind: report_card_group
-    reference: vEcoli 16×16 (v1)
-    detail: "Transcriptome + proteome graded by r2 over ensemble-mean count vectors; companion outlier-gene tables (top log2-fold-change disagreements, labelled with gene symbol + EcoCyc name). #134's 8×16 demo: R² ≈ 0.93–0.94, below the strict self-pin band; coherent outlier set (thr operon, cytochrome bd-I up in v2)."
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: gene_expression
+    detail: "Transcriptome + proteome graded by r2 over ensemble-mean count vectors; companion outlier-gene tables. Group verdict = worst axis: transcriptome R²=0.946 is below the strict 0.99 band → mismatch → FAIL (proteome R²=0.961 → drift). The strict-band threshold drives the FAIL; TOST + per-axis δ margins (see study open question) would express this as an equivalence-margin verdict instead."
   pass_if:
-    op: correlates
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
 
 discovery_implications:
   resolved_uncertainties:
@@ -256,7 +261,7 @@ pipeline_gate:
   prerequisites:
   - showcase-2-baseline-figures
   enables: []
-  gate_status: passed
+  gate_status: failed   # card-driven roll-up: exchange_fluxes + gene_expression FAIL (see gate_status note above)
 
 runs:
 - name: v2-16x16-parallel-ensemble
@@ -292,8 +297,8 @@ runs:
       result: FAIL
       detail: "DIVERGENCE (expected, issue #143): O₂ exchange Δ-40.4% ✗ and CO₂ exchange Δ-20.3% ✗ mismatch. Overall flux fingerprint R²=0.9989 ✓ (40 matched, 0 appeared/lost), glucose -4.4% ✓, ammonium -2.4% ✓, acetate near-floor drift. The respiratory-exchange divergence persists at 16×16."
     gene-expression-correlates-vecoli:
-      result: PARTIAL
-      detail: "Highly correlated but below the strict 0.99 band: transcriptome (mRNA cistrons) R²=0.9461 ✗, proteome (monomers) R²=0.9613 ≈ drift. Consistent with the 8×16 reading (R²≈0.93–0.94)."
+      result: FAIL
+      detail: "Card worst-of: transcriptome (mRNA cistrons) R²=0.9461 is below the strict 0.99 band → mismatch → FAIL; proteome (monomers) R²=0.9613 → drift. Highly correlated overall, consistent with the 8×16 reading (R²≈0.93–0.94); the FAIL is a strict-band artifact (TOST + per-axis δ margins would express it as an equivalence-margin verdict)."
 - name: vecoli-16x16-reference-ensemble
   status: completed
   kind: simulation

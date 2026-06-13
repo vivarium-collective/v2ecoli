@@ -15,6 +15,19 @@ def _fake_report():
     }
 
 
+def test_verdict_json_group_verdict_is_worst_of_axes():
+    report = {"overall": "drift", "axes": {
+        "ribosomes.total": {"group": "Ribosomes", "label": "Total", "verdict": "drift",
+            "value": 1.0, "meter": "", "detail": {}},
+        "ribosomes.active_fraction": {"group": "Ribosomes", "label": "Active", "verdict": "within_tol",
+            "value": 0.83, "meter": "", "detail": {}},
+    }}
+    vj = verdict_json(report)
+    g = vj["groups"]["ribosomes"]
+    assert g["verdict"] == "drift"          # worst of {drift, within_tol}
+    assert len(g["axes"]) == 2
+
+
 def test_verdict_json_groups_axes_and_slugs_group_names():
     vj = verdict_json(_fake_report(), model_ref="abc1234",
                       reference_model="vEcoli (v1)", generated="2026-06-13 00:00")

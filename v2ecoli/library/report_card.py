@@ -132,10 +132,6 @@ def grade_card(card: dict, reference: dict) -> dict:
     return {"overall": worst, "axes": axes_out}
 
 
-# Worst-first severity used to roll a group's axis verdicts into one verdict.
-_VERDICT_SEVERITY = {"mismatch": 3, "drift": 2, "within_tol": 1, "ungraded": 0}
-
-
 def _slug_group(label: str) -> str:
     """'Exchange fluxes' -> 'exchange_fluxes'; 'Gene expression' -> 'gene_expression'."""
     return (label or "ungrouped").strip().lower().replace("&", "and").replace(" ", "_")
@@ -162,7 +158,7 @@ def verdict_json(report: dict, *, model_ref: str = "", reference_model: str = ""
             "meter": ax.get("meter"),
             "detail": ax.get("detail") or {},
         })
-        if _VERDICT_SEVERITY.get(v, 0) > _VERDICT_SEVERITY.get(g["verdict"], 0):
+        if _RANK.get(v, 0) > _RANK.get(g["verdict"], 0):
             g["verdict"] = v
     return {
         "schema": "report_card_verdict/v1",

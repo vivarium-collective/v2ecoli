@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import os
 import subprocess
 
@@ -78,7 +79,6 @@ def main() -> None:
     model_ref = args.model_ref or _git_sha()
     generated = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    import json
     report = grade_card(card, reference)
     with open(os.path.join(out_dir, "report_card_verdict.json"), "w", encoding="utf-8") as f:
         json.dump(verdict_json(report, model_ref=model_ref,

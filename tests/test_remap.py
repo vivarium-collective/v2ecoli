@@ -99,3 +99,35 @@ def test_input_is_not_mutated():
     src = _fake_cell_state()
     remap_cell_state(src)
     assert 'bulk' in src and 'cell' not in src    # original untouched
+
+
+def test_biological_wraps_baseline_and_remaps(monkeypatch):
+    import v2ecoli.composites.biological as biomod
+
+    def fake_baseline(**kwargs):
+        return {
+            'state': {
+                'agents': {'0': {
+                    'bulk': [1],
+                    'unique': {'active_RNAP': [2]},
+                    'listeners': {'mass': {}},
+                    'global_time': 0.0,
+                    'emitter': {'_type': 'step', 'inputs': {'b': ['bulk']},
+                                'outputs': {}},
+                }},
+                'global_time': 0.0,
+            },
+            'skip_initial_steps': True,
+            'sequential_steps': False,
+            'flow_order': ['emitter'],
+        }
+
+    monkeypatch.setattr(biomod, 'baseline', fake_baseline)
+    doc = biomod.biological(seed=0)
+    agent = doc['state']['agents']['0']
+    assert set(agent) >= {'cell', 'clock', 'emitter'}
+    assert 'bulk' not in agent and 'unique' not in agent and 'listeners' not in agent
+    assert agent['emitter']['inputs']['b'] == ['cell', 'molecules']
+    # The outer document scaffolding is preserved verbatim.
+    assert doc['skip_initial_steps'] is True
+    assert doc['flow_order'] == ['emitter']

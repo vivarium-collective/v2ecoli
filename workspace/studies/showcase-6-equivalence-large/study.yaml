@@ -322,10 +322,10 @@ visualizations: []  # the report card is a self-contained pre-rendered HTML arti
 # inline-SVG HTML artifact (per-axis verdict tables for all 5 groups + violin /
 # log-log scatter / signed-flux plots + sim-health banner + gene-expression
 # outlier-gene tables). Surfaced in the dashboard study Visualizations tab as an
-# embedded iframe (auto-discovered from reports/figures/<study>/*.html and served
-# at /reports/figures/<study>/...). Canonical copy lives at
-# docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.html.
+# embedded iframe. The url points at the COMMITTED canonical card
+# (docs/report_cards/...) which the dashboard serves as a workspace-relative
+# static file — portable across checkouts (reports/figures/ is gitignored).
 embed_visualizations:
 - name: v1↔v2 equivalence report card (16×16)
-  url: /reports/figures/showcase-6-equivalence-large/report_card.html
+  url: /docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.html
   description: "21-axis v1↔v2 equivalence card at 16×16 — overall MISMATCH (12 within_tol / 6 drift / 3 mismatch), driven by O₂/CO₂ exchange (#143) + transcriptome R²=0.946. Rendered by reports/population_phenotype_basal_report.py against the v2 256-cell ensemble vs the pinned 185-cell vEcoli reference."

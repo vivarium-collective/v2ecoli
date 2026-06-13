@@ -8,11 +8,16 @@ def test_bulk_relocates_to_cell_molecules():
 def test_bulk_subpath_preserves_tail():
     assert remap_path(['bulk', 'count']) == ['cell', 'molecules', 'count']
 
-def test_unique_rnap_relocates_and_renames():
-    assert remap_path(['unique', 'active_RNAP']) == ['cell', 'transcription', 'rna_polymerases']
+def test_unique_relocates_whole_under_cell():
+    # Phase 1: `unique` relocates WHOLE (like `bulk`), not split per-molecule —
+    # division + the mass listeners consume the whole `unique` store through a
+    # single map-typed port, so molecules must stay co-located. The per-molecule
+    # biological split is deferred to Phase 2 (see UNIQUE_REMAP_PHASE2).
+    assert remap_path(['unique']) == ['cell', 'unique_molecules']
+    assert remap_path(['unique', 'active_RNAP']) == ['cell', 'unique_molecules', 'active_RNAP']
 
-def test_unique_chromosome_groups_under_chromosome():
-    assert remap_path(['unique', 'full_chromosome']) == ['cell', 'chromosome', 'full_chromosome']
+def test_unique_chromosome_molecule_stays_co_located():
+    assert remap_path(['unique', 'full_chromosome']) == ['cell', 'unique_molecules', 'full_chromosome']
 
 def test_listeners_subleaf_relocates():
     assert remap_path(['listeners', 'mass']) == ['cell', 'observables', 'mass']
@@ -70,8 +75,8 @@ def _fake_cell_state():
 def test_data_stores_move_to_biological_paths():
     out = remap_cell_state(_fake_cell_state())
     assert np.array_equal(out['cell']['molecules'], np.array([1, 2, 3]))
-    assert np.array_equal(out['cell']['transcription']['rna_polymerases'], np.array([10, 11]))
-    assert np.array_equal(out['cell']['chromosome']['full_chromosome'], np.array([7]))
+    assert np.array_equal(out['cell']['unique_molecules']['active_RNAP'], np.array([10, 11]))
+    assert np.array_equal(out['cell']['unique_molecules']['full_chromosome'], np.array([7]))
     assert out['cell']['observables']['mass'] == {'cell_mass': 4.0}
     assert out['clock']['global_time'] == 0.0
     assert out['machinery']['process_state'] == {'polypeptide_elongation': {'gtp_to_hydrolyze': 0}}
@@ -88,7 +93,7 @@ def test_edge_stays_at_root_and_wires_rewritten():
     edge = out['ecoli-metabolism']
     assert edge['_type'] == 'step'
     assert edge['inputs']['bulk'] == ['cell', 'molecules']
-    assert edge['inputs']['active_RNAP'] == ['cell', 'transcription', 'rna_polymerases']
+    assert edge['inputs']['active_RNAP'] == ['cell', 'unique_molecules', 'active_RNAP']
     assert edge['inputs']['mass'] == ['cell', 'observables', 'mass']
     assert edge['inputs']['global_time'] == ['clock', 'global_time']
     assert edge['inputs']['_layer_in_1'] == ['_layer_token_0']      # untouched

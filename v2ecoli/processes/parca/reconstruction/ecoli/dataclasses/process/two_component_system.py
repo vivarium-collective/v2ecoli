@@ -361,7 +361,10 @@ class TwoComponentSystem(object):
         like metabolites, ATP, etc.)
         """
         ids_complexes = self.complex_to_monomer.keys()
-        molecule_names = list(self.modified_molecules)
+        # `modified_molecules` is absent on TCS instances unpickled from a
+        # pre-port ParCa fixture; fall back to the original pool so cached
+        # sim_data keeps working until the fixture is regenerated.
+        molecule_names = list(getattr(self, "modified_molecules", self.molecule_names))
         stoichMatrixMonomersI = []
         stoichMatrixMonomersJ = []
         stoichMatrixMonomersV = []

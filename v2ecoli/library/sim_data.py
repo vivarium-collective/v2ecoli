@@ -1781,8 +1781,14 @@ class LoadSimData:
                 "id"
             ].tolist(),
             # Get IDs of complexed molecules monomers involved in two component system
+            # `modified_molecules` exists only on ParCa fixtures rebuilt after the
+            # TCS port; fall back to molecule_names for older cached sim_data.
             "two_component_system_molecule_ids": list(
-                self.sim_data.process.two_component_system.modified_molecules
+                getattr(
+                    self.sim_data.process.two_component_system,
+                    "modified_molecules",
+                    self.sim_data.process.two_component_system.molecule_names,
+                )
             ),
             "two_component_system_complex_ids": list(
                 self.sim_data.process.two_component_system.complex_to_monomer.keys()

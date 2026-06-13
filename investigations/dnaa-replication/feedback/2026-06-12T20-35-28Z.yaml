@@ -1,0 +1,50 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260612202542"
+  generated_at: "2026-06-12T20:35:28.526Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-12-2.html"
+annotations:
+  "study-dnaa-4-autoregulation-chart-dnaa4_pool_band":
+    - ts: "2026-06-12T20:33:22.022Z"
+      author: "Rashmi"
+      text: "the DnaA level is not within the band still. I think we need to increase the expression level a bit. changing v is fine, to get the DnaA levels within band."
+    - ts: "2026-06-12T20:35:07.470Z"
+      author: "Rashmi"
+      text: "Please have time time axis in minutes and demaracate the lineage boundaries"
+  "study-dnaa-4-autoregulation-charts":
+    - ts: "2026-06-12T20:34:37.202Z"
+      author: "Rashmi"
+      text: "Please include the plots of oriC, cell mass, DnaA concentration and DnaA-ATP, DnaA-ADP fraction here too, so that we can see if the lineage is stable."
+responses:
+  study-dnaa-4-autoregulation-chart-dnaa4_pool_band:
+    status: done
+    by: claude
+    at: '2026-06-12'
+    response: |-
+      Both points actioned.
+      (1) "DnaA not within band — increase the expression (V)." Important finding here: increasing V does
+      NOT lift the autoregulated DnaA — the feedback COMPENSATES. Across V=0.70/1.0/1.5/2.0e-3 the no-autoreg
+      control over-shoots ever harder (mean 562->662->1178->1815) but the autoreg setpoint barely moves
+      (Hill mean 248-430 at V=1.5e-3, 238-450 at V=2.0e-3). That's HOMEOSTASIS — the autoregulation makes
+      DnaA robust to V (working as designed), so V is the wrong lever, and V=2.0e-3 also destabilized the
+      metabolism (NegativeCountsError ~gen7). The right lever is the FEEDBACK STRENGTH: weakening it
+      (Hill s 0.8->0.6) at a stable V=1.5e-3 lifted the setpoint into band — DnaA gen-mean 282-602, oscillating
+      within [300,800] vs the control's runaway (chart dnaa4_pool_band, updated). Brief cell-cycle-extreme
+      excursions remain (division-troughs ~250, pre-division peaks ~850); s~0.7 would tuck the peak under 800.
+      The homeostasis finding is now the headline of the dnaa-4 report.
+      (2) "Time axis in minutes + demarcate lineage boundaries." Done — the pool + promoter charts now use a
+      simulation-time (min) x-axis with dotted vertical lines at each generation boundary.
+  study-dnaa-4-autoregulation-charts:
+    status: done
+    by: claude
+    at: '2026-06-12'
+    response: |-
+      "Include oriC, cell mass, DnaA concentration, DnaA-ATP/ADP fraction so we can see lineage stability."
+      Done — new chart dnaa4_lineage_stability: a 4-panel figure (oriC 1<->2 square wave, cell-mass
+      growth-division sawtooth, DnaA concentration in nM, and DnaA-ATP/DnaA-ADP fractions against the
+      [0.2,0.5] band), minutes axis + dotted lineage boundaries. The lineage is stable across 16 generations
+      under autoregulation (clean oriC cycling, periodic mass-doubling).

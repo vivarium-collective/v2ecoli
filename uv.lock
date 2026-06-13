@@ -2619,12 +2619,13 @@ xarray = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#37f6bcf25420d5fe9a78ae04601de94301b355bc" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#9718c135f0a33e09f4703783f3bb8c80f3d5b70c" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
+    { name = "pbg-emitters" },
     { name = "process-bigraph" },
     { name = "pypdf" },
     { name = "pyyaml" },

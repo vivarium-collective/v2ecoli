@@ -39,6 +39,7 @@ REMAP: dict[str, tuple[str, ...]] = {
     'next_update_time':   ('machinery', 'next_update_time'),
     'request':            ('machinery', 'request'),
     'allocate':           ('machinery', 'allocate'),
+    'pinned_flux_targets': ('machinery', 'pinned_flux_targets'),
     'global_time':        ('clock', 'global_time'),
     'timestep':           ('clock', 'timestep'),
     'divide':             ('clock', 'divide'),

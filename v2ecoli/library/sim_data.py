@@ -1781,8 +1781,14 @@ class LoadSimData:
                 "id"
             ].tolist(),
             # Get IDs of complexed molecules monomers involved in two component system
+            # `modified_molecules` exists only on ParCa fixtures rebuilt after the
+            # TCS port; fall back to molecule_names for older cached sim_data.
             "two_component_system_molecule_ids": list(
-                self.sim_data.process.two_component_system.molecule_names
+                getattr(
+                    self.sim_data.process.two_component_system,
+                    "modified_molecules",
+                    self.sim_data.process.two_component_system.molecule_names,
+                )
             ),
             "two_component_system_complex_ids": list(
                 self.sim_data.process.two_component_system.complex_to_monomer.keys()
@@ -1801,6 +1807,12 @@ class LoadSimData:
             # Get IDs of replisome subunits
             "replisome_trimer_subunits": self.sim_data.molecule_groups.replisome_trimer_subunits,
             "replisome_monomer_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
+            # Get the IDs of transcription factors (compartment-tagged), so the
+            # listener can fold bound-TF subunit counts back into the monomer total
+            "tf_ids": [
+                tf_id + f"[{self.sim_data.getter.get_compartment(tf_id)[0]}]"
+                for tf_id in self.sim_data.process.transcription_regulation.tf_ids
+            ],
             # Get stoichiometric matrices for complexation, equilibrium, two component system and the
             # assembly of unique molecules
             "complexation_stoich": self.sim_data.process.complexation.stoich_matrix_monomers(),

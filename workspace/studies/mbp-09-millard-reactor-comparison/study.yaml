@@ -5,7 +5,7 @@ phase: Design
 study_kind: diagnostic   # head-to-head comparison; categorizes divergences (report cards)
 
 design_status: drafted
-implementation_status: not_started
+implementation_status: in_progress
 simulation_status: not_run
 evaluation_status: not_evaluated
 expert_review_status: not_requested
@@ -18,6 +18,11 @@ baseline:
 - name: wcm-coupled
   composite: v2ecoli.composites.reactor_bird_coupled
   params: {seed: 0, cache_dir: out/cache}
+- name: millard-coupled
+  composite: v2ecoli.composites.reactor_bird_coupled_millard
+  params:
+    seed: 0
+    cache_dir: out/cache
 
 purpose:
   question: |
@@ -50,6 +55,7 @@ implementation_requirements:
     Millard-aware coupler input). This is the deferred Millard mass-exchange
     accounting (also unblocks the wcm-mass-conservation gate on the Millard cell).
   unblocks: [the Millard arm + wcm-mass-conservation-closes on baseline_millard]
+  status: done
 - id: req-2-millard-coupled-composite
   kind: composite
   effort: S
@@ -60,6 +66,7 @@ implementation_requirements:
     the Millard cell engine swapped in (the cell-side interface contract makes this
     a drop-in). Likely a `cell_engine` param on reactor_bird_coupled, or a sibling
     reactor_bird_coupled_millard.
+  status: done
 - id: req-3-beulig-report-card
   kind: harness
   effort: M

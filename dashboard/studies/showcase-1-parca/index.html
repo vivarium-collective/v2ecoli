@@ -22,6 +22,21 @@
 </header>
 
 
+
+<div class="composite-lint-banner" role="alert"
+     style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
+  
+  <div>⚠ composite not found in registry: <code>parca</code></div>
+  
+  <div style="margin-top:4px;font-size:0.86em;color:#a16207">
+    This study references a composite that doesn't resolve — it may not declare a
+    real, registered composite. Add a <code>.composite.yaml</code> and register it
+    in <code>core.py</code>, or fix the ref.
+  </div>
+</div>
+
+
+
 <div id="readiness-panel" data-slug="showcase-1-parca"></div>
 
 
@@ -231,12 +246,21 @@
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+        Verdict + main insight are <strong>computed</strong> from canonical
+        fields (gate evaluator · findings) and shown read-only; the report
+        also derives <code>title</code>, <code>objective</code>, and
+        <code>key_metrics</code> from canonical content. Author only the
+        reviewer-facing notes below (confidence · evidence quality · caveat).
+      </p>
       <div class="narrative-grid">
+        
         <label class="narrative-row">
           <span class="narrative-label">Verdict</span>
-          <input type="text" class="narrative-input" data-narrative-path="report.verdict"
-                 value="pass"
-                 placeholder="e.g. passing | passing-with-caveats | failing-bio | not-yet-run">
+          <span class="narrative-input verdict-badge-computed"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">needs_calibration</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
           <span class="narrative-label">Confidence</span>
@@ -253,12 +277,11 @@
                  value="direct-run"
                  placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
         </label>
-        <label class="narrative-row narrative-row-wide">
+        <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <textarea class="narrative-input narrative-textarea" rows="2"
-                    data-narrative-path="report.main_insight"
-                    placeholder="One sentence: the single most important thing this study taught us."></textarea>
-        </label>
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">(computed from findings in the report)
+            <span class="muted small">— computed from findings</span></span>
+        </div>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Caveat</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
@@ -272,21 +295,41 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
+      
+      <div style="margin-top:10px">
+        <button type="button" class="btn-view-skeptic action-btn"
+                style="font-size:0.85em" data-study="showcase-1-parca">🕵 View as skeptic</button>
+        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
+      </div>
     </div>
+
+    
+    
 
     <div class="biology-glance">
       
       <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about</h2>
+        <h2 class="biology-glance-label">Biology — what this study is about
+          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+        </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
                   placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+        
       </div>
 
       
       
+      
+      
+      
+      
+      
+      
       <div class="study-card">
-        <h2 class="biology-glance-label">Study card</h2>
+        <h2 class="biology-glance-label">Study card
+          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
+        </h2>
         <table class="study-card-table">
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
@@ -429,7 +472,7 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
-        <strong>1</strong>
+        <strong>2</strong>
         <span class="count-label">runs</span>
       </div>
     </div>
@@ -444,6 +487,34 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
 
 
 <section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+
+  
+  
+  <div class="overview-section" id="model-section">
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study runs</span></h3>
+    <p class="muted" style="font-size:0.88em">Every study runs at least one composite. Click a composite to open a static view in the bigraph-loom explorer.</p>
+    
+    <div class="cond-block">
+      <div class="cond-block-title">
+        showcase-1-parca
+        
+        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
+                onclick="_openCompositeLoom('parca')">🧬 parca — explore in bigraph-loom ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">mode</span>=<code>full</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache-showcase</code></span>
+        
+      </div>
+      
+    </div>
+    
+  </div>
+  
 
   
   
@@ -486,7 +557,34 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
 
 
 <section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
-  <h3>Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
+
+  
+  
+  <div class="overview-section" id="ran-section">
+    <h3>What we ran <span class="muted" style="font-size:0.85em;font-weight:normal">(composite + parameters)</span></h3>
+    <p class="muted" style="font-size:0.88em">The composite(s) this study simulated, their parameters, replication, and run status. Click a composite to open a static view in bigraph-loom.</p>
+    
+    <table class="cond-table" style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Run</th><th style="text-align:left">Composite</th><th style="text-align:left">Parameters</th><th style="text-align:left">Replication</th><th style="text-align:left">Status</th></tr></thead>
+      <tbody>
+      
+        <tr>
+          <td style="vertical-align:top"><strong>showcase-1-parca</strong></td>
+          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('parca')">🧬 parca ↗</button></td>
+          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">mode</span>=<code>full</code></span> <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache-showcase</code></span> </td>
+          <td style="vertical-align:top" class="muted small">2 run(s)</td>
+          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">completed</span></td>
+        </tr>
+      
+      </tbody>
+    </table>
+    
+    <p class="muted small" style="margin-top:6px">2 recorded run(s): <code>showcase1-parca-full-2026-06-09</code> (completed), <code></code> (completed)</p>
+  </div>
+  
+
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
   <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
   
   
@@ -510,12 +608,13 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 3 · 
-      <strong>Runs recorded:</strong> 1 (<code>showcase1-parca-full-2026-06-09</code>)
+      <strong>Runs recorded:</strong> 2 (<code>showcase1-parca-full-2026-06-09</code>)
     </p>
     
     
     
   </div>
+  
   
   
 </section>
@@ -566,7 +665,10 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
     <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
     
     
-    <p class="empty-message">No observables declared yet.</p>
+    
+    <div id="auto-readouts" data-composite="parca">
+      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
+    </div>
     
 
     <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
@@ -900,8 +1002,53 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="">View</button>
-            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
             <button class="btn-delete-run" data-run-id="">Delete</button>
+          </td>
+        </tr>
+        
+        
+        
+        <tr id="run-showcase1-parca-full-2026-06-09"
+            data-run-id="showcase1-parca-full-2026-06-09"
+            data-spec-id="showcase-1-parca"
+            data-started-at="">
+          <td><input type="checkbox" class="run-compare-checkbox" value="showcase1-parca-full-2026-06-09"></td>
+          <td>
+            baseline
+            
+              <div class="muted" style="font-size:0.78em">showcase1-parca-full-2026-06-09</div>
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">showcase-1-parca</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-completed">completed</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+            
+              <span class="muted">—</span>
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="showcase1-parca-full-2026-06-09">View</button>
+            
+            <button class="btn-delete-run" data-run-id="showcase1-parca-full-2026-06-09">Delete</button>
           </td>
         </tr>
         
@@ -950,6 +1097,8 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
         
         
       
+    
+  
     
   
   
@@ -1158,19 +1307,17 @@ expect:  {"op": "matches_reference"}</pre>
       Each track is independent. <em>Regression</em> answers "does the code
       still build and run cleanly?", <em>biological</em> answers "does the
       model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Set the result + basis for each as the runs
-      complete.
+      learn something new?". Each <strong>result is computed</strong> from
+      canonical fields (gate evaluator, run status, finding tiers) — author
+      only the <em>basis</em> (the rationale) for each track.
     </p>
     <div class="narrative-grid">
       <label class="narrative-row">
         <span class="narrative-label">Regression compatibility</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.regression_compatibility.result">
-          <option value="">(unset)</option>
-          <option value="PASS" >PASS</option>
-          <option value="FAIL" >FAIL</option>
-          <option value="MIXED" >MIXED</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+              title="Computed from run status (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from run status</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Regression basis</span>
@@ -1180,13 +1327,10 @@ expect:  {"op": "matches_reference"}</pre>
       </label>
       <label class="narrative-row">
         <span class="narrative-label">Biological validation</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.biological_validation.result">
-          <option value="">(unset)</option>
-          <option value="PASS" >PASS</option>
-          <option value="FAIL" >FAIL</option>
-          <option value="MIXED" >MIXED</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+              title="Computed from the gate evaluator (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Biological basis</span>
@@ -1196,13 +1340,10 @@ expect:  {"op": "matches_reference"}</pre>
       </label>
       <label class="narrative-row">
         <span class="narrative-label">Explanatory gain</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.explanatory_gain.result">
-          <option value="">(unset)</option>
-          <option value="POSITIVE" >POSITIVE</option>
-          <option value="NEUTRAL" >NEUTRAL</option>
-          <option value="NEGATIVE" >NEGATIVE</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+              title="Computed from interpretation-tier findings (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Explanatory basis</span>
@@ -1216,25 +1357,32 @@ expect:  {"op": "matches_reference"}</pre>
   
   
   
-  <div class="conclusions-grid">
+  
+  
+  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+    Synthesised read-only from canonical fields — edit <code>findings</code>,
+    <code>limitations</code>, and <code>discovery_implications</code> to change
+    this (and the generated report) together.
+  </p>
+  <div class="conclusions-grid conclusions-synthesis">
     <div class="conclusion-field">
-      <h3>Claims</h3>
-      <textarea id="conclusion-claims" rows="6" data-section="Claims"></textarea>
+      <h3>Claims <span class="muted small">(from findings)</span></h3>
+      <p class="muted">No findings recorded yet.</p>
     </div>
     <div class="conclusion-field">
-      <h3>Evidence</h3>
-      <textarea id="conclusion-evidence" rows="6" data-section="Evidence"></textarea>
+      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+      
+      <p class="muted">No evidence recorded on findings yet.</p>
     </div>
     <div class="conclusion-field">
-      <h3>Limitations</h3>
-      <textarea id="conclusion-limitations" rows="6" data-section="Limitations"></textarea>
+      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
+      <p class="muted">None recorded.</p>
     </div>
     <div class="conclusion-field">
-      <h3>Next steps</h3>
-      <textarea id="conclusion-next-steps" rows="6" data-section="Next steps"></textarea>
+      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
+      <p class="muted">No follow-up proposals recorded yet.</p>
     </div>
   </div>
-  <p class="muted">Saved as one markdown blob in study.yaml.conclusion with H2 headers.</p>
   
 
 </section>

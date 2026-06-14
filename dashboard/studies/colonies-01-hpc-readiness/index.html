@@ -24,6 +24,9 @@
 </header>
 
 
+
+
+
 <div id="readiness-panel" data-slug="colonies-01-hpc-readiness"></div>
 
 
@@ -233,12 +236,21 @@
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+        Verdict + main insight are <strong>computed</strong> from canonical
+        fields (gate evaluator · findings) and shown read-only; the report
+        also derives <code>title</code>, <code>objective</code>, and
+        <code>key_metrics</code> from canonical content. Author only the
+        reviewer-facing notes below (confidence · evidence quality · caveat).
+      </p>
       <div class="narrative-grid">
+        
         <label class="narrative-row">
           <span class="narrative-label">Verdict</span>
-          <input type="text" class="narrative-input" data-narrative-path="report.verdict"
-                 value=""
-                 placeholder="e.g. passing | passing-with-caveats | failing-bio | not-yet-run">
+          <span class="narrative-input verdict-badge-computed"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">passed</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
           <span class="narrative-label">Confidence</span>
@@ -255,12 +267,14 @@
                  value=""
                  placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
         </label>
-        <label class="narrative-row narrative-row-wide">
+        <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <textarea class="narrative-input narrative-textarea" rows="2"
-                    data-narrative-path="report.main_insight"
-                    placeholder="One sentence: the single most important thing this study taught us."></textarea>
-        </label>
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+DECREASE with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
+
+            <span class="muted small">— computed from findings</span></span>
+        </div>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Caveat</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
@@ -274,21 +288,63 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
+      
+      <div style="margin-top:10px">
+        <button type="button" class="btn-view-skeptic action-btn"
+                style="font-size:0.85em" data-study="colonies-01-hpc-readiness">🕵 View as skeptic</button>
+        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
+      </div>
     </div>
+
+    
+    
 
     <div class="biology-glance">
       
       <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about</h2>
+        <h2 class="biology-glance-label">Biology — what this study is about
+          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+        </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
                   placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+        
+        <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+          <em>Derived from findings (shown in the report when no override is set):</em>
+          <p style="margin:4px 0 0">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+DECREASE with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
+</p><p style="margin:4px 0 0">The GIL is the dominant bottleneck at colony scale. Process-bigraph
+composites are single-threaded by design — one process uses ~1 CPU core
+regardless of how many cells it holds. Scaling means more processes, not
+more cells/process.
+</p><p style="margin:4px 0 0">Steady-state per-cell RSS is ~450 MB, atop a ~1 GB Python baseline
+(ParCa + WCM imports + cached numpy arrays).
+</p><p style="margin:4px 0 0">pymunk 2D physics is essentially free at the N values we tested
+(≤ 0.2 ms/tick at N=8). All wall-time cost is the inner EcoliWCM.
+</p><p style="margin:4px 0 0">Three independent bugs blocked daughter hydration through the engine
+and had to be fixed before the Decide phase could run.
+</p><p style="margin:4px 0 0">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
+(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Indicates
+either accumulating state in the EcoliWCM internal composite or a leak;
+visible only in long runs, not in the 60s N-sweep windows.
+</p>
+        </div>
+        
       </div>
 
       
       
+      
+      
+      
+      
+      
+      
       <div class="study-card">
-        <h2 class="biology-glance-label">Study card</h2>
+        <h2 class="biology-glance-label">Study card
+          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
+        </h2>
         <table class="study-card-table">
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
@@ -300,13 +356,20 @@
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+DECREASE with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
+">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
                    value=""
-                   placeholder="Why this study must finish before the next one in the DAG.">
+                   placeholder="Build-phase acceptance test passes (N=2 pure-WC → 4 daughters,
+no manual hydration) AND the N-sweep completes for at least
+N ∈ {1,2,4}. N=8 is best-effort on a laptop and may be deferred
+to the HPC follow-up.
+">
           </td></tr>
           <tr><th>Expected result</th><td>
             <input type="text" class="narrative-input narrative-card-input"
@@ -776,6 +839,42 @@ to the HPC follow-up.
 
   
   
+  <div class="overview-section" id="model-section">
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study runs</span></h3>
+    <p class="muted" style="font-size:0.88em">Every study runs at least one composite. Click a composite to open a static view in the bigraph-loom explorer.</p>
+    
+    <div class="cond-block">
+      <div class="cond-block-title">
+        colony-pure-wc
+        
+        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
+                onclick="_openCompositeLoom('v2ecoli.composites.colony.colony')">🧬 colony.colony — explore in bigraph-loom ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>2</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">physics_interval</span>=<code>1.0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">ecoli_interval</span>=<code>1.0</code></span>
+        
+      </div>
+      
+    </div>
+    
+  </div>
+  
+
+  
+  
 
   
   <div class="overview-section">
@@ -866,7 +965,34 @@ so daughters tick normally after division.
 
 
 <section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
-  <h3>Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(6 runs planned)</span></h3>
+
+  
+  
+  <div class="overview-section" id="ran-section">
+    <h3>What we ran <span class="muted" style="font-size:0.85em;font-weight:normal">(composite + parameters)</span></h3>
+    <p class="muted" style="font-size:0.88em">The composite(s) this study simulated, their parameters, replication, and run status. Click a composite to open a static view in bigraph-loom.</p>
+    
+    <table class="cond-table" style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Run</th><th style="text-align:left">Composite</th><th style="text-align:left">Parameters</th><th style="text-align:left">Replication</th><th style="text-align:left">Status</th></tr></thead>
+      <tbody>
+      
+        <tr>
+          <td style="vertical-align:top"><strong>colony-pure-wc</strong></td>
+          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.colony.colony')">🧬 colony.colony ↗</button></td>
+          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span> <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span> <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>2</code></span> <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span> <span class="cond-pill"><span class="cond-pill-k">physics_interval</span>=<code>1.0</code></span> <span class="cond-pill"><span class="cond-pill-k">ecoli_interval</span>=<code>1.0</code></span> </td>
+          <td style="vertical-align:top" class="muted small">5 run(s)</td>
+          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">recorded</span></td>
+        </tr>
+      
+      </tbody>
+    </table>
+    
+    <p class="muted small" style="margin-top:6px">5 recorded run(s): <code></code> (—), <code></code> (—), <code></code> (—), <code></code> (—), <code></code> (—)</p>
+  </div>
+  
+
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(6 runs planned)</span></h3>
   <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
   
   
@@ -1130,6 +1256,7 @@ so daughters tick normally after division.
     
     
   </div>
+  
   
   
 </section>
@@ -1707,7 +1834,7 @@ pattern as per_cell_update_ms but on the multibody process.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="">View</button>
-            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
             <button class="btn-delete-run" data-run-id="">Delete</button>
           </td>
         </tr>
@@ -1758,7 +1885,7 @@ pattern as per_cell_update_ms but on the multibody process.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="">View</button>
-            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
             <button class="btn-delete-run" data-run-id="">Delete</button>
           </td>
         </tr>
@@ -1809,7 +1936,7 @@ pattern as per_cell_update_ms but on the multibody process.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="">View</button>
-            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
             <button class="btn-delete-run" data-run-id="">Delete</button>
           </td>
         </tr>
@@ -1860,7 +1987,7 @@ pattern as per_cell_update_ms but on the multibody process.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="">View</button>
-            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
             <button class="btn-delete-run" data-run-id="">Delete</button>
           </td>
         </tr>
@@ -1911,7 +2038,7 @@ pattern as per_cell_update_ms but on the multibody process.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="">View</button>
-            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
             <button class="btn-delete-run" data-run-id="">Delete</button>
           </td>
         </tr>
@@ -2243,19 +2370,17 @@ division spikes, and steady-state variance.
       Each track is independent. <em>Regression</em> answers "does the code
       still build and run cleanly?", <em>biological</em> answers "does the
       model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Set the result + basis for each as the runs
-      complete.
+      learn something new?". Each <strong>result is computed</strong> from
+      canonical fields (gate evaluator, run status, finding tiers) — author
+      only the <em>basis</em> (the rationale) for each track.
     </p>
     <div class="narrative-grid">
       <label class="narrative-row">
         <span class="narrative-label">Regression compatibility</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.regression_compatibility.result">
-          <option value="">(unset)</option>
-          <option value="PASS" >PASS</option>
-          <option value="FAIL" >FAIL</option>
-          <option value="MIXED" >MIXED</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+              title="Computed from run status (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from run status</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Regression basis</span>
@@ -2265,13 +2390,10 @@ division spikes, and steady-state variance.
       </label>
       <label class="narrative-row">
         <span class="narrative-label">Biological validation</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.biological_validation.result">
-          <option value="">(unset)</option>
-          <option value="PASS" >PASS</option>
-          <option value="FAIL" >FAIL</option>
-          <option value="MIXED" >MIXED</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+              title="Computed from the gate evaluator (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Biological basis</span>
@@ -2281,13 +2403,10 @@ division spikes, and steady-state variance.
       </label>
       <label class="narrative-row">
         <span class="narrative-label">Explanatory gain</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.explanatory_gain.result">
-          <option value="">(unset)</option>
-          <option value="POSITIVE" >POSITIVE</option>
-          <option value="NEUTRAL" >NEUTRAL</option>
-          <option value="NEGATIVE" >NEGATIVE</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+              title="Computed from interpretation-tier findings (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Explanatory basis</span>

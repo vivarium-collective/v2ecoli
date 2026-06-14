@@ -1202,18 +1202,110 @@
     container.innerHTML = html;
   }
 
+  // -------------------------------------------------------------------------
+  // Analyses page: a gallery of special, saved, interactive visualizations —
+  // embedded parsimony 3D scenes + a PTools Omics-Viewer launcher.
+  // Backed by GET /api/saved-visualizations.
+  // -------------------------------------------------------------------------
+
+  function _render3dVizCard(v) {
+    // Snapshot base-path: in a hosted read-only bundle (e.g. /v2ecoli/dashboard)
+    // both the parsimony viewer assets and the saved pack live under the base
+    // path, so prefix both. basePath is "" in local mode, leaving URLs unchanged.
+    var base = (window.DataSource && window.DataSource.basePath)
+      ? window.DataSource.basePath()
+      : ((window.__DASH_CONFIG__ && window.__DASH_CONFIG__.basePath) || "");
+    var packUrl = base + v.pack_url;
+    var src = base + '/parsimony-viewer/index.html?file=' + encodeURIComponent(packUrl);
+    var meta = [];
+    if (v.study) meta.push('study: ' + _esc(v.study));
+    if (v.n_placed) meta.push(Number(v.n_placed).toLocaleString() + ' instances');
+    return '<div class="analyses-card">' +
+      '<div class="analyses-card-head">' +
+        '<strong>' + _esc(v.name || '3D model') + '</strong>' +
+        '<a class="btn-mini" href="' + _esc(src) + '" target="_blank" rel="noopener" title="Open full-window in a new tab">Open &#8599;</a>' +
+      '</div>' +
+      (meta.length ? '<div class="muted" style="font-size:0.82em;margin:2px 0 6px">' + meta.join(' &middot; ') + '</div>' : '') +
+      '<iframe class="viz-embed" src="' + _esc(src) + '" loading="lazy" ' +
+        'style="width:100%;height:460px;border:1px solid #2a313c;border-radius:6px;background:#0e1116"></iframe>' +
+    '</div>';
+  }
+
+  function _renderPtoolsCard(ptools) {
+    ptools = ptools || {};
+    var studies = ptools.studies || [];
+    var html = '<div class="analyses-card">' +
+      '<div class="analyses-card-head"><strong>Pathway Tools &mdash; Omics Viewer</strong></div>' +
+      '<p class="muted" style="font-size:0.85em;margin:4px 0 8px">Overlay a study\'s PTools TSV exports onto the E. coli metabolic map in the Pathway Tools Omics Viewer.</p>';
+    if (!ptools.configured) {
+      html += '<p class="empty-state muted" style="margin:0">PTools not configured. Set <code>ui.ptools_server_url</code> in <code>workspace.yaml</code> to enable launching.</p>';
+    } else if (!studies.length) {
+      html += '<p class="empty-state muted" style="margin:0">No <code>ptools/*.tsv</code> exports found yet. Run a study\'s ptools analyses first.</p>';
+    } else {
+      html += '<div class="ptools-study-list">' + studies.map(function(s) {
+        return '<div class="picker-row">' +
+          '<div class="picker-row-main"><strong>' + _esc(s.study) + '</strong>' +
+            ' <span class="muted" style="font-size:0.82em">' + (s.n_tsvs || 0) + ' TSV' + (s.n_tsvs === 1 ? '' : 's') + '</span></div>' +
+          '<div class="picker-row-actions">' +
+            '<button class="btn-mini" onclick="_launchPtools(\'' + _esc(s.study) + '\')">Launch in Omics Viewer</button>' +
+          '</div>' +
+        '</div>';
+      }).join('') + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function _launchPtools(study) {
+    var url = '/api/ptools-launch/' + encodeURIComponent(study);
+    fetch(url).then(function(r) {
+      return r.json().then(function(d) { return { status: r.status, body: d }; });
+    }).then(function(res) {
+      var b = res.body || {};
+      if (res.status === 200 && b.url) {
+        window.open(b.url, '_blank');
+      } else if (b.error === 'ptools_server_url not configured') {
+        alert('PTools not configured.\nSet ui.ptools_server_url in workspace.yaml.');
+      } else {
+        alert('PTools launch failed: ' + (b.error || res.status));
+      }
+    }).catch(function(err) { alert('PTools launch failed: ' + err); });
+  }
+  window._launchPtools = _launchPtools;
+
   function _loadAnalysesPage() {
-    var container = document.getElementById('viz-picker-container');
+    var container = document.getElementById('analyses-gallery');
     var countEl   = document.getElementById('viz-count');
     if (!container) return;
-    window.DataSource.loadVisualizationClasses()
+    var _savedUrl = (window.DataSource && window.DataSource.savedVisualizationsUrl)
+      ? window.DataSource.savedVisualizationsUrl()
+      : '/api/saved-visualizations';
+    fetch(_savedUrl)
+      .then(function(r) { return r.json(); })
       .then(function(data) {
-        var classes = (data && data.classes) || [];
-        _renderAnalysesGroups(classes, container);
-        if (countEl) countEl.textContent = '(' + classes.length + ')';
+        data = data || {};
+        var saved  = data.saved || [];
+        var ptools = data.ptools || {};
+        var cards = [];
+        if (data.parsimony_available) {
+          cards = cards.concat(saved.map(_render3dVizCard));
+        } else if (saved.length) {
+          cards.push('<div class="analyses-card"><p class="empty-state muted" style="margin:0">' +
+            saved.length + ' saved 3D pack(s) found, but the <code>pbg_parsimony</code> viewer is not installed in this environment, so they cannot be embedded.</p></div>');
+        }
+        cards.push(_renderPtoolsCard(ptools));
+        if (!saved.length && !(ptools.studies || []).length && ptools.configured === false) {
+          // Still show the (empty) PTools card; only the 3D section is empty.
+        }
+        if (!cards.length) {
+          container.innerHTML = '<p class="empty-state">No saved visualizations yet. Run a parsimony packing composite or a PTools analysis to populate this gallery.</p>';
+        } else {
+          container.innerHTML = cards.join('');
+        }
+        if (countEl) countEl.textContent = saved.length ? '(' + saved.length + ')' : '';
       })
       .catch(function(err) {
-        container.innerHTML = '<p class="empty-state" style="color:#991b1b">Error loading classes: ' + _esc(String(err)) + '</p>';
+        container.innerHTML = '<p class="empty-state" style="color:#991b1b">Error loading saved visualizations: ' + _esc(String(err)) + '</p>';
       });
   }
   window._loadAnalysesPage = _loadAnalysesPage;
@@ -1387,6 +1479,61 @@
     el.innerHTML = html;
   }
 
+  // Render Analysis classes (v2ecoli ANALYSIS_REGISTRY entries) in the Registry
+  // Discovered → Analyses tab. These have {name, address, doc} shape (from
+  // /api/visualization-classes, kind === 'analysis') — no source/schema info.
+  function _renderAnalysisRegistryGrid(containerId, entries) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    if (!entries || !entries.length) {
+      el.innerHTML = '<p class="empty-state">No Analysis classes registered. Install a workspace that provides them (e.g. v2ecoli\'s <code>ANALYSIS_REGISTRY</code>).</p>';
+      return;
+    }
+    el.innerHTML = entries.map(function(c) {
+      return '<div class="registry-entry">' +
+        '<strong>' + _esc(c.name) + '</strong><br>' +
+        '<small><code>' + _esc(c.address) + '</code></small>' +
+        (c.doc ? '<br><small style="color:#666">' + _esc(c.doc) + '</small>' : '') +
+      '</div>';
+    }).join('');
+  }
+
+  // Enrich the Registry Discovered tabs with the class catalog that the Analyses
+  // page used to own: the v2ecoli Analysis classes (new Analyses tab) and any
+  // Visualization classes from _list_visualization_classes() not already present
+  // via build_core() introspection (so nothing is lost when moving the catalog
+  // here). Best-effort — a failure leaves the build_core-derived tabs intact.
+  function _enrichRegistryWithVizClasses(vizEntries) {
+    var entries = vizEntries || [];
+    var analyses = entries.filter(function(c) { return c.kind === 'analysis'; });
+    var vizzes   = entries.filter(function(c) { return c.kind !== 'analysis'; });
+
+    // Analyses tab.
+    _renderAnalysisRegistryGrid('registry-analyses-container', analyses);
+    var aCount = document.getElementById('registry-analysis-count');
+    if (aCount) aCount.textContent = analyses.length;
+
+    // Merge viz classes into the Visualizations tab. build_core entries already
+    // rendered there carry source info; append catalog-only ones (e.g.
+    // pbg_superpowers base classes) as framework so they show, deduped by name.
+    var existing = {};
+    document.querySelectorAll('#registry-visualizations-container .registry-entry strong')
+      .forEach(function(s) { existing[(s.textContent || '').trim()] = true; });
+    var extra = vizzes.filter(function(c) { return !existing[(c.name || '').trim()]; })
+      .map(function(c) {
+        return { name: c.name, address: c.address, source: 'framework', aliases: [] };
+      });
+    if (extra.length) {
+      var container = document.getElementById('registry-visualizations-container');
+      if (container) {
+        // Re-render with the union so source grouping stays correct.
+        var current = (window._registryVizEntries || []);
+        _renderRegistryGrid('registry-visualizations-container', current.concat(extra));
+      }
+    }
+  }
+  window._enrichRegistryWithVizClasses = _enrichRegistryWithVizClasses;
+
   function _renderRegistryTypesGrid(containerId, types) {
     var el = document.getElementById(containerId);
     if (!el) return;
@@ -1465,8 +1612,16 @@
         _renderRegistryGrid('registry-processes-container', byKind.process);
         _renderRegistryGrid('registry-steps-container', byKind.step);
         _renderRegistryGrid('registry-emitters-container', byKind.emitter);
+        window._registryVizEntries = byKind.visualization;
         _renderRegistryGrid('registry-visualizations-container', byKind.visualization);
         _renderRegistryTypesGrid('registry-types-container', types);
+
+        // Enrich Visualizations + populate the new Analyses tab from the class
+        // catalog (/api/visualization-classes) — the catalog the Analyses page
+        // used to own now lives in the Registry. Best-effort.
+        window.DataSource.loadVisualizationClasses()
+          .then(function(vc) { _enrichRegistryWithVizClasses((vc && vc.classes) || []); })
+          .catch(function() { _enrichRegistryWithVizClasses([]); });
 
         // Per-tab count badges: show workspace-declared count + total in parens.
         // "in_workspace" entries are the actionable ones; environment_only are dimmed.
@@ -3804,6 +3959,16 @@
       p = fetch(url).then(function(r) { return r.json(); });
     }
     p.then(function(data) {
+        if (data.unresolved) {
+          // Honest degrade: the ref doesn't resolve to a registered composite.
+          // Don't render a bare "error composite" node — explain it plainly.
+          document.getElementById('ce-loading').innerHTML =
+            '<div style="color:#92400e;background:#fffbeb;border:1px solid #f59e0b;' +
+            'border-radius:6px;padding:10px 14px">⚠ Composite not found in the ' +
+            'registry: <code>' + _esc(data.ref || id) + '</code>. This study may not ' +
+            'declare a real composite — check the study’s baseline composite ref.</div>';
+          return;
+        }
         if (data.error) {
           document.getElementById('ce-loading').innerHTML =
             '<span style="color:#c00">Error: ' + _esc(data.error) + '</span>';
@@ -5055,6 +5220,49 @@
   }
   window._closeInvestigationDetail = _closeInvestigationDetail;
 
+  // W13 — canonical DAG-edge read. The server already feeds
+  // normalize_dag_edges() output into each study's `parent_studies` key
+  // (carrying study/condition/relation/outputs_used), but prefer the raw
+  // canonical Pass A field `pipeline_gate.prerequisites` when a full spec is
+  // present so the renderer always reads the canonical location, never the
+  // legacy `parent_studies` field directly.
+  function _dagEdges(s) {
+    var pg = s && s.pipeline_gate;
+    var raw = (pg && pg.prerequisites && pg.prerequisites.length)
+                ? pg.prerequisites
+                : ((s && s.parent_studies) || []);
+    var out = [];
+    (raw || []).forEach(function(entry) {
+      if (typeof entry === 'string') {
+        out.push({ study: entry, condition: 'tests-passed', relation: 'leads-to' });
+      } else if (entry && entry.study) {
+        var e = {};
+        for (var k in entry) { if (entry.hasOwnProperty(k)) e[k] = entry[k]; }
+        if (!e.condition) e.condition = 'tests-passed';
+        if (!e.relation) {
+          e.relation = (e.outputs_used && e.outputs_used.length) ? 'model-input' : 'leads-to';
+        }
+        out.push(e);
+      }
+    });
+    return out;
+  }
+  // W13 — edge-relation vocabulary → stroke styling + legend label.
+  var _DAG_REL_STYLE = {
+    'leads-to':             { color: '#94a3b8', dash: null,  label: 'leads to' },
+    'model-input':          { color: '#2563eb', dash: null,  label: 'model input' },
+    'evidence':             { color: '#0d9488', dash: '5 3', label: 'evidence' },
+    'calibrates-threshold': { color: '#ca8a04', dash: '2 3', label: 'calibrates threshold' },
+    'refutes-alternative':  { color: '#dc2626', dash: '5 3', label: 'refutes alternative' },
+  };
+  function _dagRelStyle(rel) {
+    // Map legacy aliases onto the canonical vocabulary.
+    if (rel === 'regulatory') rel = 'calibrates-threshold';
+    if (rel === 'refutes')    rel = 'refutes-alternative';
+    if (rel === 'leads to')   rel = 'leads-to';
+    return _DAG_REL_STYLE[rel] || _DAG_REL_STYLE['leads-to'];
+  }
+
   // Layout + render the DAG of study nodes for the active investigation.
   // VERTICAL flow: y = topological depth (top = roots), x = within-depth slot.
   // Cards as absolute-positioned <div>s; edges as SVG cubic-Bezier paths.
@@ -5074,8 +5282,8 @@
     var children = {};
     studies.forEach(function(s) { byName[s.name] = s; children[s.name] = []; });
     studies.forEach(function(s) {
-      (s.parent_studies || []).forEach(function(p) {
-        var pn = p.study || p;
+      _dagEdges(s).forEach(function(p) {
+        var pn = p.study;
         if (children[pn]) children[pn].push(s.name);
       });
     });
@@ -5084,7 +5292,7 @@
     var depth = {};
     var queue = [];
     studies.forEach(function(s) {
-      if (!(s.parent_studies || []).length) { depth[s.name] = 0; queue.push(s.name); }
+      if (!_dagEdges(s).length) { depth[s.name] = 0; queue.push(s.name); }
     });
     var guard = studies.length * 4;
     while (queue.length && guard-- > 0) {
@@ -5227,33 +5435,39 @@
       'markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
       '<path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/></marker></defs>';
     studies.forEach(function(s) {
-      (s.parent_studies || []).forEach(function(p) {
-        var pn = p.study || p;
+      _dagEdges(s).forEach(function(p) {
+        var pn = p.study;
         if (!pos[pn] || !pos[s.name]) return;
         var x1 = pos[pn].x + CARD_W;
         var y1 = pos[pn].y + pos[pn].h / 2;
         var x2 = pos[s.name].x;
         var y2 = pos[s.name].y + pos[s.name].h / 2;
         var dx = Math.max(28, (x2 - x1) / 2);
+        var rel = p.relation || 'leads-to';
+        var st = _dagRelStyle(rel);
         var path = document.createElementNS(svgNS, 'path');
         path.setAttribute('d', 'M ' + x1 + ' ' + y1 +
                               ' C ' + (x1 + dx) + ' ' + y1 +
                               ', ' + (x2 - dx) + ' ' + y2 +
                               ', ' + x2 + ' ' + y2);
         path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', '#94a3b8');
+        path.setAttribute('stroke', st.color);
         path.setAttribute('stroke-width', '1.5');
         path.setAttribute('marker-end', 'url(#dag-arrowhead)');
+        if (st.dash) path.setAttribute('stroke-dasharray', st.dash);
         edgesSvg.appendChild(path);
-        var cond = (p.relation || 'leads to');
-        if (cond === 'regulatory' || cond === 'refutes') path.setAttribute('stroke-dasharray', '5 3');
+        var labelText = st.label;
+        // model-input edges name the consumed upstream outputs when present.
+        if (rel === 'model-input' && p.outputs_used && p.outputs_used.length) {
+          labelText += ' (' + p.outputs_used.join(', ') + ')';
+        }
         var label = document.createElementNS(svgNS, 'text');
         label.setAttribute('x', (x1 + x2) / 2);
         label.setAttribute('y', (y1 + y2) / 2 - 6);
         label.setAttribute('text-anchor', 'middle');
         label.setAttribute('font-size', '10');
-        label.setAttribute('fill', '#94a3b8');
-        label.textContent = cond;
+        label.setAttribute('fill', st.color);
+        label.textContent = labelText;
         edgesSvg.appendChild(label);
       });
     });
@@ -5277,12 +5491,24 @@
       };
       legendHost.style.cssText = 'display:flex;flex-wrap:wrap;align-items:center;' +
         'font-size:0.74em;color:#64748b;padding:8px 4px 0;border-top:1px solid #f1f5f9;margin-top:8px';
+      // W13 — edge-relation legend swatches (colored solid/dashed lines).
+      var _edgeLg = function(rel) {
+        var st = _dagRelStyle(rel);
+        var line = 'border-bottom:2px ' + (st.dash ? 'dashed' : 'solid') + ' ' + st.color;
+        return '<span style="display:inline-flex;align-items:center;gap:5px;margin-right:12px">' +
+          '<span style="width:18px;' + line + ';display:inline-block;line-height:0">&nbsp;</span>' +
+          '<span>' + st.label + '</span></span>';
+      };
       legendHost.innerHTML =
         '<span style="font-weight:600;color:#475569;margin-right:10px">Confidence:</span>' +
         _lg('#16a34a', '✓', 'Accepted') + _lg('#ca8a04', '◐', 'Investigating') +
         _lg('#2563eb', '○', 'Planned') + _lg('#dc2626', '✗', 'Refuted') +
-        '<span style="margin:0 14px 0 6px"><span style="color:#94a3b8">→</span> leads to</span>' +
-        '<span><span style="color:#94a3b8;letter-spacing:-1px">⤄</span> regulatory</span>';
+        '<span style="flex-basis:100%;height:0"></span>' +
+        '<span style="font-weight:600;color:#475569;margin:6px 10px 0 0">Edges:</span>' +
+        '<span style="margin-top:6px">' +
+          _edgeLg('leads-to') + _edgeLg('model-input') + _edgeLg('evidence') +
+          _edgeLg('calibrates-threshold') + _edgeLg('refutes-alternative') +
+        '</span>';
     }
   }
   window._renderInvestigationDag = _renderInvestigationDag;
@@ -5553,13 +5779,35 @@
           .then(function(r) { return r.ok ? r.json() : {repo: null}; })
           .then(function(j) { return (j && j.repo) || null; })
           .catch(function() { return null; });
+        // Evidence & rigor roll-up — deterministic skeptic-feedback computed
+        // by pbg_superpowers.rigor (replication, controls, alternatives,
+        // claim discipline, falsifiability, adversarial coverage).
+        var rigorFetch = fetch('/api/investigation-rigor?investigation=' + encodeURIComponent(iset.name))
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .catch(function() { return null; });
+        // Wave 3a #26 — framework-self metrics across every study + investigation
+        // (deterministic, pbg_superpowers.rigor.framework_metrics). Renders the
+        // "Framework scorecard" section. Best-effort: null → section omitted.
+        var fmFetch = fetch('/api/framework-metrics')
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .catch(function() { return null; });
+        // Wave 3b #6/#16 — competing hypotheses with the COMPUTED support_log
+        // (pbg_superpowers.hypotheses.rollup_support, via the report-data path).
+        // Best-effort: [] → the panel falls back to authored iset.hypotheses.
+        var hypFetch = fetch('/api/investigation-hypotheses?investigation=' + encodeURIComponent(iset.name))
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(j) { return (j && j.hypotheses) || null; })
+          .catch(function() { return null; });
         return Promise.all([Promise.all(studyFetches), bibFetch,
                             Promise.all(chartFetches), genFetch,
-                            ghRepoFetch]).then(function(arr) {
+                            ghRepoFetch, rigorFetch, fmFetch, hypFetch]).then(function(arr) {
           var chartsByStudy = {};
           arr[2].forEach(function(c) { chartsByStudy[c.name] = c.charts; });
           var generation = arr[3];
           var ghRepo = arr[4];
+          var rigor = arr[5];
+          var frameworkMetrics = arr[6];
+          var hypotheses = arr[7];
           // Second pass: now that we have the specs, fetch each study's
           // embed_visualizations URLs so the downloaded report can inline
           // them as <iframe srcdoc="...">. This makes the file truly
@@ -5594,7 +5842,8 @@
             });
             return {iset: iset, specs: specs, bibEntries: arr[1],
                     chartsByStudy: chartsByStudy, embedsByStudy: embedsByStudy,
-                    generation: generation, ghRepo: ghRepo};
+                    generation: generation, ghRepo: ghRepo, rigor: rigor,
+                    frameworkMetrics: frameworkMetrics, hypotheses: hypotheses};
           });
         });
       })
@@ -5602,7 +5851,8 @@
         var html = _buildInvestigationReportHtml(bundle.iset, bundle.specs,
                                                   bundle.bibEntries, bundle.chartsByStudy,
                                                   bundle.embedsByStudy, bundle.generation,
-                                                  bundle.ghRepo);
+                                                  bundle.ghRepo, bundle.rigor,
+                                                  bundle.frameworkMetrics, bundle.hypotheses);
         var dateStr = new Date().toISOString().slice(0, 10);
         var filename = 'investigation-' + name + '-' + dateStr + '.html';
         _triggerDownload(filename, html, 'text/html');
@@ -5755,12 +6005,678 @@
   };
 
   // Construct the report's HTML body from the investigation + per-study specs.
-  function _buildInvestigationReportHtml(iset, specs, bibEntries, chartsByStudy, embedsByStudy, generation, ghRepo) {
+  // Render the Evidence & rigor section from an /api/investigation-rigor payload
+  // (deterministic skeptic-feedback). Returns '' when no payload (older server /
+  // fetch failure) so the report degrades gracefully.
+  // ── C2 — derived 3-track conclusion verdicts (read-only, computed) ─────
+  // These three rules are kept IDENTICAL to single_study_report.py
+  // (_derive_conclusion_verdicts) and study-detail.js so every surface
+  // shows the same badge.
+  var _GATE_RESULT_NORM = {
+    pass: 'PASS', passed: 'PASS', ok: 'PASS',
+    fail: 'FAIL', failed: 'FAIL',
+    partial: 'PARTIAL', mixed: 'PARTIAL', needs_calibration: 'PARTIAL'
+  };
+  var _RUN_ERRORED = {error: 1, errored: 1, failed: 1, crashed: 1, fail: 1};
+  var _RUN_COMPLETED = {completed: 1, complete: 1, success: 1, succeeded: 1, ok: 1, done: 1, finished: 1};
+  var _TRACK_COLORS = {
+    PASS: ['#dcfce7', '#166534'], PARTIAL: ['#fef3c7', '#92400e'],
+    FAIL: ['#fee2e2', '#991b1b'], GAP: ['#f1f5f9', '#475569'], PENDING: ['#f1f5f9', '#475569']
+  };
+  function _normGateResult(v) {
+    return _GATE_RESULT_NORM[String(v == null ? '' : v).trim().toLowerCase()] || 'PENDING';
+  }
+  // W8 — per-finding evidential-weight chip. The weight is COMPUTED SERVER-SIDE
+  // (pbg_superpowers.rigor.finding_evidential_weight, carried on the finding as
+  // `_evidential_weight` via the report-data path) so the SPA just renders it —
+  // no JS recompute, no drift. Degrades to nothing when the field is absent.
+  var _WEIGHT_CHIP_COLORS = {
+    strong:   ['#dcfce7', '#166534'],
+    moderate: ['#fef9c3', '#854d0e'],
+    weak:     ['#fee2e2', '#991b1b']
+  };
+  function _findingWeightChip(w) {
+    if (!w || !w.weight) return '';
+    var c = _WEIGHT_CHIP_COLORS[w.weight] || ['#f1f5f9', '#475569'];
+    var label = _h(w.weight) + (typeof w.n_supporting === 'number' ? ' · ' + w.n_supporting + '/5' : '');
+    var title = '';
+    if (w.dims) {
+      var dims = []; for (var k in w.dims) { if (w.dims[k]) dims.push(k); }
+      title = ' title="evidence dims: ' + _h(dims.join(', ') || 'none') + '"';
+    }
+    return '<span class="finding-weight"' + title + ' style="display:inline-block;'
+      + 'padding:1px 8px;border-radius:9999px;background:' + c[0] + ';color:' + c[1] + ';'
+      + 'font-weight:600;font-size:0.72em;margin-left:6px;vertical-align:middle">'
+      + label + '</span>';
+  }
+  // Wave 3b — per-finding claim_scope (#21) / generality (#22) / lifecycle_state
+  // (#25) chips, beside the finding's tier/weight badges. Authored on the finding;
+  // the lifecycle FLOOR arrives via the report-data path as `_lifecycle_floor`
+  // (server-computed by pbg_superpowers.study_verdict.lifecycle_floor). Enums
+  // match the cross-repo contract + lib/single_study_report.py. Degrade to ''.
+  var _CLAIM_SCOPE_COLORS = {
+    'local-implementation': ['#f1f5f9', '#475569'],
+    mechanism:   ['#dbeafe', '#1e40af'],
+    behavioral:  ['#dcfce7', '#166534'],
+    theoretical: ['#ede9fe', '#6d28d9'],
+    generality:  ['#fef9c3', '#854d0e']
+  };
+  function _claimScopeChip(f) {
+    if (!f || typeof f !== 'object') return '';
+    var cs = f.claim_scope;
+    if (typeof cs !== 'string' || !cs.trim()) return '';
+    var v = cs.trim();
+    var c = _CLAIM_SCOPE_COLORS[v] || ['#fef9c3', '#854d0e'];
+    return '<span class="claim-scope" title="claim scope (critique #21)" style="display:inline-block;'
+      + 'padding:1px 8px;border-radius:9999px;background:' + c[0] + ';color:' + c[1] + ';'
+      + 'font-weight:600;font-size:0.72em;margin-left:6px;vertical-align:middle">scope: ' + _h(v) + '</span>';
+  }
+  var _GENERALITY_LEVEL_COLORS = {
+    instance_specific: ['#fee2e2', '#991b1b'],
+    mechanism:         ['#fef9c3', '#854d0e'],
+    framework:         ['#dcfce7', '#166534']
+  };
+  function _generalityChip(f) {
+    if (!f || typeof f !== 'object') return '';
+    var g = f.generality;
+    if (!g || typeof g !== 'object') return '';
+    var level = (typeof g.level === 'string') ? g.level.trim() : '';
+    var axes = g.axes_tested || [];
+    if (typeof axes === 'string') axes = [axes];
+    axes = axes.filter(Boolean).map(String);
+    if (!level && !axes.length) return '';
+    var c = _GENERALITY_LEVEL_COLORS[level] || ['#f1f5f9', '#475569'];
+    var label = 'generality' + (level ? ': ' + level : '');
+    if (axes.length) label += ' · ' + axes.length + ' ax' + (axes.length !== 1 ? 'es' : 'is');
+    var title = 'generality (critique #22) — axes tested: ' + (axes.join(', ') || 'none');
+    return '<span class="generality" title="' + _h(title) + '" style="display:inline-block;'
+      + 'padding:1px 8px;border-radius:9999px;background:' + c[0] + ';color:' + c[1] + ';'
+      + 'font-weight:600;font-size:0.72em;margin-left:6px;vertical-align:middle">' + _h(label) + '</span>';
+  }
+  var _LIFECYCLE_COLORS = {
+    observation:              ['#f1f5f9', '#475569'],
+    'candidate-explanation':  ['#e0e7ff', '#3730a3'],
+    'tested-vs-alternatives': ['#dbeafe', '#1e40af'],
+    'provisional-claim':      ['#fef9c3', '#854d0e'],
+    generalized:              ['#dcfce7', '#166534'],
+    retired:                  ['#fee2e2', '#991b1b'],
+    superseded:               ['#fee2e2', '#991b1b']
+  };
+  function _lifecycleChip(f) {
+    if (!f || typeof f !== 'object') return '';
+    var authored = (typeof f.lifecycle_state === 'string' && f.lifecycle_state.trim())
+      ? f.lifecycle_state.trim() : null;
+    var floor = (typeof f._lifecycle_floor === 'string' && f._lifecycle_floor.trim())
+      ? f._lifecycle_floor.trim() : null;
+    var state = authored || floor;
+    if (!state) return '';
+    var c = _LIFECYCLE_COLORS[state] || ['#f1f5f9', '#475569'];
+    var derived = !authored && !!floor;
+    var label = state + (derived ? ' · floor' : '');
+    var title = 'lifecycle state (critique #25)' + (derived ? ' — derived floor (no authored state)' : '');
+    return '<span class="lifecycle-state" title="' + _h(title) + '" style="display:inline-block;'
+      + 'padding:1px 8px;border-radius:9999px;background:' + c[0] + ';color:' + c[1] + ';'
+      + 'font-weight:600;font-size:0.72em;margin-left:6px;vertical-align:middle">' + _h(label) + '</span>';
+  }
+  function _findingChips(f) {
+    return _claimScopeChip(f) + _generalityChip(f) + _lifecycleChip(f);
+  }
+  // Wave 3b #9 — threshold provenance.kind chip (+ note in the tooltip) beside a
+  // pass_if band. DISTINCT from cites/calibration_anchor. Enum matches the
+  // cross-repo contract. Degrades to '' when no provenance is declared.
+  var _THRESHOLD_PROV_COLORS = {
+    theory:      ['#dbeafe', '#1e40af'],
+    calibration: ['#dcfce7', '#166534'],
+    literature:  ['#e0e7ff', '#3730a3'],
+    expert:      ['#fef9c3', '#854d0e'],
+    exploratory: ['#f1f5f9', '#475569'],
+    post_hoc:    ['#fee2e2', '#991b1b']
+  };
+  function _thresholdProvenanceChip(passIf) {
+    if (!passIf || typeof passIf !== 'object') return '';
+    var prov = passIf.provenance;
+    if (!prov || typeof prov !== 'object') return '';
+    var kind = prov.kind;
+    if (typeof kind !== 'string' || !kind.trim()) return '';
+    var v = kind.trim();
+    var c = _THRESHOLD_PROV_COLORS[v] || ['#fef9c3', '#854d0e'];
+    var note = (typeof prov.note === 'string') ? prov.note.trim() : '';
+    var title = 'threshold provenance (critique #9)' + (note ? ' — ' + note : '');
+    return '<span class="threshold-provenance" title="' + _h(title) + '" style="display:inline-block;'
+      + 'padding:1px 8px;border-radius:9999px;background:' + c[0] + ';color:' + c[1] + ';'
+      + 'font-weight:600;font-size:0.72em;margin-left:6px;vertical-align:middle">provenance: ' + _h(v) + '</span>';
+  }
+  function _deriveConclusionVerdicts(s) {
+    var authored = s.conclusion_verdicts || {};
+    var ge = (s.pipeline_gate || {}).gate_evaluator || {};
+    var bio = _normGateResult(ge.result || s.gate_status);
+
+    var runs = (s.runs || []).filter(function(r) { return r && typeof r === 'object'; });
+    var reg;
+    if (!runs.length) { reg = 'PENDING'; }
+    else {
+      var statuses = runs.map(function(r) { return String(r.status == null ? '' : r.status).trim().toLowerCase(); });
+      if (statuses.some(function(x) { return _RUN_ERRORED[x]; })) reg = 'FAIL';
+      else if (statuses.every(function(x) { return _RUN_COMPLETED[x]; })) reg = 'PASS';
+      else reg = 'PARTIAL';
+    }
+
+    var findings = (s.findings || []).filter(function(f) { return f && typeof f === 'object'; });
+    var exp;
+    if (!findings.length) exp = 'GAP';
+    else if (findings.some(function(f) { return f.tier === 'interpretation' || f.mechanism_origin; })) exp = 'PASS';
+    else exp = 'PARTIAL';
+
+    function basis(t) { var x = authored[t]; return (x && typeof x === 'object') ? (x.basis || '') : ''; }
+    return {
+      biological_validation:    {result: bio, basis: basis('biological_validation')},
+      regression_compatibility: {result: reg, basis: basis('regression_compatibility')},
+      explanatory_gain:         {result: exp, basis: basis('explanatory_gain')}
+    };
+  }
+  function _conclusionVerdictsHtml(s, slug) {
+    var cv = _deriveConclusionVerdicts(s);
+    var tracks = [
+      ['biological_validation', 'Biological validation', 'from gate evaluator'],
+      ['regression_compatibility', 'Regression compatibility', 'from run status'],
+      ['explanatory_gain', 'Explanatory gain', 'from interpretation-tier findings']
+    ];
+    var rows = tracks.map(function(t) {
+      var tr = cv[t[0]]; var res = tr.result;
+      var col = _TRACK_COLORS[res] || ['#f1f5f9', '#475569'];
+      var basisHtml = tr.basis
+        ? '<div style="color:#475569;font-size:0.9em;margin-top:2px">' + _multiline(tr.basis) + '</div>' : '';
+      return '<div style="padding:8px 0;border-top:1px solid #f1f5f9">'
+        + '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap">'
+        + '<span style="display:inline-block;min-width:11em;font-weight:600;color:#1e293b">' + _h(t[1]) + '</span>'
+        + '<span style="display:inline-block;padding:2px 10px;border-radius:9999px;background:' + col[0]
+        + ';color:' + col[1] + ';font-weight:700;font-size:0.85em">' + _h(res) + '</span>'
+        + '<span style="color:#94a3b8;font-size:0.82em">' + _h(t[2]) + ' · computed</span>'
+        + '</div>' + basisHtml + '</div>';
+    }).join('');
+    return '<div class="conclusion-verdicts" id="study-' + slug + '-verdicts">'
+      + '<h3>Conclusion verdicts</h3>'
+      + '<p class="muted small" style="margin:0 0 8px 0">Three-track verdict — each result is '
+      + '<strong>computed</strong> from canonical fields (gate evaluator, run status, finding tiers). '
+      + 'The basis is the author\'s rationale.</p>'
+      + rows + '</div>';
+  }
+  // C3 — read-only four-section synthesis sourced from canonical fields.
+  function _conclusionSynthesisHtml(s, slug) {
+    var findings = (s.findings || []).filter(function(f) { return f && typeof f === 'object'; });
+    var claims = findings.map(function(f) { return f.statement || f.summary; }).filter(Boolean);
+    var evidence = [];
+    findings.forEach(function(f) {
+      var ev = f.evidence;
+      if (ev && typeof ev === 'object') ev = ev.observed || ev.summary || ev.detail;
+      if (ev !== undefined && ev !== null && ev !== '') evidence.push(ev);
+    });
+    var limitations = s.limitations || [];
+    if (typeof limitations === 'string') limitations = [limitations];
+    var di = s.discovery_implications || {};
+    var nextSteps = [];
+    (di.followup_study_proposals || []).forEach(function(p) {
+      if (p && typeof p === 'object') { var t = p.title || p.id; if (t) nextSteps.push(t); }
+      else if (p) nextSteps.push(String(p));
+    });
+    var sections = [['Claims', claims], ['Evidence', evidence], ['Limitations', limitations], ['Next steps', nextSteps]];
+    var blocks = sections.map(function(pair) {
+      var items = (pair[1] || []).filter(Boolean);
+      if (!items.length) return '';
+      var lis = items.map(function(i) {
+        return '<li>' + _multiline(typeof i === 'string' ? i : (i.text || JSON.stringify(i))) + '</li>';
+      }).join('');
+      return '<div style="margin:10px 0"><strong style="color:#1e293b">' + _h(pair[0]) + '</strong>'
+        + '<ul style="margin:4px 0 0;padding-left:20px;color:#334155">' + lis + '</ul></div>';
+    }).join('');
+    if (!blocks) return '';
+    return '<div class="conclusion-synthesis" id="study-' + slug + '-synthesis">'
+      + '<h3>Conclusion synthesis</h3>'
+      + '<p class="muted small" style="margin:0 0 8px 0">Read-only synthesis derived from the study\'s '
+      + 'canonical fields (findings, limitations, follow-up proposals).</p>'
+      + blocks + '</div>';
+  }
+  // Item 13 — controls table + falsifiability statement verbatim.
+  function _controlsFalsifiabilityHtml(s, slug) {
+    var controls = (s.controls || []).filter(function(c) { return c && typeof c === 'object'; });
+    var fals = s.falsifiability;
+    var bits = '';
+    if (controls.length) {
+      var rows = controls.map(function(c) {
+        var res = String(c.result == null ? '' : c.result).toUpperCase();
+        var col = _TRACK_COLORS[res] || ['#f1f5f9', '#475569'];
+        var resHtml = res ? '<span style="padding:1px 8px;border-radius:9999px;background:' + col[0]
+          + ';color:' + col[1] + ';font-weight:600;font-size:0.82em">' + _h(res) + '</span>' : '';
+        return '<tr style="border-top:1px solid #f1f5f9;font-size:0.9em">'
+          + '<td style="padding:4px 8px">' + _h(c.name || '') + '</td>'
+          + '<td style="padding:4px 8px">' + _h(c.kind || '') + '</td>'
+          + '<td style="padding:4px 8px">' + _h(c.hypothesis || '') + '</td>'
+          + '<td style="padding:4px 8px">' + _h(c.expected || '') + '</td>'
+          + '<td style="padding:4px 8px">' + _h(c.observed || '') + '</td>'
+          + '<td style="padding:4px 8px">' + resHtml + '</td></tr>';
+      }).join('');
+      bits += '<div id="study-' + slug + '-controls" style="margin:10px 0">'
+        + '<strong style="color:#1e293b">Controls</strong>'
+        + '<table style="border-collapse:collapse;width:100%;margin-top:4px">'
+        + '<tr style="text-align:left;color:#475569;font-size:0.82em">'
+        + '<th style="padding:4px 8px">Name</th><th style="padding:4px 8px">Kind</th>'
+        + '<th style="padding:4px 8px">Hypothesis</th><th style="padding:4px 8px">Expected</th>'
+        + '<th style="padding:4px 8px">Observed</th><th style="padding:4px 8px">Result</th></tr>'
+        + rows + '</table></div>';
+    }
+    if (fals) {
+      bits += '<div id="study-' + slug + '-falsifiability" style="margin:10px 0;padding:8px 12px;'
+        + 'background:#f8fafc;border-left:4px solid #64748b;border-radius:4px">'
+        + '<strong style="color:#1e293b">Falsifiability:</strong> ' + _multiline(String(fals)) + '</div>';
+    }
+    return bits;
+  }
+
+  // ── Wave 2 — compositional causal discovery + semantic closure ─────────
+  // All consume data the model WRITES into study.yaml (composition_commitment,
+  // invariant_check, ablations, model_representation). Mirror the server-side
+  // renderers in single_study_report.py. Each degrades to '' when absent.
+  function _chipList(items, bg, fg) {
+    bg = bg || '#f1f5f9'; fg = fg || '#0f172a';
+    return (items || []).filter(function(i) { return i != null && i !== ''; })
+      .map(function(i) {
+        return '<span style="display:inline-block;padding:2px 9px;border-radius:9999px;background:'
+          + bg + ';color:' + fg + ';margin:2px;font-size:0.82em">' + _h(String(i)) + '</span>';
+      }).join('');
+  }
+
+  // C-COMMIT — "Theoretical commitment" panel. Invariants link to earlier
+  // studies (#study-<slug>); new behaviors link to the study's own tests fold.
+  function _compositionCommitmentHtml(s, slug) {
+    var cc = s.composition_commitment;
+    if (!cc || typeof cc !== 'object') return '';
+    var rows = [];
+    var added = cc.component_added;
+    if (typeof added === 'string') added = [added];
+    if (added && added.length) {
+      rows.push('<div style="margin:8px 0"><strong style="color:#1e293b">Component added</strong> '
+        + _chipList(added, '#e0e7ff', '#3730a3') + '</div>');
+    }
+    var deficit = cc.deficit_addressed;
+    if (deficit && typeof deficit === 'object') {
+      var note = deficit.note || '';
+      var gaps = deficit.closure_gap_item; if (typeof gaps === 'string') gaps = [gaps];
+      var gapHtml = (gaps && gaps.length)
+        ? ' <span style="color:#475569;font-size:0.85em">closes:</span> ' + _chipList(gaps, '#fee2e2', '#991b1b')
+        : '';
+      if (note || gapHtml) {
+        rows.push('<div style="margin:8px 0"><strong style="color:#1e293b">Deficit addressed</strong> '
+          + (note ? _multiline(String(note)) : '') + gapHtml + '</div>');
+      }
+    } else if (typeof deficit === 'string' && deficit) {
+      rows.push('<div style="margin:8px 0"><strong style="color:#1e293b">Deficit addressed</strong> '
+        + _multiline(deficit) + '</div>');
+    }
+    var nb = cc.new_behavior; if (typeof nb === 'string') nb = [nb];
+    if (nb && nb.length) {
+      var nbHtml = nb.filter(Boolean).map(function(t) {
+        return '<a href="#study-' + _h(slug) + '" style="display:inline-block;padding:2px 9px;'
+          + 'border-radius:9999px;background:#dcfce7;color:#166534;margin:2px;font-size:0.82em;'
+          + 'text-decoration:none">' + _h(String(t)) + '</a>';
+      }).join('');
+      rows.push('<div style="margin:8px 0"><strong style="color:#1e293b">New behavior</strong> ' + nbHtml + '</div>');
+    }
+    var inv = cc.invariants_required || [];
+    var invBits = inv.map(function(iv) {
+      if (iv && typeof iv === 'object') {
+        var study = iv.study || ''; var test = iv.test || '';
+        var label = study + (test ? ' · ' + test : '');
+        if (!label) return '';
+        return study
+          ? '<li><a href="#study-' + _h(study) + '"><code>' + _h(label) + '</code></a></li>'
+          : '<li><code>' + _h(label) + '</code></li>';
+      }
+      return iv ? '<li><code>' + _h(String(iv)) + '</code></li>' : '';
+    }).filter(Boolean).join('');
+    if (invBits) {
+      rows.push('<div style="margin:8px 0"><strong style="color:#1e293b">Invariants required</strong>'
+        + '<ul style="margin:4px 0 0;padding-left:20px;color:#334155;font-size:0.92em">' + invBits + '</ul></div>');
+    }
+    var ex = cc.alternatives_excluded; if (typeof ex === 'string') ex = [ex];
+    if (ex && ex.length) {
+      rows.push('<div style="margin:8px 0"><strong style="color:#1e293b">Alternatives excluded</strong> '
+        + _chipList(ex, '#fef9c3', '#854d0e') + '</div>');
+    }
+    if (!rows.length) return '';
+    return '<div class="composition-commitment" id="study-' + slug + '-commitment">'
+      + '<h3>Theoretical commitment</h3>'
+      + '<p class="muted small" style="margin:0 0 8px 0">What this study adds to its prerequisite — '
+      + 'the component introduced, the deficit it closes, the new behavior it unlocks, the earlier '
+      + 'invariants it must preserve, and the alternatives it excludes.</p>'
+      + rows.join('') + '</div>';
+  }
+
+  // C-INVAR — "Invariant checks" sub-section (invalidated/weakened first).
+  var _INVAR_STATUS_COLORS = {
+    invalidated: ['#fee2e2', '#991b1b'], weakened: ['#fef9c3', '#854d0e'],
+    preserved: ['#dcfce7', '#166534'], strengthened: ['#dbeafe', '#1e40af']
+  };
+  var _INVAR_STATUS_RANK = {invalidated: 0, weakened: 1, preserved: 2, strengthened: 3};
+  function _invariantChecksHtml(s, slug) {
+    var checks = (s.invariant_check || []).filter(function(c) { return c && typeof c === 'object'; });
+    if (!checks.length) return '';
+    checks = checks.slice().sort(function(a, b) {
+      var ra = _INVAR_STATUS_RANK[String(a.status || '').toLowerCase()];
+      var rb = _INVAR_STATUS_RANK[String(b.status || '').toLowerCase()];
+      return (ra == null ? 9 : ra) - (rb == null ? 9 : rb);
+    });
+    var rows = checks.map(function(c) {
+      var st = String(c.status || '').toLowerCase();
+      var col = _INVAR_STATUS_COLORS[st] || ['#f1f5f9', '#475569'];
+      var chip = '<span style="padding:1px 8px;border-radius:9999px;background:' + col[0] + ';color:'
+        + col[1] + ';font-weight:600;font-size:0.82em">' + _h(st || '—') + '</span>';
+      return '<tr style="border-top:1px solid #f1f5f9;font-size:0.9em">'
+        + '<td style="padding:4px 8px"><code>' + _h(c.study || '') + '</code></td>'
+        + '<td style="padding:4px 8px">' + _h(c.test || '') + '</td>'
+        + '<td style="padding:4px 8px">' + _h(c.prior == null ? '' : c.prior) + '</td>'
+        + '<td style="padding:4px 8px">' + _h(c.now == null ? '' : c.now) + '</td>'
+        + '<td style="padding:4px 8px">' + chip + '</td></tr>';
+    }).join('');
+    return '<div class="invariant-checks" id="study-' + slug + '-invariants">'
+      + '<h3>Invariant checks</h3>'
+      + '<p class="muted small" style="margin:0 0 8px 0">Earlier guarantees re-checked in the current '
+      + 'code state — prior vs current value and whether each was preserved. Invalidated / weakened first.</p>'
+      + '<table style="border-collapse:collapse;width:100%">'
+      + '<tr style="text-align:left;color:#475569;font-size:0.82em">'
+      + '<th style="padding:4px 8px">Study</th><th style="padding:4px 8px">Test</th>'
+      + '<th style="padding:4px 8px">Prior</th><th style="padding:4px 8px">Now</th>'
+      + '<th style="padding:4px 8px">Status</th></tr>' + rows + '</table></div>';
+  }
+
+  // C-CF — "Causal necessity" table from study.ablations[].
+  function _causalNecessityHtml(s, slug) {
+    var abl = (s.ablations || []).filter(function(a) { return a && typeof a === 'object'; });
+    if (!abl.length) return '';
+    var roleColors = {
+      necessary: ['#fee2e2', '#991b1b'], modulatory: ['#fef9c3', '#854d0e'],
+      redundant: ['#f1f5f9', '#475569']
+    };
+    var rows = abl.map(function(a) {
+      var target = a.target;
+      if (Array.isArray(target)) target = target.join('.');
+      var procTarget = _h(String(a.process == null ? '' : a.process))
+        + (target ? ' <code style="font-size:0.82em">' + _h(String(target)) + '</code>' : '');
+      var role = String(a.role || '').toLowerCase();
+      var col = roleColors[role] || ['#f1f5f9', '#475569'];
+      var roleHtml = '<span style="padding:1px 8px;border-radius:9999px;background:' + col[0]
+        + ';color:' + col[1] + ';font-weight:600;font-size:0.82em">' + _h(role || '—') + '</span>';
+      var nec = a.causally_necessary;
+      var necHtml = nec === true ? '✓' : (nec === false ? '✗' : '—');
+      return '<tr style="border-top:1px solid #f1f5f9;font-size:0.9em">'
+        + '<td style="padding:4px 8px">' + procTarget + '</td>'
+        + '<td style="padding:4px 8px"><code>' + _h(a.mode || '') + '</code></td>'
+        + '<td style="padding:4px 8px">' + _h(a.behavior_test || '') + '</td>'
+        + '<td style="padding:4px 8px">' + _h(String(a.baseline_result)) + ' → ' + _h(String(a.ablated_result)) + '</td>'
+        + '<td style="padding:4px 8px">' + roleHtml + '</td>'
+        + '<td style="padding:4px 8px;text-align:center;font-weight:700">' + necHtml + '</td></tr>';
+    }).join('');
+    return '<div class="causal-necessity" id="study-' + slug + '-causal">'
+      + '<h3>Causal necessity</h3>'
+      + '<p class="muted small" style="margin:0 0 8px 0">Counterfactual read of the ablation suite — '
+      + 'each component removed or perturbed, whether a behavior test flipped, and so whether it is '
+      + 'causally necessary (vs redundant or merely modulatory).</p>'
+      + '<table style="border-collapse:collapse;width:100%">'
+      + '<tr style="text-align:left;color:#475569;font-size:0.82em">'
+      + '<th style="padding:4px 8px">Process / target</th><th style="padding:4px 8px">Mode</th>'
+      + '<th style="padding:4px 8px">Behavior test</th><th style="padding:4px 8px">Baseline → ablated</th>'
+      + '<th style="padding:4px 8px">Role</th><th style="padding:4px 8px">Necessary</th></tr>'
+      + rows + '</table></div>';
+  }
+
+  // C-MODELCARD — "Representation claims" table from s.model_representation.
+  // (The full static model card is rendered server-side in single_study_report.py
+  // so it survives the static read-only bundle; here we surface the representation
+  // labels + closure status, which need no composite fetch.)
+  var _REPR_ROLE_COLORS = {
+    'inside': ['#f1f5f9', '#475569'], 'boundary-crossing': ['#dbeafe', '#1e40af'],
+    'derived': ['#ede9fe', '#6d28d9'], 'self-produced': ['#dcfce7', '#166534']
+  };
+  function _representationHtml(s, slug) {
+    var mr = s.model_representation;
+    if (!mr || typeof mr !== 'object') return '';
+    var cats = [
+      ['self-produced', mr.self_produced], ['derived', mr.derived],
+      ['boundary-crossing', mr.boundary], ['boundary-crossing', mr.requires],
+      ['inside', mr.provides], ['inside', mr.inside]
+    ];
+    var storeRole = {};
+    cats.forEach(function(pair) {
+      var lst = pair[1]; if (typeof lst === 'string') lst = [lst];
+      (lst || []).forEach(function(st) {
+        if (storeRole[String(st)] === undefined) storeRole[String(st)] = pair[0];
+      });
+    });
+    var gap = mr.gap; if (typeof gap === 'string') gap = [gap];
+    var gapSet = {}; (gap || []).forEach(function(g) { gapSet[String(g)] = 1; });
+    var rows = Object.keys(storeRole).sort().map(function(store) {
+      var role = storeRole[store];
+      var col = _REPR_ROLE_COLORS[role] || ['#f1f5f9', '#475569'];
+      var gapBadge = gapSet[store] ? ' <span style="padding:0 6px;border-radius:9999px;background:#fee2e2;'
+        + 'color:#991b1b;font-size:0.72em">unclosed gap</span>' : '';
+      return '<tr style="border-top:1px solid #f1f5f9;font-size:0.9em">'
+        + '<td style="padding:4px 8px"><code>' + _h(store) + '</code>' + gapBadge + '</td>'
+        + '<td style="padding:4px 8px"><span style="padding:1px 8px;border-radius:9999px;background:'
+        + col[0] + ';color:' + col[1] + ';font-weight:600;font-size:0.82em">' + _h(role) + '</span></td></tr>';
+    }).join('');
+    function closureChip(label, closed) {
+      var bg, fg, txt;
+      if (closed === true) { bg = '#dcfce7'; fg = '#166534'; txt = 'CLOSED'; }
+      else if (closed === false) { bg = '#fee2e2'; fg = '#991b1b'; txt = 'OPEN'; }
+      else { bg = '#f1f5f9'; fg = '#475569'; txt = '—'; }
+      return '<span style="margin-right:12px">' + _h(label) + ': <span style="padding:1px 8px;'
+        + 'border-radius:9999px;background:' + bg + ';color:' + fg + ';font-weight:700;font-size:0.82em">'
+        + txt + '</span></span>';
+    }
+    var semantic = (mr.semantic && typeof mr.semantic === 'object') ? mr.semantic : {};
+    var closureHtml = '<div style="margin:10px 0">'
+      + closureChip('Interface closure', mr.interface_closed)
+      + closureChip('Semantic closure', semantic.semantically_closed) + '</div>';
+    var tableHtml = rows ? ('<table style="border-collapse:collapse;width:100%;margin-top:4px">'
+      + '<tr style="text-align:left;color:#475569;font-size:0.82em">'
+      + '<th style="padding:4px 8px">Store</th><th style="padding:4px 8px">Representation</th></tr>'
+      + rows + '</table>') : '';
+    if (!rows && mr.interface_closed == null && semantic.semantically_closed == null) return '';
+    return '<div class="representation-claims" id="study-' + slug + '-representation">'
+      + '<h3>Representation claims</h3>'
+      + '<p class="muted small" style="margin:0 0 8px 0">How each store is represented '
+      + '(inside / boundary-crossing / derived / self-produced) and whether the model achieves '
+      + 'interface closure (no missing inputs) and semantic closure (every self-produced store fluxes).</p>'
+      + closureHtml + tableHtml + '</div>';
+  }
+
+  // Wave 3a #1 — what the investigation primarily evaluates. Renders a small
+  // header chip; omitted when the field is unset / not a known enum value.
+  var _OBJ_OF_EVAL = {method: 1, model: 1, hypothesis: 1, 'composition-protocol': 1};
+  function _objectOfEvaluationChip(obj) {
+    if (typeof obj !== 'string' || !obj.trim()) return '';
+    var v = obj.trim().toLowerCase();
+    if (!_OBJ_OF_EVAL[v]) return '';
+    return ' <span class="badge" title="object of evaluation (critique #1) — what '
+      + 'this investigation primarily evaluates" style="background:#e0e7ff;color:#3730a3;'
+      + 'font-weight:600">evaluates: ' + _h(v) + '</span>';
+  }
+
+  // Wave 3a #26 — "Framework scorecard". Renders the deterministic framework-self
+  // metrics computed by pbg_superpowers.rigor.framework_metrics (each entry is
+  // {fraction, count, total}). The label is the dashboard's job; the math is
+  // pbg's. Omitted when the payload carries no metrics (degrades gracefully).
+  function _frameworkScorecardHtml(fm) {
+    if (!fm || typeof fm !== 'object') return '';
+    var metrics = fm.metrics || {};
+    var keys = Object.keys(metrics).filter(function (k) {
+      var m = metrics[k];
+      return m && typeof m === 'object' && (typeof m.fraction === 'number'
+        || typeof m.count === 'number' || typeof m.total === 'number');
+    });
+    if (!keys.length) return '';
+    var nInv = (typeof fm.n_investigations === 'number') ? fm.n_investigations : 0;
+    function humanize(k) {
+      return String(k).replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    }
+    var rows = keys.map(function (k) {
+      var m = metrics[k];
+      var frac = (typeof m.fraction === 'number') ? m.fraction : null;
+      var pct = (frac == null) ? '—' : Math.round(frac * 100) + '%';
+      var cnt = (typeof m.count === 'number' && typeof m.total === 'number')
+        ? (m.count + ' / ' + m.total) : '';
+      var w = (frac == null) ? 0 : Math.max(0, Math.min(100, Math.round(frac * 100)));
+      var barColor = w >= 67 ? '#16a34a' : (w >= 34 ? '#d97706' : '#dc2626');
+      return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;'
+        + 'border-top:1px solid #f1f5f9">'
+        + '<span style="flex:0 0 16em;color:#1e293b;font-weight:600">' + _h(humanize(k)) + '</span>'
+        + '<span style="flex:1;display:flex;align-items:center;gap:8px">'
+        +   '<span style="flex:1;height:8px;background:#f1f5f9;border-radius:9999px;overflow:hidden">'
+        +     '<span style="display:block;height:100%;width:' + w + '%;background:' + barColor + '"></span>'
+        +   '</span>'
+        +   '<span style="flex:0 0 3.5em;text-align:right;font-weight:700;color:#1e293b">' + _h(pct) + '</span>'
+        +   (cnt ? '<span style="flex:0 0 5em;text-align:right;color:#64748b;font-size:0.85em">' + _h(cnt) + '</span>' : '')
+        + '</span>'
+        + '</div>';
+    }).join('');
+    return '<details class="report-fold" id="framework-scorecard"><summary>📊 Framework scorecard'
+      + ' <span class="rf-prev">framework-self metrics (n=' + nInv + ' investigation'
+      + (nInv === 1 ? '' : 's') + ')</span></summary>'
+      + '<p style="color:#475569;font-size:0.92em">Framework-self metrics aggregated across '
+      + 'every study and investigation in the workspace — how consistently the framework itself '
+      + 'applies its own rigor practices (discriminating controls, emergent-mechanism labelling, '
+      + 'threshold provenance, replication, verdict divergence, falsification exposure). Computed '
+      + 'deterministically from declared fields by pbg_superpowers.rigor.framework_metrics.</p>'
+      + rows
+      + '</details>';
+  }
+
+  // Wave 3b #6/#16 — "Competing hypotheses" panel. Each hypothesis carries its
+  // AUTHORED predictions + status and a COMPUTED support trajectory (▲ supports /
+  // ▼ weakens / ⊘ excludes) folded server-side by
+  // pbg_superpowers.hypotheses.rollup_support and delivered via the report-data
+  // path (GET /api/investigation-hypotheses). Omitted when no hypotheses are
+  // declared (degrades gracefully).
+  function _competingHypothesesHtml(hypotheses) {
+    var hyps = (hypotheses || []).filter(function(h) { return h && typeof h === 'object'; });
+    if (!hyps.length) return '';
+    var STATUS_COLORS = {
+      open:      ['#f1f5f9', '#475569'],
+      supported: ['#dcfce7', '#166534'],
+      weakened:  ['#fef9c3', '#854d0e'],
+      excluded:  ['#fee2e2', '#991b1b']
+    };
+    var DELTA = {
+      supports: ['▲', '#16a34a', 'supports'],
+      weakens:  ['▼', '#d97706', 'weakens'],
+      excludes: ['⊘', '#dc2626', 'excludes']
+    };
+    var cards = hyps.map(function(h) {
+      var status = (typeof h.status === 'string' && h.status.trim()) ? h.status.trim() : 'open';
+      var sc = STATUS_COLORS[status] || ['#f1f5f9', '#475569'];
+      var preds = (h.predictions || []).filter(function(p) { return p && typeof p === 'object'; });
+      var predHtml = preds.length
+        ? '<div style="margin-top:4px"><span class="muted small">predicts:</span>'
+          + '<ul style="margin:2px 0 0;padding-left:20px;color:#334155;font-size:0.9em">'
+          + preds.map(function(p) {
+              return '<li><code>' + _h(String(p.observable || '')) + '</code> '
+                + (p.expected != null ? '<strong>' + _h(String(p.expected)) + '</strong>' : '') + '</li>';
+            }).join('') + '</ul></div>'
+        : '';
+      var log = (h.support_log || []).filter(function(e) { return e && typeof e === 'object'; });
+      var trajHtml;
+      if (log.length) {
+        var tally = {supports: 0, weakens: 0, excludes: 0};
+        var steps = log.map(function(e) {
+          var key = String(e.delta || '').toLowerCase();
+          var d = DELTA[key] || ['·', '#94a3b8', String(e.delta || '')];
+          if (tally[key] != null) tally[key]++;
+          var tip = (e.study ? e.study + ': ' : '') + (e.observation || '') + ' (' + d[2] + ')';
+          return '<span title="' + _h(tip) + '" style="color:' + d[1] + ';font-weight:700;margin-right:6px">'
+            + d[0] + (e.study ? '<span style="color:#64748b;font-weight:400;font-size:0.82em"> '
+            + _h(String(e.study)) + '</span>' : '') + '</span>';
+        }).join('');
+        trajHtml = '<div style="margin-top:6px"><span class="muted small">support trajectory:</span> '
+          + '<span style="margin-left:4px;font-weight:600">▲' + tally.supports + ' ▼' + tally.weakens
+          + ' ⊘' + tally.excludes + '</span>'
+          + '<div style="margin-top:3px">' + steps + '</div></div>';
+      } else {
+        trajHtml = '<div class="muted small" style="margin-top:6px">no study evidence linked yet</div>';
+      }
+      return '<div style="padding:10px 0;border-top:1px solid #f1f5f9">'
+        + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap">'
+        +   (h.id ? '<code style="font-size:0.82em">' + _h(String(h.id)) + '</code>' : '')
+        +   '<strong style="color:#1e293b">' + _h(String(h.statement || '(untitled hypothesis)')) + '</strong>'
+        +   '<span style="padding:1px 8px;border-radius:9999px;background:' + sc[0] + ';color:' + sc[1]
+        +     ';font-weight:600;font-size:0.78em">' + _h(status) + '</span>'
+        + '</div>' + predHtml + trajHtml + '</div>';
+    }).join('');
+    return '<details class="report-fold" id="competing-hypotheses"><summary>⚖️ Competing hypotheses'
+      + ' <span class="rf-prev">' + hyps.length + ' hypothes' + (hyps.length === 1 ? 'is' : 'es')
+      + ' under test</span></summary>'
+      + '<p style="color:#475569;font-size:0.92em">The rival explanations this investigation '
+      + 'discriminates. Each carries its authored predictions and a <strong>computed</strong> support '
+      + 'trajectory — ▲ supports / ▼ weakens / ⊘ excludes — folded from member studies\' findings + '
+      + 'alternate_hypotheses by pbg_superpowers.hypotheses.rollup_support.</p>'
+      + cards + '</details>';
+  }
+
+  function _rigorSectionHtml(rigor, specs) {
+    if (!rigor || !((rigor.dimensions && rigor.dimensions.length) ||
+                    (rigor.per_study && Object.keys(rigor.per_study).length))) return '';
+    var color = {ok: '#16a34a', warn: '#d97706', gap: '#dc2626'};
+    var glyph = {ok: '✓', warn: '⚠', gap: '✗'};
+    function dimRows(dims) {
+      return (dims || []).map(function(d) {
+        var c = color[d.severity] || '#64748b';
+        var cm = (d.comments && d.comments.length)
+          ? ' <span style="color:#94a3b8;font-size:0.82em">' + _esc(d.comments.join(' ')) + '</span>' : '';
+        return '<div style="display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-top:1px solid #f1f5f9">' +
+          '<span style="color:' + c + ';font-weight:700;min-width:1.2em">' + (glyph[d.severity] || '•') + '</span>' +
+          '<div><strong style="color:#1e293b">' + _esc(d.label || '') + '</strong>' + cm +
+          '<div style="color:#475569;font-size:0.9em;margin-top:1px">' + _esc(d.detail || '') + '</div></div></div>';
+      }).join('');
+    }
+    var html = '<details class="report-fold" id="rigor"><summary>🔬 Evidence &amp; rigor — '
+      + 'how well the method defends its claims'
+      + (rigor.summary ? ' <span class="rf-prev">' + _esc(rigor.summary) + '</span>' : '')
+      + '</summary>'
+      + '<p style="color:#475569;font-size:0.92em">Deterministic feedback on how well the '
+      + '<strong>method</strong> defends its claims against a skeptical reader — a method-level '
+      + 'judgement, distinct from the per-study model verdicts above. Computed from declared '
+      + 'fields, not judged. Gaps are an invitation to add negative controls, replicate across '
+      + 'seeds, weigh alternative explanations, state falsifiability, or add an adversarial study.</p>';
+    html += dimRows(rigor.dimensions);
+    var per = rigor.per_study || {};
+    var slugs = Object.keys(per);
+    if (slugs.length) {
+      // Item 13 — surface the scored-but-hidden controls[] table + the
+      // falsifiability statement verbatim under each study's rigor fold.
+      var specsBySlug = {};
+      (specs || []).forEach(function(sp) { if (sp && sp.name) specsBySlug[sp.name] = sp; });
+      html += '<h3 style="margin-top:16px">Per-study rigor</h3>';
+      slugs.forEach(function(slug) {
+        var sc = per[slug] || {};
+        var detail = specsBySlug[slug] ? _controlsFalsifiabilityHtml(specsBySlug[slug], slug) : '';
+        // Each member study folds into its own nested dropdown.
+        html += '<details class="report-fold" style="margin:8px 0"><summary>' + _esc(slug)
+          + ' <span style="font-weight:400;color:#64748b;font-size:0.88em">— ' + _esc(sc.summary || '') + '</span></summary>'
+          + dimRows(sc.dimensions) + detail + '</details>';
+      });
+    }
+    html += '</details>';
+    return html;
+  }
+
+  function _buildInvestigationReportHtml(iset, specs, bibEntries, chartsByStudy, embedsByStudy, generation, ghRepo, rigor, frameworkMetrics, hypotheses) {
     bibEntries = bibEntries || [];
     chartsByStudy = chartsByStudy || {};
     embedsByStudy = embedsByStudy || {};
     generation = generation || null;
     ghRepo = ghRepo || null;
+    // Wave 3b #6/#16 — prefer the report-data-path enriched hypotheses (with the
+    // computed support_log); fall back to the authored iset.hypotheses so the
+    // panel still renders (un-enriched) when the fetch is unavailable.
+    hypotheses = hypotheses || (iset && iset.hypotheses) || [];
     var bibByKey = {};
     bibEntries.forEach(function(e) { bibByKey[e.key] = e; });
     var now = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
@@ -5937,6 +6853,88 @@
       if (r === 'passing-with-caveats') return { glyph: '⚠', bd: '#f59e0b', bg: '#fffbeb' };
       return { glyph: '◐', bd: '#94a3b8', bg: '#f8fafc' };  // in-progress / pending
     }
+    // What an acceptance criterion IS — shown once, above the acceptance tables,
+    // so a reviewer knows these are computed metrics, not assertions.
+    var _acceptanceExplainer =
+      '<p class="muted small" style="margin:2px 0 10px 0;line-height:1.5;color:#475569">'
+      + 'Each <strong>acceptance criterion</strong> is a <em>behaviour test</em> declared in a study: a '
+      + 'measured field from the run (e.g. <code>closure_gap_size</code>) compared against an explicit '
+      + '<code>pass_if</code> band (a numeric threshold/range). The per-criterion result, each study’s '
+      + 'gate verdict, and this roll-up are <strong>computed in code from the run outcomes</strong> '
+      + '(deterministic) — not human judgement. Expand a row to see the field, the passing band, and the '
+      + 'observed value.</p>';
+    // Map study slug -> spec, to look up each criterion's underlying behaviour
+    // test (the actual metric) from the gating study.
+    var _specBySlug = {};
+    (specs || []).forEach(function(s) { if (s && s.name) _specBySlug[s.name] = s; });
+    function _passIfText(p) {
+      if (p == null || p === '') return '';
+      if (typeof p !== 'object') return String(p);
+      // {op, value} — the common shape (e.g. {op:">", value:0} -> "> 0").
+      if (p.op !== undefined && p.value !== undefined) {
+        var sym = {'>=': '≥', '<=': '≤', '>': '>', '<': '<', '==': '=', '!=': '≠',
+                   'in_range': 'in range'}[p.op] || p.op;
+        return sym + ' ' + p.value;
+      }
+      // {low, high} band.
+      if (p.low !== undefined || p.high !== undefined) {
+        return 'in [' + (p.low !== undefined ? p.low : '−∞') + ', '
+          + (p.high !== undefined ? p.high : '∞') + ']';
+      }
+      var bits = [];
+      if (p.min !== undefined || p.max !== undefined)
+        bits.push((p.min !== undefined ? ('≥ ' + p.min) : '') +
+                  (p.max !== undefined ? ((p.min !== undefined ? ' and ' : '') + '≤ ' + p.max) : ''));
+      ['gte', 'lte', 'gt', 'lt', 'equals', 'eq', 'min_fraction', 'at_least', 'at_most'].forEach(function(k) {
+        if (p[k] !== undefined) bits.push(k.replace(/_/g, ' ') + ' ' + p[k]);
+      });
+      return bits.length ? bits.join(', ') : JSON.stringify(p);
+    }
+    // A measure ({kind, field/path}) as readable text, e.g. "broken_network_gap (derived_scalar)".
+    function _measureText(m) {
+      if (!m) return '';
+      if (typeof m !== 'object') return String(m);
+      var f = m.field || m.path || '';
+      var k = m.kind || '';
+      if (f && k) return '<code>' + _h(f) + '</code> <span class="muted small">(' + _h(k) + ')</span>';
+      return f ? '<code>' + _h(f) + '</code>' : (k ? '<span class="muted small">' + _h(k) + '</span>' : _h(JSON.stringify(m)));
+    }
+    // Returns {field, passIf, observed, description} for a (study, behavior),
+    // or null if the gating study / test can't be resolved.
+    function _critMetric(study, behavior) {
+      var s = _specBySlug[study];
+      if (!s) return null;
+      var tests = s.behavior_tests || s.expected_behavior || [];
+      var t = null;
+      for (var i = 0; i < tests.length; i++) {
+        if (tests[i] && tests[i].name === behavior) { t = tests[i]; break; }
+      }
+      if (!t) return null;
+      var field = (t.measure && (t.measure.field || t.measure.kind)) || '';
+      var observed = null;
+      var runs = s.runs || [];
+      if (runs.length) {
+        var oc = (runs[runs.length - 1].outcomes || {})[behavior];
+        if (oc && oc.observed !== undefined) observed = oc.observed;
+      }
+      return { field: field, passIf: _passIfText(t.pass_if), observed: observed,
+               description: t.description || '' };
+    }
+    // A compact "field · pass-if · observed" detail line for a criterion row.
+    function _critMetricDetail(study, behavior) {
+      var m = _critMetric(study, behavior);
+      if (!m) return '';
+      var bits = [];
+      if (m.field) bits.push('field <code>' + _h(m.field) + '</code>');
+      if (m.passIf) bits.push('passes if <code>' + _h(m.passIf) + '</code>');
+      if (m.observed !== null && m.observed !== undefined)
+        bits.push('observed <strong>' + _h(typeof m.observed === 'number' ? (Math.round(m.observed * 1000) / 1000) : m.observed) + '</strong>');
+      if (!bits.length && !m.description) return '';
+      return '<div class="crit-metric muted small" style="margin:2px 0 0 0;color:#475569">'
+        + bits.join(' &middot; ')
+        + (m.description ? '<div style="margin-top:2px">' + _h(m.description.replace(/\s+/g, ' ').trim()) + '</div>' : '')
+        + '</div>';
+    }
     function _acGatingMatrixHtml() {
       var crits = (iset.acceptance_criteria || []).filter(function(c) {
         return c && typeof c === 'object';
@@ -5960,7 +6958,8 @@
           + b.bd + ';background:' + b.bg + '">' + b.glyph + ' ' + _h(result || 'pending') + '</span></td>';
         return '<tr id="acg-row-' + i + '" data-gap="' + (gap ? '1' : '0') + '" '
           + 'style="' + (gap ? 'background:#fef2f2' : '') + '">'
-          + '<td style="padding-right:10px">' + _h(behavior) + '</td>'
+          + '<td style="padding-right:10px;vertical-align:top">' + _h(behavior)
+            + _critMetricDetail(study, behavior) + '</td>'
           + studyCell + resultCell + '</tr>';
       }).join('');
       var gapNote = nGap
@@ -5976,6 +6975,7 @@
         + '<strong>AC → study gating matrix</strong> '
         + '<span class="muted small">which study gates each acceptance criterion · '
         + '⚠ = no study linked (gap)</span>'
+        + _acceptanceExplainer
         + '<table class="acg-table" style="width:100%;border-collapse:collapse;margin-top:8px;font-size:0.92em">'
         + '<thead><tr style="text-align:left;border-bottom:1px solid #cbd5e1">'
         + '<th style="padding:2px 10px 4px 0">Acceptance criterion</th>'
@@ -6045,6 +7045,9 @@
     var acceptanceNarrativeHtml = _acceptanceNarrativeHtml();
     var acGatingMatrixHtml = _acGatingMatrixHtml();
     var needsAttentionReportHtml = _needsAttentionReportHtml();
+    var rigorSectionHtml = _rigorSectionHtml(rigor, specs);
+    var frameworkScorecardHtml = _frameworkScorecardHtml(frameworkMetrics);  // #26
+    var competingHypothesesHtml = _competingHypothesesHtml(hypotheses);      // #6/#16
 
     // Data-driven flags so the "How to read" guide describes only what this
     // investigation actually contains — no workspace-specific boilerplate.
@@ -6133,7 +7136,10 @@
         };
       }
 
-      var outcomes = latest.outcomes || {};
+      // Decide from BOTH the authored outcomes AND the run/outcome-spine
+      // computed_outcomes (authored wins) so the panel reflects the evaluator and
+      // stays current — not just hand-recorded verdicts.
+      var outcomes = Object.assign({}, latest.computed_outcomes || {}, latest.outcomes || {});
       var passed = [], failed = [], partial = [];
       Object.keys(outcomes).forEach(function(name) {
         var res = (outcomes[name] || {}).result;
@@ -6533,6 +7539,8 @@
       var tests = s.behavior_tests || s.expected_behavior || [];
       var decide = s.conclusion_logic || {};
       var limitations = s.limitations || [];
+      // Tolerate a string (authors sometimes write limitations as prose, not a list).
+      if (typeof limitations === 'string') limitations = limitations.trim() ? [limitations] : [];
       var followUps = s.follow_up_studies || [];
       // Discovery Implications — alternate hypotheses, mechanism-update
       // proposals, and the richer followup_study_proposals (successor to
@@ -6601,7 +7609,8 @@
         links.push('<a href="#' + sid.conditions + '">Conditions ' +
                    (_condCount ? '<span class="sn-count">' + _condCount + '</span>' : '') + '</a>');
       }
-      if (sims.length)        links.push('<a href="#' + sid.sims + '">What we ran <span class="sn-count">' + sims.length + '</span></a>');
+      var _ranCount = sims.length || (s.baseline || []).length || (s.runs || []).length;
+      links.push('<a href="#' + sid.sims + '">What we ran' + (_ranCount ? ' <span class="sn-count">' + _ranCount + '</span>' : '') + '</a>');
       if (readouts.length)    links.push('<a href="#' + sid.readouts + '">What we measured <span class="sn-count">' + readouts.length + '</span></a>');
       if (charts.length)      links.push('<a href="#' + sid.charts + '">Charts <span class="sn-count">' + charts.length + '</span></a>');
       if (tests.length)       links.push('<a href="#' + sid.tests + '">How we judge it <span class="sn-count">' + tests.length + '</span></a>');
@@ -6664,10 +7673,19 @@
       var decisionTechnical = '';
       if (gate.prerequisites || gate.enables || gate.proceed_condition || ifPass || ifFail) {
         var prereqStr = (gate.prerequisites && gate.prerequisites.length)
-          ? gate.prerequisites.map(function(p){return '<code>' + _h(p) + '</code>';}).join(' · ')
+          ? gate.prerequisites.map(function(p){
+              // prerequisites are {study, condition} objects (or bare slug strings).
+              var slug = (p && typeof p === 'object') ? (p.study || p.slug || '') : p;
+              var cond = (p && typeof p === 'object' && p.condition) ? ' <span class="muted small">(' + _h(p.condition) + ')</span>' : '';
+              return '<a href="#study-' + _h(slug) + '"><code>' + _h(slug) + '</code></a>' + cond;
+            }).join(' · ')
           : '<em class="muted">none (root study)</em>';
         var enablesStr = (gate.enables && gate.enables.length)
-          ? gate.enables.map(function(p){return '<code>' + _h(p) + '</code>';}).join(' · ')
+          ? gate.enables.map(function(p){
+              var slug = (p && typeof p === 'object') ? (p.study || p.slug || '') : p;
+              var cond = (p && typeof p === 'object' && p.condition) ? ' <span class="muted small">(' + _h(p.condition) + ')</span>' : '';
+              return '<a href="#study-' + _h(slug) + '"><code>' + _h(slug) + '</code></a>' + cond;
+            }).join(' · ')
           : '<em class="muted">—</em>';
         decisionTechnical = '<details class="tech-details"><summary>Pipeline gate &amp; conclusion logic (technical)</summary>'
           + '<p><strong>Prerequisites:</strong> ' + prereqStr + '</p>'
@@ -6801,8 +7819,9 @@
             var citedTok = (String(ev.from_test).match(/^[A-Za-z0-9_.\-]+/) || [''])[0];
             var citedTest = (tests || []).filter(function(t){ return t && t.name === citedTok; })[0];
             if (citedTest && (citedTest.pass_if || citedTest.expect)) {
-              citedBand = '<div class="pass_if-band muted small" style="margin-top:4px">judged against '
-                + '<code>pass_if: ' + _h(JSON.stringify(citedTest.pass_if || citedTest.expect)) + '</code></div>';
+              citedBand = '<div class="pass_if-band muted small" style="margin-top:4px">passes if '
+                + (citedTest.measure ? _measureText(citedTest.measure) + ' ' : '')
+                + '<strong>' + _h(_passIfText(citedTest.pass_if || citedTest.expect)) + '</strong></div>';
             }
           }
           var traceBlock = (traceBits.length || citedBand)
@@ -6836,6 +7855,8 @@
                +     '<span class="finding-status-glyph">' + glyph + '</span>'
                +     '<span class="finding-id">' + _h(f.id || '') + '</span>'
                +     '<span class="finding-status-text">' + _h(statusText) + '</span>'
+               +     _findingWeightChip(f._evidential_weight)
+               +     _findingChips(f)
                +   '</div>'
                +   '<div class="finding-statement">' + _multiline(f.statement || (f.id ? f.id.replace(/[-_]/g,' ') : '(no statement)')) + '</div>'
                +   evMain
@@ -6861,12 +7882,49 @@
 
       // ── WHAT DID/WILL WE RUN? (Simulations) ──────────────────────────
       var simsHtml = '';
+      // What we ran — ENFORCED. The composite(s) + parameter settings actually
+      // simulated. Prefer the v3 simulation_set; else derive from the dashboard-
+      // managed baseline (composite + params) + recorded runs + robustness
+      // (seeds) — which is how the autopoiesis studies record runs. Always
+      // rendered; a study with neither gets an explicit gap notice. Each
+      // composite links out to the bigraph-loom explorer (popped out, live only).
+      function _short(model) {
+        if (!model) return '';
+        var p = String(model).split('.');
+        return p[p.length - 1];
+      }
+      // A composite reference rendered as a one-click pop-out to the bigraph-loom
+      // STATIC view (read-only): /bigraph-loom/?static=1&stateUrl=/api/composite-
+      // state/<ref>.json. Works from any report on the live dashboard.
+      function _loomStaticPopout(composite) {
+        // Pop out the bigraph-loom STATIC (read-only) view of the composite. The
+        // dashboard origin is captured at GENERATION time and baked in as an
+        // ABSOLUTE URL, so the button works whether the report is viewed inline,
+        // in an iframe/srcdoc, or downloaded (as long as that dashboard is up) —
+        // the earlier relative URL + protocol guard failed in non-http contexts.
+        // stateUrl hits /api/composite-state?ref=<id>; the loom unwraps {state}.
+        var origin = (typeof location !== 'undefined' && location.origin
+                      && /^https?:/.test(location.origin)) ? location.origin : '';
+        return "var o='" + origin + "';"
+          + "var s=o+'/api/composite-state?ref='+encodeURIComponent('" + _h(composite) + "');"
+          + "var u=o+'/bigraph-loom/index.html?static=1&stateUrl='+encodeURIComponent(s);"
+          + "window.open(u,'loom','width=1200,height=840');";
+      }
+      function _compositeCell(composite) {
+        if (!composite) return '<span class="muted">—</span>';
+        return '<a href="#" class="composite-loom-link" '
+          + 'title="Open a static view of this composite in bigraph-loom" '
+          + 'onclick="event.preventDefault(); ' + _loomStaticPopout(composite) + '">'
+          + '<code>' + _h(_short(composite)) + '</code> <span aria-hidden="true">↗</span></a>';
+      }
+      function _paramsCell(params) {
+        if (!params || typeof params !== 'object' || !Object.keys(params).length)
+          return '<span class="muted">default parameters</span>';
+        return Object.keys(params).map(function(k) {
+          return '<code>' + _h(k) + ' = ' + _h(JSON.stringify(params[k])) + '</code>';
+        }).join(' ');
+      }
       if (sims.length) {
-        function _short(model) {
-          if (!model) return '';
-          var p = String(model).split('.');
-          return p[p.length - 1];
-        }
         // The first sim is the reference; describe each row as its diff from it.
         var baseSim = sims[0] || {};
         var baseParams = baseSim.params || {};
@@ -6909,18 +7967,102 @@
             ? '<div class="sim-feeds muted small">feeds: ' + tests.map(function(t){return '<code>' + _h(t) + '</code>';}).join(' ') + '</div>' : '';
           return '<tr>'
             + '<td><strong>' + _h(sim.name || '(unnamed)') + '</strong>' + feeds + '</td>'
-            + '<td><code>' + _h(_short(sim.base_model)) + '</code></td>'
+            + '<td>' + _compositeCell(sim.base_model) + '</td>'
             + '<td>' + _changes(sim) + '</td>'
             + '<td class="muted small">' + (runParts.join(' · ') || '—') + '</td>'
             + '<td>' + statusPill + '</td>'
             + '</tr>';
         }).join('');
-        simsHtml = '<div id="' + sid.sims + '"><h3>What did/will we run? <span class="muted small">(' + sims.length + ' simulations)</span></h3>'
-          + '<p class="muted small" style="margin:0 0 8px 0">One row per concrete run: the model composite, what changes vs the reference baseline, the condition / length, and its status.</p>'
-          + '<table class="sim-table"><thead><tr><th>Simulation</th><th>Model</th><th>Changes vs baseline</th><th>Run</th><th>Status</th></tr></thead>'
+        simsHtml = '<div id="' + sid.sims + '"><h3>What we ran <span class="muted small">(' + sims.length + ' simulation' + (sims.length === 1 ? '' : 's') + ')</span></h3>'
+          + '<p class="muted small" style="margin:0 0 8px 0">One row per concrete run: the model composite (click ↗ to open it in the bigraph-loom explorer), what changes vs the reference baseline, the condition / length, and its status.</p>'
+          + '<table class="sim-table"><thead><tr><th>Simulation</th><th>Composite</th><th>Changes vs baseline</th><th>Run</th><th>Status</th></tr></thead>'
           + '<tbody>' + rows + '</tbody></table>'
           + '</div>';
+      } else {
+        // No simulation_set — derive what was run from the dashboard-managed
+        // baseline (composite + parameter settings), recorded runs, and
+        // robustness (seeds). This is how the autopoiesis studies record runs.
+        var baseline = s.baseline || [];
+        var runsArr = s.runs || [];
+        var rob = s.robustness || {};
+        var runByName = {};
+        runsArr.forEach(function(r) { if (r && r.name) runByName[r.name] = r; });
+        var replCell = (rob && (rob.n_replicates || (rob.seeds && rob.seeds.length)))
+          ? ((rob.n_replicates || rob.seeds.length) + ' seed'
+             + ((rob.n_replicates || rob.seeds.length) === 1 ? '' : 's')
+             + (rob.parameter_sweep ? ' + sweep' : ''))
+          : (runsArr.length ? '1 run' : '—');
+        var entries = baseline.length
+          ? baseline
+          : runsArr.map(function(r) { return {name: r.name, composite: r.composite, params: null}; });
+        if (entries.length) {
+          var brows = entries.map(function(b) {
+            var run = runByName[b.name] || runsArr[0] || {};
+            var status = run.status || 'recorded';
+            return '<tr>'
+              + '<td><strong>' + _h(b.name || 'baseline') + '</strong></td>'
+              + '<td>' + _compositeCell(b.composite) + '</td>'
+              + '<td>' + _paramsCell(b.params) + '</td>'
+              + '<td class="muted small">' + _h(replCell) + '</td>'
+              + '<td><span class="sim-status-pill sim-status-ran">' + _h(status) + '</span></td>'
+              + '</tr>';
+          }).join('');
+          simsHtml = '<div id="' + sid.sims + '"><h3>What we ran <span class="muted small">(composite + parameters)</span></h3>'
+            + '<p class="muted small" style="margin:0 0 8px 0">The composite(s) and parameter settings actually simulated for this study (from its baseline). Click a composite ↗ to open it in the bigraph-loom explorer.</p>'
+            + '<table class="sim-table"><thead><tr><th>Run</th><th>Composite</th><th>Parameters</th><th>Replication</th><th>Status</th></tr></thead>'
+            + '<tbody>' + brows + '</tbody></table>'
+            + '</div>';
+        } else {
+          // ENFORCED: a study with no composite/params recorded is flagged.
+          simsHtml = '<div id="' + sid.sims + '"><h3>What we ran</h3>'
+            + '<p style="margin:0;color:#b45309">⚠ No composite or parameters recorded for this study — declare a baseline (composite + parameter settings) or a simulation_set so the report shows what was simulated.</p>'
+            + '</div>';
+        }
       }
+
+      // ── PROMINENT MODEL BANNER ───────────────────────────────────────────
+      // Every study runs at least one composite — surface it at the TOP of the
+      // study with its key parameters and a one-click pop-out to the bigraph-loom
+      // STATIC view. Enforced: a study with no composite is flagged in red.
+      var modelBannerHtml = (function() {
+        var entries = [];
+        if (sims.length) {
+          var seen = {};
+          sims.forEach(function(sm) {
+            var c = sm.base_model;
+            if (c && !seen[c]) { seen[c] = 1; entries.push({composite: c, params: sm.params}); }
+          });
+        } else if ((s.baseline || []).length) {
+          (s.baseline).forEach(function(b) { entries.push({composite: b.composite, params: b.params}); });
+        } else {
+          (s.runs || []).forEach(function(r) { if (r.composite) entries.push({composite: r.composite, params: null}); });
+        }
+        if (!entries.length) {
+          return '<div class="study-model-banner study-model-missing" style="margin:10px 0;padding:12px 16px;'
+            + 'background:#fef2f2;border:1px solid #fecaca;border-left:5px solid #dc2626;border-radius:8px;color:#991b1b">'
+            + '<strong>⚠ No model declared.</strong> Every study must run at least one composite — declare a '
+            + 'baseline (composite + parameters) so this study is reproducible.</div>';
+        }
+        var rows = entries.map(function(e) {
+          var params = (e.params && typeof e.params === 'object' && Object.keys(e.params).length)
+            ? Object.keys(e.params).map(function(k) { return '<code>' + _h(k) + '=' + _h(JSON.stringify(e.params[k])) + '</code>'; }).join(' ')
+            : '<span class="muted">default parameters</span>';
+          var btn = e.composite
+            ? '<button class="model-explore-btn" onclick="' + _loomStaticPopout(e.composite) + '" '
+              + 'style="font-size:0.92em;font-weight:600;padding:5px 12px;border:1px solid #2563eb;background:#eff6ff;'
+              + 'color:#1e40af;border-radius:6px;cursor:pointer;white-space:nowrap">🧬 ' + _h(_short(e.composite))
+              + ' — explore in bigraph-loom ↗</button>'
+            : '<span class="muted">(no composite)</span>';
+          return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">'
+            + btn + '<span style="font-size:0.88em;color:#475569">' + params + '</span></div>';
+        }).join('');
+        return '<div class="study-model-banner" style="margin:10px 0;padding:12px 16px;'
+          + 'background:#f0f9ff;border:1px solid #bae6fd;border-left:5px solid #2563eb;border-radius:8px">'
+          + '<div style="font-weight:700;color:#0c4a6e">Model</div>'
+          + '<div class="muted small" style="margin-top:2px">The composite(s) this study runs and their parameters — '
+          + 'click to open a static view in the bigraph-loom explorer.</div>'
+          + rows + '</div>';
+      })();
 
       // ── CHARTS (visualisations from runs.db) ─────────────────────────
       var chartsHtml = charts.length
@@ -6987,7 +8129,7 @@
         var _tc = { PASS: 0, FAIL: 0, PARTIAL: 0, SKIP: 0, PENDING: 0 };
         tests.forEach(function(t) {
           var o = outcomeByTest[t.name];
-          var r = o ? o.result : (t.status === 'gated' ? 'GATED' : 'PENDING');
+          var r = (o && o.result) || t.result || (t.status === 'gated' ? 'GATED' : 'PENDING');
           if (r === 'PASS') _tc.PASS++; else if (r === 'FAIL') _tc.FAIL++;
           else if (r === 'PARTIAL') _tc.PARTIAL++;
           else if (r === 'SKIP') _tc.SKIP++; else _tc.PENDING++;
@@ -7005,7 +8147,7 @@
               var name = t.name || '(unnamed)';
               var cls = t.classification || 'unclassified';
               var out = outcomeByTest[name];
-              var result = out ? out.result : (t.status === 'gated' ? 'GATED' : 'PENDING');
+              var result = (out && out.result) || t.result || (t.status === 'gated' ? 'GATED' : 'PENDING');
               var resBg = result === 'PASS' ? '#d1fae5' : (result === 'FAIL' ? '#fee2e2' : (result === 'SKIP' ? '#fef3c7' : (result === 'PARTIAL' ? '#fde68a' : '#f1f5f9')));
               var resFg = result === 'PASS' ? '#065f46' : (result === 'FAIL' ? '#991b1b' : (result === 'SKIP' ? '#92400e' : (result === 'PARTIAL' ? '#92400e' : '#475569')));
               var resGlyph = result === 'PASS' ? '✓' : (result === 'FAIL' ? '✗' : (result === 'PARTIAL' ? '◐' : '⏳'));
@@ -7046,7 +8188,10 @@
                   ? ' <span class="muted small">from run <code>' + _h(runIdent) + '</code></span>'
                   : '';
                 var bandLine = t.pass_if
-                  ? '<div class="pass_if-band muted small" style="margin-top:3px">judged against <code>pass_if: ' + _h(JSON.stringify(t.pass_if)) + '</code></div>'
+                  ? '<div class="pass_if-band muted small" style="margin-top:3px">passes if '
+                    + (t.measure ? _measureText(t.measure) + ' ' : '')
+                    + '<strong>' + _h(_passIfText(t.pass_if)) + '</strong>'
+                    + _thresholdProvenanceChip(t.pass_if) + '</div>'   // #9
                   : '';
                 var detailLine = (co.detail || co.reason)
                   ? '<div class="muted small" style="margin-top:3px">' + _h(String(co.detail || co.reason)) + '</div>'
@@ -7058,8 +8203,8 @@
                   + '</div>';
               }
               var techBits = [];
-              if (t.measure) techBits.push('Measure: <code>' + _h(JSON.stringify(t.measure)) + '</code>');
-              if (t.pass_if) techBits.push('Pass condition: <code>' + _h(JSON.stringify(t.pass_if)) + '</code>');
+              if (t.measure) techBits.push('Measure: ' + _measureText(t.measure));
+              if (t.pass_if) techBits.push('Pass condition: ' + _h(_passIfText(t.pass_if)));
               else if (t.expect) techBits.push('Expect: <code>' + _h(JSON.stringify(t.expect)) + '</code>');
               // The Python that actually evaluates this test: the declarative
               // (kind, op) dispatch into the generic evaluator. There is no
@@ -7082,6 +8227,7 @@
                    +   '<div class="test-header">'
                    +     '<span style="background:' + resBg + ';color:' + resFg + ';padding:2px 10px;border-radius:9999px;font-size:0.78em;font-weight:600">' + resGlyph + ' ' + _h(result) + '</span>'
                    +     '<span class="test-classification">' + _h(cls) + '</span>'
+                   +     _thresholdProvenanceChip(t.pass_if)   // #9 — threshold provenance
                    +   '</div>'
                    +   '<div class="test-claim"><strong>Claim:</strong> ' + _h(claim) + '</div>'
                    +   (evidence ? '<div class="test-evidence"><strong>Evidence:</strong> ' + evidence + '</div>' : '')
@@ -7221,21 +8367,36 @@
           diBits.push('<div class="di-uncertainties">' + uncBits.join('') + '</div>');
         }
 
-        // Alternate hypotheses.
-        var altH = discImpl.alternate_hypotheses || [];
+        // Alternate hypotheses. Canonical source is
+        // discovery_implications.alternate_hypotheses; C5 falls back to the
+        // top-level alternative_hypotheses so authored prose anywhere still
+        // surfaces (the top-level shape uses claim/discriminated_by/status).
+        var altH = (discImpl.alternate_hypotheses && discImpl.alternate_hypotheses.length)
+          ? discImpl.alternate_hypotheses
+          : (s.alternative_hypotheses || []);
         if (altH.length) {
           diBits.push('<div class="di-group"><h4>Alternate hypotheses <span class="muted small">(' + altH.length + ')</span></h4>'
             + altH.map(function(h) {
+                if (typeof h === 'string') h = {statement: h};
                 var evFor = (h.evidence_for || []).length;
                 var evAgainst = (h.evidence_against || []).length;
                 var disc = h.discriminating_observables || [];
                 var rows = [];
                 if (h.why_plausible) rows.push('<div class="di-alt-why">' + _multiline(h.why_plausible) + '</div>');
-                rows.push('<div class="di-alt-ev"><span class="di-ev di-ev-for">▲ ' + evFor + ' for</span>'
-                  + '<span class="di-ev di-ev-against">▼ ' + evAgainst + ' against</span></div>');
+                if (evFor || evAgainst) {
+                  rows.push('<div class="di-alt-ev"><span class="di-ev di-ev-for">▲ ' + evFor + ' for</span>'
+                    + '<span class="di-ev di-ev-against">▼ ' + evAgainst + ' against</span></div>');
+                }
                 if (disc.length) {
                   rows.push('<div class="di-alt-disc"><span class="di-lbl">Discriminating observables:</span> '
                     + disc.map(function(d){ return '<code>' + _h(d) + '</code>'; }).join(', ') + '</div>');
+                }
+                // Top-level alternative_hypotheses fields.
+                if (h.discriminated_by) {
+                  rows.push('<div class="di-alt-disc"><span class="di-lbl">Discriminated by:</span> ' + _multiline(h.discriminated_by) + '</div>');
+                }
+                if (h.status) {
+                  rows.push('<div class="di-alt-status"><span class="di-lbl">Status:</span> ' + _h(h.status) + '</div>');
                 }
                 var elems = h.mechanism_elements_affected || [];
                 if (elems.length) {
@@ -7243,7 +8404,7 @@
                     + elems.map(function(e){ return '<code>' + _h(e) + '</code>'; }).join(', ') + '</div>');
                 }
                 return '<div class="di-alt-card">'
-                  + '<div class="di-alt-stmt"><strong>' + _h(h.statement || '(untitled hypothesis)') + '</strong></div>'
+                  + '<div class="di-alt-stmt"><strong>' + _h(h.statement || h.claim || h.hypothesis || '(untitled hypothesis)') + '</strong></div>'
                   + rows.join('')
                   + '</div>';
               }).join('')
@@ -7276,7 +8437,7 @@
         // "➕ Add to investigation" button (seeds a new child study node).
         if (followupProposals.length) {
           diBits.push('<div class="di-group"><h4>Follow-up study proposals <span class="muted small">(' + followupProposals.length + ')</span></h4>'
-            + '<p class="muted small">Select a proposal to spawn a new study node in the investigation graph.</p>'
+            + '<p class="muted small">Click <strong>➕ Add study</strong> to spawn a new study node in the investigation graph (seeds a child study.yaml from the proposal, with a leads-to edge back to this study).</p>'
             + followupProposals.map(function(p, pi) {
                 var gain = (p.expected_information_gain || '').toLowerCase();
                 var gainChip = gain ? '<span class="di-gain-chip di-gain-' + _h(gain) + '">gain: ' + _h(gain) + '</span>' : '';
@@ -7284,18 +8445,32 @@
                 var trigChip = p.source_trigger ? '<span class="di-trigger-chip">' + _h(p.source_trigger) + '</span>' : '';
                 var targets = p.target_mechanism_elements || [];
                 var prio = p.priority ? '<span class="di-prio-chip">priority: ' + _h(String(p.priority)) + '</span>' : '';
-                // No custom "➕ Add to investigation" button: the enclosing
-                // Discovery implications section (id="study-<slug>-discovery")
-                // is a standard inline-feedback host, so reviewers annotate it
-                // with the 💬 affordance — reliable in the downloaded report.
+                // "➕ Add study" seeds a child study from this proposal via
+                // _seedFollowupProposal (POST /api/study-seed-followup). Guarded
+                // so a downloaded static report (no walkthrough.js) degrades to a
+                // hint instead of a ReferenceError; the section is also an inline-
+                // feedback host (💬) for reviewers.
+                // Single-quoted args so they sit safely inside onclick="…" (a
+                // JSON.stringify'd id would emit double quotes and break the attr).
+                var seedArgs = "'" + _h(s.name) + "', '"
+                  + _h(p.id != null ? String(p.id) : '') + "', " + pi + ", this";
+                var seedBtn = '<div class="di-fup-actions" style="margin-top:8px">'
+                  + '<button class="btn-seed-followup" '
+                  + 'onclick="event.stopPropagation(); if(window._seedFollowupProposal){_seedFollowupProposal(' + seedArgs + ');}'
+                  + 'else{alert(\'Open this investigation in the live dashboard to add the study.\');}" '
+                  + 'style="font-size:0.82em;padding:3px 10px;border:1px solid #16a34a;background:#f0fdf4;'
+                  + 'color:#166534;border-radius:6px;cursor:pointer;white-space:nowrap">➕ Add study</button></div>';
                 return '<div class="di-fup-card">'
                   + '<div class="di-fup-head">'
                   +   '<strong class="di-fup-title">' + _h(p.title || '(untitled proposal)') + '</strong>'
                   +   typeChip + trigChip + gainChip + prio
                   + '</div>'
-                  + (p.proposed_experiment ? '<div class="di-fup-exp">' + _multiline(p.proposed_experiment) + '</div>' : '')
-                  + (targets.length ? '<div class="di-fup-targets"><span class="di-lbl">Targets:</span> '
+                  + (p.motivation ? '<div class="di-fup-motivation" style="margin-top:4px"><span class="di-lbl">Why:</span> ' + _multiline(p.motivation) + '</div>' : '')
+                  + (p.proposed_experiment ? '<div class="di-fup-exp" style="margin-top:4px"><span class="di-lbl">Proposed experiment:</span> ' + _multiline(p.proposed_experiment) + '</div>' : '')
+                  + (p.hypothesized_mechanism ? '<div class="di-fup-mech" style="margin-top:4px"><span class="di-lbl">Hypothesized mechanism:</span> ' + _multiline(p.hypothesized_mechanism) + '</div>' : '')
+                  + (targets.length ? '<div class="di-fup-targets" style="margin-top:4px"><span class="di-lbl">Targets:</span> '
                       + targets.map(function(t){ return '<code>' + _h(t) + '</code>'; }).join(', ') + '</div>' : '')
+                  + seedBtn
                   + '</div>';
               }).join('')
             + '</div>');
@@ -7373,14 +8548,25 @@
           + '</div>';
       }
 
+      // C6 — biological_summary is the one optional override; derive the prose
+      // from findings[].statement when it is absent so the Biology callout
+      // still renders meaningful mechanism prose.
+      var _bioProse = s.biological_summary;
+      if (!_bioProse) {
+        var _bioFindings = (s.findings || [])
+          .filter(function(f) { return f && typeof f === 'object'; })
+          .map(function(f) { return f.statement || f.summary; })
+          .filter(Boolean);
+        if (_bioFindings.length) _bioProse = _bioFindings.join('\n\n');
+      }
       var biologyGlanceHtml = '';
-      if (s.biological_summary || s.study_card || s.literature_anchors) {
+      if (_bioProse || s.study_card || s.literature_anchors) {
         var bgsBits = [];
-        if (s.biological_summary) {
+        if (_bioProse) {
           bgsBits.push(
             '<div class="biology-summary-callout">'
             + '<h3 class="biology-glance-label">Biology — what this study is about</h3>'
-            + '<p class="biology-prose">' + _multiline(s.biological_summary) + '</p>'
+            + '<p class="biology-prose">' + _multiline(_bioProse) + '</p>'
             + '</div>'
           );
         }
@@ -7579,6 +8765,17 @@
       // variant's overrides + every model_setting's current/default/range.
       var conditionsHtml = _renderConditionsBlock(s, sid.conditions);
 
+      // C2 + C3 — derived 3-track verdicts + read-only four-section synthesis,
+      // both computed from canonical fields (no longer write-only).
+      var verdictsHtml = _conclusionVerdictsHtml(s, slug);
+      var synthesisHtml = _conclusionSynthesisHtml(s, slug);
+
+      // Wave 2 — compositional causal discovery + semantic closure renders.
+      var commitmentHtml = _compositionCommitmentHtml(s, slug);   // C-COMMIT
+      var invariantsHtml = _invariantChecksHtml(s, slug);         // C-INVAR
+      var causalHtml = _causalNecessityHtml(s, slug);             // C-CF
+      var representationHtml = _representationHtml(s, slug);       // C-MODELCARD
+
       // ── PLANNING-PHASE DETECTION ──
       // A study is "planning" when no runs have completed yet. In that
       // mode we strip decision / takeaways / findings (post-execution
@@ -7623,27 +8820,11 @@
       // own annotations back, in-context per study, so the loop closes: the
       // next report makes clear what was said and lets the team show it's
       // addressed. Newest-first; author + timestamp preserved.
+      // Imported reviewer-feedback quotes are intentionally NOT rendered in the
+      // report (per request — they cluttered the top of each study). Feedback is
+      // still imported + tracked in investigations/<inv>/feedback/*.yaml, and how
+      // it was addressed shows in the study conclusion/status.
       var feedbackHtml = '';
-      var fb = s.expert_feedback;
-      if (fb && fb.length) {
-        feedbackHtml =
-          '<div class="expert-feedback-panel" id="study-' + slug + '-imported-feedback" '
-          + 'style="margin:12px 0;padding:12px 16px;background:#eff6ff;border:1px solid #3b82f6;'
-          + 'border-left-width:5px;border-radius:6px;color:#1e3a5f">'
-          + '<strong>💬 Reviewer feedback (' + fb.length + ')</strong>'
-          + '<ul style="list-style:none;margin:8px 0 0;padding:0">'
-          + fb.map(function(a) {
-              var who = _h(a.author || 'reviewer');
-              var when = a.ts ? _h(String(a.ts).replace('T', ' ').slice(0, 16)) : '';
-              return '<li style="margin:6px 0;padding:6px 10px;background:#fff;'
-                + 'border:1px solid #dbeafe;border-radius:4px">'
-                + '<div class="small" style="color:#3b82f6;font-weight:600">'
-                +   who + (when ? ' · ' + when : '') + '</div>'
-                + '<div style="margin-top:2px">' + _h(a.text || '') + '</div>'
-                + '</li>';
-            }).join('')
-          + '</ul></div>';
-      }
 
       // SP3b: feedback → action table. Read-only render of the pbg-supplied
       // s.feedback_actions (open feedback items that have a proposed action +
@@ -7705,14 +8886,18 @@
           + '<section class="study study-planning">'
           +   subNav
           +   '<div class="study-planning-pill">PLANNING — not yet run</div>'
+          +   modelBannerHtml     // 🧬 Model: composite(s) + params + loom static popout (PROMINENT)
           +   statusDriftHtml     // ⚠ status out of date vs runs (#2)
           +   enforcementHtml     // ⚠ declared params not applied (D.2)
           +   readinessHtml       // ✓/⚠ lint readiness panel (A3)
           +   reviewHtml          // ⚠ review-readiness gates (duration / param-vs-reference)
           +   feedbackHtml        // 💬 imported expert feedback (B.1)
+          +   commitmentHtml      // Theoretical commitment (C-COMMIT)
+          +   invariantsHtml      // Invariant checks (C-INVAR)
           +   summaryHtml         // Question / purpose
           +   conditionsHtml      // Conditions: variants + model settings (PROMINENT)
           +   testsHtml           // Expected behavior / tests (PROMINENT for comments)
+          +   representationHtml   // Representation claims (C-MODELCARD)
           +   chartsWithBaselineNoticeHtml  // Baseline charts with BASELINE label
           +   embedsHtml          // Embedded preview HTMLs
           +   readoutsHtml        // What we'll measure
@@ -7738,17 +8923,22 @@
         +   '<summary class="study-panel">' + controlPanelHtml + '</summary>'
         + '<section class="study">'
         +   subNav
+        +   modelBannerHtml     // 🧬 Model: composite(s) + params + loom static popout (PROMINENT)
         +   statusDriftHtml     // ⚠ status out of date vs runs (#2)
         +   enforcementHtml     // ⚠ declared params not applied (D.2)
         +   readinessHtml       // ✓/⚠ lint readiness panel (A3)
         +   reviewHtml          // ⚠ review-readiness gates (duration / param-vs-reference)
         +   feedbackHtml        // 💬 imported expert feedback (B.1)
+        +   commitmentHtml      // Theoretical commitment (C-COMMIT)
+        +   invariantsHtml      // Invariant checks (C-INVAR)
         +   biologyGlanceHtml   // 0. Biology-at-a-glance
         +   mechanismNarrativeHtml  // 0a. Mechanism narrative (7 framework fields)
         +   summaryHtml         // 1. Plain-English summary (explanation leads, before charts)
         +   embedsHtml          // 1a. Embedded visualizations (after the explanation)
         +   expertReviewHtml    // 2b. Pre-run expert review
         +   takeawaysHtml       // 3 + 4. Detailed findings
+        +   verdictsHtml        // Derived 3-track conclusion verdicts (computed)
+        +   causalHtml          // Causal necessity table (C-CF)
         +   discoveryHtml       // Discovery implications (directly under the findings)
         +   conditionsHtml      // Conditions (what we set up) — grouped with the runs
         +   simsHtml            // What did/will we run
@@ -7756,9 +8946,11 @@
         +   chartsHtml          //    + Visualisations
         +   testsHtml           // 7. How we judge success
         +   buildHtml           // 8. Model changes
+        +   representationHtml   // Representation claims (C-MODELCARD)
         +   reqsHtml            // 9. What to build/fix
         +   followUpsHtml       // 10. Next steps
         +   limitsHtml          // 11. Limitations
+        +   synthesisHtml       // Read-only four-section conclusion synthesis (derived)
         +   refsHtml            // 12. References
         +   decisionHtml        // Decision: can we move to the next study?
         + '</section>'
@@ -7778,6 +8970,28 @@
     // run the tests — distinct from the *code* changes captured in Build.
     function _renderConditionsBlock(s, anchorId) {
       var cond = (s.conditions && typeof s.conditions === 'object') ? s.conditions : null;
+      // C4 — single canonical run-spec. When a study has no v4 ``conditions:``
+      // mapping, derive the rich conditions table from the normalized
+      // ``simulation_set`` (the server folds top-level baseline/variants and
+      // parameter-override interventions into it), so there is one source.
+      if (!cond && Array.isArray(s.simulation_set) && s.simulation_set.length) {
+        var _derivedBaseline = {};
+        var _derivedVariants = [];
+        s.simulation_set.forEach(function(e) {
+          if (!e || typeof e !== 'object') return;
+          if (e.is_baseline) {
+            _derivedBaseline = {composite: e.base_model, params: e.params || {}};
+          } else {
+            _derivedVariants.push({
+              name: e.name,
+              composite: e.base_model,
+              parameter_overrides: e.params || {},
+              description: e.description || ''
+            });
+          }
+        });
+        cond = {baseline: _derivedBaseline, variants: _derivedVariants, model_settings: []};
+      }
       if (!cond) return '';
       var baseline = cond.baseline || {};
       var variants = cond.variants || [];
@@ -9061,7 +10275,8 @@
       // ── Main content ──
       + '<main class="content" id="top">'
 
-      +   '<h1>' + _h(iset.title || iset.name) + ' <span class="badge badge-' + _h(iset.status || 'planning') + '">' + _h(iset.status || 'planning') + '</span></h1>'
+      +   '<h1>' + _h(iset.title || iset.name) + ' <span class="badge badge-' + _h(iset.status || 'planning') + '">' + _h(iset.status || 'planning') + '</span>'
+      +     _objectOfEvaluationChip(iset.object_of_evaluation) + '</h1>'
       +   '<p class="muted small">Investigation report · <code>' + nameClean + '</code> · generated ' + _h(now) + ' · '
       +     ((specs || []).some(function(s) { return (s.runs || []).length || (s.findings || []).length; })
           ? 'for expert review — results below reflect completed runs.'
@@ -9070,13 +10285,27 @@
       // Coordinated-generation provenance banner (expert-feedback A.3).
       +   generationBannerHtml
 
-      // Spine C2: the investigation's verdict DAG + acceptance roll-up narrative
-      // — the dependency structure + where it passes/blocks, at a glance, before
-      // the per-study folds.
+      // Spine C2: the one-line acceptance headline stays inline; the detailed
+      // tables (gating matrix, study verdict map, needs-attention) fold into a
+      // collapsed section so the top of the report isn't a wall of tables.
       +   acceptanceNarrativeHtml
-      +   acGatingMatrixHtml
-      +   needsAttentionReportHtml
-      +   verdictDagHtml
+      +   (function() {
+            var inner = acGatingMatrixHtml + verdictDagHtml + needsAttentionReportHtml;
+            if (!inner || !inner.trim()) return '';
+            return '<details class="report-fold" id="acceptance-detail">'
+              + '<summary>How the verdict is computed — acceptance criteria, gating matrix &amp; study verdicts</summary>'
+              + inner + '</details>';
+          })()
+      // Competing hypotheses (#6/#16) — the rival explanations + their computed
+      // support trajectory, just above the rigor roll-up that grades the method.
+      +   competingHypothesesHtml
+
+      // Evidence & rigor roll-up — deterministic skeptic-feedback (controls,
+      // replication, alternatives, falsifiability, adversarial coverage).
+      +   rigorSectionHtml
+
+      // Framework scorecard — framework-self metrics across the workspace (#26).
+      +   frameworkScorecardHtml
 
       // ── Execution-status banner (LEADS the report, before the folds) ────
       // Accurate to the actual run state: a pre-execution review notice when
@@ -9157,9 +10386,17 @@
                 var rcls = (r === 'passing' || r === 'pass') ? '#16a34a'
                          : (r === 'failing' || r === 'fail') ? '#dc2626'
                          : '#92400e';
+                var m = _critMetric(c.study, c.behavior);
+                var metricCell = m
+                  ? (m.field ? '<code>' + _h(m.field) + '</code>' : '')
+                    + (m.passIf ? ' <span class="muted small">pass if ' + _h(m.passIf) + '</span>' : '')
+                    + (m.observed !== null && m.observed !== undefined
+                        ? ' → <strong>' + _h(typeof m.observed === 'number' ? (Math.round(m.observed * 1000) / 1000) : m.observed) + '</strong>' : '')
+                  : '<span class="muted small">—</span>';
                 return '<tr>'
                   + '<td style="padding:3px 8px"><a href="#study-' + _h(c.study) + '">' + _h(c.study) + '</a></td>'
                   + '<td style="padding:3px 8px">' + _h(c.behavior || '') + '</td>'
+                  + '<td style="padding:3px 8px;font-size:0.9em">' + metricCell + '</td>'
                   + '<td style="padding:3px 8px;font-weight:600;color:' + rcls + '">' + _h(c.result || '—') + '</td>'
                   + '</tr>';
               }).join('');
@@ -9171,10 +10408,12 @@
                 + '<strong>Acceptance roll-up</strong> '
                 + '<span class="muted small" style="color:#64748b">code-computed from member-study verdicts</span>'
                 + caBadge
+                + _acceptanceExplainer
                 + '<table class="small" style="margin-top:8px;border-collapse:collapse">'
                 + '<thead><tr>'
                 + '<th style="padding:3px 8px;text-align:left">Study</th>'
                 + '<th style="padding:3px 8px;text-align:left">Behavior</th>'
+                + '<th style="padding:3px 8px;text-align:left">Metric (field · pass-if → observed)</th>'
                 + '<th style="padding:3px 8px;text-align:left">Result</th>'
                 + '</tr></thead><tbody>' + critRows + '</tbody></table></div>';
             }
@@ -12400,6 +13639,13 @@
   // "XArray"). Colors live in CSS classes emitter-sqlite/parquet/xarray.
   function _simEmitterPill(emitterType) {
     var t = (emitterType || 'SQLite');
+    // "—" = genuinely emitter-less run (summary recorded in study.yaml, no
+    // per-step trajectory persisted). Render an honest dash with a tooltip
+    // rather than a fake emitter pill.
+    if (t === '—' || t === 'none' || t === '') {
+      return '<span class="emitter-pill emitter-none" ' +
+        'title="no emitter (summary-only run)">—</span>';
+    }
     var cls = 'emitter-' + t.toLowerCase();
     return '<span class="emitter-pill ' + cls + '" ' +
       'title="emitter / persistence format">' + _escSim(t) + '</span>';
@@ -13190,11 +14436,16 @@
           .then(function (r) { return r.ok ? r.json() : {repo: null}; })
           .then(function (j) { return (j && j.repo) || null; })
           .catch(function () { return null; });
-        return Promise.all([Promise.all(studyFetches), bibFetch, Promise.all(chartFetches), ghRepoFetch])
+        // Wave 3b #6/#16 — competing hypotheses + computed support_log.
+        var hypFetch = fetch('/api/investigation-hypotheses?investigation=' + encodeURIComponent(iset.name))
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (j) { return (j && j.hypotheses) || null; })
+          .catch(function () { return null; });
+        return Promise.all([Promise.all(studyFetches), bibFetch, Promise.all(chartFetches), ghRepoFetch, hypFetch])
           .then(function (arr) {
             var chartsByStudy = {};
             arr[2].forEach(function (c) { chartsByStudy[c.name] = c.charts; });
-            return _buildInvestigationReportHtml(iset, arr[0], arr[1], chartsByStudy, undefined, null, arr[3]);
+            return _buildInvestigationReportHtml(iset, arr[0], arr[1], chartsByStudy, undefined, null, arr[3], undefined, undefined, arr[4]);
           });
       });
   }

@@ -50,6 +50,12 @@
       : "/api/study/" + encodeURIComponent(slug);
   }
 
+  function _studyChartsUrl(slug) {
+    return cfg().mode === "snapshot"
+      ? _base() + "/api/study-charts/" + encodeURIComponent(slug) + ".json"
+      : "/api/study-charts/" + encodeURIComponent(slug);
+  }
+
   function _isetUrl(id) {
     return cfg().mode === "snapshot"
       ? _base() + "/api/iset/" + encodeURIComponent(id) + ".json"
@@ -127,9 +133,25 @@
       : "/api/visualization-classes";
   }
 
+  function _savedVisualizationsUrl() {
+    return cfg().mode === "snapshot"
+      ? _base() + "/api/saved-visualizations.json"
+      : "/api/saved-visualizations";
+  }
+
   var DataSource = {
     /** Return the current source config (default: local-server). */
     config: cfg,
+
+    /** Return the configured base path ("" in local mode). */
+    basePath: _base,
+
+    /**
+     * Return the URL for the saved-visualizations payload (Analyses gallery).
+     * Local mode:    /api/saved-visualizations
+     * Snapshot mode: <base>/api/saved-visualizations.json from the static bundle
+     */
+    savedVisualizationsUrl: _savedVisualizationsUrl,
 
     /**
      * Load the study-detail spec for the given slug.
@@ -139,6 +161,17 @@
      */
     async loadStudy(slug) {
       return _get(_studyUrl(slug));
+    },
+
+    /**
+     * Load the study's Visualizations-tab charts payload.
+     * Local mode:    fetches GET /api/study-charts/<slug> (live + static)
+     * Snapshot mode: fetches /api/study-charts/<slug>.json (static charts
+     *                base64-embedded at publish time) from the static bundle.
+     * @param {string} slug - the study slug.
+     */
+    async loadStudyCharts(slug) {
+      return _get(_studyChartsUrl(slug));
     },
 
     /**

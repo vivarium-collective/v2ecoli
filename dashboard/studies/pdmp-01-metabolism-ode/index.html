@@ -24,6 +24,9 @@
 </header>
 
 
+
+
+
 <div id="readiness-panel" data-slug="pdmp-01-metabolism-ode"></div>
 
 
@@ -233,12 +236,21 @@
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+        Verdict + main insight are <strong>computed</strong> from canonical
+        fields (gate evaluator · findings) and shown read-only; the report
+        also derives <code>title</code>, <code>objective</code>, and
+        <code>key_metrics</code> from canonical content. Author only the
+        reviewer-facing notes below (confidence · evidence quality · caveat).
+      </p>
       <div class="narrative-grid">
+        
         <label class="narrative-row">
           <span class="narrative-label">Verdict</span>
-          <input type="text" class="narrative-input" data-narrative-path="report.verdict"
-                 value=""
-                 placeholder="e.g. passing | passing-with-caveats | failing-bio | not-yet-run">
+          <span class="narrative-input verdict-badge-computed"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
           <span class="narrative-label">Confidence</span>
@@ -255,12 +267,11 @@
                  value="first-run-confirmed"
                  placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
         </label>
-        <label class="narrative-row narrative-row-wide">
+        <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <textarea class="narrative-input narrative-textarea" rows="2"
-                    data-narrative-path="report.main_insight"
-                    placeholder="One sentence: the single most important thing this study taught us.">pbg-copasi gives us the published Millard model as a first-class PB process without re-deriving rate laws — Phase 1 effort goes to the LQR + FBA-bridge, not to ODE re-implementation.</textarea>
-        </label>
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">pbg-copasi gives us the published Millard model as a first-class PB process without re-deriving rate laws — Phase 1 effort goes to the LQR + FBA-bridge, not to ODE re-implementation.
+            <span class="muted small">— computed from findings</span></span>
+        </div>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Caveat</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
@@ -274,45 +285,97 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated.">First run confirmed (2026-05-24): Millard 2017 SBML loads + simulates via pbg-copasi and recovers the published reference steady state for central carbon + energy metabolites (G6P, F6P, FDP, PEP, PYR, ATP/ADP, NADH/NADPH, MAL, AKG all match BioModels MODEL1505110000 initial values to solver tolerance). FBA-bridge composite and LQR control layer not yet built; Phase 0 ensemble comparison pending the v2ecoli baseline run.</textarea>
         </label>
       </div>
+      
+      <div style="margin-top:10px">
+        <button type="button" class="btn-view-skeptic action-btn"
+                style="font-size:0.85em" data-study="pdmp-01-metabolism-ode">🕵 View as skeptic</button>
+        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
+      </div>
     </div>
+
+    
+    
 
     <div class="biology-glance">
       
       <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about</h2>
+        <h2 class="biology-glance-label">Biology — what this study is about
+          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+        </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
                   placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+        
+        <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+          <em>Derived from findings (shown in the report when no override is set):</em>
+          <p style="margin:4px 0 0">On M9-glucose the PDMP-Phase-1 cell_mass + dry_mass endpoint distributions match the Phase-0 reference within +/-sigma (the W2 acceptance gate) after the closed-loop WATER[c] fix.</p><p style="margin:4px 0 0">The FBA-bridge flux-pin integrates the Millard kinetic ODE into the WCM FBA: for the reactions whose pin holds, the realized FBA flux equals the ODE-pinned bound exactly. The pinnable SCOPE is glycolysis + pentose-phosphate, where Millard&#39;s standalone steady state matches the WCM glucose state. The TCA cycle relaxes because its flux is set by the WCM&#39;s growth/energy demand, not the standalone kinetic model (not a sign/scale bug -- the ODE fluxes are positive and sensible); glyoxylate/gluconeogenic/acetate-uptake reactions are off on glucose and were curated out of the default pin set.</p><p style="margin:4px 0 0">The multi-state LQR was silently running at zero gain (a +I linearization bug); fixing it to a real stabilizing gain did NOT change the cell_mass W2, ruling out control as the gap cause and localizing it to open-loop water injection.</p>
+        </div>
+        
       </div>
 
       
       
+      
+      
+      
+      
+      
+      
       <div class="study-card">
-        <h2 class="biology-glance-label">Study card</h2>
+        <h2 class="biology-glance-label">Study card
+          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
+        </h2>
         <table class="study-card-table">
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.goal"
                    value="Phase 1 — substitute v2ecoli&#39;s multi-objective FBA (`wholecell.utils.modular_fba`, glpk-linear) with the Millard 2017 kinetic ODE (BioModels MODEL1505110000) wrapped via pbg-copasi, an LQR outer control layer for growth-rate regulation, and an FBA-bridge composite that couples the ODE to the remaining v2ecoli FBA during the incremental handover."
-                   placeholder="One sentence — the single most important thing this study does.">
+                   placeholder="Run the Millard 2017 ODE as a standalone Process Bigraph process
+by wrapping the published SBML (BioModels MODEL1505110000) with
+pbg-copasi&#39;s CopasiUTCProcess (basico / COPASI backend). Build
+an FBA-bridge composite that couples the COPASI-driven kinetic
+ODE to v2ecoli&#39;s existing multi-objective FBA solver
+(`wholecell.utils.modular_fba`) so the ODE can take over central-
+carbon flux predictions incrementally while the FBA covers the
+rest of the network (homeostatic targets for non-central
+metabolites, kinetic-constraint coupling to enzyme abundances,
+NGAM maintenance). Wrap with an LQR controller that replaces the
+FBA&#39;s biomass-production objective for growth-rate regulation.
+Validate against the Phase 0 Xarray interface datasets across
+≥3 conditions. Partition every introduced parameter as causal or
+teleonomic, with written justification per parameter. A
+high-performance backend (DifferentialEquations.jl / Diffrax)
+is deferred to Phase 4 compilation — Phase 1 establishes
+correctness through pbg-copasi, Phase 4 takes over performance.
+">
           </td></tr>
           <tr><th>Mechanism</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="On M9-glucose the PDMP-Phase-1 cell_mass + dry_mass endpoint distributions match the Phase-0 reference within +/-sigma (the W2 acceptance gate) after the closed-loop WATER[c] fix.">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
                    value="This tests whether metabolism can be represented as continuous biochemical dynamics instead of an FBA optimization step, without breaking the rest of the cell model."
-                   placeholder="Why this study must finish before the next one in the DAG.">
+                   placeholder="Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ &lt; 10⁸ on causal parameters.">
           </td></tr>
           <tr><th>Expected result</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.expected_result"
                    value=""
-                   placeholder="Literature-stated success criterion.">
+                   placeholder="Substituting the Millard 2017 kinetic ODE (62 metabolites, 68
+reactions, 255 metabolite–enzyme interactions) for v2ecoli&#39;s
+current multi-objective FBA metabolism, with an LQR outer loop
+driving the system toward a growth-rate reference trajectory,
+matches the Phase 0 interface datasets within tolerance AND admits
+an explicit causal/teleonomic parameter partition: kinetic
+constants and enzyme abundances are causal (inferenceable from
+data); LQR weights, reference trajectories, and the homeostatic
+concentration targets v2ecoli&#39;s FBA currently encodes are
+teleonomic (design-driven, fixed).
+">
           </td></tr>
           <tr><th>Main expert question</th><td>
             <input type="text" class="narrative-input narrative-card-input"
@@ -568,6 +631,42 @@ across ≥3 environmental conditions?
 
   
   
+  <div class="overview-section" id="model-section">
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study runs</span></h3>
+    <p class="muted" style="font-size:0.88em">Every study runs at least one composite. Click a composite to open a static view in the bigraph-loom explorer.</p>
+    
+    <div class="cond-block">
+      <div class="cond-block-title">
+        millard2017-via-pbg-copasi
+        
+        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
+                onclick="_openCompositeLoom('pbg_copasi.composites.utc-process')">🧬 utc-process — explore in bigraph-loom ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">model_source</span>=<code>v2ecoli/models/sbml/millard2017_central_metabolism.xml</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">step_dt</span>=<code>1.0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>M9-glucose</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">dilution_rate</span>=<code>0.1</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">pH</span>=<code>7.0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">temperature_C</span>=<code>37.0</code></span>
+        
+      </div>
+      
+    </div>
+    
+  </div>
+  
+
+  
+  
   
   
   <div class="overview-section" id="conditions-section">
@@ -720,7 +819,34 @@ handover.
 
 
 <section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
-  <h3>Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(6 runs planned)</span></h3>
+
+  
+  
+  <div class="overview-section" id="ran-section">
+    <h3>What we ran <span class="muted" style="font-size:0.85em;font-weight:normal">(composite + parameters)</span></h3>
+    <p class="muted" style="font-size:0.88em">The composite(s) this study simulated, their parameters, replication, and run status. Click a composite to open a static view in bigraph-loom.</p>
+    
+    <table class="cond-table" style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Run</th><th style="text-align:left">Composite</th><th style="text-align:left">Parameters</th><th style="text-align:left">Replication</th><th style="text-align:left">Status</th></tr></thead>
+      <tbody>
+      
+        <tr>
+          <td style="vertical-align:top"><strong>millard2017-via-pbg-copasi</strong></td>
+          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('pbg_copasi.composites.utc-process')">🧬 utc-process ↗</button></td>
+          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">model_source</span>=<code>v2ecoli/models/sbml/millard2017_central_metabolism.xml</code></span> <span class="cond-pill"><span class="cond-pill-k">step_dt</span>=<code>1.0</code></span> <span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>M9-glucose</code></span> <span class="cond-pill"><span class="cond-pill-k">dilution_rate</span>=<code>0.1</code></span> <span class="cond-pill"><span class="cond-pill-k">pH</span>=<code>7.0</code></span> <span class="cond-pill"><span class="cond-pill-k">temperature_C</span>=<code>37.0</code></span> </td>
+          <td style="vertical-align:top" class="muted small">1 run(s)</td>
+          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">completed</span></td>
+        </tr>
+      
+      </tbody>
+    </table>
+    
+    <p class="muted small" style="margin-top:6px">1 recorded run(s): <code>millard2017-bootstrap-2026-05-24</code> (completed)</p>
+  </div>
+  
+
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(6 runs planned)</span></h3>
   <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
   
   
@@ -895,6 +1021,7 @@ handover.
     
     
   </div>
+  
   
   
 </section>
@@ -1465,7 +1592,7 @@ handover.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="v2ecoli.composites.millard2017_metabolism__1779656618__525838">View</button>
-            <button class="btn-launch-ptools" data-run-id="v2ecoli.composites.millard2017_metabolism__1779656618__525838" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
             <button class="btn-delete-run" data-run-id="v2ecoli.composites.millard2017_metabolism__1779656618__525838">Delete</button>
           </td>
         </tr>
@@ -1949,19 +2076,17 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
       Each track is independent. <em>Regression</em> answers "does the code
       still build and run cleanly?", <em>biological</em> answers "does the
       model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Set the result + basis for each as the runs
-      complete.
+      learn something new?". Each <strong>result is computed</strong> from
+      canonical fields (gate evaluator, run status, finding tiers) — author
+      only the <em>basis</em> (the rationale) for each track.
     </p>
     <div class="narrative-grid">
       <label class="narrative-row">
         <span class="narrative-label">Regression compatibility</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.regression_compatibility.result">
-          <option value="">(unset)</option>
-          <option value="PASS" >PASS</option>
-          <option value="FAIL" >FAIL</option>
-          <option value="MIXED" >MIXED</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+              title="Computed from run status (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from run status</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Regression basis</span>
@@ -1971,13 +2096,10 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
       </label>
       <label class="narrative-row">
         <span class="narrative-label">Biological validation</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.biological_validation.result">
-          <option value="">(unset)</option>
-          <option value="PASS" >PASS</option>
-          <option value="FAIL" >FAIL</option>
-          <option value="MIXED" >MIXED</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+              title="Computed from the gate evaluator (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Biological basis</span>
@@ -1987,13 +2109,10 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
       </label>
       <label class="narrative-row">
         <span class="narrative-label">Explanatory gain</span>
-        <select class="narrative-input" data-narrative-path="conclusion_verdicts.explanatory_gain.result">
-          <option value="">(unset)</option>
-          <option value="POSITIVE" >POSITIVE</option>
-          <option value="NEUTRAL" >NEUTRAL</option>
-          <option value="NEGATIVE" >NEGATIVE</option>
-          <option value="PENDING" >PENDING</option>
-        </select>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+              title="Computed from interpretation-tier findings (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
       </label>
       <label class="narrative-row narrative-row-wide">
         <span class="narrative-label">Explanatory basis</span>
@@ -2007,25 +2126,60 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
   
   
   
-  <div class="conclusions-grid">
+  
+  
+  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+    Synthesised read-only from canonical fields — edit <code>findings</code>,
+    <code>limitations</code>, and <code>discovery_implications</code> to change
+    this (and the generated report) together.
+  </p>
+  <div class="conclusions-grid conclusions-synthesis">
     <div class="conclusion-field">
-      <h3>Claims</h3>
-      <textarea id="conclusion-claims" rows="6" data-section="Claims"></textarea>
+      <h3>Claims <span class="muted small">(from findings)</span></h3>
+      
+      <ul class="synthesis-list">
+        
+        <li>On M9-glucose the PDMP-Phase-1 cell_mass + dry_mass endpoint distributions match the Phase-0 reference within +/-sigma (the W2 acceptance gate) after the closed-loop WATER[c] fix.</li>
+        
+        <li>The FBA-bridge flux-pin integrates the Millard kinetic ODE into the WCM FBA: for the reactions whose pin holds, the realized FBA flux equals the ODE-pinned bound exactly. The pinnable SCOPE is glycolysis + pentose-phosphate, where Millard&#39;s standalone steady state matches the WCM glucose state. The TCA cycle relaxes because its flux is set by the WCM&#39;s growth/energy demand, not the standalone kinetic model (not a sign/scale bug -- the ODE fluxes are positive and sensible); glyoxylate/gluconeogenic/acetate-uptake reactions are off on glucose and were curated out of the default pin set.</li>
+        
+        <li>The multi-state LQR was silently running at zero gain (a +I linearization bug); fixing it to a real stabilizing gain did NOT change the cell_mass W2, ruling out control as the gap cause and localizing it to open-loop water injection.</li>
+        
+      </ul>
+      
     </div>
     <div class="conclusion-field">
-      <h3>Evidence</h3>
-      <textarea id="conclusion-evidence" rows="6" data-section="Evidence"></textarea>
+      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+      
+      
+      <ul class="synthesis-list">
+        
+        <li>from_run: pdmp-ensemble-vs-phase0 (N=12 PDMP consumption_matched vs N=32 Phase-0, 600s); observed: cell_mass W2/sigma = 1.00 (was 3.02); dry_mass W2/sigma = 1.09</li>
+        
+        <li>from_run: millard_fba_bridge_harness (full WCM + Millard source + coupler, M9-glucose); observed: held pins (glycolysis+PPP): median |rel err| = 0, 100% within 10%; curating off-on-glucose pathways cut pin-relaxation 57%-&gt;45%; core TCA remains growth-coupled (relaxes); viable. TRANSFORMATIVE not confirmatory: all pinned reactions differ &gt;10% from the unpinned WCM FBA (Millard drives ~2x glycolytic flux; PGK/ENO/PDH near-zero unpinned) -- the kinetic model genuinely steers the WCM. BUG found+parked: 6 isozyme-split reactions (PFK/FBA/PYK core glycolysis + SDH/PPC/PTA) had base-id pins SILENTLY IGNORED (WCM FBA has 9460 enzyme-resolved variant ids, no single base id); moved to needs_variant_pinning + a guard test. PFK/FBA then RESTORED via variant-level pinning (pin the dominant isozyme variant the WCM uses: PfkA 6PFK-1-CPX, FbaA class-II) -- they now HOLD exactly, so core glycolysis (PGI-&gt;FBA-&gt;...-&gt;PDH) is driven by the kinetic ODE. PYK/SDH/PPC/PTA stay parked (PYK only a zero-flux reverse variant; the rest TCA/anaplerotic). Active pins 24, all valid fba ids.</li>
+        
+        <li>from_test: test_multistate_lqr_gain_is_nonzero_and_stabilizing; observed: ||K|| ~ 4.4 (was 0); cell_mass W2/sigma unchanged 3.02 with working LQR</li>
+        
+      </ul>
+      
     </div>
     <div class="conclusion-field">
-      <h3>Limitations</h3>
-      <textarea id="conclusion-limitations" rows="6" data-section="Limitations"></textarea>
+      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
+      <p class="muted">None recorded.</p>
     </div>
     <div class="conclusion-field">
-      <h3>Next steps</h3>
-      <textarea id="conclusion-next-steps" rows="6" data-section="Next steps"></textarea>
+      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
+      
+      <ul class="synthesis-list">
+        
+        <li><strong>FBA-bridge interface-statistic validation across all Phase-0 conditions</strong></li>
+        
+        <li><strong>LQR weight Sobol sensitivity + FIM-conditioning audit</strong></li>
+        
+      </ul>
+      
     </div>
   </div>
-  <p class="muted">Saved as one markdown blob in study.yaml.conclusion with H2 headers.</p>
   
 
 </section>

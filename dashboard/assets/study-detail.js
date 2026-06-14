@@ -110,21 +110,24 @@
     var panel = document.getElementById(panelId);
     if (!panel) return;
     _chartsLoadedFor[panelId] = true;
-    // In snapshot mode the /api/study-charts/ endpoint is not exported.
-    // Show a neutral placeholder instead of attempting the fetch.
+    // Both modes fetch the study-charts payload via DataSource: local mode
+    // hits the live /api/study-charts/<slug> endpoint; snapshot mode reads the
+    // /api/study-charts/<slug>.json the publisher base64-embedded at build
+    // time (static charts only — live charts need a runs.db absent from the
+    // snapshot). DataSource resolves the base-path-prefixed URL for either.
     var _cfg = window.__DASH_CONFIG__ || {};
-    if (_cfg.mode === 'snapshot') {
-      panel.innerHTML = '<p class="muted" style="margin:0">Results are served by sms-api — coming in a later update.</p>';
-      return;
-    }
+    var _isSnapshot = _cfg.mode === 'snapshot';
     panel.innerHTML = '<p class="muted" style="margin:0">Loading charts…</p>';
-    fetch('/api/study-charts/' + encodeURIComponent(studyName()))
-      .then(function(r) { return r.json(); })
+    window.DataSource.loadStudyCharts(studyName())
       .then(function(d) {
         if (!d || !d.charts || !d.charts.length) {
-          panel.innerHTML = (d && d.db_exists === false)
-            ? '<p class="muted" style="margin:0">No <code>runs.db</code> and no static charts under <code>studies/' + studyName() + '/charts/</code>.</p>'
-            : '<p class="muted" style="margin:0">No chart data available for this study.</p>';
+          if (_isSnapshot) {
+            panel.innerHTML = '<p class="muted" style="margin:0">No pre-rendered charts published for this study.</p>';
+          } else {
+            panel.innerHTML = (d && d.db_exists === false)
+              ? '<p class="muted" style="margin:0">No <code>runs.db</code> and no static charts under <code>studies/' + studyName() + '/charts/</code>.</p>'
+              : '<p class="muted" style="margin:0">No chart data available for this study.</p>';
+          }
           return;
         }
         var live = d.charts.filter(function(c) { return (c.source || 'live') === 'live'; });
@@ -163,14 +166,32 @@
   }
   window._seedFollowupStudy = _seedFollowupStudy;
 
+  // critique #19 — a failing study should seed a DIAGNOSTIC child. Recognises
+  // both the normalized result (FAIL / PARTIAL) and the raw roll-up verdict
+  // (failed / needs_calibration).
+  function _isFailingVerdict(s) {
+    s = s || {};
+    var r = String(((s.computed_gate_verdict || {}).result) || s.gate_status || '')
+      .trim().toLowerCase();
+    return r === 'fail' || r === 'failed' || r === 'partial' || r === 'needs_calibration';
+  }
+
   // ── Seed a new study from a finding's next_action ────────────────────────
   // Delegates to the shared pbg seed mechanism via {parent, finding_id};
   // the finding seeds STANDALONE (no pre-existing followup proposal needed).
-  function _seedFromFinding(parentStudyName, findingId) {
-    if (!confirm('Seed a new study from this finding?\n\nA new study.yaml will be created under studies/<new-name>/ pre-populated from the finding\'s next_action, and the finding will be stamped with the seeded study.')) {
+  // An optional studyType (e.g. 'diagnostic' when the parent failed, critique
+  // #19) is threaded through to the pbg writer so the child is typed.
+  function _seedFromFinding(parentStudyName, findingId, studyType) {
+    var diag = studyType === 'diagnostic';
+    var msg = diag
+      ? 'Seed a DIAGNOSTIC study from this finding?\n\nThe parent study did not pass, so a new study_type: diagnostic study.yaml will be created under studies/<new-name>/ to diagnose the failure, stamped with the parent + failing-test lineage.'
+      : 'Seed a new study from this finding?\n\nA new study.yaml will be created under studies/<new-name>/ pre-populated from the finding\'s next_action, and the finding will be stamped with the seeded study.';
+    if (!confirm(msg)) {
       return;
     }
-    api('POST', '/api/study-seed-followup', {parent: parentStudyName, finding_id: findingId})
+    var body = {parent: parentStudyName, finding_id: findingId};
+    if (studyType) body.study_type = studyType;
+    api('POST', '/api/study-seed-followup', body)
       .then(function(res) {
         if (res.status !== 200 || res.body.error) {
           alert('Seed failed: ' + (res.body.error || res.status));
@@ -181,6 +202,41 @@
       });
   }
   window._seedFromFinding = _seedFromFinding;
+
+  // ── Seed a new study from a discovery_implications.followup_study_proposals
+  // entry (by id). This is what the "➕ Add to investigation" buttons call;
+  // it was previously undefined on the study-detail page (the button did
+  // nothing). Delegates to the shared seed endpoint with {parent, proposal_id}.
+  function _seedFollowupProposal(parentStudyName, proposalId) {
+    if (!confirm('Spawn a new study from this follow-up proposal?\n\n'
+        + 'A new study.yaml will be created under studies/<new-name>/ with a '
+        + 'leads-to edge back to ' + parentStudyName + '.')) {
+      return;
+    }
+    var body = {parent: parentStudyName};
+    if (proposalId) body.proposal_id = proposalId;
+    api('POST', '/api/study-seed-followup', body)
+      .then(function(res) {
+        if (res.status !== 200 || res.body.error) {
+          alert('Seed failed: ' + (res.body.error || res.status));
+          return;
+        }
+        alert('Created: ' + res.body.new_study_name + '\nOpening it now.');
+        window.location.href = '/studies/' + encodeURIComponent(res.body.new_study_name);
+      });
+  }
+  window._seedFollowupProposal = _seedFollowupProposal;
+
+  // ── Pop out the bigraph-loom STATIC (read-only) view of a composite. Used by
+  // the Build-tab Model block. stateUrl points at the live composite-state
+  // endpoint; the loom unwraps {state}.
+  function _openCompositeLoom(composite) {
+    if (!composite) return;
+    var stateUrl = '/api/composite-state?ref=' + encodeURIComponent(composite);
+    var u = '/bigraph-loom/index.html?static=1&stateUrl=' + encodeURIComponent(stateUrl);
+    window.open(u, 'loom', 'width=1200,height=840');
+  }
+  window._openCompositeLoom = _openCompositeLoom;
 
   // --- Inline-edit (overview fields: objective, conclusion, question, hypothesis, status) ---
   function _saveOverviewField(field, value) {
@@ -432,6 +488,26 @@
 
   bindAll('.btn-export', function() {
     window.location = '/api/study-export?study=' + encodeURIComponent(studyName());
+  });
+
+  // W24 — "View as skeptic": render the single-study report reordered for a
+  // skeptical reviewer (audit trail → rigor → controls → alternatives →
+  // limitations → open debts → verdicts/biology/viz) and open it. The server
+  // route renders the skeptic view from ?skeptic=1 / body flag; we just open
+  // the resulting HTML file.
+  bindAll('.btn-view-skeptic', function(btn) {
+    btn.disabled = true;
+    api('POST', '/api/study-report-single?skeptic=1',
+        {study: studyName(), skeptic: true})
+      .then(function(res) {
+        btn.disabled = false;
+        if (res.status === 200 && res.body && res.body.html_path) {
+          window.open('/' + res.body.html_path.replace(/^\/+/, ''), '_blank');
+        } else {
+          alert((res.body && res.body.error) || 'Could not render skeptic view.');
+        }
+      })
+      .catch(function() { btn.disabled = false; });
   });
 
   // btn-delete has class "btn-delete danger" — selector ".btn-delete" still matches.
@@ -1215,7 +1291,117 @@
     _renderFeedbackTrackedPanel();
     _renderReadinessPanel();
     _renderSpineSummary();
+    _populateConclusionVerdictBadges();
+    _autoReadouts();
   }
+
+  // ── C2 — derive the 3-track conclusion verdicts (read-only, computed) ───
+  // Rules kept IDENTICAL to single_study_report.py (_derive_conclusion_verdicts)
+  // and walkthrough.js (_deriveConclusionVerdicts) so every surface shows the
+  // same badge. The .basis textareas remain authored inputs.
+  var _GATE_RESULT_NORM = {
+    pass: 'PASS', passed: 'PASS', ok: 'PASS',
+    fail: 'FAIL', failed: 'FAIL',
+    partial: 'PARTIAL', mixed: 'PARTIAL', needs_calibration: 'PARTIAL'
+  };
+  var _RUN_ERRORED = {error: 1, errored: 1, failed: 1, crashed: 1, fail: 1};
+  var _RUN_COMPLETED = {completed: 1, complete: 1, success: 1, succeeded: 1, ok: 1, done: 1, finished: 1};
+  function _normGateResult(v) {
+    return _GATE_RESULT_NORM[String(v == null ? '' : v).trim().toLowerCase()] || 'PENDING';
+  }
+  function _deriveConclusionVerdicts(s) {
+    s = s || {};
+    var ge = (s.pipeline_gate || {}).gate_evaluator || {};
+    var bio = _normGateResult(ge.result || s.gate_status);
+
+    var runs = (s.runs || []).filter(function(r) { return r && typeof r === 'object'; });
+    var reg;
+    if (!runs.length) { reg = 'PENDING'; }
+    else {
+      var statuses = runs.map(function(r) { return String(r.status == null ? '' : r.status).trim().toLowerCase(); });
+      if (statuses.some(function(x) { return _RUN_ERRORED[x]; })) reg = 'FAIL';
+      else if (statuses.every(function(x) { return _RUN_COMPLETED[x]; })) reg = 'PASS';
+      else reg = 'PARTIAL';
+    }
+
+    var findings = (s.findings || []).filter(function(f) { return f && typeof f === 'object'; });
+    var exp;
+    if (!findings.length) exp = 'GAP';
+    else if (findings.some(function(f) { return f.tier === 'interpretation' || f.mechanism_origin; })) exp = 'PASS';
+    else exp = 'PARTIAL';
+
+    return {
+      biological_validation:    {result: bio},
+      regression_compatibility: {result: reg},
+      explanatory_gain:         {result: exp}
+    };
+  }
+  function _populateConclusionVerdictBadges() {
+    var badges = document.querySelectorAll('[data-verdict-track]');
+    if (!badges.length) return;
+    var cv = _deriveConclusionVerdicts(window._study || {});
+    var colors = {
+      PASS: ['#dcfce7', '#166534'], PARTIAL: ['#fef3c7', '#92400e'],
+      FAIL: ['#fee2e2', '#991b1b'], GAP: ['#f1f5f9', '#475569'], PENDING: ['#f1f5f9', '#475569']
+    };
+    badges.forEach(function(el) {
+      var track = el.getAttribute('data-verdict-track');
+      var res = (cv[track] || {}).result || 'PENDING';
+      var col = colors[res] || colors.PENDING;
+      el.textContent = res;
+      el.style.background = col[0];
+      el.style.color = col[1];
+    });
+  }
+
+  // Auto-derive the Readouts tab from the composite's bigraph state when the
+  // study declares no readouts/observables — so the tab is never empty and is
+  // connected to the actual simulation. Lists the composite's scalar/array
+  // stores (the quantities a readout can target) with their paths + current
+  // values, fetched from /api/composite-state?ref=<baseline composite>.
+  function _autoReadouts() {
+    var host = document.getElementById('auto-readouts');
+    if (!host) return;
+    var composite = host.getAttribute('data-composite') || '';
+    if (!composite) return;
+    var e = escapeHtmlForTests;
+    api('GET', '/api/composite-state?ref=' + encodeURIComponent(composite)).then(function (res) {
+      if (!res || res.status !== 200 || !res.body || !res.body.state) return;
+      var st = res.body.state;
+      // The endpoint returns the composite DOCUMENT; the bigraph state
+      // (the actual stores) is nested under its `state` field.
+      if (st && st.state && typeof st.state === 'object') st = st.state;
+      var rows = [];
+      Object.keys(st).forEach(function (k) {
+        var v = st[k];
+        // Skip process/step nodes (objects with _type/address/config); keep the
+        // scalar/array stores — those are the observable quantities.
+        if (v && typeof v === 'object' && (v._type || v.address || v.config || v.inputs || v.outputs)) return;
+        var kind = (typeof v === 'number') ? 'scalar'
+                 : (Array.isArray(v) ? ('array (' + v.length + ')') : typeof v);
+        var preview = (typeof v === 'number') ? String(Math.round(v * 1000) / 1000)
+                    : (Array.isArray(v) ? '' : (typeof v === 'string' ? v : ''));
+        rows.push('<tr style="border-bottom:1px solid #f1f5f9">'
+          + '<td style="padding:6px"><code>' + e(k) + '</code></td>'
+          + '<td style="padding:6px"><code style="font-size:0.85em">' + e(k) + '</code></td>'
+          + '<td style="padding:6px" class="muted small">' + e(kind) + '</td>'
+          + '<td style="padding:6px" class="muted small">' + e(preview) + '</td></tr>');
+      });
+      if (!rows.length) return;
+      host.innerHTML =
+        '<p class="muted" style="font-size:0.88em">Auto-derived from the composite’s bigraph state '
+        + '(<code>' + e(composite) + '</code>) — the stores this study can read out. Declare them under '
+        + '<code>readouts:</code> in study.yaml to pin units, descriptions, and pass/fail bands.</p>'
+        + '<table class="observables-table" style="width:100%;border-collapse:collapse">'
+        + '<thead><tr>'
+        + '<th style="text-align:left;padding:6px;border-bottom:1px solid #e2e8f0">Store</th>'
+        + '<th style="text-align:left;padding:6px;border-bottom:1px solid #e2e8f0">Path</th>'
+        + '<th style="text-align:left;padding:6px;border-bottom:1px solid #e2e8f0">Kind</th>'
+        + '<th style="text-align:left;padding:6px;border-bottom:1px solid #e2e8f0">Current value</th>'
+        + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+    }).catch(function () {});
+  }
+  window._autoReadouts = _autoReadouts;
 
   // Memoized GET /api/report-lint — shared by the readiness panel AND the
   // spine-summary panel so the deterministic linter is fetched once.
@@ -1260,9 +1446,11 @@
         ? '<span class="spine-chip-warn" title="code-computed verdict disagrees with the authored gate_status">'
           + '⚠ code: ' + e(cgv.result) + ' · authored: ' + e(s.gate_status || '—') + '</span>'
         : '';
+      // critique #18 — pre-registered ✓ / post-hoc ⚠ chip in the Verdict row.
+      var preregChip = _preregChipHtml(s);
       _row('Verdict',
         '<strong>' + e(cgv.result) + '</strong> '
-        + '<span class="spine-label">code-computed</span> ' + chip,
+        + '<span class="spine-label">code-computed</span> ' + chip + preregChip,
         '<a href="#" onclick="_setStudyTab(\'overview\');return false">details →</a>');
     }
 
@@ -1276,7 +1464,9 @@
       var dv = (ev.divergence_factor != null)
         ? ' <span class="spine-div">×' + e(ev.divergence_factor) + ' vs expected</span>' : '';
       _row('Why', e(fwhy.statement) + dv,
-        '<a href="#" onclick="_setStudyTab(\'overview\');return false">finding →</a>');
+        '<a href="#" onclick="_setStudyTab(\'overview\');'
+        + 'var el=document.querySelector(\'.findings-section\');'
+        + 'if(el)el.scrollIntoView({behavior:\'smooth\',block:\'start\'});return false">finding →</a>');
     }
 
     // ── Acceptance — the investigation criterion this study covers (A1) ────
@@ -1308,17 +1498,21 @@
                 : 'ℹ ' + fs.length + ' note' + (fs.length === 1 ? '' : 's'));
       _row('Readiness',
         e(head) + ' <span class="spine-label">code-computed by the report linter</span>',
-        '<a href="#readiness-panel">readiness →</a>');
+        '<a href="#" onclick="_setStudyTab(\'overview\');'
+        + 'var el=document.getElementById(\'readiness-panel\');'
+        + 'if(el)el.scrollIntoView({behavior:\'smooth\',block:\'start\'});return false">readiness →</a>');
       _flush();
     });
 
     // ── Next — the top next_action / follow-up ─────────────────────────────
     var next = null;
     var nextFindingId = null;
+    var nextActionType = null;
     for (var i = 0; i < findings.length; i++) {
       if (findings[i] && findings[i].next_action) {
         next = findings[i].next_action;
         nextFindingId = findings[i].id || null;
+        nextActionType = findings[i].next_action_type || null;   // critique #7
         break;
       }
     }
@@ -1331,17 +1525,24 @@
       if (di[0] && di[0].title) next = di[0].title;
     }
     if (next) {
+      // critique #19 — when this study FAILED (or needs calibration), the
+      // seeded child should be a diagnostic study. Pass study_type=diagnostic
+      // through the existing seed button (the pbg writer stamps the child).
+      var failing = _isFailingVerdict(s);
       // When the "Next" is a finding's next_action, offer to seed a child
       // study from it directly (delegates to the shared pbg seed mechanism).
       var nextAction;
       if (nextFindingId) {
+        var seedType = failing ? 'diagnostic' : '';
+        var label = failing ? 'seed diagnostic study →' : 'seed study from this finding →';
         nextAction = '<a href="#" onclick="_seedFromFinding(' +
           JSON.stringify(studyName()) + ',' + JSON.stringify(nextFindingId) +
-          ');return false">seed study from this finding →</a>';
+          ',' + JSON.stringify(seedType) +
+          ');return false">' + label + '</a>';
       } else {
         nextAction = '<a href="#" onclick="_setStudyTab(\'conclusions\');return false">decide →</a>';
       }
-      _row('Next', e(next), nextAction);
+      _row('Next', e(next) + _nextActionTypeChipHtml(nextActionType), nextAction);
     }
 
     // First synchronous flush (readiness fills its slot async above).
@@ -1351,13 +1552,97 @@
   function _flushSpineSummary(container, order, slots) {
     var html = order.map(function (k) { return slots[k] || ''; }).join('');
     if (!html) { container.innerHTML = ''; return; }
-    container.innerHTML = '<div class="spine-summary-head">Spine at a glance</div>' + html;
+    // critique #10 — surface the study_type badge in the panel head.
+    var typeBadge = _studyTypeBadgeHtml(window._study || {});
+    container.innerHTML = '<div class="spine-summary-head">Spine at a glance'
+      + typeBadge + '</div>' + html;
   }
 
   function _spineEsc(v) {
     return String(v == null ? '' : v)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ── Wave 3a workflow-typing chips (critiques #10 / #7 / #18) ──────────────
+  // study_type (#10): study_type → kind → study_kind alias → 'standard' default.
+  // Kept in sync with single_study_report._study_type + rigor._study_type.
+  var _STUDY_TYPES = {exploratory: 1, confirmatory: 1, diagnostic: 1,
+                      adversarial: 1, standard: 1};
+  var _STUDY_TYPE_COLORS = {
+    exploratory:  ['#e0e7ff', '#3730a3'], confirmatory: ['#dcfce7', '#166534'],
+    diagnostic:   ['#fef3c7', '#92400e'], adversarial:  ['#fee2e2', '#991b1b'],
+    standard:     ['#f1f5f9', '#475569']
+  };
+  function _studyType(s) {
+    s = s || {};
+    var keys = ['study_type', 'kind', 'study_kind'];
+    for (var i = 0; i < keys.length; i++) {
+      var v = s[keys[i]];
+      if (typeof v === 'string' && v.trim()) {
+        var t = v.trim().toLowerCase();
+        if (_STUDY_TYPES[t]) return t;
+      }
+    }
+    return 'standard';
+  }
+  function _studyTypeBadgeHtml(s) {
+    s = s || {};
+    var explicit = ['study_type', 'kind', 'study_kind'].some(function (k) {
+      return typeof s[k] === 'string' && s[k].trim();
+    });
+    var t = _studyType(s);
+    if (!explicit || t === 'standard') return '';
+    var c = _STUDY_TYPE_COLORS[t] || ['#f1f5f9', '#475569'];
+    return '<span class="study-type-badge" title="study type (critique #10)" '
+      + 'style="display:inline-block;padding:1px 9px;border-radius:9999px;'
+      + 'font-weight:600;font-size:0.75em;background:' + c[0] + ';color:' + c[1]
+      + ';margin-left:8px;vertical-align:middle">' + _spineEsc(t) + '</span>';
+  }
+
+  // next_action_type (#7) — known values get a blue chip, unknowns amber.
+  var _NEXT_ACTION_TYPES = {
+    replicate: 1, calibrate: 1, ablate: 1, adversarially_probe: 1,
+    refine_representation: 1, split_hypothesis: 1, retire_hypothesis: 1,
+    escalate_model: 1
+  };
+  function _nextActionTypeChipHtml(nat) {
+    if (typeof nat !== 'string' || !nat.trim()) return '';
+    var v = nat.trim();
+    var known = !!_NEXT_ACTION_TYPES[v];
+    var bg = known ? '#dbeafe' : '#fef9c3';
+    var fg = known ? '#1e40af' : '#854d0e';
+    return '<span class="next-action-type" title="next action type (critique #7)" '
+      + 'style="display:inline-block;padding:1px 8px;border-radius:9999px;background:'
+      + bg + ';color:' + fg + ';font-weight:600;font-size:0.72em;margin-left:6px;'
+      + 'vertical-align:middle">' + _spineEsc(v) + '</span>';
+  }
+
+  // preregistration (#18) — chip from window._study.preregistration_status,
+  // which the server (study_verdict.preregistration_status) attaches on the
+  // report-data path. Omitted when no preregistered block was declared.
+  function _preregChipHtml(s) {
+    var ps = (s || {}).preregistration_status;
+    if (!ps || !ps.preregistered) return '';
+    var bg, fg, label, title, before = ps.registered_before_run;
+    if (before === true) {
+      bg = '#dcfce7'; fg = '#166534'; label = 'pre-registered ✓';
+      title = 'criteria registered before the canonical run';
+    } else if (before === false) {
+      bg = '#fef3c7'; fg = '#92400e'; label = 'post-hoc ⚠';
+      title = 'criteria registered AFTER the run started';
+    } else {
+      bg = '#e2e8f0'; fg = '#475569'; label = 'pre-registered (timing unknown)';
+      title = 'registered_at or run start time missing';
+    }
+    if (ps.criteria_match === false) {
+      label += ' · thresholds drifted';
+      title += '; pre-registered thresholds differ from the current behavior tests';
+    }
+    return '<span class="prereg-chip" title="' + _spineEsc(title) + '" '
+      + 'style="display:inline-block;padding:1px 9px;border-radius:9999px;'
+      + 'font-weight:600;font-size:0.75em;background:' + bg + ';color:' + fg
+      + ';margin-left:8px;vertical-align:middle">' + _spineEsc(label) + '</span>';
   }
 
   // Spine A3: per-study readiness panel. Fetches the deterministic report

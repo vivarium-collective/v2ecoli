@@ -1689,6 +1689,11 @@ function showAllIngredients() {
   applyVisibility();
   renderLegend();
 }
+function hideAllIngredients() {
+  for (const e of instancedMeshes) e.visible = false;
+  applyVisibility();
+  renderLegend();
+}
 
 function escapeHtml(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -1700,6 +1705,30 @@ function nameToEntry(name) {
 function isolateCategory(cat) {
   for (const e of instancedMeshes) e.visible = ((metaFor(e).category || "Other") === cat);
   applyVisibility();
+  renderLegend();
+}
+
+// Show/hide a single ingredient (checkbox or row-body click). Re-renders the
+// legend so the category checkbox tri-state + counts stay in sync — the list
+// is short, so a full re-render per toggle is cheap and never desyncs.
+function setIngredientVisible(name, vis) {
+  const e = nameToEntry(name);
+  if (!e) return;
+  e.visible = vis;
+  applyVisibility();
+  renderLegend();
+}
+// Show/hide every ingredient in a category at once.
+function setCategoryVisible(cat, vis) {
+  for (const e of instancedMeshes) {
+    if ((metaFor(e).category || "Other") === cat) e.visible = vis;
+  }
+  applyVisibility();
+  renderLegend();
+}
+function toggleCatCollapse(cat) {
+  if (collapsedCats.has(cat)) collapsedCats.delete(cat);
+  else collapsedCats.add(cat);
   renderLegend();
 }
 
@@ -1730,47 +1759,68 @@ function renderLegend() {
   const cnt = (e) => (e.placements ? e.placements.length : 0);
   for (const cat of cats) {
     const rows = groups.get(cat).sort((a, b) => cnt(b.entry) - cnt(a.entry));
-    html += `<div class="cat-group">`
-      + `<div class="cat-head" data-cat="${escapeHtml(cat)}" title="show only this category">`
+    const collapsed = collapsedCats.has(cat);
+    const nVis = rows.reduce((n, r) => n + (r.entry.visible ? 1 : 0), 0);
+    html += `<div class="cat-group${collapsed ? " collapsed" : ""}">`
+      + `<div class="cat-head">`
+      + `<span class="cat-caret" data-caret="${escapeHtml(cat)}" title="collapse / expand">${collapsed ? "▸" : "▾"}</span>`
+      + `<input type="checkbox" class="cat-cb" data-catcb="${escapeHtml(cat)}" title="show / hide all in this category">`
       + `<div class="cat-dot" style="background:${CAT_COLOR[cat] || "#888"}"></div>`
-      + `<div style="flex:1">${escapeHtml(cat)}</div>`
-      + `<div class="cat-count">${rows.length}</div></div>`;
+      + `<div class="cat-name" data-catname="${escapeHtml(cat)}" title="collapse / expand">${escapeHtml(cat)}</div>`
+      + `<div class="cat-count">${nVis}/${rows.length}</div>`
+      + `<a class="cat-only" data-catonly="${escapeHtml(cat)}" title="show only this category">only</a>`
+      + `</div>`;
+    html += `<div class="cat-rows">`;
     for (const { entry, disp } of rows) {
-      html += `<div class="legend-row${entry.visible ? "" : " off"}" data-name="${escapeHtml(entry.name)}" title="click to show only this">`
+      html += `<div class="legend-row${entry.visible ? "" : " off"}" data-name="${escapeHtml(entry.name)}" title="click to show / hide">`
         + `<input type="checkbox" class="ing-cb" data-cb="${escapeHtml(entry.name)}" ${entry.visible ? "checked" : ""} title="show / hide">`
         + `<div class="swatch" style="background:#${entry.color.getHexString()}"></div>`
         + `<div class="name">${escapeHtml(disp)}</div>`
-        + `<div class="count">${cnt(entry).toLocaleString()}</div></div>`;
+        + `<div class="count">${cnt(entry).toLocaleString()}</div>`
+        + `<a class="only" data-only="${escapeHtml(entry.name)}" title="show only this">only</a>`
+        + `</div>`;
     }
-    html += `</div>`;
+    html += `</div></div>`;
   }
   legendEl.innerHTML = html;
+  // Set the per-category checkbox tri-state from the rows just rendered.
+  for (const g of legendEl.querySelectorAll(".cat-group")) {
+    const cb = g.querySelector("input[data-catcb]");
+    if (!cb) continue;
+    const boxes = g.querySelectorAll(".cat-rows input[data-cb]");
+    const on = [...boxes].filter((b) => b.checked).length;
+    cb.checked = boxes.length > 0 && on === boxes.length;
+    cb.indeterminate = on > 0 && on < boxes.length;
+  }
 }
 
-// One delegated click handler for the whole ingredient panel.
+// One delegated click handler for the whole ingredient panel. Order matters:
+// the most specific controls (caret, only-links, checkboxes) are matched
+// before the generic row/category fallbacks.
 legendEl.addEventListener("click", (ev) => {
-  // Checkbox: show/hide just this ingredient (don't fall through to isolate).
+  // Category caret or name: collapse / expand the category.
+  const caret = ev.target.closest("[data-caret]");
+  if (caret) { toggleCatCollapse(caret.getAttribute("data-caret")); return; }
+  const catName = ev.target.closest("[data-catname]");
+  if (catName) { toggleCatCollapse(catName.getAttribute("data-catname")); return; }
+  // Category "only": isolate the whole category.
+  const catOnly = ev.target.closest("[data-catonly]");
+  if (catOnly) { isolateCategory(catOnly.getAttribute("data-catonly")); return; }
+  // Category checkbox: show/hide every ingredient in the category.
+  const catCb = ev.target.closest("input[data-catcb]");
+  if (catCb) { setCategoryVisible(catCb.getAttribute("data-catcb"), catCb.checked); return; }
+  // Ingredient "only": isolate just this ingredient.
+  const only = ev.target.closest("[data-only]");
+  if (only) { const e = nameToEntry(only.getAttribute("data-only")); if (e) isolateIngredient(e); return; }
+  // Ingredient checkbox: show/hide just this ingredient.
   const cb = ev.target.closest("input[data-cb]");
-  if (cb) {
-    const e = nameToEntry(cb.getAttribute("data-cb"));
-    if (e) {
-      e.visible = cb.checked;
-      applyVisibility();
-      const row = cb.closest(".legend-row");
-      if (row) row.classList.toggle("off", !e.visible);
-    }
-    return;
-  }
-  // Row body: isolate this ingredient.
+  if (cb) { setIngredientVisible(cb.getAttribute("data-cb"), cb.checked); return; }
+  // Row body (swatch / name / count): toggle this ingredient's visibility.
   const row = ev.target.closest("[data-name]");
   if (row) {
     const e = nameToEntry(row.getAttribute("data-name"));
-    if (e) isolateIngredient(e);
-    return;
+    if (e) setIngredientVisible(e.name, !e.visible);
   }
-  // Category header: isolate the whole category.
-  const head = ev.target.closest("[data-cat]");
-  if (head) isolateCategory(head.getAttribute("data-cat"));
 });
 
 function updateStatus(fileName, n, types) {
@@ -1884,21 +1934,16 @@ resetBtn.addEventListener("click", () => {
   if (dataBounds) framePacking(dataBounds.min, dataBounds.max);
 });
 
-// Sidebar collapse toggle.
-const sidebarEl = document.getElementById("sidebar");
+// Sidebar collapse toggle: hide the whole side panel so the 3D view gets the
+// full window. Collapses the sidebar grid column to 0 and resizes the renderer
+// to reclaim the space.
+const appEl = document.getElementById("app");
 const sidebarToggle = document.getElementById("sidebar-toggle");
 sidebarToggle.addEventListener("click", () => {
-  const collapsed = sidebarEl.classList.toggle("collapsed");
-  sidebarToggle.textContent = collapsed ? "show" : "hide";
-  // Reposition the button when collapsed: it follows the right edge
-  // of the viewport rather than the right edge of the (now off-
-  // screen) sidebar.
-  sidebarToggle.style.right = collapsed ? "12px" : "22px";
-  sidebarToggle.style.top = collapsed ? "12px" : "18px";
-  // Trigger a renderer resize since the canvas effective area
-  // changes (slight: sidebar is floating, but a resize covers any
-  // browser quirk).
-  resize();
+  const hidden = appEl.classList.toggle("sidebar-hidden");
+  sidebarToggle.textContent = hidden ? "≡ panel" : "‹ panel";
+  // The canvas grid area changes width — resize the renderer to match.
+  requestAnimationFrame(resize);
 });
 
 toggleBbox.addEventListener("change", () => {
@@ -2326,19 +2371,14 @@ demoPicker.addEventListener("change", () => {
   loadByPath(`data/${file}`);
 });
 
-// Ingredient-navigation wiring (search + show-all + expand/collapse).
+// Ingredient-navigation wiring (search + show-all/hide-all).
 {
   const search = document.getElementById("ing-search");
   if (search) search.addEventListener("input", (e) => { ingSearchTerm = e.target.value; renderLegend(); });
   const showAll = document.getElementById("ing-showall");
   if (showAll) showAll.addEventListener("click", () => { showAllIngredients(); });
-  const expand = document.getElementById("ing-expand");
-  if (expand) expand.addEventListener("click", () => { collapsedCats.clear(); renderLegend(); });
-  const collapse = document.getElementById("ing-collapse");
-  if (collapse) collapse.addEventListener("click", () => {
-    collapsedCats = new Set(instancedMeshes.map((e) => metaFor(e).category || "Other"));
-    renderLegend();
-  });
+  const hideAll = document.getElementById("ing-hideall");
+  if (hideAll) hideAll.addEventListener("click", () => { hideAllIngredients(); });
 }
 
 // Load the ingredient-metadata sidecar (display names + categories), then the

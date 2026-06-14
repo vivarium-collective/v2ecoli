@@ -6,7 +6,7 @@ study_kind: diagnostic   # head-to-head comparison; categorizes divergences (rep
 
 design_status: drafted
 implementation_status: in_progress
-simulation_status: not_run
+simulation_status: smoke_run
 evaluation_status: not_evaluated
 expert_review_status: not_requested
 
@@ -80,6 +80,7 @@ implementation_requirements:
 # Report-card axis grading for BOTH arms vs Beulig (mirrors mbp-05's 5 groups).
 # Diagnostic (execute-and-report); the verdicts categorize divergences that feed
 # mbp-06, and the head-to-head shows where kinetic metabolism tracks better.
+  status: done (smoke run; full ~33h batch run is follow-up)
 behavior_tests:
 - name: millard-growth-axes-graded-vs-beulig
   classification: diagnostic

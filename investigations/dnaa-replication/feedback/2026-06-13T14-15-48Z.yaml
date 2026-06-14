@@ -1,0 +1,14 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260613035145"
+  generated_at: "2026-06-13T14:15:48.253Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-13-2.html"
+annotations:
+  "study-dnaa-4-autoregulation-decision":
+    - ts: "2026-06-13T14:15:45.762Z"
+      author: "Rashmi"
+      text: "run V=1.5 + Hill K=0.5 + s=0.7 + n=4 for multiple generations. Then we can select a .dill from a steady state generation of that run and continue another lineage to confirm stability."

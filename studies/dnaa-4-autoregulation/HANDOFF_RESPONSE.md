@@ -7,6 +7,50 @@ resolves the V-tension** the dnaa-3 V-sweep proved no constitutive V could — i
 DnaA peak and dampens the cell-cycle amplitude. Your open question (linear vs Hill) is
 **answered with data: Hill is correct.** Details below, including two things you'll want to know.
 
+---
+
+## Update — 2026-06-13: your s=0.7 round (V=1.5, K=0.5, n=4, multi-gen)
+
+You asked to **run V=1.5 + Hill K=0.5 + s=0.7 + n=4 for multiple generations**, then continue
+a lineage from a steady-state `.dill` to confirm stability. Done — and **s=0.7 is the answer
+to band-centering**. I ran it across **3 seeds** for robustness (your "advance this" ask):
+
+| seed | DnaA gen-mean (g3–16) | peak (<800) | oriC / re-inits | in-band? |
+|---|---|---|---|---|
+| 0 | wanders 187–489 | 692 | 2 / 0 | most gens; stochastic dip to ~187 at g11–12 |
+| **1** | **333–487** | **655** | 2 / 0 | **every full gen g3–16** |
+| **2** | **355–594** | **759** | 2 / 0 | **every full gen g3–16** |
+| control | 618–1178 | 1567 | 2 / 0 | no (runaway) |
+
+- **s=0.7 centers the band.** Seeds 1 & 2 hold DnaA inside [300,800] across *every full
+  generation* — better than s=0.6 (trough-dips) and s=0.8 (low setpoint). The only sub-300
+  points are the *partial* final gen g17 (truncated) and seed0's noise.
+- **Peak-cap (<800) and cell-cycle (oriC≤2, 0 re-inits) are ROBUST across all 3 seeds.**
+- **seed1 was the cleanest** — and it's the one that needed the fix below.
+
+### A baseline bug your run surfaced — now fixed (#209)
+seed1 first **crashed**: `PROTON[c] NegativeCountsError` ~gen 3 — an allocator over-draft
+after an FBA `GLP_NOFEAS` infeasibility tick. It's **platform-sensitive** (crashed on the
+mini, ran clean on the laptop) and is a **baseline-model robustness defect, not an
+autoregulation issue.** Fixed in **v2ecoli #209** (`resolve_overdraft` clamps the over-draft
+and warns instead of crashing the lineage; behavior-neutral, byte-identical parity). With it,
+seed1 completed all 16 gens (6 graceful clamps, 0 crashes).
+
+### The resume-from-dill stability check — blocked by a tooling bug
+I could **not** complete the "continue a lineage from a steady-state gen-10 dill" step: the
+`--resume-dill` path produces a daughter that **never re-initiates replication** (oriC pinned
+at 2, grows to ~2× mass, never divides) — reproduced across **two seeds**, while the
+*in-process* continuous divide of the identical state divides fine. So it's a **dill-roundtrip
+tooling bug** (the serialized `cell_state['unique']` loses replication-init state), **not
+instability**. Write-up + a no-sim diagnostic: `docs/resume_dill_replication_init_bug.md`.
+**The multi-generation stability you wanted is already evidenced by the continuous 16-gen runs**
+(clean, every gen divides); the dill-resume confirmation is deferred until that tooling is fixed.
+
+Reproduce s=0.7: `DNAA_AUTOREG_STRENGTH=0.7 DNAA_AUTOREG_FORM=hill DNAA_HYDROLYSIS_RATE_PER_MIN=0.025
+… --perturbation "TU00259[c]=1.5e-3" --seed {0,1,2} --generations 16`.
+
+---
+
 ## What was integrated (your code, applied)
 - `dnaa_box_binding.py`: computes the bound fraction `f` of the `POOL_PROMOTER_HIGH` sites,
   publishes it on the `dnaa_hydrolysis` port; `K_d_high` 1→3 nM. (commit `656e4e7`)

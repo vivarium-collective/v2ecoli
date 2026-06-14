@@ -1063,7 +1063,19 @@ async function buildScene(doc, fileName) {
   }
 
   const ingredients = doc.ingredients || [];
-  const placements = doc.placements || [];
+  // Placements come in two shapes: the legacy verbose object
+  // ({ingredient, position, rotation, …}) or the compact "array8"
+  // form [ingredient, x,y,z, qx,qy,qz,qw] (keyless — far smaller on the
+  // wire, so the full-abundance pack stays under the file-size limit).
+  // Normalize the compact form to objects once, on load.
+  let placements = doc.placements || [];
+  if (placements.length && Array.isArray(placements[0])) {
+    placements = placements.map((a) => ({
+      ingredient: a[0],
+      position: [a[1], a[2], a[3]],
+      rotation: [a[4], a[5], a[6], a[7]],
+    }));
+  }
 
   // Index ingredients by id for quick placement lookup. The id is
   // not necessarily the array position (recipes can have gaps), so

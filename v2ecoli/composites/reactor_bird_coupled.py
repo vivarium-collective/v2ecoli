@@ -159,6 +159,144 @@ def _reactor_store(bird_config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def add_reactor_coupling(
+    document: dict,
+    core: Any = None,
+    *,
+    bird_config: dict | None = None,
+    cells_per_agent: float = 1.0,
+) -> dict:
+    """Layer the BiRD reactor + cell<->reactor coupling onto a cell document.
+
+    Shared helper (mbp-09 req-2): applies the SAME reactor/env additions to any
+    cell-base document that already has a top-level ``population`` store (from
+    :func:`add_population_aggregator`) and a ``flow_order`` with ``media_update``
+    — either the WCM ``baseline_population`` or the Millard ``baseline_millard``
+    (+ aggregator). Mutates and returns ``document`` in place. Adds:
+
+      * the EnvironmentDriver (external_store mode, no-op) + EnvironmentMirror;
+      * the shared ``reactor`` store (additive dissolved gases, overwrite
+        biomass/diagnostics);
+      * the ``BiRDTransportHours`` transport edge (``local:BiRDTransportHours``);
+      * the ``ReactorCellCoupler`` Step (with the per-leaf reactor output-schema
+        override so biomass routes overwrite while gases stay additive).
+
+    This is cell-engine-agnostic: the coupler reads
+    ``population.biomass_concentration_gL`` + ``agents.*.environment.exchange``
+    (O2/CO2 counts), neither of which is WCM-specific.
+    """
+    if core is None:
+        from v2ecoli.core import build_core
+        core = build_core()
+
+    bird_cfg = dict(DEFAULT_BIRD_REACTOR_CONFIG)
+    if bird_config:
+        bird_cfg.update(bird_config)
+
+    state = document["state"]
+    flow_order = document.setdefault("flow_order", [])
+
+    # --- environment hook: driver (external_store) + mirror ---------------
+    # The coupler is the env source of truth, so the driver is a no-op
+    # (external_store mode); the mirror must still run so agents see the
+    # coupler-written boundary concentrations.
+    state.setdefault("environment", _empty_environment_store())
+
+    driver_config = {
+        "env_driver_mode":           ENV_DRIVER_MODE_EXTERNAL_STORE,
+        "synthetic_trajectory_spec": {},
+    }
+    driver = _make_instance(EnvironmentDriver, driver_config, core)
+    state[ENVIRONMENT_DRIVER_STEP_NAME] = make_edge(
+        driver, EnvironmentDriver.topology, edge_type="step",
+        config=driver_config,
+    )
+
+    mirror = _make_instance(EnvironmentMirror, {}, core)
+    state[ENVIRONMENT_MIRROR_STEP_NAME] = make_edge(
+        mirror, EnvironmentMirror.topology, edge_type="step", config={},
+    )
+
+    # Insert driver + mirror BEFORE the unique_update FLUSH that precedes
+    # media_update, so the FLUSH commits their writes before exchange_data
+    # re-derives metabolism's exchange constraints (identical placement logic
+    # to baseline_time_varying_env).
+    if "media_update" in flow_order:
+        media_idx = flow_order.index("media_update")
+        flush_idx = media_idx - 1
+        while flush_idx > 0 and not flow_order[flush_idx].startswith("unique_update_"):
+            flush_idx -= 1
+        insert_at = (flush_idx
+                     if flow_order[flush_idx].startswith("unique_update_")
+                     else media_idx)
+        flow_order.insert(insert_at, ENVIRONMENT_MIRROR_STEP_NAME)
+        flow_order.insert(insert_at, ENVIRONMENT_DRIVER_STEP_NAME)
+    else:
+        flow_order.extend([ENVIRONMENT_DRIVER_STEP_NAME, ENVIRONMENT_MIRROR_STEP_NAME])
+
+    # --- reactor side: shared stores + transport + coupler ----------------
+    state[REACTOR_STORE_NAME] = _reactor_store(bird_cfg)
+
+    # BiRDTransportHours (local: link registered in build_core) — the
+    # seconds->hours time-base adapter over BiRDTransportProcess. Reads the
+    # shared dissolved stores + biomass/glucose/gas_flow; emits ADDITIVE deltas
+    # to dissolved_o2/co2 (bare float ports) + overwrite diagnostics.
+    state[REACTOR_TRANSPORT_NAME] = {
+        "_type":   "process",
+        "address": "local:BiRDTransportHours",
+        "config":  dict(bird_cfg),
+        "interval": DEFAULT_TRANSPORT_INTERVAL,
+        "inputs": {
+            "dissolved_o2":      [REACTOR_STORE_NAME, "dissolved_o2"],
+            "dissolved_co2":     [REACTOR_STORE_NAME, "dissolved_co2"],
+            "biomass":           [REACTOR_STORE_NAME, "biomass"],
+            "glucose":           [REACTOR_STORE_NAME, "glucose"],
+            "gas_flow_rate_Lpm": [REACTOR_STORE_NAME, "gas_flow_rate_Lpm"],
+        },
+        "outputs": {
+            # Additive transport deltas -> shared stores.
+            "dissolved_o2":  [REACTOR_STORE_NAME, "dissolved_o2"],
+            "dissolved_co2": [REACTOR_STORE_NAME, "dissolved_co2"],
+            # Diagnostics (overwrite readouts).
+            "o2_transport_delta":  [REACTOR_STORE_NAME, "o2_transport_delta"],
+            "co2_transport_delta": [REACTOR_STORE_NAME, "co2_transport_delta"],
+            "kla_o2":              [REACTOR_STORE_NAME, "kla_o2"],
+            "o2_saturation":       [REACTOR_STORE_NAME, "o2_saturation"],
+            "co2_saturation":      [REACTOR_STORE_NAME, "co2_saturation"],
+            "gas_holdup":          [REACTOR_STORE_NAME, "gas_holdup"],
+        },
+    }
+
+    # ReactorCellCoupler Step. Reads population.biomass_concentration_gL +
+    # reactor dissolved gases + agent fluxes; writes reactor deltas (additive
+    # gases, overwrite biomass) + environment.external_concentrations.
+    coupler_config = {
+        "cells_per_agent":  float(cells_per_agent),
+        "reactor_volume_L": float(bird_cfg.get("volume_L", 1.0)),
+    }
+    coupler = _make_instance(ReactorCellCoupler, coupler_config, core)
+    coupler_edge = make_edge(
+        coupler, ReactorCellCoupler.topology, edge_type="step",
+        config=coupler_config,
+    )
+    # Override the coupler's reactor output schema so biomass routes (overwrite)
+    # while dissolved gases stay additive (see module docstring — the bare
+    # InPlaceDict port silently drops biomass once reactor is a structured tree).
+    coupler_edge["_outputs"]["reactor"] = {
+        "biomass":       "overwrite[float]",
+        "dissolved_o2":  "float",
+        "dissolved_co2": "float",
+    }
+    state[REACTOR_CELL_COUPLER_STEP_NAME] = coupler_edge
+
+    # Run the coupler at the END of the flow (after the PopulationAggregator
+    # has produced population.biomass_concentration_gL and metabolism has
+    # emitted the per-agent exchange fluxes this tick).
+    flow_order.append(REACTOR_CELL_COUPLER_STEP_NAME)
+
+    return document
+
+
 @composite_generator(
     name="reactor_bird_coupled",
     description=(
@@ -208,105 +346,9 @@ def reactor_bird_coupled(
         core, seed=seed, cache_dir=cache_dir, cells_per_agent=cells_per_agent,
         reactor_volume_L=float(bird_config.get("volume_L", 1.0)),
     )
-    state = document["state"]
-    flow_order = document.setdefault("flow_order", [])
 
-    # --- environment hook: driver (external_store) + mirror ---------------
-    # The coupler is the env source of truth, so the driver is a no-op
-    # (external_store mode); the mirror must still run so agents see the
-    # coupler-written boundary concentrations.
-    state.setdefault("environment", _empty_environment_store())
-
-    driver_config = {
-        "env_driver_mode":           ENV_DRIVER_MODE_EXTERNAL_STORE,
-        "synthetic_trajectory_spec": {},
-    }
-    driver = _make_instance(EnvironmentDriver, driver_config, core)
-    state[ENVIRONMENT_DRIVER_STEP_NAME] = make_edge(
-        driver, EnvironmentDriver.topology, edge_type="step",
-        config=driver_config,
+    # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)
+    return add_reactor_coupling(
+        document, core,
+        bird_config=bird_config, cells_per_agent=cells_per_agent,
     )
-
-    mirror = _make_instance(EnvironmentMirror, {}, core)
-    state[ENVIRONMENT_MIRROR_STEP_NAME] = make_edge(
-        mirror, EnvironmentMirror.topology, edge_type="step", config={},
-    )
-
-    # Insert driver + mirror BEFORE the unique_update FLUSH that precedes
-    # media_update, so the FLUSH commits their writes before exchange_data
-    # re-derives metabolism's exchange constraints (identical placement logic
-    # to baseline_time_varying_env).
-    if "media_update" in flow_order:
-        media_idx = flow_order.index("media_update")
-        flush_idx = media_idx - 1
-        while flush_idx > 0 and not flow_order[flush_idx].startswith("unique_update_"):
-            flush_idx -= 1
-        insert_at = (flush_idx
-                     if flow_order[flush_idx].startswith("unique_update_")
-                     else media_idx)
-        flow_order.insert(insert_at, ENVIRONMENT_MIRROR_STEP_NAME)
-        flow_order.insert(insert_at, ENVIRONMENT_DRIVER_STEP_NAME)
-    else:
-        flow_order.extend([ENVIRONMENT_DRIVER_STEP_NAME, ENVIRONMENT_MIRROR_STEP_NAME])
-
-    # --- reactor side: shared stores + transport + coupler ----------------
-    state[REACTOR_STORE_NAME] = _reactor_store(bird_config)
-
-    # BiRDTransportHours (local: link registered in build_core) — the
-    # seconds->hours time-base adapter over BiRDTransportProcess. Reads the
-    # shared dissolved stores + biomass/glucose/gas_flow; emits ADDITIVE deltas
-    # to dissolved_o2/co2 (bare float ports) + overwrite diagnostics.
-    state[REACTOR_TRANSPORT_NAME] = {
-        "_type":   "process",
-        "address": "local:BiRDTransportHours",
-        "config":  dict(bird_config),
-        "interval": DEFAULT_TRANSPORT_INTERVAL,
-        "inputs": {
-            "dissolved_o2":      [REACTOR_STORE_NAME, "dissolved_o2"],
-            "dissolved_co2":     [REACTOR_STORE_NAME, "dissolved_co2"],
-            "biomass":           [REACTOR_STORE_NAME, "biomass"],
-            "glucose":           [REACTOR_STORE_NAME, "glucose"],
-            "gas_flow_rate_Lpm": [REACTOR_STORE_NAME, "gas_flow_rate_Lpm"],
-        },
-        "outputs": {
-            # Additive transport deltas -> shared stores.
-            "dissolved_o2":  [REACTOR_STORE_NAME, "dissolved_o2"],
-            "dissolved_co2": [REACTOR_STORE_NAME, "dissolved_co2"],
-            # Diagnostics (overwrite readouts).
-            "o2_transport_delta":  [REACTOR_STORE_NAME, "o2_transport_delta"],
-            "co2_transport_delta": [REACTOR_STORE_NAME, "co2_transport_delta"],
-            "kla_o2":              [REACTOR_STORE_NAME, "kla_o2"],
-            "o2_saturation":       [REACTOR_STORE_NAME, "o2_saturation"],
-            "co2_saturation":      [REACTOR_STORE_NAME, "co2_saturation"],
-            "gas_holdup":          [REACTOR_STORE_NAME, "gas_holdup"],
-        },
-    }
-
-    # ReactorCellCoupler Step. Reads population.biomass_concentration_gL +
-    # reactor dissolved gases + agent fluxes; writes reactor deltas (additive
-    # gases, overwrite biomass) + environment.external_concentrations.
-    coupler_config = {
-        "cells_per_agent":  float(cells_per_agent),
-        "reactor_volume_L": float(bird_config.get("volume_L", 1.0)),
-    }
-    coupler = _make_instance(ReactorCellCoupler, coupler_config, core)
-    coupler_edge = make_edge(
-        coupler, ReactorCellCoupler.topology, edge_type="step",
-        config=coupler_config,
-    )
-    # Override the coupler's reactor output schema so biomass routes (overwrite)
-    # while dissolved gases stay additive (see module docstring — the bare
-    # InPlaceDict port silently drops biomass once reactor is a structured tree).
-    coupler_edge["_outputs"]["reactor"] = {
-        "biomass":       "overwrite[float]",
-        "dissolved_o2":  "float",
-        "dissolved_co2": "float",
-    }
-    state[REACTOR_CELL_COUPLER_STEP_NAME] = coupler_edge
-
-    # Run the coupler at the END of the flow (after the PopulationAggregator
-    # has produced population.biomass_concentration_gL and metabolism has
-    # emitted the per-agent exchange fluxes this tick).
-    flow_order.append(REACTOR_CELL_COUPLER_STEP_NAME)
-
-    return document

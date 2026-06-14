@@ -48,6 +48,52 @@ def _empty_population_store() -> dict[str, float]:
     }
 
 
+def add_population_aggregator(
+    document: dict,
+    core: Any = None,
+    *,
+    cells_per_agent: float = DEFAULT_CELLS_PER_AGENT,
+    od_to_gdw: float = DEFAULT_OD_TO_GDW,
+    reactor_volume_L: float = DEFAULT_REACTOR_VOLUME_L,
+) -> dict:
+    """Add the top-level ``population`` store + ``PopulationAggregator`` Step.
+
+    Shared helper so any cell-base document (the WCM ``baseline`` or the Millard
+    ``baseline_millard``) gets the SAME cell-engine-agnostic aggregator. Mutates
+    and returns ``document`` in place. The aggregator reads
+    ``agents.*.listeners.mass.cell_mass`` and writes the reactor-scale
+    observables; it is appended to ``flow_order`` so it runs after every per-cell
+    step has emitted.
+    """
+    if core is None:
+        from v2ecoli.core import build_core
+        core = build_core()
+
+    state = document["state"]
+
+    # Top-level data store. The aggregator owns the write path; pre-seed
+    # with zeros so the document is structurally complete before the first tick.
+    state.setdefault("population", _empty_population_store())
+
+    aggregator_config = {
+        "cells_per_agent":  cells_per_agent,
+        "od_to_gdw":        od_to_gdw,
+        "reactor_volume_L": reactor_volume_L,
+    }
+    aggregator = _make_instance(PopulationAggregator, aggregator_config, core)
+    state[POPULATION_AGGREGATOR_STEP_NAME] = make_edge(
+        aggregator, PopulationAggregator.topology, edge_type="step",
+        config=aggregator_config,
+    )
+
+    # Register in flow_order. Appended at the end so it runs after every
+    # per-cell step has emitted (the aggregator reads the post-step agent
+    # state, not pre-step).
+    document.setdefault("flow_order", []).append(POPULATION_AGGREGATOR_STEP_NAME)
+
+    return document
+
+
 @composite_generator(
     name="baseline_population",
     description=(
@@ -84,35 +130,11 @@ def baseline_population(
     """
     document = _baseline_builder(core, seed=seed, cache_dir=cache_dir)
 
-    if core is None:
-        from v2ecoli.core import build_core
-        core = build_core()
-
-    state = document["state"]
-
-    # Top-level data store. The aggregator owns the write path; pre-seed
-    # with zeros so the document is structurally complete before the first
-    # tick.
-    state.setdefault("population", _empty_population_store())
-
-    # Instantiate + wire the Step at the TOP LEVEL of state (alongside
-    # `agents` / `global_time`). The Step's topology declares
-    # `agents: ("agents",)` + `population: ("population",)` — wires resolve
-    # against the top-level state dict because the edge sits at that level.
-    aggregator_config = {
-        "cells_per_agent":  cells_per_agent,
-        "od_to_gdw":        od_to_gdw,
-        "reactor_volume_L": reactor_volume_L,
-    }
-    aggregator = _make_instance(PopulationAggregator, aggregator_config, core)
-    state[POPULATION_AGGREGATOR_STEP_NAME] = make_edge(
-        aggregator, PopulationAggregator.topology, edge_type="step",
-        config=aggregator_config,
+    # Add the top-level population store + aggregator Step (shared helper, also
+    # used by the Millard cell base in reactor_bird_coupled_millard).
+    return add_population_aggregator(
+        document, core,
+        cells_per_agent=cells_per_agent,
+        od_to_gdw=od_to_gdw,
+        reactor_volume_L=reactor_volume_L,
     )
-
-    # Register in flow_order so the executor knows about the new step.
-    # Appended at the end so it runs after every per-cell step has emitted
-    # (the aggregator reads the post-step agent state, not pre-step).
-    document.setdefault("flow_order", []).append(POPULATION_AGGREGATOR_STEP_NAME)
-
-    return document

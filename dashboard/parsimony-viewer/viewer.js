@@ -1125,6 +1125,10 @@ async function buildScene(doc, fileName) {
 
   framePacking(bbMin, bbMax);
   initSizeFilter();
+  // Start with every category collapsed so the (now long) ingredient list
+  // doesn't bury the style / size / crowding controls below it. Categories
+  // expand on click; a search term temporarily reveals all matches.
+  collapsedCats = allLegendCategories();
   renderLegend();
   updateStatus(fileName, placements.length, instancedMeshes.length);
   applyVisibility();
@@ -1789,6 +1793,11 @@ function toggleCatCollapse(cat) {
   else collapsedCats.add(cat);
   renderLegend();
 }
+function allLegendCategories() {
+  return new Set(instancedMeshes.map((e) => metaFor(e).category || "Other"));
+}
+function expandAllCats() { collapsedCats.clear(); renderLegend(); }
+function collapseAllCats() { collapsedCats = allLegendCategories(); renderLegend(); }
 
 // Render the categorized, searchable ingredient list (always expanded — the
 // list is short). Checkbox = show/hide; click a row = isolate that ingredient;
@@ -1817,7 +1826,7 @@ function renderLegend() {
   const cnt = (e) => (e.placements ? e.placements.length : 0);
   for (const cat of cats) {
     const rows = groups.get(cat).sort((a, b) => cnt(b.entry) - cnt(a.entry));
-    const collapsed = collapsedCats.has(cat);
+    const collapsed = !term && collapsedCats.has(cat);  // a search term reveals all matches
     const nVis = rows.reduce((n, r) => n + (effectiveVisible(r.entry) ? 1 : 0), 0);
     html += `<div class="cat-group${collapsed ? " collapsed" : ""}">`
       + `<div class="cat-head">`
@@ -2457,6 +2466,10 @@ demoPicker.addEventListener("change", () => {
   if (showAll) showAll.addEventListener("click", () => { showAllIngredients(); });
   const hideAll = document.getElementById("ing-hideall");
   if (hideAll) hideAll.addEventListener("click", () => { hideAllIngredients(); });
+  const expandAll = document.getElementById("ing-expandall");
+  if (expandAll) expandAll.addEventListener("click", () => { expandAllCats(); });
+  const collapseAll = document.getElementById("ing-collapseall");
+  if (collapseAll) collapseAll.addEventListener("click", () => { collapseAllCats(); });
 }
 
 // Load the ingredient-metadata sidecar (display names + categories), then the

@@ -152,6 +152,9 @@
     .legend-row .only:hover { color: var(--accent); }
     .legend-row.off .swatch { opacity: 0.2; }
     .legend-row.off .name { color: var(--text-dim); text-decoration: line-through; }
+    .legend-row.size-off .swatch { opacity: 0.35; }
+    .legend-row.size-off .name { color: var(--text-dim); font-style: italic; }
+    .size-range-readout { color: var(--text-dim); font-size: 11px; text-align: right; font-variant-numeric: tabular-nums; margin-top: 2px; }
 
     .slider-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
     .slider-row label { width: 60px; color: var(--text-dim); }
@@ -217,6 +220,14 @@
         <input type="range" id="show-fraction" min="5" max="100" step="5" value="100">
         <span class="value" id="show-fraction-value">100</span>
       </div>
+
+      <h2>size range</h2>
+      <div class="size-filter" title="Hide molecules whose size (enclosing radius, in Å) is outside this range. Full range shows everything; raise ‘min’ to drop the small molecules, lower ‘max’ to drop the large ones.">
+        <div class="slider-row"><label>min</label><input type="range" id="size-min" min="0" max="100" step="1" value="0"></div>
+        <div class="slider-row"><label>max</label><input type="range" id="size-max" min="0" max="100" step="1" value="100"></div>
+        <div class="size-range-readout" id="size-range-value">—</div>
+      </div>
+
       <div id="mesh-loading-status" style="color: var(--text-dim); font-size: 11.5px; margin-top: 4px;">loading…</div>
 
       <!-- Engine controls kept (JS binds to them) but hidden from this curated view. -->
@@ -247,6 +258,6 @@
     </footer>
   </div>
 
-  <script type="module" src="./viewer.js?v=2"></script>
+  <script type="module" src="./viewer.js?v=3"></script>
 </body>
 </html>

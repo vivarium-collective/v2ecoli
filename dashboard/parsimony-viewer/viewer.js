@@ -209,6 +209,17 @@ try {
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
+// Mouse mapping (Google-Maps-style panning): left drag orbits, middle OR right
+// drag pans the view left/right/up/down. screenSpacePanning keeps panning in the
+// camera's screen plane (drag-up moves the scene straight up), and the wheel
+// still zooms. Middle-button drag no longer dollies — the wheel covers zoom.
+controls.enablePan = true;
+controls.screenSpacePanning = true;
+controls.mouseButtons = {
+  LEFT: THREE.MOUSE.ROTATE,
+  MIDDLE: THREE.MOUSE.PAN,
+  RIGHT: THREE.MOUSE.PAN,
+};
 // Each interaction may move the camera into / out of zoom levels
 // where a different LOD is appropriate per type. Debounced to one
 // reassess per animation frame.
@@ -1113,6 +1124,7 @@ async function buildScene(doc, fileName) {
   bboxLines.visible = toggleBbox.checked; // off in the curated view
 
   framePacking(bbMin, bbMax);
+  initSizeFilter();
   renderLegend();
   updateStatus(fileName, placements.length, instancedMeshes.length);
   applyVisibility();
@@ -1366,6 +1378,52 @@ let lodSphereBudgetPx = 12.0;
 // it down to declutter / cut render load without re-packing (the packed
 // cell is numerically sparse but the oversized proxies read as crowded).
 let interiorFraction = 1.0;
+
+// Size-range filter: hide ingredients whose enclosing radius (Å) falls outside
+// [sizeFilterMin, sizeFilterMax]. The domain is the min/max radius in the loaded
+// pack; at full domain everything is shown (subject to the per-ingredient
+// checkboxes + show %). This is an independent dimension from the checkboxes —
+// an ingredient is drawn only when its checkbox is on AND it's within the range.
+let sizeDomainMin = 0;
+let sizeDomainMax = 0;
+let sizeFilterMin = 0;
+let sizeFilterMax = Infinity;
+function inSizeRange(e) {
+  const r = e.enclosingRadius || 0;
+  return r >= sizeFilterMin - 1e-6 && r <= sizeFilterMax + 1e-6;
+}
+function effectiveVisible(e) { return e.visible && inSizeRange(e); }
+
+// Compute the radius domain from the loaded pack and reset the two range
+// sliders to span it (full range → show all). Called once per pack load.
+function initSizeFilter() {
+  const radii = instancedMeshes.map((e) => e.enclosingRadius || 0).filter((r) => r > 0);
+  const lo = document.getElementById("size-min");
+  const hi = document.getElementById("size-max");
+  if (!radii.length) { if (lo) lo.disabled = true; if (hi) hi.disabled = true; return; }
+  sizeDomainMin = Math.floor(Math.min(...radii));
+  sizeDomainMax = Math.ceil(Math.max(...radii));
+  if (sizeDomainMax <= sizeDomainMin) sizeDomainMax = sizeDomainMin + 1;
+  sizeFilterMin = sizeDomainMin;
+  sizeFilterMax = sizeDomainMax;
+  for (const s of [lo, hi]) {
+    if (!s) continue;
+    s.disabled = false;
+    s.min = String(sizeDomainMin);
+    s.max = String(sizeDomainMax);
+    s.step = "1";
+  }
+  if (lo) lo.value = String(sizeDomainMin);
+  if (hi) hi.value = String(sizeDomainMax);
+  updateSizeFilterLabel();
+}
+function updateSizeFilterLabel() {
+  const el = document.getElementById("size-range-value");
+  if (!el) return;
+  const full = (sizeFilterMin <= sizeDomainMin + 1e-6 && sizeFilterMax >= sizeDomainMax - 1e-6);
+  el.textContent = Math.round(sizeFilterMin) + "–" + Math.round(sizeFilterMax) + " Å"
+    + (full ? " (all)" : "");
+}
 
 let reassessQueued = false;
 function scheduleReassess() {
@@ -1760,7 +1818,7 @@ function renderLegend() {
   for (const cat of cats) {
     const rows = groups.get(cat).sort((a, b) => cnt(b.entry) - cnt(a.entry));
     const collapsed = collapsedCats.has(cat);
-    const nVis = rows.reduce((n, r) => n + (r.entry.visible ? 1 : 0), 0);
+    const nVis = rows.reduce((n, r) => n + (effectiveVisible(r.entry) ? 1 : 0), 0);
     html += `<div class="cat-group${collapsed ? " collapsed" : ""}">`
       + `<div class="cat-head">`
       + `<span class="cat-caret" data-caret="${escapeHtml(cat)}" title="collapse / expand">${collapsed ? "▸" : "▾"}</span>`
@@ -1772,7 +1830,8 @@ function renderLegend() {
       + `</div>`;
     html += `<div class="cat-rows">`;
     for (const { entry, disp } of rows) {
-      html += `<div class="legend-row${entry.visible ? "" : " off"}" data-name="${escapeHtml(entry.name)}" title="click to show / hide">`
+      const sizeOff = entry.visible && !inSizeRange(entry);
+      html += `<div class="legend-row${entry.visible ? "" : " off"}${sizeOff ? " size-off" : ""}" data-name="${escapeHtml(entry.name)}" title="${sizeOff ? "outside the size range — adjust the size sliders to show it" : "click to show / hide"}">`
         + `<input type="checkbox" class="ing-cb" data-cb="${escapeHtml(entry.name)}" ${entry.visible ? "checked" : ""} title="show / hide">`
         + `<div class="swatch" style="background:#${entry.color.getHexString()}"></div>`
         + `<div class="name">${escapeHtml(disp)}</div>`
@@ -1846,8 +1905,9 @@ function updateMeshLoadingStatus() {
 
 function applyVisibility() {
   for (const e of instancedMeshes) {
-    const sOn = e.visible && style === "standard";
-    const gOn = e.visible && style === "goodsell";
+    const vis = effectiveVisible(e);
+    const sOn = vis && style === "standard";
+    const gOn = vis && style === "goodsell";
     e.fallbackSphere.standardMesh.visible = sOn;
     e.fallbackSphere.celMesh.visible = gOn;
     if (e.lods) {
@@ -2044,6 +2104,24 @@ if (showFractionSlider) {
     scheduleReassess();
   });
 }
+
+// Size-range filter sliders (min / max enclosing radius in Å). Two range inputs
+// act as a dual-thumb range; we always take min()/max() of the two so the thumbs
+// can't produce an inverted range. Initialised to the pack's full domain by
+// initSizeFilter() on load, so the default state shows everything.
+const sizeMinSlider = document.getElementById("size-min");
+const sizeMaxSlider = document.getElementById("size-max");
+function onSizeFilterInput() {
+  const lo = parseFloat(sizeMinSlider.value);
+  const hi = parseFloat(sizeMaxSlider.value);
+  sizeFilterMin = Math.min(lo, hi);
+  sizeFilterMax = Math.max(lo, hi);
+  updateSizeFilterLabel();
+  applyVisibility();
+  renderLegend();
+}
+if (sizeMinSlider) sizeMinSlider.addEventListener("input", onSizeFilterInput);
+if (sizeMaxSlider) sizeMaxSlider.addEventListener("input", onSizeFilterInput);
 
 // ───── keyboard navigation ─────────────────────────────────────────
 // All 6 DOF (3 translation + 3 rotation), velocity-smoothed.

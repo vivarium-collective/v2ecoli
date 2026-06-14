@@ -14,6 +14,7 @@ from v2ecoli.composites import (  # noqa: F401
     millard_fba_bridge_harness,
     millard_pdmp_baseline,
     parca,
+    reactor_bird_coupled,
 )
 from v2ecoli.structural import composite as parsimony_ecoli  # noqa: F401 — registers "parsimony-ecoli"
 
@@ -26,5 +27,6 @@ __all__ = [
     "millard_fba_bridge_harness",
     "millard_pdmp_baseline",
     "parca",
+    "reactor_bird_coupled",
     "parsimony_ecoli",
 ]

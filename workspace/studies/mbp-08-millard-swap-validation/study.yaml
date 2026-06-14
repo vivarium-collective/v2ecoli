@@ -1,0 +1,61 @@
+schema_version: 3
+name: mbp-08-millard-swap-validation
+created: '2026-06-14'
+phase: Build
+study_kind: construction
+
+design_status: drafted
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
+baseline:
+- name: millard-cell
+  composite: v2ecoli.composites.baseline_millard
+  params: {seed: 0, cache_dir: out/cache}
+
+purpose:
+  question: |
+    Does the Millard kinetic-metabolism swap produce a runnable whole-cell
+    model that recovers growth comparable to the FBA baseline? (Standalone
+    scope — see deferred_tests below for the mass-conservation and
+    environment-responsiveness checks, which require either Millard-cell mass
+    accounting or a live reactor environment and are routed to mbp-09.)
+
+pipeline_gate:
+  prerequisites: [mbp-07-millard-kinetic-metabolism-swap]
+
+# Standalone-validatable behavior of the Millard swap. The cell runs on the
+# Millard model's internal glucose here (no reactor environment source yet);
+# the environment-driven and mass-conservation checks are deferred (below).
+behavior_tests:
+- name: growth-recovered-vs-baseline
+  measure: {kind: derived, formula: "listeners.mass.instantaneous_growth_rate", window: full_lineage_from_gen_0}
+  pass_if: {op: in_range, low: 0.0, high: 0.04}
+  cites: [Monod1949AnnRevMicrobiol]
+  acceptance_form: quantitative_range
+
+# Deferred to mbp-09 (Millard↔reactor comparison) — discovered during the
+# mbp-07/08 build:
+#   1. wcm-mass-conservation-closes on the Millard cell: the existing
+#      MassConservationDeriver computes from environment.exchange, but the
+#      Millard cell accounts nutrient mass via bulk deltas (Millard writes
+#      bulk directly), so environment.exchange is not populated and the gate
+#      emits None. Needs Millard mass-exchange accounting (uptake→bulk-delta
+#      basis) before it can gate the Millard cell. The gate IS live on the
+#      plain WCM (mbp-04) and the env-driven cell (mbp-01).
+#   2. uptake-falls-as-glucose-depletes: requires a live environment driver
+#      feeding external glucose into the Millard step's external_concentrations
+#      input — only exercised under reactor coupling. (The step-level
+#      responsiveness IS unit-tested in tests/test_baseline_millard.py.)
+deferred_tests:
+- name: wcm-mass-conservation-closes
+  reason: Millard cell accounts mass via bulk deltas, not environment.exchange; needs Millard mass-exchange accounting.
+  routed_to: mbp-09-millard-reactor-comparison
+- name: uptake-falls-as-glucose-depletes
+  reason: requires a live reactor environment source; step-level responsiveness is unit-tested instead.
+  routed_to: mbp-09-millard-reactor-comparison
+
+tests:
+  pytest_args: [tests/test_baseline_millard.py]

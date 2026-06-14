@@ -45,6 +45,32 @@ AVOGADRO = 6.02214076e23
 FG_PER_G = 1.0e-15
 
 
+def _set_initial_concentrations(changes, dm) -> None:
+    """Overwrite the initial concentration of named species on a COPASI model.
+
+    Mirrors pbg_copasi.processes._set_initial_concentrations: set each
+    species' InitialConcentration then commit via updateInitialValues so the
+    next time course starts the overwritten species at the new value while
+    every other (internal) species carries over from the model's current
+    state.
+
+    changes: iterable of (copasi_species_name, value) pairs
+    dm: COPASI DataModel as returned by basico.load_model
+    """
+    import COPASI
+
+    model = dm.getModel()
+    references = COPASI.ObjectStdVector()
+    for name, value in changes:
+        species = model.getMetabolite(name)
+        if species is None:
+            continue
+        species.setInitialConcentration(float(value))
+        references.append(species.getInitialConcentrationReference())
+    if len(references) > 0:
+        model.updateInitialValues(references)
+
+
 def _load_millard_to_v2ecoli(mapping_file: str) -> dict[str, str]:
     path = Path(mapping_file)
     if not path.is_absolute():
@@ -101,6 +127,13 @@ class MillardPDMPMetabolism(Process):
         # to read the same model this process advances, regardless of any
         # other basico model that may have become the global "current" model.
         self._model = basico.load_model(self.parameters["model_source"])
+        # SBML-species-id -> COPASI display name, so external_concentrations
+        # (keyed by SBML id) can be applied via getMetabolite(name). Mirrors
+        # pbg_copasi.processes.BaseCopasi.sbml_to_name.
+        spec_df = basico.get_species(model=self._model)
+        self.sbml_to_name = {
+            spec_df.loc[name, "sbml_id"]: name for name in spec_df.index
+        }
         self.tick_s = float(self.parameters.get("tick_s", 1.0))
         self.intervals = int(self.parameters.get("intervals", 10))
         self.control_reaction = self.parameters.get("control_reaction", "PTS_4")
@@ -134,7 +167,11 @@ class MillardPDMPMetabolism(Process):
 
     def __init__(self, config=None, core=None):
         super().__init__(config or {}, core)
-        self.initialize(config or {})
+        # Re-run initialize against the schema-filled config (self.config) so
+        # config_schema defaults (e.g. model_source) are present even when the
+        # caller passes an empty/partial config. The raw `config or {}` used
+        # previously raised KeyError('model_source') on config={}.
+        self.initialize(self.config)
 
     def inputs(self):
         return {
@@ -144,6 +181,13 @@ class MillardPDMPMetabolism(Process):
                 "_type": "node",
                 "_default": {"cell_mass": 0.0, "dry_mass": 0.0},
             },
+            # Optional bioreactor-environment drive: {sbml_species_id: conc_mM}.
+            # When non-empty, these species' initial concentrations are
+            # overwritten on the COPASI model before integrating each tick so
+            # the Millard kinetics respond to external nutrient levels (e.g.
+            # GLCx glucose, O2). Internal metabolites are untouched and carry
+            # over from the previous tick.
+            "external_concentrations": {"_type": "node", "_default": {}},
         }
 
     def outputs(self):
@@ -205,13 +249,30 @@ class MillardPDMPMetabolism(Process):
         ctrl = state.get("lqr_control") or {}
         tick_value, applied = self._apply_control(ctrl)
 
-        # Advance the Millard ODE by one WCM tick.
+        # Drive the kinetics from the bioreactor environment: overwrite ONLY
+        # the named external species' initial concentrations before integrating
+        # (internal metabolites carry over). Mirrors
+        # CopasiUTCProcess._set_initial_concentrations.
+        external = state.get("external_concentrations") or {}
+        if external:
+            changes = [
+                (self.sbml_to_name[sbml_id], float(conc_mM))
+                for sbml_id, conc_mM in external.items()
+                if sbml_id in self.sbml_to_name
+            ]
+            if changes:
+                _set_initial_concentrations(changes, self._model)
+
+        # Advance the Millard ODE by one WCM tick. Pass model=self._model so the
+        # integration acts on the same model the external overwrite (and flux
+        # read below) target, regardless of basico's global "current" model.
         try:
             ts = basico.run_time_course(
                 duration=self.tick_s,
                 intervals=self.intervals,
                 update_model=True,
                 use_sbml_id=True,
+                model=self._model,
             )
         except Exception as e:
             self._tick += 1

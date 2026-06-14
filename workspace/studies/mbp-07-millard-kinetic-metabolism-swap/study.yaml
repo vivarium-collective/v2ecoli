@@ -1,0 +1,38 @@
+schema_version: 3
+name: mbp-07-millard-kinetic-metabolism-swap
+created: '2026-06-14'
+phase: Build
+study_kind: construction
+
+design_status: drafted
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
+baseline:
+- name: millard-cell
+  composite: v2ecoli.composites.baseline_millard
+  params: {seed: 0, cache_dir: out/cache}
+
+purpose:
+  question: |
+    Can v2ecoli's central-carbon metabolism be replaced by the Millard 2017
+    kinetic ODE (growth still from the WCM) and made responsive to an external
+    environment, as a drop-in cell engine under the cell-side interface contract?
+
+pipeline_gate:
+  prerequisites: []
+
+behavior_tests:
+- name: composite-builds-and-runs
+  measure: {kind: derived, formula: "listeners.mass.cell_mass", window: full_lineage_from_gen_0}
+  pass_if: {op: ">", value: 0.0}
+  acceptance_form: qualitative_direction
+- name: central-fluxes-nontrivial
+  measure: {kind: derived, formula: "central_fluxes.PGI", window: full_lineage_from_gen_0}
+  pass_if: {op: "!=", value: 0.0}
+  acceptance_form: qualitative_direction
+
+tests:
+  pytest_args: [tests/test_baseline_millard.py]

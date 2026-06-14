@@ -7,6 +7,7 @@ in ``pbg_superpowers.composite_generator._REGISTRY``.
 
 from v2ecoli.composites import (  # noqa: F401
     baseline,
+    baseline_millard,
     baseline_population,
     baseline_time_varying_env,
     colony,
@@ -18,6 +19,7 @@ from v2ecoli.structural import composite as parsimony_ecoli  # noqa: F401 — re
 
 __all__ = [
     "baseline",
+    "baseline_millard",
     "baseline_population",
     "baseline_time_varying_env",
     "colony",

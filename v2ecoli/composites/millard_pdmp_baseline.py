@@ -526,6 +526,7 @@ def _get_step_config(
             topology = topology()
         return instance, topology, 'step'
 
+
     try:
         config = loader.get_config_by_name(base_name)
     except (KeyError, AttributeError):

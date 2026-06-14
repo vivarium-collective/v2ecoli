@@ -314,7 +314,13 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Three elongation-related rates move instantaneous growth rate: ribosome translation
+speed (basal_elongation_rate, default 22 aa/s), the ppGpp/charging saturation
+constant kS, and the DNA-polymerase elongation rate. The other candidates are inert
+for growth rate — ribosomeElongationRate is overwritten at runtime each step, and
+gtpPerElongation only enters GTP/energy accounting — so they carry no growth signal
+at a 120-step window.
+</textarea>
         
       </div>
 
@@ -334,19 +340,31 @@
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.goal"
-                   value=""
+                   value="Screen the 7 top-level ecoli-* process-config scalars reachable via baseline()
+config_overrides to find which actually move the growth observable, defining the
+effective parameter surface before investing surrogate budget (param-uq-01).
+"
                    placeholder="One sentence — the single most important thing this study does.">
           </td></tr>
           <tr><th>Mechanism</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="Three elongation-related rates move instantaneous growth rate: ribosome translation
+speed (basal_elongation_rate, default 22 aa/s), the ppGpp/charging saturation
+constant kS, and the DNA-polymerase elongation rate. The other candidates are inert
+for growth rate — ribosomeElongationRate is overwritten at runtime each step, and
+gtpPerElongation only enters GTP/energy accounting — so they carry no growth signal
+at a 120-step window.
+">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
-                   value=""
+                   value="A forward-UQ surrogate spends its sample budget per parameter; screening out the
+inert knobs (4 of 7 here) keeps param-uq-01&#39;s PCE focused on the 3 knobs that
+carry real growth-rate signal.
+"
                    placeholder="Why this study must finish before the next one in the DAG.">
           </td></tr>
           <tr><th>Expected result</th><td>
@@ -366,6 +384,31 @@
 
       
 
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">The baseline knob values (ribosome basal_elongation_rate ~22 aa/s, DNA-pol
+elongation ~967 nt/s) come from the wcEcoli/v2ecoli mechanistic parameterization.
+</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>ecoli-polypeptide-elongation.basal_elongation_rate / ecoli-chromosome-replication.basal_elongation_rate defaults</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> v2ecoli baseline parameterization (Macklin et al. 2020)</div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
       
     </div>
 
@@ -438,6 +481,37 @@ that modulate slower timescale processes may appear inert at this window.
     
 
     
+    <details class="overview-section pre-run-expert-review">
+      <summary class="overview-label">Pre-run expert review</summary>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Open biological questions the planning is contingent on. A "wrong" answer here
+        means a primary test threshold needs to change <em>before</em> the simulation
+        is run, not after. Each question lists alternatives + the impact of the wrong
+        choice + what downstream work it blocks.
+      </p>
+      <div class="expert-question-list">
+        
+        <div class="expert-question-card status-accepted">
+          <div class="expert-question-header">
+            <span class="expert-question-id">PIVOT-screen-surface-is-partial</span>
+            <span class="expert-question-status">accepted</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> Is the config_overrides path sufficient to screen the full physiological parameter space?</div>
+          
+          <div class="expert-question-alternatives">
+            <em>Alternatives:</em>
+            <ul><li>Treat config-reachable knobs as the full surface (rejected — misses sim_data params).</li><li>Add sim_data-level injection now (deferred to param-uq-04 as a separate infra task).</li></ul>
+          </div>
+          
+          
+          
+          
+        </div>
+        
+      </div>
+    </details>
+    
 
     
 
@@ -462,11 +536,11 @@ that modulate slower timescale processes may appear inert at this window.
         <span class="count-label">simulations</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>2</strong>
         <span class="count-label">readouts</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>1</strong>
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
@@ -535,6 +609,72 @@ that modulate slower timescale processes may appear inert at this window.
     </div>
     
 
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(4)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>basal_elongation_rate-swing</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>kS-swing</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>chrom-basal_elongation_rate-swing</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>inert-knobs</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
     
 
     
@@ -644,7 +784,47 @@ that modulate slower timescale processes may appear inert at this window.
   
 
   
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline</code></p>
+    
+    
+    
+    
+    
+    <p class="muted" style="font-size:0.88em">No model change — this is a pure sensitivity screen of existing config knobs via
+baseline() config_overrides. The only methodological requirement is a fresh
+initial_state per perturbation (v2ecoli PR #197) to keep samples independent.
+</p>
+  </div>
+  
 
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(1 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #3b82f6">
+      <summary style="cursor:pointer">
+        <strong>req-fresh-initial-state</strong> — Fresh initial_state per perturbation
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">S</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[correctness]</span>
+      </summary>
+      <p style="margin:8px 0">Each low/high run deep-copies the baseline initial_state (v2ecoli PR #197) so
+samples are independent; without it dry_mass climbs by sample index (the
+state-carryover artifact that produced the original spurious dominance reading).
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>screen-identifies-effective-knobs</code>
+      </p>
+      
+      
+    </details>
+    
+  </div>
   
 </section>
 
@@ -687,19 +867,19 @@ that modulate slower timescale processes may appear inert at this window.
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">param-uq-00-screen-baseline</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <strong style="font-size:1.05em">screen-7-knobs</strong>
+      <span class="sim-status-pill sim-status-ran">ran</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
+      · <strong>Seeds:</strong> <code>1</code>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
@@ -755,14 +935,63 @@ that modulate slower timescale processes may appear inert at this window.
 
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
-    <h3 class="section-title">Observables</h3>
-    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
     
     
-    
-    <div id="auto-readouts" data-composite="baseline">
-      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
-    </div>
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="instantaneous_growth_rate">
+          <td style="padding:6px; vertical-align: top;"><code>instantaneous_growth_rate</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="instantaneous_growth_rate"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="effective_knob_count">
+          <td style="padding:6px; vertical-align: top;"><code>effective_knob_count</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="effective_knob_count"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+      </tbody>
+    </table>
     
 
     <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
@@ -968,7 +1197,65 @@ that modulate slower timescale processes may appear inert at this window.
 <section class="study-tab-panel" data-kind="variants" id="panel-variants">
   <div class="variants-list">
     
-    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    <article class="variant-row" data-variant-name="basal_elongation_rate-swing"
+             data-base-composite="param-uq-00-screen">
+      <header class="variant-row-header">
+        <h3 class="variant-name">basal_elongation_rate-swing</h3>
+        <span class="variant-base">based on <code>param-uq-00-screen</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="basal_elongation_rate-swing">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="basal_elongation_rate-swing">Delete</button>
+        <button class="btn-variant-run" data-variant-name="basal_elongation_rate-swing">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="kS-swing"
+             data-base-composite="param-uq-00-screen">
+      <header class="variant-row-header">
+        <h3 class="variant-name">kS-swing</h3>
+        <span class="variant-base">based on <code>param-uq-00-screen</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="kS-swing">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="kS-swing">Delete</button>
+        <button class="btn-variant-run" data-variant-name="kS-swing">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="chrom-basal_elongation_rate-swing"
+             data-base-composite="param-uq-00-screen">
+      <header class="variant-row-header">
+        <h3 class="variant-name">chrom-basal_elongation_rate-swing</h3>
+        <span class="variant-base">based on <code>param-uq-00-screen</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="chrom-basal_elongation_rate-swing">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="chrom-basal_elongation_rate-swing">Delete</button>
+        <button class="btn-variant-run" data-variant-name="chrom-basal_elongation_rate-swing">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="inert-knobs"
+             data-base-composite="param-uq-00-screen">
+      <header class="variant-row-header">
+        <h3 class="variant-name">inert-knobs</h3>
+        <span class="variant-base">based on <code>param-uq-00-screen</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="inert-knobs">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="inert-knobs">Delete</button>
+        <button class="btn-variant-run" data-variant-name="inert-knobs">Run</button>
+      </div>
+    </article>
     
   </div>
 
@@ -1321,32 +1608,68 @@ expect:  {"high": 99.0, "low": 1.0, "op": "in_range"}</pre>
 
   
   
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
       
-      <p class="muted">No evidence recorded on findings yet.</p>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
+    
+
+    
+    
+    
+    <div class="decide-section" style="margin-top:18px">
+      <h3 class="overview-label">Conclusion logic — gate decision</h3>
+      
+      <div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:4px;margin-bottom:8px">
+        <strong>✓ If primary tests pass:</strong>
+        
+        
+        
+        <div style="margin-top:4px"><em>Pipeline unblocks:</em>
+          <ul style="margin:4px 0 0 18px"><li>param-uq-01-elongation runs forward UQ on exactly these 3 effective knobs.</li></ul>
+        </div>
+        
+      </div>
+      
+      
+      <div style="padding:10px 14px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px">
+        <strong>✗ If primary tests fail:</strong>
+        
+        <div style="margin-top:4px"><em>Diagnose:</em>
+          <ul style="margin:4px 0 0 18px"><li>If 0 of 7 knobs cleared &gt;2%, either the 120-step window is too short to expose elongation effects, or config_overrides are not reaching the process configs (re-test against a known-responsive knob before widening the candidate list).</li></ul>
+        </div>
+        
+        
+        <div style="margin-top:4px"><em>Block downstream:</em> param-uq-01-elongation would have no effective surface to sample and should not start.</div>
+        
+      </div>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+    
+
+    
+    
+
+    
+    
   </div>
   
 

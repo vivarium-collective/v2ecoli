@@ -314,7 +314,13 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">The ParCa (parameter-calculator) fits heterogeneous measured E. coli datasets
+into a single self-consistent sim_data parameter set across 51 transcription-
+factor conditions (basal + with_aa + acetate + succinate + no_oxygen + the
+active/inactive TF set). The full-mode fit is what calibrates the metabolite
+concentrations so the whole-cell composite can solve its equilibrium ODEs at
+steady state — the precondition for a simulation-ready wild-type baseline.
+</textarea>
         
       </div>
 
@@ -341,7 +347,13 @@
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="The ParCa (parameter-calculator) fits heterogeneous measured E. coli datasets
+into a single self-consistent sim_data parameter set across 51 transcription-
+factor conditions (basal + with_aa + acetate + succinate + no_oxygen + the
+active/inactive TF set). The full-mode fit is what calibrates the metabolite
+concentrations so the whole-cell composite can solve its equilibrium ODEs at
+steady state — the precondition for a simulation-ready wild-type baseline.
+">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
@@ -366,6 +378,27 @@
 
       
 
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
       
     </div>
 
@@ -464,11 +497,11 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
         <span class="count-label">simulations</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>4</strong>
         <span class="count-label">readouts</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>367</strong>
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
@@ -542,13 +575,4473 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
     
 
     
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>full-mode (51 TF conditions)</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>fast/debug-mode (~7 TF conditions)</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
 
     
   </div>
   
 
   
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    
+    
+    
+    
+    
+    
+    
+  </div>
+  
 
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(367 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a1a8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aaa8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a178&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151af88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abf8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a358&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a058&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a088&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a3e8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ab8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac28&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151afb8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abf8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aaa8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a178&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ace8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a058&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a2f8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a268&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a298&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a748&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a538&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x7f68e7eda730&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a298&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a208&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a748&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a538&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a088&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a1a8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aaa8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a178&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151af88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ab8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a178&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a838&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aef8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aef8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a238&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a178&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aef8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aef8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a058&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151af88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ace8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ab8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a088&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a178&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a568&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aaa8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151af88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aef8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aef8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aec8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad18&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ab8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151aef8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a148&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abf8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ace8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151add8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a058&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab08&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ab38&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad48&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae98&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac58&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ed8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151abc8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ae68&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ac88&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ada8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151ad78&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a088&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x151a178&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8">
+      <summary style="cursor:pointer">
+        <strong></strong> — &lt;built-in method title of str object at 0x1519ab8&gt;
+        
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+  </div>
   
 </section>
 
@@ -591,8 +5084,8 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">showcase-1-parca-baseline</strong>
-      <span class="sim-status-pill sim-status-completed">completed</span>
+      <strong style="font-size:1.05em">showcase1-parca-full-2026-06-09</strong>
+      <span class="sim-status-pill sim-status-complete">complete</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
@@ -603,12 +5096,12 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
+      · <strong>Seeds:</strong> <code>n/a</code>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 3 · 
-      <strong>Runs recorded:</strong> 2 (<code>showcase1-parca-full-2026-06-09</code>)
+      
+      <strong>Runs recorded:</strong> 1
     </p>
     
     
@@ -661,14 +5154,101 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
 
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
-    <h3 class="section-title">Observables</h3>
-    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
     
     
-    
-    <div id="auto-readouts" data-composite="parca">
-      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
-    </div>
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="tf-condition-count">
+          <td style="padding:6px; vertical-align: top;"><code>tf-condition-count</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="tf-condition-count"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">TF-condition count fit by the ParCa run (51 = full, ~7 = fast/debug)</td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="cache-bundle-artifacts">
+          <td style="padding:6px; vertical-align: top;"><code>cache-bundle-artifacts</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="cache-bundle-artifacts"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">cache-bundle artifact presence (initial_state.json + sim_data_cache.dill + metadata.json + cache_version.json)</td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="simdata-structural-inventory">
+          <td style="padding:6px; vertical-align: top;"><code>simdata-structural-inventory</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="simdata-structural-inventory"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">sim_data structural inventory (4538 genes / 3277 TUs / 4309 monomers / 1118 complexes / 9460 metabolic reactions)</td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="smoke-run">
+          <td style="padding:6px; vertical-align: top;"><code>smoke-run</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="smoke-run"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">5-step build_composite(&#39;baseline&#39;) smoke run — no equilibrium-solver crash</td>
+        </tr>
+        
+      </tbody>
+    </table>
     
 
     <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
@@ -874,7 +5454,35 @@ metadata + cache_version. All four must be present for showcase-2 to resume.
 <section class="study-tab-panel" data-kind="variants" id="panel-variants">
   <div class="variants-list">
     
-    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    <article class="variant-row" data-variant-name="full-mode (51 TF conditions)"
+             data-base-composite="showcase-1-parca">
+      <header class="variant-row-header">
+        <h3 class="variant-name">full-mode (51 TF conditions)</h3>
+        <span class="variant-base">based on <code>showcase-1-parca</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="full-mode (51 TF conditions)">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="full-mode (51 TF conditions)">Delete</button>
+        <button class="btn-variant-run" data-variant-name="full-mode (51 TF conditions)">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="fast/debug-mode (~7 TF conditions)"
+             data-base-composite="showcase-1-parca">
+      <header class="variant-row-header">
+        <h3 class="variant-name">fast/debug-mode (~7 TF conditions)</h3>
+        <span class="variant-base">based on <code>showcase-1-parca</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="fast/debug-mode (~7 TF conditions)">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="fast/debug-mode (~7 TF conditions)">Delete</button>
+        <button class="btn-variant-run" data-variant-name="fast/debug-mode (~7 TF conditions)">Run</button>
+      </div>
+    </article>
     
   </div>
 
@@ -1356,32 +5964,70 @@ expect:  {"op": "matches_reference"}</pre>
 
   
   
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
       
-      <p class="muted">No evidence recorded on findings yet.</p>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
+    
+
+    
+    
+    
+    <div class="decide-section" style="margin-top:18px">
+      <h3 class="overview-label">Conclusion logic — gate decision</h3>
+      
+      <div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:4px;margin-bottom:8px">
+        <strong>✓ If primary tests pass:</strong>
+        
+        
+        <div style="margin-top:4px"><em>Biological validation:</em> 51 fitted TF conditions plus a no-crash 5-step smoke run confirm the metabolite concentrations are calibrated — the full-mode calibration a simulation-ready fixture requires.</div>
+        
+        
+        <div style="margin-top:4px"><em>Pipeline unblocks:</em>
+          <ul style="margin:4px 0 0 18px"><li>showcase-2-baseline-figures</li></ul>
+        </div>
+        
+      </div>
+      
+      
+      <div style="padding:10px 14px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px">
+        <strong>✗ If primary tests fail:</strong>
+        
+        <div style="margin-top:4px"><em>Diagnose:</em>
+          <ul style="margin:4px 0 0 18px"><li>condition count != 51</li><li>missing cache artifact</li><li>equilibrium-solver crash on the smoke run</li></ul>
+        </div>
+        
+        
+        <div style="margin-top:4px"><em>Block downstream:</em> True</div>
+        
+      </div>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+    
+
+    
+    
+
+    
+    
   </div>
   
 

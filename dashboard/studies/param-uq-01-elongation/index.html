@@ -314,7 +314,12 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Ribosome basal elongation rate sets how fast ribosomes add amino acids, directly
+controlling protein-synthesis flux and therefore growth rate. The UQ confirms this
+mechanism quantitatively: basal_elongation_rate dominates growth-rate variance
+(Sobol ≈ 0.97), while the ppGpp/charging constant kS and the DNA-polymerase
+elongation rate act more indirectly and weakly on short-window growth rate.
+</textarea>
         
       </div>
 
@@ -334,19 +339,30 @@
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.goal"
-                   value=""
+                   value="Run a trustworthy forward UQ (PCRV-sampled order-2 PCE + analytic Sobol) on the
+3 effective elongation knobs from param-uq-00 to identify which most drives
+instantaneous-growth-rate variance, and confirm the ranking is seed-robust.
+"
                    placeholder="One sentence — the single most important thing this study does.">
           </td></tr>
           <tr><th>Mechanism</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="Ribosome basal elongation rate sets how fast ribosomes add amino acids, directly
+controlling protein-synthesis flux and therefore growth rate. The UQ confirms this
+mechanism quantitatively: basal_elongation_rate dominates growth-rate variance
+(Sobol ≈ 0.97), while the ppGpp/charging constant kS and the DNA-polymerase
+elongation rate act more indirectly and weakly on short-window growth rate.
+">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
-                   value=""
+                   value="Establishing a single robust dominant driver (and correcting the earlier
+state-carryover artifact) is the foundation the multi-observable (param-uq-02)
+and cell-cycle-stratified (param-uq-03) studies build on.
+"
                    placeholder="Why this study must finish before the next one in the DAG.">
           </td></tr>
           <tr><th>Expected result</th><td>
@@ -366,6 +382,32 @@
 
       
 
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">Ribosome basal_elongation_rate is experimentally tunable downward via
+sub-inhibitory chloramphenicol, and the v2ecoli baseline value (~22 aa/s) derives
+from the wcEcoli/v2ecoli mechanistic parameterization.
+</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>ecoli-polypeptide-elongation.basal_elongation_rate (UQ range 15–28 aa/s)</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> v2ecoli baseline parameterization (Macklin et al. 2020)</div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
       
     </div>
 
@@ -436,6 +478,37 @@ effects and could shift the ranking.
     
 
     
+    <details class="overview-section pre-run-expert-review">
+      <summary class="overview-label">Pre-run expert review</summary>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Open biological questions the planning is contingent on. A "wrong" answer here
+        means a primary test threshold needs to change <em>before</em> the simulation
+        is run, not after. Each question lists alternatives + the impact of the wrong
+        choice + what downstream work it blocks.
+      </p>
+      <div class="expert-question-list">
+        
+        <div class="expert-question-card status-accepted">
+          <div class="expert-question-header">
+            <span class="expert-question-id">PIVOT-correct-demo-parameters</span>
+            <span class="expert-question-status">accepted</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> Should the UQ reuse the original demo&#39;s 3 parameters (incl. gtpPerElongation, ribosomeElongationRate)?</div>
+          
+          <div class="expert-question-alternatives">
+            <em>Alternatives:</em>
+            <ul><li>Keep the demo&#39;s parameters (rejected — 2 of 3 inert, and the result was a carryover artifact).</li></ul>
+          </div>
+          
+          
+          
+          
+        </div>
+        
+      </div>
+    </details>
+    
 
     
 
@@ -460,11 +533,11 @@ effects and could shift the ranking.
         <span class="count-label">simulations</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>3</strong>
         <span class="count-label">readouts</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>2</strong>
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
@@ -533,6 +606,58 @@ effects and could shift the ranking.
     </div>
     
 
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>basal_elongation_rate</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>kS</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>chrom-basal_elongation_rate</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
     
 
     
@@ -671,7 +796,66 @@ effects and could shift the ranking.
   
 
   
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline</code></p>
+    
+    
+    
+    
+    
+    <p class="muted" style="font-size:0.88em">No model change — config_overrides perturb existing process-config scalars. The
+external pbg-uq driver (examples/v2ecoli_uq_ensemble.py) wraps baseline() per
+sample with the XArray emitter; the only correctness requirement is a fresh
+initial_state per sample (v2ecoli PR #197).
+</p>
+  </div>
+  
 
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(2 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #f59e0b">
+      <summary style="cursor:pointer">
+        <strong>req-pbg-uq-driver</strong> — pbg-uq ensemble driver for v2ecoli
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">M</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[harness]</span>
+      </summary>
+      <p style="margin:8px 0">examples/v2ecoli_uq_ensemble.py: PCRV sampler → per-sample baseline sim (XArray
+emitter, run_multigen_xarray) → order-2 Legendre PCE (lsq) → analytic Sobol →
+figures + uq_report.html. Runs 3 PCRV seeds (0,1,2).
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>forward-uq-pipeline-runs-end-to-end</code> · <code>single-elongation-knob-robustly-dominates</code>
+      </p>
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #3b82f6">
+      <summary style="cursor:pointer">
+        <strong>req-fresh-initial-state</strong> — Deep-copy initial_state per sample (v2ecoli PR
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">S</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[correctness]</span>
+      </summary>
+      <p style="margin:8px 0">Without independent initial states the buggy shared-bundle path lets dry_mass
+climb by sample index, producing the spurious gtpPerElongation dominance.
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>single-elongation-knob-robustly-dominates</code>
+      </p>
+      
+      
+    </details>
+    
+  </div>
   
 </section>
 
@@ -714,19 +898,19 @@ effects and could shift the ranking.
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">param-uq-01-elongation-baseline</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <strong style="font-size:1.05em">uq-elongation-effective-n30x3seeds</strong>
+      <span class="sim-status-pill sim-status-ran">ran</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
+      · <strong>Seeds:</strong> <code>3</code>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
@@ -782,14 +966,82 @@ effects and could shift the ranking.
 
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
-    <h3 class="section-title">Observables</h3>
-    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
     
     
-    
-    <div id="auto-readouts" data-composite="baseline">
-      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
-    </div>
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="instantaneous_growth_rate">
+          <td style="padding:6px; vertical-align: top;"><code>instantaneous_growth_rate</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="instantaneous_growth_rate"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="sobol_indices">
+          <td style="padding:6px; vertical-align: top;"><code>sobol_indices</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="sobol_indices"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="pce_test_error">
+          <td style="padding:6px; vertical-align: top;"><code>pce_test_error</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="pce_test_error"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+      </tbody>
+    </table>
     
 
     <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
@@ -995,7 +1247,50 @@ effects and could shift the ranking.
 <section class="study-tab-panel" data-kind="variants" id="panel-variants">
   <div class="variants-list">
     
-    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    <article class="variant-row" data-variant-name="basal_elongation_rate"
+             data-base-composite="param-uq-01-elongation">
+      <header class="variant-row-header">
+        <h3 class="variant-name">basal_elongation_rate</h3>
+        <span class="variant-base">based on <code>param-uq-01-elongation</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="basal_elongation_rate">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="basal_elongation_rate">Delete</button>
+        <button class="btn-variant-run" data-variant-name="basal_elongation_rate">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="kS"
+             data-base-composite="param-uq-01-elongation">
+      <header class="variant-row-header">
+        <h3 class="variant-name">kS</h3>
+        <span class="variant-base">based on <code>param-uq-01-elongation</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="kS">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="kS">Delete</button>
+        <button class="btn-variant-run" data-variant-name="kS">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="chrom-basal_elongation_rate"
+             data-base-composite="param-uq-01-elongation">
+      <header class="variant-row-header">
+        <h3 class="variant-name">chrom-basal_elongation_rate</h3>
+        <span class="variant-base">based on <code>param-uq-01-elongation</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="chrom-basal_elongation_rate">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="chrom-basal_elongation_rate">Delete</button>
+        <button class="btn-variant-run" data-variant-name="chrom-basal_elongation_rate">Run</button>
+      </div>
+    </article>
     
   </div>
 
@@ -1398,32 +1693,68 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
 
   
   
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
       
-      <p class="muted">No evidence recorded on findings yet.</p>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
+    
+
+    
+    
+    
+    <div class="decide-section" style="margin-top:18px">
+      <h3 class="overview-label">Conclusion logic — gate decision</h3>
+      
+      <div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:4px;margin-bottom:8px">
+        <strong>✓ If primary tests pass:</strong>
+        
+        
+        
+        <div style="margin-top:4px"><em>Pipeline unblocks:</em>
+          <ul style="margin:4px 0 0 18px"><li>param-uq-02-observables extends the same 3 effective knobs to mass observables and a longer window.</li></ul>
+        </div>
+        
+      </div>
+      
+      
+      <div style="padding:10px 14px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px">
+        <strong>✗ If primary tests fail:</strong>
+        
+        <div style="margin-top:4px"><em>Diagnose:</em>
+          <ul style="margin:4px 0 0 18px"><li>If no knob reached Sobol &gt;= 0.5, check whether sample independence is intact (fresh initial_state per sample, v2ecoli PR #197) — the original demo&#39;s &#39;gtpPerElongation dominates 0.88&#39; reading was a state-carryover artifact.</li><li>If the dominant knob differed across seeds, the surrogate budget (n=30+10) or PCE order may be insufficient; increase samples before trusting the ranking.</li></ul>
+        </div>
+        
+        
+        <div style="margin-top:4px"><em>Block downstream:</em> A non-robust ranking would invalidate the param-uq-02 extension.</div>
+        
+      </div>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+    
+
+    
+    
+
+    
+    
   </div>
   
 

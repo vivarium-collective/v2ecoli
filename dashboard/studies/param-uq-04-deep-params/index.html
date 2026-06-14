@@ -314,7 +314,12 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">(planned) The deepest levers on growth/mass — RNAP active/bound fractions
+(transcription capacity), FBA kinetic-objective and secretion-penalty weights
+(metabolic flux allocation), and the dry-mass fraction (biomass accounting) — live
+in the sim_data dataclass, not in process configs. This study would quantify their
+sensitivity, requiring a per-sample ParCa cache rebuild to propagate each perturbation.
+</textarea>
         
       </div>
 
@@ -334,19 +339,31 @@
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.goal"
-                   value=""
+                   value="(planned) Extend UQ coverage from config-reachable process-config scalars
+(studies 00–02) to the deeper physiological parameters in SimulationDataEcoli
+(RNAP fractions, FBA weights, mass fractions) via sim_data-level injection, and
+determine which most drive single-cell growth/mass variance.
+"
                    placeholder="One sentence — the single most important thing this study does.">
           </td></tr>
           <tr><th>Mechanism</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="(planned) The deepest levers on growth/mass — RNAP active/bound fractions
+(transcription capacity), FBA kinetic-objective and secretion-penalty weights
+(metabolic flux allocation), and the dry-mass fraction (biomass accounting) — live
+in the sim_data dataclass, not in process configs. This study would quantify their
+sensitivity, requiring a per-sample ParCa cache rebuild to propagate each perturbation.
+">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
-                   value=""
+                   value="These deep params set fundamental biological rates and are the primary targets of
+the original uqEcoli analysis; reaching them requires an injection path beyond
+config_overrides, making this the infrastructure-gated frontier of the program.
+"
                    placeholder="Why this study must finish before the next one in the DAG.">
           </td></tr>
           <tr><th>Expected result</th><td>
@@ -366,6 +383,31 @@
 
       
 
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">The candidate deep-parameter ranges (RNAP fractions, FBA weights, dry-mass
+fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data parameterization.
+</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>transcription.rnap_active_fraction, metabolism.kinetic_objective_weight, mass.cell_dry_mass_fraction</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> v2ecoli baseline parameterization (Macklin et al. 2020); uqEcoli demo bounds</div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
       
     </div>
 
@@ -439,6 +481,37 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
     
 
     
+    <details class="overview-section pre-run-expert-review">
+      <summary class="overview-label">Pre-run expert review</summary>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Open biological questions the planning is contingent on. A "wrong" answer here
+        means a primary test threshold needs to change <em>before</em> the simulation
+        is run, not after. Each question lists alternatives + the impact of the wrong
+        choice + what downstream work it blocks.
+      </p>
+      <div class="expert-question-list">
+        
+        <div class="expert-question-card status-accepted">
+          <div class="expert-question-header">
+            <span class="expert-question-id">PIVOT-deep-params-need-parca-injection</span>
+            <span class="expert-question-status">accepted</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> Can the deep physiological params be reached via the baseline() config_overrides path?</div>
+          
+          <div class="expert-question-alternatives">
+            <em>Alternatives:</em>
+            <ul><li>Approximate deep params with config-reachable proxies (rejected — not equivalent).</li></ul>
+          </div>
+          
+          
+          
+          
+        </div>
+        
+      </div>
+    </details>
+    
 
     
 
@@ -463,11 +536,11 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
         <span class="count-label">simulations</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>3</strong>
         <span class="count-label">readouts</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>2</strong>
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
@@ -536,6 +609,64 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
     </div>
     
 
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>rnap-active-fraction</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">transcription.rnap_active_fraction</span>=<code>[0.25, 0.47]</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>kinetic_objective_weight</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">metabolism.kinetic_objective_weight</span>=<code>[5e-08, 5e-07]</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>cell_dry_mass_fraction</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">mass.cell_dry_mass_fraction</span>=<code>[0.25, 0.35]</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
     
 
     
@@ -648,7 +779,64 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
   
 
   
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline</code></p>
+    
+    
+    
+    
+    
+    <p class="muted" style="font-size:0.88em">(planned) No biological model change. Infrastructure work: a sim_data injection
+adapter (sim_data_setattr) in pbg-uq plus a per-sample ParCa cache rebuild — not
+reachable via the config_overrides path used in studies 00–02.
+</p>
+  </div>
+  
 
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(2 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
+      <summary style="cursor:pointer">
+        <strong>req-sim-data-injection-adapter</strong> — sim_data-level injection adapter in pbg-uq
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">L</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[framework]</span>
+      </summary>
+      <p style="margin:8px 0">Add uqEcoli-style sim_data_setattr injection to pbg-uq (it currently supports only
+config_overrides). Each perturbed sample mutates the SimulationDataEcoli dataclass.
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>deep-param-injection-feasible-and-ranked</code>
+      </p>
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
+      <summary style="cursor:pointer">
+        <strong>req-per-sample-parca-rebuild</strong> — Per-sample ParCa cache rebuild
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">L</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[harness]</span>
+      </summary>
+      <p style="margin:8px 0">Each deep-param perturbation needs a fresh ParCa cache build (~2.5 min/sample on
+the mini). Budget must account for ~n × 2.5 min of rebuild time.
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>deep-param-injection-feasible-and-ranked</code>
+      </p>
+      
+      
+    </details>
+    
+  </div>
   
 </section>
 
@@ -691,12 +879,12 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">param-uq-04-deep-params-baseline</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <strong style="font-size:1.05em">uq-deep-params-parca-rebuild</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -759,14 +947,82 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
 
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
-    <h3 class="section-title">Observables</h3>
-    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
     
     
-    
-    <div id="auto-readouts" data-composite="baseline">
-      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
-    </div>
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="crash_free_completion_rate">
+          <td style="padding:6px; vertical-align: top;"><code>crash_free_completion_rate</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="crash_free_completion_rate"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="per_deep_param_sobol">
+          <td style="padding:6px; vertical-align: top;"><code>per_deep_param_sobol</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="per_deep_param_sobol"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="growth_mass_responses">
+          <td style="padding:6px; vertical-align: top;"><code>growth_mass_responses</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="growth_mass_responses"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+      </tbody>
+    </table>
     
 
     <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
@@ -972,7 +1228,83 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
 <section class="study-tab-panel" data-kind="variants" id="panel-variants">
   <div class="variants-list">
     
-    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    <article class="variant-row" data-variant-name="rnap-active-fraction"
+             data-base-composite="param-uq-04-deep-params">
+      <header class="variant-row-header">
+        <h3 class="variant-name">rnap-active-fraction</h3>
+        <span class="variant-base">based on <code>param-uq-04-deep-params</code></span>
+        <span class="variant-overrides-count muted">1 override(s)</span>
+      </header>
+      
+      <details class="variant-overrides-detail">
+        <summary>Parameter overrides</summary>
+        <table class="variant-overrides-table">
+          <tbody>
+          
+          <tr><td><code>transcription.rnap_active_fraction</code></td><td><code>[0.25, 0.47]</code></td></tr>
+          
+          </tbody>
+        </table>
+      </details>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="rnap-active-fraction">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="rnap-active-fraction">Delete</button>
+        <button class="btn-variant-run" data-variant-name="rnap-active-fraction">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="kinetic_objective_weight"
+             data-base-composite="param-uq-04-deep-params">
+      <header class="variant-row-header">
+        <h3 class="variant-name">kinetic_objective_weight</h3>
+        <span class="variant-base">based on <code>param-uq-04-deep-params</code></span>
+        <span class="variant-overrides-count muted">1 override(s)</span>
+      </header>
+      
+      <details class="variant-overrides-detail">
+        <summary>Parameter overrides</summary>
+        <table class="variant-overrides-table">
+          <tbody>
+          
+          <tr><td><code>metabolism.kinetic_objective_weight</code></td><td><code>[5e-08, 5e-07]</code></td></tr>
+          
+          </tbody>
+        </table>
+      </details>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="kinetic_objective_weight">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="kinetic_objective_weight">Delete</button>
+        <button class="btn-variant-run" data-variant-name="kinetic_objective_weight">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="cell_dry_mass_fraction"
+             data-base-composite="param-uq-04-deep-params">
+      <header class="variant-row-header">
+        <h3 class="variant-name">cell_dry_mass_fraction</h3>
+        <span class="variant-base">based on <code>param-uq-04-deep-params</code></span>
+        <span class="variant-overrides-count muted">1 override(s)</span>
+      </header>
+      
+      <details class="variant-overrides-detail">
+        <summary>Parameter overrides</summary>
+        <table class="variant-overrides-table">
+          <tbody>
+          
+          <tr><td><code>mass.cell_dry_mass_fraction</code></td><td><code>[0.25, 0.35]</code></td></tr>
+          
+          </tbody>
+        </table>
+      </details>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="cell_dry_mass_fraction">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="cell_dry_mass_fraction">Delete</button>
+        <button class="btn-variant-run" data-variant-name="cell_dry_mass_fraction">Run</button>
+      </div>
+    </article>
     
   </div>
 
@@ -1114,7 +1446,7 @@ Sobol across growth/mass observables?
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "(TBD) Will measure (1) crash-free completion rate across all samples and\n(2) max total-order Sobol across the 6 candidate deep params. A dominant\nparameter is defined as total-order Sobol \u2265 0.5.\n", "kind": "authored", "measured_value": null}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "PLANNED metric \u2014 (1) crash-free completion rate across all samples and (2) max\ntotal-order Sobol across the 6 candidate deep params; a parameter is dominant if\nits total-order Sobol \u2265 0.5. Not yet computed (study planned).\n", "kind": "authored", "measured_value": null}
 expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
       </details>
       
@@ -1141,7 +1473,9 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
     <h3 class="section-title" style="margin-top:24px">Registered visualization modules</h3>
     <div id="viz-list">
       
-      <p class="muted" style="margin:0">No registered viz modules. The composite's default workflow + topology visualizations apply automatically when running.</p>
+      <div class="viz-config">Deep-parameter Sobol ranking (planned mockup) <code class="muted">image:charts/deep_param_sobol_planned.png</code>
+        
+      </div>
       
     </div>
     <button class="btn-add-viz" style="margin-top:8px">+ Add visualization</button>

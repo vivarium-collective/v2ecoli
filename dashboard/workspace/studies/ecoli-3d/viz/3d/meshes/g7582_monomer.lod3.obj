@@ -1,4 +1,4 @@
-# parsimony mesh: g7582_monomer (source /Users/eranagmon/code/v2e-3d/out/ecoli3d/structures/g7582_monomer.pdb)
+# parsimony mesh: g7582_monomer (source /Users/eranagmon/code/v2e-molecules/workspace/studies/ecoli-3d/viz/3d/structures/g7582_monomer.pdb)
 # atoms: 791  voxel: 2.5 Å  verts: 1873  tris: 3856
 v 23.5780 11.4605 -41.4362
 v 24.9275 11.4142 -41.4464

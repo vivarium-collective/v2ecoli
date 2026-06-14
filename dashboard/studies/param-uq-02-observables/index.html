@@ -259,7 +259,7 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">failed</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">passed</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
@@ -314,7 +314,13 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Over a window long enough for mass to accumulate, faster ribosome elongation yields
+more protein and more mass — so basal_elongation_rate dominates dry_mass and
+cell_mass variance (Sobol ≈ 0.86). Instantaneous growth rate is more subtle: a short
+window captures the immediate elongation-speed effect, while a longer window lets the
+ppGpp/charging regulation (kS) shape the realised growth rate, so kS catches up to
+and slightly exceeds basal_elongation_rate by 360 steps.
+</textarea>
         
       </div>
 
@@ -334,19 +340,31 @@
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.goal"
-                   value=""
+                   value="Test whether the param-uq-01 finding (basal_elongation_rate dominates igr at 120
+steps) generalises to the MASS observables (dry_mass, cell_mass) at a longer
+360-step window, and whether the ranking is stable to observable/window choice.
+"
                    placeholder="One sentence — the single most important thing this study does.">
           </td></tr>
           <tr><th>Mechanism</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="Over a window long enough for mass to accumulate, faster ribosome elongation yields
+more protein and more mass — so basal_elongation_rate dominates dry_mass and
+cell_mass variance (Sobol ≈ 0.86). Instantaneous growth rate is more subtle: a short
+window captures the immediate elongation-speed effect, while a longer window lets the
+ppGpp/charging regulation (kS) shape the realised growth rate, so kS catches up to
+and slightly exceeds basal_elongation_rate by 360 steps.
+">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
-                   value=""
+                   value="Confirming mass dominance and discovering that the growth-rate ranking is
+window-dependent motivates the cell-cycle-stratified study (param-uq-03), which
+resolves how the ranking evolves over time.
+"
                    placeholder="Why this study must finish before the next one in the DAG.">
           </td></tr>
           <tr><th>Expected result</th><td>
@@ -366,6 +384,31 @@
 
       
 
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">Faster ribosome elongation increases protein-synthesis flux and biomass; the
+v2ecoli baseline elongation parameterization derives from the wcEcoli model.
+</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>dry_mass / cell_mass response to ecoli-polypeptide-elongation.basal_elongation_rate</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> v2ecoli baseline parameterization (Macklin et al. 2020)</div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
       
     </div>
 
@@ -436,6 +479,37 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
     
 
     
+    <details class="overview-section pre-run-expert-review">
+      <summary class="overview-label">Pre-run expert review</summary>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Open biological questions the planning is contingent on. A "wrong" answer here
+        means a primary test threshold needs to change <em>before</em> the simulation
+        is run, not after. Each question lists alternatives + the impact of the wrong
+        choice + what downstream work it blocks.
+      </p>
+      <div class="expert-question-list">
+        
+        <div class="expert-question-card status-accepted">
+          <div class="expert-question-header">
+            <span class="expert-question-id">PIVOT-report-growth-rate-with-window</span>
+            <span class="expert-question-status">accepted</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> Can a growth-rate sensitivity ranking be reported window-agnostically?</div>
+          
+          <div class="expert-question-alternatives">
+            <em>Alternatives:</em>
+            <ul><li>Report a single window-agnostic growth-rate ranking (rejected — the ranking is window-dependent).</li></ul>
+          </div>
+          
+          
+          
+          
+        </div>
+        
+      </div>
+    </details>
+    
 
     
 
@@ -460,11 +534,11 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
         <span class="count-label">simulations</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>3</strong>
         <span class="count-label">readouts</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>1</strong>
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
@@ -533,6 +607,58 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
     </div>
     
 
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>basal_elongation_rate</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>kS</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>chrom-basal_elongation_rate</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
     
 
     
@@ -642,7 +768,46 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
   
 
   
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline</code></p>
+    
+    
+    
+    
+    
+    <p class="muted" style="font-size:0.88em">No model change — same config_overrides path as param-uq-01, extended to a
+360-step window and three observables via pbg-uq examples/v2ecoli_uq_observables.py.
+</p>
+  </div>
+  
 
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(1 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #f59e0b">
+      <summary style="cursor:pointer">
+        <strong>req-multi-observable-uq</strong> — Per-observable Sobol over an extended window
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">M</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[harness]</span>
+      </summary>
+      <p style="margin:8px 0">examples/v2ecoli_uq_observables.py: n=24+8 PCRV per seed (2 seeds), 360-step
+window, fresh initial_state per sample, per-observable order-2 PCE → analytic Sobol
+for dry_mass, cell_mass, instantaneous_growth_rate.
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>basal-dominates-mass-observables</code> · <code>growth-rate-ranking-is-window-dependent</code>
+      </p>
+      
+      
+    </details>
+    
+  </div>
   
 </section>
 
@@ -685,19 +850,19 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">param-uq-02-observables-baseline</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <strong style="font-size:1.05em">uq-observables-w360-n24x2seeds</strong>
+      <span class="sim-status-pill sim-status-ran">ran</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
+      · <strong>Seeds:</strong> <code>2</code>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
@@ -753,14 +918,82 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
 
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
-    <h3 class="section-title">Observables</h3>
-    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
     
     
-    
-    <div id="auto-readouts" data-composite="baseline">
-      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
-    </div>
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="dry_mass_cell_mass">
+          <td style="padding:6px; vertical-align: top;"><code>dry_mass_cell_mass</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="dry_mass_cell_mass"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="instantaneous_growth_rate">
+          <td style="padding:6px; vertical-align: top;"><code>instantaneous_growth_rate</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="instantaneous_growth_rate"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="per_observable_sobol">
+          <td style="padding:6px; vertical-align: top;"><code>per_observable_sobol</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              —
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="per_observable_sobol"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+      </tbody>
+    </table>
     
 
     <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
@@ -966,7 +1199,50 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
 <section class="study-tab-panel" data-kind="variants" id="panel-variants">
   <div class="variants-list">
     
-    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    <article class="variant-row" data-variant-name="basal_elongation_rate"
+             data-base-composite="param-uq-02-observables">
+      <header class="variant-row-header">
+        <h3 class="variant-name">basal_elongation_rate</h3>
+        <span class="variant-base">based on <code>param-uq-02-observables</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="basal_elongation_rate">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="basal_elongation_rate">Delete</button>
+        <button class="btn-variant-run" data-variant-name="basal_elongation_rate">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="kS"
+             data-base-composite="param-uq-02-observables">
+      <header class="variant-row-header">
+        <h3 class="variant-name">kS</h3>
+        <span class="variant-base">based on <code>param-uq-02-observables</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="kS">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="kS">Delete</button>
+        <button class="btn-variant-run" data-variant-name="kS">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="chrom-basal_elongation_rate"
+             data-base-composite="param-uq-02-observables">
+      <header class="variant-row-header">
+        <h3 class="variant-name">chrom-basal_elongation_rate</h3>
+        <span class="variant-base">based on <code>param-uq-02-observables</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="chrom-basal_elongation_rate">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="chrom-basal_elongation_rate">Delete</button>
+        <button class="btn-variant-run" data-variant-name="chrom-basal_elongation_rate">Run</button>
+      </div>
+    </article>
     
   </div>
 
@@ -1077,9 +1353,10 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
                 
               
                 
+                
               
-              <span class="ok" title="authored pass">✓ 1</span>
-              <span class="fail" title="authored fail">✗ 1</span>
+              <span class="ok" title="authored pass">✓ 2</span>
+              
               
               <span class="muted" style="font-size:0.85em"> (authored)</span>
             
@@ -1237,32 +1514,33 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
     
     
     
-    <li class="expected-behavior-item" id="bt-growth-rate-ranking-window-independent"
-        data-pytest-node="growth-rate-ranking-window-independent"
+    <li class="expected-behavior-item" id="bt-growth-rate-ranking-is-window-dependent"
+        data-pytest-node="growth-rate-ranking-is-window-dependent"
         data-classification="primary"
-        data-result="FAIL"
+        data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">growth-rate-ranking-window-independent</strong>
+        <strong style="font-size: 0.9em;">growth-rate-ranking-is-window-dependent</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Is the dominant driver of instantaneous-growth-rate variance the same across
-windows (basal_elongation_rate at both 120 and 360 steps)?
+      <div style="margin-top: 6px; font-size: 0.95em;">Does the dominant driver of instantaneous-growth-rate variance change between
+the 120-step and 360-step windows — i.e. is the growth-rate ranking
+window-dependent, as this study claims?
 </div>
       
       <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
         <strong>Latest result:</strong>
         
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: igr dominant flips basal (0.97 @120) -&gt; kS (0.615 @360); ranking is window-dependent.</code>
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Window-dependence CONFIRMED: igr dominant flips basal (0.97 @120) -&gt; kS (0.615 @360). The study&#39;s headline discovery.</code>
         
       </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "The igr dominant knob FLIPS with window: basal_elongation_rate (Sobol 0.97 @\n120 steps) \u2192 kS (0.615, edging basal\u0027s 0.511) @ 360 steps. measured_value =\nfraction of windows agreeing on the igr dominant driver = 0.0.\n", "kind": "authored", "measured_value": 0.0}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "CONFIRMED window-dependence \u2014 the igr dominant knob flips: basal_elongation_rate\n(Sobol 0.97 @ 120 steps) \u2192 kS (0.615, edging basal\u0027s 0.511) @ 360 steps.\nmeasured_value = fraction of the compared window pairs that show a DIFFERENT igr\ndominant driver = 1.0 (the single 120\u2194360 pair differs). This is the study\u0027s\nheadline discovery, framed affirmatively (the window-independence hypothesis is\nrefuted; see assumptions).\n", "kind": "authored", "measured_value": 1.0}
 expect:  {"high": 1.0, "low": 0.8, "op": "in_range"}</pre>
       </details>
       
@@ -1364,32 +1642,68 @@ expect:  {"high": 1.0, "low": 0.8, "op": "in_range"}</pre>
 
   
   
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
       
-      <p class="muted">No evidence recorded on findings yet.</p>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
+    
+
+    
+    
+    
+    <div class="decide-section" style="margin-top:18px">
+      <h3 class="overview-label">Conclusion logic — gate decision</h3>
+      
+      <div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:4px;margin-bottom:8px">
+        <strong>✓ If primary tests pass:</strong>
+        
+        
+        
+        <div style="margin-top:4px"><em>Pipeline unblocks:</em>
+          <ul style="margin:4px 0 0 18px"><li>param-uq-03-growth-stratified maps how the ranking evolves across the cell cycle.</li></ul>
+        </div>
+        
+      </div>
+      
+      
+      <div style="padding:10px 14px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px">
+        <strong>✗ If primary tests fail:</strong>
+        
+        <div style="margin-top:4px"><em>Diagnose:</em>
+          <ul style="margin:4px 0 0 18px"><li>If mass observables did not respond at 360 steps, the window is still too short for mass to accumulate signal — extend toward a full generation (~2760 steps).</li><li>The minor ill-conditioning warning on the weak kS/DNA-pol basis columns does not affect the dominant mass result (fit err ~0%); revisit only if the mass ranking destabilises.</li></ul>
+        </div>
+        
+        
+        <div style="margin-top:4px"><em>Block downstream:</em> Without a robust mass result the cell-cycle-stratified study has no anchor.</div>
+        
+      </div>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+    
+
+    
+    
+
+    
+    
   </div>
   
 

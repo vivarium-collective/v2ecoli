@@ -314,7 +314,11 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">(planned) Biosynthetic demand varies across the cell cycle, so elongation-rate
+influence may be stage-dependent: hypothesized strongest mid-cycle during peak
+biosynthesis, weaker early (small cell, limited ribosome pool) and late (resources
+committed to division). This study would test that hypothesis with cell-cycle-resolved Sobol.
+</textarea>
         
       </div>
 
@@ -334,19 +338,29 @@
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.goal"
-                   value=""
+                   value="(planned) Determine whether the elongation-rate dominance found in param-uq-01/02
+is uniform across the cell cycle or concentrated in specific phases, via per-stage
+(θ-binned, birth→division) Sobol indices over multi-generation runs.
+"
                    placeholder="One sentence — the single most important thing this study does.">
           </td></tr>
           <tr><th>Mechanism</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="One paragraph — how the biology gets the result.">
+                   placeholder="(planned) Biosynthetic demand varies across the cell cycle, so elongation-rate
+influence may be stage-dependent: hypothesized strongest mid-cycle during peak
+biosynthesis, weaker early (small cell, limited ribosome pool) and late (resources
+committed to division). This study would test that hypothesis with cell-cycle-resolved Sobol.
+">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
-                   value=""
+                   value="Per-stage sensitivity reveals whether parameter influence is episodic, which would
+guide targeted intervention timing — the natural next resolution after the
+window-dependence discovery in param-uq-02.
+"
                    placeholder="Why this study must finish before the next one in the DAG.">
           </td></tr>
           <tr><th>Expected result</th><td>
@@ -370,6 +384,32 @@ committed to division).
 
       
 
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">Cell-cycle progress can be tracked as a log-mass fraction between birth and
+division; ergodic / age-structured analyses relate single-cell cycle position to
+population statistics.
+</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>θ from listeners.mass over a multi-generation trajectory</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> Kuritz et al. 2017 (cell-cycle analysis via ergodic principles)</div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
       
     </div>
 
@@ -464,11 +504,11 @@ at specific cell-cycle stages.
         <span class="count-label">simulations</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>3</strong>
         <span class="count-label">readouts</span>
       </div>
       <div class="count-cell">
-        <strong>0</strong>
+        <strong>2</strong>
         <span class="count-label">requirements</span>
       </div>
       <div class="count-cell">
@@ -537,6 +577,58 @@ at specific cell-cycle stages.
     </div>
     
 
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>basal_elongation_rate</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>kS</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>chrom-basal_elongation_rate</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
     
 
     
@@ -648,7 +740,64 @@ at specific cell-cycle stages.
   
 
   
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline</code></p>
+    
+    
+    
+    
+    
+    <p class="muted" style="font-size:0.88em">(planned) No biological model change. Infrastructure work only: multi-generation
+runs that record birth/division events, plus a growth-stratified aggregation
+strategy re-added to pbg-uq.
+</p>
+  </div>
+  
 
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(2 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
+      <summary style="cursor:pointer">
+        <strong>req-multigen-division-events</strong> — Multi-generation runs recording birth/division events
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">L</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[harness]</span>
+      </summary>
+      <p style="margin:8px 0">Run ≥1 division per sample (~2760 steps/gen) and emit birth/division markers so θ
+can be computed per cell cycle. Substantially slower than the 120–360-step windows used so far.
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>per-stage-sensitivity-profile</code>
+      </p>
+      
+      
+    </details>
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #f59e0b">
+      <summary style="cursor:pointer">
+        <strong>req-pbg-uq-stratified-strategy</strong> — Re-add growth-stratified aggregation strategy to pbg-uq
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">M</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[framework]</span>
+      </summary>
+      <p style="margin:8px 0">Implement the RFC006 strategy-4 per-θ-bin Sobol aggregation in pbg-uq (dropped
+from the thin core). Required before this study can run.
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>per-stage-sensitivity-profile</code>
+      </p>
+      
+      
+    </details>
+    
+  </div>
   
 </section>
 
@@ -691,12 +840,12 @@ at specific cell-cycle stages.
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">param-uq-03-growth-stratified-baseline</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <strong style="font-size:1.05em">uq-growth-stratified-multigen</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -759,14 +908,82 @@ at specific cell-cycle stages.
 
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
-    <h3 class="section-title">Observables</h3>
-    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
     
     
-    
-    <div id="auto-readouts" data-composite="baseline">
-      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
-    </div>
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="cell_cycle_progress_theta">
+          <td style="padding:6px; vertical-align: top;"><code>cell_cycle_progress_theta</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="cell_cycle_progress_theta"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="per_stage_sobol">
+          <td style="padding:6px; vertical-align: top;"><code>per_stage_sobol</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="per_stage_sobol"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="across_stage_sobol_range">
+          <td style="padding:6px; vertical-align: top;"><code>across_stage_sobol_range</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="across_stage_sobol_range"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+      </tbody>
+    </table>
     
 
     <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
@@ -972,7 +1189,50 @@ at specific cell-cycle stages.
 <section class="study-tab-panel" data-kind="variants" id="panel-variants">
   <div class="variants-list">
     
-    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    <article class="variant-row" data-variant-name="basal_elongation_rate"
+             data-base-composite="param-uq-03-growth-stratified">
+      <header class="variant-row-header">
+        <h3 class="variant-name">basal_elongation_rate</h3>
+        <span class="variant-base">based on <code>param-uq-03-growth-stratified</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="basal_elongation_rate">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="basal_elongation_rate">Delete</button>
+        <button class="btn-variant-run" data-variant-name="basal_elongation_rate">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="kS"
+             data-base-composite="param-uq-03-growth-stratified">
+      <header class="variant-row-header">
+        <h3 class="variant-name">kS</h3>
+        <span class="variant-base">based on <code>param-uq-03-growth-stratified</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="kS">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="kS">Delete</button>
+        <button class="btn-variant-run" data-variant-name="kS">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="chrom-basal_elongation_rate"
+             data-base-composite="param-uq-03-growth-stratified">
+      <header class="variant-row-header">
+        <h3 class="variant-name">chrom-basal_elongation_rate</h3>
+        <span class="variant-base">based on <code>param-uq-03-growth-stratified</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="chrom-basal_elongation_rate">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="chrom-basal_elongation_rate">Delete</button>
+        <button class="btn-variant-run" data-variant-name="chrom-basal_elongation_rate">Run</button>
+      </div>
+    </article>
     
   </div>
 
@@ -1113,7 +1373,7 @@ cell-cycle stages (i.e., is sensitivity non-uniform across θ)?
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "(TBD) Will compute per-stage total-order Sobol for basal_elongation_rate\nacross 10 \u03b8 bins and test whether the range (max \u2212 min) exceeds a\nmeaningful threshold indicating stage-dependence.\n", "kind": "authored", "measured_value": null}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "PLANNED metric \u2014 per-stage total-order Sobol for basal_elongation_rate across\n10 \u03b8 bins (birth\u2192division); pass if the across-stage range (max \u2212 min) exceeds\n0.1, indicating stage-dependent influence. Not yet computed (study planned).\n", "kind": "authored", "measured_value": null}
 expect:  {"high": 1.0, "low": 0.0, "op": "in_range"}</pre>
       </details>
       
@@ -1140,7 +1400,9 @@ expect:  {"high": 1.0, "low": 0.0, "op": "in_range"}</pre>
     <h3 class="section-title" style="margin-top:24px">Registered visualization modules</h3>
     <div id="viz-list">
       
-      <p class="muted" style="margin:0">No registered viz modules. The composite's default workflow + topology visualizations apply automatically when running.</p>
+      <div class="viz-config">Per-stage Sobol profile (planned mockup) <code class="muted">image:charts/per_stage_sobol_planned.png</code>
+        
+      </div>
       
     </div>
     <button class="btn-add-viz" style="margin-top:8px">+ Add visualization</button>

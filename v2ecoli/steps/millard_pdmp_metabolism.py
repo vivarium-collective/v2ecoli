@@ -255,11 +255,20 @@ class MillardPDMPMetabolism(Process):
         # CopasiUTCProcess._set_initial_concentrations.
         external = state.get("external_concentrations") or {}
         if external:
-            changes = [
-                (self.sbml_to_name[sbml_id], float(conc_mM))
-                for sbml_id, conc_mM in external.items()
-                if sbml_id in self.sbml_to_name
-            ]
+            # Skip unmapped species and non-finite values: a diverging reactor can
+            # feed NaN/inf into external_concentrations, and float()/COPASI must not
+            # crash the WCM update on it (overwrite only clean, mapped boundaries).
+            changes = []
+            for sbml_id, conc_mM in external.items():
+                if sbml_id not in self.sbml_to_name:
+                    continue
+                try:
+                    val = float(conc_mM)
+                except (TypeError, ValueError):
+                    continue
+                if not math.isfinite(val):
+                    continue
+                changes.append((self.sbml_to_name[sbml_id], val))
             if changes:
                 _set_initial_concentrations(changes, self._model)
 

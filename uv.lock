@@ -2578,6 +2578,17 @@ wheels = [
 ]
 
 [[package]]
+name = "pbg-basic-processes"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?branch=main#cbd10e73b79e4e8c7dd9e33bf84614881b559072" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "process-bigraph" },
+    { name = "sympy" },
+]
+
+[[package]]
 name = "pbg-bioreactordesign"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main#f40f82f0057d042cb06f349dbe1702306b35ddbf" }
@@ -2641,12 +2652,13 @@ dependencies = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#9718c135f0a33e09f4703783f3bb8c80f3d5b70c" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#5196dbb5f21c2b4f78772743e6958ebf9c72bee4" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
+    { name = "pbg-basic-processes" },
     { name = "pbg-emitters" },
     { name = "process-bigraph" },
     { name = "pypdf" },

@@ -1,4 +1,4 @@
-# parsimony mesh: g360_monomer (source /Users/eranagmon/code/v2e-abund/workspace/studies/ecoli-3d/viz/3d/structures/g360_monomer.pdb)
+# parsimony mesh: g360_monomer (source /Users/eranagmon/code/v2e-cplx/workspace/studies/ecoli-3d/viz/3d/structures/g360_monomer.pdb)
 # atoms: 1653  voxel: 2.5 Å  verts: 3330  tris: 6936
 v -46.2377 7.4172 -48.5029
 v -45.0942 7.4172 -48.5029

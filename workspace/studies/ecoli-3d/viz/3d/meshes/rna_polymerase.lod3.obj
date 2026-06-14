@@ -1,4 +1,4 @@
-# parsimony mesh: rna_polymerase (source /Users/eranagmon/code/v2e-abund/workspace/studies/ecoli-3d/viz/3d/structures/rna_polymerase.pdb)
+# parsimony mesh: rna_polymerase (source /Users/eranagmon/code/v2e-cplx/workspace/studies/ecoli-3d/viz/3d/structures/rna_polymerase.pdb)
 # atoms: 55741  voxel: 2.5 Å  verts: 27878  tris: 57260
 v -9.9544 -19.4230 -96.5809
 v -7.7658 -19.4458 -96.5997

@@ -255,7 +255,102 @@ def _uniprot(ecocyc, genes, umap, gene_symbol=None):
     return acc
 
 
-def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None):
+# ── generic complexes: assemble from subunit stoichiometry + AlphaFold monomers ─
+def _complexation():
+    """Return ``({product_id: {subunit_id: count}}, {product_id: name})`` parsed
+    from complexation_reactions.tsv. The stoichiometry dict has the product at
+    +1 and each subunit at a negative coeff (abs = copies) or ``null`` (= 1)."""
+    rxn, names = {}, {}
+    for r in _load_tsv("complexation_reactions.tsv"):
+        vals = list(r.values())
+        try:
+            stoich = json.loads(vals[1])
+        except Exception:
+            continue
+        prod = next((k for k, v in stoich.items() if isinstance(v, (int, float)) and v > 0), None)
+        if not prod:
+            continue
+        subs = {}
+        for k, v in stoich.items():
+            if k == prod:
+                continue
+            subs[k] = 1 if v is None else int(abs(v))
+        rxn[prod] = subs
+        nm = vals[2] if len(vals) > 2 else ""
+        names[prod] = "" if nm in ("null", None) else nm
+    return rxn, names
+
+
+def _expand_monomers(cid, rxn, prot, depth=0, acc=None):
+    """Recursively expand a complex to its monomer composition {monomer: count}."""
+    acc = acc if acc is not None else {}
+    if depth > 8:
+        return acc
+    for sub, n in rxn.get(cid, {}).items():
+        if sub in prot:                         # a monomer
+            acc[sub] = acc.get(sub, 0) + n
+        elif sub in rxn:                        # a sub-complex → recurse n times
+            for _ in range(n):
+                _expand_monomers(sub, rxn, prot, depth + 1, acc)
+        # else: tRNA/RNA/ion subunit with no monomer structure → skipped
+    return acc
+
+
+def _cluster_offsets(n, spacing):
+    """n compact 3D-grid offsets (Å), nearest-origin-first, for clustering subunits."""
+    pts, r = [], 0
+    while len(pts) < n:
+        r += 1
+        for x in range(-r, r + 1):
+            for y in range(-r, r + 1):
+                for z in range(-r, r + 1):
+                    if max(abs(x), abs(y), abs(z)) == r:
+                        pts.append((x, y, z))
+    pts.sort(key=lambda p: p[0] ** 2 + p[1] ** 2 + p[2] ** 2)
+    return [(x * spacing, y * spacing, z * spacing) for x, y, z in pts[:n]]
+
+
+def _build_complex_blob(cid, monomers, struct_cache, genes, umap):
+    """Assemble a composite PDB clustering each subunit's AlphaFold by stoichiometry.
+    Returns the path, or None if no subunit structures resolve."""
+    struct_cache = Path(struct_cache)
+    out = struct_cache / f"cplx_{cid.replace('/', '_')}.pdb"
+    if out.exists() and out.stat().st_size > 0:
+        return out
+    units = []  # (centered_atoms[N,3], elems, radius)
+    for mono, n in monomers.items():
+        acc = _uniprot(mono, genes, umap)
+        if not acc:
+            continue
+        try:
+            atoms = _parse_pdb_atoms(fetch(StructureRef("alphafold", acc), struct_cache))
+        except Exception:
+            continue
+        if not atoms:
+            continue
+        xyz = np.array([(x, y, z) for x, y, z, _ in atoms]); xyz -= xyz.mean(0)
+        rad = float(np.sqrt((xyz ** 2).sum(1)).max())
+        elems = [e for *_, e in atoms]
+        for _ in range(n):
+            units.append((xyz, elems, rad))
+    if not units:
+        return None
+    spacing = 2.0 * max(u[2] for u in units)
+    offsets = _cluster_offsets(len(units), spacing)
+    lines = []
+    serial = 1
+    for (xyz, elems, _), off in zip(units, offsets):
+        ox, oy, oz = off
+        for (x, y, z), e in zip(xyz, elems):
+            lines.append(f"ATOM  {serial % 100000:5d}  CA  ALA A{serial % 9999:4d}    "
+                         f"{x + ox:8.3f}{y + oy:8.3f}{z + oz:8.3f}  1.00  0.00          {e:>2}")
+            serial += 1
+    out.write_text("\n".join(lines) + "\nEND\n")
+    return out
+
+
+def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None,
+                       top_complexes=0):
     """Curated assemblies + assembled complexes from the bulk + the top-N
     most-abundant protein monomers (AlphaFold, skipping individual ribosomal
     proteins) + a membrane lipid. Returns a list of :class:`pbg_parsimony.Ingredient`
@@ -327,6 +422,37 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
             already.add(cid)
         # other arrangements (single PDB, stoichiometry blob) added here later
 
+    # Generic complexes from the bulk: the top-N most abundant CPLX* assembled
+    # from their subunit stoichiometry (complexation_reactions.tsv) + AlphaFold
+    # monomers, clustered into a blob. Free monomers stay too (the bulk count is
+    # the free pool — assembled and free coexist, no double-count).
+    if top_complexes > 0:
+        rxn, cnames = _complexation()
+        cand = sorted(((cid, c) for cid, c in counts.items()
+                       if c > 0 and cid in rxn and cid not in already
+                       and cid not in prot),
+                      key=lambda kv: -kv[1])
+        n_added = n_skipped = 0
+        for cid, c in cand:
+            if n_added >= top_complexes:
+                break
+            monos = _expand_monomers(cid, rxn, prot)
+            if not monos:
+                n_skipped += 1; continue
+            blob = _build_complex_blob(cid, monos, struct_cache, genes, umap)
+            if blob is None:
+                n_skipped += 1; continue
+            nm = cnames.get(cid) or cid
+            cat = categorize(nm)
+            region = "surface" if cat in ("Envelope", "Motility") else "interior"
+            ingredients.append(Ingredient(
+                id=cid, count=c, structure=StructureRef("file", str(blob)),
+                region=region, display_name=nm, category=cat,
+                color=CATEGORY_COLOR[cat], proxy_voxel_size=12.0))
+            already.add(cid)
+            n_added += 1
+        print(f"  complexes: added {n_added}, skipped {n_skipped} (no resolvable subunit structures)")
+
     ingredients.append(Ingredient(
         id="lipid", count=lipid_count, sphere_radius=12.0, region="surface",
         display_name="Membrane phospholipid", category="Envelope",
@@ -335,7 +461,7 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
 
 
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
-                state_source="snapshot", proxy_lod=2) -> dict:
+                state_source="snapshot", proxy_lod=2, top_complexes=150) -> dict:
     """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result.
 
     ``scale`` defaults to 1.0 (true abundance from the state — every molecule is
@@ -344,7 +470,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     array8 placement format to stay under the 100 MB file limit."""
     counts, volume_fl = load_state(state_source)
     struct_cache = Path(out_dir) / "structures"
-    ingredients = select_ingredients(counts, top_n=top_n, struct_cache=struct_cache)
+    ingredients = select_ingredients(counts, top_n=top_n, struct_cache=struct_cache,
+                                     top_complexes=top_complexes)
     capsule = Capsule.from_volume_fl(volume_fl)
     chromosome = Chromosome(
         beads=34000, spacing=135.0, bead_radius=12.0,

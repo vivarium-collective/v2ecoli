@@ -1,0 +1,60 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>v2ecoli baseline vs kinetic models — exchange-flux report cards</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  max-width:960px;margin:0 auto;padding:30px;color:#0f172a;background:#f8fafc}
+h1{font-size:22px} h2{font-size:15px;text-transform:uppercase;letter-spacing:.04em;
+  color:#475569;border-bottom:2px solid #cbd5e1;padding-bottom:5px;margin-top:30px}
+p{color:#334155;line-height:1.55}
+table{border-collapse:collapse;width:100%;margin:14px 0;background:#fff;
+  border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #eef2f6;font-size:13px}
+th{background:#f1f5f9;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+td.n{text-align:right;font-variant-numeric:tabular-nums} td.ref{font-weight:650;background:#f8fafc}
+td.na{text-align:right;color:#cbd5e1}
+code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12px}
+.links{display:flex;gap:12px;margin:14px 0;flex-wrap:wrap}
+.cardlink{flex:1;min-width:210px;display:block;padding:14px 16px;border-radius:10px;
+  text-decoration:none;color:#0f172a;border:1px solid #e2e8f0;background:#fff}
+.cardlink b{display:block;font-size:14px} .cardlink span{display:block;font-size:12px;color:#475569}
+.cardlink .ov{margin-top:4px;font-weight:600}
+.cardlink.mismatch{border-left:4px solid #dc2626} .cardlink.drift{border-left:4px solid #d97706}
+.cardlink.within_tol{border-left:4px solid #059669} .cardlink.ungraded{border-left:4px solid #94a3b8}
+.cardlink.figure{border-left:4px solid #0ea5e9}
+.results{background:#fff;border:1px solid #e2e8f0;border-left:4px solid #2563eb;
+  border-radius:10px;padding:16px 18px;font-size:14px;line-height:1.6}
+.note{font-size:13px;color:#64748b;margin-top:10px}
+</style></head><body>
+<h1>v2ecoli baseline ↔ kinetic models: central-carbon exchange</h1>
+<p>Behavioral report cards (PR #134 grader) grading the v2ecoli whole-cell
+baseline exchange phenotype against kinetic models as reference sources — two
+KETCHUP models (<a href="https://github.com/vivarium-collective/pbg-ketchup">pbg-ketchup</a>),
+the Millard 2017 central-carbon ODE, and the
+<code>millard_fba_bridge_harness</code> composite (the real whole-cell tFBA with
+the Millard ODE pinning its central-carbon reactions). Each card is multi-axis:
+a whole-vector <code>flux_scatter</code> R² plus per-metabolite rel-tol axes.
+The KETCHUP <b>FDH dynamic</b> fit is shown as a separate NADH(t) figure.</p>
+
+<h2>Results</h2>
+<div class="results"><b>v2ecoli ↔ Millard 2017 agree</b> on the overflow axis: both run glucose-limited with <b>no acetate secretion</b> (✓ matches — but Millard only exchanges glucose + acetate, so the match is over 2 metabolites). <b>Both KETCHUP core models diverge</b> (✗ diverges): per 100 glucose they respire far harder (O₂ ≈ −135 vs v2ecoli −9; CO₂ ≈ +145 vs +33) and secrete acetate (≈ +71, absent in v2ecoli → 'appeared'/'lost'). <b>The v2ecoli + Millard FBA-bridge</b> (✗ diverges) sits in between on respiration (O₂ ≈ -26 per 100 glucose — ~3× the bare baseline’s −9, but still far below the KETCHUP cores’ −135) while keeping the baseline’s glucose-limited, acetate-free, CO₂-quiet exchange signature. So pinning v2ecoli’s central-carbon FBA to the Millard ODE nudges it toward the kinetic cores’ respiration without flipping it into acetate overflow.</div>
+
+<h2>Report cards</h2>
+<div class="links"><a class='cardlink mismatch' href='k-ecoli74.html'><b>KETCHUP k-ecoli74</b><span>R² = -0.8859 · 4 matched · 0 appeared · 2 lost</span><span class='ov'>overall: mismatch</span></a><a class='cardlink mismatch' href='k-ecoli307.html'><b>KETCHUP k-ecoli307</b><span>R² = -0.7190 · 4 matched · 0 appeared · 2 lost</span><span class='ov'>overall: mismatch</span></a><a class='cardlink within_tol' href='millard2017.html'><b>Millard 2017 ODE</b><span>R² = 1.0000 · 1 matched · 0 appeared · 0 lost</span><span class='ov'>overall: within tol</span></a><a class='cardlink mismatch' href='fba-bridge.html'><b>v2ecoli + Millard FBA-bridge</b><span>R² = 0.6542 · 3 matched · 1 appeared · 1 lost</span><span class='ov'>overall: mismatch</span></a>
+<a class="cardlink figure" href="fdh-dynamic.html"><b>KETCHUP FDH dynamic</b>
+<span>NADH(t) time-series fit · 9 conditions</span>
+<span class="ov">figure: data vs fit</span></a></div>
+
+<h2>Exchange fluxes (per 100 glucose)</h2>
+<table><thead><tr><th>exchange</th><th>v2ecoli (ref)</th>
+<th>k-ecoli74</th><th>k-ecoli307</th><th>Millard 2017</th>
+<th>FBA-bridge</th></tr></thead>
+<tbody><tr><td>glucose <code>GLC[p]</code></td><td class='n ref'>-100</td><td class='n'>-100</td><td class='n'>-100</td><td class='n'>-100</td><td class='n'>-100</td></tr><tr><td>O₂ <code>OXYGEN-MOLECULE[p]</code></td><td class='n ref'>-9</td><td class='n'>-135</td><td class='n'>-136</td><td class='na'>—</td><td class='n'>-26</td></tr><tr><td>CO₂ <code>CARBON-DIOXIDE[p]</code></td><td class='n ref'>+33</td><td class='n'>+144</td><td class='n'>+146</td><td class='na'>—</td><td class='n'>+0</td></tr><tr><td>acetate <code>ACET[p]</code></td><td class='n ref'>+0</td><td class='n'>+71</td><td class='n'>+71</td><td class='n'>+0</td><td class='n'>+0</td></tr><tr><td>ammonium <code>AMMONIUM[c]</code></td><td class='n ref'>-136</td><td class='n'>-54</td><td class='n'>-81</td><td class='na'>—</td><td class='n'>-188</td></tr><tr><td>sulfate <code>SULFATE[p]</code></td><td class='n ref'>-0</td><td class='n'>-2</td><td class='n'>-2</td><td class='na'>—</td><td class='n'>-1</td></tr></tbody></table>
+<p class="note">Uptake −, secretion +. Millard 2017 only exchanges glucose +
+acetate (—  = not represented). KETCHUP fluxes at the bounded fit; v2ecoli is the
+20-seed population_phenotype_basal ensemble mean; Millard at ODE steady state;
+the FBA-bridge vector is the time-averaged
+<code>listeners.fba_results.external_exchange_fluxes</code> from a live
+<code>millard_fba_bridge_harness</code> run off the ParCa cache (real WCM, viable
+over the window). Generated 2026-06-12 22:49.</p>
+</body></html>

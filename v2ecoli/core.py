@@ -61,7 +61,39 @@ def build_core():
         core.register_link("XArrayEmitter", XArrayEmitter)
     except Exception:
         pass
+    # Placeholder labeled-vector types so a SERIALIZED composite (the dashboard
+    # composite-runner builds documents via build_generator, which doesn't run
+    # the derivers' initialize() side-effects) can resolve ``overwrite[<vec>]``
+    # port schemas at realize time. CountsDeriver / RnapData re-register these
+    # with their real shape + element labels in initialize(); the labels are
+    # what the output_metadata walker reads. Resolution only needs the type to
+    # exist, so a bare array placeholder is enough.
+    for _vec in ('monomer_counts_vec', 'rna_init_event_per_cistron_vec'):
+        try:
+            core.register_type(_vec, {'_inherit': 'array', '_data': 'int64'})
+        except Exception:
+            pass
+    # Pulled-in external composites (pbg-ketchup): register its Process classes
+    # so local:KetchupEstimator resolves in dashboard runs. Guarded — a missing
+    # pbg_ketchup must never break build_core for the rest of v2ecoli.
+    try:
+        from pbg_ketchup import KetchupEstimator, KetchupDynamicEstimator
+        core.register_link("KetchupEstimator", KetchupEstimator)
+        core.register_link("KetchupDynamicEstimator", KetchupDynamicEstimator)
+    except Exception:
+        pass
     return core
+
+
+# Importing v2ecoli.core also registers the pulled-in pbg-ketchup composite
+# *generators* (the @composite_generator decorators fire on import), so the
+# dashboard's run subprocess — which does `from v2ecoli.core import build_core`
+# then looks up the generator in the registry — can resolve ketchup_baseline /
+# ketchup_dynamic. Guarded so it's a no-op when pbg-ketchup isn't installed.
+try:
+    import pbg_ketchup.composites  # noqa: F401
+except Exception:
+    pass
 
 
 @functools.lru_cache(maxsize=4)

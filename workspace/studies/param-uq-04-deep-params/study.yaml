@@ -1,0 +1,132 @@
+schema_version: 4
+name: param-uq-04-deep-params
+investigation: parameter-uq
+title: "Deep physiological parameters — sensitivity to sim_data attributes via ParCa-level injection."
+created: '2026-06-12'
+status: planned
+
+# Canonical 6-axis status.
+design_status: complete
+implementation_status: planned
+simulation_status: planned
+evaluation_status: planned
+gate_status: pending
+expert_review_status: pending
+
+# Investigation-graph node fields.
+claim: |
+  (planned) Deep sim_data physiological parameters (transcription fractions,
+  metabolism kinetics, mass fractions) drive substantial growth/mass variance,
+  but accessing them requires ParCa-level injection beyond the config_overrides
+  path used in studies 00–02.
+confidence: Planned
+
+question: |
+  How sensitive are growth/mass observables to the DEEP physiological sim_data
+  parameters (e.g., transcription rnap active fractions, metabolism
+  kinetic_objective_weight / secretion_penalty_coeff, mass cell_dry_mass_fraction)
+  that the uqEcoli demo varies — and which dominate?
+
+report:
+  title: param-uq-04-deep-params — sensitivity to sim_data physiological parameters
+  verdict: pending
+  confidence: pending
+  evidence_quality: pending — study not yet run
+
+  objective: |
+    Extend the UQ coverage from config-reachable process-config scalars (studies
+    00–02) to the deeper physiological parameters embedded in the SimulationDataEcoli
+    dataclass. These parameters set fundamental biological rates (RNAP activity,
+    metabolic objectives, cell composition) and are the primary targets of the
+    original uqEcoli parameter uncertainty analysis. This study determines which
+    of these deep params most drive single-cell growth/mass variance.
+
+  setup: |
+    Candidate parameters and bounds (matching the uqEcoli demo):
+
+    | Parameter | sim_data path | Low | High | Units | Description |
+    |---|---|---|---|---|---|
+    | rnap_free | transcription.rnap_active_fraction | 0.25 | 0.47 | fraction | Fraction of RNAP not actively transcribing |
+    | rnap_bound | transcription.rnap_bound_fraction | 0.12 | 0.22 | fraction | Fraction of RNAP actively transcribing |
+    | basal_elongation_rate | transcription.basal_elongation_rate | 15 | 28 | aa/s | (sim_data copy — distinct from process-config) |
+    | kinetic_objective_weight | metabolism.kinetic_objective_weight | 5e-8 | 5e-7 | — | FBA kinetic objective weight |
+    | secretion_penalty_coeff | metabolism.secretion_penalty_coeff | 5e-4 | 5e-3 | — | FBA secretion penalty |
+    | dry_mass_frac | mass.cell_dry_mass_fraction | 0.25 | 0.35 | fraction | Dry-to-wet mass ratio |
+
+    Injection method: sim_data-level mutation via `sim_data_setattr` (uqEcoli
+    pattern) — NOT config_overrides. Each sample requires a per-sample ParCa
+    cache rebuild, which is substantially more expensive than the config-override
+    path used in studies 00–02.
+
+    This injection path is currently OUT OF REACH of the pbg-uq package and the
+    `baseline()` config_overrides interface. An infrastructure prerequisite is
+    implementing or adapting the uqEcoli-style sim_data injection in pbg-uq.
+
+  result: |
+    RESULTS PENDING — study not yet run.
+
+  interpretation: |
+    (pending)
+
+  decision: |
+    (pending)
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  variants: []
+  model_settings:
+  - name: sim-data-injection-required
+    detail: "Deep params require sim_data-level mutation (sim_data_setattr) + per-sample ParCa cache rebuild. Not reachable via config_overrides."
+    gate: required-before-run
+  - name: parca-rebuild-cost
+    detail: "Each sample's parameter perturbation requires a fresh ParCa cache build (~2.5 min on mini). Budget must account for n×2.5 min overhead."
+    gate: required-before-run
+  - name: pbg-uq-extension-needed
+    detail: "pbg-uq currently supports config_overrides injection only. A sim_data injection adapter must be implemented before this study can run."
+    gate: required-before-run
+
+assumptions:
+- text: |
+    The uqEcoli parameter bounds (RNAP fractions, FBA weights, mass fraction) are
+    meaningful uncertainty ranges for v2ecoli. They may need re-calibration if
+    v2ecoli's ParCa pipeline has shifted the baseline physiological state since
+    the original uqEcoli work.
+  verified_in_v2ecoli: false
+- text: |
+    Per-sample ParCa cache rebuilds are feasible within the available compute
+    budget (~2.5 min/rebuild on the Mac mini). A budget of n=30 train + 10 test
+    samples implies ~100 min of ParCa rebuild time in addition to simulation time.
+  verified_in_v2ecoli: false
+
+tests:
+- name: deep-param-injection-feasible-and-ranked
+  classification: primary
+  status: pending
+  question: |
+    Can the deep sim_data parameters be injected cleanly (ParCa rebuild per sample,
+    no simulation crashes), and does a single parameter robustly dominate total-order
+    Sobol across growth/mass observables?
+  measure:
+    kind: authored
+    detail: |
+      (TBD) Will measure (1) crash-free completion rate across all samples and
+      (2) max total-order Sobol across the 6 candidate deep params. A dominant
+      parameter is defined as total-order Sobol ≥ 0.5.
+    measured_value: null
+  pass_if:
+    op: in_range
+    low: 0.5
+    high: 1.0
+
+runs: []
+
+visualizations: []
+
+pipeline_gate:
+  prerequisites:
+  - param-uq-00-screen
+  enables: []
+  gate_status: pending

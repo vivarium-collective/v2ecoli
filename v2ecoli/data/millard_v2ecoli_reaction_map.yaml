@@ -1,0 +1,131 @@
+# Millard 2017 reaction -> v2ecoli FBA base-reaction mapping.
+#
+# Used by the FBA-bridge flux-pin: the Millard kinetic ODE
+# (millard2017_central_metabolism.xml) computes central-carbon fluxes which are
+# pinned onto the matching v2ecoli WCM FBA reactions, making the kinetic model
+# mechanistically set flux inside the whole-cell model.
+#
+# Each Millard reaction (left, SBML reaction NAME from
+# basico.get_reactions()) maps to one or more v2ecoli FBA *base* reaction ids
+# (BioCyc/EcoCyc style) with a stoichiometric `scale`. The base_reaction_ids
+# are the clean reactions on the live Metabolism step
+# (parameters['base_reaction_ids'] in v2ecoli/processes/metabolism.py); the
+# split forward/reverse/isozyme `fba_reaction_ids` are NOT used here.
+#
+# Mapping confirmed against:
+#   - Millard SBML: 68 reactions (basico.get_reactions)
+#   - v2ecoli WCM: 2820 base_reaction_ids (live baseline composite, seed 0)
+#
+# EVERY `fba` id below was verified to exist in base_reaction_ids. NEVER invent
+# an id -- if a Millard reaction has no confident v2ecoli counterpart, it goes
+# under millard_only with a reason. `scale` accounts for stoichiometric or
+# direction differences; 1.0 where Millard and EcoCyc agree on direction/units.
+
+schema_version: 1
+namespace: "millard2017 reactions -> v2ecoli FBA reactions"
+
+pins:
+  # --- Glycolysis / gluconeogenesis ---
+  PGI:  [{fba: "PGLUCISOM-RXN", scale: 1.0}]            # G6P = F6P (glucose-6-P isomerase)
+  PFK:  [{fba: "6PFRUCTPHOS-RXN__6PFK-1-CPX", scale: 1.0}]   # ATP + F6P = ADP + FDP (PfkA, dominant isozyme variant; PfkB minor left free)
+  FBA:  [{fba: "F16ALDOLASE-RXN__FRUCBISALD-CLASSII", scale: 1.0}]  # FDP = DAP + GAP (FbaA class-II, the glycolytic aldolase variant)
+  TPI:  [{fba: "TRIOSEPISOMERIZATION-RXN", scale: 1.0}] # DAP = GAP (triose-phosphate isomerase)
+  GDH:  [{fba: "GAPOXNPHOSPHN-RXN", scale: 1.0}]        # GAP + NAD + P = BPG + NADH (GAPDH)
+  PGK:  [{fba: "PHOSGLYPHOS-RXN", scale: 1.0}]          # ADP + BPG = ATP + PGA3 (phosphoglycerate kinase)
+  GPM:  [{fba: "3PGAREARR-RXN", scale: 1.0}]            # PGA3 = PGA2 (phosphoglycerate mutase)
+  ENO:  [{fba: "2PGADEHYDRAT-RXN", scale: 1.0}]         # PGA2 = PEP (enolase = 2-phosphoglycerate dehydratase)
+  PDH:  [{fba: "PYRUVDEH-RXN", scale: 1.0}]             # COA + NAD + PYR = ACCOA + NADH + HCO3 (pyruvate dehydrogenase)
+
+  # --- Pentose phosphate pathway (oxidative + isomerase/epimerase) ---
+  ZWF:  [{fba: "GLU6PDEHYDROG-RXN", scale: 1.0}]        # G6P + NADP = GL6P + NADPH (glucose-6-P dehydrogenase)
+  PGL:  [{fba: "6PGLUCONOLACT-RXN", scale: 1.0}]        # GL6P = PGN (6-phosphogluconolactonase)
+  RPE:  [{fba: "RIBULP3EPIM-RXN", scale: 1.0}]          # RU5P = X5P (ribulose-5-P 3-epimerase)
+  RPI:  [{fba: "RIB5PISOM-RXN", scale: 1.0}]            # RU5P = R5P (ribose-5-P isomerase)
+
+  # --- Entner-Doudoroff ---
+  EDD:  [{fba: "PGLUCONDEHYDRAT-RXN", scale: 1.0}]      # PGN = KDPG (6-phosphogluconate dehydratase)
+  EDA:  [{fba: "KDPGALDOL-RXN", scale: 1.0}]            # KDPG = GAP + PYR (KDPG aldolase)
+
+  # --- TCA cycle ---
+  GLT:  [{fba: "CITSYN-RXN", scale: 1.0}]               # ACCOA + OAA = CIT + COA (citrate synthase)
+  ACN_1: [{fba: "ACONITATEDEHYDR-RXN", scale: 1.0}]     # CIT = ACO (aconitase step 1, citrate -> cis-aconitate)
+  ACN_2: [{fba: "ACONITATEHYDR-RXN", scale: 1.0}]       # ACO = ICIT (aconitase step 2, cis-aconitate -> isocitrate)
+  ICD:  [{fba: "ISOCITDEH-RXN", scale: 1.0}]            # ICIT + NADP = AKG + NADPH + HCO3 (isocitrate dehydrogenase)
+  LPD:  [{fba: "2OXOGLUTARATEDEH-RXN", scale: 1.0}]     # COA + AKG + NAD -> NADH + SUCCOA + HCO3 (2-oxoglutarate dehydrogenase)
+  SK:   [{fba: "SUCCCOASYN-RXN", scale: 1.0}]           # ADP + SUCCOA + P = ATP + COA + SUC (succinyl-CoA synthetase)
+  FUMA: [{fba: "FUMHYDR-RXN", scale: 1.0}]              # FUM = MAL (fumarase)
+
+  # --- Glyoxylate shunt ---
+
+  # --- Anaplerotic / PEP-pyruvate-oxaloacetate node ---
+
+  # --- Acetate / acetyl-CoA overflow ---
+  ACK:  [{fba: "ACETATEKIN-RXN", scale: 1.0}]           # ACP + ADP = ACE + ATP (acetate kinase)
+
+  # --- Redox shuttle ---
+  PNT:  [{fba: "PYRNUTRANSHYDROGEN-RXN", scale: 1.0}]   # NAD + NADPH = NADH + NADP (pyridine-nucleotide transhydrogenase)
+
+# Millard reactions with NO confident v2ecoli base-reaction counterpart.
+# Excluded from the flux-pin; documented so the map can't silently drop them.
+millard_only:
+  - "ADK"             # AMP + ATP = 2 ADP -- adenylate kinase, energy buffering; not a central-carbon FBA pin target
+  - "GND"             # NADP + PGN = NADPH + RU5P + HCO3 -- decarboxylating 6-P-gluconate dehydrogenase; no confident base id (6PGLUCONDEHYDROG-RXN absent from base_reaction_ids)
+  - "MAE"             # MAL + NAD -> NADH + PYR + HCO3 -- NAD malic enzyme; only NADP malic enzyme (MALIC-NADP-RXN) exists, cofactor mismatch
+  - "X5P_GAP_TKT"     # transketolase half-reaction (covalent tkt/tktC2 intermediate); does not map 1:1 to lumped 1/2TRANSKETO-RXN
+  - "F6P_E4P_TKT"     # transketolase half-reaction (tktC2 intermediate)
+  - "S7P_R5P_TKT"     # transketolase half-reaction (tktC2 intermediate)
+  - "F6P_GAP_TAL"     # transaldolase half-reaction (talC3 intermediate); does not map 1:1 to TRANSALDOL-RXN
+  - "S7P_E4P_TAL"     # transaldolase half-reaction (talC3 intermediate)
+  - "GL6P_HYDROLYSIS" # GL6P = PGN -- spontaneous lactone hydrolysis, parallels the PGL/6PGLUCONOLACT path
+  - "ACEK_1"          # ATP + icd = ADP + icdP -- isocitrate-dehydrogenase kinase (regulatory, no metabolic FBA flux)
+  - "ACEK_2"          # icdP = icd + P -- isocitrate-dehydrogenase phosphatase (regulatory)
+  - "CYA"             # ATP = CAMP + 2P -- adenylate cyclase (cAMP signaling)
+  - "DOS"             # CAMP = AMP -- cAMP phosphodiesterase (signaling)
+  - "PTS_0"           # ei + PEP = eiP + PYR -- PTS phosphorelay step (glucose uptake, not an FBA metabolic reaction)
+  - "PTS_1"           # hpr + eiP = hprP + ei -- PTS phosphorelay step
+  - "PTS_2"           # eiia + hprP = eiiaP + hpr -- PTS phosphorelay step
+  - "PTS_3"           # eiicb + eiiaP = eiicbP + eiia -- PTS phosphorelay step
+  - "PTS_4"           # GLCp + eiicbP = G6P + eiicb -- PTS glucose uptake/phosphorylation
+  - "NDHI"            # NADH + Q + 4 Hin = NAD + QH2 + 4 Hout -- respiratory NADH dehydrogenase I (proton-coupled, out of central-carbon scope)
+  - "NDHII"           # NADH + Q = NAD + QH2 -- respiratory NADH dehydrogenase II
+  - "CYTBO"           # cytochrome bo oxidase (oxidative phosphorylation, proton-coupled)
+  - "SQR"             # FADH2 + Q = FAD + QH2 -- succinate-Q reductase coupling (respiratory)
+  - "ATP_SYN"         # ADP + P + 4 Hout = ATP + 4 Hin -- ATP synthase (proton-motive-force coupled)
+  - "ATP_MAINTENANCE" # ATP = ADP + P -- non-growth-associated maintenance (NGAM), not a metabolic FBA reaction
+  - "GROWTH"          # lumped biomass pseudo-reaction; v2ecoli has its own biomass objective
+  # Boundary/transport/exchange pseudo-reactions (no internal FBA flux counterpart):
+  - "_GLC_FEED"       # -> GLCx (glucose feed boundary)
+  - "XCH_GLC"         # GLCx = GLCp (glucose membrane exchange)
+  - "XCH_P"           # Px = Pp (phosphate exchange)
+  - "PIT"             # Pp + Hout = P + Hin (phosphate transport)
+  - "XCH_ACE1"        # ACE = ACEp (acetate exchange)
+  - "XCH_ACE2"        # ACEp = ACEx (acetate exchange)
+  - "_ACE_OUT"        # ACEx -> (acetate efflux boundary)
+
+# Valid mappings, but the reaction is OFF/low on M9-glucose in the WCM (glyoxylate
+# shunt, gluconeogenic, acetate uptake) or stoichiometrically inconsistent with the
+# WCM TCA cycle (MDH/MQO: Millard routes ~10x the cyclic flux through malate). Pinning
+# these to Millard's standalone steady-state over-constrains the glucose LP -> they were
+# relaxed every tick. Excluded from the default pin set; revisit per-condition.
+conditional_off_on_glucose:
+  FBP:  [{fba: "F16BDEPHOS-RXN", scale: 1.0}]           # FDP -> F6P + P (fructose-1,6-bisphosphatase)
+  MQO:  [{fba: "MALATE-DEHYDROGENASE-ACCEPTOR-RXN", scale: 1.0}]  # MAL + Q = OAA + QH2 (malate:quinone oxidoreductase)
+  MDH:  [{fba: "MALATE-DEH-RXN", scale: 1.0}]           # OAA <-> MAL (NAD malate dehydrogenase; Millard MDH has NAD modifiers)
+  ACEA: [{fba: "ISOCIT-CLEAV-RXN", scale: 1.0}]         # ICIT = GLX + SUC (isocitrate lyase)
+  ACEB: [{fba: "MALSYN-RXN", scale: 1.0}]               # ACCOA + GLX = COA + MAL (malate synthase)
+  PCK:  [{fba: "PEPCARBOXYKIN-RXN", scale: 1.0}]        # ATP + OAA = ADP + PEP + HCO3 (PEP carboxykinase)
+  PPS:  [{fba: "PEPSYNTH-RXN", scale: 1.0}]             # ATP + PYR = AMP + PEP + P (PEP synthase)
+  ACS:  [{fba: "ACETATE--COA-LIGASE-RXN", scale: 1.0}]  # ACE + ATP + COA -> ACCOA + AMP + 2P (acetyl-CoA synthetase)
+
+# Valid BioCyc base reactions, but the WCM FBA has NO single reaction id for them:
+# they are isozyme-split into enzyme-resolved variants (e.g. PFK ->
+# 6PFRUCTPHOS-RXN__6PFK-1-CPX + __6PFK-2-CPX; FBA -> classI + classII). A base-id
+# pin via setReactionFluxBounds is silently IGNORED ('unknown reaction'), and pinning
+# the total base flux would need a SUM constraint across variants (not supported by
+# setReactionFluxBounds). Excluded until variant/sum-level pinning is implemented.
+# NOTE: PFK/FBA/PYK are core glycolysis -- restoring them would extend the held set.
+needs_variant_pinning:
+  PYK:  [{fba: "PEPDEPHOS-RXN", scale: 1.0}]            # ADP + PEP -> ATP + PYR (pyruvate kinase)
+  SDH:  [{fba: "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN", scale: 1.0}]  # SUC -> FUM (succinate dehydrogenase; Millard lumps FAD/FADH2, EcoCyc uses ubiquinone)
+  PPC:  [{fba: "PEPCARBOX-RXN", scale: 1.0}]            # PEP + HCO3 = OAA + P (PEP carboxylase)
+  PTA:  [{fba: "PHOSACETYLTRANS-RXN", scale: 1.0}]      # ACCOA + P = COA + ACP (phosphotransacetylase)

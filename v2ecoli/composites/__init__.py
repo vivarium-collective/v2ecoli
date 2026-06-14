@@ -10,15 +10,19 @@ from v2ecoli.composites import (  # noqa: F401
     baseline_population,
     baseline_time_varying_env,
     colony,
+    millard_fba_bridge_harness,
     millard_pdmp_baseline,
     parca,
 )
+from v2ecoli.structural import composite as parsimony_ecoli  # noqa: F401 — registers "parsimony-ecoli"
 
 __all__ = [
     "baseline",
     "baseline_population",
     "baseline_time_varying_env",
     "colony",
+    "millard_fba_bridge_harness",
     "millard_pdmp_baseline",
     "parca",
+    "parsimony_ecoli",
 ]

@@ -27,13 +27,14 @@ unique-molecule section.
 import numpy as np
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
-from v2ecoli.types.labeled_array import LabeledArray
+from v2ecoli.types.labeled_array import register_labeled_array
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
 from v2ecoli.library.schema_types import (
     RNA_ARRAY,
     ACTIVE_RIBOSOME_ARRAY,
     ACTIVE_RNAP_ARRAY,
     ACTIVE_REPLISOME_ARRAY,
+    PROMOTER_ARRAY,
 )
 
 NAME = "counts_deriver"
@@ -42,6 +43,7 @@ TOPOLOGY = {
     "bulk": ("bulk",),
     "unique": ("unique",),
     "RNAs": ("unique", "RNA"),
+    "promoters": ("unique", "promoter"),
     "global_time": ("global_time",),
     "timestep": ("timestep",),
 }
@@ -84,6 +86,7 @@ class CountsDeriver(Step):
         'equilibrium_molecule_ids': 'list[string]',
         'equilibrium_complex_ids': 'list[string]',
         'monomer_ids': 'list[string]',
+        'tf_ids': 'list[string]',
         'two_component_system_molecule_ids': 'list[string]',
         'two_component_system_complex_ids': 'list[string]',
         'ribosome_50s_subunits': 'list[string]',
@@ -110,6 +113,7 @@ class CountsDeriver(Step):
                 'active_RNAP': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
                 'active_replisome': {'_type': ACTIVE_REPLISOME_ARRAY, '_default': []},
             },
+            'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
             'global_time': {'_type': 'float', '_default': 0.0},
             'timestep': {'_type': 'float', '_default': 1.0},
         }
@@ -167,6 +171,9 @@ class CountsDeriver(Step):
         self.n_monomers = len(self.monomer_ids)
         self.two_component_system_molecule_ids = p["two_component_system_molecule_ids"]
         self.two_component_system_complex_ids = p["two_component_system_complex_ids"]
+        # Transcription-factor subunit IDs, for folding promoter-bound TFs back
+        # into the monomer total (compartment-tagged in the listener config).
+        self.tf_subunit_ids = p["tf_ids"]
 
         ribosome_50s_subunits = p["ribosome_50s_subunits"]
         ribosome_30s_subunits = p["ribosome_30s_subunits"]
@@ -205,13 +212,11 @@ class CountsDeriver(Step):
         # initialize() (not outputs()) ensures the type is in the core before
         # Composite() resolves port schemas.
         if self.core is not None:
-            self.core.register_type(
-                'monomer_counts_vec',
-                LabeledArray(
-                    _shape=(self.n_monomers,),
-                    _data=np.dtype('int64'),
-                    _labels=tuple(self.monomer_ids),
-                ),
+            register_labeled_array(
+                self.core, 'monomer_counts_vec',
+                shape=(self.n_monomers,),
+                data=np.dtype('int64'),
+                labels=tuple(self.monomer_ids),
             )
 
         # ---------------- unique-molecule counts ----------------
@@ -279,44 +284,58 @@ class CountsDeriver(Step):
             self.replisome_subunit_idx = bulk_name_to_idx(
                 self.replisome_subunit_ids, bulk_ids
             )
+            self.tf_subunit_idx = bulk_name_to_idx(self.tf_subunit_ids, bulk_ids)
 
         bulkMoleculeCounts = counts(states["bulk"], self.bulk_molecule_idx)
         n_active_ribosome = states["unique"]["active_ribosome"]["_entryState"].sum()
         n_active_rnap = states["unique"]["active_RNAP"]["_entryState"].sum()
         n_active_replisome = states["unique"]["active_replisome"]["_entryState"].sum()
+        (n_bound_TFs,) = attrs(states["promoters"], ["bound_TF"])
 
-        complex_monomer_counts = np.dot(
-            self.complexation_stoich,
-            np.negative(bulkMoleculeCounts[self.complexation_complex_idx]),
-        )
-        equilibrium_monomer_counts = np.dot(
-            self.equilibrium_stoich,
-            np.negative(bulkMoleculeCounts[self.equilibrium_complex_idx]),
-        )
+        # Counts of subunits sequestered in active unique-molecule complexes
+        # (and promoter-bound transcription factors):
+        n_ribosome_subunit = n_active_ribosome * self.ribosome_stoich
+        n_rnap_subunit = n_active_rnap * self.rnap_stoich
+        n_replisome_subunit = n_active_replisome * self.replisome_stoich
+        n_bound_TF_subunit = n_bound_TFs.astype(np.int32).sum(axis=0)
+
+        # Add active unique-molecule + bound-TF subunit counts to the free bulk
+        # counts FIRST: some of these subunits are themselves bulk complexes
+        # that the unpacking steps below further decompose (the old code added
+        # them last, so nested subunits inside TCS/equilibrium/complexation
+        # complexes were never cascaded — and bound TFs were never counted).
+        bulkMoleculeCounts[self.ribosome_subunit_idx] += n_ribosome_subunit.astype(np.int32)
+        bulkMoleculeCounts[self.rnap_subunit_idx] += n_rnap_subunit.astype(np.int32)
+        bulkMoleculeCounts[self.replisome_subunit_idx] += n_replisome_subunit.astype(np.int32)
+        bulkMoleculeCounts[self.tf_subunit_idx] += n_bound_TF_subunit.astype(np.int32)
+
+        # Unpack two-component-system complexes (their subunits can be
+        # equilibrium or complexation complexes, so unpack before both):
         two_component_monomer_counts = np.dot(
             self.two_component_system_stoich,
             np.negative(bulkMoleculeCounts[self.two_component_system_complex_idx]),
-        )
-
-        bulkMoleculeCounts[self.complexation_molecule_idx] += (
-            complex_monomer_counts.astype(np.int32)
-        )
-        bulkMoleculeCounts[self.equilibrium_molecule_idx] += (
-            equilibrium_monomer_counts.astype(np.int32)
         )
         bulkMoleculeCounts[self.two_component_system_molecule_idx] += (
             two_component_monomer_counts.astype(np.int32)
         )
 
-        n_ribosome_subunit = n_active_ribosome * self.ribosome_stoich
-        n_rnap_subunit = n_active_rnap * self.rnap_stoich
-        n_replisome_subunit = n_active_replisome * self.replisome_stoich
-        bulkMoleculeCounts[self.ribosome_subunit_idx] += n_ribosome_subunit.astype(
-            np.int32
+        # Unpack equilibrium complexes (their subunits can be complexation
+        # complexes, so unpack before those):
+        equilibrium_monomer_counts = np.dot(
+            self.equilibrium_stoich,
+            np.negative(bulkMoleculeCounts[self.equilibrium_complex_idx]),
         )
-        bulkMoleculeCounts[self.rnap_subunit_idx] += n_rnap_subunit.astype(np.int32)
-        bulkMoleculeCounts[self.replisome_subunit_idx] += n_replisome_subunit.astype(
-            np.int32
+        bulkMoleculeCounts[self.equilibrium_molecule_idx] += (
+            equilibrium_monomer_counts.astype(np.int32)
+        )
+
+        # Unpack bulk complexation complexes:
+        complex_monomer_counts = np.dot(
+            self.complexation_stoich,
+            np.negative(bulkMoleculeCounts[self.complexation_complex_idx]),
+        )
+        bulkMoleculeCounts[self.complexation_molecule_idx] += (
+            complex_monomer_counts.astype(np.int32)
         )
 
         monomer_counts = bulkMoleculeCounts[self.monomer_idx]

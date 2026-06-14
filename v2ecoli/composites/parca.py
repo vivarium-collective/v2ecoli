@@ -103,4 +103,9 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
     """
     if core is not None:
         register_parca_core(core)
-    return {"state": build_parca_document(debug=debug, cpus=cpus, cache_dir=cache_dir)}
+    # include_store_skeleton=True so the dashboard explorer renders the 9 steps
+    # as a connected pipeline (empty store nodes give loom layout anchors)
+    # rather than collapsing them onto the origin. The committed models/parca.pbg
+    # stays steps-only (build_parca_document default).
+    return {"state": build_parca_document(
+        debug=debug, cpus=cpus, cache_dir=cache_dir, include_store_skeleton=True)}

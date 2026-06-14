@@ -1,0 +1,234 @@
+{
+ "ingredients": {
+  "70S_ribosome": {
+   "display_name": "70S ribosome",
+   "category": "Translation",
+   "count": 6000
+  },
+  "rna_polymerase": {
+   "display_name": "RNA polymerase",
+   "category": "Transcription",
+   "count": 600
+  },
+  "groel": {
+   "display_name": "GroEL/ES chaperonin",
+   "category": "Protein folding",
+   "count": 450
+  },
+  "EG10367-MONOMER": {
+   "display_name": "glyceraldehyde-3-phosphate dehydrogenase (GAPDH)",
+   "category": "Metabolism",
+   "count": 5510
+  },
+  "EG10544-MONOMER": {
+   "display_name": "murein lipoprotein",
+   "category": "Envelope",
+   "count": 59193
+  },
+  "EG50003-MONOMER": {
+   "display_name": "acyl carrier protein",
+   "category": "Metabolism",
+   "count": 27313
+  },
+  "EG10669-MONOMER": {
+   "display_name": "outer membrane protein A",
+   "category": "Envelope",
+   "count": 19637
+  },
+  "EG11036-MONOMER": {
+   "display_name": "translation elongation factor Tu 1",
+   "category": "Translation",
+   "count": 15221
+  },
+  "EG11384-MONOMER": {
+   "display_name": "alkyl hydroperoxide reductase, AhpC component",
+   "category": "Metabolism",
+   "count": 14188
+  },
+  "EG10673-MONOMER": {
+   "display_name": "DLP12 prophage; omptin family outer membrane protease OmpT",
+   "category": "Protein folding",
+   "count": 10846
+  },
+  "EG12204-MONOMER": {
+   "display_name": "transcription antiterminator and regulator of mRNA stability CspC",
+   "category": "Transcription",
+   "count": 8061
+  },
+  "EG10308-MONOMER": {
+   "display_name": "type 1 fimbriae major subunit",
+   "category": "Envelope",
+   "count": 7167
+  },
+  "EG50004-MONOMER": {
+   "display_name": "ribosome modulation factor",
+   "category": "Translation",
+   "count": 6033
+  },
+  "EG11037-MONOMER": {
+   "display_name": "translation elongation factor Tu 2",
+   "category": "Translation",
+   "count": 5743
+  },
+  "EG10684-MONOMER": {
+   "display_name": "peptidoglycan-associated outer membrane lipoprotein Pal",
+   "category": "Envelope",
+   "count": 5441
+  },
+  "G7087-MONOMER": {
+   "display_name": "PTS system regulator TmaR",
+   "category": "Regulation",
+   "count": 4759
+  },
+  "EG12117-MONOMER": {
+   "display_name": "outer membrane protein X",
+   "category": "Envelope",
+   "count": 4746
+  },
+  "EG10360-MONOMER": {
+   "display_name": "elongation factor G",
+   "category": "Translation",
+   "count": 4325
+  },
+  "G6763-MONOMER": {
+   "display_name": "PQQ-like domain-containing protein YncE",
+   "category": "Metabolism",
+   "count": 4162
+  },
+  "EG10504-MONOMER": {
+   "display_name": "translation initiation factor IF-1",
+   "category": "Translation",
+   "count": 3403
+  },
+  "EG11003-MONOMER": {
+   "display_name": "trigger factor",
+   "category": "Protein folding",
+   "count": 3096
+  },
+  "EG10758-MONOMER": {
+   "display_name": "peptidyl-prolyl <i>cis-trans</i> isomerase B",
+   "category": "Protein folding",
+   "count": 2616
+  },
+  "G6823-MONOMER": {
+   "display_name": "Qin prophage; protein GnsB",
+   "category": "Metabolism",
+   "count": 2576
+  },
+  "EG11033-MONOMER": {
+   "display_name": "protein chain elongation factor EF-Ts",
+   "category": "Translation",
+   "count": 2089
+  },
+  "G7128-MONOMER": {
+   "display_name": "putative tagatose-1,6-bisphosphate aldolase 2 chaperone",
+   "category": "Protein folding",
+   "count": 2026
+  },
+  "EG10230-MONOMER": {
+   "display_name": "RNA polymerase-binding transcription factor DksA",
+   "category": "Transcription",
+   "count": 1953
+  },
+  "EG10155-MONOMER": {
+   "display_name": "Fe-catecholate outer membrane transporter CirA",
+   "category": "Envelope",
+   "count": 1949
+  },
+  "G6881-MONOMER": {
+   "display_name": "outer membrane lipoprotein SlyB",
+   "category": "Envelope",
+   "count": 1860
+  },
+  "EG10467-MONOMER": {
+   "display_name": "DNA-binding protein HU-&beta;",
+   "category": "Nucleoid",
+   "count": 1794
+  },
+  "G6414-MONOMER": {
+   "display_name": "Fe catecholate outer membrane transporter Fiu",
+   "category": "Envelope",
+   "count": 1774
+  },
+  "G7582-MONOMER": {
+   "display_name": "ubiquinone biosynthesis accessory factor UbiK",
+   "category": "Metabolism",
+   "count": 1759
+  },
+  "EG11508-MONOMER": {
+   "display_name": "ribosome-associated protein Sra",
+   "category": "Translation",
+   "count": 1758
+  },
+  "G7039-MONOMER": {
+   "display_name": "cystine ABC transporter periplasmic binding protein",
+   "category": "Envelope",
+   "count": 1624
+  },
+  "EG10241-MONOMER": {
+   "display_name": "chaperone protein DnaK",
+   "category": "Protein folding",
+   "count": 1572
+  },
+  "EG10321-MONOMER": {
+   "display_name": "flagellar filament structural protein",
+   "category": "Envelope",
+   "count": 1571
+  },
+  "EG12794-MONOMER": {
+   "display_name": "ribosome assembly factor YhbY",
+   "category": "Translation",
+   "count": 1337
+  },
+  "EG12712-MONOMER": {
+   "display_name": "<i>S</i>-ribosylhomocysteine lyase",
+   "category": "Metabolism",
+   "count": 1300
+  },
+  "G6240-MONOMER": {
+   "display_name": "nucleotide binding protein YajQ",
+   "category": "Metabolism",
+   "count": 1277
+  },
+  "EG12099-MONOMER": {
+   "display_name": "protein chain elongation factor EF-P",
+   "category": "Translation",
+   "count": 1200
+  },
+  "G7312-MONOMER": {
+   "display_name": "putative oxidoreductase YfgD",
+   "category": "Metabolism",
+   "count": 1164
+  },
+  "EG10335-MONOMER": {
+   "display_name": "ribosome-recycling factor",
+   "category": "Translation",
+   "count": 1108
+  },
+  "EG10506-MONOMER": {
+   "display_name": "translation initiation factor IF-3",
+   "category": "Translation",
+   "count": 1093
+  },
+  "EG11607-MONOMER": {
+   "display_name": "protein YciI",
+   "category": "Metabolism",
+   "count": 1046
+  },
+  "EG11545-MONOMER": {
+   "display_name": "flagellar hook-filament junction protein 2",
+   "category": "Envelope",
+   "count": 980
+  },
+  "lipid": {
+   "display_name": "Membrane phospholipid",
+   "category": "Envelope",
+   "count": 12000
+  },
+  "dna_segment": {
+   "display_name": "Chromosomal DNA (B-form duplex)",
+   "category": "Nucleoid",
+   "count": 34000
+  }
+ }
+}

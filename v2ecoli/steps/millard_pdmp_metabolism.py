@@ -96,7 +96,11 @@ class MillardPDMPMetabolism(Process):
         self.parameters = config or {}
         import basico
         self._basico = basico
-        basico.load_model(self.parameters["model_source"])
+        # Keep an explicit handle to THIS process's COPASI model so per-tick
+        # flux reads (basico.get_reactions(model=self._model)) are guaranteed
+        # to read the same model this process advances, regardless of any
+        # other basico model that may have become the global "current" model.
+        self._model = basico.load_model(self.parameters["model_source"])
         self.tick_s = float(self.parameters.get("tick_s", 1.0))
         self.intervals = int(self.parameters.get("intervals", 10))
         self.control_reaction = self.parameters.get("control_reaction", "PTS_4")
@@ -145,6 +149,7 @@ class MillardPDMPMetabolism(Process):
     def outputs(self):
         return {
             "species_concentrations": InPlaceDict(),
+            "central_fluxes": InPlaceDict(),
             "control_applied": InPlaceDict(),
             "bulk": "bulk_array",
         }
@@ -221,8 +226,25 @@ class MillardPDMPMetabolism(Process):
         species = {sid: float(ts[sid].iloc[-1]) for sid in ts.columns}
         self._tick += 1
 
+        # Read per-reaction fluxes (mM/s) from the SAME model the ODE just
+        # advanced. basico.get_reactions() returns a DataFrame indexed by
+        # reaction name with a `flux` column; pass model=self._model so we
+        # never read a different model that happens to be basico-current.
+        central_fluxes: dict[str, float] = {}
+        try:
+            fl = basico.get_reactions(model=self._model)
+            if fl is not None and "flux" in getattr(fl, "columns", []):
+                for rxn in fl.index:
+                    val = fl.loc[rxn, "flux"]
+                    if val is not None and not (isinstance(val, float)
+                                                and math.isnan(val)):
+                        central_fluxes[str(rxn)] = float(val)
+        except Exception:
+            central_fluxes = {}
+
         update: dict[str, Any] = {
             "species_concentrations": species,
+            "central_fluxes": central_fluxes,
             "control_applied": {
                 "tick": self._tick,
                 "tick_value": tick_value,

@@ -1,0 +1,127 @@
+schema_version: 4
+name: param-uq-03-growth-stratified
+investigation: parameter-uq
+title: "Growth-stratified sensitivity — how does parameter influence vary across the cell cycle?"
+created: '2026-06-12'
+status: planned
+
+# Canonical 6-axis status.
+design_status: complete
+implementation_status: planned
+simulation_status: planned
+evaluation_status: planned
+gate_status: pending
+expert_review_status: pending
+
+# Investigation-graph node fields.
+claim: |
+  (planned) Parameter influence on growth/mass is stage-dependent across the
+  cell cycle, with elongation mattering most mid-cycle during peak biosynthesis.
+confidence: Planned
+
+question: |
+  Does the sensitivity of growth/mass to the elongation knobs change across
+  cell-cycle progress θ (birth→division)? (RFC006 strategy 4.)
+
+hypothesis: |
+  Parameter influence is stage-dependent: elongation knobs (especially
+  basal_elongation_rate) matter most mid-cycle during peak biosynthetic activity,
+  and less so early (small cell, limited ribosome pool) and late (resources
+  committed to division).
+
+report:
+  title: param-uq-03-growth-stratified — cell-cycle-stratified Sobol sensitivity
+  verdict: pending
+  confidence: pending
+  evidence_quality: pending — not yet run
+
+  objective: |
+    Determine whether the elongation-rate dominance found in param-uq-01
+    (instantaneous_growth_rate, short window) and param-uq-02 (multi-observable,
+    360 steps) is uniform across the cell cycle or concentrated in specific
+    phases. Per-stage Sobol indices would reveal whether sensitivity is
+    episodic, guiding targeted intervention strategies.
+
+  setup: |
+    Approach (RFC006 strategy 4):
+    - Run multi-generation simulations through ≥1 cell division (each ~2760 steps).
+    - Compute cell-cycle progress: θ = [log m(t) − log m_birth] / [log m_div − log m_birth],
+      binned into 10 equal stages from birth (θ=0) to division (θ=1).
+    - For each stage bin, compute per-stage Sobol indices from the 3 effective
+      elongation knobs (same as param-uq-01/02).
+
+    Infrastructure requirements:
+    (a) Multi-generation runs that record birth/division events — significantly
+        slower than the 120–360-step windows used so far (~2760 steps per generation).
+    (b) Re-adding the growth-stratified aggregation strategy to pbg-uq (this was
+        intentionally dropped from the thin core to keep the package minimal).
+
+    Parameters: same 3 effective knobs (basal_elongation_rate, kS,
+    chrom.basal_elongation_rate) with the same bounds as param-uq-01.
+
+  result: |
+    RESULTS PENDING — study not yet run.
+
+  interpretation: |
+    (pending)
+
+  decision: |
+    (pending)
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  variants: []
+  model_settings:
+  - name: multigen-required
+    detail: "Multi-generation runs required (≥1 division, ~2760 steps/gen); significantly slower than short-window studies."
+    gate: required-before-run
+  - name: stratification-strategy-needed
+    detail: "Growth-stratified aggregation strategy must be re-added to pbg-uq before this study can run."
+    gate: required-before-run
+  - name: cell-cycle-binning
+    detail: "θ bins: 10 equal-width stages from birth (0) to division (1), computed from log-mass trajectory."
+    gate: optional
+
+assumptions:
+- text: |
+    The cell-cycle progress metric θ = [log m(t) − log m_birth] / [log m_div − log m_birth]
+    captures biologically meaningful stages. Division timing must be reliably
+    detected from the mass trajectory.
+  verified_in_v2ecoli: false
+- text: |
+    The 3 effective knobs from the 120-step screen remain the right parameter
+    set for cell-cycle-stratified analysis. No new knobs are expected to appear
+    at specific cell-cycle stages.
+  verified_in_v2ecoli: false
+
+tests:
+- name: per-stage-sensitivity-profile
+  classification: primary
+  status: pending
+  question: |
+    Does basal_elongation_rate show significantly different Sobol indices across
+    cell-cycle stages (i.e., is sensitivity non-uniform across θ)?
+  measure:
+    kind: authored
+    detail: |
+      (TBD) Will compute per-stage total-order Sobol for basal_elongation_rate
+      across 10 θ bins and test whether the range (max − min) exceeds a
+      meaningful threshold indicating stage-dependence.
+    measured_value: null
+  pass_if:
+    op: in_range
+    low: 0.0
+    high: 1.0
+
+runs: []
+
+visualizations: []
+
+pipeline_gate:
+  prerequisites:
+  - param-uq-01-elongation
+  enables: []
+  gate_status: pending

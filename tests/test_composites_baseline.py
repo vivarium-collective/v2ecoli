@@ -15,17 +15,23 @@ def test_baseline_function_is_registered():
 
 @pytest.mark.fast
 def test_baseline_function_signature():
-    """The generator takes (core, *, seed, cache_dir, config_overrides, bundle).
+    """The generator takes (core, *, seed, cache_dir, transcript_initiation_mode,
+    polypeptide_initiation_mode, config_overrides, feature toggles
+    (ppgpp_regulation / trna_attenuation / supercoiling / mass_conservation),
+    emitter, bundle).
 
-    ``bundle`` is an optional pre-loaded cache override so callers that
-    need to mutate configs before document construction (e.g.
+    ``bundle`` is an optional pre-loaded cache override so callers that need to
+    mutate configs before document construction (e.g.
     scripts/run_plasmid_multiseed.py) can bypass the cache reload.
     """
     import inspect
     from v2ecoli.composites.baseline import baseline
     sig = inspect.signature(baseline)
     assert set(sig.parameters) == {
-        "core", "seed", "cache_dir", "config_overrides", "bundle"}
+        "core", "seed", "cache_dir", "transcript_initiation_mode",
+        "polypeptide_initiation_mode", "config_overrides",
+        "ppgpp_regulation", "trna_attenuation", "supercoiling",
+        "mass_conservation", "emitter", "bundle"}
 
 
 @pytest.mark.sim

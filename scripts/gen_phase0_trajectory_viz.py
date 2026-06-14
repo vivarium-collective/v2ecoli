@@ -1,11 +1,12 @@
-"""Generate real Phase 0 trajectory viz from the N=64 × 600s × stride=5 ensemble.
+"""Generate real Phase 0 trajectory viz from the 600s × stride=5 ensemble.
 
 Loads the per-seed trajectory.json files at .pbg/runs/phase0-traj/seed_NN/
 and renders 4 cross-replicate viz: cell-mass ensemble band, growth-rate
 ensemble band, 4-panel observable spaghetti, cross-seed CV(t) growth.
 
-Each viz is real-data (N=64 × 121 timepoints) and pinned-height for clean
-iframe rendering in the dashboard.
+Every label reports the ACTUAL ensemble size loaded from disk (N seeds);
+nothing is hardcoded to 64. Each viz is real-data and pinned-height for
+clean iframe rendering in the dashboard.
 
 Run from worktree root:
     python scripts/gen_phase0_trajectory_viz.py
@@ -31,6 +32,10 @@ FIG_DIR = Path("reports/figures/pdmp-00")
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 plt.rcParams.update({"figure.dpi": 110, "savefig.dpi": 110, "font.size": 10})
 
+# Actual ensemble size, set in main() from the loaded data so every label
+# reports the real N (never a hardcoded 64).
+NLABEL = "N=? × 600s × stride=5s"
+
 TEMPLATE = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>{title}</title>
 <style>
@@ -46,7 +51,7 @@ p.caption{{color:#475569;font-size:0.85em;line-height:1.4}}
 </style></head>
 <body><div class="wrap">
   <h1>{title}</h1>
-  <p><span class="tag">real-data</span><span class="tag diag">N=64 × 600s × stride=5s</span></p>
+  <p><span class="tag">real-data</span><span class="tag diag">{nlabel}</span></p>
   <div class="fig"><img src='data:image/png;base64,{png_b64}' alt='{title}' /></div>
   <p class="caption">{caption}</p>
 </div></body></html>"""
@@ -58,7 +63,8 @@ def _save(name: str, title: str, caption: str, pinned_h: int = 760):
     plt.close()
     buf.seek(0)
     png_b64 = base64.b64encode(buf.read()).decode("ascii")
-    html = TEMPLATE.format(title=title, caption=caption, png_b64=png_b64, pinned_h=pinned_h)
+    html = TEMPLATE.format(title=title, caption=caption, png_b64=png_b64,
+                           pinned_h=pinned_h, nlabel=NLABEL)
     out = FIG_DIR / f"{name}.html"
     out.write_text(html, encoding="utf-8")
     print(f"  + {out}")
@@ -112,7 +118,7 @@ def viz_cell_mass_ensemble(d: dict):
     ax.set_title(f"Phase 0 ensemble cell mass — N={cm.shape[0]} replicates × 600 s × M9-glucose")
     ax.legend(loc="upper left"); ax.grid(True, alpha=0.3)
     _save("phase0_cell_mass_ensemble_REAL",
-          "Phase 0 cell mass ensemble (real, N=64)",
+          f"Phase 0 cell mass ensemble (real, N={cm.shape[0]})",
           (
             f"Real cell-mass(t) trajectories across N={cm.shape[0]} master seeds, snapshot every "
             f"5 model-seconds. Spaghetti (faint blue) shows individual replicates; thick line is "
@@ -144,7 +150,7 @@ def viz_growth_rate_ensemble(d: dict):
     ax.set_title(f"Phase 0 ensemble instantaneous growth rate — N={gr.shape[0]} replicates")
     ax.legend(loc="upper right"); ax.grid(True, alpha=0.3)
     _save("phase0_growth_rate_ensemble_REAL",
-          "Phase 0 growth rate ensemble (real, N=64)",
+          f"Phase 0 growth rate ensemble (real, N={gr.shape[0]})",
           (
             f"Instantaneous growth rate dμ/dt = (1/m) dm/dt across N={gr.shape[0]} replicates. "
             "The warm-up tick (t=1s) shows a negative transient as the listener initialises; "
@@ -179,7 +185,7 @@ def viz_4panel_spaghetti(d: dict):
                  fontsize=12, y=1.005)
     plt.tight_layout()
     _save("phase0_4panel_spaghetti_REAL",
-          "Phase 0 — 4-panel observable spaghetti (real, N=64)",
+          f"Phase 0 — 4-panel observable spaghetti (real, N={d['n_seeds']})",
           (
             "Cell mass / dry mass / protein mass / water mass over the full 600 s cycle. "
             "Spaghetti (faint) is per-seed; thick line is ensemble mean; bands are ±1 SD. "
@@ -213,9 +219,9 @@ def viz_cv_growth_diagnostic(d: dict):
     ax.set_title(f"Cross-seed CV(t) — how does ensemble divergence grow over the cycle? (N={d['n_seeds']})")
     ax.legend(loc="upper left"); ax.grid(True, alpha=0.3)
     _save("phase0_cv_growth_diagnostic_REAL",
-          "Phase 0 — cross-seed CV(t) (real, N=64)",
+          f"Phase 0 — cross-seed CV(t) (real, N={d['n_seeds']})",
           (
-            "Coefficient of variation (CV = SD/mean) across N=64 seeds as a function of time. "
+            f"Coefficient of variation (CV = SD/mean) across N={d['n_seeds']} seeds as a function of time. "
             "CV starts near 0 (all seeds share the same initial state) and grows over the cycle "
             "as stochastic processes accumulate divergence. The shape of this curve answers a "
             "key Phase 0 question: how fast does the ensemble decohere? Roughly-linear growth "
@@ -227,9 +233,11 @@ def viz_cv_growth_diagnostic(d: dict):
 
 
 def main():
+    global NLABEL
     d = load_trajectories()
     n_seeds = d["n_seeds"]
     n_t = len(d["time"])
+    NLABEL = f"N={n_seeds} × 600s × stride=5s"
     print(f"loaded N={n_seeds} seeds × {n_t} timepoints")
     viz_cell_mass_ensemble(d)
     viz_growth_rate_ensemble(d)

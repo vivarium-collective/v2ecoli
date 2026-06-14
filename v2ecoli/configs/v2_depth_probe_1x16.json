@@ -1,0 +1,20 @@
+{
+  "_doc": "Gen-DEPTH probe for v2ecoli: ONE lineage run 16 generations deep, to test whether the single-process lineage runner stays healthy (divides every gen, no in-process state-accumulation blowup) at the depth the 8x16 equivalence run needs. Depth is independent of seed count, so 1 seed isolates the risk cheaply (~1 hr). MUST use the full-ParCa cache (out/cache_full); the fast cache is FBA-broken and won't divide past gen 0. Watch: all 16 gens divide with sane cycle times; the doubling-time/size drift plateaus rather than running away.",
+  "experiment_id": "v2_depth_probe_1x16",
+  "generations": 16,
+  "n_init_sims": 1,
+  "single_daughters": true,
+  "lineage_seed": 0,
+  "different_seeds_per_variant": false,
+  "skip_baseline": false,
+  "cache_dir": "out/cache_full",
+  "out_dir": "out/v2_depth_probe_1x16",
+  "time_step": 1.0,
+  "max_duration_per_gen": 3600.0,
+  "variants": {},
+  "analysis_options": {
+    "multiseed": {
+      "population_phenotype_basal": {"generation_lower_bound": 3}
+    }
+  }
+}

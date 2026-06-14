@@ -1,0 +1,20 @@
+{
+  "_doc": "LARGE-ensemble (16 seeds x 16 gens) v2ecoli basal ensemble = the MEASURED side of the v1<->v2 equivalence report card for the baseline-showcase 'showcase-4-equivalence-large' study. 2x the seeds of the #134 8x16 demo, same lineage depth -- tightens the population statistics for the omics/flux equivalence axes without pushing the in-process multi-generation sawtooth (#142) deeper. Same basal stimulus as population_phenotype_basal; full-ParCa cache; generation_lower_bound=3 burn-in (MUST match the value baked into the matched vEcoli reference). Rendered against a matched vEcoli 16x16 reference (docs/report_cards/population_phenotype_basal/vs_vecoli/) to grade v1<->v2 equivalence at large scale.",
+  "experiment_id": "population_phenotype_basal_16x16",
+  "generations": 16,
+  "n_init_sims": 16,
+  "single_daughters": true,
+  "lineage_seed": 0,
+  "different_seeds_per_variant": false,
+  "skip_baseline": false,
+  "cache_dir": "out/cache_full",
+  "out_dir": "out/population_phenotype_basal_16x16",
+  "time_step": 1.0,
+  "max_duration_per_gen": 3600.0,
+  "variants": {},
+  "analysis_options": {
+    "multiseed": {
+      "population_phenotype_basal": {"generation_lower_bound": 3}
+    }
+  }
+}

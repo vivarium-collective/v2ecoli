@@ -106,6 +106,11 @@ class Allocator(Step):
         # Helper indices for Numpy indexing
         self.molecule_idx = None
 
+        # Count of ticks on which an over-draft had to be clamped (a transient
+        # infeasibility upstream). Surfaced via a rate-limited warning so a
+        # persistent problem stays visible without flooding the log.
+        self._overdraft_events = 0
+
     def update(self, states, interval=None):
         if self.molecule_idx is None:
             self.molecule_idx = bulk_name_to_idx(
@@ -160,19 +165,33 @@ class Allocator(Step):
                 )
             )
 
-        # Ensure we are not overdrafting any molecules
-        counts_unallocated = original_totals - np.sum(partitioned_counts, axis=-1)
-
-        if ASSERT_POSITIVE_COUNTS and np.any(counts_unallocated < 0):
-            raise NegativeCountsError(
-                "Negative value(s) in counts_unallocated:\n"
-                + "\n".join(
-                    "{} ({})".format(
-                        self.mol_idx_to_name[molIndex], counts_unallocated[molIndex]
-                    )
-                    for molIndex in np.where(counts_unallocated < 0)[0]
+        # Resolve any over-draft gracefully instead of crashing the lineage. An
+        # over-draft here is almost always a molecule pool already driven
+        # negative upstream (e.g. PROTON[c] after an FBA GLP_NOFEAS tick), which
+        # the allocator merely observes — a single infeasible tick must not kill
+        # a multi-generation run. Genuine corruption (negative requests / negative
+        # allocations) is still a hard error in the checks above.
+        partitioned_counts, overdrafts = resolve_overdraft(
+            partitioned_counts, original_totals
+        )
+        if overdrafts:
+            self._overdraft_events += 1
+            if self._overdraft_events <= 5 or self._overdraft_events % 100 == 0:
+                detail = ", ".join(
+                    "{} ({})".format(self.mol_idx_to_name[m], d)
+                    for m, d in overdrafts
                 )
-            )
+                print(
+                    "Warning: allocator '{}' clamped over-draft "
+                    "(event #{}): {} — pool driven negative upstream "
+                    "(e.g. FBA infeasibility); clamping to available and "
+                    "continuing".format(
+                        getattr(self, "name", "allocator"),
+                        self._overdraft_events,
+                        detail,
+                    ),
+                    flush=True,
+                )
 
         # Only update listener ATP counts for processes in
         # current partitioning layer
@@ -201,6 +220,53 @@ class Allocator(Step):
         return update
 
 
+def resolve_overdraft(partitioned_counts, original_totals):
+    """Clamp allocations so no molecule is handed out beyond its available pool,
+    and report any over-draft.
+
+    Returns ``(clamped_counts, overdrafts)`` where ``overdrafts`` is a list of
+    ``(molecule_index, deficit)`` pairs and ``deficit < 0`` is the amount by
+    which the pool was exceeded.
+
+    Two cases produce an over-draft:
+
+    - The pool was already negative on entry (a transient infeasibility upstream
+      — e.g. PROTON[c] driven negative by an FBA ``GLP_NOFEAS`` tick). Nothing
+      was allocated to claw back, so the deficit is reported and the (zero)
+      allocation is left untouched; the negative pool is the upstream's to heal.
+    - A positive pool was genuinely over-allocated. The offending molecule's
+      allocations are scaled down proportionally so their sum equals the pool
+      (defense-in-depth; the float partition above should already prevent this).
+    """
+    counts_unallocated = original_totals - partitioned_counts.sum(axis=1)
+    over_idx = np.where(counts_unallocated < 0)[0]
+    if len(over_idx) == 0:
+        return partitioned_counts, []
+
+    clamped = partitioned_counts.copy()
+    overdrafts = []
+    for mol in over_idx:
+        overdrafts.append((int(mol), int(counts_unallocated[mol])))
+        avail = max(int(original_totals[mol]), 0)
+        row = clamped[mol, :]
+        row_sum = int(row.sum())
+        if row_sum <= avail:
+            continue  # pool already negative; nothing allocated to claw back
+        if avail == 0:
+            clamped[mol, :] = 0
+            continue
+        # Proportional integer scale-down to the available pool, distributing the
+        # rounding remainder to the largest fractional parts (full allocation).
+        scaled = row.astype(np.float64) * avail / row_sum
+        floored = np.floor(scaled).astype(clamped.dtype)
+        deficit = avail - int(floored.sum())
+        if deficit > 0:
+            order = np.argsort(scaled - floored)[::-1][:deficit]
+            floored[order] += 1
+        clamped[mol, :] = floored
+    return clamped, overdrafts
+
+
 def calculatePartition(
     process_priorities, counts_requested, total_counts, random_state
 ):
@@ -218,8 +284,13 @@ def calculatePartition(
 
         # Get fractional request for molecules that have excess request
         # compared to available counts
+        # Cast to float before multiplying: `requests * total_counts` is an int64
+        # intermediate that overflows for high-count molecules (e.g. PROTON[c],
+        # pools > ~3e9), wrapping to garbage and corrupting the partition. The
+        # division already yields float, so for all non-overflowing magnitudes
+        # this is bit-identical to the prior int64 path.
         fractional_requests = (
-            requests[excess_request_mask, :]
+            requests[excess_request_mask, :].astype(np.float64)
             * total_counts[excess_request_mask, np.newaxis]
             / total_requested[excess_request_mask, np.newaxis]
         )

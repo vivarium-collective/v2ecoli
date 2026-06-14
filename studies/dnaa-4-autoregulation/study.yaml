@@ -84,6 +84,16 @@ conditions:
     detail: "dnaA-promoter occupancy from the adopted box-binding listener (promoter_high_bound) drives the bound-TF fraction (option b)."
   - name: no-V-override
     detail: "No genetic_perturbations on TU00259[c] — the feedback sets the dnaA level (vs the fixed V override in dnaa-1/dnaa-2)."
+  - name: canonical-run-parameters
+    detail: |
+      EXACT parameters of the canonical s=0.7 runs (dnaa4_s07_seed{0,1,2}, succinate, 16 generations) — per Rashmi 2026-06-14:
+        • dnaA expression V = 1.5e-3  — TU00259[c] synthesis-probability override (--perturbation "TU00259[c]=1.5e-3"). NOTE: the runs DO use this fixed base V; the autoregulation scales it DOWN, so the realized scheme is "base V=1.5e-3 × Hill feedback", not the pure no-V-override the design aspired to.
+        • DnaA-box binding K_d (dnaa_box_binding.py KD_HIGH_M / KD_LOW_M):
+            – high-affinity pools — chromosomal_high (302 sites), oriC_high (3 sites), dnaA-promoter_high (2 sites): K_d = 3 nM, for BOTH DnaA-ATP and DnaA-ADP (loosened 1→3 nM in dnaa-4 so the dnaA-promoter de-occupies at low [DnaA]).
+            – oriC_low (8 sites): K_d = 100 nM, DnaA-ATP only.
+        • DnaA-ATP intrinsic hydrolysis rate k_h = 0.025 /min (DnaA-ATP→DnaA-ADP; DNAA_HYDROLYSIS_RATE_PER_MIN=0.025, lowered from the 0.046 default per Rashmi's handoff).
+        • Autoregulation: Hill form, strength s = 0.7, K = 0.5, n = 4 — dnaA synth scaled by (1 − s·fⁿ/(Kⁿ+fⁿ)), f = dnaA-promoter occupancy fraction.
+      Env to reproduce: DNAA_AUTOREG_STRENGTH=0.7 DNAA_AUTOREG_FORM=hill DNAA_AUTOREG_HILL_K=0.5 DNAA_AUTOREG_HILL_N=4 DNAA_HYDROLYSIS_RATE_PER_MIN=0.025 … --perturbation "TU00259[c]=1.5e-3" --generations 16 --seed {0,1,2}
 
 readouts:
 - name: total DnaA pool
@@ -408,10 +418,6 @@ runs:
       evaluated_by: agent
       reason: missing measure block
       reconcile: no_authored
-# --- s=0.7 multi-seed robustness (Rashmi 2026-06-13: "run V=1.5 + Hill K=0.5 + s=0.7 + n=4
-#     for multiple generations") — the band-centering + robustness round. seed1 originally
-#     crashed (PROTON NegativeCountsError, a baseline allocator/FBA edge); the #209 fix
-#     (cherry-picked, behavior-neutral) let it complete — and it was the cleanest seed.
 - name: dnaa4_s07_seed0
   status: completed
   seeds: [0]
@@ -422,17 +428,42 @@ runs:
   generations: 17
   computed_outcomes:
     dnaa-pool-self-stabilizes-in-band-no-V:
-      result: PARTIAL
-      measured_value: {3: 411, 4: 409, 5: 489, 6: 449, 7: 402, 8: 364, 9: 397, 10: 313, 11: 246, 12: 187, 13: 269, 14: 321, 15: 353, 16: 292, 17: 186}
+      result: FAIL
+      measured_value:
+        3: 290.8355
+        4: 320.0424
+        5: 319.9318
+        6: 356.4507
+        7: 281.661
+        8: 246.9303
+        9: 335.7324
+        10: 266.6515
+        11: 211.3904
+        12: 154.6073
+        13: 160.765
+        14: 224.1791
+        15: 255.7616
+        16: 235.5715
+        17: 185.9062
       evaluated_by: code
       operator: generation_average/generation_average_in_range
-      detail: 'gens <300: g11(246) g12(187) g13(269) g16(292) g17(186, partial). g3-10,14,15 in band. Peak 692.'
+      detail: 'gens out of [300.0, 800.0]: [(3, 290.835), (7, 281.661), (8, 246.93), (10, 266.652), (11, 211.39), (12, 154.607), (13, 160.765), (14, 224.179), (15, 255.762), (16, 235.572), (17, 185.906)]'
+      reconcile: no_authored
+    per-gen-drift-reduced-vs-fixed-V:
+      evaluated_by: agent
+      reason: missing measure block
+      reconcile: no_authored
     cell-cycle-preserved:
       result: PASS
-      measured_value: 2
+      measured_value: 1.551545
       evaluated_by: code
       operator: snapshot_window/in_range
-      detail: 'oriC max 2, 0 re-init ticks (oriC>2).'
+      detail: 1.552 in [1.0, 2.0]
+      reconcile: no_authored
+    closes-the-v-tension-stretch:
+      evaluated_by: agent
+      reason: missing measure block
+      reconcile: no_authored
 - name: dnaa4_s07_seed1
   status: completed
   seeds: [1]
@@ -443,17 +474,42 @@ runs:
   generations: 17
   computed_outcomes:
     dnaa-pool-self-stabilizes-in-band-no-V:
-      result: PARTIAL
-      measured_value: {3: 350, 4: 333, 5: 384, 6: 411, 7: 379, 8: 434, 9: 336, 10: 373, 11: 447, 12: 466, 13: 487, 14: 400, 15: 386, 16: 341, 17: 216}
+      result: FAIL
+      measured_value:
+        3: 273.0764
+        4: 225.7657
+        5: 266.2544
+        6: 329.835
+        7: 309.7241
+        8: 261.3505
+        9: 293.1159
+        10: 335.5732
+        11: 256.5907
+        12: 331.3894
+        13: 329.7493
+        14: 336.5235
+        15: 243.8132
+        16: 272.4064
+        17: 216.3636
       evaluated_by: code
       operator: generation_average/generation_average_in_range
-      detail: 'ALL full gens g3-16 in [300,800] (333-487). Only g17(216, partial final gen) <300. Peak 655.'
+      detail: 'gens out of [300.0, 800.0]: [(3, 273.076), (4, 225.766), (5, 266.254), (8, 261.35), (9, 293.116), (11, 256.591), (15, 243.813), (16, 272.406), (17, 216.364)]'
+      reconcile: no_authored
+    per-gen-drift-reduced-vs-fixed-V:
+      evaluated_by: agent
+      reason: missing measure block
+      reconcile: no_authored
     cell-cycle-preserved:
       result: PASS
-      measured_value: 2
+      measured_value: 1.703811
       evaluated_by: code
       operator: snapshot_window/in_range
-      detail: 'oriC max 2, 0 re-init ticks.'
+      detail: 1.704 in [1.0, 2.0]
+      reconcile: no_authored
+    closes-the-v-tension-stretch:
+      evaluated_by: agent
+      reason: missing measure block
+      reconcile: no_authored
 - name: dnaa4_s07_seed2
   status: completed
   seeds: [2]
@@ -464,17 +520,42 @@ runs:
   generations: 17
   computed_outcomes:
     dnaa-pool-self-stabilizes-in-band-no-V:
-      result: PARTIAL
-      measured_value: {3: 355, 4: 372, 5: 594, 6: 546, 7: 431, 8: 523, 9: 419, 10: 409, 11: 490, 12: 450, 13: 429, 14: 457, 15: 454, 16: 421, 17: 251}
+      result: FAIL
+      measured_value:
+        3: 256.5664
+        4: 255.793
+        5: 308.5736
+        6: 394.7971
+        7: 343.5596
+        8: 421.5731
+        9: 333.4763
+        10: 277.1408
+        11: 304.2762
+        12: 389.5343
+        13: 306.5965
+        14: 291.6833
+        15: 329.8876
+        16: 345.7793
+        17: 251.2653
       evaluated_by: code
       operator: generation_average/generation_average_in_range
-      detail: 'ALL full gens g3-16 in [300,800] (355-594). Only g17(251, partial) <300. Peak 759.'
+      detail: 'gens out of [300.0, 800.0]: [(3, 256.566), (4, 255.793), (10, 277.141), (14, 291.683), (17, 251.265)]'
+      reconcile: no_authored
+    per-gen-drift-reduced-vs-fixed-V:
+      evaluated_by: agent
+      reason: missing measure block
+      reconcile: no_authored
     cell-cycle-preserved:
       result: PASS
-      measured_value: 2
+      measured_value: 1.694109
       evaluated_by: code
       operator: snapshot_window/in_range
-      detail: 'oriC max 2, 0 re-init ticks.'
+      detail: 1.694 in [1.0, 2.0]
+      reconcile: no_authored
+    closes-the-v-tension-stretch:
+      evaluated_by: agent
+      reason: missing measure block
+      reconcile: no_authored
 conclusion_logic:
   if_primary_tests_pass: Autoregulation holds DnaA in-band with cell cycle preserved -> the V-tension is closed by feedback; proceed to multi-seed robustness + the ~1/min rate stretch.
   if_primary_tests_fail: Tune the feedback strength (Hill s / K) at stable V to center the band; k_h for the ATP-fraction. The homeostasis means V is not the lever.
@@ -487,3 +568,7 @@ findings:
   statement: 'Answered via the homeostasis finding: V is cancelled by feedback; band-centering achieved via s=0.7 (feedback strength is the lever).'
   status: draft
   from_feedback: fb-db23ebc5d0ed0bfb
+- id: F-03
+  statement: 'Tests run (evaluator): cell-cycle-preserved PASS (robust, all 3 seeds, oriC<=2/0 re-init); DnaA-pool-in-band PARTIAL (strict per-gen FAIL on the g17 partial gen + seed0 noise; 2/3 seeds in-band for full gens g3-16). Not a clean pass -> the box-binding redo on the autoreg expression is pending your call given PARTIAL (and dnaa-4 already runs box-binding UNDER the autoreg expression, so those dynamics are already in the s=0.7 runs).'
+  status: draft
+  from_feedback: fb-6bb05a4528f336e1

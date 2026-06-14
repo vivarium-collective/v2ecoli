@@ -1,4 +1,4 @@
-# parsimony mesh: g6240_monomer (source /Users/eranagmon/code/v2e-3d/out/ecoli3d/structures/g6240_monomer.pdb)
+# parsimony mesh: g6240_monomer (source /Users/eranagmon/code/v2e-molecules/workspace/studies/ecoli-3d/viz/3d/structures/g6240_monomer.pdb)
 # atoms: 1289  voxel: 4 Å  verts: 617  tris: 1244
 v 24.4865 -8.4467 -23.9674
 v 24.9848 -8.4467 -23.9674

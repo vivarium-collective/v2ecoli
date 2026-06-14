@@ -220,6 +220,406 @@
    "category": "Envelope",
    "count": 980
   },
+  "G7522-MONOMER": {
+   "display_name": "protein YqgC",
+   "category": "Metabolism",
+   "count": 970
+  },
+  "EG12043-MONOMER": {
+   "display_name": "DUF1414 domain-containing protein YejL",
+   "category": "Metabolism",
+   "count": 933
+  },
+  "EG12182-MONOMER": {
+   "display_name": "putative lipoprotein YajG",
+   "category": "Envelope",
+   "count": 928
+  },
+  "EG11151-MONOMER": {
+   "display_name": "ribosome-associated inhibitor A",
+   "category": "Translation",
+   "count": 910
+  },
+  "G360-MONOMER": {
+   "display_name": "flagellar biosynthesis, initiation of hook assembly",
+   "category": "Envelope",
+   "count": 879
+  },
+  "G6151-MONOMER": {
+   "display_name": "CP4-6 prophage; protein YagN",
+   "category": "Metabolism",
+   "count": 870
+  },
+  "G6623-MONOMER": {
+   "display_name": "flagellar brake protein YcgR",
+   "category": "Envelope",
+   "count": 864
+  },
+  "EG11837-MONOMER": {
+   "display_name": "50S ribosomal subunit assembly factor BipA",
+   "category": "Translation",
+   "count": 861
+  },
+  "EG11356-MONOMER": {
+   "display_name": "DNA-binding transcriptional regulator FliZ",
+   "category": "Regulation",
+   "count": 853
+  },
+  "EG11355-MONOMER": {
+   "display_name": "RNA polymerase sigma factor FliA",
+   "category": "Transcription",
+   "count": 851
+  },
+  "G366-MONOMER": {
+   "display_name": "putative peptidoglycan hydrolase FlgJ",
+   "category": "Metabolism",
+   "count": 849
+  },
+  "G7352-MONOMER": {
+   "display_name": "outer membrane protein assembly factor BamD",
+   "category": "Envelope",
+   "count": 847
+  },
+  "G6562-MONOMER": {
+   "display_name": "flagellar biosynthesis protein FlgN",
+   "category": "Envelope",
+   "count": 831
+  },
+  "EG11096-MONOMER": {
+   "display_name": "Sec translocon accessory complex subunit YajC",
+   "category": "Metabolism",
+   "count": 830
+  },
+  "G6833-MONOMER": {
+   "display_name": "Qin prophage; PF14282 family protein FlxA",
+   "category": "Metabolism",
+   "count": 825
+  },
+  "G6668-MONOMER": {
+   "display_name": "DUF2534 domain-containing protein YnaJ",
+   "category": "Metabolism",
+   "count": 809
+  },
+  "G7949-MONOMER": {
+   "display_name": "ferric-siderophore reductase FhuF",
+   "category": "Metabolism",
+   "count": 798
+  },
+  "G6993-MONOMER": {
+   "display_name": "RutC family protein YoaB",
+   "category": "Metabolism",
+   "count": 786
+  },
+  "G6093-MONOMER": {
+   "display_name": "outer membrane protein assembly factor BamA",
+   "category": "Envelope",
+   "count": 780
+  },
+  "EG10899-MONOMER": {
+   "display_name": "RNA polymerase subunit &omega;",
+   "category": "Transcription",
+   "count": 733
+  },
+  "EG11782-MONOMER": {
+   "display_name": "SsrA-binding protein",
+   "category": "Metabolism",
+   "count": 733
+  },
+  "EG10570-MONOMER": {
+   "display_name": "methionine aminopeptidase",
+   "category": "Protein folding",
+   "count": 726
+  },
+  "G6968-MONOMER": {
+   "display_name": "MltA-interacting protein",
+   "category": "Metabolism",
+   "count": 726
+  },
+  "EG10293-MONOMER": {
+   "display_name": "ferric enterobactin outer membrane transporter",
+   "category": "Envelope",
+   "count": 725
+  },
+  "EG11592-MONOMER": {
+   "display_name": "DUF493 domain-containing protein YbeD",
+   "category": "Metabolism",
+   "count": 713
+  },
+  "EG10439-MONOMER": {
+   "display_name": "haemolysin expression-modulating protein Hha",
+   "category": "Metabolism",
+   "count": 706
+  },
+  "EG10893-MONOMER": {
+   "display_name": "RNA polymerase subunit &alpha;",
+   "category": "Transcription",
+   "count": 704
+  },
+  "EG12303-MONOMER": {
+   "display_name": "putative metal-dependent hydrolase YcfH",
+   "category": "Metabolism",
+   "count": 675
+  },
+  "EG12298-MONOMER": {
+   "display_name": "divergent polysaccharide deacetylase domain-containing protein YibQ",
+   "category": "Metabolism",
+   "count": 667
+  },
+  "G6527-MONOMER": {
+   "display_name": "Fe(2+) transport system protein EfeO",
+   "category": "Metabolism",
+   "count": 625
+  },
+  "EG11388-MONOMER": {
+   "display_name": "flagellar biosynthesis protein FliS",
+   "category": "Envelope",
+   "count": 619
+  },
+  "EG11581-MONOMER": {
+   "display_name": "hydroxycarboxylate dehydrogenase B",
+   "category": "Metabolism",
+   "count": 608
+  },
+  "EG11389-MONOMER": {
+   "display_name": "flagellar biosynthesis protein FliT",
+   "category": "Envelope",
+   "count": 606
+  },
+  "G7173-MONOMER": {
+   "display_name": "tail-anchored inner membrane protein ElaB",
+   "category": "Envelope",
+   "count": 601
+  },
+  "EG10762-MONOMER": {
+   "display_name": "peptide chain release factor RF2",
+   "category": "Metabolism",
+   "count": 600
+  },
+  "EG12866-MONOMER": {
+   "display_name": "RNA chaperone ProQ",
+   "category": "Protein folding",
+   "count": 600
+  },
+  "EG10666-MONOMER": {
+   "display_name": "transcription antitermination protein NusB",
+   "category": "Transcription",
+   "count": 597
+  },
+  "EG10667-MONOMER": {
+   "display_name": "transcription termination/antitermination factor NusG",
+   "category": "Transcription",
+   "count": 593
+  },
+  "EG11277-MONOMER": {
+   "display_name": "<i>thr</i> operon leader peptide",
+   "category": "Metabolism",
+   "count": 591
+  },
+  "EG12352-MONOMER": {
+   "display_name": "peptidyl-prolyl <i>cis-trans</i> isomerase C",
+   "category": "Protein folding",
+   "count": 590
+  },
+  "G6396-MONOMER": {
+   "display_name": "multidrug efflux pump accessory protein AcrZ",
+   "category": "Envelope",
+   "count": 575
+  },
+  "G7834-MONOMER": {
+   "display_name": "DUF4156 domain-containing lipoprotein YjeI",
+   "category": "Envelope",
+   "count": 571
+  },
+  "G6757-MONOMER": {
+   "display_name": "DUF2526 domain-containing protein YdcY",
+   "category": "Metabolism",
+   "count": 570
+  },
+  "EG10841-MONOMER": {
+   "display_name": "flagellar filament capping protein",
+   "category": "Envelope",
+   "count": 561
+  },
+  "G7326-MONOMER": {
+   "display_name": "DNA-binding transcriptional dual regulator IscR",
+   "category": "Regulation",
+   "count": 552
+  },
+  "G7612-MONOMER": {
+   "display_name": "ribosome- and membrane-associated DUF883 domain-containing protein YqjD",
+   "category": "Translation",
+   "count": 542
+  },
+  "G7681-MONOMER": {
+   "display_name": "inner membrane protein YhcB",
+   "category": "Envelope",
+   "count": 537
+  },
+  "EG11450-MONOMER": {
+   "display_name": "macrodomain Ori protein",
+   "category": "Metabolism",
+   "count": 534
+  },
+  "G6312-MONOMER": {
+   "display_name": "DLP12 prophage; prophage lipoprotein BorD",
+   "category": "Envelope",
+   "count": 521
+  },
+  "G6359-MONOMER": {
+   "display_name": "glutamate/aspartate ABC transporter periplasmic binding protein",
+   "category": "Envelope",
+   "count": 515
+  },
+  "EG11113-MONOMER": {
+   "display_name": "modulator of FtsH protease",
+   "category": "Protein folding",
+   "count": 514
+  },
+  "EG12295-MONOMER": {
+   "display_name": "putative sulfurtransferase YibN",
+   "category": "Metabolism",
+   "count": 514
+  },
+  "EG12035-MONOMER": {
+   "display_name": "elongation factor protein EfpL",
+   "category": "Translation",
+   "count": 504
+  },
+  "G7014-MONOMER": {
+   "display_name": "copper-binding protein",
+   "category": "Metabolism",
+   "count": 493
+  },
+  "G6616-MONOMER": {
+   "display_name": "PF05166 family protein YcgL",
+   "category": "Metabolism",
+   "count": 488
+  },
+  "G7315-MONOMER": {
+   "display_name": "Ni/Co stress response protein YfgG",
+   "category": "Metabolism",
+   "count": 486
+  },
+  "EG12404-MONOMER": {
+   "display_name": "DsrE/F sulfur relay family protein YchN",
+   "category": "Metabolism",
+   "count": 485
+  },
+  "G6841-MONOMER": {
+   "display_name": "DUF1283 domain-containing protein YnfB",
+   "category": "Metabolism",
+   "count": 484
+  },
+  "EG11967-MONOMER": {
+   "display_name": "flagellar hook-filament junction protein 1",
+   "category": "Envelope",
+   "count": 476
+  },
+  "EG11894-MONOMER": {
+   "display_name": "putative thiosulfate sulfurtransferase",
+   "category": "Metabolism",
+   "count": 472
+  },
+  "EG11620-MONOMER": {
+   "display_name": "RNase II",
+   "category": "Metabolism",
+   "count": 460
+  },
+  "EG11682-MONOMER": {
+   "display_name": "phosphotransferase system enzyme IIA(Ntr)",
+   "category": "Metabolism",
+   "count": 459
+  },
+  "EG12252-MONOMER": {
+   "display_name": "cyclic di-GMP phosphodiesterase PdeH",
+   "category": "Metabolism",
+   "count": 458
+  },
+  "G6268-MONOMER": {
+   "display_name": "chaperedoxin",
+   "category": "Metabolism",
+   "count": 458
+  },
+  "G7401-MONOMER": {
+   "display_name": "glutaredoxin-like protein NrdH",
+   "category": "Metabolism",
+   "count": 435
+  },
+  "G369-MONOMER": {
+   "display_name": "anti-sigma factor for FliA (&sigma;<sup>28</sup>)",
+   "category": "Transcription",
+   "count": 434
+  },
+  "G7532-MONOMER": {
+   "display_name": "putative Fe<sup>2+</sup>-trafficking protein",
+   "category": "Metabolism",
+   "count": 432
+  },
+  "EG10608-MONOMER": {
+   "display_name": "dynamic cytoskeletal protein MreB",
+   "category": "Metabolism",
+   "count": 430
+  },
+  "EG10297-MONOMER": {
+   "display_name": "polysaccharide co-polymerase family protein FepE",
+   "category": "Metabolism",
+   "count": 411
+  },
+  "EG11784-MONOMER": {
+   "display_name": "stress-induced alternate pyruvate formate-lyase subunit",
+   "category": "Metabolism",
+   "count": 400
+  },
+  "EG11137-MONOMER": {
+   "display_name": "putative transcriptional regulator YebC",
+   "category": "Regulation",
+   "count": 400
+  },
+  "EG12428-MONOMER": {
+   "display_name": "<i>rho</i> operon leader peptide",
+   "category": "Metabolism",
+   "count": 396
+  },
+  "G6158-MONOMER": {
+   "display_name": "DUF1440 domain-containing inner membrane protein YagU",
+   "category": "Envelope",
+   "count": 393
+  },
+  "G7511-MONOMER": {
+   "display_name": "folate-binding protein YgfZ",
+   "category": "Metabolism",
+   "count": 393
+  },
+  "G7611-MONOMER": {
+   "display_name": "DUF1090 domain-containing protein YqjC",
+   "category": "Metabolism",
+   "count": 392
+  },
+  "EG11554-MONOMER": {
+   "display_name": "DNA-binding transcriptional repressor StpA with RNA chaperone activity",
+   "category": "Protein folding",
+   "count": 383
+  },
+  "G6194-MONOMER": {
+   "display_name": "DUF1471 domain-containing protein YahO",
+   "category": "Metabolism",
+   "count": 380
+  },
+  "EG10977-MONOMER": {
+   "display_name": "stringent starvation protein A",
+   "category": "Metabolism",
+   "count": 375
+  },
+  "G6413-MONOMER": {
+   "display_name": "PKHD-type hydroxylase YbiX",
+   "category": "Metabolism",
+   "count": 372
+  },
+  "EG10299-MONOMER": {
+   "display_name": "ferric enterobactin esterase",
+   "category": "Metabolism",
+   "count": 372
+  },
   "lipid": {
    "display_name": "Membrane phospholipid",
    "category": "Envelope",

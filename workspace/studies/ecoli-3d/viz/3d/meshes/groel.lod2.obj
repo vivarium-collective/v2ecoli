@@ -1,4 +1,4 @@
-# parsimony mesh: groel (source /Users/eranagmon/code/v2e-3d/out/ecoli3d/structures/groel.pdb)
+# parsimony mesh: groel (source /Users/eranagmon/code/v2e-molecules/workspace/studies/ecoli-3d/viz/3d/structures/groel.pdb)
 # atoms: 58870  voxel: 4 Å  verts: 20837  tris: 43036
 v -4.0906 -12.9511 -112.7152
 v -2.4661 -12.9511 -112.7152

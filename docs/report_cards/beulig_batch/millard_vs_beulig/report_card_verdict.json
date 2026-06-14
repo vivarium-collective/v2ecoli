@@ -1,0 +1,166 @@
+{
+  "schema": "report_card_verdict/v1",
+  "model_ref": "reactor_bird_coupled_millard",
+  "reference_model": "Beulig 2025 WT batch prefix",
+  "generated": "2026-06-14 23:50Z",
+  "overall": "mismatch",
+  "groups": {
+    "growth": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "growth.biomass_gDW_per_L",
+          "label": "Biomass (OD x 0.34)",
+          "verdict": "mismatch",
+          "value": 0.012687301743705626,
+          "meter": "\u0394 = -12.91 (99.9% rel)",
+          "detail": {
+            "rel": 0.9990180107009516
+          }
+        }
+      ]
+    },
+    "substrate": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "substrate.GUR",
+          "label": "Glucose uptake rate",
+          "verdict": "mismatch",
+          "value": 1.5457716382029199,
+          "meter": "\u0394 = -12.9 (89.3% rel)",
+          "detail": {
+            "rel": 0.8930105201843835
+          }
+        },
+        {
+          "id": "substrate.glucose_conc",
+          "label": "Glucose concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "gas_transfer": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "gas_transfer.OTR",
+          "label": "O2 transfer rate (OTR)",
+          "verdict": "mismatch",
+          "value": 0.0015660606559542761,
+          "meter": "\u0394 = -8496 (100.0% rel)",
+          "detail": {
+            "rel": 0.9999998156621478
+          }
+        },
+        {
+          "id": "gas_transfer.CTR",
+          "label": "CO2 transfer rate (CTR)",
+          "verdict": "mismatch",
+          "value": 0.0,
+          "meter": "\u0394 = -156.8 (100.0% rel)",
+          "detail": {
+            "rel": 1.0
+          }
+        },
+        {
+          "id": "gas_transfer.dissolved_o2",
+          "label": "Dissolved O2",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "summary": {
+      "verdict": "within_tol",
+      "axes": [
+        {
+          "id": "summary.comparison_executed",
+          "label": "Comparison executed (process-level)",
+          "verdict": "within_tol",
+          "value": true,
+          "meter": "pass",
+          "detail": {}
+        }
+      ]
+    },
+    "byproducts": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "byproducts.acetate",
+          "label": "Acetate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.lactate",
+          "label": "Lactate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.formate",
+          "label": "Formate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.ethanol",
+          "label": "Ethanol concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.pyruvate",
+          "label": "Pyruvate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.succinate",
+          "label": "Succinate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "ph_control": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "ph_control.base_addition",
+          "label": "Base addition (cumulative)",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    }
+  },
+  "scope": "SHORT-RUN SMOKE (5 steps, cells_per_agent=1e+10); NOT the full ~33h Beulig batch production run (follow-up execution). Biological magnitudes are far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
+  "wall_s": 8.08,
+  "charts": [
+    "overlay_growth.png",
+    "overlay_OTR.png",
+    "overlay_CTR.png"
+  ]
+}

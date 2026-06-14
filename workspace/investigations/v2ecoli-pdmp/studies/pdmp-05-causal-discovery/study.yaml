@@ -463,27 +463,27 @@ study_card:
 readouts:
 - name: rr-estimator-trace
   status: planned
-  path: 'planned output: .pbg/runs/<id>/rr_estimate.zarr (not yet produced)'
+  path: (planned) .pbg/runs/<id>/rr_estimate.zarr
   units: log-marginal-likelihood + N_eff
   notes: 'Per candidate annotation. Gating: N_eff >= 100 or fallback to thermodynamic integration.'
 - name: log-bayes-factor-cis
   status: planned
-  path: 'planned output: out/trajectories/log_bf_cis.csv (not yet produced)'
+  path: (planned) out/trajectories/log_bf_cis.csv
   units: log Bayes factor + 95% bootstrap CI
   notes: Per pairwise annotation comparison. Recovery claim requires CI entirely above Jeffreys |log BF| > 1.
 - name: model-comparison-sbc
   status: planned
-  path: 'planned output: out/trajectories/model_sbc_ranks.csv (not yet produced)'
+  path: (planned) out/trajectories/model_sbc_ranks.csv
   units: model-posterior rank
   notes: 'K=500 synthetic datasets from known true annotations. Gating: chi^2 uniformity p > 0.05.'
 - name: eig-per-intervention
   status: planned
-  path: 'planned output: out/trajectories/eig_proposals.csv (not yet produced)'
+  path: (planned) out/trajectories/eig_proposals.csv
   units: expected information gain (nats)
   notes: Per active-inference intervention proposal. MCSE-bounded; proposals with CI overlapping zero not selected.
 - name: benchmark-recovery
   status: planned
-  path: 'planned output: out/trajectories/benchmark_recovery.csv (not yet produced)'
+  path: (planned) out/trajectories/benchmark_recovery.csv
   units: per-gene q-value (BH-adjusted)
   notes: '20-gene benchmark E. coli set. Investigation success: BH-FDR q <= 0.10 + CI shrinkage rate log-log slope <= -0.4.'
 planned_runs:
@@ -759,3 +759,47 @@ discovery_implications:
       credible intervals.'
     expected_information_gain: high
     expert_gate_required: true
+# --- v4 narrative spine (filled from existing study content; honest, no new results) ---
+runtime:
+  notes: 'simulation_status: not_started, gate: blocked. Nothing has been run beyond a scaffold PC-recovery
+    pilot; all recovery / Bayes-factor / EIG numbers are targets, gated on the Phase-4 compiled runtime
+    (needs <0.05 s/tick to be tractable genome-wide).'
+assumptions:
+- Functional gene annotations can be cast as competing causal models and discriminated by Bayesian model comparison (Russian-roulette marginal likelihood).
+- Active experimental design (expected information gain) selects interventions that recover causal edges more efficiently than observation alone.
+- A benchmark gene set with known edges provides ground truth for FDR-calibrated recovery.
+enforced_params:
+- name: implementation_status
+  value: not built — causal-discovery + active-inference loop are planned
+- name: gate
+  value: blocked downstream of the Phase-4 compiled runtime (throughput prerequisite)
+biological_summary: 'Aims to use the inferable PDMP whole-cell model for functional discovery: compare
+  candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover
+  known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.'
+literature_anchors:
+- key: peters2022
+  relevance: Causal-inference / structure-discovery foundations.
+- key: lyne2015
+  relevance: Russian-roulette / unbiased marginal-likelihood estimation for model comparison.
+- key: vowels2022
+  relevance: Survey of causal-discovery methods framing the approach.
+- key: toth2022
+  relevance: Active / Bayesian experimental design (expected information gain) for intervention selection.
+model_change: 'No change to the cell model — Phase 5 adds an analysis layer (Bayesian model comparison +
+  active causal discovery) on top of the inferable PDMP. The annotation-as-causal-model mapping is the new commitment.'
+implementation_requirements:
+- A Russian-roulette marginal-likelihood estimator (N_eff ≥ 100 or thermodynamic-integration fallback).
+- An active-inference loop computing per-intervention expected information gain with MCSE bounds.
+- A benchmark gene set + BH-FDR-calibrated recovery harness; the Phase-4 compiled runtime for genome-wide tractability.
+design_pivot_required: 'No pivot yet — Phase 5 has not started and is the most downstream study. Its
+  feasibility is gated on Phases 1–4; the design will be revisited once an inferable, compiled PDMP exists.'
+conclusion_verdicts:
+- claim: PC / causal discovery recovers known edges on the benchmark set.
+  verdict: not_started
+  basis: Only a scaffold PC-recovery pilot exists; no calibrated recovery run. Gate blocked.
+- claim: Intervention design (EIG) beats observational discovery.
+  verdict: not_started
+  basis: Active-inference loop not implemented; threshold is a target.
+- claim: Genome-wide model comparison achieves BH-FDR ≤ 0.1.
+  verdict: not_started
+  basis: Gated on the Phase-4 compiled runtime (<0.05 s/tick); not yet runnable at scale.

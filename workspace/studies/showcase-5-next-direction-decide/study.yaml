@@ -107,13 +107,115 @@ report:
        directions (B / C / D run on the existing glucose cache)?
     4. SCOPE — one direction or a small set?
 
+# --- v4 narrative-spine sections (decision study — filled from existing content) ---
+study_card:
+  phase: Decide
+  one_liner: "A reviewer-decision gate seeded from the showcase-4 ranking: which direction should the showcase deepen next? Four candidates, none committed."
+  status: design (open decision)
+  headline: "OPEN — reviewers choose among A growth-condition panel / B ppGpp synthesis-vs-regulation 2×2 / C dnaA knob deepening / D graded translation dose-response. Agent recommends A or B."
+
+runtime:
+  status: "not run — reviewer-decision study; no compute until a direction is selected"
+
+readouts:
+- {name: decision-outcome, description: "Decision outcome: which candidate next-direction(s) the reviewer selects"}
+- {name: per-direction-readout, description: "Per direction, the proposed primary readout (growth rate, central-carbon flux / Toya-r, ppGpp pool, or replication-initiation timing — to be chosen by the reviewer)"}
+
+enforced_params:
+- {name: basis, value: "showcase-4 5-variant ranking", why: "the candidate directions are seeded from the measured contrasts (media strongest, ppGpp-off most informative surprise, dnaA-2x partial, elong-down near-null)"}
+
+biological_summary: |
+  This study commits no direction. It frames an explicit reviewer choice among
+  four follow-ups, each grounded in a measured showcase-4 contrast: deepen the
+  strongest contrast (a carbon-source panel), chase the most informative surprise
+  (decompose ppGpp synthesis vs regulation), push the partial (a dnaA
+  init-probability sweep), or rescue the null (a graded translation
+  dose-response). The biology of each candidate lives in followup_study_proposals.
+
+literature_anchors:
+- {cite: macklin2020, note: "The Covert-lab whole-cell model; the wild-type baseline and validation surfaces (Toya-2010 flux, ppGpp, replication) the candidate directions would extend."}
+
+model_change: |
+  None yet — the model change is the OPEN decision. Each candidate would alter a
+  different axis (carbon source + its ParCa cache; ppGpp synthesis vs regulation
+  decomposition; the dnaA init-probability; or the ribosome elongation rate over
+  a wider range); see followup_study_proposals.
+
+implementation_requirements: |
+  Single-cache for directions B / C / D (reuse the showcase-1 glucose cache); the
+  growth-condition panel (A) needs one full ParCa cache per condition (~2.5 min
+  each) — the cost trade-off flagged for reviewers.
+
+design_pivot_required: true   # intentionally a decision/pivot gate — a reviewer choice is REQUIRED before any run
+
+conclusion_verdicts:
+- {claim: "the next-direction choice is open", verdict: pending, basis: "four candidates seeded from showcase-4; none committed — resolves when a reviewer selects one (or more). Agent recommends A or B."}
+
+simulation_set:
+- name: direction-A-growth-condition-panel
+  kind: simulation
+  status: planned   # FLAG: one full ParCa cache per condition (~2.5 min each)
+  base_model: baseline
+  duration_steps: "ensemble per carbon source (glucose / succinate / acetate / glycerol / +amino-acids)"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [growth rate, central-carbon flux / Toya-r, mass composition]
+  pass_fail_tests: [reviewer-selects-next-direction]
+- name: direction-B-ppgpp-synthesis-vs-regulation
+  kind: simulation
+  status: planned
+  base_model: baseline
+  duration_steps: "synthesis-off / regulation-off 2×2 on the glucose cache"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [ppGpp pool, growth rate per quadrant]
+  pass_fail_tests: [reviewer-selects-next-direction]
+- name: direction-C-dnaa-knob-deepening
+  kind: simulation
+  status: planned
+  base_model: baseline
+  duration_steps: "dnaA init-probability sweep 1x..4x on the glucose cache"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [oriC, critical mass per oriC, replication-initiation timing]
+  pass_fail_tests: [reviewer-selects-next-direction]
+- name: direction-D-graded-translation-dose-response
+  kind: simulation
+  status: planned
+  base_model: baseline
+  duration_steps: "basal elongation-rate sweep 1.0x..0.4x on the glucose cache"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [doubling time, tRNA charging (to find where compensation breaks)]
+  pass_fail_tests: [reviewer-selects-next-direction]
+
+planned_runs:
+- name: chosen-direction-run
+  status: planned
+  n_steps: "depends on the chosen direction (single-cache for B/C/D; one ParCa cache per condition for A)"
+  details: "Runs ONLY after a reviewer selects one (or more) of the four candidate directions below; until then this study is intentionally un-run."
+
 conditions:
   baseline:
     composite: baseline
     # No direction committed — this is a reviewer-decision study. The four
     # candidate directions live in decisions_needed +
     # discovery_implications.followup_study_proposals, seeded from showcase-4.
-  variants: []
+  variants:
+  # PROPOSED, not committed — the reviewer chooses among these four candidate
+  # next-directions (seeded from the showcase-4 ranking). status: proposed.
+  - name: A-growth-condition-panel
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Deepen the strongest contrast (media-succinate): a carbon-source panel. FLAG: one full ParCa cache per condition (~2.5 min each). Agent-recommended."
+  - name: B-ppgpp-synthesis-vs-regulation
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Chase the surprise: a synthesis-off / regulation-off 2×2 to pin why ppGpp de-repressed (rose 1.86x). Single-cache. Agent-recommended."
+  - name: C-dnaa-knob-deepening
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Push the partial: sweep the dnaA init-probability 1x..4x to test whether a larger knob raises the oriC ceiling that 2x did not. Single-cache."
+  - name: D-graded-translation-dose-response
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Rescue the null: sweep the ribosome elongation rate over a wider range to find where the elong-down compensation breaks. Single-cache."
   model_settings: []
 
 assumptions:
@@ -205,3 +307,19 @@ pipeline_gate:
   gate_status: pending
 
 runs: []
+
+visualizations:
+# PLANNED mockup — reviewer-decision study with no run yet. Describes what the
+# chosen direction WOULD produce once a reviewer selects a candidate.
+- name: PLANNED — chosen next-direction response (mockup)
+  status: planned
+  address: "planned:chosen-next-direction-response"   # no rendered chart yet — decision study
+  config:
+    title: "PLANNED: chosen direction's response curve — carbon-source panel / ppGpp 2×2 / dnaA sweep / translation dose-response"
+    caption: >-
+      Placeholder for the chosen-direction figure. Once a reviewer selects one
+      (or more) of the four candidates (A growth-condition panel / B ppGpp
+      synthesis-vs-regulation 2×2 / C dnaA knob sweep / D graded translation
+      dose-response), this becomes the corresponding response chart on the
+      reviewer's chosen readout. No data yet — the study is intentionally un-run.
+  chart: planned-mockup

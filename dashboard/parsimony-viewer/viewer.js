@@ -2219,9 +2219,8 @@ const ABOUT_HTML = window.PARSIMONY_ABOUT || `
   copy number of each protein and complex sets how many copies are placed in the cell.</p>
   <p>Each species is mapped to a real 3D structure — AlphaFold-predicted monomers, curated
   experimental assemblies (70S ribosome, RNA polymerase, GroEL/ES), and multi-subunit
-  complexes assembled from their stoichiometry — packed into a capsule-shaped cell volume
-  by the <strong>parsimony</strong> engine, a cellPACK-style packer. Each species is placed
-  at its <strong>true copy number</strong> from the simulation; colours group molecules by
+  complexes assembled from their stoichiometry. Each species is placed at its
+  <strong>true copy number</strong> from the simulation; colours group molecules by
   functional category.</p>
   <p>This shows the cell's <strong>macromolecular machinery</strong> — proteins, complexes
   and large assemblies (≈2.8 million per cell). The ≈30 billion water, ion and metabolite

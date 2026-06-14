@@ -1,4 +1,4 @@
-# parsimony mesh: flagellum (source /Users/eranagmon/code/v2e-flagella/workspace/studies/ecoli-3d/viz/3d/structures/flagellum.pdb)
+# parsimony mesh: flagellum (source /Users/eranagmon/code/v2e-abund/workspace/studies/ecoli-3d/viz/3d/structures/flagellum.pdb)
 # atoms: 57616  voxel: 2.5 Å  verts: 35223  tris: 71860
 v -5.9832 -16.5671 -1017.7755
 v -5.8899 -16.5671 -1017.7755

@@ -63,9 +63,17 @@ change, the trajectory is identical to baseline.
 
 What is safely re-pathable in Phase 1 depends on how each store is structured:
 
-- **`unique.*`** — already per-type leaf arrays (`unique/active_RNAP`, …); processes
-  target those leaf paths. These get the **full biological treatment**: split across
-  `chromosome` / `transcription` / `translation`. Bit-identical-safe.
+- **`unique.*`** — although these are per-type leaf arrays (`unique/active_RNAP`, …),
+  **they cannot be split in Phase 1.** Implementation discovered three consumers
+  (`division` and the two mass listeners) wire the *whole* `unique` map through a
+  single `InPlaceDict` / `map[node]` port and index molecules internally
+  (`division.py` reads `states['unique']` wholesale). Relocating any molecule out of
+  a shared `unique` store hands those consumers a partial map → divergence. So
+  `unique` **stays one store, relocated whole** to `cell/unique_molecules` in Phase 1
+  — exactly the constraint that applies to `bulk`. The per-molecule split across
+  `chromosome` / `transcription` / `translation` (the rename targets are kept in
+  `UNIQUE_REMAP_PHASE2`) is **Phase 2**, gated behind the same aggregator-view shim
+  as the `bulk` split.
 - **`bulk`** — a single performance-critical monolithic structured array; every
   process does global index lookups against it through one port. It **stays one
   physical store** in Phase 1 (relocated whole), plus a biological *manifest*
@@ -82,6 +90,28 @@ What is safely re-pathable in Phase 1 depends on how each store is structured:
 
 ### Target hierarchy (Phase 1)
 
+As-built Phase 1 (bit-identical to baseline):
+
+```
+cell/
+  molecules/           ← bulk (whole monolith)                              [split in Phase 2]
+  unique_molecules/    ← unique (whole — all 11 molecule types together)    [split in Phase 2]
+  observables/         ← listeners (whole)                                  [distributed in Phase 2]
+  regulation/          ← ppgpp_state, attenuation_config
+environment/           ← boundary/external, media metadata, exchange
+machinery/             ← process, allocator_rng, process_state, next_update_time,
+                              request, allocate
+clock/                 ← global_time, timestep, divide, division_threshold
+```
+
+`machinery/` and `clock/` deliberately pull bookkeeping out of `cell/` so the
+biological subtree reads as biology, not plumbing.
+
+The richer compartment layout below is the **Phase-2 target** — it requires the
+aggregator-view shim (so whole-map consumers still see all of `unique` / `bulk`
+while readers see split compartments), which trades bit-identity for statistical
+equivalence:
+
 ```
 cell/
   chromosome/          ← unique: full_chromosome, chromosome_domain, oriC,
@@ -89,20 +119,13 @@ cell/
   transcription/       ← unique: active_RNAP→rna_polymerases, RNA→transcripts,
                               promoter→promoters
   translation/         ← unique: active_ribosome→ribosomes
-  molecules/           ← bulk (whole monolith) + biological name-manifest   [split in Phase 2]
-  observables/         ← listeners (whole)                                  [distributed in Phase 2]
-  regulation/          ← ppgpp_state, attenuation_config
-membrane/              ← placeholder seam (baseline has little; ties into the
-                              autopoiesis membrane v2ecoli lacks)
-environment/           ← boundary/external, environment metadata, exchange
-machinery/             ← process, allocator_rng, process_state, next_update_time,
-                              request, allocate
-clock/                 ← global_time, timestep, divide, division_threshold
+  metabolism/          ← bulk: metabolites, energy carriers
+  proteins/            ← bulk: monomers, complexes
+membrane/              ← placeholder seam (ties into the autopoiesis membrane v2ecoli lacks)
 ```
 
-`machinery/` and `clock/` deliberately pull bookkeeping out of `cell/` so the
-biological subtree reads as biology, not plumbing. `membrane/` is an intentional
-seam for the autopoiesis-style self-produced membrane.
+`membrane/` is an intentional Phase-2 seam for the autopoiesis-style self-produced
+membrane.
 
 ## Equivalence harness
 

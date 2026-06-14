@@ -1,4 +1,4 @@
-# parsimony mesh: g7312_monomer (source /Users/eranagmon/code/v2e-3d/out/ecoli3d/structures/g7312_monomer.pdb)
+# parsimony mesh: g7312_monomer (source /Users/eranagmon/code/v2e-molecules/workspace/studies/ecoli-3d/viz/3d/structures/g7312_monomer.pdb)
 # atoms: 936  voxel: 16 Å  verts: 34  tris: 50
 v -1.2434 -7.3090 -17.2334
 v 11.1175 -6.8580 -16.8166

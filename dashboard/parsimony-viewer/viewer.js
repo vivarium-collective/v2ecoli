@@ -2216,7 +2216,12 @@ const ABOUT_HTML = window.PARSIMONY_ABOUT || `
   complexes assembled from their stoichiometry — packed into a capsule-shaped cell volume
   by the <strong>parsimony</strong> engine, a cellPACK-style packer. Each species is placed
   at its <strong>true copy number</strong> from the simulation; colours group molecules by
-  functional category.</p>`;
+  functional category.</p>
+  <p>This shows the cell's <strong>macromolecular machinery</strong> — proteins, complexes
+  and large assemblies (≈2.8 million per cell). The ≈30 billion water, ion and metabolite
+  molecules that are &gt;99.9% of the cell aren't drawn (a water molecule is just a dot), and
+  only the most-abundant macromolecules are placed — so the counts below are what's in this
+  scene, not the whole cell.</p>`;
 const ABOUT_CREDIT = `
   <p class="credit">A <a href="https://vivariumlab.com" target="_blank" rel="noopener">Vivarium Lab</a>
   project · built with <a href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener">v2ecoli</a>
@@ -2242,12 +2247,14 @@ function aboutStatsHtml() {
     return `<tr><td><span class="adot" style="background:${CAT_COLOR[c] || "#888"}"></span>${escapeHtml(c)}</td>`
       + `<td>${s.types}</td><td>${s.mol.toLocaleString()}</td></tr>`;
   }).join("");
-  return `<h4>By the numbers</h4>`
-    + `<p class="astat"><strong>${total.toLocaleString()}</strong> molecules · `
+  return `<h4>In this scene</h4>`
+    + `<p class="astat"><strong>${total.toLocaleString()}</strong> macromolecules placed · `
     + `<strong>${instancedMeshes.length}</strong> distinct species · `
     + `<strong>${cats.length}</strong> functional categories</p>`
-    + `<table class="atbl"><thead><tr><th>category</th><th>species</th><th>molecules</th></tr></thead>`
-    + `<tbody>${rows}</tbody></table>`;
+    + `<table class="atbl"><thead><tr><th>category</th><th>species</th><th>placed</th></tr></thead>`
+    + `<tbody>${rows}</tbody></table>`
+    + `<p class="anote">For scale: the whole cell holds ≈30 billion molecules — ≈99.99% water,`
+    + ` ions &amp; metabolites that aren't drawn. This scene is the macromolecular machinery.</p>`;
 }
 const aboutBtn = document.getElementById("about-btn");
 const aboutPanel = document.getElementById("about-panel");

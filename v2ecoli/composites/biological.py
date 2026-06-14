@@ -21,7 +21,13 @@ from v2ecoli.composites._remap import remap_cell_state
 
 @composite_generator(
     name="biological",
-    description="Biologically-organized E. coli whole-cell model — relabeled store hierarchy",
+    description=(
+        "Biologically-organized whole-cell E. coli model. Runs the exact same "
+        "55-process simulation as baseline (bit-identical results) but relabels the "
+        "store hierarchy into cellular compartments and molecular classes — "
+        "cell/molecules, cell/observables, environment/…, machinery/…, clock/… — so "
+        "the bigraph reads as biology rather than plumbing."
+    ),
     emitters=[
         {
             "address": "local:ParquetEmitter",

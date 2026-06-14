@@ -327,24 +327,24 @@ study_card:
 readouts:
 - name: likelihood-dispersion-fits
   status: planned
-  path: 'planned output: out/trajectories/likelihood_fits.csv (not yet produced)'
+  path: (planned) out/trajectories/likelihood_fits.csv
   units: MLE +/- 95% CI
   notes: 'Per modality: NegBin phi (RNA-seq), log-normal sigma (proteomics), normal-on-log sigma_mu (growth), per-metabolite
     sigma (metabolomics).'
 - name: log-likelihood-accumulator
   status: planned
-  path: 'planned output: .pbg/runs/<id>/log_likelihood.zarr (not yet produced)'
+  path: (planned) .pbg/runs/<id>/log_likelihood.zarr
   units: log-likelihood units
   notes: 'Time-series of incremental log-L contributions from ODE segments + jump events. Required: zero underflows over 10^4
     test runs.'
 - name: abc-smc-posterior
   status: planned
-  path: 'planned output: .pbg/runs/<id>/posterior_particles.zarr (not yet produced)'
+  path: (planned) .pbg/runs/<id>/posterior_particles.zarr
   units: particle samples + weights
   notes: 'ABC-SMC convergence trace: ESS, proposal acceptance rate, epsilon-decay schedule per SMC step.'
 - name: sbc-rank-histogram
   status: planned
-  path: 'planned output: out/trajectories/sbc_ranks.csv (not yet produced)'
+  path: (planned) out/trajectories/sbc_ranks.csv
   units: rank in [0, K]
   notes: 'K=1000 SBC draws. Gating: chi^2 uniformity p > 0.05 + 90% CI coverage >= 85% empirical.'
 planned_runs:
@@ -667,6 +667,7 @@ findings:
   provenance:
     run_ids: [phase3-surrogate-calibration, phase3-abc-smc-recovery, phase3-sbc-k150, phase3-ppc]
   next_action: 'Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.'
+  next_action_type: escalate_model
 - id: abc-smc-multiparameter-identifiable
   kind: computational
   status: confirms
@@ -683,3 +684,50 @@ findings:
   provenance:
     run_ids: [phase3-abc-smc-2d]
   next_action: 'Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.'
+  next_action_type: calibrate
+# --- v4 narrative spine (filled from existing study content; honest, no new results) ---
+runtime:
+  notes: 'simulation_status: not_started for the full-WCM inference loop (gate: blocked). The committed
+    evidence is on count SURROGATES: ABC-SMC + SBC (K=150) + PPC on a WCM-calibrated negative-binomial/Poisson
+    surrogate, and a 2-parameter ABC-SMC + SBC (K=80) on a synthetic over-dispersed surrogate.'
+assumptions:
+- A count-level likelihood (NegBin for RNA-seq, log-normal for proteomics, etc.) is an adequate observation model for Bayesian inference over the PDMP.
+- ABC-SMC + Simulation-Based Calibration + posterior-predictive checks are the right validation triad for the inference machinery.
+- A surrogate forward model calibrated once to real WCM count statistics is a faithful stand-in until the compiled full-WCM-in-the-loop runtime (Phase 4) lands.
+enforced_params:
+- name: implementation_status
+  value: inference engine validated on surrogates; full-WCM-in-the-loop deferred to Phase 4
+- name: gate
+  value: blocked — the K=1000 multi-modality full-WCM inference-ready gate is not met
+biological_summary: 'Builds the likelihood + Bayesian-inference layer that lets the PDMP whole-cell model
+  be fit to (and questioned by) data: per-modality likelihoods, a streaming log-likelihood accumulator,
+  ABC-SMC posteriors, and SBC/PPC validation. A real methodological result fell out — the WCM Poisson
+  count posterior is sharp (~300× tighter than a toy), so ABC needs n_generations=12 to converge, and SBC
+  correctly rejected an under-converged ng=6 run before passing at ng=12.'
+literature_anchors:
+- key: talts2018sbc
+  relevance: Simulation-Based Calibration — the core posterior-validation method used here.
+- key: chirho2024
+  relevance: Probabilistic / causal-probabilistic inference framing for the observe-intervene machinery.
+- key: saa2017
+  relevance: Bayesian inference for kinetic/metabolic model parameters.
+- key: cook2006posterior
+  relevance: Posterior-quantile / calibration validation underpinning the SBC check.
+model_change: 'Adds an inference layer (likelihoods + ABC-SMC + SBC/PPC) alongside the PDMP; no change to
+  the forward biological mechanism. The observation models are the new modelling commitment.'
+implementation_requirements:
+- A likelihood library across ≥4 data modalities + a numerically-stable streaming log-likelihood accumulator (zero underflow over 1e4 runs).
+- ABC-SMC with adaptive-epsilon, importance weights, and an N-dimensional perturbation kernel (scalar + vector theta).
+- SBC (rank-uniformity) and PPC (coverage) harnesses; the compiled full-WCM-in-the-loop runtime from Phase 4 for the K=1000 gate.
+design_pivot_required: 'No pivot. The engine is validated on surrogates; the remaining work is scaling to
+  multi-modality summaries and the full WCM in the loop (needs the Phase-4 compiled runtime).'
+conclusion_verdicts:
+- claim: A real ABC-SMC recovers a transcription-init rate, validated by SBC and PPC.
+  verdict: confirmed (on a WCM-calibrated count surrogate)
+  basis: theta_true 1.2 → post_mean 1.1995; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC coverage 0.907; posterior shrinks ~1/sqrt(n).
+- claim: The ABC-SMC engine generalizes to vector theta with joint identifiability.
+  verdict: confirmed (on a synthetic over-dispersed surrogate)
+  basis: 2-param recovery [1.185, 0.993] vs [1.2, 1.0]; per-parameter SBC K=80 PASS; weak posterior correlation.
+- claim: Full-WCM, multi-modality, K=1000 inference-ready gate is met.
+  verdict: not_met
+  basis: Full-WCM-in-the-loop deferred to Phase 4; only surrogate validation exists. Gate blocked.

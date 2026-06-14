@@ -132,7 +132,25 @@ conditions:
     composite: baseline
     params:
       seed: 0
-  variants: []
+  variants:
+  - name: basal_elongation_rate
+    perturbation: "Ribosome translation rate, uniform prior over the UQ range"
+    config_overrides:
+      ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
+    expected_contrast: "Dominant driver of growth-rate variance."
+    measured_contrast: "Total-order Sobol 0.966 (range 0.955–0.987 across 3 seeds) — rank 1."
+  - name: kS
+    perturbation: "ppGpp/charging saturation constant, uniform prior"
+    config_overrides:
+      ecoli-polypeptide-elongation.kS: [60, 140]
+    expected_contrast: "Minor contribution."
+    measured_contrast: "Total-order Sobol 0.036 — rank 2."
+  - name: chrom-basal_elongation_rate
+    perturbation: "DNA-polymerase elongation rate, uniform prior"
+    config_overrides:
+      ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
+    expected_contrast: "Negligible contribution."
+    measured_contrast: "Total-order Sobol 0.011 — rank 3."
   model_settings:
   - name: effective-params-only
     detail: "Parameters screened for real effect; ribosomeElongationRate (runtime-overwritten) and gtpPerElongation (energy-only) were inert and excluded."
@@ -177,6 +195,8 @@ tests:
     op: in_range
     low: 1.0
     high: 1.0
+  # Boolean "did the pipeline run" check (1 = ran end-to-end); no literature band.
+  cites_note: "Operational completeness check, not a literature-derived acceptance band."
 - name: single-elongation-knob-robustly-dominates
   classification: primary
   status: passed
@@ -194,6 +214,10 @@ tests:
     op: in_range
     low: 0.5
     high: 1.0
+  # The "total-order Sobol >= 0.5" dominance threshold is an analyst-chosen
+  # convention for declaring a single driver dominant, not a value from a
+  # publication. Documented as a citation GAP (no fabricated cite added).
+  cites_note: "Sobol >= 0.5 is a methodological dominance threshold; not literature-derived."
 
 runs:
 - name: uq-elongation-effective-n30x3seeds
@@ -215,6 +239,8 @@ runs:
       result: PASS
       detail: "basal_elongation_rate Sobol 0.966 (range 0.955-0.987), dominant across all 3 seeds; test rel-err 1.3-2.1%."
 
+  computed_outcomes:
+    _status: store_unresolved
 visualizations:
 - name: Sobol sensitivity of growth rate
   address: image:charts/sobol_indices.png
@@ -228,6 +254,135 @@ visualizations:
     title: "PCE surrogate response — predicted growth rate vs each parameter (others at midpoint)"
   chart: image
   render: "Growth rate rises with basal_elongation_rate; flat-ish vs kS and DNA-pol rate."
+
+conclusion_logic:
+  if_primary_tests_pass:
+    interpretation: |
+      The pbg-uq forward-UQ pipeline runs end-to-end on v2ecoli AND a single
+      effective elongation knob robustly dominates: ribosome basal_elongation_rate
+      explains ≈96.6% of instantaneous-growth-rate variance (total-order Sobol 0.966,
+      stable across 3 PCRV seeds, ~1.7% surrogate error). First-order ≈ total-order,
+      so the effect is almost entirely direct.
+    pipeline_unblocks:
+    - "param-uq-02-observables extends the same 3 effective knobs to mass observables and a longer window."
+  if_primary_tests_fail:
+    diagnose:
+    - "If no knob reached Sobol >= 0.5, check whether sample independence is intact
+      (fresh initial_state per sample, v2ecoli PR #197) — the original demo's
+      'gtpPerElongation dominates 0.88' reading was a state-carryover artifact."
+    - "If the dominant knob differed across seeds, the surrogate budget (n=30+10) or
+      PCE order may be insufficient; increase samples before trusting the ranking."
+    block_downstream: "A non-robust ranking would invalidate the param-uq-02 extension."
+
+conclusion_verdicts:
+- claim: "Ribosome basal_elongation_rate dominates instantaneous-growth-rate variance among effective knobs."
+  verdict: supported
+  basis: "Total-order Sobol 0.966 (range 0.955–0.987, 3 seeds), ~27× the next knob; surrogate rel-err 1.3–2.1%."
+- claim: "The dominance is direct, not interaction-driven."
+  verdict: supported
+  basis: "First-order Sobol 0.956 ≈ total-order 0.966 (interaction ≈ 0.010)."
+- claim: "The original demo's 'gtpPerElongation dominates (0.88)' reading was a state-carryover artifact."
+  verdict: supported
+  basis: "Two of its three knobs were inert; fixing shared initial_state (PR #197) removes the spurious signal."
+
+readouts:
+- name: instantaneous_growth_rate
+  notes: "listeners.mass.instantaneous_growth_rate — the responsive growth observable over a 120-step window."
+- name: sobol_indices
+  notes: "Total-order and first-order Sobol indices per knob (analytic, from PCE coefficients)."
+- name: pce_test_error
+  notes: "PCE surrogate test relative error (held-out 10 samples per seed)."
+
+enforced_params:
+- ecoli-polypeptide-elongation.basal_elongation_rate
+- ecoli-polypeptide-elongation.kS
+- ecoli-chromosome-replication.basal_elongation_rate
+
+study_card:
+  goal: |
+    Run a trustworthy forward UQ (PCRV-sampled order-2 PCE + analytic Sobol) on the
+    3 effective elongation knobs from param-uq-00 to identify which most drives
+    instantaneous-growth-rate variance, and confirm the ranking is seed-robust.
+  why_before_next: |
+    Establishing a single robust dominant driver (and correcting the earlier
+    state-carryover artifact) is the foundation the multi-observable (param-uq-02)
+    and cell-cycle-stratified (param-uq-03) studies build on.
+
+biological_summary: |
+  Ribosome basal elongation rate sets how fast ribosomes add amino acids, directly
+  controlling protein-synthesis flux and therefore growth rate. The UQ confirms this
+  mechanism quantitatively: basal_elongation_rate dominates growth-rate variance
+  (Sobol ≈ 0.97), while the ppGpp/charging constant kS and the DNA-polymerase
+  elongation rate act more indirectly and weakly on short-window growth rate.
+
+literature_anchors:
+- expectation: |
+    Ribosome basal_elongation_rate is experimentally tunable downward via
+    sub-inhibitory chloramphenicol, and the v2ecoli baseline value (~22 aa/s) derives
+    from the wcEcoli/v2ecoli mechanistic parameterization.
+  model_observable: "ecoli-polypeptide-elongation.basal_elongation_rate (UQ range 15–28 aa/s)"
+  source: "v2ecoli baseline parameterization (Macklin et al. 2020)"
+  status_in_workspace: "Verified — the UQ prior brackets the documented default."
+  cites: [macklin2020]
+
+model_change:
+  base_model: v2ecoli.composites.baseline
+  new_processes: []
+  new_parameters: []
+  modified_processes: []
+  notes: |
+    No model change — config_overrides perturb existing process-config scalars. The
+    external pbg-uq driver (examples/v2ecoli_uq_ensemble.py) wraps baseline() per
+    sample with the XArray emitter; the only correctness requirement is a fresh
+    initial_state per sample (v2ecoli PR #197).
+
+implementation_requirements:
+- id: req-pbg-uq-driver
+  kind: harness
+  title: pbg-uq ensemble driver for v2ecoli
+  effort: M
+  description: |
+    examples/v2ecoli_uq_ensemble.py: PCRV sampler → per-sample baseline sim (XArray
+    emitter, run_multigen_xarray) → order-2 Legendre PCE (lsq) → analytic Sobol →
+    figures + uq_report.html. Runs 3 PCRV seeds (0,1,2).
+  unblocks:
+  - forward-uq-pipeline-runs-end-to-end
+  - single-elongation-knob-robustly-dominates
+- id: req-fresh-initial-state
+  kind: correctness
+  title: Deep-copy initial_state per sample (v2ecoli PR #197)
+  effort: S
+  description: |
+    Without independent initial states the buggy shared-bundle path lets dry_mass
+    climb by sample index, producing the spurious gtpPerElongation dominance.
+  unblocks:
+  - single-elongation-knob-robustly-dominates
+
+design_pivot_required:
+- id: PIVOT-correct-demo-parameters
+  status: accepted
+  question: "Should the UQ reuse the original demo's 3 parameters (incl. gtpPerElongation, ribosomeElongationRate)?"
+  decision: |
+    NO. The param-uq-00 screen showed ribosomeElongationRate (runtime-overwritten) and
+    gtpPerElongation (energy-accounting-only) are inert. The UQ was redesigned to vary
+    only the 3 EFFECTIVE knobs, and the state-carryover bug was fixed (PR #197). This
+    correction — not the original 'gtpPerElongation dominates' reading — is the result.
+  alternatives:
+  - "Keep the demo's parameters (rejected — 2 of 3 inert, and the result was a carryover artifact)."
+
+simulation_set:
+- name: uq-elongation-effective-n30x3seeds
+  kind: sensitivity_analysis
+  status: ran
+  base_model: v2ecoli.composites.baseline
+  duration_steps: 120
+  seeds: 3
+  details: "30 train + 10 test PCRV samples per seed (3 seeds), order-2 PCE, fresh initial_state per sample; observable instantaneous_growth_rate. Reproducer: pbg-uq examples/v2ecoli_uq_ensemble.py."
+  metrics:
+  - instantaneous_growth_rate
+  pass_fail_tests:
+  - forward-uq-pipeline-runs-end-to-end
+  - single-elongation-knob-robustly-dominates
 
 pipeline_gate:
   prerequisites: []

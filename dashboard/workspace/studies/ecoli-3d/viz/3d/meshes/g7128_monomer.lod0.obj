@@ -1,4 +1,4 @@
-# parsimony mesh: g7128_monomer (source /Users/eranagmon/code/v2e-molecules/workspace/studies/ecoli-3d/viz/3d/structures/g7128_monomer.pdb)
+# parsimony mesh: g7128_monomer (source /Users/eranagmon/code/v2e-flagella/workspace/studies/ecoli-3d/viz/3d/structures/g7128_monomer.pdb)
 # atoms: 3315  voxel: 16 Å  verts: 77  tris: 144
 v -6.2119 -17.6932 -23.7012
 v 2.7112 -17.9672 -23.8474

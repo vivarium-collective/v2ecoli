@@ -1,4 +1,4 @@
-# parsimony mesh: dna_segment (source /Users/eranagmon/code/v2e-molecules/workspace/studies/ecoli-3d/viz/3d/structures/dna_segment.pdb)
+# parsimony mesh: dna_segment (source /Users/eranagmon/code/v2e-flagella/workspace/studies/ecoli-3d/viz/3d/structures/dna_segment.pdb)
 # atoms: 566  voxel: 2.5 Å  verts: 1073  tris: 2252
 v -0.9284 1.6828 -20.8576
 v 0.3233 1.5108 -20.9121

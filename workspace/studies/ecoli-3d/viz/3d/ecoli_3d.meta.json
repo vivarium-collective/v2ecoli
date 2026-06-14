@@ -172,7 +172,7 @@
   },
   "EG10321-MONOMER": {
    "display_name": "flagellar filament structural protein",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 1571
   },
   "EG12794-MONOMER": {
@@ -217,7 +217,7 @@
   },
   "EG11545-MONOMER": {
    "display_name": "flagellar hook-filament junction protein 2",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 980
   },
   "G7522-MONOMER": {
@@ -242,7 +242,7 @@
   },
   "G360-MONOMER": {
    "display_name": "flagellar biosynthesis, initiation of hook assembly",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 879
   },
   "G6151-MONOMER": {
@@ -252,7 +252,7 @@
   },
   "G6623-MONOMER": {
    "display_name": "flagellar brake protein YcgR",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 864
   },
   "EG11837-MONOMER": {
@@ -282,7 +282,7 @@
   },
   "G6562-MONOMER": {
    "display_name": "flagellar biosynthesis protein FlgN",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 831
   },
   "EG11096-MONOMER": {
@@ -372,7 +372,7 @@
   },
   "EG11388-MONOMER": {
    "display_name": "flagellar biosynthesis protein FliS",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 619
   },
   "EG11581-MONOMER": {
@@ -382,7 +382,7 @@
   },
   "EG11389-MONOMER": {
    "display_name": "flagellar biosynthesis protein FliT",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 606
   },
   "G7173-MONOMER": {
@@ -437,7 +437,7 @@
   },
   "EG10841-MONOMER": {
    "display_name": "flagellar filament capping protein",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 561
   },
   "G7326-MONOMER": {
@@ -512,7 +512,7 @@
   },
   "EG11967-MONOMER": {
    "display_name": "flagellar hook-filament junction protein 1",
-   "category": "Envelope",
+   "category": "Motility",
    "count": 476
   },
   "EG11894-MONOMER": {
@@ -619,6 +619,11 @@
    "display_name": "ferric enterobactin esterase",
    "category": "Metabolism",
    "count": 372
+  },
+  "CPLX0-7452": {
+   "display_name": "flagellum (motor + filament)",
+   "category": "Motility",
+   "count": 9
   },
   "lipid": {
    "display_name": "Membrane phospholipid",

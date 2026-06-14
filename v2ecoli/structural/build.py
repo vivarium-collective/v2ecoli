@@ -18,6 +18,7 @@ from pathlib import Path
 import numpy as np
 
 from pbg_parsimony import Ingredient, Capsule, Chromosome, StructureRef, build_pack
+from pbg_parsimony.structures import fetch
 
 DATA = Path(__file__).parent / "data"
 
@@ -26,7 +27,7 @@ CATEGORY_COLOR = {
     "Translation": (0.95, 0.55, 0.25), "Transcription": (0.35, 0.6, 0.95),
     "Nucleoid": (0.85, 0.75, 0.45), "Metabolism": (0.45, 0.8, 0.5),
     "Protein folding": (0.95, 0.85, 0.3), "Envelope": (0.8, 0.55, 0.85),
-    "Regulation": (0.9, 0.4, 0.5),
+    "Regulation": (0.9, 0.4, 0.5), "Motility": (0.25, 0.78, 0.72),
 }
 
 # Large assemblies whose abundance is best taken as a representative count and
@@ -43,6 +44,109 @@ DISPLAY = {
     "groel": "GroEL/ES chaperonin",
     "EG10367-MONOMER": "glyceraldehyde-3-phosphate dehydrogenase (GAPDH)",
 }
+
+# ── assembled complexes from the bulk ───────────────────────────────────────
+# v2ecoli tracks assembled complexes (CPLX*) in the bulk, but AlphaFold only
+# models single chains, so a complex needs a real assembled structure. Each
+# catalog entry maps a bulk complex id → an "arrangement" that resolves to a
+# structure, placed at the complex's bulk count (like the curated assemblies).
+#   arrangement "motor+filament": composite of a basal-body/motor PDB at the
+#   base + a flagellin filament PDB repeated into a whip (built at run time).
+# (Future complexes without an assembled PDB can use a stoichiometry-driven
+#  blob: read subunits from complexation_reactions.tsv + pack their AlphaFolds.)
+COMPLEX_CATALOG = [
+    # complex_id,   display_name,                 category,    arrangement,      region
+    ("CPLX0-7452", "flagellum (motor + filament)", "Motility", "motor+filament", "surface"),
+]
+
+
+def _parse_pdb_atoms(path):
+    out = []
+    for ln in open(path):
+        if ln.startswith(("ATOM", "HETATM")):
+            try:
+                x, y, z = float(ln[30:38]), float(ln[38:46]), float(ln[46:54])
+            except ValueError:
+                continue
+            out.append((x, y, z, (ln[76:78].strip() or ln[12:14].strip()[:1] or "C")))
+    return out
+
+
+def _parse_cif_atoms(path):
+    """Minimal mmCIF ``_atom_site`` loop reader (Cartn_x/y/z + type_symbol)."""
+    lines = Path(path).read_text().splitlines()
+    i = 0
+    while i < len(lines):
+        if lines[i].strip() == "loop_":
+            hdr, j = [], i + 1
+            while j < len(lines) and lines[j].lstrip().startswith("_"):
+                hdr.append(lines[j].strip()); j += 1
+            if any(h.startswith("_atom_site.") for h in hdr):
+                cx, cy, cz = (hdr.index("_atom_site.Cartn_x"),
+                              hdr.index("_atom_site.Cartn_y"),
+                              hdr.index("_atom_site.Cartn_z"))
+                ce = hdr.index("_atom_site.type_symbol") if "_atom_site.type_symbol" in hdr else None
+                out, k = [], j
+                while k < len(lines) and lines[k].strip() and lines[k].strip() not in ("#", "loop_"):
+                    p = lines[k].split()
+                    if len(p) >= len(hdr):
+                        try:
+                            out.append((float(p[cx]), float(p[cy]), float(p[cz]),
+                                        (p[ce] if ce is not None else "C")))
+                        except ValueError:
+                            pass
+                    k += 1
+                return out
+            i = j
+        else:
+            i += 1
+    return []
+
+
+def _align_to_z(coords):
+    """Rotate the structure's longest axis (PCA) onto +z, centred at origin."""
+    c = coords - coords.mean(0)
+    _, _, vt = np.linalg.svd(c, full_matrices=False)
+    axis = vt[0]
+    z = np.array([0.0, 0.0, 1.0])
+    v = np.cross(axis, z); s = float(np.linalg.norm(v)); cth = float(np.dot(axis, z))
+    if s < 1e-8:
+        R = np.eye(3) if cth > 0 else np.diag([1.0, -1.0, -1.0])
+    else:
+        vx = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+        R = np.eye(3) + vx + vx @ vx * ((1 - cth) / (s * s))
+    return c @ R.T
+
+
+def _build_flagellum_pdb(struct_cache, *, motor=("cif", "6SD5"), filament=("pdb", "1UCU"),
+                         whip_len=2200.0) -> Path:
+    """Assemble a composite flagellum PDB: motor/basal-body at the base (−z,
+    membrane side) + a flagellin filament repeated into a whip along +z. Returns
+    the composite path; the whip points along local +z so a ``surface`` ingredient
+    with principal_vector (0,0,1) anchors the motor in the envelope, whip outward."""
+    struct_cache = Path(struct_cache); struct_cache.mkdir(parents=True, exist_ok=True)
+    out = struct_cache / "flagellum.pdb"
+    if out.exists() and out.stat().st_size > 0:
+        return out
+    fil = _parse_pdb_atoms(fetch(StructureRef(*filament), struct_cache))
+    mot = (_parse_cif_atoms if motor[0] == "cif" else _parse_pdb_atoms)(
+        fetch(StructureRef(*motor), struct_cache))
+    fz = _align_to_z(np.array([(x, y, z) for x, y, z, _ in fil])); fe = [e for *_, e in fil]
+    mz = _align_to_z(np.array([(x, y, z) for x, y, z, _ in mot])); me = [e for *_, e in mot]
+    seg = float(fz[:, 2].max() - fz[:, 2].min()) or 1.0
+    nrep = max(3, int(round(whip_len / seg)))
+    atoms = []
+    mb = mz.copy(); mb[:, 2] -= mz[:, 2].max()                 # motor top at z=0 (base below)
+    atoms += [(x, y, z, e) for (x, y, z), e in zip(mb, me)]
+    f0 = fz.copy(); f0[:, 2] -= fz[:, 2].min()                  # filament base at z=0
+    for r in range(nrep):
+        atoms += [(x, y, z + r * seg, e) for (x, y, z), e in zip(f0, fe)]
+    with open(out, "w") as f:
+        for i, (x, y, z, e) in enumerate(atoms, 1):
+            f.write(f"ATOM  {i % 100000:5d}  CA  ALA A{i % 9999:4d}    "
+                    f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          {e:>2}\n")
+        f.write("END\n")
+    return out
 
 
 def _flat_dir() -> Path:
@@ -86,6 +190,8 @@ def categorize(name: str) -> str:
         return "Translation"
     if any(k in n for k in ("rna polymerase", "transcription termin", "transcription antitermin", "sigma factor")):
         return "Transcription"
+    if any(k in n for k in ("flagell", "motil", "chemotax", "flagellar hook", "flagellar motor")):
+        return "Motility"
     if any(k in n for k in ("regulator", "repressor", "activator", "transcriptional dual")):
         return "Regulation"
     if any(k in n for k in ("dna-binding", "dna gyrase", "dna polymerase", "topoisomerase",
@@ -145,11 +251,15 @@ def _uniprot(ecocyc, genes, umap, gene_symbol=None):
     return acc
 
 
-def select_ingredients(counts, *, top_n=40, lipid_count=40000):
-    """Curated assemblies + the top-N most-abundant protein monomers (AlphaFold,
-    skipping individual ribosomal proteins) + a membrane lipid. Returns a list of
-    :class:`pbg_parsimony.Ingredient` (counts are pre-scale; build_pack scales)."""
+def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None):
+    """Curated assemblies + assembled complexes from the bulk + the top-N
+    most-abundant protein monomers (AlphaFold, skipping individual ribosomal
+    proteins) + a membrane lipid. Returns a list of :class:`pbg_parsimony.Ingredient`
+    (counts are pre-scale; build_pack scales). ``struct_cache`` is where composite
+    complex structures are assembled (defaults to a temp dir)."""
+    import tempfile
     prot, genes, umap = _proteins(), _genes(), _uniprot_map()
+    struct_cache = Path(struct_cache) if struct_cache else Path(tempfile.mkdtemp())
     ingredients, already = [], set()
 
     for key, gene, cat, struct, ckey, region in CURATED:
@@ -188,12 +298,27 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000):
         cat = categorize(nm)
         # compartment → region via the proteins.tsv computational compartment
         region = "interior"  # refined below if membrane-y by category
-        if cat == "Envelope":
+        if cat in ("Envelope", "Motility"):
             region = "surface"
         ingredients.append(Ingredient(
             id=mid, count=c, structure=StructureRef("alphafold", acc), region=region,
             display_name=nm, category=cat, color=CATEGORY_COLOR[cat]))
         added += 1
+
+    # Assembled complexes from the bulk (placed at their bulk count).
+    for cid, disp, cat, arrangement, region in COMPLEX_CATALOG:
+        cnt = counts.get(cid, 0)
+        if cnt <= 0:
+            continue
+        if arrangement == "motor+filament":
+            pdb = _build_flagellum_pdb(struct_cache)
+            ingredients.append(Ingredient(
+                id=cid, count=cnt, structure=StructureRef("file", str(pdb)),
+                region=region, display_name=disp, category=cat,
+                color=CATEGORY_COLOR[cat], principal_vector=(0, 0, 1),
+                proxy_voxel_size=14.0))
+            already.add(cid)
+        # other arrangements (single PDB, stoichiometry blob) added here later
 
     ingredients.append(Ingredient(
         id="lipid", count=lipid_count, sphere_radius=12.0, region="surface",
@@ -206,7 +331,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=0.3,
                 state_source="snapshot", proxy_lod=2) -> dict:
     """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result."""
     counts, volume_fl = load_state(state_source)
-    ingredients = select_ingredients(counts, top_n=top_n)
+    struct_cache = Path(out_dir) / "structures"
+    ingredients = select_ingredients(counts, top_n=top_n, struct_cache=struct_cache)
     capsule = Capsule.from_volume_fl(volume_fl)
     chromosome = Chromosome(
         beads=34000, spacing=135.0, bead_radius=12.0,

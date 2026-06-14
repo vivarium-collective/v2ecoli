@@ -1406,7 +1406,7 @@ let interiorFraction = 1.0;
 // Target number of drawn instances for the default view — a GPU-friendly load
 // that still reads as a crowded cell. Whole-cell packs (~1M+) are subsampled
 // down to this; smaller packs render in full.
-const TARGET_DRAWN = 400000;
+const TARGET_DRAWN = 250000;
 function applyAdaptiveShowFraction(totalPlacements) {
   if (!totalPlacements) return;
   let pct = Math.min(100, Math.max(5, Math.round((TARGET_DRAWN / totalPlacements) * 100 / 5) * 5));
@@ -1595,8 +1595,14 @@ function reassessLODs() {
       // the level with the minimum bid across the whole scene.
       if (desired >= 0 && !lods[desired].loaded && !lods[desired].loading) {
         lods[desired].wantLoad = true;
-        if (dist < lods[desired].wantPriority) {
-          lods[desired].wantPriority = dist;
+        // Bid by on-screen prominence (bigger projected radius = higher
+        // priority, i.e. more-negative bid). The few large molecules
+        // (membrane complexes, ribosomes) then mesh first instead of
+        // waiting behind the thousands of tiny ones — so big molecules
+        // stop lingering as smooth fallback spheres.
+        const bid = -projectedRadiusPx;
+        if (bid < lods[desired].wantPriority) {
+          lods[desired].wantPriority = bid;
         }
       }
 

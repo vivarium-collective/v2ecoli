@@ -997,11 +997,37 @@ conclusion_logic:
     band (the 15-gen V=1.1e-3 run overshoots). No single CONSTITUTIVE V closes
     both — closing both needs a regulated lever. So the foundation is established
     for the band-stable pool, with the rate tradeoff documented for re-review.
-  if_primary_tests_fail: |
-    Sweep the per-promoter init_prob in [1e-3, 5e-3] to land the rate near
-    target; if the pool cannot be held in band with a clean cell cycle,
-    document the structural difference from the PDF setup (cache, initial
-    condition, or regulation) rather than forcing the value.
+  if_primary_tests_fail:
+    summary: |
+      Sweep the per-promoter init_prob in [1e-3, 5e-3] to land the rate near
+      target; if the pool cannot be held in band with a clean cell cycle,
+      document the structural difference from the PDF setup (cache, initial
+      condition, or regulation) rather than forcing the value.
+    # The spine roll-up reads needs_calibration (not failed): the in-band +
+    # steady tests PASS at canonical V=0.8e-3, but the init-rate PRIMARY test is
+    # an honest PARTIAL (~0.6/min vs ~1/min) — an outstanding, expert-acknowledged
+    # CALIBRATION item, not a failure. It is established here that NO constitutive
+    # V closes both the band and the ~1/min rate, so the rate cannot be calibrated
+    # within this study; the diagnose entry below stamps the seeded study that
+    # resolves it with a regulated lever.
+    diagnose:
+    - issue: >-
+        Residual calibration item driving the needs_calibration roll-up: at the
+        band-stable canonical V=0.8e-3 the dnaA mRNA initiation rate is
+        sub-physiological (~0.6/min vs the ~1/min target) — the PARTIAL init-rate
+        test. ESTABLISHED here (7-point sweep + 15-gen equilibration) that no
+        single CONSTITUTIVE V closes BOTH the in-band pool and the ~1/min rate,
+        so the rate is not calibratable within this study — it needs a REGULATED
+        / cell-cycle-coupled DnaA synthesis lever.
+      seeded_study: dnaa-4-autoregulation
+      status: seeded
+      note: >-
+        dnaa-4-autoregulation (DnaA negative autoregulation — self-stabilizing
+        the DnaA pool WITHOUT the manual V override) is the seeded diagnostic
+        that dissolves this band-vs-rate tension at its root. The expert (Rashmi
+        2026-06-09) approved V=0.8e-3 to move forward with the rate flagged as
+        the known tradeoff; closing the rate is deferred to the regulated lever,
+        not outstanding within dnaa-1.
 
 readouts:
 - name: DnaA monomer total
@@ -1164,6 +1190,10 @@ findings:
   status: novel
   statement: At the now-withdrawn candidate V=1.1e-3, a completed 15-generation run shows the DnaA monomer cycle-mean does NOT equilibrate inside [300,800] — it ramps over the ceiling (peak cycle-mean 976 at gen 9, within-cycle peaks ~1300, gens 6-12 at or above 800) and then relaxes back to 485 by gen 15, an overshoot-then-undershoot rather than an in-band plateau; the original 7-gen in-band reading was a pre-equilibration artifact, confirming that no single constitutive V satisfies both the band and the ~1/min rate. The cell cycle stays healthy throughout (every generation divides, oriC 1↔2, no reinitiation), and the FBA GLP_NOFEAS infeasibilities peak at gen 9 with the DnaA overshoot and vanish by gens 11-15.
 
+- id: F-05
+  statement: 'Resolved: monomer_counts PD03831[c] aggregates all DnaA forms; used directly.'
+  status: draft
+  from_feedback: fb-5f6d9cc74d95768d
 discovery_implications:
   resolved_uncertainties:
   - Mechanism A (runtime overwrite of TU00259[c]'s per-promoter init_prob) is the right lever for dnaA expression — sweeping V down to 0.8e-3 holds the DnaA monomer cycle-mean band-stable in [300,800] for steady gens 4-7 (337/338/360/415, peaks <800) with a clean oriC 1↔2 cycle. The chosen V undershoots the ~1/min init-rate target (0.46–0.71/min); the rate hits target at V≈1.0e-3, where the pool ramps out of band — the two acceptance layers are in tension.

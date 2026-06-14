@@ -27,3 +27,13 @@ responses:
       DEFINITIVE: no single CONSTITUTIVE V closes both targets. V=0.8e-3 is the only V that holds the DnaA pool oscillating within band AND steady (= exactly what you asked for — 'DnaA oscillate within band maintaining steady state') — but its dnaA init rate (~0.6/min) is sub-physiological. V≥1.0e-3 hits ~1/min but the pool overshoots the band. They cannot both be met by a constant synthesis probability.
 
       So for the in-band-and-steady simulation you were looking for, V=0.8e-3 IS it (with the low rate as the known tradeoff). Getting BOTH in-band amplitude AND ~1/min rate would need a REGULATED / cell-cycle-coupled DnaA synthesis (a different lever than a constant V) — a new mechanism for you/Haochen to specify. Figures: dnaa1_v_sweep (7-point), dnaa1_v12_multiseed (4-seed), dnaa1_v11_equilibration (15-gen trajectory).
+actions:
+  fb-62a798f581d7a44b:
+    kind: design-edit
+    target_study: dnaa-1-expression
+    proposed_text: Added 1.2e-3 & 1.3e-3 sweep + 4-seed multiseed at V=1.2e-3; steady across seeds, peaks overshoot 800.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: Added 1.2e-3 & 1.3e-3 sweep + 4-seed multiseed at V=1.2e-3; steady across seeds, peaks overshoot 800.

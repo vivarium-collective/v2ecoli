@@ -27,3 +27,21 @@ responses:
     diagnosis: dnaa-3's recorded run reuses the validated dnaa-2 seed-1 8-gen lineage with box binding applied as a fast-equilibrium ANALYTICAL OVERLAY (render_dnaa3_binding_analysis.py) — not an in-sim binding run.
     action: |-
       DONE. The dnaa_box_binding step is wired into the composite as the provided read-only occupancy listener; the actual in-sim binding simulation ran (read-only, multi-gen full-history lineage, seed 1) and the occupancy/readouts are re-rendered from the REAL run (not the analytical overlay). Full plot set in studies/dnaa-3-box-binding/charts/: oriC, cell mass, DnaA all forms bound+free, concentrations, ATP/ADP fraction across generations, and box occupancy at a steady-state generation.
+actions:
+  fb-5504f1c6d95cffee:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Adopted run recorded under runs[]; outcomes evaluator-computed.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: Adopted run recorded under runs[]; outcomes evaluator-computed.
+  fb-6270c4d1496f465e:
+    kind: finding
+    target_study: dnaa-3-box-binding
+    proposed_text: Adopted depleted-pool Langmuir -> oriC-low not prefilled at birth.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'

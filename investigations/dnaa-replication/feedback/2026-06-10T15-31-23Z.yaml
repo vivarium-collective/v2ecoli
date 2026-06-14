@@ -9,9 +9,9 @@ meta:
   source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-10-5.html"
 annotations:
   "study-dnaa-3-box-binding-readouts":
-    - ts: "2026-06-10T15:30:42.017Z"
-      author: "Rashmi"
-      text: "DnaA level is overshooting we need to tune the rna expression level, to get back within 300-800."
+  - ts: "2026-06-10T15:30:42.017Z"
+    author: "Rashmi"
+    text: "DnaA level is overshooting we need to tune the rna expression level, to get back within 300-800."
 responses:
   study-dnaa-3-box-binding-readouts:
     status: done
@@ -43,3 +43,13 @@ responses:
       dnaa3_fullhist_pergen (6 per-generation readouts), alongside the updated
       dnaa3_box_occupancy / dnaa3_active_binding_adopted / dnaa3_readouts. All with the
       time axis in MINUTES, generation/division demarcation lines, and no gridlines.
+actions:
+  fb-6b89a23f5da893a7:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Tuned V 1e-3->0.8e-3; steady-gen pool mean 630 in [300,800].
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: Tuned V 1e-3->0.8e-3; steady-gen pool mean 630 in [300,800].

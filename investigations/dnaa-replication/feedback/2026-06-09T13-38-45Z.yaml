@@ -2,15 +2,13 @@ meta:
   investigation: dnaa-replication
   report_id: rpt-20260609121548
   generated_at: '2026-06-09T13:38:45.739Z'
-  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start
-    2026-05-29)'
+  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)'
   source_url: file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-09-2.html
 annotations:
   study-dnaa-1-expression-discovery:
   - ts: '2026-06-09T13:38:44.105Z'
     author: Rashmi
-    text: Okay, at this stage 0.8e would be okay to move forward. Lets move to the
-      hydrolysis study.
+    text: Okay, at this stage 0.8e would be okay to move forward. Lets move to the hydrolysis study.
 responses:
   study-dnaa-1-expression-discovery:
     status: done
@@ -59,3 +57,13 @@ responses:
       or dnaa-2's fraction band — resolving the over-binding needs a DIFFERENT
       lever (low-affinity cooperativity, a DnaA sink, or datA titration), not V.
       This corroborates the existing honest over-binding finding.
+actions:
+  fb-9e8b180708fc8290:
+    kind: design-edit
+    target_study: dnaa-1-expression
+    proposed_text: V=0.8e-3 adopted as canonical baseline; expert_review approved; hydrolysis study (dnaa-2) exists + in progress.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: V=0.8e-3 adopted as canonical baseline; expert_review approved; hydrolysis study (dnaa-2) exists + in progress.

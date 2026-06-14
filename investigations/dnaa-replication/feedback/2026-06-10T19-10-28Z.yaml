@@ -9,12 +9,12 @@ meta:
   source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-10-3%20(1).html"
 annotations:
   "study-dnaa-3-box-binding-charts":
-    - ts: "2026-06-10T19:09:25.127Z"
-      author: "Rashmi"
-      text: "DnaA pool is still not stable within 300-800. We need to first get it to oscillate wthin the band by trying out different v values and multiple seeds"
-    - ts: "2026-06-10T19:10:26.904Z"
-      author: "Rashmi"
-      text: "Please also include the circular chromosome schematic which keeps track of the box occupancy so that we see if the fix worked."
+  - ts: "2026-06-10T19:09:25.127Z"
+    author: "Rashmi"
+    text: "DnaA pool is still not stable within 300-800. We need to first get it to oscillate wthin the band by trying out different v values and multiple seeds"
+  - ts: "2026-06-10T19:10:26.904Z"
+    author: "Rashmi"
+    text: "Please also include the circular chromosome schematic which keeps track of the box occupancy so that we see if the fix worked."
 responses:
   study-dnaa-3-box-binding-charts:
     status: done
@@ -50,3 +50,22 @@ responses:
       302->604), and free DnaA-ATP sits ~5-67 nM BELOW the 100 nM K_d (was ~389 nM above) —
       the over-binding resolved. The POOL-band issue (point 1) is the separate, V-independent
       problem that autoregulation addresses.
+actions:
+  fb-e068a4797be2542e:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: 'V-sweep: no constitutive V holds the band -> seeded dnaa-4 (autoregulation); residual is the V-tension, tracked there.'
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: 'V-sweep: no constitutive V holds the band -> seeded dnaa-4 (autoregulation); residual is the V-tension, tracked there.'
+  fb-c3b91175d4238d1b:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: chromosome_dnaa_boxes + replication animation + occupancy charts show box occupancy on the fix.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: chromosome_dnaa_boxes + replication animation + occupancy charts show box occupancy on the fix.

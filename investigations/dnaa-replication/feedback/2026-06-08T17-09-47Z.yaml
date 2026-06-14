@@ -26,3 +26,13 @@ responses:
         V=1.7e-3: pool 530/1032/1642; rate ~1.59/min (HIGH)
 
       KEY FINDING: no single V satisfies BOTH the in-band pool AND the ~1/min rate — the two regions do not overlap. The pre-division pool PEAK and the init rate both climb monotonically with V, so raising the rate to ~1/min forces the peak to ~1161+ (well over 800). So it's a genuine tradeoff at this initial condition, not a tuning miss: V=0.8e-3 = in-band pool but sub-physiological rate; V=1.0-1.1e-3 = ~1/min rate but the pool peaks over band. Your call which to prioritize — OR, if both must hold, it needs a different lever than V (e.g. cell-cycle-coupled synthesis, faster DnaA turnover, or a higher-DnaA initial condition). Flagged for your decision.
+actions:
+  fb-b81cbdfa1a9d66b4:
+    kind: design-edit
+    target_study: dnaa-1-expression
+    proposed_text: Rendered 7-point choose-the-V sweep figure (band+rate panels); documents non-overlapping band-vs-rate regions.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:30Z'
+    applied_note: Rendered 7-point choose-the-V sweep figure (band+rate panels); documents non-overlapping band-vs-rate regions.

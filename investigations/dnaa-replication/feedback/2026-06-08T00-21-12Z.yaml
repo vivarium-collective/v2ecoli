@@ -35,3 +35,21 @@ responses:
     status: addressed-with-open-finding
     response: |-
       Mechanism discipline fixed: the box cap AND the sink (both non-provided) are removed; the model is strictly the provided read-only observer. On the science — we checked your point directly. The DnaA-ATP FRACTION is in band (0.23, in [0.2,0.5]). But across all 7 generations the free DnaA-ATP CONCENTRATION stays ~380-550 nM (mean ~430) — about 4x the 100 nM oriC-low K_d — for 100% of every cell cycle, so oriC low-affinity occupancy remains ~0.8 throughout, every generation (high-affinity pools saturate, K_d 1 nM). So with only the provided mechanisms the low-affinity sites do NOT become modestly occupied even with the correct ATP fraction — the over-binding persists. We are NOT re-introducing a cap or sink to force it down; we're flagging this honestly as an OPEN question for you/Haochen within the provided mechanisms (nothing in the provided read-only model lowers free DnaA-ATP). Possible next directions live as pending proposed_inputs for you to accept or decline.
+actions:
+  fb-8eff5621c3dd9fd6:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Covered by dnaa3_readouts + dnaa3_fullhist_pergen; occupancy on steady gen-5.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: Covered by dnaa3_readouts + dnaa3_fullhist_pergen; occupancy on steady gen-5.
+  fb-658ef634703b7636:
+    kind: finding
+    target_study: dnaa-3-box-binding
+    proposed_text: Box-capacity cap removed; over-binding resolved by the active depleted-pool mechanism (no outside mechanism).
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:31Z'

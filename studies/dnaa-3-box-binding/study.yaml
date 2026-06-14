@@ -13,7 +13,7 @@ design_status: complete            # mechanism + pools + validation fully specif
 implementation_status: in_progress # 2026-06-03: Build started — infra mapped, build_plan below; reactions/pools not yet wired
 simulation_status: ran            # dnaa-3 seed-1 8-gen on the mini (validated composite; binding observational)
 evaluation_status: evaluated      # 4 acceptance tests evaluated from the run
-gate_status: passed         # all 4 acceptance tests PASS on the validated dnaa-2 cache lineage
+gate_status: partial        # 5/6 acceptance tests met on the ADOPTED active-binding run (cell cycle 8/8, oriC 1<->2, 0 re-init, DnaA pool in [300,800], gradual oriC-low fill); the inherited DnaA-ATP-fraction band is NOT met (0.127 bulk / 0.187 total < 0.2) — the documented V-tension, scoped to dnaa-4 (see conclusion_logic.if_primary_tests_fail.diagnose).
 expert_review_status: approved     # Rashmi 2026-06-05 'Plan approved go ahead' (design); implementation + results still to be reviewed once run
 
 seeded_from:
@@ -34,7 +34,7 @@ question: |
 
 report:
   title: dnaa-3 — DnaA box binding (chromosomal + oriC + dnaA-promoter)
-  verdict: pass   # 2026-06-10: ADOPTED Rashmi's ACTIVE box-binding mechanism (PR #162, verified) — over-binding RESOLVED (oriC-low occupancy 0.46 vs read-only ~0.8) + box-doubling fixed (315↔630); cell cycle clean (8/8). The read-only observer is superseded. Chart dnaa3_active_binding_adopted.
+  verdict: partial   # 2026-06-10: ADOPTED Rashmi's ACTIVE box-binding mechanism (PR #162, verified) — over-binding RESOLVED (oriC-low occupancy 0.46 vs read-only ~0.8) + box-doubling fixed (315↔630); cell cycle clean (8/8); DnaA pool in [300,800]. The read-only observer is superseded. Chart dnaa3_active_binding_adopted. PARTIAL (not a clean pass): the inherited DnaA-ATP-fraction acceptance band [0.2,0.5] is NOT met on the adopted run — evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound), both < 0.2. This is the V-tension (V tuned down to hold the pool in band + active binding sequesters DnaA-ATP onto boxes); NO constitutive V satisfies both bands, so it is honestly deferred to dnaa-4 (negative autoregulation), the seeded diagnostic. Not forced to PASS.
   confidence: high
   evidence_quality: empirical
 
@@ -815,7 +815,7 @@ tests:
   pass_if: {op: '==', value: 0}
   baseline_value: 0
 - name: dnaa-atp-fraction-in-band-gen3
-  status: passed
+  status: partial   # NOT met on the ADOPTED active-binding run: evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound) < the [0.2,0.5] band. Inherited from dnaa-2 (where bulk==total, no binding); under active binding DnaA-ATP is sequestered onto boxes + V is tuned down to hold the pool band, depressing the fraction. The documented V-tension — no constitutive V meets both bands; scoped to dnaa-4. Honestly recorded FAIL on the canonical run (computed==authored, reconcile: agree); not forced to pass.
   classification: primary
   description: DnaA-ATP fraction at gen 3 in the [0.2,0.5] band (inherited from dnaa-2).
   measure: {kind: snapshot_window, path: "MONOMER0-160[c] / (MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c])", window: from_generation_3}
@@ -998,12 +998,49 @@ conclusion_logic:
     the DnaA-ATP fraction in [0.2,0.5], while exposing bound/free + per-nucleotide
     partitioning. dnaa-3 passes → unblocks the downstream regulatory +
     mechanistic-initiation studies that act on bound DnaA.
-  if_primary_tests_fail: |
-    The binding here is READ-ONLY, so it cannot perturb the cycle; if the cycle
-    differs from the dnaa-2 baseline that points to a wiring problem, not the
-    binding model. If the box affinities / pool sizes mis-partition the observed
-    free/bound DnaA, revisit the per-pool K_d / site counts before layering further
-    regulation.
+  if_primary_tests_fail:
+    summary: |
+      (Read-only era) The binding observer is READ-ONLY, so it cannot perturb the
+      cycle; if the cycle differed from the dnaa-2 baseline that points to a wiring
+      problem, not the binding model; if the box affinities / pool sizes
+      mis-partition the observed free/bound DnaA, revisit the per-pool K_d / site
+      counts before layering further regulation.
+      (Adopted-mechanism era) The one primary test that does NOT pass on the
+      adopted active-binding run is dnaa-atp-fraction-in-band-gen3: evaluator-computed
+      0.127 (bulk) / 0.187 (total incl. box-bound), both below the inherited
+      [0.2,0.5] band. ESTABLISHED here that this is the V-tension — tuning V down to
+      hold the DnaA pool in [300,800] plus active binding sequestering DnaA-ATP onto
+      boxes both depress the ATP fraction, and NO single constitutive V closes both
+      the pool band and the ATP-fraction band — so the fraction cannot be calibrated
+      within this study. It is deferred to a REGULATED / feedback-controlled DnaA
+      synthesis lever, not forced.
+    # The spine roll-up reads 'failed' (the ATP-fraction PRIMARY test is an honest
+    # code FAIL on the canonical run; computed==authored, reconcile: agree — it is
+    # not softened). It is NOT a refutation of the adopted mechanism (which meets
+    # its core goals: cell cycle preserved, over-binding resolved, box-doubling
+    # fixed, pool in band) but a known constitutive-V tension; the diagnose entry
+    # below stamps the seeded study that resolves it with a regulated lever, which
+    # is why the verdict is authored 'partial' rather than a clean pass or fail.
+    diagnose:
+    - issue: >-
+        Residual calibration item driving the failed/partial roll-up: on the
+        ADOPTED active-binding run (dnaa3_adopt_v0p8e3_seed0) the DnaA-ATP fraction
+        is 0.127 (bulk) / 0.187 (total incl. box-bound), BELOW the inherited
+        [0.2,0.5] band. ESTABLISHED here that active box binding sequesters
+        DnaA-ATP and that no single CONSTITUTIVE V closes BOTH the in-band DnaA
+        pool [300,800] and the ATP-fraction band — so the fraction is not
+        calibratable within this study; it needs a REGULATED / feedback-controlled
+        DnaA synthesis lever.
+      seeded_study: dnaa-4-autoregulation
+      status: seeded
+      note: >-
+        dnaa-4-autoregulation (DnaA negative autoregulation — self-stabilizing the
+        DnaA pool WITHOUT the manual V override) is seeded_from this study and is
+        the diagnostic that dissolves this band-vs-fraction V-tension at its root by
+        wiring DnaA-ATP repression of its own promoter into transcription. The
+        adopted box-binding mechanism is accepted (over-binding resolved,
+        box-doubling fixed, cell cycle clean, pool in band); closing the ATP
+        fraction is deferred to the regulated lever, not outstanding within dnaa-3.
 
 prerequisites:
 - dnaa-2-nucleotide-balance must hold its baseline (V=1e-3 succinate, DnaA-ATP in band).
@@ -1017,8 +1054,14 @@ pipeline_gate:
   # this investigation; bound/free + per-nucleotide partitioning is provided so
   # such studies COULD be built later, but none are declared here.
   enables: []
-  gate_status: passed         # all 4 acceptance tests PASS on the validated dnaa-2 cache lineage
+  gate_status: partial        # ADOPTED active-binding run: 5/6 acceptance tests met; the inherited DnaA-ATP-fraction band is NOT met (V-tension) — scoped to dnaa-4 (conclusion_logic.if_primary_tests_fail.diagnose). See top-level gate_status.
 
+  gate_evaluator:
+    result: failed
+    blocked_by:
+    - dnaa-atp-fraction-in-band-gen3
+    evaluated_by: code
+    diverges_from_authored: false
 simulation_set:
 - name: dnaa3-boxbinding-seed1-8gen-succinate
   kind: single-seed-multigen-lineage
@@ -1199,6 +1242,26 @@ findings:
     run_ids:
     - dnaa3_adopt_v1e3_seed0
     verified_by: scripts/render_dnaa3_occupancy.py
+- id: F-08
+  statement: Box-doubling 315<->630 confirmed on the adopted run.
+  status: draft
+  from_feedback: fb-443377e0bb123a6a
+- id: F-09
+  statement: Box-capacity cap removed; over-binding resolved by the active depleted-pool mechanism (no outside mechanism).
+  status: draft
+  from_feedback: fb-658ef634703b7636
+- id: F-10
+  statement: Over-binding resolved — gradual oriC-low fill ~0.3->0.7, not pinned ~0.8.
+  status: draft
+  from_feedback: fb-68f3261b233c880e
+- id: F-11
+  statement: Adopted depleted-pool Langmuir -> oriC-low not prefilled at birth.
+  status: draft
+  from_feedback: fb-6270c4d1496f465e
+- id: F-12
+  statement: Free DnaA reported in nM via cell volume, comparable to the nM K_d.
+  status: draft
+  from_feedback: fb-3438ce7b9714d53e
 discovery_implications:
   resolved_uncertainties:
   - The oriC low-affinity OVER-BINDING (read-only observer pinned ~0.8) is RESOLVED by Rashmi's adopted active depleted-pool Langmuir mechanism (PR #162) — the active solve depletes the free DnaA-ATP pool, so oriC-low occupancy fills GRADUALLY over the cycle (gen-5 ~0.3 at birth -> ~0.7 toward initiation; chart dnaa3_box_occupancy), not pinned. It is NOT all-filled at the start, matching the expected biology.

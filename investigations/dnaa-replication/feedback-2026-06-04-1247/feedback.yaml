@@ -9,10 +9,28 @@ meta:
   source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-04-7.html"
 annotations:
   "study-dnaa-2-nucleotide-balance-charts":
-    - ts: "2026-06-04T12:25:13.651Z"
-      author: "Rashmi"
-      text: "for this section, remove plots from previous runs because it is confusing. Keep only the latest run."
+  - ts: "2026-06-04T12:25:13.651Z"
+    author: "Rashmi"
+    text: "for this section, remove plots from previous runs because it is confusing. Keep only the latest run."
   "study-dnaa-2-nucleotide-balance-tests":
-    - ts: "2026-06-04T12:32:25.418Z"
-      author: "Rashmi"
-      text: "initial generations might not strictly fall within band or fraction because simulation is stabilizing, we can consider the generation average"
+  - ts: "2026-06-04T12:32:25.418Z"
+    author: "Rashmi"
+    text: "initial generations might not strictly fall within band or fraction because simulation is stabilizing, we can consider the generation average"
+actions:
+  fb-c26c6c41d2af5014:
+    kind: design-edit
+    target_study: dnaa-2-nucleotide-balance
+    proposed_text: Generation-average criterion now encoded in the measures (atp op=range; mass op=in_range on per-cycle peak).
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:31Z'
+    applied_note: Generation-average criterion now encoded in the measures (atp op=range; mass op=in_range on per-cycle peak).
+  fb-70ce32ca95fdc411:
+    kind: finding
+    target_study: dnaa-2-nucleotide-balance
+    proposed_text: Visualizations section holds only the latest canonical run.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:31Z'

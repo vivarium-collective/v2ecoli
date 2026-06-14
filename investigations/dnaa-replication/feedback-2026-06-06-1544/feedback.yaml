@@ -9,21 +9,21 @@ meta:
   source_url: "file:///Users/haochen/Documents/Data/WCM/investigation-dnaa-replication-2026-06-05-5.html"
 annotations:
   "study-dnaa-3-box-binding-charts":
-    - ts: "2026-06-06T15:16:47.589Z"
-      author: "Haochen"
-      text: "Could you zoom in or separately plot ori low-affinity box accupancy over time? For now it's too low to see clearly."
-    - ts: "2026-06-06T15:35:24.524Z"
-      author: "Haochen"
-      text: "The initial ~2 generations are not in a steady state, so for occupancy plots it should focus on later generations."
-    - ts: "2026-06-06T15:37:19.895Z"
-      author: "Haochen"
-      text: "When plotting bound DnaA over time, also plot free DnaA over time to compare."
-    - ts: "2026-06-06T15:40:06.751Z"
-      author: "Haochen"
-      text: "It seems that there are 8-9 of the 11 boxes at oriC are always occupied. This is weird, because at each oriC there are 8 low-affinity boxes (K_D~100nM), so DnaA should not always bind there given that free DnaA in the cytoplasm is typically below 100nM. Also, when replication happens, oriC doubles, so the oriC boxes also doubles, but the illustration figure did not reflect this information."
-    - ts: "2026-06-06T15:42:25.040Z"
-      author: "Haochen"
-      text: "A separate question: does the model have cell volume information? If so, then for concentration plots it can devide the volume rather than cell mass and then use nM as the unit. This is just for me to check if the concentration values are reasonable. Also those dissociation constants are provided in nM."
+  - ts: "2026-06-06T15:16:47.589Z"
+    author: "Haochen"
+    text: "Could you zoom in or separately plot ori low-affinity box accupancy over time? For now it's too low to see clearly."
+  - ts: "2026-06-06T15:35:24.524Z"
+    author: "Haochen"
+    text: "The initial ~2 generations are not in a steady state, so for occupancy plots it should focus on later generations."
+  - ts: "2026-06-06T15:37:19.895Z"
+    author: "Haochen"
+    text: "When plotting bound DnaA over time, also plot free DnaA over time to compare."
+  - ts: "2026-06-06T15:40:06.751Z"
+    author: "Haochen"
+    text: "It seems that there are 8-9 of the 11 boxes at oriC are always occupied. This is weird, because at each oriC there are 8 low-affinity boxes (K_D~100nM), so DnaA should not always bind there given that free DnaA in the cytoplasm is typically below 100nM. Also, when replication happens, oriC doubles, so the oriC boxes also doubles, but the illustration figure did not reflect this information."
+  - ts: "2026-06-06T15:42:25.040Z"
+    author: "Haochen"
+    text: "A separate question: does the model have cell volume information? If so, then for concentration plots it can devide the volume rather than cell mass and then use nM as the unit. This is just for me to check if the concentration values are reasonable. Also those dissociation constants are provided in nM."
 responses:
   study-dnaa-3-box-binding-charts:
     status: done
@@ -72,3 +72,47 @@ responses:
       K_d); two model gaps surfaced (no oriC-box doubling; read-only non-conservation).
       Resolving it needs a different lever than V — to be taken up with Rashmi's
       box-binding work.
+actions:
+  fb-68f3261b233c880e:
+    kind: finding
+    target_study: dnaa-3-box-binding
+    proposed_text: Over-binding resolved — gradual oriC-low fill ~0.3->0.7, not pinned ~0.8.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'
+  fb-1fe39aab2e5fd817:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Occupancy plotted on steady gens.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'
+    applied_note: Occupancy plotted on steady gens.
+  fb-caa072e07bcd4f28:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Separate zoomed oriC-low occupancy axis (dnaa3_occupancy_haochen).
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'
+    applied_note: Separate zoomed oriC-low occupancy axis (dnaa3_occupancy_haochen).
+  fb-94a7f0683b68213d:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: binding_analysis plots free-vs-K_d + bound-by-pool.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'
+    applied_note: binding_analysis plots free-vs-K_d + bound-by-pool.
+  fb-3438ce7b9714d53e:
+    kind: finding
+    target_study: dnaa-3-box-binding
+    proposed_text: Free DnaA reported in nM via cell volume, comparable to the nM K_d.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'

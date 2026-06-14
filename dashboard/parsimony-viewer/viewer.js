@@ -1731,6 +1731,7 @@ function updateHelpersFromBounds(bbMin, bbMax) {
 let ingredientMeta = {};
 let ingSearchTerm = "";
 let collapsedCats = new Set();
+let selectedName = null;  // currently-selected ingredient (info panel + row highlight)
 const CAT_ORDER = ["Translation", "Transcription", "Nucleoid", "Metabolism",
                    "Protein folding", "Envelope", "Regulation"];
 const CAT_COLOR = {
@@ -1799,6 +1800,53 @@ function allLegendCategories() {
 function expandAllCats() { collapsedCats.clear(); renderLegend(); }
 function collapseAllCats() { collapsedCats = allLegendCategories(); renderLegend(); }
 
+// ── molecule selection: highlight (isolate) the type + an info card that links
+// out to its EcoCyc entry.
+function ecocycUrl(id) {
+  // EcoCyc frame ids start with an uppercase letter and contain a digit
+  // (e.g. EG10367-MONOMER, G6789). Curated keys (70S_ribosome, groel, lipid,
+  // rna_polymerase) aren't EcoCyc frames, so they get no link.
+  return /^[A-Z][A-Z0-9_]*\d/.test(id)
+    ? "https://ecocyc.org/ECOLI/NEW-IMAGE?object=" + encodeURIComponent(id)
+    : null;
+}
+function selectMolecule(name) {
+  const e = nameToEntry(name);
+  if (!e) return;
+  selectedName = name;
+  isolateIngredient(e);     // highlight in 3D by showing only this type (re-renders the legend too)
+  renderInfoPanel(e);
+  setInfo(true);
+}
+function renderInfoPanel(e) {
+  const infoBody = document.getElementById("info-body");
+  if (!infoBody) return;
+  const m = metaFor(e);
+  const disp = m.display_name || e.name;
+  const cat = m.category || "Other";
+  const color = CAT_COLOR[cat] || "#888";
+  const count = e.placements ? e.placements.length : 0;
+  const radius = Math.round(e.enclosingRadius || 0);
+  const id = e.typeId || e.name;
+  const url = ecocycUrl(id);
+  infoBody.innerHTML =
+      `<div class="info-name">${escapeHtml(disp)}</div>`
+    + `<div class="info-cat"><span class="dot" style="background:${color}"></span>${escapeHtml(cat)}</div>`
+    + `<div class="info-stat"><span class="num">${count.toLocaleString()}</span> copies placed</div>`
+    + `<div class="info-stat">size: ~<span class="num">${radius}</span> Å radius</div>`
+    + `<div class="info-actions">`
+    + (url ? `<a class="info-link" href="${url}" target="_blank" rel="noopener">EcoCyc entry ↗</a>`
+           : `<span class="info-link" style="color:var(--text-dim)">no EcoCyc entry</span>`)
+    + `<span class="info-showall" data-showall="1">show all</span>`
+    + `</div>`
+    + `<div class="info-id">id: ${escapeHtml(id)}</div>`;
+}
+function closeInfo() {
+  selectedName = null;
+  setInfo(false);
+  showAllIngredients();  // restore the full view + clear the row highlight
+}
+
 // Render the categorized, searchable ingredient list (always expanded — the
 // list is short). Checkbox = show/hide; click a row = isolate that ingredient;
 // click a category header = isolate that whole category. A single delegated
@@ -1840,11 +1888,13 @@ function renderLegend() {
     html += `<div class="cat-rows">`;
     for (const { entry, disp } of rows) {
       const sizeOff = entry.visible && !inSizeRange(entry);
-      html += `<div class="legend-row${entry.visible ? "" : " off"}${sizeOff ? " size-off" : ""}" data-name="${escapeHtml(entry.name)}" title="${sizeOff ? "outside the size range — adjust the size sliders to show it" : "click to show / hide"}">`
+      const sel = selectedName === entry.name;
+      html += `<div class="legend-row${entry.visible ? "" : " off"}${sizeOff ? " size-off" : ""}${sel ? " selected" : ""}" data-name="${escapeHtml(entry.name)}" title="${sizeOff ? "outside the size range — adjust the size sliders to show it" : "click to show / hide"}">`
         + `<input type="checkbox" class="ing-cb" data-cb="${escapeHtml(entry.name)}" ${entry.visible ? "checked" : ""} title="show / hide">`
         + `<div class="swatch" style="background:#${entry.color.getHexString()}"></div>`
         + `<div class="name">${escapeHtml(disp)}</div>`
         + `<div class="count">${cnt(entry).toLocaleString()}</div>`
+        + `<a class="only" data-info="${escapeHtml(entry.name)}" title="select: highlight + details + EcoCyc link">info</a>`
         + `<a class="only" data-only="${escapeHtml(entry.name)}" title="show only this">only</a>`
         + `</div>`;
     }
@@ -1877,6 +1927,9 @@ legendEl.addEventListener("click", (ev) => {
   // Category checkbox: show/hide every ingredient in the category.
   const catCb = ev.target.closest("input[data-catcb]");
   if (catCb) { setCategoryVisible(catCb.getAttribute("data-catcb"), catCb.checked); return; }
+  // Ingredient "info": select it — highlight + open the info panel.
+  const info = ev.target.closest("[data-info]");
+  if (info) { selectMolecule(info.getAttribute("data-info")); return; }
   // Ingredient "only": isolate just this ingredient.
   const only = ev.target.closest("[data-only]");
   if (only) { const e = nameToEntry(only.getAttribute("data-only")); if (e) isolateIngredient(e); return; }
@@ -2001,6 +2054,55 @@ fileInput.addEventListener("change", (e) => {
 
 resetBtn.addEventListener("click", () => {
   if (dataBounds) framePacking(dataBounds.min, dataBounds.max);
+});
+
+// "about" panel — how the model was made. Generic-viewer default describes the
+// E. coli build; a host can override the whole HTML via window.PARSIMONY_ABOUT.
+const ABOUT_HTML = window.PARSIMONY_ABOUT || `
+  <h3>3D E. coli — how it was made</h3>
+  <p>An interactive structural model of an <em>Escherichia coli</em> cell. Molecular
+  abundances come from a <strong>v2ecoli</strong> whole-cell simulation: the simulated
+  copy number of each protein and complex sets how many copies are placed in the cell.</p>
+  <p>Each species is mapped to a real 3D structure — AlphaFold-predicted monomers plus
+  curated experimental assemblies (70S ribosome, RNA polymerase, GroEL/ES chaperonin) —
+  and packed into a capsule-shaped cell volume by the <strong>parsimony</strong> engine,
+  a cellPACK-style packer. Colours group molecules by functional category.</p>
+  <p class="credit">Built with <a href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener">v2ecoli</a>
+  · packing by <a href="https://github.com/vivarium-collective/pbg-parsimony" target="_blank" rel="noopener">pbg-parsimony</a></p>`;
+const aboutBtn = document.getElementById("about-btn");
+const aboutPanel = document.getElementById("about-panel");
+const aboutBody = document.getElementById("about-body");
+const aboutClose = document.getElementById("about-close");
+if (aboutBody) aboutBody.innerHTML = ABOUT_HTML;
+function setAbout(show) {
+  if (!aboutPanel) return;
+  const willShow = (show === undefined) ? aboutPanel.hasAttribute("hidden") : show;
+  if (willShow) aboutPanel.removeAttribute("hidden");
+  else aboutPanel.setAttribute("hidden", "");
+}
+if (aboutBtn) aboutBtn.addEventListener("click", () => setAbout());
+if (aboutClose) aboutClose.addEventListener("click", () => setAbout(false));
+
+// Molecule info panel (opened by selectMolecule). setInfo is a declaration so
+// selectMolecule can call it regardless of source order.
+function setInfo(show) {
+  const p = document.getElementById("info-panel");
+  if (!p) return;
+  const willShow = (show === undefined) ? p.hasAttribute("hidden") : show;
+  if (willShow) { p.removeAttribute("hidden"); setAbout(false); }
+  else p.setAttribute("hidden", "");
+}
+const infoCloseBtn = document.getElementById("info-close");
+if (infoCloseBtn) infoCloseBtn.addEventListener("click", () => closeInfo());
+const infoBodyEl = document.getElementById("info-body");
+if (infoBodyEl) infoBodyEl.addEventListener("click", (ev) => {
+  if (ev.target.closest("[data-showall]")) showAllIngredients();  // restore view, keep panel open
+});
+
+window.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  setAbout(false);
+  if (selectedName) closeInfo();
 });
 
 // Sidebar collapse toggle: hide the whole side panel so the 3D view gets the

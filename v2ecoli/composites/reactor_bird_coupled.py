@@ -87,24 +87,21 @@ DEFAULT_BIRD_REACTOR_CONFIG: dict[str, Any] = {
 FALLBACK_DISSOLVED_O2_MGL = 8.0
 FALLBACK_DISSOLVED_CO2_MGL = 0.5
 
-# BiRDTransportProcess update interval (HOURS — the reactor physics time base).
+# BiRDTransportProcess update interval (SECONDS — v2ecoli's global time base).
 #
-# IMPORTANT (stability): BiRDTransportProcess.update applies an explicit-Euler
-# transport delta ``dC = kLa*(C* - C)*interval``. The discrete map is stable
-# only when ``kLa*interval < ~1`` (otherwise a deviation is amplified ~kLa*dt
-# per step and the dissolved-gas store diverges/oscillates). For the default
-# bubble_column config kLa_O2 ~= 20.8 /h, so an interval of 1.0 h is wildly
-# unstable; 0.01 h gives a damping factor ~0.2 and the reactor relaxes to the
-# gas-liquid equilibrium monotonically.
+# TIME BASE (the proper fix; mbp-03 T5): the WCM steps in SECONDS while the BiRD
+# transport math is in HOURS (``dC = kLa[1/h]*(C*-C)*interval`` with interval
+# treated as hours). We wire the v2ecoli-side ``BiRDTransportHours`` adapter
+# (local:BiRDTransportHours) which converts the per-second interval to hours
+# (/3600) before the upstream transport update — mirroring ReactorCellCoupler's
+# own timestep/3600 conversion so both transport and consumption deltas land on
+# the same per-second basis. The interval below is therefore a NORMAL per-second
+# WCM step (no damping hack).
 #
-# NOTE (time base): the WCM steps in SECONDS while BiRD is in HOURS. process-
-# bigraph feeds this interval (in global-time units = seconds) straight into the
-# transport math as hours, so the reactor over-transports relative to wall-clock
-# (it holds the dissolved gases near saturation each cell tick). The proper
-# seconds->hours bridge (a thin wrapper, mirroring the coupler's own /3600
-# conversion) is mbp-03 T5 follow-up; this composite's contract is build + a
-# finite single coupled step + correct ADDITIVE store sharing, all of which hold.
-DEFAULT_TRANSPORT_INTERVAL = 0.01
+# Stability: the adapter makes the effective per-step factor kLa[1/h]*(dt_s/3600)
+# = ~20.8 * (1/3600) ~= 0.006 << 1 for the default bubble_column config, so the
+# explicit-Euler transport relaxes monotonically to the gas-liquid equilibrium.
+DEFAULT_TRANSPORT_INTERVAL = 1.0
 
 
 def _transport_equilibrium(bird_config: dict[str, Any]) -> tuple[float, float]:
@@ -255,12 +252,13 @@ def reactor_bird_coupled(
     # --- reactor side: shared stores + transport + coupler ----------------
     state[REACTOR_STORE_NAME] = _reactor_store(bird_config)
 
-    # BiRDTransportProcess (local: link registered in build_core). Reads the
+    # BiRDTransportHours (local: link registered in build_core) — the
+    # seconds->hours time-base adapter over BiRDTransportProcess. Reads the
     # shared dissolved stores + biomass/glucose/gas_flow; emits ADDITIVE deltas
     # to dissolved_o2/co2 (bare float ports) + overwrite diagnostics.
     state[REACTOR_TRANSPORT_NAME] = {
         "_type":   "process",
-        "address": "local:BiRDTransportProcess",
+        "address": "local:BiRDTransportHours",
         "config":  dict(bird_config),
         "interval": DEFAULT_TRANSPORT_INTERVAL,
         "inputs": {

@@ -4,7 +4,7 @@ created: '2026-05-22'
 phase: Design
 
 design_status: drafted
-implementation_status: not_started
+implementation_status: in_progress
 simulation_status: not_run
 evaluation_status: not_evaluated
 expert_review_status: not_requested
@@ -391,6 +391,12 @@ required_knowledge:
     blocks: [coupler implementation]
     asked_to: unassigned
     status: open
+  - id: bird-o2-saturation-temperature-sign-bug
+    question: 'KNOWN UPSTREAM DIVERGENCE (pbg-bioreactordesign#2), NOT fixed here. transport.saturation_concentration applies the Henry temperature correction with the WRONG SIGN: T_factor = exp(-DH*(1/T - 1/298.15)) makes O2 solubility INCREASE with temperature, but O2 solubility physically DECREASES with temperature. Exactly masked at 298.15 K (T_factor == 1) but biases saturation at the mbp-03 310.15 K target: cstar_o2 is reported ~10.24 mg/L where the correct 37 C value is ~6.7 mg/L (should be BELOW the 25 C value of 8.21, not above). All mbp-03 dissolved-O2 magnitudes inherit this bias; the coupling-DIRECTION tests (DO drops with cells, higher kLa raises DO, O2 mass-balance closure) are unaffected because they compare against the same (biased) cstar. Fix belongs upstream in pbg-bioreactordesign.'
+    blocks:
+    - absolute dissolved-O2 calibration at 310 K
+    asked_to: 'pbg-bioreactordesign maintainer (Chris) — file/confirm issue #2'
+    status: open
   - id: reactor-geometry-for-beulig
     question: |
       bubble-column is the mbp-03 default; limitations note "stirred-tank
@@ -529,7 +535,8 @@ runs: []
 tests:
   auto_discover: true
   data_source: latest_run
-  pytest_args: []
+  pytest_args:
+  - tests/test_mbp_03_bird_reactor_coupling.py
   last_results:
 variants:
 - name: one-generation-coupled

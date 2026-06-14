@@ -69,12 +69,25 @@ from v2ecoli.types.stores import InPlaceDict
 MW_O2: float = 31.999
 MW_CO2: float = 44.010
 
-# Metabolism exchange-flux map keys (periplasmic compartment).
+# Metabolism exchange-flux map keys (periplasmic compartment). Used for the
+# environment.external_concentrations write (the cell-side env port IS keyed with
+# the [p] compartment suffix).
 O2_ID: str = "OXYGEN-MOLECULE[p]"
 CO2_ID: str = "CARBON-DIOXIDE[p]"
 
+# v2ecoli reports per-step environmental exchange as molecule COUNTS at
+# agents.*.environment.exchange, keyed by the BARE molecule name (no compartment
+# suffix). Negative == uptake (removed from the environment), positive ==
+# secretion. This is the real consumption source the coupler reads (the molar
+# external_exchange_fluxes path the original draft assumed does not exist in
+# v2ecoli's live state — see metabolism._fba_output_to_deltas: delta_nutrients is
+# "the cumulative count added to the environment store").
+O2_EXCHANGE_KEY: str = "OXYGEN-MOLECULE"
+CO2_EXCHANGE_KEY: str = "CARBON-DIOXIDE"
+
 SECONDS_PER_HOUR: float = 3600.0
 FG_PER_GRAM: float = 1.0e-15
+AVOGADRO: float = 6.02214076e23  # 1/mol
 
 DEFAULT_CELLS_PER_AGENT: float = 1.0
 DEFAULT_REACTOR_VOLUME_L: float = 1.0
@@ -151,23 +164,43 @@ class ReactorCellCoupler(Step):
             env_concs[CO2_ID] = _as_float(dco2) / MW_CO2
 
         # 3. Metabolic exchange demand -> additive dissolved-gas delta (mg/L).
+        #
+        # v2ecoli emits per-step environmental exchange as molecule COUNTS at
+        # agents.*.environment.exchange (negative == uptake). Convert counts/step
+        # for one agent, scaled by cells_per_agent (representative-sampling
+        # population scale), to a mg/L delta on the shared dissolved store:
+        #
+        #   delta[mg/L] = counts * cells_per_agent / N_A[1/mol]
+        #                 * MW[g/mol] * 1000[mg/g] / volume_L
+        #
+        # The counts already cover one WCM step, so NO interval (timestep/3600)
+        # scaling is applied here. Sign flows straight through: negative O2
+        # counts (uptake) -> negative dissolved_o2 delta. This is the per-step
+        # mass exchanged between the cell population and the reactor liquid.
         agents = states.get("agents") or {}
-        interval_h = float(timestep) / SECONDS_PER_HOUR
-        o2_rate = 0.0   # mmol/h, signed (negative == uptake)
-        co2_rate = 0.0  # mmol/h, signed (positive == evolution)
+        o2_counts = 0.0   # molecules/step, signed (negative == uptake)
+        co2_counts = 0.0  # molecules/step, signed (positive == secretion)
         for _agent_id, agent_state in agents.items():
-            cell_mass_fg = _extract_cell_mass_fg(agent_state)
-            if cell_mass_fg is None:
-                continue
-            biomass_gDW = cell_mass_fg * self.cells_per_agent * FG_PER_GRAM
-            fluxes = _extract_exchange_fluxes(agent_state)
-            o2_rate += _as_float(fluxes.get(O2_ID, 0.0)) * biomass_gDW
-            co2_rate += _as_float(fluxes.get(CO2_ID, 0.0)) * biomass_gDW
+            exch = _extract_environment_exchange(agent_state)
+            o2_counts += _as_float(exch.get(O2_EXCHANGE_KEY, 0.0))
+            co2_counts += _as_float(exch.get(CO2_EXCHANGE_KEY, 0.0))
 
         if agents:
-            # Signs flow straight through: negative O2 flux -> negative delta.
-            reactor_out["dissolved_o2"] = o2_rate * interval_h * MW_O2 / volume_L
-            reactor_out["dissolved_co2"] = co2_rate * interval_h * MW_CO2 / volume_L
+            counts_to_mgL = self.cells_per_agent / AVOGADRO * 1000.0 / volume_L
+            o2_delta = o2_counts * counts_to_mgL * MW_O2
+            co2_delta = co2_counts * counts_to_mgL * MW_CO2
+            # Safety clamp: a single step's uptake must not drive the dissolved
+            # store negative (transport replenishes next step). The coupler runs
+            # after transport in the flow, so reactor.dissolved_o2 already holds
+            # this step's transport delta; cap the consumption at what's present.
+            do2_now = _as_float(reactor.get("dissolved_o2"))
+            if o2_delta < 0.0 and (do2_now + o2_delta) < 0.0:
+                o2_delta = -do2_now
+            dco2_now = _as_float(reactor.get("dissolved_co2"))
+            if co2_delta < 0.0 and (dco2_now + co2_delta) < 0.0:
+                co2_delta = -dco2_now
+            reactor_out["dissolved_o2"] = o2_delta
+            reactor_out["dissolved_co2"] = co2_delta
 
         if reactor_out:
             update["reactor"] = reactor_out
@@ -211,12 +244,34 @@ def _extract_cell_mass_fg(agent_state: dict | Any) -> float | None:
 
 
 def _extract_exchange_fluxes(agent_state: dict | Any) -> dict[str, Any]:
-    """Return ``metabolism.external_exchange_fluxes`` map, or {} if absent."""
+    """Return ``metabolism.external_exchange_fluxes`` map, or {} if absent.
+
+    Retained for reference/back-compat; v2ecoli's live state does NOT populate
+    this path (see ``_extract_environment_exchange``, the real source).
+    """
     try:
         metabolism = agent_state.get("metabolism", {}) if hasattr(agent_state, "get") else {}
         fluxes = metabolism.get("external_exchange_fluxes")
         if isinstance(fluxes, dict):
             return fluxes
+        return {}
+    except (AttributeError, KeyError, TypeError):
+        return {}
+
+
+def _extract_environment_exchange(agent_state: dict | Any) -> dict[str, Any]:
+    """Return ``environment.exchange`` (per-step molecule COUNTS), or {} if absent.
+
+    This is v2ecoli's real per-step environmental exchange store — a dict keyed
+    by the bare molecule name (e.g. ``OXYGEN-MOLECULE``), value = signed molecule
+    count added to the environment this step (negative == uptake). Defensive
+    against missing intermediate keys (emit cadence can snapshot mid-init).
+    """
+    try:
+        env = agent_state.get("environment", {}) if hasattr(agent_state, "get") else {}
+        exch = env.get("exchange")
+        if isinstance(exch, dict):
+            return exch
         return {}
     except (AttributeError, KeyError, TypeError):
         return {}

@@ -89,6 +89,11 @@ def build_core():
     try:
         from pbg_bioreactordesign import BiRDTransportProcess
         core.register_link("BiRDTransportProcess", BiRDTransportProcess)
+        # BiRDTransportHours: the seconds->hours time-base adapter the coupled
+        # composite actually wires (v2ecoli steps in seconds; the transport math
+        # is in hours). See v2ecoli/steps/bird_transport_hours.py.
+        from v2ecoli.steps.bird_transport_hours import BiRDTransportHours
+        core.register_link("BiRDTransportHours", BiRDTransportHours)
     except Exception:
         pass
     return core

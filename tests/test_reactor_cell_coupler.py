@@ -21,11 +21,13 @@ from process_bigraph import Composite
 
 from v2ecoli.core import build_core
 from v2ecoli.steps.reactor_cell_coupler import (
+    AVOGADRO,
+    CO2_EXCHANGE_KEY,
     CO2_ID,
     MW_CO2,
     MW_O2,
+    O2_EXCHANGE_KEY,
     O2_ID,
-    SECONDS_PER_HOUR,
     ReactorCellCoupler,
 )
 
@@ -61,14 +63,21 @@ def test_bird_transport_registered(core):
 
 # --- TASK B: ReactorCellCoupler -------------------------------------------
 
-def _agent(*, cell_mass_fg: float, o2_flux: float = 0.0, co2_flux: float = 0.0) -> dict:
-    """Minimal agent state: cell_mass listener + metabolic exchange flux map."""
+def _agent(*, cell_mass_fg: float = 1.0e3, o2_counts: float = 0.0,
+           co2_counts: float = 0.0) -> dict:
+    """Minimal agent state.
+
+    The coupler reads per-step environmental exchange as molecule COUNTS at
+    ``environment.exchange`` (keyed by the bare molecule name; negative ==
+    uptake) — v2ecoli's real exchange store. (The cell_mass listener is kept
+    for shape realism; the counts-based path does not use it.)
+    """
     return {
         "listeners": {"mass": {"cell_mass": cell_mass_fg}},
-        "metabolism": {
-            "external_exchange_fluxes": {
-                O2_ID: o2_flux,
-                CO2_ID: co2_flux,
+        "environment": {
+            "exchange": {
+                O2_EXCHANGE_KEY: o2_counts,
+                CO2_EXCHANGE_KEY: co2_counts,
             }
         },
     }
@@ -94,13 +103,13 @@ def test_mgL_to_mM_conversion(core):
 
 
 def test_o2_uptake_decreases_reactor_o2(core):
-    """Negative O2 flux (uptake) drives a NEGATIVE reactor.dissolved_o2 delta,
-    with the magnitude the conversion chain predicts (computed explicitly)."""
+    """Negative O2 exchange counts (uptake) drive a NEGATIVE reactor.dissolved_o2
+    delta, with the magnitude the counts->mg/L conversion predicts (computed
+    explicitly). DO is seeded high enough that the safety clamp does not bind."""
     cells_per_agent = 1.0e9
-    cell_mass_fg = 1.0e3          # 1000 fg / cell
-    o2_flux = -10.0              # mmol / (gDW * h), uptake -> negative
+    o2_counts = -5.0e10          # molecules / step / agent, uptake -> negative
     volume_L = 2.0
-    timestep_s = 3600.0          # 1 hour
+    timestep_s = 3600.0          # ignored by the counts path (counts are per-step)
 
     c = ReactorCellCoupler(
         config={"cells_per_agent": cells_per_agent, "reactor_volume_L": volume_L},
@@ -109,28 +118,26 @@ def test_o2_uptake_decreases_reactor_o2(core):
     states = {
         "reactor": {"dissolved_o2": 100.0, "dissolved_co2": 0.0, "volume_L": volume_L},
         "agents": {
-            "0": _agent(cell_mass_fg=cell_mass_fg, o2_flux=o2_flux),
-            "1": _agent(cell_mass_fg=cell_mass_fg, o2_flux=o2_flux),
+            "0": _agent(o2_counts=o2_counts),
+            "1": _agent(o2_counts=o2_counts),
         },
     }
     out = c.next_update(timestep_s, states)
 
-    # Expected, computed explicitly:
-    biomass_gDW = cell_mass_fg * cells_per_agent * 1.0e-15          # per agent
-    interval_h = timestep_s / SECONDS_PER_HOUR
-    sum_o2_mmol_per_h = 2 * (o2_flux * biomass_gDW)                 # 2 agents
-    expected_delta = sum_o2_mmol_per_h * interval_h * MW_O2 / volume_L
+    # Expected, computed explicitly from the counts->mg/L conversion (2 agents):
+    counts_to_mgL = cells_per_agent / AVOGADRO * 1000.0 / volume_L * MW_O2
+    expected_delta = 2 * o2_counts * counts_to_mgL
 
     assert expected_delta < 0.0
+    assert 100.0 + expected_delta > 0.0, "test design: clamp must not bind"
     assert out["reactor"]["dissolved_o2"] == pytest.approx(expected_delta, rel=1e-9)
 
 
 def test_co2_evolution_positive(core):
-    """Positive CO2 flux (evolution) drives a POSITIVE reactor.dissolved_co2
-    delta."""
+    """Positive CO2 exchange counts (secretion) drive a POSITIVE
+    reactor.dissolved_co2 delta."""
     cells_per_agent = 1.0e9
-    cell_mass_fg = 1.0e3
-    co2_flux = 12.0             # mmol / (gDW * h), secretion -> positive
+    co2_counts = 6.0e10          # molecules / step / agent, secretion -> positive
     volume_L = 2.0
     timestep_s = 3600.0
 
@@ -140,13 +147,12 @@ def test_co2_evolution_positive(core):
     )
     states = {
         "reactor": {"dissolved_o2": 0.0, "dissolved_co2": 0.0, "volume_L": volume_L},
-        "agents": {"0": _agent(cell_mass_fg=cell_mass_fg, co2_flux=co2_flux)},
+        "agents": {"0": _agent(co2_counts=co2_counts)},
     }
     out = c.next_update(timestep_s, states)
 
-    biomass_gDW = cell_mass_fg * cells_per_agent * 1.0e-15
-    interval_h = timestep_s / SECONDS_PER_HOUR
-    expected_delta = (co2_flux * biomass_gDW) * interval_h * MW_CO2 / volume_L
+    counts_to_mgL = cells_per_agent / AVOGADRO * 1000.0 / volume_L * MW_CO2
+    expected_delta = co2_counts * counts_to_mgL
 
     assert expected_delta > 0.0
     assert out["reactor"]["dissolved_co2"] == pytest.approx(expected_delta, rel=1e-9)

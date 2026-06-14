@@ -32,12 +32,16 @@
           "install": {
             "darwin": {
               "manager": "brew",
-              "commands": ["brew install open-mpi@4"],
+              "commands": [
+                "brew install open-mpi@4"
+              ],
               "notes": "Default open-mpi 5.x is ABI-incompatible with the lammps wheel; the @4 formula provides libmpi.12"
             },
             "linux": {
               "manager": "apt",
-              "commands": ["sudo apt install -y libopenmpi3"]
+              "commands": [
+                "sudo apt install -y libopenmpi3"
+              ]
             }
           }
         },
@@ -52,12 +56,12 @@
     }
   },
   {
-    "name": "pbg-cellpack",
-    "description": "Process-bigraph wrapper for cellPACK \u2014 mesoscale molecular packing (recipes \u2192 3D molecular assemblies)",
-    "source": "https://github.com/vivarium-collective/pbg-cellpack.git",
+    "name": "pbg-parsimony",
+    "description": "Reusable process-bigraph packing of 3D whole-cell structural models (parsimony engine — successor to pbg-cellpack)",
+    "source": "https://github.com/vivarium-collective/pbg-parsimony.git",
     "ref": "main",
-    "package": "pbg_cellpack",
-    "homepage": "https://github.com/vivarium-collective/pbg-cellpack",
+    "package": "pbg_parsimony",
+    "homepage": "https://github.com/vivarium-collective/pbg-parsimony",
     "tags": [
       "mesoscale",
       "structure",
@@ -124,7 +128,7 @@
   },
   {
     "name": "pbg-martini",
-    "description": "Process-bigraph wrapper for the Martini coarse-grained force field \u2014 membrane systems, micelles, protein-lipid complexes, and vesicles",
+    "description": "Process-bigraph wrapper for the Martini coarse-grained force field — membrane systems, micelles, protein-lipid complexes, and vesicles",
     "source": "https://github.com/vivarium-collective/pbg-martini.git",
     "ref": "main",
     "package": "pbg_martini",
@@ -230,7 +234,7 @@
   },
   {
     "name": "pbg-vcell-fvsolver",
-    "description": "process-bigraph wrapper around pyvcell / pyvcell-fvsolver \u2014 VCell's finite-volume 3D reaction-diffusion PDE solver as a PBG Process",
+    "description": "process-bigraph wrapper around pyvcell / pyvcell-fvsolver — VCell's finite-volume 3D reaction-diffusion PDE solver as a PBG Process",
     "source": "https://github.com/vivarium-collective/pbg-vcell-fvsolver.git",
     "ref": "main",
     "package": "pbg_vcell_fvsolver",

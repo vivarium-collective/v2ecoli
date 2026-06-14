@@ -1812,10 +1812,10 @@ function collapseAllCats() { collapsedCats = allLegendCategories(); renderLegend
 // the hull's interior, leaving only the rim).
 function ecocycUrl(id) {
   // EcoCyc frame ids start with an uppercase letter and contain a digit
-  // (e.g. EG10367-MONOMER, G6789). Curated keys (70S_ribosome, groel, lipid,
-  // rna_polymerase) aren't EcoCyc frames, so they get no link.
+  // (e.g. EG10367-MONOMER, G6507-MONOMER). Curated keys (70S_ribosome, groel,
+  // lipid, rna_polymerase) aren't EcoCyc frames, so they get no link.
   return /^[A-Z][A-Z0-9_]*\d/.test(id)
-    ? "https://ecocyc.org/ECOLI/NEW-IMAGE?object=" + encodeURIComponent(id)
+    ? "https://ecocyc.org/gene?orgid=ECOLI&id=" + encodeURIComponent(id)
     : null;
 }
 const _selMat = new THREE.MeshBasicMaterial({
@@ -1878,7 +1878,9 @@ function renderInfoPanel(e) {
   const color = CAT_COLOR[cat] || "#888";
   const count = e.placements ? e.placements.length : 0;
   const radius = Math.round(e.enclosingRadius || 0);
-  const id = e.typeId || e.name;
+  // e.name is the EcoCyc frame id (e.g. EG10367-MONOMER); e.typeId is a numeric
+  // pack index, so it must NOT be used for the EcoCyc link.
+  const id = e.name;
   const url = ecocycUrl(id);
   infoBody.innerHTML =
       `<div class="info-name">${escapeHtml(disp)}</div>`

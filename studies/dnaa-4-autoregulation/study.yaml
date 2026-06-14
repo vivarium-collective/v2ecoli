@@ -1,7 +1,7 @@
 schema_version: 4
 name: dnaa-4-autoregulation
 investigation: dnaa-replication   # owning investigation (back-reference)
-title: DnaA negative autoregulation — self-stabilizing the DnaA pool without the V override
+title: Study 4 — Test Autoregulation   # reader-friendly (Rashmi 2026-06-14); was: DnaA negative autoregulation — self-stabilizing the DnaA pool without the V override
 created: '2026-06-10'
 status: in_progress   # 2026-06-10 SCOPED + first diagnostic done. The next mechanism study, off the back of dnaa-3 (box-binding adopted) + the verified autoregulation gap. Wiring the DnaA-ATP→dnaA-promoter negative recruitment edge (coupled to the adopted dnaA-promoter box occupancy) so DnaA self-stabilizes in [300,800] WITHOUT the manual V override — to dissolve the dnaa-1/dnaa-2 V tension + per-gen drift at the root.
 

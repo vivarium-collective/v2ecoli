@@ -1,7 +1,7 @@
 schema_version: 4
 name: dnaa-0-succinate-baseline
 investigation: dnaa-replication   # owning investigation (back-reference)
-title: Succinate steady-state validation (10-gen single-daughters)
+title: Study 0 — Establish Succinate Steady State   # reader-friendly (Rashmi 2026-06-14); was: Succinate steady-state validation (10-gen single-daughters)
 created: '2026-05-29'
 status: completed   # legacy back-compat; canonical axes below
 # Canonical 6-axis status (PASS — both primary tests pass; Rashmi-confirmed 2026-05-31).

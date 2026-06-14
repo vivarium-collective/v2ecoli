@@ -1,7 +1,7 @@
 schema_version: 4
 name: dnaa-1-expression
 investigation: dnaa-replication   # owning investigation (back-reference)
-title: DnaA expression — Mechanism A tuning to in-band, generation-stable pool
+title: Study 1 — Tune DnaA Expression   # reader-friendly (Rashmi 2026-06-14); was: DnaA expression — Mechanism A tuning to in-band, generation-stable pool
 created: '2026-05-29'
 status: completed   # legacy back-compat; canonical axes below. RECONCILED 2026-06-09 → CANONICAL V=0.8e-3. PASS on the expert's IN-BAND + STEADY criterion: the DnaA pool oscillates WITHIN [300,800] (steady-gen cycle-mean ~362, peaks <800, troughs ~207) AND steady-state dynamics hold (periodic division, oriC 1↔2) — exactly what she asked for. The init-rate test is PARTIAL (~0.6/min, range 0.46-0.71 — sub-physiological, the KNOWN TRADEOFF). The earlier V=1.1e-3 pick is WITHDRAWN: its "676 in-band" 7-gen reading was a PRE-EQUILIBRATION ARTIFACT — a completed 15-gen run (out/dnaa1_v1p1e-3_long) shows the cycle-mean climbs past 800 (peak 976 @gen9, gens 6-12 ≥800) then relaxes to 485 by gen15, i.e. V=1.1e-3 does NOT equilibrate IN band (see finding v11-15gen-equilibration-overshoots-band + chart dnaa1_v11_equilibration). ESTABLISHED: no single CONSTITUTIVE V closes both the in-band pool AND the ~1/min rate (7-point sweep + 15-gen equilibration) — closing both needs a REGULATED / cell-cycle-coupled DnaA synthesis (a different lever, for Rashmi/Haochen). Canonical run out/dnaa1_v0p8e-3.
 # Canonical 6-axis status (PASS on the in-band + steady criterion — V=0.8e-3 is

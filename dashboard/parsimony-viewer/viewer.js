@@ -343,6 +343,8 @@ function clearPacking() {
     }
   }
   instancedMeshes = [];
+  if (typeof clearHighlight === "function") clearHighlight();  // drop any selection outline
+  selectedName = null;
   disposeCompartments();
   if (bboxLines) {
     scene.remove(bboxLines);
@@ -1731,7 +1733,9 @@ function updateHelpersFromBounds(bbMin, bbMax) {
 let ingredientMeta = {};
 let ingSearchTerm = "";
 let collapsedCats = new Set();
-let selectedName = null;  // currently-selected ingredient (info panel + row highlight)
+let selectedName = null;     // currently-selected ingredient (info panel + row highlight)
+let selectedHighlight = null; // the black inverted-hull outline mesh for the picked instance
+let selectedAnchor = null;    // world-space point the info box is pinned next to
 const CAT_ORDER = ["Translation", "Transcription", "Nucleoid", "Metabolism",
                    "Protein folding", "Envelope", "Regulation"];
 const CAT_COLOR = {
@@ -1800,8 +1804,12 @@ function allLegendCategories() {
 function expandAllCats() { collapsedCats.clear(); renderLegend(); }
 function collapseAllCats() { collapsedCats = allLegendCategories(); renderLegend(); }
 
-// ── molecule selection: highlight (isolate) the type + an info card that links
-// out to its EcoCyc entry.
+// ── molecule selection: click a molecule in the 3D scene (or a legend "info"
+// link) → outline it with a thick black inverted-hull + pin an info card next
+// to it. The outline is a single black BackSide mesh of the picked geometry,
+// scaled out a few Å so it peeks around the silhouette; renderOrder is high so
+// it draws after the molecules have written depth (the molecule then occludes
+// the hull's interior, leaving only the rim).
 function ecocycUrl(id) {
   // EcoCyc frame ids start with an uppercase letter and contain a digit
   // (e.g. EG10367-MONOMER, G6789). Curated keys (70S_ribosome, groel, lipid,
@@ -1810,13 +1818,56 @@ function ecocycUrl(id) {
     ? "https://ecocyc.org/ECOLI/NEW-IMAGE?object=" + encodeURIComponent(id)
     : null;
 }
+const _selMat = new THREE.MeshBasicMaterial({
+  color: 0x000000, side: THREE.BackSide, depthTest: true, depthWrite: false,
+});
+const _selPos = new THREE.Vector3();
+const _selQuat = new THREE.Quaternion();
+const _selScl = new THREE.Vector3();
+function clearHighlight() {
+  if (selectedHighlight) {
+    scene.remove(selectedHighlight);
+    if (selectedHighlight.geometry) selectedHighlight.geometry.dispose();
+    selectedHighlight = null;
+  }
+  selectedAnchor = null;
+}
+// Outline + select a specific instance. worldMatrix places the hull; geometry
+// is the picked instance's geometry (or a fallback sphere for legend picks).
+function selectInstance(entry, geometry, worldMatrix) {
+  clearHighlight();
+  selectedName = entry.name;
+  worldMatrix.decompose(_selPos, _selQuat, _selScl);
+  const R = entry.enclosingRadius || 1;
+  const pad = Math.max(10, R * 0.18);          // outline thickness in Å
+  const s = (R + pad) / R;
+  const mesh = new THREE.Mesh(geometry.clone(), _selMat);
+  mesh.position.copy(_selPos);
+  mesh.quaternion.copy(_selQuat);
+  mesh.scale.copy(_selScl).multiplyScalar(s);  // inflate about the geometry centre
+  mesh.renderOrder = 999;                       // draw after molecules write depth
+  mesh.frustumCulled = false;
+  scene.add(mesh);
+  selectedHighlight = mesh;
+  selectedAnchor = _selPos.clone();
+  renderInfoPanel(entry);
+  setInfo(true);
+  updateInfoAnchor();  // position the card immediately (no first-frame flash)
+  renderLegend();
+}
+// Legend "info" link: pick a representative instance (the first placement) of
+// the type and select it.
 function selectMolecule(name) {
   const e = nameToEntry(name);
-  if (!e) return;
-  selectedName = name;
-  isolateIngredient(e);     // highlight in 3D by showing only this type (re-renders the legend too)
-  renderInfoPanel(e);
-  setInfo(true);
+  if (!e || !e.placements || !e.placements.length) return;
+  const p = e.placements[0];
+  const pos = new THREE.Vector3().fromArray(p.position);
+  const q = (p.rotation && p.rotation.length === 4)
+    ? new THREE.Quaternion(p.rotation[0], p.rotation[1], p.rotation[2], p.rotation[3])
+    : new THREE.Quaternion();
+  const m = new THREE.Matrix4().compose(pos, q, new THREE.Vector3(1, 1, 1));
+  const geom = e.fallbackSphere.standardMesh.geometry;  // always available
+  selectInstance(e, geom, m);
 }
 function renderInfoPanel(e) {
   const infoBody = document.getElementById("info-body");
@@ -1837,14 +1888,64 @@ function renderInfoPanel(e) {
     + `<div class="info-actions">`
     + (url ? `<a class="info-link" href="${url}" target="_blank" rel="noopener">EcoCyc entry ↗</a>`
            : `<span class="info-link" style="color:var(--text-dim)">no EcoCyc entry</span>`)
-    + `<span class="info-showall" data-showall="1">show all</span>`
     + `</div>`
     + `<div class="info-id">id: ${escapeHtml(id)}</div>`;
 }
 function closeInfo() {
+  clearHighlight();
   selectedName = null;
   setInfo(false);
-  showAllIngredients();  // restore the full view + clear the row highlight
+  renderLegend();  // clear the row highlight
+}
+
+// Raycast pick: click a molecule in the 3D scene → select+outline that instance.
+const _raycaster = new THREE.Raycaster();
+const _pickNdc = new THREE.Vector2();
+const _pickMat = new THREE.Matrix4();
+function pickAt(clientX, clientY) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  _pickNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  _pickNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  _raycaster.setFromCamera(_pickNdc, camera);
+  // Candidate meshes: every currently-drawn InstancedMesh (count>0, visible)
+  // for an effectively-visible entry, mapped back to its entry.
+  const meshes = [];
+  const meshEntry = new Map();
+  for (const e of instancedMeshes) {
+    if (!effectiveVisible(e)) continue;
+    const cands = [e.fallbackSphere.standardMesh, e.fallbackSphere.celMesh];
+    if (e.lods) for (const l of e.lods) { if (l.standardMesh) cands.push(l.standardMesh); if (l.celMesh) cands.push(l.celMesh); }
+    for (const mesh of cands) {
+      if (mesh && mesh.visible && mesh.count > 0) { meshes.push(mesh); meshEntry.set(mesh, e); }
+    }
+  }
+  const hits = _raycaster.intersectObjects(meshes, false);
+  if (!hits.length) { closeInfo(); return; }
+  const hit = hits[0];
+  const entry = meshEntry.get(hit.object);
+  if (!entry || hit.instanceId == null) return;
+  hit.object.getMatrixAt(hit.instanceId, _pickMat);
+  const world = hit.object.matrixWorld.clone().multiply(_pickMat);
+  selectInstance(entry, hit.object.geometry, world);
+}
+// Keep the info card pinned next to the selected molecule as the camera moves.
+const _projAnchor = new THREE.Vector3();
+function updateInfoAnchor() {
+  const panel = document.getElementById("info-panel");
+  if (!panel || panel.hasAttribute("hidden") || !selectedAnchor) return;
+  _projAnchor.copy(selectedAnchor).project(camera);
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (_projAnchor.z > 1) { panel.style.visibility = "hidden"; return; }
+  panel.style.visibility = "visible";
+  const x = (_projAnchor.x * 0.5 + 0.5) * rect.width;
+  const y = (-_projAnchor.y * 0.5 + 0.5) * rect.height;
+  const pw = panel.offsetWidth || 320, ph = panel.offsetHeight || 140;
+  const px = Math.max(8, Math.min(rect.width - pw - 8, x + 16));
+  const py = Math.max(8, Math.min(rect.height - ph - 8, y + 16));
+  panel.style.left = px + "px";
+  panel.style.top = py + "px";
+  panel.style.right = "auto";
+  panel.style.bottom = "auto";
 }
 
 // Render the categorized, searchable ingredient list (always expanded — the
@@ -2094,9 +2195,18 @@ function setInfo(show) {
 }
 const infoCloseBtn = document.getElementById("info-close");
 if (infoCloseBtn) infoCloseBtn.addEventListener("click", () => closeInfo());
-const infoBodyEl = document.getElementById("info-body");
-if (infoBodyEl) infoBodyEl.addEventListener("click", (ev) => {
-  if (ev.target.closest("[data-showall]")) showAllIngredients();  // restore view, keep panel open
+
+// Click a molecule in the 3D scene to select it (a stationary left-click, so it
+// doesn't fight orbit-drag). Clicking empty space deselects.
+let _downX = 0, _downY = 0, _dragMoved = false;
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  _downX = e.clientX; _downY = e.clientY; _dragMoved = false;
+});
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (Math.hypot(e.clientX - _downX, e.clientY - _downY) > 5) _dragMoved = true;
+});
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (e.button === 0 && !_dragMoved) pickAt(e.clientX, e.clientY);
 });
 
 window.addEventListener("keydown", (e) => {
@@ -2521,6 +2631,7 @@ function tick() {
   // we'll flip this back, but the per-fragment fresnel approach is
   // more robust to scene scale and doesn't crater on dense crowds.
   renderer.render(scene, camera);
+  updateInfoAnchor();  // keep the selection info card pinned next to its molecule
 
   fpsAccum += dt;
   fpsCount++;

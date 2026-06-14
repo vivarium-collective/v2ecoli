@@ -210,6 +210,11 @@ def _build_millard_edge(core: Any, *, tick_s: float = 1.0):
         # ('central_fluxes',) store.
         "central_fluxes": ("central_fluxes",),
         "bulk": ("bulk",),
+        # Per-tick signed medium-exchange counts (O2/glucose/acetate) routed to
+        # the cell's ('environment', 'exchange') store — the same store the WCM
+        # metabolism writes. Drives the reactor coupler's O2 consumption and
+        # makes the mass-conservation deriver evaluable on the Millard cell.
+        "environment": ("environment",),
     }
     edge = make_edge(
         instance, in_topo,
@@ -344,6 +349,9 @@ def baseline_millard(
     # reactor source is attached (empty store => no-op env drive).
     cell_state.setdefault('environment', {})
     cell_state['environment'].setdefault('external_concentrations', {})
+    # Medium-exchange store the Millard edge writes (signed per-tick counts) and
+    # the mass-conservation deriver reads. map[float] accumulates per-tick.
+    cell_state['environment'].setdefault('exchange', {})
 
     # Mock loader: cache configs + minimal sim_data.
     loader = CachedConfigLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)

@@ -44,6 +44,32 @@ DEFAULT_CELL_DENSITY_G_PER_L = 1100.0
 AVOGADRO = 6.02214076e23
 FG_PER_G = 1.0e-15
 
+# --- Medium-exchange (boundary) accounting ---------------------------------
+# Maps a Millard boundary REACTION -> (bare v2ecoli env name, stoichiometric
+# coefficient of the exchanged species in that reaction, sign). Used to emit
+# ``environment.exchange`` — the per-cell, per-tick molecule-count exchanged
+# with the medium — matching the WCM convention in
+# ``v2ecoli/processes/metabolism.py`` (BARE names, NEGATIVE = uptake / removed
+# from medium, POSITIVE = secretion / added to medium).
+#
+# Why flux-based (NOT concentration-delta): in the Millard SBML, O2 is a
+# ``fixed`` species (its mM is held constant -> a per-tick conc-delta is always
+# 0), and external glucose ``GLCx`` is replenished by an artificial chemostat
+# feed ``_GLC_FEED`` (flux ~10x uptake) so its mM RISES even as the cell
+# consumes it -> a conc-delta would report the WRONG sign (apparent secretion).
+# The physically correct medium exchange is the boundary-reaction flux (mM/s)
+# integrated over the tick. The flux is read from the same per-tick
+# ``central_fluxes`` map this Process already computes.
+#
+# CO2: the Millard model has NO CO2 species/reaction, so no CO2 efflux is
+# emitted here (consistent with the WCM arm, which emits ~zero CO2 efflux in M9).
+MEDIUM_EXCHANGE_REACTIONS: dict[str, tuple[str, float, float]] = {
+    # reaction:   (bare_name,          species_coeff, sign)
+    "CYTBO":      ("OXYGEN-MOLECULE",  1.0,           -1.0),  # O2 consumed (uptake)
+    "XCH_GLC":    ("GLC",              1.0,           -1.0),  # GLCx -> GLCp (uptake)
+    "_ACE_OUT":   ("ACET",            1.0,           +1.0),  # ACEx -> medium (secretion)
+}
+
 
 def _set_initial_concentrations(changes, dm) -> None:
     """Overwrite the initial concentration of named species on a COPASI model.
@@ -196,7 +222,31 @@ class MillardPDMPMetabolism(Process):
             "central_fluxes": InPlaceDict(),
             "control_applied": InPlaceDict(),
             "bulk": "bulk_array",
+            # Per-tick signed molecule-count exchange with the medium, keyed by
+            # BARE v2ecoli name (WCM convention: NEGATIVE = uptake, POSITIVE =
+            # secretion). map[float] accumulates per-tick deltas in the store,
+            # exactly like the WCM metabolism's environment.exchange write, so
+            # the mass-conservation deriver's per-tick diff is valid.
+            "environment": {"exchange": "map[float]"},
         }
+
+    def _conc_to_count(self, state) -> float:
+        """mM -> per-cell molecule count factor for this tick.
+
+        Uses the live cell volume (listeners.mass.cell_mass / density) when
+        ``use_live_volume`` is set, else the static config volume. Identical to
+        the factor the bulk-delta path uses, so exchange counts share the bulk's
+        reference frame.
+        """
+        conc_to_count = self._conc_to_count_static
+        if self.use_live_volume:
+            mass_in = state.get("listeners_mass") or {}
+            cell_mass_fg = fg_magnitude(mass_in.get("cell_mass", 0.0))
+            if cell_mass_fg > 0.0:
+                live_volume_L = (cell_mass_fg * FG_PER_G
+                                 / self.cell_density_g_per_L)
+                conc_to_count = 1e-3 * live_volume_L * AVOGADRO
+        return conc_to_count
 
     def _apply_control(self, ctrl: dict) -> tuple[float, dict]:
         """Read lqr_control, set basico parameters, return (tick_value, applied).
@@ -323,6 +373,28 @@ class MillardPDMPMetabolism(Process):
             },
         }
 
+        # mM -> per-cell count factor (shared by exchange + bulk paths below).
+        conc_to_count = self._conc_to_count(state)
+
+        # Medium-exchange accounting: emit the per-tick signed molecule-count
+        # exchanged with the medium for each boundary species (O2, glucose,
+        # acetate). Flux-based, NOT concentration-delta — see
+        # MEDIUM_EXCHANGE_REACTIONS for why. This is the MEDIUM side; the bulk
+        # path below carries the intracellular metabolite deltas, so there is no
+        # double-counting (different stores, disjoint molecule sets).
+        exchange: dict[str, float] = {}
+        for rxn, (bare, coeff, sign) in MEDIUM_EXCHANGE_REACTIONS.items():
+            flux = central_fluxes.get(rxn)
+            if flux is None or not math.isfinite(flux):
+                continue
+            # mM exchanged this tick = flux[mM/s] * tick_s * stoich.
+            mM = flux * self.tick_s * coeff
+            count = round(sign * mM * conc_to_count)
+            if count != 0.0:
+                exchange[bare] = exchange.get(bare, 0.0) + count
+        if exchange:
+            update["environment"] = {"exchange": exchange}
+
         # Translate mM → count deltas and emit to bulk.
         bulk = state.get("bulk")
         if bulk is not None and hasattr(bulk, "dtype") and bulk.dtype.names:
@@ -342,16 +414,7 @@ class MillardPDMPMetabolism(Process):
                 self._bulk_idx = np.asarray(resolved_idx, dtype=np.int64)
 
             if self._bulk_idx is not None and self._bulk_idx.size > 0:
-                # Compute the mM→count conversion factor from the live cell
-                # volume when use_live_volume is set.
-                conc_to_count = self._conc_to_count_static
-                if self.use_live_volume:
-                    mass_in = state.get("listeners_mass") or {}
-                    cell_mass_fg = fg_magnitude(mass_in.get("cell_mass", 0.0))
-                    if cell_mass_fg > 0.0:
-                        live_volume_L = (cell_mass_fg * FG_PER_G
-                                         / self.cell_density_g_per_L)
-                        conc_to_count = 1e-3 * live_volume_L * AVOGADRO
+                # Same live-volume mM→count factor used for medium exchange.
                 current_mM = np.fromiter(
                     (species.get(mid, 0.0) for mid in self._mids),
                     dtype=np.float64, count=len(self._mids))

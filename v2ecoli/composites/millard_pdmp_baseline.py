@@ -184,6 +184,14 @@ FEATURE_MODULES = {
         'insert_after': 'millard-pdmp-metabolism',
         'steps': [REF_GROWTH_DRIVER],
     },
+    # Opt-in runtime mass-conservation check (shared with baseline.py). Runs
+    # after the mass listener; reads environment.exchange (now populated by the
+    # Millard edge's medium-exchange accounting) + listeners.mass. Off by
+    # default; enable via features=['mass_conservation'].
+    'mass_conservation': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['ecoli-mass-conservation'],
+    },
 }
 
 DEFAULT_FEATURES = ['ppgpp_regulation']
@@ -280,6 +288,9 @@ def _build_millard_pdmp_edge(core: Any, *, tick_s: float = 1.0,
         "central_fluxes": ("central_fluxes",),
         "control_applied": ("shared", "control_applied"),
         "bulk": ("bulk",),
+        # Per-tick signed medium-exchange counts (O2/glucose/acetate) -> the
+        # cell's ('environment', 'exchange') store (WCM convention).
+        "environment": ("environment",),
     }
     edge = make_edge(
         instance, in_topo,
@@ -924,6 +935,12 @@ def millard_pdmp_baseline(
     # (verified empirically: 22 entries the bridge emitted never landed in
     # a top-level dict, but identical wiring through 'shared/' works).
     cell_state['shared'].setdefault('central_metabolite_counts', {})
+
+    # Medium-exchange store the Millard edge writes (signed per-tick counts);
+    # map[float] accumulates. Read by the mass-conservation deriver / reactor
+    # coupler. Declared so the topology resolves even with no live reactor.
+    cell_state.setdefault('environment', {})
+    cell_state['environment'].setdefault('exchange', {})
 
     # Mock loader: cache configs + minimal sim_data (see _helpers.CachedConfigLoader).
     loader = CachedConfigLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)

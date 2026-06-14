@@ -1904,6 +1904,7 @@ function closeInfo() {
 const _raycaster = new THREE.Raycaster();
 const _pickNdc = new THREE.Vector2();
 const _pickMat = new THREE.Matrix4();
+const _pickAllSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 1e12);  // "always intersects"
 function pickAt(clientX, clientY) {
   const rect = renderer.domElement.getBoundingClientRect();
   _pickNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -1911,6 +1912,14 @@ function pickAt(clientX, clientY) {
   _raycaster.setFromCamera(_pickNdc, camera);
   // Candidate meshes: every currently-drawn InstancedMesh (count>0, visible)
   // for an effectively-visible entry, mapped back to its entry.
+  //
+  // CRITICAL: we rewrite each InstancedMesh's instance matrices every frame
+  // (per-instance LOD reassignment), but three caches `boundingSphere` from the
+  // first raycast and never refreshes it — so its early-out skips meshes whose
+  // instances have since moved, and picks miss ~9/10 of the time. Force the
+  // early-out to always pass (frustumCulled is already off on these), so the
+  // per-instance test actually runs against the current matrices. The
+  // per-instance geometry-sphere test keeps this cheap.
   const meshes = [];
   const meshEntry = new Map();
   for (const e of instancedMeshes) {
@@ -1918,7 +1927,11 @@ function pickAt(clientX, clientY) {
     const cands = [e.fallbackSphere.standardMesh, e.fallbackSphere.celMesh];
     if (e.lods) for (const l of e.lods) { if (l.standardMesh) cands.push(l.standardMesh); if (l.celMesh) cands.push(l.celMesh); }
     for (const mesh of cands) {
-      if (mesh && mesh.visible && mesh.count > 0) { meshes.push(mesh); meshEntry.set(mesh, e); }
+      if (mesh && mesh.visible && mesh.count > 0) {
+        mesh.boundingSphere = _pickAllSphere;  // bypass the stale cached-bounds early-out
+        meshes.push(mesh);
+        meshEntry.set(mesh, e);
+      }
     }
   }
   const hits = _raycaster.intersectObjects(meshes, false);

@@ -1,4 +1,4 @@
-# parsimony mesh: g7401_monomer (source /Users/eranagmon/code/v2e-abund/workspace/studies/ecoli-3d/viz/3d/structures/g7401_monomer.pdb)
+# parsimony mesh: g7401_monomer (source /Users/eranagmon/code/v2e-cplx/workspace/studies/ecoli-3d/viz/3d/structures/g7401_monomer.pdb)
 # atoms: 640  voxel: 8 Å  verts: 88  tris: 172
 v -3.9782 -8.0842 -11.7018
 v 1.6997 -8.2922 -13.1189

@@ -1,4 +1,4 @@
-# parsimony mesh: g7834_monomer (source /Users/eranagmon/code/v2e-abund/workspace/studies/ecoli-3d/viz/3d/structures/g7834_monomer.pdb)
+# parsimony mesh: g7834_monomer (source /Users/eranagmon/code/v2e-cplx/workspace/studies/ecoli-3d/viz/3d/structures/g7834_monomer.pdb)
 # atoms: 833  voxel: 8 Å  verts: 137  tris: 276
 v -27.9019 39.0639 -19.4525
 v -25.8598 39.0639 -19.4525

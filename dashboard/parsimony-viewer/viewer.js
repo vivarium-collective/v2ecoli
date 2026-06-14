@@ -2191,21 +2191,55 @@ const ABOUT_HTML = window.PARSIMONY_ABOUT || `
   <p>An interactive structural model of an <em>Escherichia coli</em> cell. Molecular
   abundances come from a <strong>v2ecoli</strong> whole-cell simulation: the simulated
   copy number of each protein and complex sets how many copies are placed in the cell.</p>
-  <p>Each species is mapped to a real 3D structure — AlphaFold-predicted monomers plus
-  curated experimental assemblies (70S ribosome, RNA polymerase, GroEL/ES chaperonin) —
-  and packed into a capsule-shaped cell volume by the <strong>parsimony</strong> engine,
-  a cellPACK-style packer. Colours group molecules by functional category.</p>
-  <p class="credit">Built with <a href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener">v2ecoli</a>
+  <p>Each species is mapped to a real 3D structure — AlphaFold-predicted monomers, curated
+  experimental assemblies (70S ribosome, RNA polymerase, GroEL/ES), and multi-subunit
+  complexes assembled from their stoichiometry — packed into a capsule-shaped cell volume
+  by the <strong>parsimony</strong> engine, a cellPACK-style packer. Each species is placed
+  at its <strong>true copy number</strong> from the simulation; colours group molecules by
+  functional category.</p>`;
+const ABOUT_CREDIT = `
+  <p class="credit">A <a href="https://vivariumlab.com" target="_blank" rel="noopener">Vivarium Lab</a>
+  project · built with <a href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener">v2ecoli</a>
   · packing by <a href="https://github.com/vivarium-collective/pbg-parsimony" target="_blank" rel="noopener">pbg-parsimony</a></p>`;
+// "By the numbers": live totals + per-category breakdown of the loaded pack.
+function aboutStatsHtml() {
+  if (!instancedMeshes.length) return "";
+  let total = 0;
+  const byCat = new Map();
+  for (const e of instancedMeshes) {
+    const n = e.placements ? e.placements.length : 0;
+    total += n;
+    const cat = metaFor(e).category || "Other";
+    const s = byCat.get(cat) || { types: 0, mol: 0 };
+    s.types++; s.mol += n; byCat.set(cat, s);
+  }
+  const cats = [...byCat.keys()].sort((a, b) => {
+    const ia = CAT_ORDER.indexOf(a), ib = CAT_ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
+  const rows = cats.map((c) => {
+    const s = byCat.get(c);
+    return `<tr><td><span class="adot" style="background:${CAT_COLOR[c] || "#888"}"></span>${escapeHtml(c)}</td>`
+      + `<td>${s.types}</td><td>${s.mol.toLocaleString()}</td></tr>`;
+  }).join("");
+  return `<h4>By the numbers</h4>`
+    + `<p class="astat"><strong>${total.toLocaleString()}</strong> molecules · `
+    + `<strong>${instancedMeshes.length}</strong> distinct species · `
+    + `<strong>${cats.length}</strong> functional categories</p>`
+    + `<table class="atbl"><thead><tr><th>category</th><th>species</th><th>molecules</th></tr></thead>`
+    + `<tbody>${rows}</tbody></table>`;
+}
 const aboutBtn = document.getElementById("about-btn");
 const aboutPanel = document.getElementById("about-panel");
 const aboutBody = document.getElementById("about-body");
 const aboutClose = document.getElementById("about-close");
-if (aboutBody) aboutBody.innerHTML = ABOUT_HTML;
+function renderAbout() {
+  if (aboutBody) aboutBody.innerHTML = ABOUT_HTML + aboutStatsHtml() + ABOUT_CREDIT;
+}
 function setAbout(show) {
   if (!aboutPanel) return;
   const willShow = (show === undefined) ? aboutPanel.hasAttribute("hidden") : show;
-  if (willShow) aboutPanel.removeAttribute("hidden");
+  if (willShow) { renderAbout(); aboutPanel.removeAttribute("hidden"); }  // refresh stats from the loaded pack
   else aboutPanel.setAttribute("hidden", "");
 }
 if (aboutBtn) aboutBtn.addEventListener("click", () => setAbout());

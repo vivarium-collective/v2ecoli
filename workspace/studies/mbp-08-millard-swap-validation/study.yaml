@@ -2,7 +2,7 @@ schema_version: 3
 name: mbp-08-millard-swap-validation
 created: '2026-06-14'
 phase: Build
-study_kind: construction
+study_kind: confirmatory
 
 design_status: drafted
 implementation_status: not_started
@@ -59,3 +59,24 @@ deferred_tests:
 
 tests:
   pytest_args: [tests/test_baseline_millard.py]
+readouts:
+- name: growth_rate
+  store_path: listeners.mass.instantaneous_growth_rate
+  units: 1/s
+  status: planned
+planned_runs:
+- name: millard-validation-run
+  status: planned
+  n_steps: 60
+  details: 60-step run (seed 0) verifying growth-rate stays in [0.0, 0.04] 1/s under the Millard kinetic-metabolism swap
+simulation_set:
+- name: millard-validation-run
+  base_model: v2ecoli.composites.baseline_millard
+  perturbation:
+  condition: M9-minimal-glucose
+  duration_min: 10
+  seeds:
+  - 0
+  applies_tests:
+  - growth-recovered-vs-baseline
+  status: planned

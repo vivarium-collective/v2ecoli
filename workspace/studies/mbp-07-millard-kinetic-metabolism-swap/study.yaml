@@ -2,7 +2,7 @@ schema_version: 3
 name: mbp-07-millard-kinetic-metabolism-swap
 created: '2026-06-14'
 phase: Build
-study_kind: construction
+study_kind: exploratory
 
 design_status: drafted
 implementation_status: not_started
@@ -36,3 +36,29 @@ behavior_tests:
 
 tests:
   pytest_args: [tests/test_baseline_millard.py]
+readouts:
+- name: cell_mass
+  store_path: listeners.mass.cell_mass
+  units: fg
+  status: planned
+- name: central_flux_PGI
+  store_path: central_fluxes.PGI
+  units: mmol/(gDW·h)
+  status: planned
+planned_runs:
+- name: baseline-millard-build
+  status: planned
+  n_steps: 10
+  details: smoke run (10 steps, seed 0) confirming composite builds and central fluxes are non-trivial
+simulation_set:
+- name: baseline-millard-build
+  base_model: v2ecoli.composites.baseline_millard
+  perturbation:
+  condition: M9-minimal-glucose
+  duration_min: 1
+  seeds:
+  - 0
+  applies_tests:
+  - composite-builds-and-runs
+  - central-fluxes-nontrivial
+  status: planned

@@ -120,7 +120,8 @@ model_change:
 key_assumptions:
 - "Batch mode only; no feed addition (pbg-bioreactordesign has no fed-batch support yet)."
 - "Initial glucose 4 g/L is enough for ~3 generations at v2ecoli's yield; refine with calibration."
-- "v2ecoli's metabolism remains stable in glucose-limited regime (no runaway / NaN). If not, that becomes a finding for this phase."
+- "v2ecoli's metabolism remains stable in glucose-limited regime (no runaway / NaN). If not, that becomes a finding for this
+  phase."
 - "Wall-clock budget of 30 min for 240-min sim is a placeholder; the spec PR sets the real budget."
 
 
@@ -129,7 +130,13 @@ key_assumptions:
 readouts:
 - {name: population_cell_count, store_path: population.cell_count, units: cells, status: planned}
 - {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW, units: gDW, status: planned}
-- {name: reactor_glucose_gL, store_path: "environment.external_concentrations.GLC[p]", units: mM, status: planned}
+- name: reactor_glucose_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: GLC[p]
+  units: mM
+  status: planned
 - {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
 - {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
 - {name: carbon_balance_residual, store_path: reactor.diagnostics.carbon_residual, units: fraction, status: planned}
@@ -141,8 +148,10 @@ behavior_tests:
 - name: population-grows-then-flattens-at-substrate-limit
   classification: primary
   acceptance_form: qualitative_direction
-  description: "Cell count rises exponentially through the first 2 generations, then growth rate measurably flattens once a limiting substrate (glucose or DO) is exhausted."
-  measure: {kind: derived_rate_window, path: population.cell_count, window_a: first_third, window_b: last_third, reduce: fitted_exponential_rate}
+  description: "Cell count rises exponentially through the first 2 generations, then growth rate measurably flattens once
+    a limiting substrate (glucose or DO) is exhausted."
+  measure: {kind: derived_rate_window, path: population.cell_count, window_a: first_third, window_b: last_third, reduce: 
+      fitted_exponential_rate}
   pass_if: {op: ratio_at_most, value: 0.3}   # last-third rate ≤ 30% of first-third rate
   units: fraction
   requires_simulation: three-generation-batch
@@ -236,7 +245,8 @@ failure_modes:
       # listed here are residual:
   - "Biomass-C coefficient drift (target ~0.46 gC/gDW)"
   - "Volume change not accounted (constant in batch but worth a guard)"
-  - "Additional byproduct (lactate / formate / ethanol / pyruvate / succinate) not in the ledger when v2ecoli's metabolism produces it under the regime — extend req-1 species list"
+  - "Additional byproduct (lactate / formate / ethanol / pyruvate / succinate) not in the ledger when v2ecoli's metabolism
+    produces it under the regime — extend req-1 species list"
   checks:
   - "MassBalanceAuditor's per-species residuals printed at end of run"
   - "Verify req-1 species coverage matches the actual exchange-flux outputs from this run"
@@ -248,7 +258,8 @@ failure_modes:
   - "Population grew larger than expected — many agents to walk"
   checks:
   - "Profile the run; look at PopulationAggregator and ReactorCellCoupler tick counts"
-  - "If pop > 1000 agents at end, consider downsampling for diagnostics — and flag the surrogate-strategy candidate-future-study (mbp-06)"
+  - "If pop > 1000 agents at end, consider downsampling for diagnostics — and flag the surrogate-strategy candidate-future-study
+    (mbp-06)"
 
 
 # ─── 5d. REGRESSION ────────────────────────────────────────────────────────
@@ -277,11 +288,18 @@ regression_tests:
 
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
-- "Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step — deferred (candidate-future-study; see mbp-06)."
-- "Single seed; stochastic variation across seeds not characterized here (a candidate-future-study). Cells_per_agent scaling further washes per-seed stochastic variance — explicit cost of the mbp-02 architectural choice."
+- "Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step
+  — deferred (candidate-future-study; see mbp-06)."
+- "Single seed; stochastic variation across seeds not characterized here (a candidate-future-study). Cells_per_agent scaling
+  further washes per-seed stochastic variance — explicit cost of the mbp-02 architectural choice."
 - "Bubble column geometry; stirred tank / airlift not validated."
-- "Acetate (+ lactate / formate / ethanol / pyruvate / succinate) handling depends on v2ecoli's metabolism; the MassBalanceAuditor explicitly tracks each species (req-1) but biological correctness of the production rates is not separately validated this phase."
-- "Population uses cells_per_agent scaling (mbp-02) to make 240-min batch dynamics resolvable. At scaling factors k ≥ ~1e6, per-cell stochastic variance washes out at the bulk mean — correct biology at high density, but obscures per-cell heterogeneity that may matter for Beulig's bistable-expression regimes. Surrogate engine remains the path for the full high-density regime (mbp-06)."
+- "Acetate (+ lactate / formate / ethanol / pyruvate / succinate) handling depends on v2ecoli's metabolism; the MassBalanceAuditor
+  explicitly tracks each species (req-1) but biological correctness of the production rates is not separately validated this
+  phase."
+- "Population uses cells_per_agent scaling (mbp-02) to make 240-min batch dynamics resolvable. At scaling factors k ≥ ~1e6,
+  per-cell stochastic variance washes out at the bulk mean — correct biology at high density, but obscures per-cell heterogeneity
+  that may matter for Beulig's bistable-expression regimes. Surrogate engine remains the path for the full high-density regime
+  (mbp-06)."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
@@ -361,20 +379,26 @@ planned_runs:
 - name: three-generation-batch
   status: planned
   n_steps: 240
-  details: duration 240 min; seeds [0]; tests ['population-grows-then-flattens-at-substrate-limit', 'carbon-mass-balance-closes-over-3-generations', 'nitrogen-mass-balance-closes-over-3-generations', 'wall-clock-budget-met']
+  details: duration 240 min; seeds [0]; tests ['population-grows-then-flattens-at-substrate-limit', 
+    'carbon-mass-balance-closes-over-3-generations', 'nitrogen-mass-balance-closes-over-3-generations', 
+    'wall-clock-budget-met']
 visualizations:
 - name: population-grows-then-flattens
   address: image:charts/population-grows-then-flattens.png
   status: planned
   kind: mockup
-  render: 'PLANNED (mockup; mbp-04 in Design, BLOCKED on mbp-03): population + glucose vs time over 3 generations, expected exponential growth then flattening as glucose/DO becomes limiting.'
+  render: 'PLANNED (mockup; mbp-04 in Design, BLOCKED on mbp-03): population + glucose vs time over 3 generations, expected
+    exponential growth then flattening as glucose/DO becomes limiting.'
 runtime:
   status: not_run
   note: No runs yet; blocked on mbp-03 (the coupled composite).
 report:
-  headline: Run the mbp-03 coupled composite >=3 generations to test mass conservation, tractability, and the regime transition into substrate limitation.
+  headline: Run the mbp-03 coupled composite >=3 generations to test mass conservation, tractability, and the regime 
+    transition into substrate limitation.
   status: design-blocked-on-prereq
-  summary: 'Batch-mode multi-generation extension of mbp-03 (no new physics): as the population grows it depletes glucose (mbp-01 env hook) and DO (mbp-03 coupler), driving a growth -> substrate-limited-slowdown transition. A MassBalanceAuditor closes C/N (incl. CO2-C and acetate/organic-acid-C) to within 2%. Fed-batch is OUT of scope.'
+  summary: 'Batch-mode multi-generation extension of mbp-03 (no new physics): as the population grows it depletes glucose
+    (mbp-01 env hook) and DO (mbp-03 coupler), driving a growth -> substrate-limited-slowdown transition. A MassBalanceAuditor
+    closes C/N (incl. CO2-C and acetate/organic-acid-C) to within 2%. Fed-batch is OUT of scope.'
 study_card:
   one_liner: Multi-generation batch stability + C/N mass-balance audit of the coupled model.
   phase: Design
@@ -392,17 +416,24 @@ enforced_params:
   default: '{reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}'
 - name: seed
   value: 0
-biological_summary: 'Carbon ledger: glucose-C in -> biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -> biomass-N (~0.12 gN/gDW). Both residuals expected |<0.02| at every step. Headline observable is the growth->limitation regime transition.'
+biological_summary: 'Carbon ledger: glucose-C in -> biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting
+  it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006).
+  Nitrogen ledger (narrow): NH4+ in -> biomass-N (~0.12 gN/gDW). Both residuals expected |<0.02| at every step. Headline observable
+  is the growth->limitation regime transition.'
 literature_anchors:
   expert_docs:
   - multiscale_bioprocess_roadmap
   - chris_feedback_2026_05_26
   bib_keys: []
-  note: C/N residual tolerances (2%) are numerical mass-conservation targets, not literature bands; biomass C/N coefficients (0.46 gC/gDW, 0.12 gN/gDW) are standard E. coli composition constants applied as parameters. Acetate overflow rationale cites Vemuri 2006 in prose (failure_modes) — not yet machine-linked as a test band.
+  note: C/N residual tolerances (2%) are numerical mass-conservation targets, not literature bands; biomass C/N 
+    coefficients (0.46 gC/gDW, 0.12 gN/gDW) are standard E. coli composition constants applied as parameters. Acetate 
+    overflow rationale cites Vemuri 2006 in prose (failure_modes) — not yet machine-linked as a test band.
 design_pivot_required:
   required: false
-  note: No pivot. Inherits the cells_per_agent scaling (mbp-02) and the Option-B coupling (mbp-03); MassBalanceAuditor species list made explicit (CO2 + organic acids) per chris_feedback_2026_05_26 §9.
+  note: No pivot. Inherits the cells_per_agent scaling (mbp-02) and the Option-B coupling (mbp-03); MassBalanceAuditor 
+    species list made explicit (CO2 + organic acids) per chris_feedback_2026_05_26 §9.
 conclusion_verdicts:
 - verdict: PENDING
-  statement: Not yet built or run — blocked on mbp-03. Glucose-pool / cells_per_agent pairing and wall-clock budget to be calibrated from the first real run.
+  statement: Not yet built or run — blocked on mbp-03. Glucose-pool / cells_per_agent pairing and wall-clock budget to 
+    be calibrated from the first real run.
   evidence: 'open_questions glucose-pool-sizing + wall-clock-budget-target (status: open); runs: [].'

@@ -19,6 +19,7 @@ from v2ecoli.core import build_core
 from v2ecoli.workflow.config import load_config_with_inheritance
 from v2ecoli.workflow.meta_composite import (
     build_meta_composite, register_workflow_processes)
+from v2ecoli.workflow.variants import expand_branches
 
 
 def _all_complete(composite) -> bool:
@@ -27,17 +28,123 @@ def _all_complete(composite) -> bool:
         b.get("complete") for b in branches.values())
 
 
+def _resolve_parallel(config: dict[str, Any], n_branches: int) -> str | None:
+    """Resolve the multi-seed parallel mode.
+
+    DEFAULT: parallelize across seeds (one worker per seed) whenever a sweep
+    has more than one branch — ``run_seeds_parallel`` falls back to sequential
+    automatically if Ray is not installed, so the default is always safe. Set
+    ``config['parallel']`` to ``null`` / ``false`` / ``"sequential"`` to force
+    the single-process meta-composite, or to ``"ray"`` to be explicit.
+    """
+    if "parallel" in config and config["parallel"] not in ("ray", "default"):
+        p = config["parallel"]
+        if p in (None, False, "", "none", "null", "sequential", "off"):
+            return None
+        return str(p)
+    return "ray" if n_branches > 1 else None
+
+
+def _run_seed_worker(seed, *, config, max_sim_time):
+    """Top-level Ray worker: run ONE seed's lineage to completion, emitting to
+    the sweep's shared hive ``out_dir`` (distinct ``seed=`` partition per
+    worker, so workers never collide). Returns that seed's branch summary.
+
+    Must stay module-level + rely only on its args (Ray re-imports the module
+    in a fresh process and serializes ``config`` per call).
+    """
+    sub = dict(config)
+    sub["n_init_sims"] = 1
+    sub["lineage_seed"] = int(seed)
+    sub["skip_baseline"] = False
+    sub["parallel"] = None                 # the worker itself is sequential
+    sub["analysis_options"] = {}           # analyses run once, on the driver
+    res = _run_sweep_sequential(
+        sub, max_sim_time=max_sim_time, pbg_out=None,
+        write_summary=False, run_analysis=False)
+    return res["branches"]
+
+
 def run_workflow(config: dict[str, Any], *, max_sim_time: float = 1e9,
                  pbg_out: str | None = None) -> dict[str, Any]:
-    """Build and run the meta-composite for ``config``. Returns a result dict.
+    """Build and run the sweep for ``config``. Returns a result dict.
+
+    Multi-seed sweeps parallelize across seeds BY DEFAULT (one worker process
+    per seed via :func:`run_seeds_parallel`), each worker emitting to the
+    sweep's shared hive ``out_dir``; analyses then run once on the driver over
+    the whole sweep. Single-branch sweeps, variant sweeps, and
+    ``config['parallel'] in (null/false/'sequential')`` use the single-process
+    meta-composite. See :func:`_resolve_parallel`.
 
     Keys in the returned dict:
       ``complete``   – True if every branch finished before the sim-time cap.
-      ``elapsed``    – sim-time in seconds consumed by the sweep.
-      ``timed_out``  – True if the sim-time cap was hit before all branches
-                       completed.
+      ``elapsed``    – sim-time (sequential) or wall-time (parallel) consumed.
+      ``timed_out``  – True if the cap was hit before all branches completed.
       ``branches``   – per-branch summary dicts.
     """
+    branches = expand_branches(config)
+    mode = _resolve_parallel(config, len(branches))
+    # Only seed-split when branches differ ONLY by seed (no variant grid); a
+    # variant sweep keeps the single-process meta-composite for now.
+    has_variants = bool(config.get("variants"))
+    if mode and len(branches) > 1 and not has_variants:
+        return _run_sweep_parallel(config, branches, mode,
+                                   max_sim_time=max_sim_time)
+    return _run_sweep_sequential(config, max_sim_time=max_sim_time,
+                                 pbg_out=pbg_out)
+
+
+def _run_sweep_parallel(config: dict[str, Any], branches, mode: str, *,
+                        max_sim_time: float) -> dict[str, Any]:
+    """Fan the sweep's seeds out across worker processes, then aggregate +
+    write ``summary.json`` and run analyses once over the shared ``out_dir``."""
+    from v2ecoli.library.parallel_seeds import run_seeds_parallel
+
+    seeds = [spec.seed for spec in branches]
+    pr = run_seeds_parallel(
+        seeds, _run_seed_worker, mode=mode,
+        num_threads=config.get("parallel_threads"),
+        run_kwargs={"config": dict(config), "max_sim_time": max_sim_time})
+
+    branch_result: dict[str, dict] = {}
+    for r in pr.results:
+        if r:
+            branch_result.update(r)
+    complete = bool(branch_result) and all(
+        v.get("complete") for v in branch_result.values())
+
+    out_dir = config.get("out_dir") or "out/workflow"
+    os.makedirs(out_dir, exist_ok=True)
+    import json
+    with open(os.path.join(out_dir, "summary.json"), "w") as f:
+        json.dump({k: rv.get("summary") or {} for k, rv in branch_result.items()},
+                  f, indent=2, default=str)
+
+    result = {
+        "complete": complete,
+        "elapsed": pr.wall_s,
+        "timed_out": not complete,
+        "branches": branch_result,
+        "parallel": {"mode": pr.mode, "n_workers": pr.n_seeds,
+                     "wall_s": pr.wall_s},
+    }
+    analysis_options = config.get("analysis_options") or {}
+    if any((analysis_options or {}).values()):
+        from v2ecoli.workflow.analysis_runner import run_analyses
+        run_analyses(out_dir, analysis_options)
+        result["analysis"] = os.path.join(out_dir, "analysis.json")
+    return result
+
+
+def _run_sweep_sequential(config: dict[str, Any], *, max_sim_time: float = 1e9,
+                          pbg_out: str | None = None,
+                          write_summary: bool = True,
+                          run_analysis: bool = True) -> dict[str, Any]:
+    """Single-process meta-composite run (all branches ticked together).
+
+    ``write_summary`` / ``run_analysis`` are turned off when this is invoked as
+    a per-seed worker (the driver writes the combined summary + runs analyses
+    once over the whole sweep)."""
     core = build_core()
     register_workflow_processes(core)
 
@@ -79,10 +186,11 @@ def run_workflow(config: dict[str, Any], *, max_sim_time: float = 1e9,
 
     out_dir = config.get("out_dir") or "out/workflow"
     os.makedirs(out_dir, exist_ok=True)
-    import json
-    with open(os.path.join(out_dir, "summary.json"), "w") as f:
-        json.dump({k: rv["summary"] for k, rv in branch_result.items()},
-                  f, indent=2, default=str)
+    if write_summary:
+        import json
+        with open(os.path.join(out_dir, "summary.json"), "w") as f:
+            json.dump({k: rv["summary"] for k, rv in branch_result.items()},
+                      f, indent=2, default=str)
 
     result = {
         "complete": complete,
@@ -92,7 +200,7 @@ def run_workflow(config: dict[str, Any], *, max_sim_time: float = 1e9,
     }
 
     analysis_options = config.get("analysis_options") or {}
-    if any((analysis_options or {}).values()):
+    if run_analysis and any((analysis_options or {}).values()):
         from v2ecoli.workflow.analysis_runner import run_analyses
         run_analyses(out_dir, analysis_options)
         result["analysis"] = os.path.join(out_dir, "analysis.json")

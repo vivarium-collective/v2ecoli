@@ -6,13 +6,19 @@ Numerically computes:
   B:    N×1 control vector for PTS_4.kF (glucose-uptake forward rate)
 
 Saves two .npz files:
-  v2ecoli/data/millard_linearization.npz       — full 15-state
-  v2ecoli/data/millard_linearization_sub.npz   — 4-state controllable subspace
-                                                 (G6P, F6P, PEP, PYR) used by
-                                                 LQRControllerMultiState because
-                                                 the full 15-state pair (A, B)
-                                                 has unstable uncontrollable
-                                                 modes (Riccati infeasible).
+  v2ecoli/data/millard_linearization.npz       — full 15-state (true Jacobian J)
+  v2ecoli/data/millard_linearization_sub.npz   — 4-state subspace (G6P, F6P,
+                                                 PEP, PYR), retained for
+                                                 reference only.
+
+NOTE (2026-06-11): an earlier version stored ``I + J`` instead of J (see the
+Jacobian step below), which made the full (A, B) pair look like it had
+"unstable uncontrollable modes (Riccati infeasible)" — the original reason the
+4-state subspace + multi-input workarounds were introduced. That was a
+misdiagnosis of the +I bug: with the true Jacobian J, the full 15-state pair is
+stable except for two genuine conservation-law (lambda=0) modes, and the LQR
+solves fine on the full system (the controller applies a small ``-eps*I`` shift
+so those two uncontrollable conservation modes are strictly stable for scipy).
 
 Run from worktree root:
     python scripts/linearize_millard.py
@@ -34,9 +40,10 @@ FULL_SPECIES = ["ATP", "ADP", "AMP", "NAD", "NADH", "NADP", "NADPH",
                 "G6P", "F6P", "PEP", "PYR", "AKG", "MAL", "OAA", "CIT"]
 SUB_SPECIES = ["G6P", "F6P", "PEP", "PYR"]
 # Multi-input control: 3 reaction parameters spanning glucose uptake /
-# glycolysis-commit / glycolysis-exit. With multi-input, the full 15-state
-# (A, B) pair regains controllability (vs single-input PTS_4 alone, which
-# was rank-8 with unstable uncontrollable modes — Riccati infeasible).
+# glycolysis-commit / glycolysis-exit. Multi-input improves controllability of
+# the glycolytic states; the two remaining uncontrollable modes are genuine
+# conservation laws (lambda=0), handled by the controller's -eps*I shift rather
+# than by dropping to a subspace.
 CONTROL_PARAMS = [
     ("PTS_4", "(PTS_4).kF"),   # glucose uptake (kF)
     ("PFK",   "(PFK).Vmax"),   # F6P → FDP (glycolysis commitment)
@@ -80,12 +87,21 @@ def main():
 
     print(f"\n2. Computing {len(FULL_SPECIES)}×{len(FULL_SPECIES)} Jacobian (1% finite diff)...")
     dt = 1.0
-    A_full = np.zeros((len(FULL_SPECIES), len(FULL_SPECIES)))
+    n_sp = len(FULL_SPECIES)
+    # Perturbing a STATE by delta and integrating for dt gives the integrated-
+    # state sensitivity Phi(dt) = d x(dt)/d x0 = exp(J*dt) ~ I + J*dt, NOT the
+    # derivative. The continuous-time Jacobian is therefore J = (Phi - I)/dt.
+    # The previous version stored Phi/dt = I/dt + J (a spurious +I/dt), which
+    # shifted every eigenvalue up by 1/dt: a stable Millard Jacobian looked
+    # anti-stable and its conserved-moiety lambda=0 modes appeared at lambda=+1
+    # (unstable + uncontrollable), making the LQR Riccati solve infeasible.
+    Phi = np.zeros((n_sp, n_sp))
     base = reset_and_run(None, 0.0, None, dt)
     for j, sp in enumerate(FULL_SPECIES):
         delta = max(abs(x_ss[sp]) * 0.01, 1e-4)
         pert = reset_and_run(sp, delta, None, dt)
-        A_full[:, j] = (pert - base) / delta / dt
+        Phi[:, j] = (pert - base) / delta
+    A_full = (Phi - np.eye(n_sp)) / dt
 
     print(f"3. Computing B matrix ({len(CONTROL_PARAMS)} control inputs)...")
     B_matrix = np.zeros((len(FULL_SPECIES), len(CONTROL_PARAMS)))

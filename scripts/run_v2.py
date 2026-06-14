@@ -4,7 +4,7 @@ reports/v1_v2_report.py and reports/composite_comparison.py.
 Args: <duration> <interval> <result_path> [composite_name] [seed]
 The optional 4th arg selects which registered composite to build (default
 'baseline'); the optional 5th is the RNG seed (default 0)."""
-import os, sys, json, time, warnings
+import os, sys, json, time, warnings, resource
 import numpy as np
 
 warnings.filterwarnings('ignore')
@@ -56,6 +56,64 @@ def _bulk_summary(cell):
     }
 
 
+def _fba_summary(cell):
+    """FBA objective value + (for the bridge harness) flux-pin diagnostics.
+
+    Only the millard_fba_bridge_harness composite populates the bridge stores;
+    for every other composite these keys are simply absent and the report
+    renders them as not-applicable.
+    """
+    out = {}
+    fba = cell.get('listeners', {}).get('fba_results', {})
+    if 'objective_value' in fba:
+        out['fba_objective'] = mag(fba.get('objective_value', 0))
+
+    # FBA-bridge diagnostics (millard_fba_bridge_harness only).
+    diag = cell.get('bridge_diagnostics')
+    if isinstance(diag, dict) and 'n_pinned' in diag:
+        out['n_pinned'] = int(diag.get('n_pinned', 0) or 0)
+    relaxed = cell.get('listeners', {}).get('fba_bridge', {}).get('relaxed_reactions')
+    if relaxed is not None:
+        out['n_relaxed'] = int(len(relaxed))
+    cf = cell.get('central_fluxes')
+    if isinstance(cf, dict) and cf:
+        vals = [abs(float(v)) for v in cf.values() if v == v]
+        nz = [v for v in vals if v > 0]
+        out['central_flux_n'] = len(cf)
+        out['central_flux_nonzero'] = len(nz)
+        out['central_flux_absmean'] = (sum(vals) / len(vals)) if vals else 0.0
+    pft = cell.get('pinned_flux_targets')
+    if isinstance(pft, dict) and pft:
+        out['pin_n_nonzero'] = int(sum(1 for v in pft.values() if v))
+    return out
+
+
+def _base_reaction_ids(cell):
+    """Labels for the base_reaction_fluxes vector, read off the live metabolism
+    process instance (config-only, not in the state tree). None if absent."""
+    node = cell.get('ecoli-metabolism')
+    inst = node.get('instance') if isinstance(node, dict) else None
+    ids = getattr(inst, 'base_reaction_ids', None)
+    return [str(x) for x in ids] if ids is not None and len(ids) else None
+
+
+def _accum_flux(cell, acc):
+    """Running (sum, count) of the per-reaction base flux vector, for a
+    time-mean over the run. Guards on shape so a malformed tick is skipped."""
+    brf = cell.get('listeners', {}).get('fba_results', {}).get('base_reaction_fluxes')
+    if brf is None:
+        return acc
+    arr = np.asarray(brf, dtype=float)
+    if arr.ndim != 1 or arr.size == 0:
+        return acc
+    s, n = acc
+    if s is None:
+        s = np.zeros_like(arr)
+    if s.shape != arr.shape:
+        return (s, n)
+    return (s + arr, n + 1)
+
+
 def snap(t, cell):
     mass = cell.get('listeners', {}).get('mass', {})
     unique = cell.get('unique', {})
@@ -81,6 +139,7 @@ def snap(t, cell):
         'unique_counts': uc,                  # per-type active unique molecules
     }
     s.update(_bulk_summary(cell))
+    s.update(_fba_summary(cell))
     return s
 
 
@@ -98,11 +157,18 @@ load_time = time.time() - t0
 
 cell = composite.state['agents']['0']
 snapshots = [snap(0, cell)]
+base_reaction_ids = _base_reaction_ids(cell)
+flux_acc = (None, 0)  # (sum_vector, n_ticks) → time-mean per base reaction
 
 t0 = time.time()
 total = 0
+# Per-chunk wall timing: one entry per composite.run(chunk) call so the report
+# can show the step-time distribution (median/p95) and realtime-factor drift,
+# not just the single aggregate wall_time.
+step_times = []
 while total < duration:
     chunk = min(interval, duration - total)
+    c0 = time.time()
     try:
         composite.run(chunk)
     except Exception:
@@ -111,15 +177,27 @@ while total < duration:
         # don't follow a daughter here (that's what multigeneration_report
         # is for), so stop cleanly and report the sim-time at division.
         break
+    chunk_wall = time.time() - c0
     total += chunk
 
     cell = composite.state.get('agents', {}).get('0')
     if cell is None:
         # Division event with no exception path — same handling.
         break
+    step_times.append({
+        'time': total,
+        'sim_s': chunk,                                    # sim-seconds advanced
+        'wall_s': chunk_wall,                              # wall-seconds taken
+        'ms_per_sim_s': 1000.0 * chunk_wall / chunk if chunk else 0.0,
+        'realtime_x': chunk / chunk_wall if chunk_wall else 0.0,
+    })
     snapshots.append(snap(total, cell))
+    flux_acc = _accum_flux(cell, flux_acc)
 
 wall_time = time.time() - t0
+# ru_maxrss is bytes on macOS (darwin), kilobytes on Linux.
+_maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+peak_rss_mb = _maxrss / (1024 * 1024) if sys.platform == 'darwin' else _maxrss / 1024
 
 result = {
     'engine': f'v2ecoli:{composite_name} (process-bigraph)',
@@ -128,8 +206,19 @@ result = {
     'wall_time': wall_time,
     'sim_time': total,
     'speed': total / wall_time if wall_time > 0 else 0,
+    'peak_rss_mb': peak_rss_mb,
+    'step_times': step_times,
     'snapshots': snapshots,
 }
+
+# Per-reaction time-mean FBA flux + labels, for the flux-divergence section
+# (additive; absent on engines without a metabolism listener).
+_fsum, _fn = flux_acc
+if base_reaction_ids and _fsum is not None and _fn:
+    _mean = (_fsum / _fn)
+    if len(base_reaction_ids) == _mean.size:
+        result['base_reaction_ids'] = base_reaction_ids
+        result['base_reaction_flux_mean'] = [float(x) for x in _mean]
 
 with open(result_path, 'w') as f:
     json.dump(result, f)

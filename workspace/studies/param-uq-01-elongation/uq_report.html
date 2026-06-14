@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UQ Report</title>
+<style>
+:root {
+  --bg: #0f0f1a;
+  --surface: #1a1a2e;
+  --surface2: #222240;
+  --border: #2d2d50;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --accent: #6366f1;
+  --accent-light: #818cf8;
+  --success: #10b981;
+  --warning: #f59e0b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 40px 24px; }
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 48px 0 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+}
+.header h1 {
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.5px; margin-bottom: 8px;
+}
+.header .subtitle { color: var(--text-dim); font-size: 14px; }
+
+/* Metrics */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 14px; margin-bottom: 36px;
+}
+.metric {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 18px; text-align: center;
+}
+.metric .value { font-size: 26px; font-weight: 700; color: var(--accent-light); }
+.metric .label {
+  font-size: 11px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px;
+}
+
+/* Sections */
+.section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px; margin-bottom: 24px;
+}
+.section h2 {
+  font-size: 18px; font-weight: 600;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section h2 .badge {
+  font-size: 11px; background: var(--accent); color: #fff;
+  padding: 2px 8px; border-radius: 10px; font-weight: 500;
+}
+.section-desc {
+  color: var(--text-dim); font-size: 13px;
+  margin-bottom: 16px; line-height: 1.5;
+}
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left; padding: 10px 12px;
+  border-bottom: 2px solid var(--border);
+  color: var(--text-dim); font-weight: 600;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: none; }
+tr:hover { background: var(--surface2); }
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px; background: var(--surface2);
+  padding: 2px 6px; border-radius: 4px;
+}
+.rank { color: var(--text-dim); font-weight: 600; width: 40px; }
+.bar-cell { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+.bar { height: 8px; background: var(--accent); border-radius: 4px; min-width: 2px; }
+.bar-cell span { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Charts */
+.chart-container {
+  display: flex; justify-content: center;
+  padding: 8px 0; overflow-x: auto;
+}
+svg text { font-family: 'Inter', -apple-system, sans-serif; }
+
+/* Observable pills */
+.obs-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.obs-pill {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 14px;
+  font-size: 12px; font-family: monospace; color: var(--text-dim);
+}
+
+/* Callouts */
+.callout {
+  border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+.callout .icon { font-size: 28px; line-height: 1; }
+.callout .detail { flex: 1; }
+.callout .detail .title { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+.callout .detail .desc { font-size: 13px; color: var(--text-dim); }
+.callout-info {
+  background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(99,102,241,0.05));
+  border: 1px solid rgba(99,102,241,0.3);
+}
+
+/* Dividers */
+.strategy-divider {
+  text-align: center; color: var(--text-dim);
+  font-size: 12px; text-transform: uppercase;
+  letter-spacing: 1px; margin: 36px 0 24px;
+  display: flex; align-items: center; gap: 16px;
+}
+.strategy-divider::before, .strategy-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+
+/* Footer */
+.footer {
+  text-align: center; padding: 32px 0 16px;
+  color: var(--text-dim); font-size: 12px;
+  border-top: 1px solid var(--border); margin-top: 24px;
+}
+
+@media (max-width: 600px) {
+  .container { padding: 20px 12px; }
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .header h1 { font-size: 22px; }
+  .section { padding: 16px; }
+}
+
+/* Interactive PCE explorer */
+.explorer-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  margin-top: 16px;
+}
+@media (max-width: 700px) {
+  .explorer-grid { grid-template-columns: 1fr; }
+}
+.slider-panel { display: flex; flex-direction: column; gap: 14px; }
+.slider-group label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--text-dim);
+}
+.slider-group label code { color: var(--text); }
+.slider-group input[type=range] {
+  width: 100%;
+  accent-color: var(--accent);
+  height: 6px;
+  cursor: pointer;
+}
+.slider-group .bounds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.pred-panel { display: flex; flex-direction: column; gap: 16px; }
+.pred-readout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+.pred-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.pred-card .pred-label {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.pred-card .pred-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent-light);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.explorer-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.explorer-controls button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.explorer-controls button:hover { opacity: 0.85; }
+.obs-toggles { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.obs-toggle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+.obs-toggle:hover { border-color: var(--accent); }
+.obs-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.obs-toggle .color-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>Uncertainty Quantification Report</h1>
+  <div class="subtitle">Generated June 12, 2026</div>
+</div>
+
+<!-- Key metrics -->
+<div class="metrics">
+  <div class="metric"><div class="value">3</div><div class="label">Parameters</div></div>
+  <div class="metric"><div class="value">1</div><div class="label">Observables</div></div>
+  <div class="metric"><div class="value">30</div><div class="label">Train Samples</div></div>
+  <div class="metric"><div class="value">2</div><div class="label">PCE Order</div></div>
+</div>
+
+<!-- Top driver callout -->
+<div class="callout callout-info">
+  <div class="icon">&#x1F3AF;</div>
+  <div class="detail">
+    <div class="title">Top Driver: <code>ecoli-polypeptide-elongation.basal_elongation_rate</code></div>
+    <div class="desc">Explains 95.8% of total output variance
+      (S<sub>Ti</sub>&nbsp;=&nbsp;0.9580).</div>
+  </div>
+</div>
+
+<!-- Observables list -->
+<div class="section">
+  <h2>Tracked Observables</h2>
+  <p class="section-desc">Output variables used to compute sensitivity indices.</p>
+  <div class="obs-list"><span class="obs-pill">igr</span></div>
+</div>
+
+<div class="strategy-divider">Sobol Sensitivity Analysis</div>
+
+<!-- Sobol bar chart + ranked table -->
+<div class="section">
+  <h2>Sobol Indices</h2>
+  <p class="section-desc">
+    Total-order (S<sub>Ti</sub>) and first-order (S<sub>i</sub>) Sobol indices
+    computed from the fitted PCE surrogate via analytic variance decomposition.
+    S<sub>Ti</sub> includes interaction effects; S<sub>i</sub> captures only the
+    direct contribution. Parameters are ranked by S<sub>Ti</sub>.
+  </p>
+  <div class="chart-container"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" style="width:100%;max-width:700px;height:auto;">
+<line x1="55" y1="230.0" x2="680" y2="230.0" stroke="#333355" stroke-width="1"/>
+<text x="47" y="234.0" text-anchor="end" font-size="11" fill="#94a3b8">0.00</text>
+<line x1="55" y1="190.0" x2="680" y2="190.0" stroke="#333355" stroke-width="1"/>
+<text x="47" y="194.0" text-anchor="end" font-size="11" fill="#94a3b8">0.20</text>
+<line x1="55" y1="150.0" x2="680" y2="150.0" stroke="#333355" stroke-width="1"/>
+<text x="47" y="154.0" text-anchor="end" font-size="11" fill="#94a3b8">0.40</text>
+<line x1="55" y1="110.0" x2="680" y2="110.0" stroke="#333355" stroke-width="1"/>
+<text x="47" y="114.0" text-anchor="end" font-size="11" fill="#94a3b8">0.60</text>
+<line x1="55" y1="70.0" x2="680" y2="70.0" stroke="#333355" stroke-width="1"/>
+<text x="47" y="74.0" text-anchor="end" font-size="11" fill="#94a3b8">0.80</text>
+<line x1="55" y1="30.0" x2="680" y2="30.0" stroke="#333355" stroke-width="1"/>
+<text x="47" y="34.0" text-anchor="end" font-size="11" fill="#94a3b8">1.00</text>
+<rect x="65.4" y="38.4" width="72.9" height="191.6" fill="#6366f1" rx="3"><title>ecoli-polypeptide-elongation.basal_elongation_rate
+S_Ti = 0.9580</title></rect>
+<rect x="148.8" y="39.4" width="72.9" height="190.6" fill="#f59e0b" rx="3"><title>ecoli-polypeptide-elongation.basal_elongation_rate
+S_i = 0.9530</title></rect>
+<text x="159.2" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 159.2 246)">ecoli-polypeptide-elongation.basal_elongation_rate</text>
+<rect x="273.8" y="222.7" width="72.9" height="7.3" fill="#6366f1" rx="3"><title>ecoli-polypeptide-elongation.kS
+S_Ti = 0.0363</title></rect>
+<rect x="357.1" y="224.8" width="72.9" height="5.2" fill="#f59e0b" rx="3"><title>ecoli-polypeptide-elongation.kS
+S_i = 0.0261</title></rect>
+<text x="367.5" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 367.5 246)">ecoli-polypeptide-elongation.kS</text>
+<rect x="482.1" y="226.8" width="72.9" height="3.2" fill="#6366f1" rx="3"><title>ecoli-chromosome-replication.basal_elongation_rate
+S_Ti = 0.0161</title></rect>
+<rect x="565.4" y="227.9" width="72.9" height="2.1" fill="#f59e0b" rx="3"><title>ecoli-chromosome-replication.basal_elongation_rate
+S_i = 0.0104</title></rect>
+<text x="575.8" y="246" text-anchor="end" font-size="11" fill="#e2e8f0" transform="rotate(-35 575.8 246)">ecoli-chromosome-replication.basal_elongation_rate</text>
+<rect x="65" y="38" width="12" height="12" fill="#6366f1" rx="2"/>
+<text x="81" y="48" font-size="11" fill="#e2e8f0">Total (S_Ti)</text>
+<rect x="165" y="38" width="12" height="12" fill="#f59e0b" rx="2"/>
+<text x="181" y="48" font-size="11" fill="#e2e8f0">First (S_i)</text>
+</svg></div>
+  <div style="margin-top:20px;"><table>
+<thead><tr>
+<th>Rank</th><th>Parameter</th><th>S_Ti (Total)</th>
+<th>S_i (First)</th><th>Interaction</th>
+</tr></thead>
+<tbody>
+<tr><td class="rank">1</td><td><code>ecoli-polypeptide-elongation.basal_elongation_rate</code></td><td><div class="bar-cell"><div class="bar" style="width:96%"></div><span>0.9580</span></div></td>
+<td>0.9530</td><td>0.0049</td>
+</tr>
+<tr><td class="rank">2</td><td><code>ecoli-polypeptide-elongation.kS</code></td><td><div class="bar-cell"><div class="bar" style="width:4%"></div><span>0.0363</span></div></td>
+<td>0.0261</td><td>0.0102</td>
+</tr>
+<tr><td class="rank">3</td><td><code>ecoli-chromosome-replication.basal_elongation_rate</code></td><td><div class="bar-cell"><div class="bar" style="width:2%"></div><span>0.0161</span></div></td>
+<td>0.0104</td><td>0.0057</td>
+</tr>
+</tbody>
+</table></div>
+</div>
+
+<div class="strategy-divider">Surrogate Accuracy</div>
+
+<!-- Relative error table -->
+<div class="section">
+  <h2>Relative Error by Output</h2>
+  <p class="section-desc">
+    Per-output relative L2 error of the PCE surrogate predictions. Test error is shown (independent held-out set).
+  </p>
+  <div style="overflow-x:auto;"><table>
+<thead><tr>
+<th>Output</th><th>Rel. Err. (train)</th><th>Rel. Err. (test)</th>
+</tr></thead>
+<tbody>
+<tr><td><code>igr</code></td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0109</td><td style="text-align:right;font-variant-numeric:tabular-nums">0.0167</td></tr>
+</tbody>
+</table></div>
+</div>
+
+
+<div class="strategy-divider">Interactive PCE Explorer</div>
+
+<div class="section">
+  <h2>Surrogate Predictor <span class="badge">Interactive</span></h2>
+  <p class="section-desc">
+    Drag parameter sliders to evaluate the fitted PCE surrogate in real time.
+    Predicted observable values update instantly &mdash; no simulation required.
+    Use this to explore &ldquo;what if&rdquo; scenarios: tune parameters until the
+    predicted outputs match a desired state.
+  </p>
+  
+<div class="explorer-controls">
+  <button id="pce-reset">Reset to Midpoint</button>
+  <button id="pce-select-all">Select All</button>
+  <button id="pce-select-none" style="background:var(--surface2);color:var(--text-dim);border:1px solid var(--border);">Clear</button>
+</div>
+<div class="obs-toggles" id="pce-obs-toggles"></div>
+<div class="explorer-grid">
+  <div class="slider-panel" id="pce-sliders"></div>
+  <div class="pred-panel">
+    <div class="pred-readout" id="pce-readout"></div>
+  </div>
+</div>
+</div>
+
+
+<div class="footer">
+  pbg-uq &mdash; Uncertainty Quantification Report &mdash; June 12, 2026
+</div>
+
+</div>
+
+<script>
+(function() {
+  const S = {"pop_coeffs": [[0.00021807252264237446, 1.826420399157615e-05, 2.685342518268526e-06, 1.9561437350913755e-06, -6.504083662932378e-06, -2.2994911793588816e-06, -5.220652378215895e-07, -2.096801956815671e-06, -2.49369355730355e-06, -3.832745756941262e-07]], "multi_indices": [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]], "bounds": [[15.0, 28.0], [60.0, 140.0], [700.0, 1200.0]]};
+  const PARAMS = ["ecoli-polypeptide-elongation.basal_elongation_rate", "ecoli-polypeptide-elongation.kS", "ecoli-chromosome-replication.basal_elongation_rate"];
+  const OBS = ["igr"];
+  const nP = PARAMS.length;
+  const nObs = OBS.length;
+  const bounds = S.bounds;
+  const mi = S.multi_indices;
+  const popC = S.pop_coeffs;
+  const nBasis = mi.length;
+
+  // Evaluate a single-output PCE via Legendre recurrence
+  function legendreEval(xNorm, coeffs) {
+    let maxOrd = 0;
+    for (let t = 0; t < nBasis; t++)
+      for (let p = 0; p < nP; p++)
+        if (mi[t][p] > maxOrd) maxOrd = mi[t][p];
+    const P = [];
+    for (let p = 0; p < nP; p++) {
+      P[p] = new Float64Array(maxOrd + 1);
+      P[p][0] = 1.0;
+      if (maxOrd >= 1) P[p][1] = xNorm[p];
+      for (let n = 2; n <= maxOrd; n++)
+        P[p][n] = ((2*n - 1) * xNorm[p] * P[p][n-1] - (n-1) * P[p][n-2]) / n;
+    }
+    let result = 0;
+    for (let t = 0; t < coeffs.length; t++) {
+      let term = coeffs[t];
+      for (let p = 0; p < nP; p++) term *= P[p][mi[t][p]];
+      result += term;
+    }
+    return result;
+  }
+
+  function getXNorm() {
+    const xPhys = [];
+    for (let i = 0; i < nP; i++) {
+      const sl = document.getElementById('pce-slider-' + i);
+      xPhys.push(parseFloat(sl.value));
+    }
+    const xNorm = [];
+    for (let i = 0; i < nP; i++) {
+      const lo = bounds[i][0], hi = bounds[i][1];
+      xNorm.push(2 * (xPhys[i] - lo) / (hi - lo + 1e-15) - 1);
+    }
+    return { xPhys, xNorm };
+  }
+
+  const selected = new Set();
+
+  function update() {
+    const { xPhys, xNorm } = getXNorm();
+    for (let i = 0; i < nP; i++) {
+      document.getElementById('pce-val-' + i).textContent = xPhys[i].toFixed(4);
+    }
+    const popPreds = [];
+    for (let o = 0; o < nObs; o++) popPreds.push(legendreEval(xNorm, popC[o]));
+    for (let o = 0; o < nObs; o++) {
+      const el = document.getElementById('pce-pred-' + o);
+      if (el) {
+        el.textContent = popPreds[o].toFixed(4);
+        el.parentElement.style.borderColor = selected.has(o) ? 'var(--accent)' : 'var(--border)';
+      }
+    }
+  }
+
+  const CHART_COLORS = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6',
+                         '#8b5cf6','#ec4899','#14b8a6','#f97316','#84cc16'];
+
+  function syncToggleStyles() {
+    document.querySelectorAll('.obs-toggle').forEach(function(pill) {
+      const idx = parseInt(pill.dataset.idx);
+      pill.classList.toggle('active', selected.has(idx));
+    });
+  }
+
+  function init() {
+    const panel = document.getElementById('pce-sliders');
+    if (!panel) return;
+
+    // Build parameter sliders
+    for (let i = 0; i < nP; i++) {
+      const lo = bounds[i][0], hi = bounds[i][1];
+      const mid = (lo + hi) / 2;
+      const div = document.createElement('div');
+      div.className = 'slider-group';
+      div.innerHTML =
+        '<label><code>' + PARAMS[i] + '</code>'
+        + '<span id="pce-val-' + i + '">' + mid.toFixed(4) + '</span></label>'
+        + '<input type="range" id="pce-slider-' + i + '" min="' + lo + '" max="' + hi
+        + '" step="' + ((hi - lo) / 200) + '" value="' + mid + '">'
+        + '<div class="bounds"><span>' + lo.toFixed(3) + '</span><span>' + hi.toFixed(3) + '</span></div>';
+      panel.appendChild(div);
+      document.getElementById('pce-slider-' + i).addEventListener('input', update);
+    }
+
+    // Build observable toggle pills
+    const toggles = document.getElementById('pce-obs-toggles');
+    for (let o = 0; o < nObs; o++) {
+      const pill = document.createElement('span');
+      pill.className = 'obs-toggle active';
+      pill.dataset.idx = o;
+      const col = CHART_COLORS[o % CHART_COLORS.length];
+      pill.innerHTML = '<span class="color-dot" style="background:' + col + '"></span>' + OBS[o];
+      selected.add(o);
+      pill.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.idx);
+        if (selected.has(idx)) selected.delete(idx); else selected.add(idx);
+        syncToggleStyles();
+        update();
+      });
+      toggles.appendChild(pill);
+    }
+
+    // Build prediction readout cards
+    const readout = document.getElementById('pce-readout');
+    for (let o = 0; o < nObs; o++) {
+      const card = document.createElement('div');
+      card.className = 'pred-card';
+      card.innerHTML = '<div class="pred-label">' + OBS[o]
+        + '</div><div class="pred-value" id="pce-pred-' + o + '">-</div>';
+      card.style.cursor = 'pointer';
+      card.dataset.idx = o;
+      card.addEventListener('click', function() {
+        const idx = parseInt(this.dataset.idx);
+        if (selected.has(idx)) selected.delete(idx); else selected.add(idx);
+        syncToggleStyles();
+        update();
+      });
+      readout.appendChild(card);
+    }
+
+    document.getElementById('pce-reset').addEventListener('click', function() {
+      for (let i = 0; i < nP; i++) {
+        const lo = bounds[i][0], hi = bounds[i][1];
+        document.getElementById('pce-slider-' + i).value = (lo + hi) / 2;
+      }
+      update();
+    });
+    document.getElementById('pce-select-all').addEventListener('click', function() {
+      for (let o = 0; o < nObs; o++) selected.add(o);
+      syncToggleStyles(); update();
+    });
+    document.getElementById('pce-select-none').addEventListener('click', function() {
+      selected.clear(); syncToggleStyles(); update();
+    });
+
+    update();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

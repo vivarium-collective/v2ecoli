@@ -39,6 +39,11 @@ class LQRControllerMultiState(Process):
         "Q_diag_weight": {"_default": 1.0},   # weight on diag(Q)
         "R": {"_default": 0.1},               # scalar weight on control effort
         "tick_s": {"_default": 100.0},
+        # Stabilizing shift for the CARE: the Millard Jacobian has two genuine
+        # conserved-moiety modes at lambda=0 that are uncontrollable; solving the
+        # CARE on (A - care_shift*I) makes those modes strictly stable for scipy
+        # without materially changing the controllable-subspace gain.
+        "care_shift": {"_default": 1e-3},
     }
 
     def initialize(self, config):
@@ -70,13 +75,30 @@ class LQRControllerMultiState(Process):
         Q = q_w * np.eye(n)
         R = r_w * np.eye(self.n_controls)
 
-        # Solve continuous-time Riccati: A^T P + P A - P B R^{-1} B^T P + Q = 0
+        # Solve continuous-time Riccati: A^T P + P A - P B R^{-1} B^T P + Q = 0.
+        # ``self.A`` is the true Jacobian J (near-Hurwitz). Its two conserved-
+        # moiety modes sit at lambda=0 and are uncontrollable, which scipy's
+        # solver rejects (imaginary-axis uncontrollable modes). Shifting to
+        # (A - care_shift*I) makes them strictly stable so the CARE is
+        # well-posed; the resulting gain still stabilises the controllable
+        # subspace and leaves the (genuinely uncontrollable) conservation modes
+        # untouched.
+        shift = float(self.parameters.get("care_shift", 1e-3))
+        self.gain_degenerate = False
         try:
             from scipy.linalg import solve_continuous_are
-            P = solve_continuous_are(self.A, self.B, Q, R)
+            P = solve_continuous_are(self.A - shift * np.eye(n), self.B, Q, R)
             self.K = np.linalg.inv(R) @ self.B.T @ P  # (n_controls, n)
         except Exception as e:
-            print(f"[LQRMultiState] Riccati solve failed ({e!r}); using zero gain")
+            # Loud, NOT silent: a zero-gain controller is an UNCONTROLLED run.
+            # Surface it via gain_degenerate so lqr_diagnostics records it
+            # rather than the run masquerading as "controlled".
+            self.gain_degenerate = True
+            print(
+                "[LQRMultiState] WARNING: Riccati solve failed even after "
+                f"care_shift={shift:g} ({e!r}); falling back to ZERO GAIN — "
+                "the metabolism is effectively UNCONTROLLED this run."
+            )
             self.K = np.zeros((self.n_controls, n))
 
         self.tick_s = float(self.parameters.get("tick_s", 100.0))
@@ -138,6 +160,9 @@ class LQRControllerMultiState(Process):
                 "rms_deviation_norm": float(np.sqrt(np.mean([
                     e["deviation_norm"] ** 2 for e in self._log
                 ]))) if self._log else 0.0,
+                # True when the Riccati solve failed and the controller is
+                # running at zero gain (i.e. the metabolism is uncontrolled).
+                "gain_degenerate": bool(self.gain_degenerate),
             },
         }
 

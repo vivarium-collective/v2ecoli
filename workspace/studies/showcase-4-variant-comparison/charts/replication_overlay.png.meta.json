@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase4-variant-sweep",
+  "rendered_at": 1781267180.814549,
+  "title": "Number of oriC over the cell cycle, all 5 variants overlaid",
+  "interpretation": "baseline / ppgpp-off / dnaA-2x / elong-down all multifork to 4 oriC; dnaA-2x and elong-down reach 4 slightly EARLIER (advanced re-initiation timing). media-succinate never multiforks (stays 1->2 oriC), reflecting slow growth with no overlapping replication rounds \u2014 the clearest replication contrast. dnaA-2x does NOT raise the oriC ceiling.",
+  "command": "scripts/render_variant_comparison.py: 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase4-variants/showcase4_variants parquet (5-variant x 2-seed sweep); variant_metadata {0:baseline,1:ppgpp-off,2:dnaA-2x,3:elong-down,4:media-succinate}; Altair->PNG/SVG via vl_convert."
+}

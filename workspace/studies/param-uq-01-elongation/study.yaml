@@ -1,0 +1,235 @@
+schema_version: 4
+name: param-uq-01-elongation
+investigation: parameter-uq
+title: "Ribosome basal elongation rate dominates growth-rate variance among effective elongation knobs (Sobol ≈ 0.97)"
+created: '2026-06-12'
+status: evaluated
+
+# Canonical 6-axis status.
+design_status: complete
+implementation_status: complete
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: passed
+expert_review_status: pending
+
+# Investigation-graph node fields (the "Finds" headline + confidence badge).
+claim: |
+  Among the v2ecoli elongation knobs reachable via baseline config_overrides, the
+  ribosome's translation basal_elongation_rate ROBUSTLY DOMINATES variance in
+  instantaneous growth rate — total-order Sobol ≈ 0.97 (stable across 3 PCRV
+  seeds, range 0.955–0.987), vs ppGpp-synthesis kS ≈ 0.04 and DNA-pol elongation
+  rate ≈ 0.01. The PCE surrogate fits to ~1.7% test error. This CORRECTS the
+  initial demo, whose "gtpPerElongation dominates (0.88)" reading was a
+  state-carryover artifact (fixed in v2ecoli PR #197).
+confidence: Accepted
+
+question: |
+  (1) Does the pbg-uq forward-UQ pipeline run end-to-end on v2ecoli? (2) Among the
+  elongation parameters that actually affect the simulation, which dominates
+  variance in instantaneous growth rate — and is the ranking robust across seeds?
+
+report:
+  title: param-uq-01-elongation — ribosome basal elongation rate dominates growth-rate variance
+  verdict: pass
+  confidence: high
+  evidence_quality: order-2 PCE, n=30+10, 3 seeds (STABLE ranking), test rel-err 1.3–2.1%
+
+  objective: |
+    Run a TRUSTWORTHY forward-UQ on v2ecoli — after correcting the methodological
+    defects found in the initial demo — to identify which elongation parameter
+    most drives variance in instantaneous growth rate, and confirm robustness.
+
+  setup: |
+    ### Parameter Specifications
+
+    Each parameter is a top-level process-config scalar reachable via
+    `baseline()` `config_overrides`. Bounds were screened so that only knobs with
+    a real effect on the observable are included (the screen %-response of
+    instantaneous growth rate to a low→high swing is shown).
+
+    | Parameter | Config path | Min | Max | Mid | Units | Screen % | Description |
+    |---|---|---|---|---|---|---|---|
+    | `basal_elongation_rate` | `ecoli-polypeptide-elongation.basal_elongation_rate` | 15 | 28 | 21.5 | aa/s | 13.8% | Ribosome elongation rate for non-ribosomal proteins (default 22). Sets how fast ribosomes add amino acids → protein-synthesis flux. Experimentally tunable via sub-inhibitory chloramphenicol. |
+    | `kS` | `ecoli-polypeptide-elongation.kS` | 60 | 140 | 100 | — | 5.5% | Saturation constant (default 100) in the polypeptide-elongation charging / ppGpp-synthesis kinetics (grouped with the tRNA-charging constants krta/krtf). Couples elongation to amino-acid/ppGpp state. |
+    | `chrom.basal_elongation_rate` | `ecoli-chromosome-replication.basal_elongation_rate` | 700 | 1200 | 950 | nt/s | 2.8% | DNA-polymerase (replisome) elongation rate (default 967); the stochastic per-step rate is drawn around this basal value. Sets chromosome-replication speed. |
+
+    Candidates screened out as INERT (≤1.4% response, excluded): `ribosomeElongationRate`
+    (overwritten at runtime each step → config value ignored), `gtpPerElongation`
+    (energy accounting only), `import_threshold`, `D_period`.
+
+    ### Tracked Observable
+
+    | Observable | Path | Why |
+    |---|---|---|
+    | `instantaneous_growth_rate` | `listeners.mass.instantaneous_growth_rate` | The responsive growth observable. Mass observables (`dry_mass`, `cell_mass`) move <0.16% over a 120-step window — a fresh cell barely grows in ~2% of a generation — so they carry no parameter signal at this window. |
+
+    ### Methodology
+
+    | Field | Value |
+    |---|---|
+    | Tool / reproducer | pbg-uq · `examples/v2ecoli_uq_ensemble.py` |
+    | Composite | `v2ecoli.composites.baseline`; observables via `run_multigen_xarray` (XArray emitter) |
+    | Sampling | PCRV (uniform prior) |
+    | Surrogate | order-2 Polynomial Chaos Expansion, Legendre basis (10 terms), `lsq` regression |
+    | Sensitivity | analytic Sobol indices from PCE coefficients (Sudret 2008) |
+    | Budget | 30 train + 10 test per seed, **3 PCRV seeds (0, 1, 2)** for robustness |
+    | Window | 120 simulation steps, 1 generation |
+    | Correctness | fresh `initial_state` per sample (v2ecoli PR #197) → samples independent; verified identical params → identical output |
+
+  result: |
+    STABLE, well-determined ranking — the dominant knob is identical across all 3
+    PCRV seeds (argmax [0, 0, 0]); PCE test relative error 1.3–2.1%.
+
+    | Rank | Parameter | S_Ti (total, mean) | [range] | S_i (first) | Interaction | ≈ % of growth-rate variance |
+    |---|---|---|---|---|---|---|
+    | 1 | `basal_elongation_rate` | **0.966** | [0.955, 0.987] | 0.956 | 0.010 | **96.6%** |
+    | 2 | `kS` | 0.036 | [0.013, 0.057] | 0.027 | 0.009 | 3.6% |
+    | 3 | `chrom.basal_elongation_rate` | 0.011 | [0.008, 0.016] | 0.004 | 0.007 | 1.1% |
+
+    **Top driver:** `basal_elongation_rate` explains ≈ 96.6% of growth-rate variance
+    (S_Ti = 0.966), ~27× the next knob. Its first-order ≈ total-order (0.956 vs
+    0.966), so the effect is almost entirely DIRECT (negligible interaction).
+
+    Figures: `charts/sobol_indices.png` (Sobol bars, across-seed whiskers) and
+    `charts/pce_response_curves.png` (predicted growth rate vs each parameter).
+
+  interpretation: |
+    The ribosome's basal elongation rate is, by a wide margin, the dominant driver
+    of instantaneous-growth-rate variance among the effective config-reachable
+    elongation knobs — Sobol ≈ 0.97, robust across sampling seeds, near-perfect
+    surrogate fit. This is mechanistically expected: basal_elongation_rate directly
+    sets ribosome speed → protein-synthesis flux → growth rate, whereas
+    ppGpp-synthesis kS and DNA-pol elongation rate act more indirectly and weakly on
+    short-window growth rate. NOTE this study CORRECTS the initial demo: its
+    "gtpPerElongation dominates (Sobol 0.88)" reading was an artifact of a
+    state-carryover bug (baseline() shared initial_state across samples → fixed in
+    v2ecoli PR #197), and 2 of its 3 chosen parameters were in fact inert
+    (ribosomeElongationRate is overwritten at runtime; gtpPerElongation only
+    touches energy accounting and doesn't move growth rate measurably).
+
+  decision: |
+    PASS — robustly demonstrated. Among effective config-reachable elongation knobs,
+    translation basal_elongation_rate dominates instantaneous-growth-rate variance
+    (Sobol ≈ 0.97, stable across 3 seeds, ~1.7% surrogate error). See the scope
+    caveats for how far to generalize.
+
+    ### Provenance
+
+    | Field | Value |
+    |---|---|
+    | Command | `python examples/v2ecoli_uq_ensemble.py` (v2ecoli .venv) |
+    | Date | 2026-06-12 |
+    | pbg-uq | 0.1.0 |
+    | pbg-emitters | 0.1.0 |
+    | pytuq | 1.0.0 |
+    | process-bigraph / bigraph-schema | 1.4.17 / 1.4.1 |
+    | numpy / scipy / polars | 2.4.5 / 1.17.1 / 1.40.1 |
+    | Reproducibility dependency | v2ecoli PR #197 (deep-copy initial_state) — without it, samples are not independent |
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  variants: []
+  model_settings:
+  - name: effective-params-only
+    detail: "Parameters screened for real effect; ribosomeElongationRate (runtime-overwritten) and gtpPerElongation (energy-only) were inert and excluded."
+    gate: optional
+  - name: carryover-fixed
+    detail: "Fresh initial_state per sample (v2ecoli PR #197) — samples independent; verified identical params -> identical output (vs the buggy shared-bundle path where dry_mass climbed by sample index)."
+    gate: optional
+  - name: growth-rate-observable
+    detail: "Observable = instantaneous_growth_rate; mass observables (dry/cell) do not respond over a 120-step window (<0.16%)."
+    gate: optional
+  - name: robustness
+    detail: "n=30 train + 10 test, order-2 PCE (10 basis terms), 3 PCRV seeds; dominant knob identical across all seeds (idx [0,0,0])."
+    gate: optional
+
+assumptions:
+- text: |
+    Config-reachable top-level process knobs are a meaningful (if partial)
+    parameter surface. The deep sim_data physiological params (kinetic rates, mass
+    fractions, etc.) live in the sim_data dataclass and need ParCa-level injection;
+    they were NOT varied here.
+  verified_in_v2ecoli: false
+- text: |
+    instantaneous_growth_rate over a 120-step window captures the elongation
+    parameters' effect. Longer windows / mass observables would probe slower
+    effects and could shift the ranking.
+  verified_in_v2ecoli: false
+
+tests:
+- name: forward-uq-pipeline-runs-end-to-end
+  classification: primary
+  status: passed
+  question: |
+    Does the pbg-uq forward-UQ pipeline run end-to-end on v2ecoli and produce Sobol
+    indices, a PCE surrogate, figures and an HTML report?
+  measure:
+    kind: authored
+    detail: |
+      120 sims across 3 seeds: PCRV → per-sample baseline sim (XArray emitter) →
+      order-2 PCE → analytic Sobol → figures + uq_report.html. 1 = ran end-to-end.
+    measured_value: 1.0
+  pass_if:
+    op: in_range
+    low: 1.0
+    high: 1.0
+- name: single-elongation-knob-robustly-dominates
+  classification: primary
+  status: passed
+  question: |
+    Does a single effective elongation knob robustly dominate (total-order Sobol
+    >= 0.5, with a stable identity across seeds) instantaneous-growth-rate variance?
+  measure:
+    kind: authored
+    detail: |
+      translation basal_elongation_rate total-order Sobol = 0.966 (range across 3
+      seeds 0.955–0.987); the dominant knob is identical across all 3 seeds
+      (argmax idx [0, 0, 0]). Surrogate test rel-err 1.3–2.1%.
+    measured_value: 0.966
+  pass_if:
+    op: in_range
+    low: 0.5
+    high: 1.0
+
+runs:
+- name: uq-elongation-effective-n30x3seeds
+  status: completed
+  kind: sensitivity_analysis
+  canonical: true
+  description: |
+    30 train + 10 test PCRV samples, order-2 PCE, 3 seeds (0,1,2), 120-step window,
+    fresh initial_state per sample. Observable: instantaneous_growth_rate.
+    Reproducer: pbg-uq examples/v2ecoli_uq_ensemble.py.
+  dispatch: serial
+  emitter: xarray
+  result: PASS
+  outcomes:
+    forward-uq-pipeline-runs-end-to-end:
+      result: PASS
+      detail: "120 sims; Sobol + surrogate + 2 figures + HTML report produced."
+    single-elongation-knob-robustly-dominates:
+      result: PASS
+      detail: "basal_elongation_rate Sobol 0.966 (range 0.955-0.987), dominant across all 3 seeds; test rel-err 1.3-2.1%."
+
+visualizations:
+- name: Sobol sensitivity of growth rate
+  address: image:charts/sobol_indices.png
+  config:
+    title: "Forward-UQ sensitivity of instantaneous growth rate (3 effective knobs; whiskers = across-seed range)"
+  chart: image
+  render: "Total + first-order Sobol over the 3 effective elongation knobs. basal_elongation_rate ≈ 0.97 dominant; kS ≈ 0.04; DNA-pol ≈ 0.01."
+- name: PCE response curves
+  address: image:charts/pce_response_curves.png
+  config:
+    title: "PCE surrogate response — predicted growth rate vs each parameter (others at midpoint)"
+  chart: image
+  render: "Growth rate rises with basal_elongation_rate; flat-ish vs kS and DNA-pol rate."
+
+pipeline_gate:
+  prerequisites: []
+  enables: []
+  gate_status: passed

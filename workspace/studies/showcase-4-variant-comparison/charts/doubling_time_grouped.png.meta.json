@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase4-variant-sweep",
+  "rendered_at": 1781267180.814549,
+  "title": "Cap-immune doubling time per variant (ln2/mean mu)",
+  "interpretation": "ppgpp-off is the slowest (mean 61.6 min, spread to 77 min); dnaA-2x fastest (48.4 min); elong-down ~baseline (50.2 min \u2014 the weak contrast: a 0.7x elongation cut barely moves growth); media-succinate slightly slow (56.6 min).",
+  "command": "scripts/render_variant_comparison.py: 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase4-variants/showcase4_variants parquet (5-variant x 2-seed sweep); variant_metadata {0:baseline,1:ppgpp-off,2:dnaA-2x,3:elong-down,4:media-succinate}; Altair->PNG/SVG via vl_convert."
+}

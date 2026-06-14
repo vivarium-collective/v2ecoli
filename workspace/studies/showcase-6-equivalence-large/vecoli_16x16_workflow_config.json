@@ -1,0 +1,21 @@
+{
+  "_doc": "vEcoli (v1) workflow config for the MATCHED 16x16 equivalence reference of the showcase-6-equivalence-large study. Run with vEcoli's own Nextflow workflow (`python -m runscripts.workflow --config <this>`) from the in-repo sibling vEcoli checkout (CovertLab/vEcoli @ b237873e). Produces a hive-partitioned parquet sweep (**/history/**/*.pq) at the SAME 16 seeds x 16 generations as the v2 measured side. The resulting sweep is consumed by scripts/pin_vecoli_equivalence_reference.py (--sweep-dir, --gen-lb 3) to pin docs/report_cards/population_phenotype_basal/vs_vecoli/vecoli_reference.json. sim_data_path reuses a prebuilt full ParCa (out/kb/simData.cPickle) so the workflow skips the ParCa rebuild. Basal/minimal-glucose condition, single_daughters lineage from seed 0, per-generation cap 3600 s (matches the v2 population_phenotype_basal_16x16 config); cells divide naturally well before the cap.",
+  "experiment_id": "ppb_vecoli_16x16",
+  "suffix_time": false,
+  "sim_data_path": "out/kb/simData.cPickle",
+  "fail_at_max_duration": false,
+  "max_duration": 3600.0,
+  "generations": 16,
+  "n_init_sims": 16,
+  "single_daughters": true,
+  "lineage_seed": 0,
+  "different_seeds_per_variant": false,
+  "condition": "basal",
+  "fixed_media": "minimal",
+  "emitter": "parquet",
+  "emitter_arg": {
+    "out_dir": "out",
+    "threaded": false
+  },
+  "analysis_options": {}
+}

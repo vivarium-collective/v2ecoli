@@ -89,6 +89,7 @@ at_a_glance:
       the next investigation iteration.
   - mbp-07-millard-kinetic-metabolism-swap: "Build: replace v2ecoli's central-carbon FBA metabolism with the Millard 2017 kinetic ODE (growth still from the WCM), env-responsive via the Millard step's external_concentrations input. Deliverable: baseline_millard.\n"
   - mbp-08-millard-swap-validation: "Build/test: validate the Millard swap is a runnable WCM that recovers growth vs the FBA baseline (standalone). Mass-conservation + env-response checks deferred to mbp-09 (need Millard mass accounting / a reactor).\n"
+  - mbp-09-millard-reactor-comparison: "Evaluate: head-to-head Millard-kinetic vs WCM-FBA metabolism, both coupled to the BiRD reactor, graded vs Beulig batch via report cards. Gated on the Millard exchange accounting + the mbp-05 Beulig harness.\n"
   blocked:
   - |
     Reaching the Beulig high-density regime (~50–80 gDW/L fed-batch endpoint,
@@ -684,6 +685,7 @@ studies:
 # `workspace.yaml.expert_docs[].name` entry.
 - mbp-07-millard-kinetic-metabolism-swap
 - mbp-08-millard-swap-validation
+- mbp-09-millard-reactor-comparison
 expert_docs:
 - multiscale_bioprocess_roadmap          # upstream-divergence pointer
 - cell_side_interface_contract           # substitutability discipline (NEW)

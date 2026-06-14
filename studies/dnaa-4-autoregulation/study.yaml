@@ -849,3 +849,23 @@ findings:
   status: draft
   provenance:
     run_ids: [dnaa4_s07_seed0, dnaa4_s07_seed1, dnaa4_s07_seed2]
+- id: F-05
+  statement: >-
+    DnaA-ATP-vs-DnaA-ADP noise asymmetry (Haochen 2026-06-14): the DnaA-ADP curve is much
+    SMOOTHER than DnaA-ATP even though ADP is downstream of ATP (ATP hydrolyses to ADP), so
+    ADP should inherit ATP's noise. ROOT CAUSE found: the two analogous nucleotide-binding
+    equilibrium reactions are solved by DIFFERENT numerical methods in
+    flat_overrides/equilibrium_reaction_rates.tsv — DnaA-ATP formation (MONOMER0-160_RXN,
+    apo+ATP<->DnaA-ATP) had integrate_dt=false (FAST-EQUILIBRIUM, re-solved to steady state
+    every tick, so it instantly tracks the stochastic free-ATP/apo pools => noisy), while
+    DnaA-ADP formation (MONOMER0-4565_RXN) and the hydrolysis (DNAA-INTRINSIC-HYDROLYSIS-RXN)
+    had integrate_dt=true (KINETIC ODE integration over dt, which averages out the
+    sub-tick stochasticity => smooth). So DnaA-ADP's smoothness was a numerical ARTIFACT of the
+    inconsistent integration method, not physics — exactly as the reviewer suspected.
+    CORRECTION: set MONOMER0-160_RXN integrate_dt false->true so DnaA-ATP formation is
+    kinetically integrated like DnaA-ADP (consistent treatment). Expected effect: DnaA-ATP
+    follows a smooth ODE trajectory matching DnaA-ADP, without changing its near-equilibrium
+    level (forward_rate=1 still equilibrates fast, just smoothly). Requires a ParCa cache
+    rebuild + a validation run to confirm. (Residual box-binding free<->bound stochasticity in
+    dnaa_box_binding.py is a separate, smaller contributor.)
+  status: draft

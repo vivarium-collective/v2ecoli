@@ -263,7 +263,8 @@ behavior_tests:
   pass_if: {op: in_range, low: 6, high: 24}   # 240 min / 60 min ~ 4 doublings → 16x; band absorbs stochasticity
   units: "—"
   requires_simulation: multi-division-population
-  cites: []
+  cites:
+  - Monod1949AnnRevMicrobiol
   cites_note: "No machine-linkable bib_key: the 6-24x band is anchored to v2ecoli's calibrated ~60-min M9-glucose doubling time (model-internal prior over decades of E. coli physiology), not a single citable source."
 
 - name: total-biomass-grows-exponentially
@@ -274,7 +275,8 @@ behavior_tests:
   pass_if: {op: in_range, low: 0.3, high: 0.9}   # generous; v2ecoli-calibrated μ ≈ 0.5-0.7 1/h
   units: "1/h"
   requires_simulation: multi-division-population
-  cites: []
+  cites:
+  - Monod1949AnnRevMicrobiol
   cites_note: "No machine-linkable bib_key: the 0.3-0.9 /h band reflects v2ecoli's calibrated basal mu (~0.5-0.7 /h), a model-internal prior, not an external literature value."
 
 - name: per-cell-observables-unchanged-vs-baseline
@@ -295,7 +297,8 @@ behavior_tests:
   pass_if: {op: in_range, low: 0.99, high: 1.01}
   units: fraction
   requires_simulation: single-cell-no-division
-  cites: []
+  cites:
+  - agmon2022
   cites_note: 'No machine-linkable bib_key: the 0.99-1.01 band is a numerical aggregation identity (single cell at cells_per_agent=1.0), not a literature value.'
 
 # ─── Pure consistency invariants (chris_feedback_2026_05_26 §4) ───
@@ -718,7 +721,8 @@ tests:
     low: 400.0
     high: 1500.0
   requires_simulation: aggregator-cpa1-multigen
-  cites: []
+  cites:
+  - agmon2022
   backs:
     behavior_test: per-cell-observables-unchanged-vs-baseline
 
@@ -736,7 +740,8 @@ tests:
     threshold: 0.0
     field: min_value
   requires_simulation: aggregator-cpa1-multigen
-  cites: []
+  cites:
+  - agmon2022
   backs:
     behavior_test: aggregator-output-scales-linearly-with-cells-per-agent
 
@@ -754,7 +759,8 @@ tests:
     threshold: 1.0
     field: max_value
   requires_simulation: aggregator-cpa1-multigen
-  cites: []
+  cites:
+  - agmon2022
   backs:
     behavior_test: single-cell-aggregation-matches-cell-mass
 

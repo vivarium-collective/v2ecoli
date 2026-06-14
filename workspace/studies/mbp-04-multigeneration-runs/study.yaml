@@ -12,7 +12,7 @@ expert_review_status: not_requested
 baseline:
 - name: multigeneration-coupled-baseline
   composite: v2ecoli.composites.reactor_bird_coupled
-  params: {seed: 0, cache_dir: out/cache}
+  params: {seed: 0, cache_dir: out/cache, features: [mass_conservation]}
 
 
 # ─── 1. PURPOSE ────────────────────────────────────────────────────────────
@@ -177,6 +177,11 @@ behavior_tests:
   units: seconds
   requires_simulation: three-generation-batch
   cites: []
+- name: wcm-mass-conservation-closes
+  measure: {kind: derived, formula: listeners.mass.conservation_relative_cumulative, window: full_lineage_from_gen_0}
+  pass_if: {op: in_range, low: 0.0, high: 0.05}
+  cites: [agmon2022]
+  acceptance_form: quantitative_range
 
 
 # ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────

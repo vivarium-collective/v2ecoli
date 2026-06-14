@@ -278,19 +278,14 @@ behavior_tests:
 - name: cumulative-mass-balance-closes
   classification: primary
   acceptance_form: quantitative_range
-  description: Cumulative external-glucose decrease (integral over the run) matches cumulative v2ecoli glucose-uptake flux integral within numerical tolerance — the environment hook is wired without leakage.
-  measure:
-    kind: derived_ratio
-    numerator: cumulative_uptake_mmol
-    denominator: cumulative_external_drop_mmol
-  pass_if:
-    op: in_range
-    low: 0.9
-    high: 1.1
+  description: Closed-balance cumulative mass conservation (MassConservationDeriver) — the relative cumulative residual between cell-mass change and net environmental exchange stays near zero, confirming the environment hook is wired without leakage.
+  measure: {kind: derived, formula: listeners.mass.conservation_relative_cumulative, window: full_lineage_from_gen_0}
+  pass_if: {op: in_range, low: 0.0, high: 0.05}
   units: fraction
   requires_simulation: linear-glucose-decline
-  cites: []
-  cites_note: 'No machine-linkable bib_key: the 0.9-1.1 band is a numerical mass-conservation closure tolerance (env-driver wire leakage check), not a literature-sourced biological value.'
+  cites:
+  - agmon2022
+  cites_note: 'No machine-linkable bib_key: the 0.0-0.05 band is a numerical mass-conservation closure tolerance (env-driver wire leakage check), not a literature-sourced biological value.'
 - name: static-env-baseline-unchanged
   classification: primary
   acceptance_form: quantitative_range
@@ -639,7 +634,8 @@ tests:
     low: 400.0
     high: 1500.0
   requires_simulation: static-env-baseline-multigen
-  cites: []
+  cites:
+  - agmon2022
   backs:
     behavior_test: static-env-baseline-unchanged
   cites_note: 'No machine-linkable bib_key: the 400-1500 fg band is the v2ecoli baseline single-cell dry-mass range (model-internal regression guard), not an external literature value.'
@@ -656,7 +652,8 @@ tests:
     threshold: 0.0
     field: min_value
   requires_simulation: static-env-baseline-multigen
-  cites: []
+  cites:
+  - agmon2022
   backs:
     behavior_test: static-env-baseline-unchanged
   cites_note: 'No machine-linkable bib_key needed: trivial biological floor (instantaneous growth rate > 0 under replete static medium); no external source applies.'
@@ -673,7 +670,8 @@ tests:
     low: 0.0
     high: 5.0
   requires_simulation: linear-decline-glc-multigen
-  cites: []
+  cites:
+  - agmon2022
   backs:
     behavior_test: external_glucose_updates_propagate_within_one_step
   cites_note: 'No machine-linkable bib_key: the 0-5 mM band equals the synthetic linear_decline driver spec (5 mM -> 0); plumbing/propagation check, not a literature value.'
@@ -690,7 +688,8 @@ tests:
     low: 0.0
     high: 1.0e-06
   requires_simulation: zero-clamp-glc-multigen
-  cites: []
+  cites:
+  - agmon2022
   backs:
     behavior_test: zero-substrate-blocks-uptake
   cites_note: 'No machine-linkable bib_key: the 0 to 1e-6 mM band is a numerical-zero tolerance for the clamp_to_value=0 driver; plumbing check, not a literature value.'

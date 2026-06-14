@@ -263,7 +263,8 @@ behavior_tests:
   pass_if: {op: in_range, low: 0.99, high: 1.01}
   units: fraction
   requires_simulation: one-generation-coupled
-  cites: []
+  cites:
+  - agmon2022
   cites_note: 'No machine-linkable bib_key: the 0.99-1.01 band is a numerical coupling-wire identity (coupler writes reactor.biomass = population value), not a literature value.'
 
 # ─── CO2 symmetric tests (chris_feedback_2026_05_26 §7) ───

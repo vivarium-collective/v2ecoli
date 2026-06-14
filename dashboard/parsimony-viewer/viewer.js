@@ -1139,6 +1139,12 @@ async function buildScene(doc, fileName) {
 
   framePacking(bbMin, bbMax);
   initSizeFilter();
+  // GPU-pragmatic default: a whole-cell pack is ~1M+ instances, too heavy to
+  // draw every frame. Default the render to a representative uniform subsample
+  // (~TARGET_DRAWN instances). The pack order is random, so a fraction is an
+  // unbiased sample — relative abundances + spatial layout are preserved; the
+  // "show %" slider goes to the full crowded density.
+  applyAdaptiveShowFraction(placements.length);
   // Start with every category collapsed so the (now long) ingredient list
   // doesn't bury the style / size / crowding controls below it. Categories
   // expand on click; a search term temporarily reveals all matches.
@@ -1396,6 +1402,20 @@ let lodSphereBudgetPx = 12.0;
 // it down to declutter / cut render load without re-packing (the packed
 // cell is numerically sparse but the oversized proxies read as crowded).
 let interiorFraction = 1.0;
+
+// Target number of drawn instances for the default view — a GPU-friendly load
+// that still reads as a crowded cell. Whole-cell packs (~1M+) are subsampled
+// down to this; smaller packs render in full.
+const TARGET_DRAWN = 400000;
+function applyAdaptiveShowFraction(totalPlacements) {
+  if (!totalPlacements) return;
+  let pct = Math.min(100, Math.max(5, Math.round((TARGET_DRAWN / totalPlacements) * 100 / 5) * 5));
+  interiorFraction = pct / 100;
+  const slider = document.getElementById("show-fraction");
+  const val = document.getElementById("show-fraction-value");
+  if (slider) slider.value = String(pct);
+  if (val) val.textContent = String(pct);
+}
 
 // Size-range filter: hide ingredients whose enclosing radius (Å) falls outside
 // [sizeFilterMin, sizeFilterMax]. The domain is the min/max radius in the loaded
@@ -2233,8 +2253,16 @@ const aboutBtn = document.getElementById("about-btn");
 const aboutPanel = document.getElementById("about-panel");
 const aboutBody = document.getElementById("about-body");
 const aboutClose = document.getElementById("about-close");
+function aboutRenderNote() {
+  const pct = Math.round(interiorFraction * 100);
+  if (pct >= 100) return "";
+  return `<p class="anote"><strong>Rendering:</strong> to stay smooth, the view draws a representative `
+    + `<strong>${pct}%</strong> uniform subsample of the full-abundance model — because placements are `
+    + `in random order, this preserves relative abundances and spatial layout. Drag the “show %” slider `
+    + `up for the full crowded density.</p>`;
+}
 function renderAbout() {
-  if (aboutBody) aboutBody.innerHTML = ABOUT_HTML + aboutStatsHtml() + ABOUT_CREDIT;
+  if (aboutBody) aboutBody.innerHTML = ABOUT_HTML + aboutStatsHtml() + aboutRenderNote() + ABOUT_CREDIT;
 }
 function setAbout(show) {
   if (!aboutPanel) return;

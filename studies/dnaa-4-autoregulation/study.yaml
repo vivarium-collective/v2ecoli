@@ -143,6 +143,18 @@ simulation_set:
   pass_fail_tests: [dnaa-pool-self-stabilizes-in-band-no-V, cell-cycle-preserved]
 
 visualizations:
+- name: dnaa4_box_dynamics
+  address: charts/dnaa4_box_dynamics.png
+  status: rendered
+  config:
+    title: >-
+      DnaA-box occupancy under the s=0.7 autoregulated expression (seed2, per-pool over the
+      lineage). The high-affinity boxes (chromosomal_high / oriC_high / dnaA-promoter_high,
+      K_d 3 nM) stay well-filled; the low-affinity oriC boxes (K_d 100 nM) stay MOSTLY EMPTY
+      (steady occupancy 0.10–0.28 across seeds) — the over-binding seen in dnaa-3 (read-only
+      ~0.8, adopted ~0.46) is further resolved because autoregulation lowers DnaA and depletes
+      the free DnaA-ATP that drove low-affinity over-occupancy. Answers Rashmi 2026-06-14
+      (box-binding dynamics on top of the achieved autoreg expression).
 - name: dnaa4_autoreg_feedback_planned
   address: planned
   status: planned
@@ -572,3 +584,19 @@ findings:
   statement: 'Tests run (evaluator): cell-cycle-preserved PASS (robust, all 3 seeds, oriC<=2/0 re-init); DnaA-pool-in-band PARTIAL (strict per-gen FAIL on the g17 partial gen + seed0 noise; 2/3 seeds in-band for full gens g3-16). Not a clean pass -> the box-binding redo on the autoreg expression is pending your call given PARTIAL (and dnaa-4 already runs box-binding UNDER the autoreg expression, so those dynamics are already in the s=0.7 runs).'
   status: draft
   from_feedback: fb-6bb05a4528f336e1
+- id: F-04
+  statement: >-
+    Box-binding dynamics UNDER the s=0.7 autoregulated expression (analyzed from the existing
+    dnaa4_s07_seed{0,1,2} runs, steady gens >=3): high-affinity boxes stay well-occupied
+    (chromosomal_high 0.70/0.89/0.95, oriC_high 0.69/0.88/0.93, dnaA-promoter_high 0.67/0.86/0.90
+    across seed0/1/2), while the LOW-AFFINITY oriC boxes (K_d 100 nM) stay MOSTLY EMPTY
+    (0.10/0.15/0.28). The oriC-low over-binding flagged in dnaa-3 (read-only observer ~0.8,
+    active-mechanism adopted ~0.46) is FURTHER RESOLVED under autoregulation — feedback lowers
+    DnaA, depleting the free DnaA-ATP that drove low-affinity over-occupancy, so the low-aff
+    sites fill only transiently. Bound pools are predominantly DnaA-ADP (~20-32% ATP at the
+    high-aff boxes) from intrinsic hydrolysis. Chart: dnaa4_box_dynamics. (Rashmi 2026-06-14:
+    box-binding dynamics on top of the achieved expression dynamics — answered via the existing
+    autoreg runs rather than a fresh study, since dnaa-4 already runs box-binding under autoreg.)
+  status: draft
+  provenance:
+    run_ids: [dnaa4_s07_seed0, dnaa4_s07_seed1, dnaa4_s07_seed2]

@@ -1,4 +1,4 @@
-# parsimony mesh: g6194_monomer (source /Users/eranagmon/code/v2e-molecules/workspace/studies/ecoli-3d/viz/3d/structures/g6194_monomer.pdb)
+# parsimony mesh: g6194_monomer (source /Users/eranagmon/code/v2e-flagella/workspace/studies/ecoli-3d/viz/3d/structures/g6194_monomer.pdb)
 # atoms: 691  voxel: 16 Å  verts: 36  tris: 62
 v -2.2599 -8.6580 -17.5887
 v 4.6052 -8.6580 -17.5887

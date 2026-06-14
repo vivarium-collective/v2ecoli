@@ -136,3 +136,28 @@ def test_biological_wraps_baseline_and_remaps(monkeypatch):
     # The outer document scaffolding is preserved verbatim.
     assert doc['skip_initial_steps'] is True
     assert doc['flow_order'] == ['emitter']
+
+
+def test_edge_instance_not_deepcopied_and_survives_unpicklable():
+    """Regression: remap must SHALLOW-copy edges. An edge holds a live process
+    instance (e.g. ParquetEmitter, which owns a _queue.SimpleQueue) that is
+    unpicklable and must stay the SAME shared object — deep-copying it both
+    crashes (cannot pickle SimpleQueue) and would wrongly clone the process."""
+    import queue
+    from v2ecoli.composites._remap import remap_cell_state
+
+    class _Unpicklable:
+        def __init__(self):
+            self.q = queue.SimpleQueue()  # not deep-copyable / picklable
+
+    inst = _Unpicklable()
+    cell_state = {
+        'bulk': np.array([1]),
+        'emitter': {'_type': 'step', 'instance': inst,
+                    'inputs': {'b': ['bulk']}, 'outputs': {}},
+    }
+    out = remap_cell_state(cell_state)              # must not raise
+    assert out['emitter']['instance'] is inst       # shared, not cloned
+    assert out['emitter']['inputs']['b'] == ['cell', 'molecules']
+    # original edge's wires untouched (no-mutation contract)
+    assert cell_state['emitter']['inputs']['b'] == ['bulk']

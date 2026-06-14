@@ -7,8 +7,6 @@ math changes — so a composite built through it is bit-identical to baseline.
 """
 from __future__ import annotations
 
-import copy
-
 # Top-level data store -> new biological path. Coordination/clock stores move
 # under machinery/ and clock/ so the cell/ subtree reads as biology, not plumbing.
 #
@@ -138,7 +136,13 @@ def remap_cell_state(cell_state: dict) -> dict:
     out: dict = {}
     for key, value in cell_state.items():
         if _is_edge(value):
-            edge = copy.deepcopy(value)
+            # SHALLOW copy the edge, then swap in freshly-rewritten wire dicts.
+            # Never deep-copy: the edge holds a live process/step ``instance``
+            # (e.g. ParquetEmitter, which owns a _queue.SimpleQueue) that is
+            # unpicklable AND must stay the same shared object. _rewrite_wires
+            # builds brand-new lists/dicts, so the original edge's inputs/outputs
+            # are left untouched — the no-mutation contract still holds.
+            edge = dict(value)
             if 'inputs' in edge:
                 edge['inputs'] = _rewrite_wires(edge['inputs'])
             if 'outputs' in edge:

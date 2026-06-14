@@ -174,6 +174,30 @@ conclusion_logic:
     DnaA-ADP), resolved by Haochen's slow-kinetic (integrate_dt) treatment — not
     a parameter inconsistency and not a model bug.
 
+conclusion_verdicts:
+  regression_compatibility:
+    result: PASS
+    basis: |
+      The cell cycle is preserved under the adopted mechanism: 8/8 generations
+      divide with a periodic mass sawtooth and oriC oscillates 1↔2 (one
+      initiation per generation, never 4) across all re-verified seeds (0/1/2).
+  biological_validation:
+    result: PASS
+    basis: |
+      DnaA-ATP fraction in the Boesen [0.2,0.5] band (gen-avg 0.268/0.267/0.302)
+      and total DnaA in the [300,800] band (gen-avg 392/575/578), both on
+      Rashmi's generation-average criterion. CAVEAT: total-DnaA per-gen mean
+      overshoots >800 in later generations at V=1e-3 (seed-variable; seed 0
+      stays in band) — in-band on the generation average, not strictly per-gen.
+  explanatory_gain:
+    result: POSITIVE
+    basis: |
+      Diagnosed the spurious ~0.997 DnaA-ATP pin as a fast-equilibrium artefact
+      (the tick-wise solve reverting kinetically-trapped DnaA-ADP), not a
+      parameter inconsistency. Modelling DnaA-ADP dissociation as a slow kinetic
+      step (integrate_dt) with literal rate constants is the lever — no K_d /
+      [ATP]:[ADP] / expected-fraction revision needed.
+
 findings:
 - id: fraction-drift-is-total-dnaa-dependence-not-atp-adp-drift
   kind: computational
@@ -241,18 +265,31 @@ findings:
   statement: 4 behaviour tests run on canonical seed-1 8-gen run, all PASS (reconcile=agree); review-approved, gate passed.
   status: draft
   from_feedback: fb-4c79ad9e9b82845e
+  # The four computed_outcomes with reconcile=agree are recorded on the seed-1
+  # 8-gen run; that is the run whose test reconciliation this finding reports.
+  provenance:
+    run_ids: [dnaa2-seed1-8gen]
 - id: F-05
   statement: Re-verified multi-seed (0/1/2) on the corrected full-per-gen emitter — results stand.
   status: draft
   from_feedback: fb-689637dd6c14f406
+  # The multi-seed (0/1/2) re-verification on the corrected emitter.
+  provenance:
+    run_ids: [dnaa2-reverify-multiseed-v1e3]
 - id: F-06
   statement: Visualizations reduced to the latest run; tests now run and all 4 PASS.
   status: draft
   from_feedback: fb-026671352fa54b46
+  # "Latest run" + "all 4 PASS" = the canonical multi-seed re-verify run.
+  provenance:
+    run_ids: [dnaa2-reverify-multiseed-v1e3]
 - id: F-07
   statement: Visualizations section holds only the latest canonical run.
   status: draft
   from_feedback: fb-70ce32ca95fdc411
+  # The single registered viz (dnaa2_reverify_multiseed) is from this canonical run.
+  provenance:
+    run_ids: [dnaa2-reverify-multiseed-v1e3]
 discovery_implications:
   resolved_uncertainties:
   - Haochen's bf8b82e mechanism — DnaA + ADP ⇌ DnaA-ADP kept bidirectional but flagged integrate_dt (kinetic, literal k_r = 1×10⁻⁷/s) plus one-way DnaA-ATP intrinsic hydrolysis (k = 0.046/min) — drives the DnaA-ATP fraction off the ~0.997 fast-equilibrium pin into the Boesen [0.2,0.5] band with no rate override.
@@ -421,6 +458,156 @@ assumptions:
     (DnaA-ATP), MONOMER0-4565[c] (DnaA-ADP); cellular pools ATP[c], ADP[c].
   verified_in_v2ecoli: true
 
+# ── v4 narrative spine (authored 2026-06-14 from THIS study's existing content) ──
+study_card:
+  goal: |
+    On the V-tuned succinate lineage, partition the DnaA pool across its three
+    nucleotide forms (apo-DnaA / DnaA-ATP / DnaA-ADP) and check the DnaA-ATP
+    fraction lands in the biological [0.2,0.5] band with a clean cell cycle.
+  mechanism: |
+    Haochen's bf8b82e: DnaA + ADP ⇌ DnaA-ADP kept bidirectional but flagged
+    integrate_dt=true (integrated kinetically over the timestep, literal
+    k_r=1×10⁻⁷/s); DnaA-ATP intrinsic hydrolysis added as a one-way kinetic
+    reaction (k=0.046/min); DnaA + ATP stays fast-equilibrium.
+  why_before_next: |
+    dnaa-3 (DnaA-box binding) needs a correctly partitioned DnaA-ATP pool as its
+    substrate — box occupancy is driven by free DnaA-ATP, so the fraction has to
+    be right before box binding is meaningful.
+  expected_result: |
+    DnaA-ATP fraction in [0.2,0.5], total DnaA in [300,800], periodic mass
+    doubling, and exactly one oriC initiation per generation — all on the
+    generation-average criterion Rashmi directed.
+  main_expert_question: |
+    Is the generation-average criterion (rather than strict every-generation)
+    the right acceptance bar, given the gen-1 burn-in transient and the
+    seed-variable late-generation pool overshoot above 800 at V=1e-3?
+biological_summary: |
+  DnaA is the master initiator of chromosome replication in E. coli. It exists in
+  three nucleotide states: nucleotide-free (apo), ATP-bound (DnaA-ATP), and
+  ADP-bound (DnaA-ADP). Only DnaA-ATP is competent to fire replication initiation
+  at oriC, so the FRACTION of the pool that is ATP-bound — not just the total
+  amount — controls when the cell initiates.
+
+  Three reactions set that fraction. (1) apo-DnaA binds ATP rapidly and reversibly
+  (K_d ≈ 29 nM) — fast enough to treat as an instantaneous equilibrium. (2) DnaA-ATP
+  is slowly hydrolysed to DnaA-ADP by the protein's own weak intrinsic ATPase
+  (~0.046/min). (3) DnaA-ADP releases its ADP only very slowly (k_r ≈ 1×10⁻⁷/s) to
+  return to apo; this step is NOT at equilibrium on a cell-cycle timescale. The
+  balance of slow hydrolysis draining DnaA-ATP versus slow ADP-release recharging it
+  is what pins the steady-state DnaA-ATP fraction in the experimentally observed
+  [0.2,0.5] band (Boesen 2024, Delta4 cells). Background metabolism keeps cellular
+  [ATP]≫[ADP] (ratio ~20), so the partitioning is governed by the protein-level
+  kinetics, not by the nucleotide-pool ratio.
+literature_anchors:
+- expectation: DnaA-ATP / total-DnaA sits in [0.2, 0.5] (Delta4 cells).
+  model_observable: MONOMER0-160[c] / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
+  source: Boesen et al. 2024, PNAS (papers.bib pnas-pnas-2322772121)
+  status_in_v2ecoli: Verified — generation-average 0.268/0.267/0.302 across seeds 0/1/2.
+- expectation: DnaA-ATP is hydrolysed to DnaA-ADP by a weak intrinsic ATPase (~0.046/min).
+  model_observable: DNAA-INTRINSIC-HYDROLYSIS-RXN flux (one-way kinetic reaction)
+  source: '"Intrinsic activity" (papers.bib intrinsic-activity-sciencedirect-0092867487902212)'
+  status_in_v2ecoli: Implemented via Haochen's bf8b82e at the literal 0.046/min rate.
+- expectation: Total DnaA abundance is ~300-800 per cell (mass-spec / EcoCyc range).
+  model_observable: PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]
+  source: DnaA abundance / mass-spec (papers.bib dnaa-abundance-jb-1991, liu-nature-microbiology-s41564-020-0717-x)
+  status_in_v2ecoli: In band on the generation average (392/575/578); per-gen overshoot >800 is seed-variable at V=1e-3.
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes: []   # adopted within the existing ecoli-equilibrium machinery, not a new Step
+  new_state_variables:
+  - bulk MONOMER0-160[c] (DnaA-ATP)
+  - bulk MONOMER0-4565[c] (DnaA-ADP)
+  new_parameters:
+  - "DnaA-ADP reverse rate k_r = 1e-7/s (Haochen literal)"
+  - "DnaA-ATP intrinsic hydrolysis k = 0.046/min"
+  - "per-reaction integrate_dt flag on MONOMER0-4565_RXN (kinetic vs steady-state)"
+  modified_processes:
+  - "ecoli-equilibrium: MONOMER0-4565_RXN kept bidirectional + flagged integrate_dt=true; DnaA-ATP intrinsic hydrolysis added as a one-way kinetic reaction"
+implementation_requirements:
+- id: REQ-1
+  kind: process
+  title: Adopt Haochen's bf8b82e integrate_dt equilibrium treatment (no re-implementation)
+  status: done
+  effort: M
+- id: REQ-2
+  kind: parameter_hook
+  title: Apply V=1e-3 dnaA expression perturbation (TU00259[c]) at succinate cache build
+  status: done
+  effort: S
+- id: REQ-3
+  kind: data
+  title: Remove the rejected bespoke DnaaAdpRelease/DnaaIntrinsicHydrolysis steps + 0.03/min override
+  status: done
+  effort: S
+enforced_params:
+  params:
+    "DnaA-ATP intrinsic hydrolysis rate (k_h)": 0.046/min
+    "DnaA-ADP reverse rate (k_r)": 1e-7/s
+    condition: succinate (fixed_media minimal_succinate)
+    "dnaA expression V (TU00259[c])": 1.0e-3
+    seed: 1   # canonical_seed; multi-seed re-verify also ran seeds 0 and 2
+  source: |
+    Haochen bf8b82e (k_h, k_r, integrate_dt); Rashmi's reproduction recipe
+    (succinate condition + V=1e-3 + seed 1). Per-study V tuning is Eran's
+    accepted call (the canonical dnaa-1 V=0.8e-3 does NOT propagate here).
+design_pivot_required:
+- id: DNAA2-V-TENSION
+  status: open
+  question: |
+    dnaa-1 needs V=0.8e-3 to hold the total-DnaA pool fully in [300,800], but
+    dnaa-2's DnaA-ATP fraction needs ~1e-3 (at 0.8e-3 the fraction drifts below
+    the 0.2 floor and the lineage crashes at gen 5). At V=1e-3 the pool overshoots
+    >800 per-gen in later generations (seed-variable). What lever closes both?
+  alternatives:
+  - "Per-study V (current): dnaa-2 keeps V=1e-3, dnaa-1 keeps 0.8e-3 (accepted stopgap)."
+  - "A regulated / cell-cycle-coupled DnaA synthesis lever that closes band + fraction at one V (deferred to a regulation study)."
+  requested_response: Rashmi / Haochen — is per-study V acceptable long-term, or is the regulated-synthesis lever required before dnaa-3?
+- id: DNAA2-KR-CALIBRATION
+  status: open
+  question: |
+    The literal k_r=1e-7/s lands the DnaA-ATP fraction at the LOW edge of [0.2,0.5];
+    a k_r sweep shows ~100× faster k_r lifts it mid-band. Should k_r be re-calibrated?
+  alternatives:
+  - "Keep literal k_r=1e-7/s (low-edge, in band)."
+  - "Sweep k_r → center the band (followup study dnaa2-k_r-calibration)."
+  requested_response: Haochen — preferred k_r / physiological bound.
+
+# ── Simulations actually executed (honest — derived from runs:) ──
+simulation_set:
+- name: dnaa2-reverify-multiseed-v1e3
+  status: completed
+  kind: multi-gen-lineage
+  base_model: v2ecoli.composites.baseline.baseline
+  seeds: [0, 1, 2]
+  generations: 8
+  condition: V=1e-3 succinate, burned-in resume, corrected full-per-gen-history emitter (run on the mini)
+  metrics:
+  - DnaA-ATP fraction (all-gen avg 0.268/0.267/0.302)
+  - total DnaA (all-gen avg 392/575/578)
+  - oriC count (1↔2 every seed)
+  - cell mass (8/8 divisions)
+  applies_tests:
+  - dnaa-atp-fraction-in-band-0.2-0.5
+  - total-dnaa-in-band-300-800
+  - periodic-mass-doubling
+  - oric-one-initiation-per-generation
+- name: dnaa2-seed1-8gen
+  status: completed
+  kind: multi-gen-lineage
+  base_model: v2ecoli.composites.baseline.baseline
+  seeds: [1]
+  generations: 8
+  condition: V=1e-3 succinate, burned-in resume, PRE-FIX (truncated) emitter — superseded by the multi-seed re-verify; retained for provenance (carries the reconcile=agree computed_outcomes)
+  metrics:
+  - DnaA-ATP fraction (overall mean 0.267)
+  - total DnaA (gen-avg 535)
+  - oriC 1↔2; 8/8 divisions
+  applies_tests:
+  - dnaa-atp-fraction-in-band-0.2-0.5
+  - total-dnaa-in-band-300-800
+  - periodic-mass-doubling
+  - oric-one-initiation-per-generation
+
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline.baseline
@@ -432,7 +619,16 @@ conditions:
       # V=1e-3 dnaA expression perturbation, applied at cache build (succinate condition).
       perturbations:
         "TU00259[c]": 1.0e-3
-  variants: []
+  # Real conditions exercised by this study (honest — derived from runs:). The
+  # mechanism (Haochen's bf8b82e) and V=1e-3 are fixed; the axis actually swept
+  # is the random seed, plus one rejected V re-base.
+  variants:
+  - name: seed-sweep-v1e3
+    diff_from_baseline: "seed ∈ {0,1,2} at V=1e-3 (the rest of the baseline held fixed) — the multi-seed re-verification (run dnaa2-reverify-multiseed-v1e3)."
+  - name: directed-seed1-v1e3
+    diff_from_baseline: "seed=1 at V=1e-3 — Rashmi's directed reproduction (run dnaa2-seed1-8gen)."
+  - name: v0p8e-3-rebase
+    diff_from_baseline: "V=0.8e-3 (the canonical dnaa-1 value), seed=1 — ATTEMPTED and REJECTED: DnaA-ATP fraction drifts below the 0.2 floor (gen-4 0.18) and the lineage crashes at gen 5 (PROTON[c] NegativeCountsError). Documented in status; not a passing condition."
   model_settings:
   - name: dnaa-adp-kinetic
     detail: "DnaA + ADP ⇌ DnaA-ADP: integrate_dt=true (kinetic), reverse k_r = 1e-7/s (Haochen literal)"
@@ -620,6 +816,14 @@ tests:
     op: range
     low: 0.2
     high: 0.5
+  # The [0.2,0.5] DnaA-ATP/total-DnaA band is from Boesen et al. 2024 (PNAS,
+  # Delta4 cells) — pnas-pnas-2322772121 in papers.bib (its note records this
+  # URL as the Study-2 source of "the DnaA-ATP fraction observed in Delta4
+  # cells"). The intrinsic-hydrolysis rate (k=0.046/min) that drives the
+  # fraction is the "Intrinsic activity" Study-2 reference.
+  cites:
+  - pnas-pnas-2322772121
+  - intrinsic-activity-sciencedirect-0092867487902212
   status: passed     # seed-1 8-gen: generation-average in band (Rashmi's criterion)
   result: |
     PASS on the generation-average criterion (Rashmi 2026-06-04) against the
@@ -653,6 +857,19 @@ tests:
     op: generation_average_in_range     # Rashmi 2026-06-04: use the generation average
     low: 300
     high: 800
+  # The total-DnaA [300,800]/cell band is the mass-spec / EcoCyc abundance range
+  # (the same band dnaa-1 / dnaa-01 cite); real papers.bib sources below.
+  cites:
+  - dnaa-abundance-jb-1991
+  - mass-spec-nbt-3418
+  - liu-nature-microbiology-s41564-020-0717-x
+  cites_note: |
+    The round-number [300,800] band is the mass-spec / EcoCyc consensus DnaA
+    abundance range (Boesen 2024 also gives ~200/oriC by western blot). The
+    investigation overview additionally attributes it to "Schmidt 2016 / Mori
+    2021", which are NOT yet entries in workspace/references/papers.bib — that
+    pair is an un-keyed gap; the cited bib keys above are the abundance sources
+    that ARE in the bibliography.
   status: passed     # seed-1 8-gen: generation-average in band
   result: |
     PASS on the generation-average criterion (seed-1 8-gen): per-generation
@@ -688,6 +905,12 @@ tests:
     op: in_range
     low: 1.7
     high: 2.3
+  cites_note: |
+    GAP — no bibliography paper sources this band. The [1.7,2.3] window is just
+    2.0 ± 0.30, i.e. the textbook one-doubling-of-mass-per-generation expectation
+    (a balanced-growth invariant, not a measured paper value); the ~70 min
+    succinate doubling time is from Rashmi's reproduction, not a papers.bib entry.
+    No cite is asserted rather than inventing one.
   status: passed     # seed-1 8-gen: 8/8 divisions, periodic sawtooth
   result: |
     PASS on the directed seed-1 8-gen run (dnaa2-seed1-8gen): 8/8 generations
@@ -715,6 +938,15 @@ tests:
     op: in_range     # oriC copy number stays in [1,2]; never 4 (no over-initiation)
     low: 1
     high: 2
+  # The "exactly one initiation per cell cycle" control principle (→ oriC copy
+  # number oscillating 1↔2, never reaching 4) is the core of the DnaA replication-
+  # initiation review (dnaa-review-frontiers-2018-fmicb-00319, "Key review paper").
+  cites:
+  - dnaa-review-frontiers-2018-fmicb-00319
+  cites_note: |
+    The cited review sources the once-per-cell-cycle initiation PRINCIPLE; the
+    numeric [1,2] copy-number band is the direct structural consequence (oriC
+    doubles to 2 at initiation, halves to 1 at division), not a measured band.
   status: passed     # seed-1 8-gen: oriC in {1,2} every gen, never 4
   result: |
     PASS on the directed seed-1 8-gen run: oriC stays in [1,2] across the whole

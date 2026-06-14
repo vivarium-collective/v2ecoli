@@ -374,6 +374,112 @@ assumptions:
   - feedback-2026-05-29-fresh-start/feedback.pdf
   verified_in_v2ecoli: false
 
+# ── v4 narrative-spine sections (drawn from this study's own content) ───────
+study_card: |
+  Study 1 of the dnaa-replication investigation. Tunes dnaA expression via
+  Mechanism A — a runtime overwrite of the dnaA per-promoter init_prob
+  (sim_data.genetic_perturbations["TU00259[c]"]) — so the total DnaA monomer
+  pool oscillates within the literature band [300,800] across a 7+ generation
+  succinate lineage while the cell cycle stays steady (oriC 1↔2, a division
+  every generation). Canonical V=0.8e-3 (expert-approved 2026-06-09); the
+  ~1/min dnaA mRNA initiation-rate target is a documented sub-physiological
+  tradeoff, not closable by any single constitutive V.
+
+biological_summary: |
+  DnaA is the master initiator of chromosome replication in E. coli; its
+  cellular abundance helps gate when oriC fires. Quantitative-proteome
+  measurements put DnaA at roughly 300–800 copies per cell, which is the
+  acceptance band here. In the model, dnaA expression is governed by a
+  per-promoter RNA-synthesis probability; raising or lowering it scales the
+  standing DnaA pool. Because DnaA is synthesised through the cell cycle and
+  partitioned at division, the pool is a per-cycle SAWTOOTH (pre-division peak
+  ≈ 2× post-division trough), so the band — only 2.67× wide — is a narrow
+  target for the whole oscillation. This study asks what synthesis level keeps
+  the pool in band and generation-stable with a clean oriC 1↔2 cycle, and finds
+  V=0.8e-3 is the only constitutive value that does so (at the cost of a
+  sub-physiological initiation rate).
+
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  mechanism: |
+    Mechanism A — runtime overwrite of
+    sim_data.genetic_perturbations["TU00259[c]"] (dnaA per-promoter init_prob)
+    at composite-build time, before the run. No new processes or state
+    variables; the only lever is the swept init_prob value, applied via the
+    recorded --perturbation override (provenance in run_config.perturbations).
+  new_processes: []
+  new_parameters:
+  - perturbations["TU00259[c]"]   # dnaA per-promoter init_prob (swept; canonical 0.8e-3)
+  unchanged_from_baseline:
+  - dnaA translation efficiency (0.35)
+  - dnaA mRNA half-life (1.9 min)
+  - DnaA protein half-life (280 min)
+  - C-period / D-period (40 / 20 min)
+  - all TF / ppGpp regulation (basal_prob + delta_prob)
+  notes: The lone tuned knob is the dnaA per-promoter init_prob; everything else stays at baseline ParCa-fit values.
+
+implementation_requirements:
+- id: REQ-1
+  title: Resume from dnaa-0 succinate steady state
+  kind: input
+  status: met
+  description: Lineage resumes from dnaa-0's gen-3 succinate steady-state dill (out/steady_state_inputs/succinate_default_gen3_start.dill).
+- id: REQ-2
+  title: DnaA pool observable
+  kind: readout
+  status: met
+  description: monomer_counts listener at the dnaA index (PD03831[c], idx 3861) — confirmed to aggregate ALL DnaA forms (apo + DnaA-ATP + DnaA-ADP), used directly (finding F-05); no extra bound-form aggregation needed.
+- id: REQ-3
+  title: dnaA mRNA initiation-rate observable
+  kind: readout
+  status: met
+  description: rnap_data listener rna_init_event_per_cistron at the dnaA cistron (cistron_ids[227] = EG10235_RNA), events/min.
+- id: REQ-4
+  title: oriC + cell-mass observables
+  kind: readout
+  status: met
+  description: replication_data.number_of_oric (cell-cycle integrity, 1↔2 never 4) and mass.cell_mass (per-gen doubling / division).
+- id: REQ-5
+  title: Full within-cycle per-gen-history emit
+  kind: infra
+  status: met
+  description: Division-time daughter-partition fix (division.py _build_daughter_doc) so the full within-cycle sawtooth is retained, not just the first-minute trough (the earlier truncated-emit bug invalidated prior in-band readings).
+
+enforced_params:
+  V_TU00259_c: 0.8e-3        # canonical dnaA per-promoter init_prob (Mechanism A)
+  condition: succinate       # M9 + succinate; single_daughters: true
+  initial_state: out/steady_state_inputs/succinate_default_gen3_start.dill   # dnaa-0 gen-3 steady state
+  seed: 1                    # canonical; seeds 0-3 in the V=1.2e-3 multiseed
+  max_generations: 7         # 15 for the V=1.1e-3 equilibration variant
+  acceptance_band_DnaA: [300, 800]      # copies/cell (Schmidt 2016 / Mori 2021)
+  init_rate_target_per_min: 1.0         # ±50% tolerance [0.5, 1.5]
+
+design_pivot_required:
+  required: false
+  note: |
+    No STRUCTURAL pivot — Mechanism A (the dnaA init_prob override) held
+    throughout. Two non-structural adjustments happened during review:
+    (1) the acceptance LENS was reframed once (Rashmi 2026-05-30: the primary
+    target is the dnaA mRNA initiation rate ~1/min, with the in-band DnaA pool
+    as its downstream consequence), and (2) V was re-tuned DOWN across rounds
+    (2e-3 → 1.7e-3 → 0.8e-3) to pull the oscillation into band. The band-vs-rate
+    tension established here (no constitutive V closes both) is deferred to a
+    REGULATED-synthesis lever — the seeded study dnaa-4-autoregulation — rather
+    than a redesign of this study.
+
+literature_anchors:
+# Real entries in the investigation bibliography (workspace/references/papers.bib),
+# verbatim from the chromosome-replication-plan.pdf Study-1 references.
+- bib_key: mass-spec-nbt-3418
+  anchors: DnaA-per-cell abundance band [300,800] — Schmidt et al. 2016 (Nat Biotechnol), quantitative condition-dependent E. coli proteome.
+- bib_key: mass-spec-msb-20209536
+  anchors: DnaA-per-cell abundance band [300,800] — Mori et al. 2021 (Mol Syst Biol), absolute E. coli proteome across growth conditions.
+- bib_key: dnaa-abundance-jb-1991
+  anchors: Original DnaA protein abundance measurement (independent anchor for the pool magnitude).
+- bib_key: dnaa-stability-jb-1999
+  anchors: DnaA protein stability — basis for the 280-min protein half-life held fixed in Mechanism A.
+# ───────────────────────────────────────────────────────────────────────────
+
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline.baseline
@@ -401,15 +507,36 @@ conditions:
         # pre-equilibration artifact — the 15-gen run overshoots the band, finding
         # v11-15gen-equilibration-overshoots-band). No constitutive V closes both
         # band + ~1/min rate — needs a regulated lever. See report.result.
-  variants: []
-    # If V = 2e-3 fails to reproduce the PDF exemplar, sweep these as
-    # fallback (uncomment and re-validate). Out of scope until baseline runs.
-    # - name: V-1e-3
-    #   diff_from_baseline: perturbations["TU00259[c]"] = 1.0e-3
-    # - name: V-3e-3
-    #   diff_from_baseline: perturbations["TU00259[c]"] = 3.0e-3
-    # - name: V-5e-3
-    #   diff_from_baseline: perturbations["TU00259[c]"] = 5.0e-3
+  variants:
+    # Conditions actually RUN, relative to the canonical baseline (V=0.8e-3, seed 1).
+    # Each V variant = the recorded --perturbation 'TU00259[c]=V' override on the
+    # shared cache out/cache_dnaa1_mechA_1.7e-3; the 7-point V-sweep (seed 1) + the
+    # 4-seed multiseed at V=1.2e-3 + the 15-gen equilibration test. (NOT the old
+    # 2e-3 fallback plan — those values were superseded by this sweep.)
+  - name: V-0.9e-3
+    diff_from_baseline: perturbations["TU00259[c]"] = 0.9e-3
+    run: dnaa1-v09e3-2026-06-08
+  - name: V-1.0e-3
+    diff_from_baseline: perturbations["TU00259[c]"] = 1.0e-3   # Rashmi's guess; rate on target, pool exits band by gen 7
+    run: dnaa1-v10e3-2026-06-08
+  - name: V-1.1e-3
+    diff_from_baseline: perturbations["TU00259[c]"] = 1.1e-3   # withdrawn interim pick (15-gen run overshoots)
+    run: dnaa1-v11e3-2026-06-08
+  - name: V-1.2e-3
+    diff_from_baseline: perturbations["TU00259[c]"] = 1.2e-3
+    run: dnaa1-v12e3-s1-2026-06-08
+  - name: V-1.3e-3
+    diff_from_baseline: perturbations["TU00259[c]"] = 1.3e-3
+    run: dnaa1-v13e3-s1-2026-06-08
+  - name: V-1.7e-3
+    diff_from_baseline: perturbations["TU00259[c]"] = 1.7e-3   # sweep upper bracket; pool ramps out of band
+    run: dnaa1-v17e3-fullhist-2026-06-08
+  - name: multiseed-V-1.2e-3
+    diff_from_baseline: perturbations["TU00259[c]"] = 1.2e-3; seed ∈ {0,1,2,3}
+    runs: [dnaa1-v12e3-s0-2026-06-08, dnaa1-v12e3-s1-2026-06-08, dnaa1-v12e3-s2-2026-06-08, dnaa1-v12e3-s3-2026-06-08]
+  - name: V-1.1e-3-15gen-equilibration
+    diff_from_baseline: perturbations["TU00259[c]"] = 1.1e-3; max_generations = 15
+    run_dir: out/dnaa1_v1p1e-3_long   # the equilibration test (finding v11-15gen-equilibration-overshoots-band)
   # Required by v4 schema even when empty.
   model_settings: []
 
@@ -1194,6 +1321,18 @@ findings:
   statement: 'Resolved: monomer_counts PD03831[c] aggregates all DnaA forms; used directly.'
   status: draft
   from_feedback: fb-5f6d9cc74d95768d
+  evidence:
+    from_run: dnaa1-v08e3-canonical-2026-06-09
+  provenance:
+    # The build-note resolution (monomer_counts at the dnaA index PD03831[c],
+    # idx 3861, already aggregates all DnaA forms → usable directly as the pool
+    # observable) was first established on the V=2e-3 pristine run (see
+    # report.result "monomer_counts listener question") and is USED directly by
+    # the canonical V=0.8e-3 run, whose computed_outcomes resolve PD03831[c] in
+    # code (range_check_per_generation) — so the claim is re-checkable there.
+    run_ids:
+    - dnaa1-v08e3-canonical-2026-06-09
+    - dnaa1-mechA-7gen-pristine-2026-05-30
 discovery_implications:
   resolved_uncertainties:
   - Mechanism A (runtime overwrite of TU00259[c]'s per-promoter init_prob) is the right lever for dnaA expression — sweeping V down to 0.8e-3 holds the DnaA monomer cycle-mean band-stable in [300,800] for steady gens 4-7 (337/338/360/415, peaks <800) with a clean oriC 1↔2 cycle. The chosen V undershoots the ~1/min init-rate target (0.46–0.71/min); the rate hits target at V≈1.0e-3, where the pool ramps out of band — the two acceptance layers are in tension.
@@ -1263,6 +1402,14 @@ tests:
     op: in_range_every_generation
     low: 300
     high: 800
+  cites:
+  # The [300,800] DnaA-per-cell abundance band traces to the proteome-abundance
+  # papers the study objective already names ("Schmidt 2016 / Mori 2021 literature
+  # band [300,800]"): Schmidt et al. 2016 (Nat Biotechnol, nbt.3418) and Mori et al.
+  # 2021 (Mol Syst Biol, msb.20209536). Both are real entries in the investigation
+  # bibliography (workspace/references/papers.bib, plan-PDF Study-1 references).
+  - mass-spec-nbt-3418
+  - mass-spec-msb-20209536
   status: passed
   result: |
     PASS on the in-band + steady criterion. CANONICAL run V=0.8e-3

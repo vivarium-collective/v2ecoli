@@ -9,6 +9,25 @@ DnaA peak and dampens the cell-cycle amplitude. Your open question (linear vs Hi
 
 ---
 
+## Update — 2026-06-14: parameters, tests, and box-binding under the autoreg expression
+
+You asked three things. All three are addressed; honest status below.
+
+**(1) "Which parameters were used — V, DnaA-ATP/ADP binding K_d, hydrolysis rate, box-binding K_d?"**
+Now documented in the dnaa-4 study (`model_settings → canonical-run-parameters`) so the report carries them. The canonical s=0.7 runs (`dnaa4_s07_seed{0,1,2}`, succinate, 16 gen):
+- **dnaA expression V = 1.5e-3** (`TU00259[c]` synth-prob override). Note: the runs use this *fixed base V* and the autoregulation scales it DOWN — i.e. "base V × Hill feedback", not the pure no-V the design first aimed at.
+- **DnaA-box K_d:** high-affinity boxes (chromosomal 302, oriC-high 3, dnaA-promoter 2) = **3 nM** for *both* DnaA-ATP and DnaA-ADP; oriC-low (8 sites) = **100 nM**, DnaA-ATP only.
+- **DnaA-ATP intrinsic hydrolysis rate = 0.025 /min.**
+- **Autoregulation:** Hill, **s = 0.7, K = 0.5, n = 4**.
+
+**(2) "Run the tests."**
+Done (evaluator on the s=0.7 runs): **cell-cycle-preserved PASS** (robust — all 3 seeds, oriC ≤ 2, 0 re-inits); **DnaA-pool-in-band PARTIAL** (2/3 seeds hold the band across every full generation g3–16; the strict per-gen check fails only on the truncated final gen + seed0's noise). Honest read: **mechanism validated, but the band is PARTIAL — not a clean pass.**
+
+**(3) "If it passes, redo the box-binding dynamics study on the achieved expression."**
+Because the band is PARTIAL (not a clean pass) and dnaa-4 **already runs box-binding *under* the autoregulated expression**, we answered this by analyzing the box dynamics in the existing s=0.7 runs rather than launching a fresh dedicated study (Eran's call). Result is a positive one: under autoregulation the **oriC-low over-binding is further resolved** — low-affinity (100 nM) oriC occupancy is **0.10–0.28** (was ~0.8 read-only, ~0.46 adopted), because feedback lowers DnaA and depletes the free DnaA-ATP that drove over-occupancy; the high-affinity boxes stay filled (0.67–0.95). Recorded as finding **F-04** + chart **`dnaa4_box_dynamics`**. If you'd prefer a *fresh, dedicated* box-binding study on this expression (rather than the existing-run analysis), say so and we'll run it — and if you want the band tightened to a clean pass first, that's a small s/seed sweep.
+
+---
+
 ## Update — 2026-06-13: your s=0.7 round (V=1.5, K=0.5, n=4, multi-gen)
 
 You asked to **run V=1.5 + Hill K=0.5 + s=0.7 + n=4 for multiple generations**, then continue

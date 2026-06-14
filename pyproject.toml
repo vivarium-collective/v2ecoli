@@ -14,6 +14,7 @@ dependencies = [
     "pbg-superpowers",
     "pbg-copasi",
     "pbg-parsimony",
+    "pbg-bioreactordesign",
     "vivarium-dashboard",
     "vEcoli[dev]>=1.1.0",
     "viva-munk>=0.0.1",
@@ -105,6 +106,7 @@ bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
 pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
 pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.git", branch = "main" }
+pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }

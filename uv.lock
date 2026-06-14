@@ -2578,6 +2578,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pbg-bioreactordesign"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main#f40f82f0057d042cb06f349dbe1702306b35ddbf" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "pbg-superpowers" },
+    { name = "process-bigraph" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
 name = "pbg-copasi"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main#c5604b7ba9785d0b43c7d00d53a2023b4ce4a28f" }
@@ -2614,6 +2627,15 @@ xarray = [
     { name = "xarray" },
     { name = "zarr" },
     { name = "zarrs" },
+]
+
+[[package]]
+name = "pbg-parsimony"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#6174b0fab5ccda3cef759b54aa2e234ff4573992" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "process-bigraph" },
 ]
 
 [[package]]
@@ -4050,8 +4072,10 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pbg-bioreactordesign" },
     { name = "pbg-copasi" },
     { name = "pbg-emitters", extra = ["parquet", "xarray"] },
+    { name = "pbg-parsimony" },
     { name = "pbg-superpowers" },
     { name = "plotly" },
     { name = "plum-dispatch" },
@@ -4086,9 +4110,11 @@ requires-dist = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pbg-bioreactordesign", git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main" },
     { name = "pbg-copasi", git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main" },
     { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
+    { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
     { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
@@ -4105,7 +4131,7 @@ requires-dist = [
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
-    { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
+    { name = "vivarium-dashboard", editable = "../../../../vivarium-dashboard" },
 ]
 provides-extras = ["dev", "parquet", "xarray", "emitters", "ray"]
 
@@ -4221,7 +4247,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#a5f33925a3c873953dfa0080cce80685fbff7e99" }
+source = { editable = "../../../../vivarium-dashboard" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },
@@ -4233,6 +4259,26 @@ dependencies = [
     { name = "pypdf" },
     { name = "pyyaml" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "bigraph-loom", git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=main" },
+    { name = "bigraph-schema", specifier = ">=1.4.1" },
+    { name = "imageio", marker = "extra == 'viz'" },
+    { name = "jinja2" },
+    { name = "jsonschema", extras = ["format-nongpl"], specifier = ">=4.21" },
+    { name = "matplotlib", marker = "extra == 'viz'" },
+    { name = "numpy" },
+    { name = "numpy", marker = "extra == 'viz'" },
+    { name = "pbg-superpowers" },
+    { name = "process-bigraph" },
+    { name = "pypdf", specifier = ">=4.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
+    { name = "pytest-json-report", marker = "extra == 'dev'", specifier = ">=1.5" },
+    { name = "pytest-timeout", marker = "extra == 'dev'" },
+    { name = "pyyaml" },
+]
+provides-extras = ["viz", "dev"]
 
 [[package]]
 name = "vl-convert-python"

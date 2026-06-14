@@ -1,4 +1,4 @@
-# parsimony mesh: g6823_monomer (source /Users/eranagmon/code/v2e-flagella/workspace/studies/ecoli-3d/viz/3d/structures/g6823_monomer.pdb)
+# parsimony mesh: g6823_monomer (source /Users/eranagmon/code/v2e-abund/workspace/studies/ecoli-3d/viz/3d/structures/g6823_monomer.pdb)
 # atoms: 458  voxel: 16 Å  verts: 24  tris: 40
 v 1.8020 -3.2540 -20.0542
 v 6.3376 -3.2540 -20.0542

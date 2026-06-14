@@ -1,4 +1,4 @@
-# parsimony mesh: eg10506_monomer (source /Users/eranagmon/code/v2e-flagella/workspace/studies/ecoli-3d/viz/3d/structures/eg10506_monomer.pdb)
+# parsimony mesh: eg10506_monomer (source /Users/eranagmon/code/v2e-abund/workspace/studies/ecoli-3d/viz/3d/structures/eg10506_monomer.pdb)
 # atoms: 1441  voxel: 16 Å  verts: 62  tris: 112
 v 2.5381 -3.1505 -28.2345
 v 13.6637 -3.9379 -29.5778

@@ -45,6 +45,10 @@ DISPLAY = {
     "EG10367-MONOMER": "glyceraldehyde-3-phosphate dehydrogenase (GAPDH)",
 }
 
+# Large interior assemblies packed in an early stage so they reach true abundance
+# (packed alongside the small-molecule flood they saturate at a few % of count).
+BIG_ASSEMBLIES = {"70S_ribosome", "groel"}
+
 # ── assembled complexes from the bulk ───────────────────────────────────────
 # v2ecoli tracks assembled complexes (CPLX*) in the bulk, but AlphaFold only
 # models single chains, so a complex needs a real assembled structure. Each
@@ -276,7 +280,10 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
             id=key, count=max(1, cnt), structure=ref, region=region,
             display_name=DISPLAY.get(key, prot.get(key, key)), category=cat,
             color=CATEGORY_COLOR[cat],
-            proxy_voxel_size=12.0 if isinstance(struct, tuple) else None))
+            proxy_voxel_size=12.0 if isinstance(struct, tuple) else None,
+            # Big interior assemblies pack first (before small molecules fragment
+            # the space) so they reach true abundance, not ~3% of it.
+            pack_first=(key in BIG_ASSEMBLIES)))
         already.add(key)
         if isinstance(ckey, str):
             already.add(ckey)
@@ -327,9 +334,14 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
     return ingredients
 
 
-def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=0.3,
+def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
                 state_source="snapshot", proxy_lod=2) -> dict:
-    """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result."""
+    """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result.
+
+    ``scale`` defaults to 1.0 (true abundance from the state — every molecule is
+    placed once per real copy; large interior assemblies pack first so they reach
+    their count). The committed/published pack is additionally compacted to the
+    array8 placement format to stay under the 100 MB file limit."""
     counts, volume_fl = load_state(state_source)
     struct_cache = Path(out_dir) / "structures"
     ingredients = select_ingredients(counts, top_n=top_n, struct_cache=struct_cache)
@@ -348,7 +360,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Build the 3D E. coli structural model.")
     ap.add_argument("--out", default="out/ecoli3d")
     ap.add_argument("--top-n", type=int, default=40)
-    ap.add_argument("--scale", type=float, default=0.3)
+    ap.add_argument("--scale", type=float, default=1.0)
     ap.add_argument("--state", choices=["snapshot", "live"], default="snapshot")
     a = ap.parse_args()
     res = build_model(a.out, top_n=a.top_n, scale=a.scale, state_source=a.state)

@@ -91,11 +91,11 @@ purpose:
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
 pipeline_gate:
   prerequisites:
-    - mbp-01-time-varying-environment
-    - mbp-02-population-aggregation
-    - pbg-bioreactor-transport-fork   # upstream PR; see chris_feedback_2026_05_26 §5
+  - mbp-01-time-varying-environment
+  - mbp-02-population-aggregation
+  - pbg-bioreactor-transport-fork     # upstream PR; see chris_feedback_2026_05_26 §5
   enables:
-    - mbp-04-multigeneration-runs
+  - mbp-04-multigeneration-runs
   gate_status_summary: |
     Blocked on mbp-01 (env hook so BiRD's DO can drive v2ecoli), mbp-02
     (population aggregator so v2ecoli's biomass can drive BiRD), AND the
@@ -126,30 +126,30 @@ simulation_set:
 
 - name: one-generation-coupled
   base_model: v2ecoli.composites.reactor_bird_coupled
-  perturbation: null
+  perturbation:
   condition: M9-minimal-glucose-aerated
   duration_min: 240   # 4 BiRD ticks at default 1-h interval
   seeds: [0]
   readouts:
-    - reactor_dissolved_o2
-    - reactor_dissolved_co2
-    - reactor_kla_o2
-    - reactor_kla_co2
-    - reactor_o2_saturation
-    - reactor_co2_saturation
-    - reactor_biomass_gL
-    - population_cell_count
-    - cell_mu_per_h
-    - metabolism_o2_uptake_flux
-    - metabolism_co2_production_flux
-    - cumulative_o2_consumed_mmol
-    - cumulative_o2_transferred_mmol
+  - reactor_dissolved_o2
+  - reactor_dissolved_co2
+  - reactor_kla_o2
+  - reactor_kla_co2
+  - reactor_o2_saturation
+  - reactor_co2_saturation
+  - reactor_biomass_gL
+  - population_cell_count
+  - cell_mu_per_h
+  - metabolism_o2_uptake_flux
+  - metabolism_co2_production_flux
+  - cumulative_o2_consumed_mmol
+  - cumulative_o2_transferred_mmol
   applies_tests:
-    - one-generation-completes-without-divergence
-    - cells-drop-do-below-saturation
-    - cells-raise-dissolved-co2-above-saturation
-    - reactor-biomass-tracks-population
-    - o2-mass-balance-closes
+  - one-generation-completes-without-divergence
+  - cells-drop-do-below-saturation
+  - cells-raise-dissolved-co2-above-saturation
+  - reactor-biomass-tracks-population
+  - o2-mass-balance-closes
   status: planned
 
 - name: kla-sweep-coupled
@@ -161,8 +161,8 @@ simulation_set:
   seeds: [0]
   readouts: [reactor_dissolved_o2, reactor_dissolved_co2, reactor_kla_o2, reactor_kla_co2, cell_mu_per_h]
   applies_tests:
-    - higher-kla-raises-steady-state-do
-    - higher-kla-lowers-steady-state-dissolved-co2
+  - higher-kla-raises-steady-state-do
+  - higher-kla-lowers-steady-state-dissolved-co2
   status: planned
 
 - name: no-cells-henry-equilibrium
@@ -173,8 +173,8 @@ simulation_set:
   seeds: [0]
   readouts: [reactor_dissolved_o2, reactor_dissolved_co2, reactor_o2_saturation, reactor_co2_saturation]
   applies_tests:
-    - no-cells-do-converges-to-henry-saturation
-    - no-cells-co2-converges-to-henry-saturation
+  - no-cells-do-converges-to-henry-saturation
+  - no-cells-co2-converges-to-henry-saturation
   status: planned
 
 
@@ -182,18 +182,18 @@ simulation_set:
 model_change:
   base_model: v2ecoli.composites.baseline_population   # + baseline_time_varying_env
   new_state_variables:
-    - "reactor.* (all BiRDTransportProcess output ports — dissolved_o2, dissolved_co2, kla_o2, kla_co2, gas_holdup, …)"
-    - "reactor.diagnostics.cumulative_o2_consumed_mmol (integral of metabolism O2 uptake × biomass × dt)"
-    - "reactor.diagnostics.cumulative_o2_transferred_mmol (integral of BiRD kLa × (saturation - dissolved) × volume × dt)"
+  - "reactor.* (all BiRDTransportProcess output ports — dissolved_o2, dissolved_co2, kla_o2, kla_co2, gas_holdup, …)"
+  - "reactor.diagnostics.cumulative_o2_consumed_mmol (integral of metabolism O2 uptake × biomass × dt)"
+  - "reactor.diagnostics.cumulative_o2_transferred_mmol (integral of BiRD kLa × (saturation - dissolved) × volume × dt)"
   new_processes:
-    - {name: BiRDTransportProcess, kind: Process, requirement_id: req-1-bird-transport-dep, provenance: "pbg-bioreactordesign (forked via pbg-bioreactor-transport-fork PR)"}
-    - {name: ReactorCellCoupler,   kind: Step,    requirement_id: req-2-cell-coupler}
+  - {name: BiRDTransportProcess, kind: Process, requirement_id: req-1-bird-transport-dep, provenance: "pbg-bioreactordesign (forked via pbg-bioreactor-transport-fork PR)"}
+  - {name: ReactorCellCoupler, kind: Step, requirement_id: req-2-cell-coupler}
   new_parameters:
-    - {name: bird_reactor_config, default: "{reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}"}
+  - {name: bird_reactor_config, default: "{reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}"}
     # bird_disable_internal_biomass REMOVED — Option B (fork) means
     # BiRDTransportProcess has no internal biomass ODE to disable.
   modified_processes:
-    - "v2ecoli baseline (with mbp-01 + mbp-02 enhancements): reactor_volume_L parameter now read from reactor.volume_L store (BiRD owns volume)."
+  - "v2ecoli baseline (with mbp-01 + mbp-02 enhancements): reactor_volume_L parameter now read from reactor.volume_L store (BiRD owns volume)."
   notes: |
     pbg-bioreactordesign added as a workspace dependency at the version
     that ships `BiRDTransportProcess` (Option-B fork; pinned to the PR
@@ -208,28 +208,28 @@ model_change:
 
 # ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
 key_assumptions:
-  - "0D well-mixed reactor; bubble column geometry as the default for mbp-03 (per BiRD's default). Stirred-tank may be required for mbp-05 Beulig matching — see open_question reactor-geometry-for-beulig."
-  - "BiRDTransportProcess (Option-B fork) has no internal biomass ODE; v2ecoli's population is the SOLE source of biomass truth — by construction, not by flag."
-  - "v2ecoli's per-cell μ from metabolism — when aggregated by cells_per_agent — captures the same physics BiRD's Monod would have approximated."
-  - "Timestep: sim duration 240 min (4 BiRD ticks at 1-h default) chosen so 'second-half steady-state' windows are meaningful. If BiRD's interval is tunable in the fork (open_question coupler-timestep-tunability), drop to ~minutes and tighten tolerances."
+- "0D well-mixed reactor; bubble column geometry as the default for mbp-03 (per BiRD's default). Stirred-tank may be required for mbp-05 Beulig matching — see open_question reactor-geometry-for-beulig."
+- "BiRDTransportProcess (Option-B fork) has no internal biomass ODE; v2ecoli's population is the SOLE source of biomass truth — by construction, not by flag."
+- "v2ecoli's per-cell μ from metabolism — when aggregated by cells_per_agent — captures the same physics BiRD's Monod would have approximated."
+- "Timestep: sim duration 240 min (4 BiRD ticks at 1-h default) chosen so 'second-half steady-state' windows are meaningful. If BiRD's interval is tunable in the fork (open_question coupler-timestep-tunability), drop to ~minutes and tighten tolerances."
 
 
 # ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
 
 readouts:
-- {name: reactor_dissolved_o2,           store_path: reactor.dissolved_o2,                    units: mg/L,   status: planned}
-- {name: reactor_dissolved_co2,          store_path: reactor.dissolved_co2,                   units: mg/L,   status: planned}
-- {name: reactor_kla_o2,                 store_path: reactor.kla_o2,                          units: "1/h",  status: planned}
-- {name: reactor_kla_co2,                store_path: reactor.kla_co2,                         units: "1/h",  status: planned}
-- {name: reactor_o2_saturation,          store_path: reactor.o2_saturation,                   units: mg/L,   status: planned}
-- {name: reactor_co2_saturation,         store_path: reactor.co2_saturation,                  units: mg/L,   status: planned}
-- {name: reactor_biomass_gL,             store_path: reactor.biomass,                         units: g/L,    status: planned}
-- {name: population_cell_count,          store_path: population.cell_count,                   units: cells,  status: planned}
-- {name: population_total_biomass_gDW,   store_path: population.total_biomass_gDW,            units: gDW,    status: planned}
-- {name: cell_mu_per_h,                  store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
-- {name: metabolism_o2_uptake_flux,      store_path: "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]", units: "mmol/(gDW·h)", status: planned}
+- {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
+- {name: reactor_dissolved_co2, store_path: reactor.dissolved_co2, units: mg/L, status: planned}
+- {name: reactor_kla_o2, store_path: reactor.kla_o2, units: "1/h", status: planned}
+- {name: reactor_kla_co2, store_path: reactor.kla_co2, units: "1/h", status: planned}
+- {name: reactor_o2_saturation, store_path: reactor.o2_saturation, units: mg/L, status: planned}
+- {name: reactor_co2_saturation, store_path: reactor.co2_saturation, units: mg/L, status: planned}
+- {name: reactor_biomass_gL, store_path: reactor.biomass, units: g/L, status: planned}
+- {name: population_cell_count, store_path: population.cell_count, units: cells, status: planned}
+- {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW, units: gDW, status: planned}
+- {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
+- {name: metabolism_o2_uptake_flux, store_path: "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]", units: "mmol/(gDW·h)", status: planned}
 - {name: metabolism_co2_production_flux, store_path: "agents.0.metabolism.external_exchange_fluxes.CARBON-DIOXIDE[p]", units: "mmol/(gDW·h)", status: planned}
-- {name: cumulative_o2_consumed_mmol,    store_path: reactor.diagnostics.cumulative_o2_consumed_mmol,    units: mmol, status: planned}
+- {name: cumulative_o2_consumed_mmol, store_path: reactor.diagnostics.cumulative_o2_consumed_mmol, units: mmol, status: planned}
 - {name: cumulative_o2_transferred_mmol, store_path: reactor.diagnostics.cumulative_o2_transferred_mmol, units: mmol, status: planned}
 
 
@@ -264,6 +264,7 @@ behavior_tests:
   units: fraction
   requires_simulation: one-generation-coupled
   cites: []
+  cites_note: 'No machine-linkable bib_key: the 0.99-1.01 band is a numerical coupling-wire identity (coupler writes reactor.biomass = population value), not a literature value.'
 
 # ─── CO2 symmetric tests (chris_feedback_2026_05_26 §7) ───
 # If the CO2 leg of the coupling has a wiring bug, mbp-03 passes anyway
@@ -313,7 +314,8 @@ behavior_tests:
   pass_if: {op: in_range, low: 0.95, high: 1.05}
   units: fraction
   requires_simulation: one-generation-coupled
-  cites: []
+  cites:
+  - GardenGarciaOchoa2009BiotechAdv
 
 - name: higher-kla-raises-steady-state-do
   classification: primary
@@ -339,20 +341,20 @@ behavior_tests:
 # ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
 required_knowledge:
   claims:
-    - id: mu-max-m9-glucose-aerobic
-      backs: []                                # informational — sets the regime expectation but mbp-03 has no μ_max test (intentional; mbp-04 does)
-    - id: doubling-time-m9-glucose
-      backs: [one-generation-completes-without-divergence]
-    - id: acetate-overflow-low-do
-      backs: []                                # informational
-    - id: henry-law-equilibrium-o2-co2
-      backs: [no-cells-do-converges-to-henry-saturation]
-    - id: kla-do-monotonic
-      backs: [higher-kla-raises-steady-state-do]
-    - id: v2ecoli-calibration-regime
-      backs: []                                # informational — tolerance band on μ in mbp-04 reflects this
-    - id: bird-biomass-ownership-conflict
-      backs: [reactor-biomass-tracks-population, cells-drop-do-below-saturation]
+  - id: mu-max-m9-glucose-aerobic
+    backs: []                                  # informational — sets the regime expectation but mbp-03 has no μ_max test (intentional; mbp-04 does)
+  - id: doubling-time-m9-glucose
+    backs: [one-generation-completes-without-divergence]
+  - id: acetate-overflow-low-do
+    backs: []                                  # informational
+  - id: henry-law-equilibrium-o2-co2
+    backs: [no-cells-do-converges-to-henry-saturation]
+  - id: kla-do-monotonic
+    backs: [higher-kla-raises-steady-state-do]
+  - id: v2ecoli-calibration-regime
+    backs: []                                  # informational — tolerance band on μ in mbp-04 reflects this
+  - id: bird-biomass-ownership-conflict
+    backs: [reactor-biomass-tracks-population, cells-drop-do-below-saturation]
   interface_contract:
     document: references/expert/cell_side_interface_contract.md
     role: |
@@ -364,109 +366,109 @@ required_knowledge:
     # BiRDTransportProcess) adopted per chris_feedback_2026_05_26 §5 +
     # Eran's decision. Upstream PR tracked as candidate-future-study
     # `pbg-bioreactor-transport-fork` (now a hard prereq above).
-    - id: coupler-timestep-tunability
-      question: |
-        Is BiRD's 1-hour update interval a structural constraint of the
-        underlying physics implementation, or just a default? If tunable
-        in the BiRDTransportProcess fork, dropping to a few minutes
-        (matching the kLa-driven timescale) would resolve several test-
-        design issues at once: 60-min "steady-state" tests would become
-        meaningful at standard mbp-03 durations rather than requiring 4-h
-        sims; the coupler lag in key_assumptions shrinks proportionally;
-        the reactor-biomass-tracks-population tolerance could tighten to
-        floating-point precision. Decide as part of the upstream fork
-        scope.
-      blocks: [BiRDTransportProcess interval spec]
-      asked_to: pbg-bioreactordesign maintainer (Chris) — bundle with fork PR
-      status: open
-    - id: o2-uptake-units-conversion
-      question: |
-        v2ecoli's metabolism emits external_exchange_fluxes in mmol/(gDW·h).
-        BiRD expects o2_uptake_rate in mg_O2/(g_X·h). Conversion factor
-        (32 g/mol O2 × population biomass) — is the coupler the right
-        place for this, or should it be a Step in the interface contract?
-      blocks: [coupler implementation]
-      asked_to: unassigned
-      status: open
-    - id: reactor-geometry-for-beulig
-      question: |
-        bubble-column is the mbp-03 default; limitations note "stirred-tank
-        / airlift not validated this phase." If mbp-05's Beulig comparison
-        requires stirred-tank (Beulig 2025 used stirred-tank), a geometry
-        switch is queued between mbp-03 and mbp-05 with its own validation
-        work — either flip the default to stirred-tank now, or name it as
-        a sub-task in mbp-04/05's scope.
-      blocks: [mbp-05 reactor geometry selection]
-      asked_to: Chris on next sync (confirm Beulig methods reactor type)
-      status: open
+  - id: coupler-timestep-tunability
+    question: |
+      Is BiRD's 1-hour update interval a structural constraint of the
+      underlying physics implementation, or just a default? If tunable
+      in the BiRDTransportProcess fork, dropping to a few minutes
+      (matching the kLa-driven timescale) would resolve several test-
+      design issues at once: 60-min "steady-state" tests would become
+      meaningful at standard mbp-03 durations rather than requiring 4-h
+      sims; the coupler lag in key_assumptions shrinks proportionally;
+      the reactor-biomass-tracks-population tolerance could tighten to
+      floating-point precision. Decide as part of the upstream fork
+      scope.
+    blocks: [BiRDTransportProcess interval spec]
+    asked_to: pbg-bioreactordesign maintainer (Chris) — bundle with fork PR
+    status: open
+  - id: o2-uptake-units-conversion
+    question: |
+      v2ecoli's metabolism emits external_exchange_fluxes in mmol/(gDW·h).
+      BiRD expects o2_uptake_rate in mg_O2/(g_X·h). Conversion factor
+      (32 g/mol O2 × population biomass) — is the coupler the right
+      place for this, or should it be a Step in the interface contract?
+    blocks: [coupler implementation]
+    asked_to: unassigned
+    status: open
+  - id: reactor-geometry-for-beulig
+    question: |
+      bubble-column is the mbp-03 default; limitations note "stirred-tank
+      / airlift not validated this phase." If mbp-05's Beulig comparison
+      requires stirred-tank (Beulig 2025 used stirred-tank), a geometry
+      switch is queued between mbp-03 and mbp-05 with its own validation
+      work — either flip the default to stirred-tank now, or name it as
+      a sub-task in mbp-04/05's scope.
+    blocks: [mbp-05 reactor geometry selection]
+    asked_to: Chris on next sync (confirm Beulig methods reactor type)
+    status: open
 
 
 # ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
 failure_modes:
-  - signature: "one-generation-completes-without-divergence fails (NaN / unbounded)"
-    candidate_causes:
-      - "Units mismatch on a coupler write (mg/L vs mM, mmol/(gDW·h) vs mg_O2/(g_X·h))"
-      - "BiRD's internal biomass ODE not actually disabled — competing with v2ecoli's biomass (Option-A fallback only — under Option-B BiRDTransportProcess has no internal biomass ODE by construction)"
-      - "Coupler reads stale BiRD state immediately after BiRD's first tick"
-      - "DO going below zero because uptake rate exceeds physical limit (no clamp)"
-    checks:
-      - "Add a hard clamp on dissolved_o2 ≥ 0 in the coupler (with a warning if hit)"
-      - "Confirm BiRDReactorProcess config.max_growth_rate_per_h == 0 at boot (Option-A fallback only)"
-      - "Print first 10 emit rows of every coupler-touched store"
+- signature: "one-generation-completes-without-divergence fails (NaN / unbounded)"
+  candidate_causes:
+  - "Units mismatch on a coupler write (mg/L vs mM, mmol/(gDW·h) vs mg_O2/(g_X·h))"
+  - "BiRD's internal biomass ODE not actually disabled — competing with v2ecoli's biomass (Option-A fallback only — under Option-B BiRDTransportProcess has no internal biomass ODE by construction)"
+  - "Coupler reads stale BiRD state immediately after BiRD's first tick"
+  - "DO going below zero because uptake rate exceeds physical limit (no clamp)"
+  checks:
+  - "Add a hard clamp on dissolved_o2 ≥ 0 in the coupler (with a warning if hit)"
+  - "Confirm BiRDReactorProcess config.max_growth_rate_per_h == 0 at boot (Option-A fallback only)"
+  - "Print first 10 emit rows of every coupler-touched store"
 
-  - signature: "reactor-biomass-tracks-population diverges over time"
-    candidate_causes:
-      - "Coupler writes reactor.biomass at a different cadence than BiRD's internal update"
-      - "Unit drift between gDW/L (population side) and g/L (BiRD's biomass port)"
-      - "BiRD's biomass ODE re-enabled by some default in a sub-call"
-    checks:
-      - "Plot reactor.biomass vs population.biomass_concentration_gL — should overlay"
-      - "Inspect BiRD's internal ODE state directly via its _state attribute"
+- signature: "reactor-biomass-tracks-population diverges over time"
+  candidate_causes:
+  - "Coupler writes reactor.biomass at a different cadence than BiRD's internal update"
+  - "Unit drift between gDW/L (population side) and g/L (BiRD's biomass port)"
+  - "BiRD's biomass ODE re-enabled by some default in a sub-call"
+  checks:
+  - "Plot reactor.biomass vs population.biomass_concentration_gL — should overlay"
+  - "Inspect BiRD's internal ODE state directly via its _state attribute"
 
-  - signature: "higher-kla-raises-steady-state-do FAILS (no trend or reversed)"
-    candidate_causes:
-      - "Gas flow rate not driving BiRD's Higbie kLa correlation as expected"
-      - "Cell O2 uptake also scaling with gas flow (shouldn't be)"
-      - "Steady state not reached within sim duration"
-    checks:
-      - "Print BiRD's kla_o2 output across the sweep; confirm monotonic in gas_flow_rate"
-      - "Check second-half DO variance — should be small if at steady state"
+- signature: "higher-kla-raises-steady-state-do FAILS (no trend or reversed)"
+  candidate_causes:
+  - "Gas flow rate not driving BiRD's Higbie kLa correlation as expected"
+  - "Cell O2 uptake also scaling with gas flow (shouldn't be)"
+  - "Steady state not reached within sim duration"
+  checks:
+  - "Print BiRD's kla_o2 output across the sweep; confirm monotonic in gas_flow_rate"
+  - "Check second-half DO variance — should be small if at steady state"
 
-  - signature: "no-cells-do-converges-to-henry-saturation FAILS"
-    candidate_causes:
-      - "force_zero_population didn't actually zero out cells (aggregator returning >0)"
-      - "Coupler still writing a non-zero o2_uptake_rate to BiRD"
-      - "Initial DO set far from saturation + sim too short to converge"
-    checks:
-      - "Print population.cell_count and reactor.o2_uptake_rate — should both be 0"
-      - "Compare reactor.dissolved_o2 to reactor.o2_saturation final values"
+- signature: "no-cells-do-converges-to-henry-saturation FAILS"
+  candidate_causes:
+  - "force_zero_population didn't actually zero out cells (aggregator returning >0)"
+  - "Coupler still writing a non-zero o2_uptake_rate to BiRD"
+  - "Initial DO set far from saturation + sim too short to converge"
+  checks:
+  - "Print population.cell_count and reactor.o2_uptake_rate — should both be 0"
+  - "Compare reactor.dissolved_o2 to reactor.o2_saturation final values"
 
 
 # ─── 5d. REGRESSION ────────────────────────────────────────────────────────
 regression_tests:
   inherits_from:
-    - study: mbp-01-time-varying-environment
-      tests:
-        - external_glucose_updates_propagate_within_one_step
-        - cumulative-mass-balance-closes
-        - zero-substrate-blocks-uptake
-        - saturating-substrate-respects-vmax
-        - plateau-across-saturating-range
-        - static-env-baseline-unchanged
-    - study: mbp-02-population-aggregation
-      tests:
-        - cell-count-doubles-per-generation
-        - per-cell-observables-unchanged-vs-baseline
-        - single-cell-aggregation-matches-cell-mass
+  - study: mbp-01-time-varying-environment
+    tests:
+    - external_glucose_updates_propagate_within_one_step
+    - cumulative-mass-balance-closes
+    - zero-substrate-blocks-uptake
+    - saturating-substrate-respects-vmax
+    - plateau-across-saturating-range
+    - static-env-baseline-unchanged
+  - study: mbp-02-population-aggregation
+    tests:
+    - cell-count-doubles-per-generation
+    - per-cell-observables-unchanged-vs-baseline
+    - single-cell-aggregation-matches-cell-mass
 
 
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
-  - "Uses BiRDTransportProcess from the upstream `pbg-bioreactor-transport-fork` PR — until that lands and is pinned, mbp-03 cannot enter Build phase."
-  - "Single v2ecoli generation only (or, in chris_feedback_2026_05_26 §6 terms, 4 BiRD ticks); multi-generation stability is mbp-04's scope."
-  - "Bubble column geometry default; stirred tank / airlift not validated this phase. May need switch for Beulig matching (open_question reactor-geometry-for-beulig)."
-  - "Fed-batch operations not supported (pbg-bioreactordesign has no fed-batch yet) — flagged as a deferred enhancement; mbp-05 may stress this."
-  - "Coupler timestep mismatch (BiRD ~1 h default, v2ecoli ~1 s): the coupler holds last-known BiRD state between BiRD ticks. Mitigated to acceptable by 240-min default sim duration (4 ticks). Open_question coupler-timestep-tunability tracks the path to BiRD-interval-as-tunable in the upstream fork."
+- "Uses BiRDTransportProcess from the upstream `pbg-bioreactor-transport-fork` PR — until that lands and is pinned, mbp-03 cannot enter Build phase."
+- "Single v2ecoli generation only (or, in chris_feedback_2026_05_26 §6 terms, 4 BiRD ticks); multi-generation stability is mbp-04's scope."
+- "Bubble column geometry default; stirred tank / airlift not validated this phase. May need switch for Beulig matching (open_question reactor-geometry-for-beulig)."
+- "Fed-batch operations not supported (pbg-bioreactordesign has no fed-batch yet) — flagged as a deferred enhancement; mbp-05 may stress this."
+- "Coupler timestep mismatch (BiRD ~1 h default, v2ecoli ~1 s): the coupler holds last-known BiRD state between BiRD ticks. Mitigated to acceptable by 240-min default sim duration (4 ticks). Open_question coupler-timestep-tunability tracks the path to BiRD-interval-as-tunable in the upstream fork."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
@@ -527,4 +529,79 @@ tests:
   auto_discover: true
   data_source: latest_run
   pytest_args: []
-  last_results: null
+  last_results:
+variants:
+- name: one-generation-coupled
+  perturbation:
+  note: reference coupled run (240 min = 4 BiRD ticks)
+- name: kla-sweep-coupled
+  perturbation:
+    gas_flow_rate_Lpm:
+    - 0.5
+    - 2.0
+    - 5.0
+  note: drives kLa via BiRD Higbie correlation
+- name: no-cells-henry-equilibrium
+  perturbation:
+    force_zero_population: true
+  note: Henry-saturation control (no cells)
+planned_runs:
+- name: one-generation-coupled
+  status: planned
+  n_steps: 240
+  details: duration 240 min; seeds [0]; tests ['one-generation-completes-without-divergence', 'cells-drop-do-below-saturation', 'cells-raise-dissolved-co2-above-saturation', 'reactor-biomass-tracks-population', 'o2-mass-balance-closes']
+- name: kla-sweep-coupled
+  status: planned
+  n_steps: 240
+  details: duration 240 min; seeds [0]; tests ['higher-kla-raises-steady-state-do', 'higher-kla-lowers-steady-state-dissolved-co2']
+- name: no-cells-henry-equilibrium
+  status: planned
+  n_steps: 240
+  details: duration 240 min; seeds [0]; tests ['no-cells-do-converges-to-henry-saturation', 'no-cells-co2-converges-to-henry-saturation']
+visualizations:
+- name: do-vs-saturation-coupled
+  address: image:charts/do-vs-saturation-coupled.png
+  status: planned
+  kind: mockup
+  render: 'PLANNED (mockup; mbp-03 in Design, BLOCKED on the upstream pbg-bioreactor-transport-fork): dissolved O2 vs Henry saturation over a coupled run, expected to drop below saturation as cells consume O2 and rise with kLa.'
+runtime:
+  status: not_run
+  note: No runs yet. mbp-03 cannot enter Build until the upstream pbg-bioreactor-transport-fork (BiRDTransportProcess) lands (Option-B fork, chris_feedback_2026_05_26 §5).
+report:
+  headline: Couple v2ecoli (time-varying env + population aggregator) to pbg-bioreactordesign BiRDTransportProcess via a thin ReactorCellCoupler.
+  status: design-blocked-on-upstream
+  summary: 'Keystone study: v2ecoli supplies biomass + exchange-flux demand; BiRD supplies dissolved O2/CO2, kLa, and gas-phase physics. Resolution adopts Option B (fork a biomass-free BiRDTransportProcess) over a disable-flag, for substitutability symmetry and no dead-code paths. BLOCKED on the upstream fork PR; all tests are planned.'
+study_card:
+  one_liner: v2ecoli <-> BiRD reactor coupling (Option-B transport-only fork).
+  phase: Design
+  kind: construction (coupling layer)
+  depends_on:
+  - mbp-01
+  - mbp-02
+  - pbg-bioreactor-transport-fork (upstream)
+  deliverable: ReactorCellCoupler Step + reactor_bird_coupled composite + coupling-direction / mass-balance tests.
+enforced_params:
+- name: bird_reactor_config
+  default: '{reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}'
+- name: duration_min
+  default: 240
+  note: 4 BiRD ticks at default 1-h interval -> meaningful second-half steady-state
+- name: seed
+  value: 0
+biological_summary: 'Four-way coupling: (1) population biomass -> reactor.biomass; (2) dissolved O2/CO2 (mg/L->mM) -> v2ecoli environment; (3) aggregated metabolism O2 uptake -> BiRD O2 demand; (4) metabolism CO2 production -> BiRD CO2 demand. Expected biology: DO drops below Henry saturation as cells consume O2; dissolved CO2 rises above saturation; higher kLa raises DO and strips CO2; no-cells runs reach Henry equilibrium.'
+literature_anchors:
+  expert_docs:
+  - multiscale_bioprocess_roadmap
+  - chris_feedback_2026_05_26
+  - cell_side_interface_contract
+  bib_keys:
+  - Sander2015AtmosChemPhys
+  - GardenGarciaOchoa2009BiotechAdv
+  note: Sander 2015 anchors Henry-law O2/CO2 equilibrium (no-cells convergence tests); Garden & Garcia-Ochoa 2009 anchors kLa gas-liquid transfer (cells-drop-DO, higher-kla-raises-DO, o2-mass-balance-closes).
+design_pivot_required:
+  required: true
+  note: ADOPTED Option B (fork BiRDTransportProcess, no internal biomass ODE) over the disable-flag approach (chris_feedback_2026_05_26 §5; Eran 2026-05-26). Makes the upstream pbg-bioreactor-transport-fork a HARD prerequisite for Build.
+conclusion_verdicts:
+- verdict: PENDING
+  statement: Coupling not yet built or run — blocked on mbp-01/mbp-02 impl + the upstream pbg-bioreactor-transport-fork PR.
+  evidence: 'pipeline_gate.prerequisites includes pbg-bioreactor-transport-fork (upstream); runs: [].'

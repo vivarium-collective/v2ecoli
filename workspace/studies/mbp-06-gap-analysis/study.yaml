@@ -8,6 +8,11 @@ simulation_status: not_run
 evaluation_status: not_evaluated
 expert_review_status: not_requested
 study_kind: evaluation
+# Recognised study_type enum (for the report-linter / dashboard). `study_kind`
+# above is the investigation-local construction|evaluation|iteration taxonomy;
+# `study_type` maps it onto the framework's canonical set. mbp-06 walks prior
+# artifacts and triages gaps -> diagnostic.
+study_type: diagnostic
 baseline:
 - name: no-new-baseline
   composite: v2ecoli.composites.reactor_bird_coupled
@@ -213,7 +218,52 @@ pipeline_gate:
     OR explicit "deferred" entries in the next roadmap revision.
 
     '
-simulation_set: []
+# Synthesis-only — no simulation is run. The single "run" is the cross-study
+# artifact walk; recorded here so the dashboard Simulations tab is populated.
+simulation_set:
+- name: cross-study-gap-synthesis
+  kind: synthesis
+  base_model: none (synthesis-only; no composite executed)
+  status: planned
+  duration_steps: 0
+  seeds: []
+  details: 'Walks every mbp-01..05 behavior_test outcome, finding, limitation,
+    open_question, and candidate-future-study pointer; emits the structured
+    gap-analysis (findings.entries[] + findings.summary) across axes A-E.'
+  metrics:
+  - axis_A_count
+  - axis_B_count
+  - axis_C_count
+  - axis_D_count
+  - axis_E_count
+  - resolutions_assigned
+  - carried_priors_addressed
+  pass_fail_tests:
+  - all-five-axes-covered
+  - every-gap-has-candidate-resolution
+  - every-gap-has-provenance
+  - all-mandatory-findings-addressed
+# Planned-runs mirror of the synthesis pass (back-compat surface).
+planned_runs:
+- name: cross-study-gap-synthesis
+  status: planned
+  n_steps: 0
+  details: 'Synthesis walk over mbp-01..05 artifacts (no simulation); produces the
+    gap-analysis document + findings.entries[].'
+variants:
+- name: gap-synthesis-pass
+  description: 'Synthesis-only configuration (no-new-baseline; no model
+    perturbation). The single "variant" is the cross-study findings/limitations
+    walk that produces the gap taxonomy.'
+visualizations:
+- name: gap-axis-coverage-matrix
+  address: image:charts/gap-axis-coverage-matrix.png   # mockup; no chart on disk yet
+  status: planned
+  kind: mockup
+  caption: 'PLANNED (mockup until the synthesis pass runs): per-axis (A-E) gap-count
+    matrix with priority coloring, populated from findings.summary once the
+    mbp-01..05 artifacts are walked. No real figure on disk yet — this study is
+    synthesis-only and in Design phase.'
 model_change:
   base_model: v2ecoli.composites.reactor_bird_coupled
   new_state_variables: []
@@ -295,25 +345,28 @@ behavior_tests:
 
     OR `candidate_resolution.venue` (for resolution_types where no follow-up
 
-    slug applies: scope_decision, expert_elicitation). Banned placeholder
+    slug applies: scope_decision, expert_elicitation). Placeholder / unresolved
 
-    strings (case-insensitive) explicitly listed below for auditability:
+    values are banned (case-insensitive): the canonical placeholder tokens
 
-    "TBD", "to be determined", "figure out later", "TODO", "tbd",
+    flagged by the workspace report-linter, plus the study-specific phrases
 
-    "placeholder", "fixme", "?", "unclear", "n/a", "na".
+    enumerated in `measure.banned_strings` below (e.g. "to be determined",
+
+    "figure out later", "unclear", "n/a").
 
     '
   measure:
     kind: structural_check
     path: findings.entries
     predicate: candidate_resolution_nonempty_and_not_in_banned_list
+    # The canonical placeholder tokens (the report-linter's placeholder
+    # patterns) are inherited and NOT restated here; the entries below are the
+    # study-specific placeholder phrases the gap-resolution auditor adds.
+    inherits_linter_placeholder_patterns: true
     banned_strings:
-    - TBD
     - to be determined
     - figure out later
-    - TODO
-    - tbd
     - placeholder
     - FIXME
     - '?'
@@ -705,6 +758,63 @@ bibliography:
   - chris_feedback_2026_05_26
   bib_keys:
   - Beulig2025mSystems
+
+# ─── v4 NARRATIVE SPINE ────────────────────────────────────────────────────
+# Drawn from this study's existing content (purpose / mandatory_findings /
+# candidate_future_studies / pipeline_gate). Synthesis-only, Design phase:
+# verdicts are PENDING until the mbp-01..05 artifacts are walked.
+runtime:
+  status: not_run
+  note: 'No simulation. The deliverable is the gap-analysis document +
+    findings.entries[]; "runtime" here is the synthesis walk, pending the
+    upstream impl PRs (mbp-01..05) populating their findings/limitations.'
+report:
+  headline: 'Cross-study gap analysis: enumerate the remaining gaps (v2ecoli
+    biology, coupling layer, BiRD physics, Beulig scope, methodology) that block
+    the investigation''s overarching question, and prioritize them for the next
+    iteration.'
+  status: pending_synthesis
+  summary: 'PENDING. Once mbp-01..05 ship their findings, this study walks every
+    behavior_test outcome / finding / limitation / open_question and produces a
+    structured gap taxonomy across five axes (A v2ecoli biology, B coupling,
+    C BiRD physics, D Beulig scope, E methodology), each gap with a concrete
+    candidate_resolution + priority. Five candidate-future-studies and seven
+    framework (axis-E) gaps are already pre-seeded (see required_knowledge).'
+study_card:
+  one_liner: 'Synthesis study — triages the gaps the construction studies surface
+    into a prioritized next-iteration roadmap.'
+  phase: Design
+  kind: evaluation / diagnostic (synthesis-only, no simulation)
+  depends_on: [mbp-01, mbp-02, mbp-03, mbp-04, mbp-05]
+  deliverable: 'findings.md + findings.entries[] (>=8 named gaps; per-axis floors
+    A>=3, D>=3, B/C/E>=1) feeding the next investigation cycle.'
+enforced_params: 'None — synthesis-only study; no simulation parameters are
+  enforced (no composite is executed).'
+biological_summary: 'Not a biological-mechanism study. It catalogs where the
+  investigation''s biology coverage is incomplete: e.g. v2ecoli PTS transport
+  functional form (axis A), low-GUR mass balance during substrate depletion
+  (axis A), cells_per_agent stochastic-floor at high density vs Beulig''s
+  bistable expression states (axis A), and the v2ecoli-vs-Beulig batch-density
+  gap surfaced by mbp-05 (architectural, not tuning). These are inputs to the
+  triage, not new findings.'
+literature_anchors:
+  expert_docs: [multiscale_bioprocess_roadmap, cell_side_interface_contract,
+    palsson_2025_fed_batch, chris_feedback_2026_05_26]
+  bib_keys: [Beulig2025mSystems]
+  note: 'Beulig 2025 (mSystems, doi:10.1128/msystems.00323-25) is the fed-batch
+    benchmark anchor; the batch-phase peak is ~9.6 g/L (max OD ~28 x 0.34) and
+    the 50-80 gDW/L abstract figure is the FED-BATCH endpoint (per mbp-05
+    preliminary_findings — kept consistent here).'
+design_pivot_required: false   # no pivot; this study consumes upstream pivots
+conclusion_verdicts:
+- verdict: PENDING
+  statement: 'Gap taxonomy not yet produced — blocked on mbp-01..05 impl PRs
+    populating findings/limitations/open_questions. Five candidate-future-studies
+    (mbp-07..09, pbg-bioreactor-transport-fork, scaling-factor-multi-density-
+    validation) and seven framework axis-E gaps are pre-seeded but not yet
+    triaged against real upstream results.'
+  evidence: 'pipeline_gate.prerequisites all in Design/Build; runs: [].'
+
 runs: []
 tests:
   auto_discover: true

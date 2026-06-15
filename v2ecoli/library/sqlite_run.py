@@ -349,63 +349,41 @@ def run_multigen_sqlite(
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
 
-    while done < max_steps:
-        n = min(chunk, max_steps - done)
-        try:
-            composite.run(n)
-        except Exception as e:
-            print(f"[multigen_sqlite] composite stopped at tick {done}: "
-                  f"{type(e).__name__}: {str(e)[:120]}")
-            break
-        done += n
-        agents = (composite.state or {}).get("agents") or {}
-        curr_ids = set(agents.keys())
-
-        if followed in agents:
-            payload = _filter_agent_state(agents[followed], leaves)
-            update_state = {
-                "time": float(done),
-                "global_time": float(done),
-                "agents": {followed: payload},
-            }
-            if root_leaves:
-                _merge_into(
-                    update_state,
-                    _filter_root_state(composite.state or {}, root_leaves),
-                )
+    # Force the in-document emitter of any RUNTIME-built daughter cell to the
+    # minimal null sink for the duration of this run. This runner emits the
+    # followed lineage out-of-band via the external SQLite emitter (``em``
+    # above), so a daughter's own internal emitter must not persist anything.
+    #
+    # Without this, the division Step rebuilds each daughter via
+    # ``baseline()`` whose default is ``emitter="parquet"`` (the
+    # ``set_null_emitter_override(True)`` a caller set BEFORE the initial build
+    # has already been restored to False by the time division fires at
+    # runtime). Every daughter then constructs a ParquetEmitter that writes to
+    # the SAME fixed hive partition (``generation=1/agent_id=1`` — the
+    # parquet_vecoli preset defaults, never re-pointed per daughter). On
+    # construction each new daughter's ``_write_configuration`` deletes that
+    # partition directory recursively, racing the previous daughter's threaded
+    # batch write and crashing it with
+    # ``FileNotFoundError: .../<N>.pq.tmp`` (surfaced at the next flush's
+    # ``last_batch_future.result()``) — truncating coupled multigen runs at the
+    # gen-2->3 boundary. Daughter persistence here belongs to the external
+    # SQLite emitter, so null is both correct and crash-free.
+    import v2ecoli.composites._helpers as _emit_h  # noqa: PLC0415
+    _prev_null_override = _emit_h._NULL_EMITTER_OVERRIDE
+    _emit_h.set_null_emitter_override(True)
+    try:
+        while done < max_steps:
+            n = min(chunk, max_steps - done)
             try:
-                em.update(update_state)
+                composite.run(n)
             except Exception as e:
-                print(f"[multigen_sqlite] emit failed at tick {done}: "
+                print(f"[multigen_sqlite] composite stopped at tick {done}: "
                       f"{type(e).__name__}: {str(e)[:120]}")
-        else:
-            # The followed agent disappeared — division. Pick daughter
-            # if we have generations left; else stop.
-            if gen >= max_generations:
                 break
-            divided, daughter = division_detector(prev_ids, curr_ids)
-            if not divided or daughter is None:
-                remaining = sorted(curr_ids)
-                if not remaining:
-                    break
-                daughter = remaining[0]
-            followed = daughter
-            gen += 1
-            gens_seen.append(gen)
-            # MEMORY guard: optional sibling prune. Off by default so
-            # the runner mirrors the xarray-runner's "keep everything"
-            # semantics; opt in via `single_daughters=True` when memory
-            # bounds matter (single-lineage multi-gen studies).
-            if single_daughters:
-                dropped = prune_to_followed_lineage(composite, followed)
-                gc.collect()
-                print(f"[multigen_sqlite] gen {gen} → following agent "
-                      f"{followed!r} at tick {done} (single_daughters: "
-                      f"dropped {dropped} sibling agent(s) + ran gc)")
-            else:
-                print(f"[multigen_sqlite] gen {gen} → following agent "
-                      f"{followed!r} at tick {done}")
-            # Emit immediately so the gen handoff has a marker row.
+            done += n
+            agents = (composite.state or {}).get("agents") or {}
+            curr_ids = set(agents.keys())
+
             if followed in agents:
                 payload = _filter_agent_state(agents[followed], leaves)
                 update_state = {
@@ -420,13 +398,60 @@ def run_multigen_sqlite(
                     )
                 try:
                     em.update(update_state)
-                except Exception:
-                    pass
-        prev_ids = curr_ids
-        # Light gc per chunk only when single_daughters is on — that's
-        # the mode with memory pressure to fight. Cheap insurance
-        # against cyclic refs in composite scheduler queues.
-        if single_daughters and n >= 50:
-            gc.collect()
+                except Exception as e:
+                    print(f"[multigen_sqlite] emit failed at tick {done}: "
+                          f"{type(e).__name__}: {str(e)[:120]}")
+            else:
+                # The followed agent disappeared — division. Pick daughter
+                # if we have generations left; else stop.
+                if gen >= max_generations:
+                    break
+                divided, daughter = division_detector(prev_ids, curr_ids)
+                if not divided or daughter is None:
+                    remaining = sorted(curr_ids)
+                    if not remaining:
+                        break
+                    daughter = remaining[0]
+                followed = daughter
+                gen += 1
+                gens_seen.append(gen)
+                # MEMORY guard: optional sibling prune. Off by default so
+                # the runner mirrors the xarray-runner's "keep everything"
+                # semantics; opt in via `single_daughters=True` when memory
+                # bounds matter (single-lineage multi-gen studies).
+                if single_daughters:
+                    dropped = prune_to_followed_lineage(composite, followed)
+                    gc.collect()
+                    print(f"[multigen_sqlite] gen {gen} → following agent "
+                          f"{followed!r} at tick {done} (single_daughters: "
+                          f"dropped {dropped} sibling agent(s) + ran gc)")
+                else:
+                    print(f"[multigen_sqlite] gen {gen} → following agent "
+                          f"{followed!r} at tick {done}")
+                # Emit immediately so the gen handoff has a marker row.
+                if followed in agents:
+                    payload = _filter_agent_state(agents[followed], leaves)
+                    update_state = {
+                        "time": float(done),
+                        "global_time": float(done),
+                        "agents": {followed: payload},
+                    }
+                    if root_leaves:
+                        _merge_into(
+                            update_state,
+                            _filter_root_state(composite.state or {}, root_leaves),
+                        )
+                    try:
+                        em.update(update_state)
+                    except Exception:
+                        pass
+            prev_ids = curr_ids
+            # Light gc per chunk only when single_daughters is on — that's
+            # the mode with memory pressure to fight. Cheap insurance
+            # against cyclic refs in composite scheduler queues.
+            if single_daughters and n >= 50:
+                gc.collect()
+    finally:
+        _emit_h.set_null_emitter_override(_prev_null_override)
 
     return {"steps": done, "generations": gens_seen}

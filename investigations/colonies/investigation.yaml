@@ -30,40 +30,55 @@ hypothesis: |
   processes, not cells per process.
 
 description: |
-  Two-study investigation to certify the colony composite for HPC
-  deployment.
+  Multi-study investigation certifying the colony composite for HPC
+  deployment. The single-machine foundation surfaced a memory blocker that
+  had to be fixed before deployment can be planned honestly.
 
-  Study 1 — colonies-01-hpc-readiness (this study):
-    Build phase: fix daughter-process hydration so structural _add
-    instantiates daughter EcoliWCMs through the composite engine.
-    Decide phase: N-sweep (N ∈ {1, 2, 4, 8}) on one machine to
-    extract per-cell wall-time + RSS scaling and identify the
-    bottleneck. Produces a recommended cells/process and
-    cells/HPC-node budget.
+  colonies-01-hpc-readiness (DONE, PASS): fix daughter-process hydration;
+    N-sweep (N ∈ {1,2,4,8}, static, 60-tick windows) → per-cell wall flat
+    ~73 ms, pymunk free, GIL is the compute bottleneck. Projected ~384
+    cells/64-core-256GB node — under a flat-RSS assumption it flagged but
+    did not test (F-06).
 
-  Study 2 — colonies-02-hpc-deployment (planned):
-    Cross-node validation of the projected sizing. Run the
-    recommended cells-per-process count across many processes on
-    one HPC node, then across multiple nodes; confirm per-cell wall
-    stays within ±20% of the laptop projection and that biology is
-    consistent between distributed configurations.
+  colonies-02-parallel-multigen-perf (DONE): the missing test — start from 1
+    cell, divide NATURALLY (1→2→4→…), under both sequential and the
+    process-bigraph Ray protocol. Per-cell WALL stays flat (PASS), Ray lifts
+    the GIL ceiling (3.5× at N16, PASS) — BUT per-cell RSS is NOT bounded: an
+    unbounded leak OOM-kills the colony, and under Ray the leak just moves
+    into the actors so RAM becomes the binding constraint. The 384-cells/node
+    budget was untrustworthy → HPC deployment BLOCKED.
+
+  colonies-03-wcm-rss-leak (DONE, gate PASSED): localized the leak to each
+    cell's INNER RAMEmitter (capturing bulk + unique arrays every tick into
+    never-read history — correcting colonies-02's "emitter-independent"
+    call) and fixed it (minimal capture for embedded cells). Per-cell RSS
+    bounded (1.3→1.9 GB over 62 min vs unfixed +24 GB). HPC deployment
+    unblocked.
+
+  colonies-04-hpc-deployment (PLANNED, unblocked): cross-node validation of
+    the (now leak-free) per-cell sizing across many processes on one HPC node
+    and across nodes.
 
 executive:
   what_is_this: |
-    A two-study investigation certifying the multi-cell colony composite (N
+    A multi-study investigation certifying the multi-cell colony composite (N
     EcoliWCMs — each the full 55-process whole-cell model — wired into one
-    pymunk 2D physics environment) for HPC deployment. colonies-01 is the
-    single-machine foundation: fix daughter-process hydration through the
-    composite engine, then sweep N ∈ {1,2,4,8} to extract per-cell wall-time +
-    RSS scaling, name the bottleneck, and project a cells-per-HPC-node budget.
-    colonies-02 (planned) carries that projection to real cross-node HPC.
+    pymunk 2D physics environment) for HPC deployment. colonies-01 built the
+    single-machine foundation (daughter hydration + static N-sweep);
+    colonies-02 stress-tested it with natural division + the process-bigraph
+    Ray protocol and uncovered an unbounded per-cell RSS leak; colonies-03
+    localized and fixed that leak; colonies-04 (planned) carries the now
+    leak-free sizing to real cross-node HPC.
   verdict: |
-    colonies-01 PASS — the pure-WC colony composite scales linearly on one
-    machine (per-cell wall flat at ~73 ms/tick across N=1..8, pymunk free,
-    per-cell RSS ~450 MB), and the sole scaling bottleneck is the GIL: HPC
-    scaling means more single-threaded processes, not more cells per process
-    (~384 cells per 64-core/256 GB node). colonies-02 (cross-node HPC
-    deployment) is the remaining, not-yet-scaffolded step.
+    HPC-readiness on one machine is ESTABLISHED, after a course-correction.
+    colonies-01 showed per-cell WALL is flat (~73 ms/tick) and the compute
+    bottleneck is the GIL. colonies-02 then overturned the flat-RSS
+    assumption: a naturally-dividing colony LEAKS per-cell RSS without bound
+    (OOM), and the process-bigraph Ray protocol lifts the GIL ceiling (3.5× at
+    N16) but RAM becomes the binding constraint. colonies-03 traced the leak
+    to each cell's inner RAMEmitter and fixed it — per-cell RSS is now bounded
+    (1.3→1.9 GB over 62 min vs unfixed +24 GB). With both wall AND RAM bounded,
+    cross-node HPC deployment (colonies-04) is unblocked and not yet scaffolded.
   verdict_status: in-progress
   verdict_detail: |
     FOUNDATION (colonies-01) — PASS, gate passed, Decide phase. Getting here
@@ -86,52 +101,77 @@ executive:
     GIL — process-bigraph composites are single-threaded, so one process uses
     ~1 core no matter how many cells it holds; total wall crosses realtime
     around N≈13/process. Practical sizing on a 64-core/256 GB node: 6
-    cells/process × 64 processes ≈ 384 cells/node (≈10% RAM headroom). One
-    open anomaly (F-06): in a long single-cell run RSS climbs monotonically
-    (~5 MB/sim-second, 1126→7016 MB before division) — invisible in the 60-tick
-    sweep windows, flagged for the multi-gen drift follow-up.
+    cells/process × 64 processes ≈ 384 cells/node — under a FLAT-RSS
+    assumption the static sweep flagged but could not test (F-06: a long
+    single-cell run climbed ~5 MB/sim-s, invisible in 60-tick windows).
 
-    DEPLOYMENT (colonies-02) — PLANNED, not yet scaffolded. It is seeded from
-    colonies-01's measured inputs (73 ms/cell, 450 MB/cell, 6–8 cells/process)
-    and gated on colonies-01.gate_status == passed (satisfied). It will
-    validate the single-machine projection across many processes on one HPC
-    node and across multiple nodes.
+    STRESS TEST (colonies-02-parallel-multigen-perf) — DONE. Natural division
+    (1→2→4→…) under sequential AND the process-bigraph Ray protocol. Per-cell
+    WALL stayed flat (PASS) and Ray lifted the GIL ceiling (3.5× at N16,
+    realtime headroom ~N55, PASS) — but per-cell RSS is NOT bounded: an
+    unbounded ~7.7 MB/sim-s leak OOM-killed the colony (27.5 GB), and under Ray
+    the leak moved into the actors so RAM became the binding constraint. F-06
+    was therefore a REAL leak, and the 384-cells/node budget was untrustworthy
+    → HPC deployment BLOCKED. Also fixed the colony.gif physics (jitter 0.5→1e-4
+    + coherent fg body mass).
+
+    LEAK FIX (colonies-03-wcm-rss-leak) — DONE, gate PASSED. Localized the leak
+    to each cell's INNER per-cell RAMEmitter (capturing bulk ~25k molecules +
+    four unique-molecule arrays every tick into never-read history) — this
+    CORRECTS colonies-02's "emitter-independent" reading, whose no-emitter probe
+    nulled only the OUTER colony emitter. Fix: 'minimal' RAMEmitter capture for
+    embedded cells (set in the EcoliWCM bridge). Verified: per-cell RSS bounded
+    at 1.3→1.9 GB over 62 min vs the unfixed +24 GB by tick 1800 (~30×). The
+    multi-cell colony no-OOM end-to-end run remains a confirmatory follow-up
+    (not load-bearing — the fix is per-cell).
+
+    DEPLOYMENT (colonies-04-hpc-deployment) — PLANNED, not yet scaffolded,
+    now UNBLOCKED (both wall and RAM bounded). Cross-node validation of the
+    leak-free per-cell sizing across many processes on one HPC node and across
+    multiple nodes.
   decisions_needed:
   - question: |
-      Is the F-06 RSS climb (~5 MB/sim-second within one long pre-division run)
-      a genuine leak or expected inner-composite history accumulation — and does
-      it invalidate the flat ~450 MB/cell projection over many natural divisions?
+      Proceed straight to colonies-04-hpc-deployment, or first run the
+      confirmatory multi-cell colony no-OOM end-to-end run (seq-1cell-4div to
+      full duration, first division still tick 2338)?
     context: |
-      The N-sweep held N static for 60 ticks, so it cannot see drift. F-06 is
-      the only signal that per-cell RSS may NOT stay flat over a growing colony's
-      lifetime. The multi-gen-perf-drift follow-up exists to resolve this; until
-      it runs, the cells/node budget assumes no drift.
+      The leak fix is verified per-cell (single EcoliWCM RSS bounded 1.3→1.9 GB
+      over 62 min). The colony run is confirmatory not load-bearing (the fix is
+      per-cell, so N bounded cells follow), but it would close
+      per-cell-rss-bounded-after-fix and biology-unchanged empirically rather
+      than by-construction. The mini's tracemalloc profiler was too slow to
+      finish it cheaply.
   - question: |
-      For colonies-02, is 6 cells/process × 64 processes = 384 cells/node the
-      right starting shape on a 64-core/256 GB node, or should we push to 8
-      cells/process (512 cells, ~290 GB — just over budget)?
+      With the RSS leak fixed, what is the real cells-per-node budget and node
+      shape for colonies-04 — and should the inner-WCM ParCa cache be shared or
+      per-process/per-actor?
     context: |
-      6/process fits 256 GB with ~10% headroom at ~2× realtime per-process tick;
-      8/process is faster per node but exceeds the RAM budget. The choice sets
-      the HPC orchestration plan colonies-02 will validate.
+      The old ~450 MB/cell + 384/node figure was inflated by the leak; post-fix
+      per-cell RSS is closer to the inner-WCM baseline (~1–2 GB resident),
+      which changes the budget. Under Ray each actor reloads its own ~165 MB
+      sim_data cache (parca-cache-contention), so the node shape (sequential
+      processes vs Ray actors per node) and cache strategy must be set before
+      cross-node deployment.
   - question: |
-      Should we invest in making the process-bigraph composite engine GIL-aware
-      (concurrent process invocation) before HPC deployment, or accept
-      process-level scaling and treat the ~13-cells/process realtime ceiling as
-      fixed?
+      For colonies-04, use the process-bigraph Ray protocol (process-level
+      parallelism) or sequential single-threaded processes?
     context: |
-      Independent cells are embarrassingly parallel, so a GIL-aware engine could
-      lift the per-process ceiling — but it is engine-level work that does not
-      block colonies-02 (gil-aware-engine-research follow-up). Scaling processes
-      is the lower-risk path.
+      colonies-02 RESOLVED the old GIL-aware-engine question: the Ray protocol
+      already lifts the per-process GIL ceiling (3.5× at N16, headroom ~N55)
+      with biology consistent (first division tick 2338 in both). Ray is the
+      path for compute; the open trade-off is its per-actor RAM/cache cost vs
+      sequential simplicity — no NEW engine work is needed.
 
 scientific_argument:
   main_claim: |
     The multi-cell colony composite (N full EcoliWCMs in one pymunk environment)
-    is HPC-ready on a single machine: after the daughter-hydration fix it grows
-    and divides cleanly, and per-cell cost is flat in N, so HPC sizing reduces to
-    scaling single-threaded processes — RAM_per_node / RAM_per_cell processes,
-    ~6–8 cells each — rather than packing more cells into one GIL-bound process.
+    is HPC-ready on a single machine once a per-cell memory leak is fixed. It
+    grows and divides cleanly (naturally, multi-generation), per-cell WALL is
+    flat in N, and the process-bigraph Ray protocol lifts the single-process GIL
+    ceiling. The static N-sweep's flat-RSS premise was WRONG — a growing colony
+    leaked per-cell RSS without bound (the inner per-cell RAMEmitter) — but with
+    that leak fixed, per-cell RSS is bounded, so HPC sizing reduces to scaling
+    Ray processes/actors at a now-trustworthy RAM-per-cell.
   evidence_for:
   - 'colonies-01 daughters-hydrated (PASS): after three build fixes a pure-WC N=2
     colony force-divides into 4 daughters that all advance on the next tick,
@@ -142,17 +182,29 @@ scientific_argument:
   - 'F-04 — pymunk physics is negligible (≤0.2 ms/tick at N=8): essentially all
     cost is the inner 55-process EcoliWCM walked sequentially, so the cost model
     is "cells × per-cell-WCM", clean to extrapolate.'
-  - 'F-03 — per-cell RSS is ~450 MB atop a ~1 GB baseline, linear to N=8: gives a
-    concrete RAM-per-node ceiling for HPC sizing.'
+  - 'F-03 — per-cell RSS is ~450 MB atop a ~1 GB baseline in the STATIC sweep —
+    but this figure was inflated by the leak below; see colonies-03.'
+  - 'colonies-02 natural-division-2-generations (PASS): one cell divides
+    naturally 1→2→4→…→14 (7 divisions), retiring colonies-01''s FORCED-division
+    PASS-narrow caveat.'
+  - 'colonies-02 ray-lifts-gil-ceiling (PASS): the process-bigraph Ray protocol
+    runs cells in separate OS processes — 3.5× faster at N16, realtime headroom
+    ~N55 vs the sequential ~N13 — with biology identical (first division tick
+    2338 in both transports).'
+  - 'colonies-03 per-cell RSS bounded after fix: localizing the leak to the inner
+    per-cell RAMEmitter and switching embedded cells to minimal capture holds a
+    single cell flat at 1.3→1.9 GB over 62 min (vs unfixed +24 GB by tick 1800).'
   evidence_against:
-  - 'F-06 — RSS grows monotonically (~5 MB/sim-second) within a single long
-    pre-division run, invisible in the static 60-tick N-sweep. If this reflects
-    accumulating inner-composite state (not amortized startup), the flat
-    per-cell RSS projection may not hold over many natural divisions — the
-    linear-scaling claim is established for static N, not yet for a growing colony.'
-  - 'two-generations-complete passed only as PASS-narrow — via FORCED same-tick
-    division of both mothers, not a natural 2-generation timeline. Natural
-    multi-generation division at scale is not yet validated.'
+  - 'The flat-RSS HPC budget from colonies-01 was UNSOUND as stated: colonies-02
+    showed a naturally-dividing colony leaks per-cell RSS ~7.7 MB/sim-s to OOM
+    (the static 60-tick sweep could not see it). RESOLVED by colonies-03 (inner
+    RAMEmitter), but it means the original 384-cells/node figure must be recomputed.'
+  - 'Under the Ray protocol the per-cell leak (pre-fix) moved into the actors and
+    RAM became the binding constraint — RAM, not the GIL, is the real HPC ceiling;
+    per-actor ParCa cache cost (parca-cache-contention) is still unquantified.'
+  - 'The leak fix is verified PER-CELL (single EcoliWCM) and by-construction for
+    biology; the multi-cell colony no-OOM end-to-end run + cross-node validation
+    (colonies-04) are not yet done.'
   key_figures:
   - {study: colonies-01-hpc-readiness, name: perf-per-cell-vs-n, shows: 'per-cell wall flat (≤2× N=1) across N — the core HPC-readiness pass condition'}
   - {study: colonies-01-hpc-readiness, name: perf-rss-vs-n, shows: 'peak RSS vs N (~450 MB/cell slope) — sets the per-node cell ceiling'}
@@ -160,15 +212,15 @@ scientific_argument:
   - {study: colonies-01-hpc-readiness, name: colony-animation, shows: 'pure-WC N=2 colony force-divided into 4 hydrated daughters (daughter-hydration fix working)'}
   caveats:
   - Single-machine only; cross-node HPC scaling (network, distributed environment
-    field, filesystem) is entirely colonies-02's job and unvalidated here.
-  - All cells in the sweep share one out/cache ParCa cache. If HPC processes need
-    per-process caches, per-cell RAM extrapolation UNDERESTIMATES the real
-    footprint (parca-cache-contention follow-up).
-  - The 90-min sim window is one doubling + buffer, not an N-generation run; the
-    flat per-cell result is a steady-state-window claim, not a lifetime claim.
-  - Process-bigraph composites are single-threaded by design — GIL contention is
-    the ceiling before any HPC-specific bottleneck appears; the Decide report
-    states this explicitly.
+    field, filesystem) is colonies-04's job and unvalidated here.
+  - All cells share one out/cache ParCa cache; under Ray each actor reloads its
+    own ~165 MB sim_data, so per-cell RAM and the node budget depend on the cache
+    strategy (parca-cache-contention) — must be set before colonies-04.
+  - The leak fix's no-OOM behavior is verified per-cell; the full multi-cell
+    colony lifetime run is a confirmatory follow-up, not yet executed.
+  - GIL single-threading is NO LONGER the binding ceiling — the Ray protocol
+    lifts it (colonies-02). RAM (per-cell footprint × cells, plus per-actor
+    cache) is now the constraint that sets HPC sizing.
 
 inputs:
   datasets: []

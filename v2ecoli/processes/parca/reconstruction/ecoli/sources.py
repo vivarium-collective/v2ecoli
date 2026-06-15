@@ -112,3 +112,45 @@ class SourceBundle:
 
     def keys_with_prefix(self, prefix: str) -> list[str]:
         return [k for k in self._index if k.startswith(prefix)]
+
+
+def enumerate_for_dashboard() -> list[dict]:
+    """Enumerate the ecoli-sources bundle for the dashboard data-sources panel.
+
+    Returns one dict per bundle file::
+
+        {
+          "key":        canonical_key (e.g. "condition__media__MIX0-55"),
+          "path":       absolute resolved source path (str),
+          "category":   first key segment (e.g. "condition", "metabolism"),
+          "kind":       "override" if under flat_overrides/, else "inherited",
+          "size_bytes": file size in bytes (0 if missing),
+        }
+
+    Classification mirrors ``reports/ecoli_sources_report.py:section_inputs``:
+    a key is an *override* when its resolved path is under ``flat_overrides/``
+    (v2ecoli's locally-diverged flat files), otherwise it is *inherited* from
+    the upstream ecoli-sources bundle.
+    """
+    bundle = SourceBundle()
+    out: list[dict] = []
+    for key, path in bundle._index.items():
+        path = Path(path)
+        is_override = "flat_overrides" in str(path)
+        parts = key.split("__")
+        category = parts[0] if len(parts) > 1 else "root"
+        try:
+            size_bytes = path.stat().st_size if path.is_file() else 0
+        except OSError:
+            size_bytes = 0
+        out.append(
+            {
+                "key": key,
+                "path": str(path),
+                "category": category,
+                "kind": "override" if is_override else "inherited",
+                "size_bytes": size_bytes,
+            }
+        )
+    out.sort(key=lambda d: (d["category"], d["key"]))
+    return out

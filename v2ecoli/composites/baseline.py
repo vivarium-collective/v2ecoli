@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import binascii
 import copy
+import os
 from typing import Any
 
 import numpy as np
@@ -80,7 +81,33 @@ BASE_EXECUTION_LAYERS = [
     ['exchange_data'], FLUSH,
 
     # Layer 2: standalone (no partitioning needed)
-    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
+    # dnaa_box_binding_listener (dnaa-3) is placed here, next to
+    # ecoli-equilibrium, so its `listeners.mass` read resolves to the PRIOR
+    # tick (an earlier layer than the mass listener that writes it) — the
+    # documented fix for the layer-7 no-fire scheduling blocker. It is a
+    # read-only occupancy observer (does not mutate bulk / DnaA_box flags),
+    # so the validated dnaa-2 cell cycle is preserved exactly.
+    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
+     'dnaa_box_binding_listener'], FLUSH,
+
+    # Layer 2b: DnaA-box equilibrium binding (dnaa-3 Phase 2).
+    # Must run AFTER ecoli-equilibrium so DnaA-ATP / DnaA-ADP form swap
+    # is applied to the bulk pool before box occupancy equilibrates.
+    ['dnaa-box-binding'], FLUSH,
+
+    # Layer 2c: RIDA (dnaa-5) — replisome-coupled DnaA-ATP inactivation.
+    # Reads the active-replisome count (prior tick) and converts free
+    # DnaA-ATP → DnaA-ADP, scaling the extrinsic inactivation with fork number.
+    ['rida'], FLUSH,
+
+    # Layer 2d: DDAH (dnaa-5) — datA-locus-copy-number-coupled DnaA-ATP
+    # hydrolysis. Sequential after RIDA so each conversion caps against the
+    # current free DnaA-ATP pool (no joint over-draw of the small free pool).
+    ['ddah'], FLUSH,
+
+    # Layer 2e: DARS1/DARS2 (dnaa-5) — locus-copy-number-coupled reactivation
+    # (DnaA-ADP → DnaA-ATP), the recovery arm opposing RIDA/DDAH.
+    ['dars'], FLUSH,
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
@@ -189,6 +216,11 @@ def build_execution_layers(features=None):
                     if listener not in layer:
                         layer.append(listener)
                     break
+        # Replace an existing step name with another in-place (same layer/order).
+        for old_name, new_name in (feat.get('replace') or {}).items():
+            for layer in layers:
+                if isinstance(layer, list):
+                    layer[:] = [new_name if s == old_name else s for s in layer]
     return _expand_flushes(layers)
 
 
@@ -225,6 +257,10 @@ def _get_step_config(
     from v2ecoli.processes.two_component_system import TwoComponentSystem
     from v2ecoli.processes.rna_maturation import RnaMaturation
     from v2ecoli.processes.complexation import Complexation
+    from v2ecoli.steps.dnaa_box_binding import DnaABoxBinding
+    from v2ecoli.steps.rida import Rida
+    from v2ecoli.steps.ddah import Ddah
+    from v2ecoli.steps.dars import Dars
     from v2ecoli.processes.protein_degradation import ProteinDegradation
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
@@ -280,6 +316,76 @@ def _get_step_config(
             except (KeyError, AttributeError):
                 pass
         instance = _make_instance(CountsDeriver, merged_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-3 Phase 2: DnaA-box binding step. No ParCa-generated config — built
+    # from class defaults + cell_density / n_avogadro from the equilibrium
+    # config + bulk_mass_data / submass_indices from tf_binding (used to
+    # update DnaA_box.massDiff_* when DnaA moves bulk → bound).
+    if step_name == 'dnaa-box-binding':
+        try:
+            eq_cfg = loader.get_config_by_name('ecoli-equilibrium') or {}
+        except (KeyError, AttributeError):
+            eq_cfg = {}
+        try:
+            tf_cfg = loader.get_config_by_name('ecoli-tf-binding') or {}
+        except (KeyError, AttributeError):
+            tf_cfg = {}
+        dnaa_cfg = {
+            'cell_density': eq_cfg.get('cell_density', 1100.0),
+            'n_avogadro': eq_cfg.get('n_avogadro', 6.02214076e23),
+            'seed': _derive_process_seed(master_seed, 'dnaa-box-binding'),
+            'time_step': 1,
+            'bulk_mass_data': tf_cfg.get('bulk_mass_data'),
+            'bulk_molecule_ids': tf_cfg.get('bulk_molecule_ids'),
+            'submass_indices': tf_cfg.get('submass_indices'),
+        }
+        instance = _make_instance(DnaABoxBinding, dnaa_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: RIDA — replisome-coupled DnaA-ATP inactivation. No ParCa config;
+    # built from class defaults. rate_multiplier=0.0 gives the rida-knockout
+    # variant (set via env RIDA_RATE_MULTIPLIER for the knockout sweep).
+    if step_name == 'rida':
+        rida_cfg = {
+            'rate_multiplier': float(os.environ.get('RIDA_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'rida'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Rida, rida_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DDAH — datA-locus-coupled DnaA-ATP hydrolysis.
+    if step_name == 'ddah':
+        ddah_cfg = {
+            'rate_multiplier': float(os.environ.get('DDAH_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'ddah'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Ddah, ddah_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DARS1/DARS2 — locus-copy-number-coupled DnaA reactivation.
+    if step_name == 'dars':
+        dars_cfg = {
+            'dars1_multiplier': float(os.environ.get('DARS1_RATE_MULTIPLIER', '1.0')),
+            'dars2_multiplier': float(os.environ.get('DARS2_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'dars'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Dars, dars_cfg, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
             topology = topology()

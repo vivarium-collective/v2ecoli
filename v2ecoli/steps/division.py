@@ -201,12 +201,51 @@ class Division(V2Step):
             # baseline() loads wiring from the cache; we then overlay the
             # daughter's divided biological state on top.
             from v2ecoli.composites.baseline import baseline, seed_mass_listener
+            from v2ecoli.composites._helpers import (
+                _PARQUET_EMITTER_OVERRIDE, set_parquet_emitter_override)
             d1_seed = (self._seed + 1) % (2**31)
             d2_seed = (self._seed + 2) % (2**31)
 
             def _build_daughter_doc(d_data, seed, daughter_id):
-                doc = baseline(
-                    core=self.core, seed=seed, cache_dir=self._cache_dir)
+                # When a parquet-emitter override is active, the daughter's
+                # emitter would otherwise inherit the PARENT's static partition
+                # metadata (generation, agent_id) from the global override, and
+                # its _write_configuration (run in __init__) would DELETE the
+                # parent's fully-written history partition at division — the
+                # parent emits its whole life to generation=N/agent_id=<id>, the
+                # daughter spawns on the SAME path and wipes it, leaving only
+                # the daughter's birth rows (the early-cycle-slice symptom).
+                # Re-point the override to the daughter's OWN slot
+                # (generation=N+1, agent_id=<parent><suffix>) for the duration
+                # of the build so the daughter partitions to
+                # generation=N+1/agent_id=P0|P1 and never touches the parent's
+                # data. The next runner-driven generation re-wipes and rewrites
+                # that daughter slot cleanly.
+                import copy as _copy
+                _saved = _PARQUET_EMITTER_OVERRIDE
+                if _saved is not None:
+                    _ovr = _copy.deepcopy(_saved)
+                    _meta = _ovr.setdefault('metadata', {})
+                    # Derive the daughter slot from the PARENT's override
+                    # metadata (the runner's per-generation identity), NOT from
+                    # self.agent_id — inside a composite the cell is always the
+                    # 'agents/0' key, so self.agent_id is "0" for every runner
+                    # generation. Using it would give generation=2/agent_id=00
+                    # for ALL gens, colliding with (and wiping) runner gen 2.
+                    _parent_aid = str(_meta.get('agent_id', self.agent_id))
+                    _parent_gen = _meta.get('generation')
+                    if _parent_gen is None:
+                        _parent_gen = len(_parent_aid)
+                    _suffix = daughter_id[len(str(self.agent_id)):] or '0'
+                    _meta['agent_id'] = _parent_aid + _suffix
+                    _meta['generation'] = int(_parent_gen) + 1
+                    set_parquet_emitter_override(_ovr)
+                try:
+                    doc = baseline(
+                        core=self.core, seed=seed, cache_dir=self._cache_dir)
+                finally:
+                    if _saved is not None:
+                        set_parquet_emitter_override(_saved)
                 agent = doc['state']['agents']['0']
                 for key in ('bulk', 'unique', 'environment', 'boundary'):
                     if key in d_data:
@@ -240,6 +279,24 @@ class Division(V2Step):
 
             print(f'  DAUGHTERS: {d1_id} (bulk={d1_data["bulk"]["count"].sum()}) '
                   f'+ {d2_id} (bulk={d2_data["bulk"]["count"].sum()})')
+
+            # Mirror vEcoli's pre-divide ``emitter.finalize()`` hook
+            # (ecoli_master_sim.py DivisionDetected branch: success=True then
+            # finalize()). The parent ParquetEmitter has rows buffered since its
+            # last batch flush; without an explicit close() they vanish — and
+            # no success sentinel is written — when this _remove update tears
+            # the agent subtree down. The close-flush-and-unregister itself is
+            # the FRAMEWORK-generic ``finalize_emitter_for_agent`` from
+            # pbg-emitters; the v2ecoli-specific glue is only *which key* to
+            # finalize: the parent is registered under the parquet override's
+            # metadata.agent_id (the runner's per-generation identity: "0",
+            # "00", ...). self.agent_id inside the composite is always "0" (the
+            # agents/0 key), so for gens >= 2 a self.agent_id lookup misses;
+            # use the override metadata as the canonical key.
+            from v2ecoli.composites._helpers import finalize_emitter_for_agent
+            _ovr_meta = (_PARQUET_EMITTER_OVERRIDE or {}).get('metadata') or {}
+            _emitter_key = str(_ovr_meta.get('agent_id', self.agent_id))
+            finalize_emitter_for_agent(_emitter_key, success=True)
 
             return {
                 'agents': {

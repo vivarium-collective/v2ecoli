@@ -203,12 +203,20 @@ def get_rnap_active_fraction_factory(fraction_active_rnap_bound,
 
 
 @register("mass.get_dna_critical_mass")
-def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction):
+def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction,
+                                  critical_mass_scale=1.0):
     """Factory: critical initiation mass for DNA replication.
 
     Closure data from sim_data.mass (GrowthRateParameters):
         dry_mass_params: array of 2 floats (slope, intercept for 1/dryMass vs tau)
         cell_dry_mass_fraction: float
+        critical_mass_scale: post-ParCa multiplier applied to the returned M*
+            (default 1.0 = no scaling). Accepted for backward-compat with
+            composite specs / caches built on the aim2-dnaa-oric branch that
+            baked this Stage-1 knob into the DnaaCriticalMass step config — a
+            non-default value delays the per-oriC mass criterion when overridden
+            C/D periods stretch the cycle. At 1.0 the behaviour is identical to
+            omitting it, so existing v3 specs are unaffected.
     """
     units = _pint_units
     NORMAL_CRITICAL_MASS = 975 * units.fg
@@ -224,7 +232,8 @@ def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction):
             raise ValueError(f"Negative inverse mass at tau={tau}")
         avg_dry_mass = units.fg / inverse_mass
         mass = avg_dry_mass / cell_dry_mass_fraction
-        return min(mass * SLOW_GROWTH_FACTOR, NORMAL_CRITICAL_MASS)
+        capped = min(mass * SLOW_GROWTH_FACTOR, NORMAL_CRITICAL_MASS)
+        return capped * critical_mass_scale
 
     return get_dna_critical_mass
 

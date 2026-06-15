@@ -1,0 +1,83 @@
+{
+  "description": "dnaa-3 sink chromosomal-box capacity sweep (DNAA_N_CHROM_HIGH_CAP). Two runs per cap: a 55-min observer artifact (no division) for the full per-tick trajectory, and a divided run (out/dnaa3_sink_sweep) for cycle confirmation. cap=32 chosen as the physiological default (ChIP-seq ~13-32 strong sites).",
+  "cache_dir": "out/cache_dnaa3",
+  "resume_dill": "succinate_default_gen3_start.dill",
+  "seed": 1,
+  "caps": {
+    "302": {
+      "chrom_high_cap": 302,
+      "artifact_ticks": 3301,
+      "artifact_min": 55.0,
+      "free_DnaA_ATP_nM": {
+        "mean": 0.4,
+        "median": 0.0,
+        "min": 0.0,
+        "max": 65.8
+      },
+      "free_DnaA_ADP_nM_mean": 2.1,
+      "oriC_low_occ": {
+        "mean": 0.003,
+        "early_2min": 0.05,
+        "late_10min": 0.002,
+        "max": 0.397
+      },
+      "oriC_high_occ_mean": 0.687,
+      "chrom_n_eff_max": 598,
+      "total_DnaA_bound_mean": 302.0,
+      "oriC_reached_2": true,
+      "reinit": false,
+      "divided_run_tau_min": 58.0,
+      "cycle_preserved": true
+    },
+    "32": {
+      "chrom_high_cap": 32,
+      "artifact_ticks": 3301,
+      "artifact_min": 55.0,
+      "free_DnaA_ATP_nM": {
+        "mean": 44.2,
+        "median": 13.7,
+        "min": 0.0,
+        "max": 118.4
+      },
+      "free_DnaA_ADP_nM_mean": 21.0,
+      "oriC_low_occ": {
+        "mean": 0.235,
+        "early_2min": 0.05,
+        "late_10min": 0.509,
+        "max": 0.542
+      },
+      "oriC_high_occ_mean": 0.911,
+      "chrom_n_eff_max": 63,
+      "total_DnaA_bound_mean": 58.0,
+      "oriC_reached_2": true,
+      "reinit": false,
+      "divided_run_tau_min": 60.0,
+      "cycle_preserved": true
+    },
+    "13": {
+      "chrom_high_cap": 13,
+      "artifact_ticks": 3301,
+      "artifact_min": 55.0,
+      "free_DnaA_ATP_nM": {
+        "mean": 128.7,
+        "median": 149.2,
+        "min": 2.7,
+        "max": 203.9
+      },
+      "free_DnaA_ADP_nM_mean": 91.0,
+      "oriC_low_occ": {
+        "mean": 0.526,
+        "early_2min": 0.094,
+        "late_10min": 0.615,
+        "max": 0.671
+      },
+      "oriC_high_occ_mean": 0.991,
+      "chrom_n_eff_max": 26,
+      "total_DnaA_bound_mean": 37.0,
+      "oriC_reached_2": true,
+      "reinit": false,
+      "divided_run_tau_min": 60.0,
+      "cycle_preserved": true
+    }
+  }
+}

@@ -124,7 +124,7 @@ simulation_set:
     ~3 generations. Per-tick wall, per-cell wall, pymunk_step_ms, RSS,
     live_cell_count, generation index recorded each tick. This is the
     drift reference and the F-06 resolution run.
-  perturbation: {n_cells: 1, parallel_processes: false}
+  perturbation: {n_cells: 1, parallel_processes: false, jitter_per_second: 1.0e-4, init_mass: 200.0}
   duration_min: 180
   seeds: [0]
 - name: ray-1cell-4div
@@ -133,7 +133,7 @@ simulation_set:
     (ray:EcoliWCM, parallel_processes=True, sharded actor pool). Measures
     whether per-cell wall stays flat AND whether total wall stays
     sub-realtime past the single-process GIL ceiling as the colony grows.
-  perturbation: {n_cells: 1, parallel_processes: true}
+  perturbation: {n_cells: 1, parallel_processes: true, jitter_per_second: 1.0e-4, init_mass: 200.0}
   duration_min: 180
   seeds: [0]
 - name: ray-nsweep-static

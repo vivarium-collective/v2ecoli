@@ -45,6 +45,12 @@ class EcoliWCM(Process):
         'cache_dir':      {'_type': 'string', '_default': ''},
         'seed':           {'_type': 'integer', '_default': 0},
         'molecule_map':   {'_default': {}},
+        # Transport for daughters spawned at division — 'local' or 'ray'.
+        # Threaded through so a Ray colony's daughters are also Ray actors.
+        'transport':      {'_type': 'string', '_default': 'local'},
+        # Optional realistic starting body mass (fg) for daughters, mirroring
+        # the colony's init_mass so units stay coherent across generations.
+        'init_mass':      {'_default': None},
     }
 
     def initialize(self, config):
@@ -262,6 +268,9 @@ class EcoliWCM(Process):
         # Build two daughter EcoliWCM specs
         cache_dir = self.config.get('cache_dir', 'out/cache')
         seed = int(self.config.get('seed', 0))
+        transport = self.config.get('transport', 'local')
+        init_mass = self.config.get('init_mass', None)
+        d_address = f'{transport}:EcoliWCM'
 
         from viva_munk.processes.multibody import make_rng, build_microbe
         rng = make_rng(seed + hash(agent_id) % 10000)
@@ -286,14 +295,17 @@ class EcoliWCM(Process):
                 x=mx + ox, y=my + oy, angle=mother_angle + rng.uniform(-0.3, 0.3),
                 length=2.0, radius=0.5, density=0.02,
             )
-            d_body['mass'] = half_mass
-            # Each daughter gets its own EcoliWCM
+            d_body['mass'] = float(init_mass) if init_mass is not None else half_mass
+            # Each daughter gets its own EcoliWCM, inheriting the mother's
+            # transport (local vs ray) so a Ray colony stays all-Ray.
             d_body['ecoli'] = {
                 '_type': 'process',
-                'address': 'local:EcoliWCM',
+                'address': d_address,
                 'config': {
                     'cache_dir': cache_dir,
                     'seed': seed + i + 1,
+                    'transport': transport,
+                    'init_mass': init_mass,
                 },
                 'interval': interval,
                 'inputs': {

@@ -123,7 +123,7 @@ def _align_to_z(coords):
 
 
 def _build_flagellum_pdb(struct_cache, *, motor=("cif", "6SD5"), filament=("pdb", "1UCU"),
-                         whip_len=2200.0) -> Path:
+                         whip_len=15000.0) -> Path:
     """Assemble a composite flagellum PDB: motor/basal-body at the base (−z,
     membrane side) + a flagellin filament repeated into a whip along +z. Returns
     the composite path; the whip points along local +z so a ``surface`` ingredient
@@ -140,6 +140,9 @@ def _build_flagellum_pdb(struct_cache, *, motor=("cif", "6SD5"), filament=("pdb"
     seg = float(fz[:, 2].max() - fz[:, 2].min()) or 1.0
     nrep = max(3, int(round(whip_len / seg)))
     atoms = []
+    mz = mz * np.array([1.0, -1.0, -1.0])                      # flip motor 180° about x:
+    #   PCA-axis sign is arbitrary, which can seat the motor backwards. Present the
+    #   opposite (basal/ring) end to the filament so the rod/hook feeds the whip.
     mb = mz.copy(); mb[:, 2] -= mz[:, 2].max()                 # motor top at z=0 (base below)
     atoms += [(x, y, z, e) for (x, y, z), e in zip(mb, me)]
     f0 = fz.copy(); f0[:, 2] -= fz[:, 2].min()                  # filament base at z=0
@@ -460,6 +463,48 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
     return ingredients
 
 
+def _offset_surface_complex_outward(pack_path, mesh_dir, name, mesh_stem):
+    """Seat a one-sided surface appendage by its motor end, not its centroid.
+
+    A ``surface`` ingredient is anchored at its mesh centroid, so a lopsided
+    composite like the flagellum (compact motor + long whip) ends up straddling
+    the envelope. Shift each of its placements outward along its own axis by the
+    centroid→motor-end distance, so the motor end seats at the envelope and the
+    whip projects fully outward. Format-agnostic (object or array8 placements)."""
+    pack_path = Path(pack_path)
+    d = json.loads(pack_path.read_text())
+    ing = next((g for g in d["ingredients"] if g["name"] == name), None)
+    if ing is None:
+        return
+    fid = ing["id"]
+    finest = sorted(Path(mesh_dir).glob(f"{mesh_stem}.lod*.obj"))[-1]
+    vs = np.array([[float(x) for x in line.split()[1:4]]
+                   for line in open(finest) if line.startswith("v ")])
+    zc = vs[:, 2] - vs[:, 2].mean()
+    # motor = the wider end; offset = its distance from the centroid along +z
+    r_lo = np.linalg.norm(vs[zc < zc.min() + 300][:, :2] - vs[:, :2].mean(0), axis=1).mean()
+    r_hi = np.linalg.norm(vs[zc > zc.max() - 300][:, :2] - vs[:, :2].mean(0), axis=1).mean()
+    A = float(-zc.min() if r_lo > r_hi else zc.max())
+    arr8 = d.get("placement_format") == "array8"
+    n = 0
+    for p in d["placements"]:
+        if (p[0] if arr8 else p["ingredient"]) != fid:
+            continue
+        if arr8:
+            x, y, z, w, qx, qy, qz = p[1], p[2], p[3], p[4], p[5], p[6], p[7]
+        else:
+            x, y, z = p["position"]; w, qx, qy, qz = p["rotation"]
+        ox = 2 * (qx * qz + w * qy); oy = 2 * (qy * qz - w * qx); oz = 1 - 2 * (qx * qx + qy * qy)
+        nx, ny, nz = x + A * ox, y + A * oy, z + A * oz
+        if arr8:
+            p[1], p[2], p[3] = round(nx, 1), round(ny, 1), round(nz, 1)
+        else:
+            p["position"] = [nx, ny, nz]
+        n += 1
+    pack_path.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
+    return {"shifted": n, "offset": A}
+
+
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
                 state_source="snapshot", proxy_lod=2, top_complexes=150) -> dict:
     """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result.
@@ -478,8 +523,11 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
         segment=StructureRef("pdb", "1BNA"),
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200})
-    return build_pack(ingredients, capsule, chromosome,
-                      out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
+    res = build_pack(ingredients, capsule, chromosome,
+                     out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
+    _offset_surface_complex_outward(res["pack_path"], Path(out_dir) / "meshes",
+                                    "CPLX0-7452", "flagellum")
+    return res
 
 
 if __name__ == "__main__":

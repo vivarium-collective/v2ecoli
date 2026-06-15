@@ -1,0 +1,4342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study: pdmp-04-compilation</title>
+<link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
+</head>
+<body>
+<main class="study-page">
+<header class="study-header">
+  <h1 class="study-title">
+    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">pdmp-04</span><span class="study-name" id="study-name" data-slug="pdmp-04-compilation" title="pdmp-04-compilation">Phase 4 — Compilation and Performance</span>
+    
+    <span class="phase-pill phase-design" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Design</span>
+    
+    
+    
+    <span class="status-pill gate-status gate-status-blocked" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: blocked</span>
+    
+    
+    
+    
+  </h1>
+</header>
+
+
+
+<div class="composite-lint-banner" role="alert"
+     style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
+  
+  <div>⚠ composite not found in registry: <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code></div>
+  
+  <div>⚠ composite not found in registry: <code>v2ecoli.compiled.jax_pdmp</code></div>
+  
+  <div>⚠ composite not found in registry: <code>v2ecoli.composites.baseline_ensemble</code></div>
+  
+  <div style="margin-top:4px;font-size:0.86em;color:#a16207">
+    This study references a composite that doesn't resolve — it may not declare a
+    real, registered composite. Add a <code>.composite.yaml</code> and register it
+    in <code>core.py</code>, or fix the ref.
+  </div>
+</div>
+
+
+
+<div id="readiness-panel" data-slug="pdmp-04-compilation"></div>
+
+
+
+
+
+
+<style>
+.status-detail-panel{margin:8px 0 14px 0;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+.status-detail-panel h2{margin:0 0 6px 0;font-size:0.82em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:600}
+.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
+.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
+/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
+.gate-status-blocked          { background:#e5e7eb; color:#374151 }
+.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
+.gate-status-passed           { background:#d1fae5; color:#065f46 }
+.gate-status-failed           { background:#fee2e2; color:#991b1b }
+.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
+.status-pill.gate-status{font-weight:500}
+</style>
+<details class="status-detail-panel" aria-label="Multi-axis status detail" open>
+  <summary class="study-fold-summary">Status detail (Pass A multi-axis)</summary>
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Design</span>
+    <span class="status-chip ">in_progress</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Implementation</span>
+    <span class="status-chip ">not_started</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Simulation</span>
+    <span class="status-chip ">not_started</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Evaluation</span>
+    <span class="status-chip ">not_started</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Gate</span>
+    <span class="status-chip gate-status-blocked">blocked</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Expert review</span>
+    <span class="status-chip ">not_requested</span>
+  </div>
+  
+  
+</details>
+
+
+
+
+
+
+<style>
+.spine-summary{margin:6px 0 14px 0;border:1px solid #cbd5e1;border-left-width:5px;border-radius:6px;background:#f8fafc;font-size:0.9em}
+.spine-summary:empty{display:none}
+.spine-summary-head{padding:7px 14px 4px 14px;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700}
+.spine-row{display:flex;align-items:baseline;gap:10px;padding:4px 14px;border-top:1px solid #eef2f6}
+.spine-key{min-width:92px;color:#475569;font-weight:600;font-size:0.85em;text-transform:uppercase;letter-spacing:0.03em}
+.spine-val{flex:1;color:#1e293b}
+.spine-jump{white-space:nowrap}
+.spine-jump a,.spine-val a{color:#3b82f6;text-decoration:none}
+.spine-jump a:hover,.spine-val a:hover{text-decoration:underline}
+.spine-label{font-size:0.8em;color:#64748b;font-weight:500}
+.spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
+.spine-div{font-weight:600;color:#92400e}
+</style>
+<div id="spine-summary" class="spine-summary" data-slug="pdmp-04-compilation"></div>
+
+<nav class="study-tabs" aria-label="Study sections">
+  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
+  
+  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
+  
+  
+  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
+  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
+  
+  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
+  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
+  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+</nav>
+<style>
+.phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
+.phase-design   { background:#e0e7ff; color:#3730a3 }
+.phase-build    { background:#fef3c7; color:#92400e }
+.phase-simulate { background:#dbeafe; color:#1e40af }
+.phase-evaluate { background:#fce7f3; color:#9d174d }
+.phase-decide   { background:#d1fae5; color:#065f46 }
+.classification-pill{display:inline-block;font-size:0.7em;padding:1px 8px;border-radius:9999px;margin-right:4px;font-weight:500}
+.classification-primary    { background:#fee2e2; color:#991b1b }
+.classification-supporting { background:#dbeafe; color:#1e40af }
+.classification-diagnostic { background:#fef3c7; color:#92400e }
+.classification-regression { background:#e5e7eb; color:#374151 }
+.sim-status-pill{display:inline-block;font-size:0.72em;padding:1px 8px;border-radius:9999px;margin-left:4px}
+.sim-status-ready  { background:#d1fae5; color:#065f46 }
+.sim-status-gated  { background:#fef3c7; color:#92400e }
+.sim-status-running{ background:#dbeafe; color:#1e40af }
+.sim-status-ran    { background:#d1fae5; color:#065f46 }
+.purpose-callout{margin-bottom:10px;padding:10px 14px;border-radius:4px;line-height:1.55}
+.purpose-callout strong{margin-right:6px}
+.followup-list{display:flex;flex-direction:column;gap:10px}
+.followup-card{padding:10px 14px;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.93em}
+.followup-card.followup-kind-existing{border-left-color:#3b82f6;background:#eff6ff}
+.followup-card.followup-kind-infrastructure_fix{border-left-color:#dc2626;background:#fef2f2}
+.followup-card.followup-kind-calibration_task{border-left-color:#f59e0b;background:#fefce8}
+.followup-card.followup-kind-expert_question{border-left-color:#a855f7;background:#faf5ff}
+.followup-card.followup-kind-new{border-left-color:#10b981;background:#f0fdf4}
+.followup-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.followup-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-effort{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-family:ui-monospace,monospace}
+.followup-status{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-status.status-blocked{background:#fef3c7;color:#92400e}
+.followup-status.status-done{background:#d1fae5;color:#065f46}
+.followup-title{flex:1;font-size:1em}
+.followup-why,.followup-unblocks,.followup-acceptance,.followup-hypothesis{margin:4px 0 0 0;font-size:0.92em;line-height:1.45}
+.followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
+.btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
+.btn-seed-followup:hover{background:#3b82f6;color:#fff}
+.charts-panel{margin-top:18px;display:flex;flex-direction:column;gap:18px}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px 12px 12px}
+/* SVGs scale to fit their card; preserves aspect ratio so a 1400×484
+   chart shrinks instead of overflowing horizontally + clipping. */
+.chart-card svg,.chart-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+.chart-caption{font-size:0.83em;color:#475569;margin-top:4px;line-height:1.4}
+/* findings */
+.findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
+.finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
+.finding-card.finding-status-confirms{border-left-color:#10b981}
+.finding-card.finding-status-partial{border-left-color:#f59e0b}
+.finding-card.finding-status-contradicts{border-left-color:#dc2626}
+.finding-card.finding-status-novel{border-left-color:#8b5cf6}
+.finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
+.finding-status-confirms .finding-status-glyph{color:#10b981}
+.finding-status-partial .finding-status-glyph{color:#f59e0b}
+.finding-status-contradicts .finding-status-glyph{color:#dc2626}
+.finding-status-novel .finding-status-glyph{color:#8b5cf6}
+.finding-id{font-family:ui-monospace,monospace;font-size:0.78em;color:#475569;background:#f1f5f9;padding:1px 6px;border-radius:3px}
+.finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
+.finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
+.finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
+.finding-explanation em{color:#475569;font-style:normal;font-weight:600}
+.finding-expert{margin:6px 0;padding:6px 10px;background:#fafafa;border:1px solid #e2e8f0;border-radius:4px}
+.finding-expert summary{cursor:pointer;font-size:0.85em;color:#475569;font-weight:500}
+.finding-expert-quote{border-left:3px solid #6366f1;margin:6px 0 4px 0;padding:6px 10px;background:#fafbff;font-style:italic;color:#1e1b4b;font-size:0.92em;line-height:1.5}
+.finding-expert-note{font-size:0.88em;color:#475569;margin-top:4px;font-style:italic}
+.finding-next{padding:6px 10px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:3px;font-size:0.9em;margin-top:8px;line-height:1.5}
+.finding-next strong{color:#065f46}
+/* discovery implications */
+.di-group{margin:14px 0}
+.di-group h3{margin:0 0 6px 0;font-size:0.95em}
+.di-uncertainties{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}
+.di-unc{flex:1;min-width:220px}
+.di-unc h4{margin:0 0 4px 0;font-size:0.88em}
+.di-unc-resolved h4{color:#065f46}
+.di-unc-remaining h4{color:#92400e}
+.di-unc ul{margin:0 0 0 18px;padding:0;font-size:0.9em;line-height:1.45}
+.di-card{padding:10px 14px;margin:8px 0;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.92em}
+.di-card-stmt{font-size:0.98em;line-height:1.5}
+.di-card-why{margin:4px 0 0 0;color:#475569;line-height:1.45}
+.di-card-line{margin:4px 0 0 0;font-size:0.88em;color:#475569;line-height:1.4}
+.di-lbl{color:#475569;font-weight:600;font-size:0.85em}
+.di-mech-card{border-left-color:#a855f7;background:#faf5ff}
+.di-mech-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.di-update-chip{font-size:0.7em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3}
+.di-conf-change{font-size:0.78em;color:#475569;font-family:ui-monospace,monospace}
+.di-approval-badge{font-size:0.68em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e}
+.di-fup-card{border-left-color:#10b981;background:#f0fdf4}
+.di-gain-high{background:#d1fae5;color:#065f46}
+.di-gain-medium{background:#fef3c7;color:#92400e}
+.di-gain-low{background:#e5e7eb;color:#374151}
+.di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+</style>
+
+<section class="study-tab-panel active" data-kind="overview" id="panel-overview">
+  <div class="study-overview">
+
+    
+    
+    
+    <div class="overview-section narrative-card" data-narrative-card="report">
+      <h2 class="overview-label">📋 Report — executive summary
+        <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+        Verdict + main insight are <strong>computed</strong> from canonical
+        fields (gate evaluator · findings) and shown read-only; the report
+        also derives <code>title</code>, <code>objective</code>, and
+        <code>key_metrics</code> from canonical content. Author only the
+        reviewer-facing notes below (confidence · evidence quality · caveat).
+      </p>
+      <div class="narrative-grid">
+        
+        <label class="narrative-row">
+          <span class="narrative-label">Verdict</span>
+          <span class="narrative-input verdict-badge-computed"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">not_started</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Confidence</span>
+          <select class="narrative-input" data-narrative-path="report.confidence">
+            <option value="">(unset)</option>
+            <option value="high" >high</option>
+            <option value="medium" >medium</option>
+            <option value="low" >low</option>
+          </select>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Evidence quality</span>
+          <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
+                 value="scaffold"
+                 placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
+        </label>
+        <div class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Main insight</span>
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Throughput is downstream of correctness — the gating test is W₂ equivalence to within 5σ of MC fluctuation between the compiled runner and the Phase 2 Python runner. FP summation order is the silent-killer bug here; pairwise/Kahan summation is non-negotiable.
+            <span class="muted small">— computed from findings</span></span>
+        </div>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Caveat</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="report.caveat"
+                    placeholder="One sentence: the headline limitation a reviewer needs to know.">FP32 on GPU is tempting for 2× throughput but corrupts long-run ABC posteriors via catastrophic cancellation in propensity sums — default FP64, FP32 only with explicit bit-equivalence + ABC-posterior KL &lt; 0.01 vs. FP64.</textarea>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Conclusion</span>
+          <textarea class="narrative-input narrative-textarea" rows="3"
+                    data-narrative-path="report.conclusion"
+                    placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted — exporting the Phase 2 PDMP to Catalyst.jl + ModelingToolkit with a column-centric Vivarium runtime will achieve ≥10³ parallel trajectories on GPU or multi-core CPU, with 1/√N posterior variance scaling and bit-equivalent trajectory distributions vs. the Phase 2 reference.</textarea>
+        </label>
+      </div>
+      
+      <div style="margin-top:10px">
+        <button type="button" class="btn-view-skeptic action-btn"
+                style="font-size:0.85em" data-study="pdmp-04-compilation">🕵 View as skeptic</button>
+        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
+      </div>
+    </div>
+
+    
+    
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">1 alternative(s) listed but none excluded yet</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The column-centric runtime is validated as prototypes + a projection, NOT as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC — numerical equivalence of the vectorized path is unproven.</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order needed for reproducible ABC posteriors across hardware is untested.</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="biology-glance">
+      
+      <div class="biology-summary-callout">
+        <h2 class="biology-glance-label">Biology — what this study is about
+          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+        </h2>
+        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                  data-narrative-path="biological_summary"
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">No biology is added: Phase 4 is a performance/runtime re-implementation of the already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3 parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.</textarea>
+        
+      </div>
+
+      
+      
+      
+      
+      
+      
+      
+      
+      <div class="study-card">
+        <h2 class="biology-glance-label">Study card
+          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
+        </h2>
+        <table class="study-card-table">
+          <tr><th>Goal</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.goal"
+                   value="Phase 4 — compile the Phase 2 PDMP to Catalyst.jl + ModelingToolkit (symbolic Jacobians, automatic sensitivity equations, LLVM-optimised), replace v2ecoli&#39;s row-centric nested-dict state with pre-allocated column-centric tensors, and invert the Vivarium API so processes declare local state + ODE vector fields + jump propensities (runtime handles topology + time-stepping)."
+                   placeholder="Implement the PB → Catalyst.jl export; refactor Vivarium&#39;s
+state representation to column-centric pre-allocated tensors;
+invert the Vivarium API so process specifications are
+declarative (local state + ODE vector field + jump
+propensities); deploy the compiled runner on GPU and multi-core
+CPU; benchmark ≥10³ parallel trajectories vs. v2ecoli baseline
+and vs. Phase 2 PDMP runner; report ABC wall-clock time
+improvement (handing off to Phase 3 / Phase 5).
+">
+          </td></tr>
+          <tr><th>Mechanism</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.mechanism"
+                   value=""
+                   placeholder="No biology is added: Phase 4 is a performance/runtime re-implementation of the already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3 parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.">
+          </td></tr>
+          <tr><th>Why before next</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.why_before_next"
+                   value="This asks whether the cleaner mathematical structure can be compiled into a much faster simulator for large ensembles of cells."
+                   placeholder="Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead &lt; 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.">
+          </td></tr>
+          <tr><th>Expected result</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.expected_result"
+                   value=""
+                   placeholder="(a) The PDMP, expressed in Process Bigraph schemas, admits an
+automatic export to Catalyst.jl / ModelingToolkit that produces
+LLVM-optimized simulation with symbolic Jacobians and
+automatic forward-mode sensitivity equations. (b) Replacing
+v2ecoli&#39;s row-centric nested-dictionary state with pre-allocated
+column-centric tensors removes essentially all per-step
+marshalling overhead identified in Phase 0. (c) Vivarium&#39;s API
+can be inverted so processes declare local state, ODE vector
+fields, and jump propensities; the runtime handles topology
+traversal and time-stepping. (d) The combined runtime achieves
+≥10³ parallel single-cell trajectories on GPU or multi-core CPU
+with throughput an order of magnitude or more above the v2ecoli
+baseline.
+">
+          </td></tr>
+          <tr><th>Main expert question</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.main_expert_question"
+                   value=""
+                   placeholder="The one question this study most wants an expert to answer.">
+          </td></tr>
+        </table>
+      </div>
+
+      
+
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
+      
+    </div>
+
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Purpose</h2>
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Can the Phase 2 PDMP be exported to a high-performance compiled
+representation (Catalyst.jl / ModelingToolkit with symbolic
+Jacobians and automatic sensitivity equations) running on a
+column-centric Vivarium runtime, and achieve ≥10³ parallel
+single-cell trajectories on a GPU or multi-core CPU with
+near-zero per-step marshalling overhead — turning the throughput
+bottleneck the DUF report identified into a non-issue for
+downstream inference?
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Pipeline gate</summary>
+      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+      </p>
+      
+      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+        <code>{&#39;study&#39;: &#39;pdmp-02-jump-processes&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+      </div>
+      
+      
+      <div style="margin-bottom:6px"><strong>Enables:</strong>
+        <code>pdmp-05-causal-discovery</code>
+      </div>
+      
+      
+      <div><strong>Proceed when:</strong> <span class="muted">Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead &lt; 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.</span></div>
+      
+    </details>
+    
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Key assumptions</summary>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">The PDMP can be compiled (Catalyst.jl/ModelingToolkit or JAX/Diffrax) to a symbolic-Jacobian form that runs ≥10× faster than the Python+glpk baseline.</li><li style="margin:2px 0">A column-centric (struct-of-arrays) state layout removes the marshalling overhead Phase 0 motivates.</li><li style="margin:2px 0">Deterministic floating-point summation (pairwise/Kahan) preserves numerical equivalence with the Phase-3 reference.</li>
+      </ul>
+    </details>
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Behavioral tests</h2>
+      
+      
+      
+      
+      
+      <p style="margin:0">
+        <strong>3</strong> tests defined —
+          <span class="classification-pill classification-primary">2 primary</span>
+          <span class="classification-pill classification-supporting">1 supporting</span>
+        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+      </p>
+    </div>
+    
+
+    
+    <details class="overview-section pre-run-expert-review">
+      <summary class="overview-label">Pre-run expert review</summary>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Open biological questions the planning is contingent on. A "wrong" answer here
+        means a primary test threshold needs to change <em>before</em> the simulation
+        is run, not after. Each question lists alternatives + the impact of the wrong
+        choice + what downstream work it blocks.
+      </p>
+      <div class="expert-question-list">
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id"></span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> </div>
+          
+          
+          
+          
+        </div>
+        
+      </div>
+    </details>
+    
+
+    
+
+    
+    
+
+    <div class="overview-section">
+      <h2 class="overview-label">Status</h2>
+      <select id="status-select" data-field="status" class="overview-status-select">
+        <option value="planned"     >planned</option>
+        <option value="running"     selected>running</option>
+        <option value="ran"         >ran</option>
+        <option value="complete"    >complete</option>
+        <option value="failed"      >failed</option>
+      </select>
+      
+      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Design</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+      
+    </div>
+
+    <div class="study-counts-strip">
+      <div class="count-cell">
+        <strong>6</strong>
+        <span class="count-label">simulations</span>
+      </div>
+      <div class="count-cell">
+        <strong>4</strong>
+        <span class="count-label">readouts</span>
+      </div>
+      <div class="count-cell">
+        <strong>3</strong>
+        <span class="count-label">requirements</span>
+      </div>
+      <div class="count-cell">
+        <strong>0</strong>
+        <span class="count-label">runs</span>
+      </div>
+    </div>
+
+    
+    <div id="feedback-tracked-panel"></div>
+
+  </div>
+</section>
+
+
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+
+  
+  
+  <div class="overview-section" id="model-section">
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study runs</span></h3>
+    <p class="muted" style="font-size:0.88em">Every study runs at least one composite. Click a composite to open a static view in the bigraph-loom explorer.</p>
+    
+    <div class="cond-block">
+      <div class="cond-block-title">
+        pdmp-catalyst-runner-tbd
+        
+        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
+                onclick="_openCompositeLoom('v2ecoli_pdmp.composites.catalyst.pdmp_catalyst')">🧬 catalyst.pdmp_catalyst — explore in bigraph-loom ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">emitter</span>=<code>xarray</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">backend</span>=<code>catalyst-jl</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">precision</span>=<code>fp64</code></span>
+        
+      </div>
+      
+    </div>
+    
+  </div>
+  
+
+  
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">emitter</span>=<code>xarray</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">backend</span>=<code>catalyst-jl</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">precision</span>=<code>fp64</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(5)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>catalyst-export</code></td>
+            <td>
+              <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+              
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">backend</span>=<code>catalyst-jl</code></div>
+                
+                <div><span class="cond-pill-k">precision</span>=<code>fp64</code></div>
+                
+              
+            </td>
+            <td>Export Phase 2 PDMP to Catalyst.jl + ModelingToolkit — symbolic Jacobians, automatic forward-mode sensitivity equations, LLVM-optimised. Bit-equivalent to Phase 2 runner within solver tolerance.</td>
+          </tr>
+          
+          <tr>
+            <td><code>column-centric-runtime</code></td>
+            <td>
+              <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+              
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">runtime</span>=<code>column-centric-tensor</code></div>
+                
+              
+            </td>
+            <td>Replace nested-dict row-centric state with pre-allocated column-centric tensors. Targets per-step marshalling overhead &lt; 10% of essential compute.</td>
+          </tr>
+          
+          <tr>
+            <td><code>vivarium-api-inversion</code></td>
+            <td>
+              <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+              
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">api</span>=<code>declarative-process-spec</code></div>
+                
+              
+            </td>
+            <td>Invert the Vivarium API so process definitions declare local state + ODE vector fields + jump propensities only; runtime handles topology traversal and time-stepping.</td>
+          </tr>
+          
+          <tr>
+            <td><code>gpu-parallel-1000</code></td>
+            <td>
+              <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+              
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">hardware</span>=<code>GPU</code></div>
+                
+                <div><span class="cond-pill-k">parallelism</span>=<code>1000</code></div>
+                
+                <div><span class="cond-pill-k">precision</span>=<code>fp64</code></div>
+                
+              
+            </td>
+            <td>≥10³ parallel single-cell trajectories on GPU. The throughput gating criterion.</td>
+          </tr>
+          
+          <tr>
+            <td><code>multi-core-cpu-parallel</code></td>
+            <td>
+              <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+              
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">hardware</span>=<code>CPU</code></div>
+                
+                <div><span class="cond-pill-k">parallelism</span>=<code>1000</code></div>
+                
+              
+            </td>
+            <td>Same throughput target on multi-core CPU (fallback for sites without GPU).</td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+  </div>
+  
+
+  
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    
+    
+    
+    
+    
+    
+    
+  </div>
+  
+
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(3 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    
+    
+    <div style="margin:8px 0;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8;white-space:pre-wrap;line-height:1.5">A Catalyst.jl/ModelingToolkit (or JAX/Diffrax) export of the PDMP with symbolic Jacobian + sensitivities.</div>
+    
+    
+    
+    
+    <div style="margin:8px 0;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8;white-space:pre-wrap;line-height:1.5">A column-centric runner + deterministic summation; a parallel throughput harness (N in {10,100,1000,10000}).</div>
+    
+    
+    
+    
+    <div style="margin:8px 0;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8;white-space:pre-wrap;line-height:1.5">A 1024-cell memory profile to verify the &lt;256 GB/node budget directly (currently only projected).</div>
+    
+    
+  </div>
+  
+</section>
+
+
+
+
+
+<section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
+
+  
+  
+  <div class="overview-section" id="ran-section">
+    <h3>What we ran <span class="muted" style="font-size:0.85em;font-weight:normal">(composite + parameters)</span></h3>
+    <p class="muted" style="font-size:0.88em">The composite(s) this study simulated, their parameters, replication, and run status. Click a composite to open a static view in bigraph-loom.</p>
+    
+    <table class="cond-table" style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Run</th><th style="text-align:left">Composite</th><th style="text-align:left">Parameters</th><th style="text-align:left">Replication</th><th style="text-align:left">Status</th></tr></thead>
+      <tbody>
+      
+        <tr>
+          <td style="vertical-align:top"><strong>pdmp-catalyst-runner-tbd</strong></td>
+          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli_pdmp.composites.catalyst.pdmp_catalyst')">🧬 catalyst.pdmp_catalyst ↗</button></td>
+          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">emitter</span>=<code>xarray</code></span> <span class="cond-pill"><span class="cond-pill-k">backend</span>=<code>catalyst-jl</code></span> <span class="cond-pill"><span class="cond-pill-k">precision</span>=<code>fp64</code></span> </td>
+          <td style="vertical-align:top" class="muted small">—</td>
+          <td style="vertical-align:top"><span class="muted">not run</span></td>
+        </tr>
+      
+      </tbody>
+    </table>
+    
+    
+  </div>
+  
+
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(6 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">catalyst-round-trip</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">marshalling-fraction-probe</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">parallel-1k-throughput</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">1-over-sqrt-N-variance-check</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel sweep-entry" style="padding:14px 18px;margin-bottom:12px;border-left:3px solid #6366f1">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">jax-jit-cold-warm-bench</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
+      <span class="muted" style="font-size:0.8em;padding:2px 6px;background:#eef2ff;border-radius:3px;color:#4338ca">SWEEP</span>
+    </header>
+    
+    <div style="font-size:0.9em;margin-bottom:6px"><strong>Base model:</strong> <code>v2ecoli.compiled.jax_pdmp</code></div>
+    
+    
+    <div style="margin:6px 0">
+      <strong style="font-size:0.9em">Axes (1)</strong>
+      <table class="sweep-axes-table" style="width:100%;border-collapse:collapse;margin-top:4px;font-size:0.85em">
+        <thead>
+          <tr style="background:#f8fafc">
+            <th style="text-align:left;padding:5px 8px;border-bottom:1px solid #cbd5e1">Parameter</th>
+            <th style="text-align:left;padding:5px 8px;border-bottom:1px solid #cbd5e1">Values</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+          <tr style="border-bottom:1px solid #f1f5f9">
+            <td style="padding:5px 8px;vertical-align:top"><code>run_index</code></td>
+            <td style="padding:5px 8px;vertical-align:top">
+              <code style="margin-right:6px">0</code><code style="margin-right:6px">1</code><code style="margin-right:6px">2</code><code style="margin-right:6px">3</code><code style="margin-right:6px">4</code><code style="margin-right:6px">5</code><code style="margin-right:6px">6</code><code style="margin-right:6px">7</code><code style="margin-right:6px">8</code><code style="margin-right:6px">9</code><code style="margin-right:6px">10</code><code style="margin-right:6px">11</code><code style="margin-right:6px">12</code><code style="margin-right:6px">13</code><code style="margin-right:6px">14</code><code style="margin-right:6px">15</code><code style="margin-right:6px">16</code><code style="margin-right:6px">17</code><code style="margin-right:6px">18</code><code style="margin-right:6px">19</code>
+              <span class="muted" style="font-size:0.78em;margin-left:8px">(20 values)</span>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+    <p style="margin:6px 0;font-size:0.88em">
+      <span class="muted">No seeds set</span>
+      
+    </p>
+    
+    <p style="margin:4px 0;font-size:0.88em"><strong>Metrics captured:</strong>
+      <code>wall_seconds_per_run</code> · <code>compile_seconds_first</code>
+    </p>
+    
+    
+    
+    
+    
+    <p style="margin:8px 0;font-size:0.85em" class="muted"><em>No runs executed yet.</em></p>
+    
+    
+    
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">ram-profile-per-cell-N1024</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline_ensemble</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <code>0, 1, 2, 3, 4, 5, 6, 7</code>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+</section>
+
+
+<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
+  <div class="baseline-list">
+    
+    <article class="baseline-entry" data-baseline-name="pdmp-catalyst-runner-tbd">
+      <header class="baseline-entry-header">
+        <h3 class="baseline-entry-name">pdmp-catalyst-runner-tbd</h3>
+        <code class="baseline-entry-fqn">v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
+      </header>
+      
+      <table class="baseline-params">
+        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+        <tbody>
+          
+          <tr><td><code>emitter</code></td><td><code>xarray</code></td></tr>
+          
+          <tr><td><code>backend</code></td><td><code>catalyst-jl</code></td></tr>
+          
+          <tr><td><code>precision</code></td><td><code>fp64</code></td></tr>
+          
+        </tbody>
+      </table>
+      
+      <div class="baseline-entry-actions">
+        <button class="btn-run-baseline" data-baseline-name="pdmp-catalyst-runner-tbd">Run</button>
+        <button class="btn-baseline-remove" data-baseline-name="pdmp-catalyst-runner-tbd">Remove</button>
+      </div>
+    </article>
+    
+  </div>
+
+  <details class="baseline-add-form">
+    <summary class="btn-baseline-add">+ Add composite</summary>
+    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
+      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
+      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
+  <div class="observables-section">
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    
+    
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="catalyst-export-artefact">
+          <td style="padding:6px; vertical-align: top;"><code>catalyst-export-artefact</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="catalyst-export-artefact"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="per-step-profile-compiled">
+          <td style="padding:6px; vertical-align: top;"><code>per-step-profile-compiled</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="per-step-profile-compiled"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="parallel-throughput">
+          <td style="padding:6px; vertical-align: top;"><code>parallel-throughput</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="parallel-throughput"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="abc-posterior-variance-vs-walltime">
+          <td style="padding:6px; vertical-align: top;"><code>abc-posterior-variance-vs-walltime</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              planned
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="abc-posterior-variance-vs-walltime"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+      </tbody>
+    </table>
+    
+
+    <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
+      <summary class="btn-baseline-add">+ Add observable from bigraph state</summary>
+      <div class="bigraph-picker" style="display: grid; grid-template-columns: minmax(360px, 2fr) 1fr; gap: 16px; margin-top: 10px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <input type="search" id="bigraph-filter" placeholder="Filter paths (regex)…"
+                   style="flex:1; padding:4px 6px; font-size:0.9em;">
+            <button class="btn-mini" onclick="_reloadBigraphPaths()">Reload</button>
+          </div>
+          <div id="bigraph-tree" style="border:1px solid #e2e8f0; border-radius:4px; padding:8px; max-height:520px; overflow:auto; font-family: ui-monospace, monospace; font-size:0.82em; background:#fafafa;">
+            <span class="muted">Click "Reload" or expand this panel to load the path tree.</span>
+          </div>
+          <div id="bigraph-source-info" class="muted" style="font-size:0.75em; margin-top:4px;"></div>
+        </div>
+        <aside style="border:1px solid #e2e8f0; border-radius:4px; padding:10px; background:#fff;">
+          <h4 style="margin:0 0 6px 0; font-size:0.9em;">Selected path</h4>
+          <div id="bigraph-selected" class="muted" style="font-size:0.85em;">Pick a leaf on the left.</div>
+          <h4 style="margin:12px 0 6px 0; font-size:0.9em;">Observable spec</h4>
+          <p class="muted" style="margin:0 0 6px 0; font-size:0.78em;">Copy into <code>studies/pdmp-04-compilation/study.yaml</code> under <code>observables:</code>.</p>
+          <textarea id="bigraph-spec" readonly rows="8"
+                    style="width:100%; font-family: ui-monospace, monospace; font-size:0.78em; box-sizing: border-box;"></textarea>
+          <button class="btn-mini" onclick="_copyBigraphSpec()" style="margin-top:6px;">Copy</button>
+        </aside>
+      </div>
+    </details>
+    <script>
+      // Lazy load the bigraph tree the first time the observables panel
+      // becomes visible OR the details element opens.
+      (function() {
+        var loaded = false;
+        function load() {
+          if (loaded) return; loaded = true; _reloadBigraphPaths();
+        }
+        document.getElementById('bigraph-picker-details')
+                .addEventListener('toggle', function() {
+                  if (this.open) load();
+                });
+        // Also load on tab activation if the panel is already visible.
+        document.querySelector('[data-kind="observables"].study-tab')
+                .addEventListener('click', function() { setTimeout(load, 50); });
+      })();
+
+      function _reloadBigraphPaths() {
+        var tree = document.getElementById('bigraph-tree');
+        var info = document.getElementById('bigraph-source-info');
+        tree.innerHTML = '<span class="muted">Loading…</span>';
+        info.textContent = '';
+        fetch('/api/study-bigraph-paths?study=pdmp-04-compilation', {headers: {Accept: 'application/json'}})
+          .then(function(r) { return r.json().then(function(j) { return {ok: r.ok, body: j}; }); })
+          .then(function(res) {
+            if (!res.ok) {
+              tree.innerHTML = '<span style="color:#b91c1c;">' + (res.body.error || 'failed to load') + '</span>';
+              if (res.body.looked_in) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">looked in: ' + res.body.looked_in.join(', ') + '</span>';
+              }
+              if (res.body.hint) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">hint: ' + res.body.hint + '</span>';
+              }
+              return;
+            }
+            window._bigraphNodes = res.body.nodes || [];
+            info.textContent = res.body.composite + '  ·  ' + res.body.source_file + '  ·  ' + res.body.node_count + ' leaves (max_depth=' + res.body.max_depth + ')';
+            _renderBigraphTree(window._bigraphNodes, '');
+          });
+      }
+
+      // Render the flat list as a nested <ul>. Group nodes by path[0..n] so
+      // siblings collapse under shared parents.
+      function _renderBigraphTree(nodes, filter) {
+        var tree = document.getElementById('bigraph-tree');
+        tree.innerHTML = '';
+        var rx = null;
+        if (filter) { try { rx = new RegExp(filter, 'i'); } catch (e) {} }
+        // Build a nested object: tree[seg] = {__leaf?:node, __children?:tree}
+        var root = {};
+        nodes.forEach(function(n) {
+          var p = n.path;
+          if (rx && !rx.test(p.join('.'))) return;
+          var cursor = root;
+          for (var i = 0; i < p.length - 1; i++) {
+            var seg = p[i];
+            if (!cursor[seg]) cursor[seg] = {__children: {}};
+            cursor = cursor[seg].__children;
+          }
+          var last = p[p.length - 1];
+          if (!cursor[last]) cursor[last] = {};
+          cursor[last].__leaf = n;
+        });
+
+        function render(level, container, prefix) {
+          Object.keys(level).sort().forEach(function(seg) {
+            var entry = level[seg];
+            var li = document.createElement('li');
+            li.style.listStyle = 'none';
+            li.style.margin = '1px 0';
+
+            var fullPath = prefix.concat([seg]);
+            var leaf = entry.__leaf;
+            var children = entry.__children;
+
+            if (leaf && !children) {
+              // Pure leaf — clickable.
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'bigraph-leaf-btn';
+              btn.style.cssText = 'background:none; border:none; padding:2px 4px; cursor:pointer; text-align:left; font-family:inherit; font-size:inherit; color:#1d4ed8; width:100%;';
+              btn.innerHTML = '<span style="color:#9ca3af;">·</span> ' + seg
+                + ' <span class="muted" style="font-size:0.85em;">(' + leaf.kind
+                + (leaf.fields ? ': ' + leaf.fields.join(', ') : '')
+                + (leaf.length !== undefined ? ', n=' + leaf.length : '')
+                + ')</span>';
+              btn.onclick = function() { _selectBigraphLeaf(leaf); };
+              li.appendChild(btn);
+            } else {
+              // Has children — make collapsible.
+              var det = document.createElement('details');
+              det.open = (prefix.length < 2);  // expand top-2 levels by default
+              var sum = document.createElement('summary');
+              sum.style.cursor = 'pointer';
+              sum.innerHTML = '<strong>' + seg + '</strong>';
+              det.appendChild(sum);
+              var ul = document.createElement('ul');
+              ul.style.cssText = 'margin:0 0 0 14px; padding:0;';
+              render(children, ul, fullPath);
+              det.appendChild(ul);
+              li.appendChild(det);
+              if (leaf) {  // both a leaf and has children — rare
+                var hint = document.createElement('span');
+                hint.className = 'muted';
+                hint.style.fontSize = '0.78em';
+                hint.textContent = ' (' + leaf.kind + ')';
+                sum.appendChild(hint);
+              }
+            }
+            container.appendChild(li);
+          });
+        }
+
+        var ul = document.createElement('ul');
+        ul.style.cssText = 'margin:0; padding:0;';
+        render(root, ul, []);
+        tree.appendChild(ul);
+      }
+
+      function _selectBigraphLeaf(leaf) {
+        var sel = document.getElementById('bigraph-selected');
+        sel.innerHTML = '<code style="font-size:0.85em;">' + leaf.path.join('.') + '</code>'
+          + '<br><span class="muted" style="font-size:0.78em;">kind: ' + leaf.kind
+          + (leaf.fields ? ', fields: [' + leaf.fields.join(', ') + ']' : '')
+          + (leaf.length !== undefined ? ', length: ' + leaf.length : '')
+          + (leaf.preview !== undefined ? ', value: ' + leaf.preview : '')
+          + '</span>';
+        // Suggest a slug from the last segment, with -<parent> for disambiguation if generic.
+        var last = leaf.path[leaf.path.length - 1] || 'obs';
+        var second = leaf.path[leaf.path.length - 2] || '';
+        var slug = (last === 'count' || last === 'id' || second.length > 0 && /listeners?$/.test(second))
+          ? (second + '_' + last).replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()
+          : last.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+        var pathStr = leaf.path.join('.');
+        var spec;
+        if (leaf.kind === 'structured_array') {
+          spec = '- name: ' + slug + '_by_id\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Bulk count by molecule id. Replace EXAMPLE_ID with the actual id\n'
+            + '    (e.g. "MONOMER0-160[c]" for DnaA).\n'
+            + '  store_path: ' + pathStr + '\n'
+            + '  index_by: {type: bulk_id, value: "EXAMPLE_ID"}\n';
+        } else if (leaf.kind === 'array') {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Array listener at ' + pathStr + ' (length=' + leaf.length + ' at snapshot time).\n'
+            + '    If this is indexed by id (e.g. tu_id, tf_id), add index_by:.\n'
+            + '  store_path: ' + pathStr + '\n';
+        } else {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: "Scalar observable at ' + pathStr + '"\n'
+            + '  store_path: ' + pathStr + '\n';
+        }
+        document.getElementById('bigraph-spec').value = spec;
+      }
+
+      function _copyBigraphSpec() {
+        var ta = document.getElementById('bigraph-spec');
+        if (!ta.value) return;
+        ta.select();
+        document.execCommand('copy');
+      }
+
+      document.getElementById('bigraph-filter').addEventListener('input', function(e) {
+        if (window._bigraphNodes) _renderBigraphTree(window._bigraphNodes, e.target.value);
+      });
+    </script>
+
+    
+    <details style="margin-top: 1.4em;">
+      <summary class="muted">How observables tie to Expected Behavior</summary>
+      <p style="font-size: 0.9em;">Observables can be referenced by name in an
+      <code>expected_behavior[i].measure</code> block (e.g. <code>kind: bulk_count, id:
+      "MONOMER0-160[c]"</code>). When the dashboard validates a study, it cross-checks
+      that every <code>measure</code> resolves to a declared observable, or to a
+      built-in helper.</p>
+    </details>
+    
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="variants" id="panel-variants">
+  <div class="variants-list">
+    
+    <article class="variant-row" data-variant-name="catalyst-export"
+             data-base-composite="">
+      <header class="variant-row-header">
+        <h3 class="variant-name">catalyst-export</h3>
+        <span class="variant-base">based on <code>(none)</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="catalyst-export">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="catalyst-export">Delete</button>
+        <button class="btn-variant-run" data-variant-name="catalyst-export">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="column-centric-runtime"
+             data-base-composite="">
+      <header class="variant-row-header">
+        <h3 class="variant-name">column-centric-runtime</h3>
+        <span class="variant-base">based on <code>(none)</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="column-centric-runtime">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="column-centric-runtime">Delete</button>
+        <button class="btn-variant-run" data-variant-name="column-centric-runtime">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="vivarium-api-inversion"
+             data-base-composite="">
+      <header class="variant-row-header">
+        <h3 class="variant-name">vivarium-api-inversion</h3>
+        <span class="variant-base">based on <code>(none)</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="vivarium-api-inversion">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="vivarium-api-inversion">Delete</button>
+        <button class="btn-variant-run" data-variant-name="vivarium-api-inversion">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="gpu-parallel-1000"
+             data-base-composite="">
+      <header class="variant-row-header">
+        <h3 class="variant-name">gpu-parallel-1000</h3>
+        <span class="variant-base">based on <code>(none)</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="gpu-parallel-1000">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="gpu-parallel-1000">Delete</button>
+        <button class="btn-variant-run" data-variant-name="gpu-parallel-1000">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="multi-core-cpu-parallel"
+             data-base-composite="">
+      <header class="variant-row-header">
+        <h3 class="variant-name">multi-core-cpu-parallel</h3>
+        <span class="variant-base">based on <code>(none)</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="multi-core-cpu-parallel">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="multi-core-cpu-parallel">Delete</button>
+        <button class="btn-variant-run" data-variant-name="multi-core-cpu-parallel">Run</button>
+      </div>
+    </article>
+    
+  </div>
+
+  <details class="variant-add-form-wrapper">
+    <summary class="btn-variant-new">+ New variant</summary>
+    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Base composite:
+        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
+          <option value="">— pick a baseline composite —</option>
+          
+          <option value="pdmp-catalyst-runner-tbd" data-composite-id="v2ecoli_pdmp.composites.catalyst.pdmp_catalyst">pdmp-catalyst-runner-tbd (v2ecoli_pdmp.composites.catalyst.pdmp_catalyst)</option>
+          
+        </select>
+      </label>
+      <div id="variant-new-params" class="param-form">
+        <p class="muted">Pick a base composite to see its parameters.</p>
+      </div>
+      <button type="submit">Save variant</button>
+    </form>
+  </details>
+
+  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
+  <dialog id="variant-edit-dialog">
+    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
+      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
+      <div id="variant-edit-params" class="param-form"></div>
+      <menu>
+        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
+        <button type="submit">Save</button>
+      </menu>
+    </form>
+  </dialog>
+</section>
+
+<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
+  <div class="interventions-list">
+    
+    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
+    
+  </div>
+
+  <details class="intervention-add-form-wrapper">
+    <summary class="btn-intervention-new">+ New intervention</summary>
+    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <div class="runs-section">
+    <h3 class="section-title">Runs</h3>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Per-run record of what was executed. Visualizations live in the
+      <a href="#" onclick="_setStudyTab('visualizations');return false">Visualizations</a> tab.
+    </p>
+    <table id="runs-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Variant / Baseline</th>
+          <th>Composite</th>
+          <th>Steps</th>
+          <th>Started (UTC)</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Test results</th>
+          <th>Model changes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        
+      </tbody>
+    </table>
+    <div class="runs-actions">
+      <button class="btn-compare-selected">Compare selected</button>
+      <button class="btn-clear-runs danger">Clear all runs</button>
+    </div>
+  </div>
+
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <div class="tests-header">
+    <h3>Behavioral Tests</h3>
+    <p class="muted" style="margin: 0 0 8px 0;">
+      Each prediction below is paired with a precise <code>given / measure / expect</code>
+      rule so one English sentence auto-generates one pytest assertion. The
+      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
+      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
+      against the latest simulation run.
+    </p>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="run-tests-btn" class="btn-primary">Run tests</button>
+      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+    </div>
+    <div class="tests-config" style="margin-top: 6px;">
+      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-jax-compiled-throughput-10x"
+        data-pytest-node="jax-compiled-throughput-10x"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">jax-compiled-throughput-10x</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">jax-compiled-throughput-10x</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "wall_seconds_per_trajectory", "reduce": "v2ecoli_baseline_seconds / jax_seconds", "source": "scripts/benchmark_compiled.py --backend jax"}
+expect:  {"field": "speedup_ratio", "operator": "greater-than", "threshold": 10.0}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-numerical-equivalence-with-phase3"
+        data-pytest-node="numerical-equivalence-with-phase3"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">numerical-equivalence-with-phase3</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">numerical-equivalence-with-phase3</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "all interface observables(t)", "reduce": "L_inf relative error", "source": "compare jax vs python-reference trajectories at seed=0"}
+expect:  {"field": "L_inf_error", "operator": "less-than", "threshold": 0.0001}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-memory-fits-1024-cells-per-node"
+        data-pytest-node="memory-fits-1024-cells-per-node"
+        data-classification="supporting"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-supporting">supporting</span>
+        <strong style="font-size: 0.9em;">memory-fits-1024-cells-per-node</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">memory-fits-1024-cells-per-node</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "RSS at end of 600-step run", "reduce": "GB", "source": "scripts/profile_memory.py --n-cells 1024"}
+expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+  </ul>
+  
+</section>
+
+<section class="study-tab-panel" data-kind="visualizations" id="panel-visualizations" hidden>
+  <div class="viz-section">
+
+    
+    
+    <div class="embed-viz-section" style="margin-bottom:24px">
+      <h3 class="section-title">Embedded visualizations</h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Self-contained HTML pages produced by the study's runner. Each iframe
+        below is a standalone artefact you can also open in a separate tab.
+      </p>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 — JAX/Julia backend speedup (Phase 1 wrap-up)</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/jax_julia_speedup.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">JAX vs basico backend speedup for the Millard ODE on the standalone benchmark (Phase 1 perf #4 closeout).</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/jax_julia_speedup.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 — JAX/Julia backend speedup (Phase 1 wrap-up)"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 — JIT compile-cost amortization</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/jit_compile_cost.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">JAX compile-time vs run-time crossover as a function of trajectory count and trajectory length.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/jit_compile_cost.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 — JIT compile-cost amortization"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 — per-cell memory footprint by bucket</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/memory_footprint.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Memory budget per WCM cell broken down by listener / state / ParCa cache.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/memory_footprint.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 — per-cell memory footprint by bucket"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 sprint 3 — column-centric runtime prototype</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/column_centric_prototype.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Constant per-trajectory wall regardless of N — 3.1× speedup on pure-Poisson toy.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/column_centric_prototype.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 sprint 3 — column-centric runtime prototype"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 sprint 2 — function-level marshalling hotspots</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/marshalling_hotspots.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine cProfile counts). Much per-tick time is outside process_update, but that includes real numpy/scipy numeric work — not all of it marshalling.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/marshalling_hotspots.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 sprint 2 — function-level marshalling hotspots"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 sprint 4 — 3-step composite prototype</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/multistep_prototype.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Speedup does NOT compound across processes — pbg overhead is per-process, not per-step.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/multistep_prototype.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 sprint 4 — 3-step composite prototype"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 sprint 1 — per-tick compute decomposition</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/per_step_compute_decomposition.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">76% of per-tick time is outside process_update (includes real numpy/scipy numeric work, not all of it marshalling); no single Process dominates. Suggests, but does not demonstrate, a column-centric runtime as the architectural direction.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/per_step_compute_decomposition.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 sprint 1 — per-tick compute decomposition"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 sprint 6 — TI-shaped column-centric runner</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/ti_shaped_prototype.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Realistic TI-shaped workload: honest 1.5× per-tick recalibration (vs toys&#39; 3×) — a measured microbenchmark, an extrapolation not validated on the 55-process WCM. This 1.5× is the toy factor fed into the illustrative ~1500× = factor × N projection (not a measured speedup; column-centric runtime never built).</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/ti_shaped_prototype.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 sprint 6 — TI-shaped column-centric runner"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Phase 4 sprint 5 — real WCM baseline + illustrative N-scaling projection</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/wcm_baseline_projection.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Real WCM benchmark (measured): pbg sequential at N=10³ × 30 ticks = 26 min. The &#34;≈ 1 sec / ~1500× total speedup&#34; is an ILLUSTRATIVE PROJECTION = toy factor × N (script hardcodes 3× → 3000×; prose uses 1.5× → ~1500×); the column-centric parallel runtime was never built or timed. Not a measured speedup.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/wcm_baseline_projection.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Phase 4 sprint 5 — real WCM baseline + illustrative N-scaling projection"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">study_plan_summary</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/pdmp-04-compilation/study_plan_summary.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (11 KB) from reports/figures/pdmp-04-compilation/.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04-compilation/study_plan_summary.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="study_plan_summary"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
+    
+
+    <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
+    <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+      These charts re-render each time the page loads, against the most recent simulation in the study's <code>runs.db</code>.
+      They are also embedded into the downloadable investigation HTML report.
+    </p>
+    <div id="viz-charts-panel" class="charts-panel"></div>
+    <h3 class="section-title" style="margin-top:24px">Registered visualization modules</h3>
+    <div id="viz-list">
+      
+      <div class="viz-config">phase4-throughput-vs-baseline <code class="muted">file:reports/figures/planned-comparisons/phase4_throughput.html</code>
+        <div class="muted small" style="margin-top:2px">PLANNED — log-log plot of trajectories/sec vs hardware (v2ecoli baseline → Phase 2 Python PDMP → Phase 4 compiled Catalyst.jl on CPU → GPU). Annotates the order-of-magnitude jumps.</div>
+      </div>
+      
+    </div>
+    <button class="btn-add-viz" style="margin-top:8px">+ Add visualization</button>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+    <h2 class="overview-label">Discovery implications</h2>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+    
+    <div class="di-uncertainties">
+      
+      <div class="di-unc di-unc-resolved">
+        <h4>✓ Resolved uncertainties</h4>
+        <ul><li>The production composite per-tick wall is ~52 ms (74 ms single-tick), of which ~76% is spent outside process_update (this bucket includes real numpy/scipy numeric work, e.g. Poisson logpmf, not all of it marshalling) — and no single Process dominates.</li><li>The cProfile hotspots are 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine counts); much of the per-tick cost is outside process_update, though that bucket includes real numpy/scipy numeric work, so it is not purely marshalling.</li><li>Column-centric prototypes give constant-in-N per-trajectory wall and a per-tick speedup of 1.5x on a realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys) — measured microbenchmarks, an extrapolation not validated on the 55-process WCM. The &#34;~1500x at N=1e3 x 30 ticks (26 min -&gt; ~1 s)&#34; is an ILLUSTRATIVE PROJECTION = toy factor x N (the script hardcodes 3x -&gt; 3000x; the prose uses the 1.5x recalibration -&gt; ~1500x), NOT a measured speedup: the column-centric vectorized runtime was never built and never timed — only the pbg sequential side was measured (at N=1,2,4).</li></ul>
+      </div>
+      
+      
+      <div class="di-unc di-unc-remaining">
+        <h4>● Remaining uncertainties</h4>
+        <ul><li>The column-centric runtime is validated as prototypes + a projection, NOT as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC — numerical equivalence of the vectorized path is unproven.</li><li>Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order needed for reproducible ABC posteriors across hardware is untested.</li></ul>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="di-group">
+      <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+      
+      <div class="di-card">
+        <div class="di-card-stmt"><strong>Per-Process Catalyst.jl JIT compilation is the right performance attack, recovering most of the per-tick cost.</strong></div>
+        <div class="di-card-why">JIT-compiling reaction propensities is the standard speedup for stochastic chemical kinetics.</div>
+        
+        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+          <code>runtime-architecture</code>, <code>per-tick-compute</code>
+        </div>
+        
+        
+        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+          <code>fraction of per-tick wall in per-Process compute vs framework marshalling</code>, <code>measured speedup of per-Process JIT vs column-centric vectorization</code>
+        </div>
+        
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="di-group">
+      <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+      
+      <div class="di-card di-mech-card">
+        <div class="di-mech-head">
+          <code>runtime-architecture</code>
+          <span class="di-update-chip">replace</span>
+          
+          <span class="di-approval-badge">needs expert approval</span>
+        </div>
+        <div class="di-card-why">Adopt a column-centric (pre-allocated per-observable arrays indexed by trajectory x time) vectorized runtime with N-way lockstep stepping; do NOT pursue per-Process Catalyst.jl JIT as the primary lever. Remaining work is engineering, not investigation.</div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    <div class="di-group">
+      <h3>Follow-up study proposals
+        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+        <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+      <div class="followup-list">
+        
+        
+        <div class="di-card di-fup-card">
+          <div class="followup-header">
+            <strong class="followup-title">Numerical-equivalence validation of the column-centric runner vs the Phase-2 PDMP</strong>
+            <span class="di-chip">validation</span>
+            <span class="di-chip">architectural_decision</span>
+            <span class="di-chip di-gain-high">gain: high</span>
+            
+          </div>
+          <div class="di-card-why">Build the column-centric runner and verify W2(p_compiled, p_phase2) &lt;= 5 sigma MC with deterministic pairwise/Kahan summation; confirm 1/sqrt(N) posterior variance scaling on an ABC test posterior.</div>
+          
+          <div class="followup-actions" style="margin-top:8px">
+            <button class="btn-seed-followup"
+                    onclick="_seedFollowupProposal('pdmp-04-compilation', "pdmp-04-column-centric-equivalence")">➕ Add to investigation</button>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
+      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+    </h2>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Each track is independent. <em>Regression</em> answers "does the code
+      still build and run cleanly?", <em>biological</em> answers "does the
+      model match the literature?", <em>explanatory</em> answers "did we
+      learn something new?". Each <strong>result is computed</strong> from
+      canonical fields (gate evaluator, run status, finding tiers) — author
+      only the <em>basis</em> (the rationale) for each track.
+    </p>
+    <div class="narrative-grid">
+      <label class="narrative-row">
+        <span class="narrative-label">Regression compatibility</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+              title="Computed from run status (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from run status</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Regression basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Biological validation</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+              title="Computed from the gate evaluator (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Biological basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Explanatory gain</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+              title="Computed from interpretation-tier findings (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Explanatory basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+      </label>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+    Synthesised read-only from canonical fields — edit <code>findings</code>,
+    <code>limitations</code>, and <code>discovery_implications</code> to change
+    this (and the generated report) together.
+  </p>
+  <div class="conclusions-grid conclusions-synthesis">
+    <div class="conclusion-field">
+      <h3>Claims <span class="muted small">(from findings)</span></h3>
+      <p class="muted">No findings recorded yet.</p>
+    </div>
+    <div class="conclusion-field">
+      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+      
+      <p class="muted">No evidence recorded on findings yet.</p>
+    </div>
+    <div class="conclusion-field">
+      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
+      <p class="muted">None recorded.</p>
+    </div>
+    <div class="conclusion-field">
+      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
+      
+      <ul class="synthesis-list">
+        
+        <li><strong>Numerical-equivalence validation of the column-centric runner vs the Phase-2 PDMP</strong></li>
+        
+      </ul>
+      
+    </div>
+  </div>
+  
+
+</section>
+
+</main>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard" };</script>
+<script src="/v2ecoli/dashboard/assets/data-source.js"></script>
+<script>
+window._studyName = "pdmp-04-compilation";
+window._study = null;  // populated by _bootstrapStudy() in study-detail.js
+
+// Save handler for the Conditions → Model settings editable rows.
+// POSTs to /api/study-expert-input-set (route kept for back-compat)
+// which patches study.yaml in place.
+// On success: flashes "saved" + updates the row's data-current attribute.
+// On failure: flashes the error (HTTP body) for ~5s.
+function _saveExpertInput(studyName, eiName, btn) {
+  var row = btn.closest('tr');
+  var input = row && row.querySelector('.cond-ei-input');
+  var flash = row && row.querySelector('.cond-ei-flash');
+  if (!input || !flash) return;
+  var raw = (input.value || '').trim();
+  // Coerce numeric inputs so yaml carries the right type
+  var val = raw;
+  if (input.type === 'number' && raw !== '') {
+    var n = Number(raw);
+    if (!isNaN(n)) val = n;
+  } else if (raw === '') {
+    val = null;
+  }
+  btn.disabled = true;
+  flash.className = 'cond-ei-flash';
+  flash.style.display = '';
+  flash.textContent = 'saving…';
+  fetch('/api/study-expert-input-set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({study: studyName, name: eiName, current: val}),
+  }).then(function(r) {
+    return r.text().then(function(t) { return {ok: r.ok, status: r.status, body: t}; });
+  }).then(function(res) {
+    if (res.ok) {
+      flash.className = 'cond-ei-flash saved';
+      flash.textContent = '✓ saved';
+      setTimeout(function() { flash.style.display = 'none'; }, 2500);
+    } else {
+      flash.className = 'cond-ei-flash error';
+      flash.textContent = '✗ ' + (res.body || ('HTTP ' + res.status));
+    }
+  }).catch(function(err) {
+    flash.className = 'cond-ei-flash error';
+    flash.textContent = '✗ ' + String(err);
+  }).finally(function() {
+    btn.disabled = false;
+  });
+}
+
+// ── Seed a child study from this study's discovery_implications /
+//    follow_up_studies and make it appear in the investigation graph ──────
+// Both POST /api/study-seed-followup. On success they flash an inline
+// confirmation on the clicked button, then refresh the surface the user is
+// in: when embedded inside the investigation iframe, ask the parent to
+// re-render the investigation detail (and reload as a fallback); standalone,
+// reload the page so the seeded child is reflected.
+//
+// NOTE: these are defined AFTER /study-detail.js loads (see the script order
+// below) so they take precedence over the legacy _seedFollowupStudy there,
+// which navigates away instead of refreshing the embedded investigation.
+function _flashSeedBtn(btn, text, ok) {
+  if (!btn) return;
+  btn.textContent = text;
+  btn.style.borderColor = ok ? '#10b981' : '#dc2626';
+  btn.style.color = ok ? '#065f46' : '#991b1b';
+}
+function _afterSeedRefresh() {
+  // Embedded inside the investigation iframe → refresh the parent's graph.
+  if (window.parent && window.parent !== window) {
+    try {
+      if (window.parent._refreshInvestigationDetail) {
+        window.parent._refreshInvestigationDetail();
+        return;
+      }
+    } catch (e) { /* cross-origin or missing — fall through to reload */ }
+    try { window.parent.location.reload(); return; } catch (e) { /* fall through */ }
+  }
+  location.reload();
+}
+function _seedFollowup(payload, btn) {
+  var orig = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; _flashSeedBtn(btn, '… seeding', true); }
+  fetch('/api/study-seed-followup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(function(r) {
+    return r.json().then(function(d) { return {ok: r.ok, status: r.status, body: d}; })
+      .catch(function() { return {ok: r.ok, status: r.status, body: {}}; });
+  }).then(function(res) {
+    if (!res.ok || (res.body && res.body.error)) {
+      _flashSeedBtn(btn, '✗ ' + ((res.body && res.body.error) || ('HTTP ' + res.status)), false);
+      if (btn) btn.disabled = false;
+      return;
+    }
+    _flashSeedBtn(btn, '✓ added', true);
+    setTimeout(_afterSeedRefresh, 600);
+  }).catch(function(err) {
+    _flashSeedBtn(btn, '✗ ' + String(err), false);
+    if (btn) btn.disabled = false;
+  });
+}
+function _seedFollowupStudy(parent, idx) {
+  _seedFollowup({parent: parent, followup_idx: idx}, window.event && window.event.target);
+}
+function _seedFollowupProposal(parent, proposalId) {
+  _seedFollowup({parent: parent, proposal_id: proposalId}, window.event && window.event.target);
+}
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script src="/v2ecoli/dashboard/assets/study-detail.js"></script>
+<script>
+// Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
+// defines its own navigate-away _seedFollowupStudy). The embedded
+// investigation view prefers staying in place over a full navigation.
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+</body>
+</html>

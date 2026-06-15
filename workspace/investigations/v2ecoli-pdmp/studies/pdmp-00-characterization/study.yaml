@@ -360,8 +360,8 @@ report:
   evidence_quality: bootstrap-run-confirmed
   key_metrics:
   - label: variables categorised
-    status: pass
-    value: all (65 MB/step state captured)
+    status: stub
+    value: planned — variable-categorisation-map not yet produced (65 MB/step raw state captured, but not categorised)
   - label: interface schemas
     status: stub
     value: 6 subprocesses

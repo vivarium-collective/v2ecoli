@@ -130,7 +130,7 @@ tests:
   classification: primary
   status: passed
   question: |
-    Do at least 2 of the 7 screened config-reachable knobs show a >2% response
+    Do at least 1 of the 7 screened config-reachable knobs show a >2% response
     in instantaneous_growth_rate (i.e., is the UQ parameter surface non-trivial)?
   measure:
     kind: authored

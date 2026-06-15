@@ -35,7 +35,7 @@ report:
   objective: |
     Hand reviewers an explicit, OPEN choice: which perturbation should we run on
     top of the wild-type baseline to demonstrate v2ecoli's response? This study
-    deliberately commits no variant (conditions.variants is empty); it presents
+    deliberately commits no variant (conditions.variants lists four PROPOSED, uncommitted candidates); it presents
     four candidates and stays un-run until a reviewer selects one.
 
   result: |

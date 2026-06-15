@@ -103,7 +103,7 @@ report:
         fully equivalent.
       • RIBOSOMES (2 ✓ / 2 ≈): active fraction +0.1% ✓, elongation rate +0.2% ✓;
         total ribosomes −5.8% ≈ drift, rRNA-init production −8.7% ≈ drift.
-      • EXCHANGE FLUXES (2 ✓ / 1 ≈ / 2 ✗ — THE DIVERGENCE): overall flux
+      • EXCHANGE FLUXES (3 ✓ / 1 ≈ / 2 ✗ — THE DIVERGENCE): overall flux
         fingerprint R² = 0.9989 ✓ (40 matched, 0 appeared/lost, 6 sub-floor),
         glucose −4.4% ✓, ammonium −2.4% ✓; but O₂ exchange Δ −40.4% ✗ mismatch
         and CO₂ exchange Δ −20.3% ✗ mismatch (acetate sentinel ≈ drift, near

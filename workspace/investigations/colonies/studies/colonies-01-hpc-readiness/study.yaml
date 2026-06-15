@@ -741,7 +741,7 @@ findings:
   evidence:
     from_runs: [nsweep-n1, nsweep-n2, nsweep-n4, nsweep-n8]
     from_test: per-cell-cost-within-2x-reference
-    observed: {n1: 78, n2: 77, n4: 77, n8: 75}
+    observed: {n1: 73.6, n2: 73.2, n4: 72.7, n8: 70.4}
     units: ms/tick/cell
   expected:
     summary: per-cell wall stays within 2× of the N=1 reference; flat is the
@@ -788,7 +788,7 @@ findings:
   evidence:
     from_run: nsweep-n8
     from_test: per-cell-cost-within-2x-reference
-    observed: {n1_mb: 1508, n2_mb: 2013, n4_mb: 2946, n8_mb: 4713}
+    observed: {n1_mb: 1508, n2_mb: 2013, n4_mb: 2946, n8_mb: 4712}
     slope_mb_per_cell: 450
     units: MB
   expected:

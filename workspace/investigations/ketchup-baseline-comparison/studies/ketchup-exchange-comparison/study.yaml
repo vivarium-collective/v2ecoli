@@ -50,7 +50,7 @@ report:
         glucose + acetate.)
       • KETCHUP k-ecoli74 / k-ecoli307 — MISMATCH (R^2 = -0.89 / -0.72): directions
         agree (uptake −, CO2 secretion +) but per 100 glucose the cores respire
-        far harder (O2 ≈ -135 vs v2ecoli -9; CO2 ≈ +145 vs +33) and secrete acetate
+        far harder (O2 ≈ -135 vs v2ecoli -9; CO2 ≈ +144 vs +33) and secrete acetate
         (≈ +71, absent in v2ecoli → 'lost'). Per-metabolite axes confirm: O2 and
         CO2 mismatch, NH3 drift.
       • v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness) — MISMATCH but

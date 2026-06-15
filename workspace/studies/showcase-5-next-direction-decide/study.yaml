@@ -38,8 +38,9 @@ report:
   objective: |
     Hand reviewers an explicit, OPEN choice for the NEXT direction, grounded in
     the showcase-4 measured contrasts: which follow-up best advances the
-    showcase? This study deliberately commits no variant (conditions.variants is
-    empty); it presents candidate directions seeded from the showcase-4 ranking
+    showcase? This study deliberately commits no variant (conditions.variants
+    lists four PROPOSED, uncommitted candidate directions); it presents candidate
+    directions seeded from the showcase-4 ranking
     and stays un-run until a reviewer selects one.
 
   result: |

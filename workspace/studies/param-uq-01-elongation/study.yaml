@@ -54,9 +54,10 @@ report:
     | `kS` | `ecoli-polypeptide-elongation.kS` | 60 | 140 | 100 | — | 5.5% | Saturation constant (default 100) in the polypeptide-elongation charging / ppGpp-synthesis kinetics (grouped with the tRNA-charging constants krta/krtf). Couples elongation to amino-acid/ppGpp state. |
     | `chrom.basal_elongation_rate` | `ecoli-chromosome-replication.basal_elongation_rate` | 700 | 1200 | 950 | nt/s | 2.8% | DNA-polymerase (replisome) elongation rate (default 967); the stochastic per-step rate is drawn around this basal value. Sets chromosome-replication speed. |
 
-    Candidates screened out as INERT (≤1.4% response, excluded): `ribosomeElongationRate`
-    (overwritten at runtime each step → config value ignored), `gtpPerElongation`
-    (energy accounting only), `import_threshold`, `D_period`.
+    Candidates screened out as INERT (≤1.4% response, excluded): `k_RelA` (1.4%),
+    `gtpPerElongation` (energy accounting only), `import_threshold`, `D_period`
+    (all 0.0%). `ribosomeElongationRate` is also config-inert (overwritten at
+    runtime each step → config value ignored), and is not one of the 7 screened knobs.
 
     ### Tracked Observable
 
@@ -74,7 +75,7 @@ report:
     | Surrogate | order-2 Polynomial Chaos Expansion, Legendre basis (10 terms), `lsq` regression |
     | Sensitivity | analytic Sobol indices from PCE coefficients (Sudret 2008) |
     | Budget | 30 train + 10 test per seed, **3 PCRV seeds (0, 1, 2)** for robustness |
-    | Window | 120 simulation steps, 1 generation |
+    | Window | 120 simulation steps (~4% of one generation) |
     | Correctness | fresh `initial_state` per sample (v2ecoli PR #197) → samples independent; verified identical params → identical output |
 
   result: |

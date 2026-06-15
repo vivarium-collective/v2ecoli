@@ -498,8 +498,8 @@ visualizations:
     title: "Cap-immune doubling time per variant (ln2/mean mu)"
     caption: >-
       ppgpp-off is the slowest (mean 61.6 min, wide spread to 77 min);
-      dnaA-2x fastest (48.4); elong-down ~baseline (50.2, the weak contrast);
-      media-succinate slightly slow (56.6).
+      dnaA-2x fastest (48.4); elong-down ~baseline (49.3, the weak contrast);
+      media-succinate slightly slow (52.9).
   chart: box
   source_run: showcase4-variant-sweep
   render: doubling_time_grouped (multivariant) over the sweep

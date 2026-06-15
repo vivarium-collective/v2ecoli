@@ -1,0 +1,113 @@
+schema_version: 4
+name: overflow-acetate-vs-growth
+investigation: metabolic-perturbation-response   # owning investigation (back-reference)
+title: "Does v2ecoli reproduce the aerobic acetate-overflow curve (acetate vs growth rate) — Basan 2015?"
+created: '2026-06-15'
+status: planned
+kind: confirmatory   # tests a pre-declared experimental relationship (Basan 2015 overflow curve)
+
+# Canonical 6-axis status. SCAFFOLD: design in progress; nothing built or run yet.
+design_status: in-progress
+implementation_status: planned
+simulation_status: not-run
+evaluation_status: not-evaluated
+gate_status: planned
+expert_review_status: pending
+
+question: |
+  Across a glucose-uptake-rate titration, does v2ecoli reproduce the aerobic
+  acetate-overflow response — acetate secretion rising ~linearly with growth rate
+  above a critical threshold (Basan 2015) — and how do the FBA baseline, the
+  Millard kinetic ODE, and the v2ecoli+Millard FBA-bridge arms compare?
+
+report:
+  title: "overflow-acetate-vs-growth — v2ecoli acetate response vs Basan 2015 (scaffold)"
+  verdict: not-yet-run
+  confidence: low
+  evidence_quality: aspirational
+  objective: |
+    Sweep the carbon-uptake knob (glucose uptake rate / glucose concentration)
+    and read out the acetate-secretion and O2 response as a function of the
+    resulting growth rate, for three arms (baseline FBA / Millard kinetic ODE /
+    v2ecoli+Millard FBA-bridge). Grade each arm's response CURVE against the
+    Basan 2015 acetate-vs-growth-rate curve with the planned `curve_response`
+    criterion (onset growth-rate threshold + overflow slope). A CHARACTERIZATION
+    of where the model reproduces overflow physiology — state + trend, not a
+    pass/fail.
+  setup: |
+    PLANNED. Control knob = glucose uptake rate, swept via a bespoke runner
+    (declarative sweeps are not yet runnable in the framework, so a
+    `canonical_runs` script executes the titration). Reference x-axis = growth
+    rate (an emergent model output at each knob setting), matching how Basan
+    reports the curve. Arms reuse the composites from ketchup-baseline-comparison:
+    baseline FBA (v2ecoli.composites.baseline), Millard kinetic ODE, and the live
+    FBA-bridge (millard_fba_bridge_harness). Reference curve = the Basan 2015
+    acetate-vs-growth points (investigation input basan2015-acetate-vs-growth).
+  # report_cards: <built at Evaluate — docs/report_cards/metabolic_perturbation/overflow_acetate_vs_growth/>
+
+bibliography:
+  bib_keys:
+  - basan2015
+
+assumptions:
+- text: |
+    The acetate exchange flux (ACET[p], listeners.fba_results.external_exchange_fluxes)
+    is the model observable for overflow; growth rate is read from the mass listener.
+  verified_in_v2ecoli: false   # to confirm at Build
+- text: |
+    A glucose-uptake-rate (or glucose-concentration) titration moves the model
+    along a growth-rate axis comparable to Basan's, on the existing glucose ParCa
+    cache — no new data bundle needed for this condition.
+  verified_in_v2ecoli: false   # to confirm at Build
+
+conditions:
+  # Arms reused from ketchup-baseline-comparison. The GUR titration itself is
+  # executed by a planned bespoke canonical_runs runner (sweep gap), not as
+  # enumerated dashboard variants.
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      cache_dir: out/cache
+  variants:
+  - name: fba-bridge
+    composite: v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness
+    params:
+      cache_dir: out/cache
+      seed: 0
+  model_settings:
+  - name: glucose-uptake-titration
+    gate: required
+    detail: "The swept control knob: glucose uptake rate (or glucose concentration) titrated across a range on the existing glucose ParCa cache (out/cache). Executed by a planned canonical_runs sweep runner — declarative simulation_set sweeps are not yet runnable in the framework."
+  - name: millard-arm
+    gate: optional
+    detail: "Millard 2017 central-carbon kinetic ODE arm (the flux source behind the FBA-bridge). Included to test whether the kinetic core induces overflow the baseline FBA misses."
+  - name: basan2015-reference-curve
+    gate: required
+    detail: "Reference: Basan 2015 acetate-secretion-vs-growth-rate curve (investigation input basan2015-acetate-vs-growth). The curve_response criterion grades the onset growth-rate threshold + overflow slope against these points."
+  - name: curve-response-criterion
+    gate: required
+    detail: "NET-NEW grading: a `curve_response` criterion (planned, to be added to v2ecoli card_criteria.py and carved to main as a feature PR) emits a within_tol/drift/mismatch verdict for the 'overflow' card group from the swept (growth_rate, acetate) response vs the Basan curve. Surfaced to the framework via the existing report_card_axis workspace evaluator + report_card_verdict.json."
+
+tests:
+# Build-phase grading is not wired yet: report_card_axis returns 'ungraded'
+# (gracefully) until docs/report_cards/.../overflow_acetate_vs_growth/report_card_verdict.json
+# exists with an 'overflow' group populated by the curve_response criterion.
+- name: v2ecoli-reproduces-acetate-overflow-onset
+  classification: primary
+  status: stub
+  question: Does v2ecoli's acetate response show the Basan overflow onset (acetate rising above a critical growth rate)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/metabolic_perturbation/overflow_acetate_vs_growth
+    group: overflow
+    detail: "Overflow group graded by the planned curve_response criterion (onset growth-rate threshold + overflow slope) vs the Basan 2015 acetate-vs-growth curve, across the baseline / Millard / FBA-bridge arms. Group verdict = worst axis."
+  cites: [basan2015]
+  pass_if:
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
+
+pipeline_gate:
+  prerequisites: []
+  enables: []
+  gate_status: planned
+
+runs: []

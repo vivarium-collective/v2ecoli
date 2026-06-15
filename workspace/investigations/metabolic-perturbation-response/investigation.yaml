@@ -1,0 +1,119 @@
+schema_version: 2
+name: metabolic-perturbation-response
+title: "Does v2ecoli reproduce known metabolic perturbation-response phenotypes vs curated experimental claims?"
+created: '2026-06-15'
+status: planning
+
+# A behavioral-report-card investigation, generalizing the PR #134 basal report
+# card from the model's basal STATE to its RESPONSE under a metabolic
+# perturbation — across the same observable families: physiology, metabolic
+# fluxes, and (TBD) gene expression. Each study applies a metabolic perturbation
+# (a swept control knob like glucose uptake rate, a discrete change like a carbon
+# source, or a metabolic gene knockout) and grades the resulting response against
+# a curated experimental claim about that response. Sits in the metabolism
+# investigation cluster (ketchup-baseline-comparison, multiscale-bioprocess, the
+# Millard / pdmp kinetic-metabolism work) and reuses their arms + report-card grader.
+#
+# Grading: a perturbation response is graded with whatever report-card criterion
+# fits its shape — the existing rel_tol / ttest (physiology shifts), r2 /
+# flux_scatter (metabolic-flux + expression responses), plus one NET-NEW criterion
+# for a swept dose-response RELATIONSHIP (`curve_response`: onset threshold + slope
+# vs an experimental curve), needed first by the overflow study. New criteria are
+# carved out as feature PRs against main once proven and surfaced to the framework
+# via the existing `report_card_axis` workspace evaluator (pbg_v2ecoli/evaluators.py)
+# + a report_card_verdict.json per study.
+
+question: |
+  How do v2ecoli's observables — physiology, metabolic fluxes, and (TBD) gene
+  expression — RESPOND to metabolic perturbations (swept environmental conditions
+  like glucose uptake rate or carbon source, and metabolic genetic perturbations
+  like knockouts), and do those responses match curated experimental claims —
+  graded by a report-card criterion and tracked for regression as conditions
+  accrue? The first condition is aerobic acetate overflow: does v2ecoli reproduce
+  the acetate-secretion-vs-growth-rate relationship (Basan 2015)?
+
+executive:
+  what_is_this: |
+    A report-card investigation that grades v2ecoli's RESPONSE to metabolic
+    perturbations — across physiology, metabolic fluxes, and (TBD) gene expression
+    — against curated experimental claims about those responses. Generalizes the
+    PR #134 basal card from basal STATE to perturbation RESPONSE. Each study = one
+    perturbation + its experimental reference, graded with the criterion that fits
+    the response shape (the overflow case is a swept dose-response, graded by the
+    net-new `curve_response`; others use rel_tol / ttest / flux_scatter / r2).
+    Planned condition ladder:
+      • overflow-acetate-vs-growth — sweep glucose uptake rate; grade the acetate
+        (+ O2) response vs growth rate against Basan 2015. (study 1)
+      • (planned) carbon-source swaps — discrete environmental perturbations.
+      • (planned) metabolic gene knockouts — genetic perturbations.
+  verdict_status: planning
+  verdict_detail: |
+    Scaffold only. The framework piece (`curve_response` criterion) and the first
+    study (overflow) are not yet built. Posture: characterize the agreement first
+    (state + trend, regression-guarded); model-improvement attempts are invited,
+    opportunistic follow-up studies, not a baked deliverable.
+  decisions_needed:
+  - question: "Does the v2ecoli baseline FBA exhibit ANY aerobic acetate overflow, or is acetate identically zero across the glucose-uptake sweep?"
+    status: "OPEN — the ketchup-baseline-comparison finding (acetate 0.0) predicts none; the overflow study quantifies it."
+    context: |
+      The motivating prior is the ketchup-baseline-comparison characterization:
+      v2ecoli's baseline secretes no acetate (0.0 per 100 glucose) where the
+      KETCHUP cores secrete ~+71. The overflow study turns that single-point
+      observation into a graded response curve over a glucose-uptake titration,
+      across the baseline-FBA / Millard / FBA-bridge arms.
+
+scientific_argument:
+  main_claim: |
+    v2ecoli's metabolic perturbation responses — physiology, metabolic fluxes, and
+    (TBD) gene expression — can be graded against curated experimental claims with
+    report-card criteria fitting each response's shape, giving an auditable,
+    regression-trackable characterization of where the model reproduces and
+    diverges from known physiology — starting with aerobic acetate overflow.
+  evidence_for:
+  - "PLANNED — overflow-acetate-vs-growth: sweep glucose uptake rate across the baseline-FBA / Millard / FBA-bridge arms; grade acetate (and O2) vs growth rate against Basan 2015."
+  caveats:
+  - "This is a CHARACTERIZATION (does the model reproduce the experimental response?), graded as state + trend — not a model pass/fail. A model↔experiment gap is a calibration target the report INVITES work on, not a defect verdict."
+  - "Resolution (recalibrating the model to close a gap) is an opportunistic follow-up study seeded from a gap finding, never a precondition of the characterization."
+  - "Scoped to METABOLIC perturbations; the perturbation-response-card method (the report-card criteria, including the net-new `curve_response`) is reusable infra, and non-metabolic panels would be sibling investigations."
+
+biological_story: |
+  When a fast-growing E. coli takes up glucose faster than its respiratory chain
+  can fully oxidize the carbon, it spills the excess as acetate — aerobic
+  "overflow" metabolism — even with oxygen present. The amount of acetate
+  secreted rises with growth rate above a threshold, a clean, repeatedly-measured
+  relationship (Basan 2015). That makes overflow an ideal first metabolic
+  perturbation-response test: sweep the carbon-uptake knob, read out the acetate
+  (and O2) response, and compare the model's curve to the measured one.
+
+  The condition ladder extends the same shape to other metabolic perturbations:
+  discrete carbon-source swaps (does the model shift exchange phenotype correctly
+  when fed succinate vs glucose?) and metabolic gene knockouts (does removing a
+  central-carbon gene move fluxes/growth as measured?). Each is a perturbation
+  paired with a curated experimental reference, read out across physiology /
+  metabolic fluxes / (TBD) gene expression, graded with the criterion that fits
+  its response shape, and tracked for regression as the panel grows.
+
+at_a_glance:
+  studies:
+  - overflow-acetate-vs-growth: "(planned, study 1) sweep glucose uptake rate; grade acetate-secretion-vs-growth-rate against Basan 2015 across the baseline-FBA / Millard / FBA-bridge arms (reused from ketchup-baseline-comparison)."
+
+# Investigation-scoped inputs (pbg-superpowers 0.14 investigation inputs). The
+# curated experimental claims this investigation grades against live here, so the
+# data + its claim travel with the investigation. Datasets are intentionally
+# empty placeholders until the actual extracted curves are added.
+inputs:
+  datasets:
+  - name: basan2015-acetate-vs-growth
+    path: inputs/datasets/basan2015_acetate_vs_growth.csv
+    supports_claims:
+    - "Aerobic acetate secretion rises ~linearly with growth rate above a critical growth-rate threshold (Basan et al. 2015, Nature)."
+    status: placeholder   # curve to be extracted from the Basan 2015 supplement
+  references:
+  - basan2015
+  expert_docs: []
+
+studies:
+- overflow-acetate-vs-growth
+
+acceptance_criteria:
+- {study: overflow-acetate-vs-growth, behavior: v2ecoli-reproduces-acetate-overflow-onset}

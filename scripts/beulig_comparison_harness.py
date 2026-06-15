@@ -47,19 +47,37 @@ declared ``sim_path``s. Resolved (graded) vs ungraded:
   GRADED   growth/OD600   sim population.biomass_concentration_gL vs OD x 0.34
   GRADED   substrate/GUR  sim glucose exchange (env.exchange['GLC'] counts ->
                           mmol/(gDW.h)) vs Beulig process_summary GUR per-biomass
+  GRADED   substrate/glucose-conc  sim reactor.glucose_medium_mM (medium recipe
+                          seed drawn down by GLC uptake) vs reactor_glucose_data
+                          endpoint (mmol/L drawdown)            [#225 req-3]
   GRADED   gas_transfer/OTR,CTR  sim reactor.{o2,co2}_transport_delta ->
                           mmol/(L.h) vs Beulig reactor_{OTR,CTR}_data.csv
+  GRADED   byproducts/{lactate,formate,ethanol,pyruvate,succinate}  sim
+                          reactor.<byp>_mM (coupler accumulates secreted
+                          env.exchange counts -> mmol/L) vs the matching Beulig
+                          reactor_<byp>_data.csv peak             [#225 req-3]
   GRADED   summary        boolean "comparison executed" (process-level)
-  UNGRADED substrate/glucose-conc  sim environment.external_concentrations only
-                          carries O2/CO2 (no glucose conc store) -> ungraded
-  UNGRADED byproducts/*   no sim byproduct CONCENTRATION store (env.exchange is a
-                          per-step COUNT flux, not a concentration); also Beulig
-                          has NO acetate CSV -> all ungraded
-  UNGRADED gas_transfer/DO  Beulig process_summary has NO dissolved-O2 column
-  UNGRADED ph_control/base sim has no cumulative-base-addition store
+  UNGRADED byproducts/acetate  sim DOES track reactor.acetate_mM, but there is
+                          NO reactor_acetate_data.csv in palsson-2025-supp ->
+                          no reference to grade against
+  UNGRADED gas_transfer/DO  sim exposes reactor.dissolved_o2 (mg/L) but Beulig
+                          has NO dissolved-O2 column anywhere -> no reference
+  UNGRADED ph_control/base Beulig reactor_base_data.csv is base VOLUME (ml);
+                          grading needs a cumulative-acid sim store + the titrant
+                          molarity (ml<->mmol), absent from the supp data ->
+                          would require a fabricated constant
 
-Adding a resolvable overlay = adding one ``AXIS_RESOLVERS`` entry (the spec stays
-the source of the overlay list).
+The #225 req-3 closure (substrate/glucose-conc + byproducts) is mediated by the
+ReactorCellCoupler medium-concentration accumulator (track_medium=True): each
+tick it integrates the cell's per-step environment.exchange COUNTS into ADDITIVE
+mmol/L deltas on the reactor store (glucose draws down a seeded medium pool;
+byproducts accumulate secretion from 0). The harness reads those reactor leaves
+and grades them with the EXISTING grader. Magnitudes stay far below Beulig (the
+documented architectural gap) so these axes verdict 'mismatch' by design — the
+point is they GRADE rather than stay ungraded.
+
+Adding a resolvable overlay = adding one ``MEDIUM_AXES`` entry + the coupler leaf
+(the spec stays the source of the overlay list).
 """
 
 from __future__ import annotations
@@ -130,6 +148,15 @@ MULTIGEN_ROOT_PATHS = [
     "reactor/o2_transport_delta",
     "reactor/co2_transport_delta",
     "reactor/volume_L",
+    # Medium-concentration accumulators (#225 req-3) — root reactor leaves the
+    # coupler integrates exchange counts into (glucose drawdown + byproducts).
+    "reactor/glucose_medium_mM",
+    "reactor/acetate_mM",
+    "reactor/lactate_mM",
+    "reactor/formate_mM",
+    "reactor/ethanol_mM",
+    "reactor/pyruvate_mM",
+    "reactor/succinate_mM",
 ]
 # iML1515 arm — predicted-vs-measured μ grading band (model-validation style;
 # documented diagnostic, NOT tuned to pass). R² vs the identity line y=x.
@@ -254,6 +281,47 @@ def _pub_transfer(csv_name: str, volume_L: float) -> tuple[float | None, dict]:
     peak_molh = batch_reference_scalar(means, "peak")
     ref = peak_molh / volume_L * 1000.0 if peak_molh is not None else None
     return ref, {"peak_mol_h": peak_molh, "times": times, "means": means}
+
+
+def _pub_concentration(csv_name: str, mode: str = "peak") -> tuple[float | None, dict]:
+    """Beulig batch-phase concentration scalar (native CSV units, e.g. mmol/L).
+
+    The byproduct + glucose reactor CSVs are WIDE per-reactor mmol/L trajectories
+    (header carries the unit). ``peak`` (byproducts — climb) or ``endpoint``
+    (glucose — drawdown). Returns ``(scalar, meta)``; ``(None, ...)`` if the file
+    is absent (e.g. there is NO reactor_acetate_data.csv).
+    """
+    if csv_name is None:
+        return None, {}
+    path = BEULIG_DIR / csv_name
+    if not path.is_file():
+        return None, {}
+    times, means = load_wide_csv_batch_phase(path)
+    ref = batch_reference_scalar(means, mode)
+    return ref, {"times": times, "means": means}
+
+
+# Sim medium-concentration reactor leaves (mmol/L) the coupler accumulates
+# (#225 req-3). leaf -> Beulig CSV + reduction mode. Glucose is a remaining-pool
+# DRAWDOWN (endpoint); byproducts are accumulated secretion (peak). acetate has
+# NO Beulig CSV -> stays ungraded (handled in build_axes).
+MEDIUM_AXES = {
+    "glucose_medium_mM": ("reactor_glucose_data.csv", "endpoint"),
+    "lactate_mM":        ("reactor_lactate_data.csv", "peak"),
+    "formate_mM":        ("reactor_formate_data.csv", "peak"),
+    "ethanol_mM":        ("reactor_ethanol_data.csv", "peak"),
+    "pyruvate_mM":       ("reactor_pyruvate_data.csv", "peak"),
+    "succinate_mM":      ("reactor_succinate_data.csv", "peak"),
+    # acetate_mM: no reactor_acetate_data.csv in palsson-2025-supp -> ungraded.
+    "acetate_mM":        (None, "peak"),
+}
+
+
+def _read_medium_leaves(reactor: dict | None) -> dict[str, float]:
+    """Read the coupler's medium-concentration accumulator leaves (mmol/L) from a
+    reactor store dict. Missing leaf -> 0.0 (track_medium off / pre-#225 run)."""
+    reactor = reactor or {}
+    return {leaf: (_f(reactor.get(leaf)) or 0.0) for leaf in MEDIUM_AXES}
 
 
 # --- arm run + sim observable extraction ------------------------------------
@@ -392,12 +460,17 @@ def run_arm(arm: str, steps: int, cells_per_agent: float = DEFAULT_CPA) -> dict:
         glc_counts.append(_f(exch.get("GLC")) or 0.0)
         cell_mass.append(_cell_mass_fg(a0) or 0.0)
         gtime.append(_f(st.get("global_time")) or 0.0)
-    volume_L = _f((c.state.get("reactor") or {}).get("volume_L")) or 1.0
+    reactor_final = c.state.get("reactor") or {}
+    volume_L = _f(reactor_final.get("volume_L")) or 1.0
 
-    return _derive_sim_scalars(
+    sim = _derive_sim_scalars(
         composite, steps, volume_L,
         biomass_gL, glc_counts, cell_mass, o2_delta, co2_delta, gtime,
     )
+    # Medium-concentration accumulators (mmol/L) — cumulative, so the FINAL
+    # reactor state carries the graded scalar (#225 req-3).
+    sim["medium"] = _read_medium_leaves(reactor_final)
+    return sim
 
 
 def run_arm_multigen(
@@ -486,6 +559,7 @@ def run_arm_multigen(
     co2_delta: list[float] = []
     gtime: list[float] = []
     volume_L = 1.0
+    medium_final: dict[str, float] = {leaf: 0.0 for leaf in MEDIUM_AXES}
     for row in rows:
         st = row.get("state") or {}
         pop = st.get("population") or {}
@@ -496,6 +570,9 @@ def run_arm_multigen(
         v = _f(r.get("volume_L"))
         if v:
             volume_L = v
+        # Cumulative medium accumulators -> keep the latest non-empty reactor row.
+        if any(leaf in r for leaf in MEDIUM_AXES):
+            medium_final = _read_medium_leaves(r)
         # The followed agent id changes across generations (0 -> 00 -> 000),
         # so take whichever single agent the emitter wrote this row.
         agents = st.get("agents") or {}
@@ -512,7 +589,7 @@ def run_arm_multigen(
     row_deltas = [b - a for a, b in zip(gtime, gtime[1:]) if (b - a) > 0]
     tick_dt = (sum(row_deltas) / len(row_deltas) / chunk) if row_deltas else 1.0
 
-    return _derive_sim_scalars(
+    sim = _derive_sim_scalars(
         composite, result.get("steps", max_steps), volume_L,
         biomass_gL, glc_counts, cell_mass, o2_delta, co2_delta, gtime,
         dt_override=tick_dt,
@@ -524,6 +601,8 @@ def run_arm_multigen(
             "population_growth_mode": population_growth_mode,
         },
     )
+    sim["medium"] = medium_final
+    return sim
 
 
 # --- axis assembly ----------------------------------------------------------
@@ -542,6 +621,11 @@ def build_axes(sim: dict, tol_rel: float) -> dict:
     gur_ref, _ = _pub_gur()
     otr_ref, _ = _pub_transfer("reactor_OTR_data.csv", NOMINAL_VOLUME_L)
     ctr_ref, _ = _pub_transfer("reactor_CTR_data.csv", NOMINAL_VOLUME_L)
+    # Medium-concentration refs (mmol/L) — glucose drawdown (endpoint) +
+    # byproduct peaks (#225 req-3). acetate -> (None, ...) (no Beulig CSV).
+    med = sim.get("medium") or {}
+    med_ref = {leaf: _pub_concentration(csv, mode)[0]
+               for leaf, (csv, mode) in MEDIUM_AXES.items()}
 
     def rel(ref):
         return {"type": "rel_tol", "reference": ref, "tol_rel": tol_rel}
@@ -559,26 +643,43 @@ def build_axes(sim: dict, tol_rel: float) -> dict:
          rel(ctr_ref), sim["sim_ctr"]),
         ("summary.comparison_executed", "summary", "Comparison executed (process-level)",
          "", {"type": "boolean"}, True),
-        # UNGRADED (sim_path absent and/or no Beulig reference) — emitted so the
-        # group is present; measured=None -> grade_axis returns 'ungraded'.
-        ("substrate.glucose_conc", "substrate", "Glucose concentration", "g/L",
-         rel(None), None),
-        ("byproducts.acetate", "byproducts", "Acetate concentration", "g/L",
-         rel(None), None),
+        # GRADED (#225 req-3) — medium-concentration accumulators the coupler
+        # integrates from the cell's environment.exchange counts (mmol/L), graded
+        # vs the Beulig batch reactor CSVs. Magnitudes are far below Beulig (the
+        # documented architectural gap) so these verdict 'mismatch' by design —
+        # the point is they GRADE rather than stay ungraded.
+        ("substrate.glucose_conc", "substrate", "Glucose concentration (remaining medium)",
+         "mmol/L", rel(med_ref["glucose_medium_mM"]), med.get("glucose_medium_mM")),
         ("byproducts.lactate", "byproducts", "Lactate concentration", "mmol/L",
-         rel(None), None),
+         rel(med_ref["lactate_mM"]), med.get("lactate_mM")),
         ("byproducts.formate", "byproducts", "Formate concentration", "mmol/L",
-         rel(None), None),
+         rel(med_ref["formate_mM"]), med.get("formate_mM")),
         ("byproducts.ethanol", "byproducts", "Ethanol concentration", "mmol/L",
-         rel(None), None),
+         rel(med_ref["ethanol_mM"]), med.get("ethanol_mM")),
         ("byproducts.pyruvate", "byproducts", "Pyruvate concentration", "mmol/L",
-         rel(None), None),
+         rel(med_ref["pyruvate_mM"]), med.get("pyruvate_mM")),
         ("byproducts.succinate", "byproducts", "Succinate concentration", "mmol/L",
+         rel(med_ref["succinate_mM"]), med.get("succinate_mM")),
+        # UNGRADED — no Beulig reference and/or no honest sim observable:
+        #  * acetate: there is NO reactor_acetate_data.csv in palsson-2025-supp
+        #    (the sim DOES track reactor.acetate_mM, but there's nothing to grade
+        #    against) -> ungraded.
+        #  * dissolved_o2: the sim exposes reactor.dissolved_o2 (mg/L) but Beulig's
+        #    process_summary_interpol.csv has NO dissolved-O2 column (no DO ref
+        #    anywhere in palsson-2025-supp) -> ungraded.
+        #  * base_addition: Beulig HAS reactor_base_data.csv but it is base VOLUME
+        #    (ml); grading needs a cumulative-acid sim store AND the titrant
+        #    molarity to convert ml<->mmol, which the supp data doesn't provide —
+        #    a fabricated constant would be required, so honestly ungraded.
+        ("byproducts.acetate", "byproducts", "Acetate concentration "
+         "(sim tracks reactor.acetate_mM; NO Beulig acetate CSV)", "mmol/L",
          rel(None), None),
-        ("gas_transfer.dissolved_o2", "gas_transfer", "Dissolved O2", "mg/L",
-         rel(None), None),
-        ("ph_control.base_addition", "ph_control", "Base addition (cumulative)", "mmol",
-         rel(None), None),
+        ("gas_transfer.dissolved_o2", "gas_transfer",
+         "Dissolved O2 (sim exposes reactor.dissolved_o2; NO Beulig DO column)",
+         "mg/L", rel(None), None),
+        ("ph_control.base_addition", "ph_control",
+         "Base addition (Beulig ref is base VOLUME ml; needs titrant molarity to "
+         "grade vs an acid-production store — unmodeled)", "mmol", rel(None), None),
     ]
 
     axes: dict[str, dict] = {}

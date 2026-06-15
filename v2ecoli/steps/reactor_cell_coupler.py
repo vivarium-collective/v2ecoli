@@ -92,6 +92,35 @@ AVOGADRO: float = 6.02214076e23  # 1/mol
 DEFAULT_CELLS_PER_AGENT: float = 1.0
 DEFAULT_REACTOR_VOLUME_L: float = 1.0
 
+# Medium concentration accumulator (#225 req-3 — close the ungraded
+# substrate/glucose-conc + byproducts comparison axes). Maps a reactor store
+# leaf (mmol/L, ADDITIVE float) to the bare environment.exchange molecule key the
+# cell reports per-step COUNTS for (negative == uptake, positive == secretion).
+# Each tick the coupler integrates those counts into a mmol/L delta on the leaf,
+# so the reactor accumulates a medium CONCENTRATION the Beulig batch CSVs (also
+# mmol/L) can be graded against — the same count->concentration conversion the
+# dissolved-gas delta uses, minus the MW factor (mmol/L instead of mg/L).
+#
+#   delta[mmol/L] = counts * cells_per_agent / N_A[1/mol] * 1000 / volume_L
+#
+# Glucose (GLC) is UPTAKE (negative counts): seeded at the medium recipe glucose
+# (reactor.glucose_medium_mM initial) and DRAWN DOWN. The byproducts are SECRETED
+# (positive counts) and seeded at 0 so the leaf == cumulative secreted
+# concentration. acetate/pyruvate are tracked too (sim observable) even though
+# the WCM does not secrete them in this aerobic state (leaf stays ~0) — that is a
+# genuine sim prediction, not a gap.
+GLUCOSE_MEDIUM_LEAF: str = "glucose_medium_mM"
+GLUCOSE_EXCHANGE_KEY: str = "GLC"
+# reactor leaf (mmol/L) -> bare environment.exchange byproduct key.
+BYPRODUCT_LEAVES: dict[str, str] = {
+    "acetate_mM":   "ACET",
+    "lactate_mM":   "D-LACTATE",
+    "formate_mM":   "FORMATE",
+    "ethanol_mM":   "ETOH",
+    "pyruvate_mM":  "PYRUVATE",
+    "succinate_mM": "SUC",
+}
+
 
 class ReactorCellCoupler(Step):
     """Translate between v2ecoli's cell population and the BiRD reactor stores.
@@ -107,6 +136,7 @@ class ReactorCellCoupler(Step):
         "cells_per_agent":  "float",
         "reactor_volume_L": "float",
         "time_step":        "float",
+        "track_medium":     "boolean",
     }
     topology = {
         "population":  ("population",),
@@ -121,6 +151,12 @@ class ReactorCellCoupler(Step):
             cfg.get("cells_per_agent") or DEFAULT_CELLS_PER_AGENT)
         self.reactor_volume_L = float(
             cfg.get("reactor_volume_L") or DEFAULT_REACTOR_VOLUME_L)
+        # Default ON: accumulate medium glucose/byproduct concentrations into the
+        # reactor store so the substrate/byproducts axes grade (#225 req-3). Pure
+        # diagnostic stores — nothing reads them back, so existing run dynamics
+        # are unchanged. Set track_medium=False to skip (legacy behavior).
+        track = cfg.get("track_medium")
+        self.track_medium = True if track is None else bool(track)
 
     def inputs(self) -> dict[str, Any]:
         return {
@@ -180,10 +216,17 @@ class ReactorCellCoupler(Step):
         agents = states.get("agents") or {}
         o2_counts = 0.0   # molecules/step, signed (negative == uptake)
         co2_counts = 0.0  # molecules/step, signed (positive == secretion)
+        # Medium glucose + byproduct counts (signed; negative == uptake).
+        glc_counts = 0.0
+        byproduct_counts = {leaf: 0.0 for leaf in BYPRODUCT_LEAVES}
         for _agent_id, agent_state in agents.items():
             exch = _extract_environment_exchange(agent_state)
             o2_counts += _as_float(exch.get(O2_EXCHANGE_KEY, 0.0))
             co2_counts += _as_float(exch.get(CO2_EXCHANGE_KEY, 0.0))
+            if self.track_medium:
+                glc_counts += _as_float(exch.get(GLUCOSE_EXCHANGE_KEY, 0.0))
+                for leaf, key in BYPRODUCT_LEAVES.items():
+                    byproduct_counts[leaf] += _as_float(exch.get(key, 0.0))
 
         if agents:
             counts_to_mgL = self.cells_per_agent / AVOGADRO * 1000.0 / volume_L
@@ -201,6 +244,17 @@ class ReactorCellCoupler(Step):
                 co2_delta = -dco2_now
             reactor_out["dissolved_o2"] = o2_delta
             reactor_out["dissolved_co2"] = co2_delta
+
+            # Medium concentration accumulator (mmol/L) — same count->conc
+            # conversion as the dissolved-gas delta minus the MW factor
+            # (counts_to_mgL is already counts->mmol/L; *MW gives mg/L).
+            if self.track_medium:
+                counts_to_mM = counts_to_mgL  # = cells/N_A * 1000 / volume_L
+                # Glucose: uptake (negative) -> draw down the seeded medium pool.
+                reactor_out[GLUCOSE_MEDIUM_LEAF] = glc_counts * counts_to_mM
+                # Byproducts: secretion (positive) -> accumulate from 0.
+                for leaf in BYPRODUCT_LEAVES:
+                    reactor_out[leaf] = byproduct_counts[leaf] * counts_to_mM
 
         if reactor_out:
             update["reactor"] = reactor_out

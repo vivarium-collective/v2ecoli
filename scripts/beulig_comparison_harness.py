@@ -111,6 +111,26 @@ NOMINAL_VOLUME_L = 0.05
 DEFAULT_TOL_REL = 0.25               # execute-and-report band (lenient diagnostic)
 DEFAULT_SMOKE_STEPS = 5
 DEFAULT_CPA = 1.0e10                 # representative-sampling scale (coupling active)
+# --- multi-generation PRODUCTION run defaults -------------------------------
+# baseline divides ~every 2700 ticks; 3 generations ≈ 8100 ticks. max_steps is a
+# hard cap (the runner stops at whichever comes first: max_steps or N divisions).
+DEFAULT_MULTIGEN_GENERATIONS = 3
+DEFAULT_MULTIGEN_MAX_STEPS = 9000    # ample headroom for 3 divisions
+DEFAULT_MULTIGEN_CHUNK = 60          # ticks between emitter updates / division checks
+# Followed-agent (under agents/<id>/) emit paths the harness derives sim scalars
+# from: per-cell glucose-exchange flux (counts) + cell mass (fg).
+MULTIGEN_AGENT_PATHS = [
+    "listeners/mass/cell_mass",
+    "environment/exchange/GLC",
+]
+# Composite-root stores the harness reads (population aggregator + reactor):
+# biomass concentration, transport deltas, reactor working volume.
+MULTIGEN_ROOT_PATHS = [
+    "population/biomass_concentration_gL",
+    "reactor/o2_transport_delta",
+    "reactor/co2_transport_delta",
+    "reactor/volume_L",
+]
 # iML1515 arm — predicted-vs-measured μ grading band (model-validation style;
 # documented diagnostic, NOT tuned to pass). R² vs the identity line y=x.
 IML1515_R2_MIN = 0.70                # within_tol at/above
@@ -245,22 +265,108 @@ def _agent0(state) -> dict:
     return next(iter(agents.values()), {}) if agents else {}
 
 
+def _cell_mass_value_fg(cm) -> float | None:
+    """Coerce a raw ``listeners.mass.cell_mass`` value to femtograms.
+
+    Handles a live pint Quantity (``.to('femtogram')``), the JSON round-trip
+    forms a SQLite emit can leave (a bare float — the magnitude of the
+    ``quantity[float,fg]`` schema is already in fg — or a ``{magnitude,..}``
+    dict), and plain numbers. Returns None on anything unrecognized.
+    """
+    if cm is None:
+        return None
+    if hasattr(cm, "to") and hasattr(cm, "magnitude"):
+        try:
+            return float(cm.to("femtogram").magnitude)
+        except (AttributeError, ValueError, TypeError):
+            return _f(getattr(cm, "magnitude", None))
+    if isinstance(cm, dict):
+        # serialized quantity forms: {'magnitude': x, 'units': 'fg'} / {'value': x}
+        return _f(cm.get("magnitude", cm.get("value")))
+    return _f(cm)
+
+
 def _cell_mass_fg(agent_state) -> float | None:
     try:
         mass = (agent_state.get("listeners") or {}).get("mass") or {}
-        cm = mass.get("cell_mass")
-        if cm is None:
-            return None
-        if hasattr(cm, "to") and hasattr(cm, "magnitude"):
-            return float(cm.to("femtogram").magnitude)
-        return _f(cm)
+        return _cell_mass_value_fg(mass.get("cell_mass"))
     except (AttributeError, KeyError, TypeError):
         return None
 
 
+def _derive_sim_scalars(
+    composite: str, steps: int, volume_L: float,
+    biomass_gL: list[float], glc_counts: list[float], cell_mass: list[float],
+    o2_delta: list[float], co2_delta: list[float], gtime: list[float],
+    extra: dict | None = None, dt_override: float | None = None,
+) -> dict:
+    """Reduce the per-step (or per-chunk) sim series to the graded axis scalars.
+
+    Shared by both the inline single-agent path (:func:`run_arm`) and the
+    multi-generation production path (:func:`run_arm_multigen`) so the two routes
+    grade identically — only the data SOURCE differs (live state vs emitted db).
+
+    ``dt_override`` (s): the per-TICK duration to use for the per-hour GUR
+    conversion. The inline path samples every tick so it infers dt_s≈1 from the
+    ``gtime`` deltas; the multigen path samples every ``chunk`` ticks (gtime
+    deltas == chunk-span), but the exchange counts it captures are still per-tick
+    instantaneous values — so it must pass the per-tick duration here to keep the
+    GUR on the same basis as the inline path (else GUR comes out chunk× too low).
+    """
+    # Mean per-step duration (s) from global_time progression (fallback 1 s).
+    if dt_override is not None:
+        dt_s = dt_override
+    else:
+        dts = [b - a for a, b in zip(gtime, gtime[1:]) if (b - a) > 0]
+        dt_s = (sum(dts) / len(dts)) if dts else 1.0
+
+    # Derived sim axis scalars (peaks).
+    # growth: peak biomass concentration (gDW/L) — directly comparable to OD x 0.34.
+    sim_biomass = max(biomass_gL, default=0.0)
+
+    # substrate/GUR: peak per-cell glucose uptake -> mmol/(gDW.h). Intensive
+    # (cells_per_agent cancels). counts<0 = uptake.
+    gur_series = []
+    for counts, cm in zip(glc_counts, cell_mass):
+        if cm <= 0 or counts >= 0:
+            continue
+        mmol_h = (-counts) / AVOGADRO * 1000.0 * (SECONDS_PER_HOUR / dt_s)
+        gur_series.append(mmol_h / (cm * FG_PER_GRAM))
+    sim_gur = max(gur_series, default=0.0)
+
+    # gas_transfer: transport deltas (mg/L per 1 s transport interval) ->
+    # mmol/(L.h). OTR uses the positive (into-liquid) transfer peak.
+    sim_otr = max((d / MW_O2 * SECONDS_PER_HOUR for d in o2_delta), default=0.0)
+    sim_ctr = max((abs(d) / MW_CO2 * SECONDS_PER_HOUR for d in co2_delta), default=0.0)
+
+    out = {
+        "composite": composite,
+        "volume_L": volume_L,
+        "dt_s": dt_s,
+        "steps": steps,
+        "sim_biomass_gL": sim_biomass,
+        "sim_gur": sim_gur,
+        "sim_otr": sim_otr,
+        "sim_ctr": sim_ctr,
+        "series": {
+            "biomass_gL": biomass_gL, "o2_delta": o2_delta,
+            "co2_delta": co2_delta, "glc_counts": glc_counts,
+        },
+    }
+    if extra:
+        out.update(extra)
+    return out
+
+
 def run_arm(arm: str, steps: int, cells_per_agent: float = DEFAULT_CPA) -> dict:
     """Build + step a coupled arm, recording the per-step series needed to derive
-    each sim axis scalar. Returns a dict of derived sim observables (peaks)."""
+    each sim axis scalar. Returns a dict of derived sim observables (peaks).
+
+    SMOKE/inline path: steps a freshly-built composite for ``steps`` ticks and
+    reads the LIVE state each tick. Agent ``'0'`` is replaced by daughters at the
+    first division (~2700 ticks), so this path cannot follow a real lineage past
+    one generation — use :func:`run_arm_multigen` for production (multi-gen) runs.
+    """
     from v2ecoli import build_composite
 
     composite = ARM_COMPOSITE[arm]
@@ -288,43 +394,118 @@ def run_arm(arm: str, steps: int, cells_per_agent: float = DEFAULT_CPA) -> dict:
         gtime.append(_f(st.get("global_time")) or 0.0)
     volume_L = _f((c.state.get("reactor") or {}).get("volume_L")) or 1.0
 
-    # Mean per-step duration (s) from global_time progression (fallback 1 s).
-    dts = [b - a for a, b in zip(gtime, gtime[1:]) if (b - a) > 0]
-    dt_s = (sum(dts) / len(dts)) if dts else 1.0
+    return _derive_sim_scalars(
+        composite, steps, volume_L,
+        biomass_gL, glc_counts, cell_mass, o2_delta, co2_delta, gtime,
+    )
 
-    # Derived sim axis scalars (peaks).
-    # growth: peak biomass concentration (gDW/L) — directly comparable to OD x 0.34.
-    sim_biomass = max(biomass_gL, default=0.0)
 
-    # substrate/GUR: peak per-cell glucose uptake -> mmol/(gDW.h). Intensive
-    # (cells_per_agent cancels). counts<0 = uptake.
-    gur_series = []
-    for counts, cm in zip(glc_counts, cell_mass):
-        if cm <= 0 or counts >= 0:
-            continue
-        mmol_h = (-counts) / AVOGADRO * 1000.0 * (SECONDS_PER_HOUR / dt_s)
-        gur_series.append(mmol_h / (cm * FG_PER_GRAM))
-    sim_gur = max(gur_series, default=0.0)
+def run_arm_multigen(
+    arm: str,
+    max_generations: int = DEFAULT_MULTIGEN_GENERATIONS,
+    max_steps: int = DEFAULT_MULTIGEN_MAX_STEPS,
+    chunk: int = DEFAULT_MULTIGEN_CHUNK,
+    cells_per_agent: float = DEFAULT_CPA,
+    single_daughters: bool = True,
+) -> dict:
+    """PRODUCTION path: run a coupled arm across ``max_generations`` divisions,
+    following the lineage with a RAM-safe externally-driven SQLite emitter, then
+    read the emitted trajectory back and derive the SAME graded sim scalars as
+    the inline smoke path.
 
-    # gas_transfer: transport deltas (mg/L per 1 s transport interval) ->
-    # mmol/(L.h). OTR uses the positive (into-liquid) transfer peak.
-    sim_otr = max((d / MW_O2 * SECONDS_PER_HOUR for d in o2_delta), default=0.0)
-    sim_ctr = max((abs(d) / MW_CO2 * SECONDS_PER_HOUR for d in co2_delta), default=0.0)
+    Why SQLite (not run_multigen_xarray): the xarray runner's view only captures
+    ``listeners.*`` agent leaves and DROPS composite-root stores; this harness
+    grades the ``population`` aggregator + ``reactor`` transport stores (root) and
+    the agent ``environment.exchange`` store — none of which the xarray view can
+    reach. :func:`run_multigen_sqlite` captures both agent ``emit_paths`` and
+    ``extra_root_paths`` and bounds peak memory to one cell via
+    ``single_daughters=True`` (the coupled composite otherwise grows 2^N cells —
+    62 GB RSS observed in the 2026-05-24 shakedown). Mirrors
+    ``scripts/run_mbp_tracked.py``'s mbp-study runner.
 
-    return {
-        "composite": composite,
-        "volume_L": volume_L,
-        "dt_s": dt_s,
-        "steps": steps,
-        "sim_biomass_gL": sim_biomass,
-        "sim_gur": sim_gur,
-        "sim_otr": sim_otr,
-        "sim_ctr": sim_ctr,
-        "series": {
-            "biomass_gL": biomass_gL, "o2_delta": o2_delta,
-            "co2_delta": co2_delta, "glc_counts": glc_counts,
+    Returns the same dict shape as :func:`run_arm` (so ``build_axes`` is shared),
+    plus ``generations`` (list seen), ``n_rows`` (emitted history rows), and
+    ``max_steps_reached``.
+    """
+    from v2ecoli import build_composite
+    from v2ecoli.library.sqlite_run import run_multigen_sqlite
+    from vivarium_dashboard.lib import composite_runs
+
+    composite = ARM_COMPOSITE[arm]
+    out_dir = WS_ROOT / "out" / "mbp_production" / arm
+    out_dir.mkdir(parents=True, exist_ok=True)
+    db_file = out_dir / "run.db"
+    if db_file.exists():
+        db_file.unlink()
+    run_id = f"mbp-production-{arm}"
+
+    c = build_composite(composite, seed=0, cache_dir="out/cache",
+                        cells_per_agent=cells_per_agent)
+    result = run_multigen_sqlite(
+        c,
+        run_id=run_id,
+        db_file=str(db_file),
+        emit_paths=MULTIGEN_AGENT_PATHS,
+        extra_root_paths=MULTIGEN_ROOT_PATHS,
+        max_steps=max_steps,
+        max_generations=max_generations,
+        chunk=chunk,
+        initial_agent_id="0",
+        single_daughters=single_daughters,
+        core=c.core,
+    )
+
+    # --- read the emitted multi-gen run back ---------------------------------
+    conn = composite_runs.connect(db_file)
+    try:
+        rows = composite_runs.query_run(conn, run_id=run_id)
+    finally:
+        conn.close()
+
+    biomass_gL: list[float] = []
+    glc_counts: list[float] = []
+    cell_mass: list[float] = []
+    o2_delta: list[float] = []
+    co2_delta: list[float] = []
+    gtime: list[float] = []
+    volume_L = 1.0
+    for row in rows:
+        st = row.get("state") or {}
+        pop = st.get("population") or {}
+        biomass_gL.append(_f(pop.get("biomass_concentration_gL")) or 0.0)
+        r = st.get("reactor") or {}
+        o2_delta.append(_f(r.get("o2_transport_delta")) or 0.0)
+        co2_delta.append(_f(r.get("co2_transport_delta")) or 0.0)
+        v = _f(r.get("volume_L"))
+        if v:
+            volume_L = v
+        # The followed agent id changes across generations (0 -> 00 -> 000),
+        # so take whichever single agent the emitter wrote this row.
+        agents = st.get("agents") or {}
+        a0 = next(iter(agents.values()), {}) if agents else {}
+        exch = ((a0.get("environment") or {}).get("exchange") or {}) if a0 else {}
+        glc_counts.append(_f(exch.get("GLC")) or 0.0)
+        cm = ((a0.get("listeners") or {}).get("mass") or {}).get("cell_mass")
+        cell_mass.append(_cell_mass_value_fg(cm) or 0.0)
+        gtime.append(_f(row.get("time")) or 0.0)
+
+    # The emitted rows are `chunk` ticks apart, but the per-cell exchange counts
+    # are per-tick instantaneous; recover the per-tick duration so the GUR
+    # per-hour conversion matches the inline path's basis (= 1 tick).
+    row_deltas = [b - a for a, b in zip(gtime, gtime[1:]) if (b - a) > 0]
+    tick_dt = (sum(row_deltas) / len(row_deltas) / chunk) if row_deltas else 1.0
+
+    return _derive_sim_scalars(
+        composite, result.get("steps", max_steps), volume_L,
+        biomass_gL, glc_counts, cell_mass, o2_delta, co2_delta, gtime,
+        dt_override=tick_dt,
+        extra={
+            "generations": result.get("generations"),
+            "n_rows": len(rows),
+            "max_steps_reached": result.get("steps"),
+            "db_file": str(db_file.relative_to(WS_ROOT)),
         },
-    }
+    )
 
 
 # --- axis assembly ----------------------------------------------------------
@@ -604,20 +785,37 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
                 tol_rel: float = DEFAULT_TOL_REL,
                 cells_per_agent: float = DEFAULT_CPA,
                 render: bool = True,
-                max_samples: int = DEFAULT_IML1515_SAMPLES) -> dict:
+                max_samples: int = DEFAULT_IML1515_SAMPLES,
+                production: bool = False,
+                max_generations: int = DEFAULT_MULTIGEN_GENERATIONS,
+                max_steps: int = DEFAULT_MULTIGEN_MAX_STEPS,
+                chunk: int = DEFAULT_MULTIGEN_CHUNK,
+                single_daughters: bool = True) -> dict:
     """Run one arm, grade vs Beulig, write report_card_verdict.json (+ charts).
+
+    ``production=True`` uses the multi-generation lineage-following runner
+    (:func:`run_arm_multigen`) instead of the inline smoke (:func:`run_arm`);
+    the card lands at the SAME path so the studies' report_card_axis tests still
+    resolve, with the verdict ``scope`` recording the N-generation run.
 
     Returns the verdict dict (also written to disk)."""
     if arm == "iml1515":
         # Genome-scale FBA arm — not a PB composite; separate path (reuses the
-        # iml1515_vs_beulig FBA harness), graded by the SAME grader.
+        # iml1515_vs_beulig FBA harness), graded by the SAME grader. Has no
+        # multi-generation analogue (FBA over Beulig samples, not a sim).
         return run_iml1515_harness(max_samples=max_samples, render=render)
 
     if arm not in ARM_COMPOSITE:
         raise ValueError(f"unknown arm {arm!r}; expected one of {ALL_ARMS}")
 
     t0 = time.perf_counter()
-    sim = run_arm(arm, steps, cells_per_agent=cells_per_agent)
+    if production:
+        sim = run_arm_multigen(
+            arm, max_generations=max_generations, max_steps=max_steps,
+            chunk=chunk, cells_per_agent=cells_per_agent,
+            single_daughters=single_daughters)
+    else:
+        sim = run_arm(arm, steps, cells_per_agent=cells_per_agent)
     reference, card = build_axes(sim, tol_rel)
     report = grade_card(card, reference)
     verdict = verdict_json(
@@ -626,12 +824,32 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
         reference_model="Beulig 2025 WT batch prefix",
         generated=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%MZ"),
     )
-    verdict["scope"] = (
-        f"SHORT-RUN SMOKE ({steps} steps, cells_per_agent={cells_per_agent:g}); "
-        "NOT the full ~33h Beulig batch production run (follow-up execution). "
-        "Biological magnitudes are far below Beulig (documented architectural gap) "
-        "so graded axes verdict 'mismatch' by design (execute-and-report)."
-    )
+    if production:
+        verdict["scope"] = (
+            f"{max_generations}-generation multigen PRODUCTION run "
+            f"(run_multigen_sqlite, single_daughters={single_daughters}, "
+            f"steps_reached={sim.get('max_steps_reached')}, "
+            f"generations={sim.get('generations')}, n_rows={sim.get('n_rows')}, "
+            f"cells_per_agent={cells_per_agent:g}). Real multi-generation lineage "
+            "trajectory fed into the grader (vs the short-run smoke). Biological "
+            "magnitudes remain far below Beulig (documented architectural gap) so "
+            "graded axes verdict 'mismatch' by design (execute-and-report)."
+        )
+        verdict["multigen"] = {
+            "max_generations": max_generations,
+            "generations_seen": sim.get("generations"),
+            "steps_reached": sim.get("max_steps_reached"),
+            "n_history_rows": sim.get("n_rows"),
+            "single_daughters": single_daughters,
+            "db_file": sim.get("db_file"),
+        }
+    else:
+        verdict["scope"] = (
+            f"SHORT-RUN SMOKE ({steps} steps, cells_per_agent={cells_per_agent:g}); "
+            "NOT the full ~33h Beulig batch production run (follow-up execution). "
+            "Biological magnitudes are far below Beulig (documented architectural gap) "
+            "so graded axes verdict 'mismatch' by design (execute-and-report)."
+        )
     verdict["wall_s"] = round(time.perf_counter() - t0, 2)
 
     out_dir = CARD_ROOT / ARM_CARD_DIR[arm]
@@ -657,6 +875,23 @@ def main() -> int:
     ap.add_argument("--iml-samples", type=int, default=DEFAULT_IML1515_SAMPLES,
                     help="Beulig batch-phase samples the iml1515 arm solves FBA over")
     ap.add_argument("--no-render", action="store_true")
+    # --- multi-generation PRODUCTION run -----------------------------------
+    ap.add_argument("--production", action="store_true",
+                    help="Use the multi-generation lineage-following runner "
+                         "(run_multigen_sqlite) instead of the inline smoke. "
+                         "Follows daughters past division; RAM-safe.")
+    ap.add_argument("--generations", type=int, default=DEFAULT_MULTIGEN_GENERATIONS,
+                    help="(production) generations to follow (default 3)")
+    ap.add_argument("--max-steps", type=int, default=DEFAULT_MULTIGEN_MAX_STEPS,
+                    help="(production) hard cap on composite ticks (stops at "
+                         "whichever comes first: this or N divisions)")
+    ap.add_argument("--chunk", type=int, default=DEFAULT_MULTIGEN_CHUNK,
+                    help="(production) ticks between emitter updates / division checks")
+    ap.add_argument("--no-single-daughters", action="store_false",
+                    dest="single_daughters",
+                    help="(production) keep BOTH daughters at each division "
+                         "(2^N cells — memory grows; cap --generations)")
+    ap.set_defaults(single_daughters=True)
     args = ap.parse_args()
 
     if args.arm == "both":
@@ -668,10 +903,16 @@ def main() -> int:
     for arm in arms:
         v = run_harness(arm, steps=args.steps, tol_rel=args.tol_rel,
                         cells_per_agent=args.cells_per_agent,
-                        render=not args.no_render, max_samples=args.iml_samples)
+                        render=not args.no_render, max_samples=args.iml_samples,
+                        production=args.production,
+                        max_generations=args.generations,
+                        max_steps=args.max_steps, chunk=args.chunk,
+                        single_daughters=args.single_daughters)
         groups = {g: d["verdict"] for g, d in v["groups"].items()}
         print(f"[{arm}] -> {CARD_ROOT / ARM_CARD_DIR[arm]}/report_card_verdict.json")
         print(f"  overall={v['overall']}  groups={groups}  ({v['wall_s']}s)")
+        if args.production and "multigen" in v:
+            print(f"  multigen={v['multigen']}")
     return 0
 
 

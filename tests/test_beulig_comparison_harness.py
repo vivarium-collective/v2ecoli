@@ -74,6 +74,69 @@ def test_build_axes_group_mapping_covers_all_five_groups():
     assert groups["byproducts"]["verdict"] == "ungraded"
 
 
+# --- unit: multi-gen production derivation (no sim) -------------------------
+
+def test_cell_mass_value_fg_coercions():
+    """The read-back cell_mass coercer handles bare float (fg magnitude), the
+    serialized-quantity dict form, and None."""
+    assert h._cell_mass_value_fg(123.0) == 123.0
+    assert h._cell_mass_value_fg({"magnitude": 55.0, "units": "fg"}) == 55.0
+    assert h._cell_mass_value_fg({"value": 7.0}) == 7.0
+    assert h._cell_mass_value_fg(None) is None
+
+
+def test_derive_sim_scalars_matches_inline_derivation():
+    """_derive_sim_scalars reduces per-step series to the graded peaks, with
+    dt_s inferred from the global_time progression (so the GUR per-hour scale is
+    correct). This is the SHARED reducer for the inline smoke + multigen paths."""
+    # 3 ticks at dt=1s. Glucose uptake (negative counts) + a cell mass in fg;
+    # transport deltas climb then the peak is taken.
+    biomass_gL = [0.0, 0.01, 0.02]
+    glc_counts = [0.0, -1.0e12, -2.0e12]   # counts/step, <0 = uptake
+    cell_mass = [300.0, 300.0, 300.0]      # fg
+    o2_delta = [0.0, 0.5, 0.3]             # mg/L per 1s transport interval
+    co2_delta = [0.0, -0.4, -0.2]
+    gtime = [1.0, 2.0, 3.0]
+    sim = h._derive_sim_scalars(
+        "reactor_bird_coupled_millard", 3, 1.0,
+        biomass_gL, glc_counts, cell_mass, o2_delta, co2_delta, gtime)
+
+    assert sim["composite"] == "reactor_bird_coupled_millard"
+    assert sim["dt_s"] == 1.0
+    assert sim["sim_biomass_gL"] == 0.02
+    # GUR peak: from the -2e12 counts at 300 fg, per hour.
+    expected_gur = (2.0e12 / h.AVOGADRO * 1000.0 * (h.SECONDS_PER_HOUR / 1.0)) / (
+        300.0 * h.FG_PER_GRAM)
+    assert sim["sim_gur"] == pytest.approx(expected_gur)
+    # OTR peak from the +0.5 mg/L delta; CTR peak from |−0.4|.
+    assert sim["sim_otr"] == pytest.approx(0.5 / h.MW_O2 * h.SECONDS_PER_HOUR)
+    assert sim["sim_ctr"] == pytest.approx(0.4 / h.MW_CO2 * h.SECONDS_PER_HOUR)
+    # The derived scalars flow straight into the existing axis builder.
+    reference, card = h.build_axes(sim, tol_rel=0.25)
+    assert card["growth"]["biomass_gDW_per_L"]["mean"] == 0.02
+
+    # dt_override forces the per-tick basis (multigen samples every `chunk`
+    # ticks but the counts are per-tick): GUR scales by SECONDS_PER_HOUR/dt.
+    sim_dt = h._derive_sim_scalars(
+        "reactor_bird_coupled", 3, 1.0,
+        biomass_gL, glc_counts, cell_mass, o2_delta, co2_delta,
+        [60.0, 120.0, 180.0], dt_override=1.0)
+    assert sim_dt["dt_s"] == 1.0
+    assert sim_dt["sim_gur"] == pytest.approx(expected_gur)
+
+
+def test_multigen_path_constants_cover_harness_observables():
+    """The production runner's emit-path sets cover exactly the stores the
+    inline path reads: agent cell_mass + glucose exchange, root population +
+    reactor transport/volume."""
+    assert "listeners/mass/cell_mass" in h.MULTIGEN_AGENT_PATHS
+    assert "environment/exchange/GLC" in h.MULTIGEN_AGENT_PATHS
+    assert "population/biomass_concentration_gL" in h.MULTIGEN_ROOT_PATHS
+    assert "reactor/o2_transport_delta" in h.MULTIGEN_ROOT_PATHS
+    assert "reactor/co2_transport_delta" in h.MULTIGEN_ROOT_PATHS
+    assert "reactor/volume_L" in h.MULTIGEN_ROOT_PATHS
+
+
 # --- unit: iML1515 arm (predicted-vs-measured μ, graded via r2) -------------
 
 @pytest.mark.sim

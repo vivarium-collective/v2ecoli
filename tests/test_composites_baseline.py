@@ -25,7 +25,7 @@ def test_baseline_function_signature():
         "core", "seed", "cache_dir", "transcript_initiation_mode",
         "polypeptide_initiation_mode", "config_overrides",
         "ppgpp_regulation", "trna_attenuation", "supercoiling",
-        "mass_conservation", "emitter", "bundle"}
+        "mass_conservation", "emitter", "bundle", "features"}
 
 
 @pytest.mark.sim

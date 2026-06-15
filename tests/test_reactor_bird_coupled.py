@@ -18,9 +18,19 @@ behavior tests are mbp-03 T5).
 """
 
 import math
+import os
 
 import pytest
 from process_bigraph.composite import Composite
+
+# Both tests build the reactor_bird_coupled composite, which wraps the baseline
+# WCM and loads the ParCa cache (out/cache/initial_state.json). Skip the whole
+# module when that cache isn't present (e.g. CI fast-tests), matching the
+# convention used by the other cache-dependent tests.
+pytestmark = pytest.mark.skipif(
+    not os.path.isdir(os.environ.get("V2ECOLI_CACHE", "out/cache")),
+    reason="ParCa cache not present",
+)
 
 
 def test_reactor_bird_coupled_builds():

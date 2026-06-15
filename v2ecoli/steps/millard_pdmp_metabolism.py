@@ -90,6 +90,32 @@ MEDIUM_EXCHANGE_REACTIONS: dict[str, tuple[str, float, float]] = {
 }
 
 
+# --- Reactor->Millard O2 feedback (#225 item #4) ---------------------------
+# The reactor's dissolved O2 (and external glucose) reach this Process through
+# the ``external_concentrations`` input, but the bioreactor coupler / environment
+# mirror write them under v2ecoli molecule names (bare or [p]/[c]-suffixed),
+# whereas COPASI species are keyed by their SBML id. This alias table maps the
+# v2ecoli names onto the Millard SBML ids so the overwritten boundary value
+# actually drives the rate law. Raw SBML ids (e.g. "O2") still pass straight
+# through via ``self.sbml_to_name``; this only rescues the aliased names.
+#
+# O2 is a ``fixed`` species in the SBML, but its CYTBO rate law reads [O2]
+# linearly (Vmax/(...)*(QH2^2*O2 - Q^2/Keq)); overwriting the fixed value each
+# tick therefore THROTTLES respiration as the reactor's dissolved O2 falls — the
+# reverse leg of the reactor<->cell O2 loop. Driving the fixed-species value
+# (rather than un-fixing O2) keeps the ODE stable: O2 is never integrated, so it
+# can never be drawn negative / stiff, and the standalone cell (no external
+# drive) keeps the model's calibrated air-saturated 0.21 mM.
+EXTERNAL_NAME_TO_SBML: dict[str, str] = {
+    "OXYGEN-MOLECULE":    "O2",
+    "OXYGEN-MOLECULE[p]": "O2",
+    "OXYGEN-MOLECULE[c]": "O2",
+    "GLC":                "GLCx",
+    "GLC[p]":             "GLCx",
+    "GLC[c]":             "GLCx",
+}
+
+
 def _set_initial_concentrations(changes, dm) -> None:
     """Overwrite the initial concentration of named species on a COPASI model.
 
@@ -329,15 +355,24 @@ class MillardPDMPMetabolism(Process):
             # feed NaN/inf into external_concentrations, and float()/COPASI must not
             # crash the WCM update on it (overwrite only clean, mapped boundaries).
             changes = []
-            for sbml_id, conc_mM in external.items():
-                if sbml_id not in self.sbml_to_name:
+            for raw_id, conc_mM in external.items():
+                # Accept raw SBML ids directly; otherwise map a v2ecoli molecule
+                # name (e.g. the coupler's "OXYGEN-MOLECULE[p]") to its SBML id.
+                sbml_id = (raw_id if raw_id in self.sbml_to_name
+                           else EXTERNAL_NAME_TO_SBML.get(raw_id))
+                if sbml_id is None or sbml_id not in self.sbml_to_name:
                     continue
                 try:
                     val = float(conc_mM)
                 except (TypeError, ValueError):
                     continue
+                # Clamp negatives to 0 (a diverging reactor must not feed a
+                # negative boundary concentration into the rate law) and skip
+                # non-finite values entirely.
                 if not math.isfinite(val):
                     continue
+                if val < 0.0:
+                    val = 0.0
                 changes.append((self.sbml_to_name[sbml_id], val))
             if changes:
                 _set_initial_concentrations(changes, self._model)

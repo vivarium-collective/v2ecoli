@@ -463,14 +463,14 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
     return ingredients
 
 
-def _offset_surface_complex_outward(pack_path, mesh_dir, name, mesh_stem):
-    """Seat a one-sided surface appendage by its motor end, not its centroid.
+def _cluster_complex_at_pole(pack_path, mesh_dir, name, mesh_stem, cone_deg=55.0):
+    """Gather a lopsided surface complex into a tuft on one capsule cap.
 
-    A ``surface`` ingredient is anchored at its mesh centroid, so a lopsided
-    composite like the flagellum (compact motor + long whip) ends up straddling
-    the envelope. Shift each of its placements outward along its own axis by the
-    centroid→motor-end distance, so the motor end seats at the envelope and the
-    whip projects fully outward. Format-agnostic (object or array8 placements)."""
+    The flagellum (compact motor + long whip) packed across the whole surface
+    reads as a pincushion of spikes, and anchoring by the mesh centroid buries the
+    motor. Instead place all copies on the rear (−x) cap, each with its motor end
+    on the envelope and its whip pointing outward — a flagellar tuft 'out the
+    back'. Format-agnostic (object or array8 placements)."""
     pack_path = Path(pack_path)
     d = json.loads(pack_path.read_text())
     ing = next((g for g in d["ingredients"] if g["name"] == name), None)
@@ -481,28 +481,41 @@ def _offset_surface_complex_outward(pack_path, mesh_dir, name, mesh_stem):
     vs = np.array([[float(x) for x in line.split()[1:4]]
                    for line in open(finest) if line.startswith("v ")])
     zc = vs[:, 2] - vs[:, 2].mean()
-    # motor = the wider end; offset = its distance from the centroid along +z
+    # motor = the wider end; A = its distance from the centroid along the +z axis
     r_lo = np.linalg.norm(vs[zc < zc.min() + 300][:, :2] - vs[:, :2].mean(0), axis=1).mean()
     r_hi = np.linalg.norm(vs[zc > zc.max() - 300][:, :2] - vs[:, :2].mean(0), axis=1).mean()
     A = float(-zc.min() if r_lo > r_hi else zc.max())
+    cap = next(c for c in d["compartments"] if c.get("kind") == "capsule")
+    a = np.array(cap["a"], float); radius = float(cap["radius"])
+    pole = a / np.linalg.norm(a)                    # outward axis of the −x cap
     arr8 = d.get("placement_format") == "array8"
-    n = 0
-    for p in d["placements"]:
-        if (p[0] if arr8 else p["ingredient"]) != fid:
-            continue
-        if arr8:
-            x, y, z, w, qx, qy, qz = p[1], p[2], p[3], p[4], p[5], p[6], p[7]
+    fl = [p for p in d["placements"] if (p[0] if arr8 else p["ingredient"]) == fid]
+    n = len(fl); ga = np.pi * (3 - np.sqrt(5))
+    cos_half = np.cos(np.deg2rad(cone_deg))
+    u, v = np.array([0.0, 1.0, 0.0]), np.array([0.0, 0.0, 1.0])  # ⟂ to pole (−x)
+    for i, p in enumerate(fl):
+        ct = 1 - (i + 0.5) / n * (1 - cos_half); st = np.sqrt(max(0.0, 1 - ct * ct))
+        phi = i * ga
+        d_ = ct * pole + st * (np.cos(phi) * u + np.sin(phi) * v)   # dir in cone around pole
+        d_ /= np.linalg.norm(d_)
+        pos = a + (radius + A) * d_                                 # centroid; motor end → envelope
+        # quaternion rotating mesh +z (filament) onto d_
+        zc_ = float(d_[2])
+        if zc_ > 0.999999:
+            q = [1.0, 0.0, 0.0, 0.0]
+        elif zc_ < -0.999999:
+            q = [0.0, 1.0, 0.0, 0.0]
         else:
-            x, y, z = p["position"]; w, qx, qy, qz = p["rotation"]
-        ox = 2 * (qx * qz + w * qy); oy = 2 * (qy * qz - w * qx); oz = 1 - 2 * (qx * qx + qy * qy)
-        nx, ny, nz = x + A * ox, y + A * oy, z + A * oz
+            ax = np.array([-d_[1], d_[0], 0.0]); ax /= np.linalg.norm(ax)
+            half = np.arccos(zc_) / 2; s = np.sin(half)
+            q = [float(np.cos(half)), float(ax[0] * s), float(ax[1] * s), float(ax[2] * s)]
         if arr8:
-            p[1], p[2], p[3] = round(nx, 1), round(ny, 1), round(nz, 1)
+            p[1], p[2], p[3] = round(float(pos[0]), 1), round(float(pos[1]), 1), round(float(pos[2]), 1)
+            p[4], p[5], p[6], p[7] = [round(c, 4) for c in q]
         else:
-            p["position"] = [nx, ny, nz]
-        n += 1
+            p["position"] = [float(pos[0]), float(pos[1]), float(pos[2])]; p["rotation"] = q
     pack_path.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
-    return {"shifted": n, "offset": A}
+    return {"placed": n, "offset": A}
 
 
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
@@ -525,8 +538,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200})
     res = build_pack(ingredients, capsule, chromosome,
                      out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
-    _offset_surface_complex_outward(res["pack_path"], Path(out_dir) / "meshes",
-                                    "CPLX0-7452", "flagellum")
+    _cluster_complex_at_pole(res["pack_path"], Path(out_dir) / "meshes",
+                             "CPLX0-7452", "flagellum")
     return res
 
 

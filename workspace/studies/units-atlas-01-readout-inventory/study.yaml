@@ -34,15 +34,13 @@ report:
     concentration (13, mostly mM/uM growth-limit and FBA targets), mass (4, fg),
     time (3, s), count (2), rate (1, 1/s), plus 4 in "other" (flux-like units
     such as g*s/L and mmol/g/h). Each row lists the observable's dotted path and
-    its declared unit, plus example magnitude + min/max where they were sampled
-    from the showcase-2 wild-type baseline ensemble (7 of 27 readouts — e.g.
-    cell_mass ~1469 fg [1118–2338], ppGpp ~69.6 uM [25.9–82.6], dry_mass ~441 fg,
-    elongation rate ~15.7 aa/s); a '—' appears for the config-dependent readouts
-    that run did not emit. The units + paths are schema-derived and complete
-    without any run. The embedded figure is the rendered catalog.
+    its declared unit, and — where a baseline parquet run has been sampled —
+    example magnitudes + ranges (e.g. cell_mass ~2174 fg, ppGpp ~86.9 uM, from a
+    two_generations run); a '—' appears only for the config-dependent readouts the
+    sampled run did not exercise. The embedded figure is the rendered catalog.
   caveats:
   - "Descriptive reference, not a hypothesis test — no pass/fail gate."
-  - "Magnitude columns (example/min/max) are populated for the 7 readouts emitted by the sampled showcase-2 baseline ensemble (e.g. cell_mass ~1469 fg, ppGpp ~69.6 uM, dry_mass ~441 fg, protein ~187 fg, RNA ~58 fg, elongation rate ~15.7 aa/s, time); a '—' appears for the config-dependent readouts that run did not emit. The units + paths are schema-derived and always present, independent of any run."
+  - "Magnitude columns ARE populated wherever a baseline parquet run is sampled (e.g. cell_mass ~2174 fg, ppGpp ~86.9 uM from a two_generations run); a '—' appears only for config-dependent readouts the sampled run did not exercise. The units + paths are schema-derived and always present, independent of any run."
   - "Coverage is limited to process classes the index can introspect; a few config-dependent readouts may be absent (logged, not silently dropped)."
 
 conditions:
@@ -82,10 +80,10 @@ readouts:
   units: count
 - name: example_magnitudes
   description: |
-    Per-readout example magnitude + range columns — populated for the 7 readouts
-    emitted by the sampled showcase-2 baseline ensemble (e.g. cell_mass ~1469 fg,
-    ppGpp ~69.6 uM from a 2-seed × 3-gen run); '—' for the config-dependent
-    readouts that run did not emit.
+    Per-readout example magnitude + range — populated wherever a baseline
+    parquet run is sampled (e.g. cell_mass ~2174 fg, ppGpp ~86.9 uM from a
+    two_generations run); '—' only for config-dependent readouts not exercised by
+    the sampled run.
   units: mixed
 
 study_card: |
@@ -130,16 +128,14 @@ simulation_set:
 
 planned_runs:
 - name: baseline-magnitude-sample
-  status: satisfied
+  status: planned
   n_steps: 100
   seeds: [0]
   details: |
-    OPTIONAL enrichment — not required for the reference. SATISFIED by sampling
-    the existing showcase-2 wild-type baseline ensemble parquet instead of a
-    dedicated run: 7 of 27 readouts now carry example + min/max magnitudes
-    (cell_mass ~1469 fg, ppGpp ~69.6 uM, dry_mass ~441 fg, protein ~187 fg,
-    RNA ~58 fg, elongation rate ~15.7 aa/s, time). The units and paths are
-    already complete from the schema; these values are illustrative.
+    OPTIONAL enrichment — not required for the reference. Sample a short
+    baseline parquet run to populate the example-magnitude + range columns of
+    the catalog. The units and paths are already complete from the schema; this
+    run would only add illustrative values.
 
 conclusion_verdicts:
 - verdict: informational
@@ -147,11 +143,11 @@ conclusion_verdicts:
   statement: |
     The baseline composite declares 27 unit-bearing readouts across six physical
     dimensions, all resolvable from the typed port schema with no simulation.
-    The atlas renders them as a grouped, navigable reference; the magnitude
-    columns are populated for the 7 readouts emitted by the sampled showcase-2
-    baseline ensemble (cell_mass ~1469 fg, ppGpp ~69.6 uM, etc.), with '—' for
-    the config-dependent readouts that run did not emit. This is a
-    descriptive artifact with no pass/fail gate.
+    The atlas renders them as a grouped, navigable reference; magnitude columns
+    are populated where a baseline parquet run is sampled (e.g. cell_mass ~2174 fg,
+    ppGpp ~86.9 uM from a two_generations run), with '—' only for config-dependent
+    readouts the sampled run did not exercise. This is a descriptive artifact with
+    no pass/fail gate.
 
 tests: []
 

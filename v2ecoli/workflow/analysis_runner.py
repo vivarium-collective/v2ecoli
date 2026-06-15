@@ -122,18 +122,39 @@ def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
 
 
 def resolve_sim_data(sweep_dir: str):
-    """Locate + load the sweep's ParCa sim_data via v2ecoli's loader."""
+    """Locate + load the sweep's ParCa sim_data via v2ecoli's loader.
+
+    Resolution order:
+      1. A sweep-local ``sim_data*.cPickle/.pkl`` — the exact pairing, preferred.
+      2. ``$V2ECOLI_SIM_DATA`` — explicit override (use when you know the
+         matching sim_data path).
+      3. The ParCa knowledge-base build (``out/kb/simData.cPickle`` /
+         ``out/workflow/simData.cPickle``) — the fallback that makes analyses
+         (e.g. the ptools_* exports) runnable on a sweep that ran from the
+         cached sim-input bundle, which does NOT itself contain a sim_data
+         pickle (it stores process configs only). Emits a warning because the
+         kb build can in principle be a different sim_data version than the
+         sweep's cache; ensure they're from the same ParCa run.
+    """
     from v2ecoli.library.sim_data import LoadSimData
-    # NB: do NOT match `**/kb/simData*.cPickle` — out/kb/simData.cPickle is the
-    # ParCa knowledge-base build, which can be a DIFFERENT sim_data version than
-    # the one the sweep ran with (see the pairing correction in the parity note).
     for pat in ("sim_data*.cPickle", "sim_data*.pkl", "simData*.cPickle",
                 "**/sim_data*.cPickle", "**/simData*.cPickle"):
         hits = glob.glob(os.path.join(sweep_dir, pat), recursive=True)
         if hits:
             return LoadSimData(sim_data_path=hits[0]).sim_data
+    env = os.environ.get("V2ECOLI_SIM_DATA")
+    if env and os.path.isfile(env):
+        return LoadSimData(sim_data_path=env).sim_data
+    for fallback in (os.path.join("out", "kb", "simData.cPickle"),
+                     os.path.join("out", "workflow", "simData.cPickle")):
+        if os.path.isfile(fallback):
+            print(f"  sim_data: no sweep-local pickle; falling back to the ParCa "
+                  f"build {fallback!r} — ensure it matches the sweep's cache "
+                  f"(set $V2ECOLI_SIM_DATA to override).")
+            return LoadSimData(sim_data_path=fallback).sim_data
     raise FileNotFoundError(
-        f"no sim_data pickle under {sweep_dir!r} (needed by Analysis steps)")
+        f"no sim_data pickle under {sweep_dir!r}, no $V2ECOLI_SIM_DATA, and no "
+        f"out/kb/simData.cPickle (needed by Analysis steps)")
 
 
 def resolve_validation_data(sim_data):

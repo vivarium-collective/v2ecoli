@@ -76,4 +76,7 @@ ui:
   # e.g. http://host.docker.internal:<dashboard-port>. Unset = inferred from the
   # browser's Host header, which the container can't resolve. Uncomment + set
   # your dashboard port once a study emits ptools TSVs (studies/<n>/**/ptools/*.tsv).
-  # dashboard_public_base_url: "http://host.docker.internal:8771"
+  # The PTools container fetches study TSVs from this dashboard over HTTP;
+  # host.docker.internal lets the container reach the dashboard on the host.
+  # Adjust the port to match how you serve the dashboard.
+  dashboard_public_base_url: "http://host.docker.internal:8771"

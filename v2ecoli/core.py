@@ -82,6 +82,20 @@ def build_core():
         core.register_link("KetchupDynamicEstimator", KetchupDynamicEstimator)
     except Exception:
         pass
+    # Pulled-in external reactor physics (pbg-bioreactordesign): register
+    # BiRDTransportProcess so local:BiRDTransportProcess resolves in the mbp-03
+    # coupled-reactor composite. Guarded — a missing pbg_bioreactordesign must
+    # never break build_core for the rest of v2ecoli.
+    try:
+        from pbg_bioreactordesign import BiRDTransportProcess
+        core.register_link("BiRDTransportProcess", BiRDTransportProcess)
+        # BiRDTransportHours: the seconds->hours time-base adapter the coupled
+        # composite actually wires (v2ecoli steps in seconds; the transport math
+        # is in hours). See v2ecoli/steps/bird_transport_hours.py.
+        from v2ecoli.steps.bird_transport_hours import BiRDTransportHours
+        core.register_link("BiRDTransportHours", BiRDTransportHours)
+    except Exception:
+        pass
     return core
 
 

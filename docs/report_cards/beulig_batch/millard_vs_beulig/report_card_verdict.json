@@ -1,0 +1,176 @@
+{
+  "schema": "report_card_verdict/v1",
+  "model_ref": "reactor_bird_coupled_millard",
+  "reference_model": "Beulig 2025 WT batch prefix",
+  "generated": "2026-06-15 01:54Z",
+  "overall": "mismatch",
+  "groups": {
+    "growth": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "growth.biomass_gDW_per_L",
+          "label": "Biomass (OD x 0.34)",
+          "verdict": "mismatch",
+          "value": 0.013104145978468191,
+          "meter": "\u0394 = -12.91 (99.9% rel)",
+          "detail": {
+            "rel": 0.9989857472152888
+          }
+        }
+      ]
+    },
+    "substrate": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "substrate.GUR",
+          "label": "Glucose uptake rate",
+          "verdict": "mismatch",
+          "value": 0.0,
+          "meter": "\u0394 = -14.45 (100.0% rel)",
+          "detail": {
+            "rel": 1.0
+          }
+        },
+        {
+          "id": "substrate.glucose_conc",
+          "label": "Glucose concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "gas_transfer": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "gas_transfer.OTR",
+          "label": "O2 transfer rate (OTR)",
+          "verdict": "mismatch",
+          "value": 6.649733971152584,
+          "meter": "\u0394 = -8489 (99.9% rel)",
+          "detail": {
+            "rel": 0.9992172731800988
+          }
+        },
+        {
+          "id": "gas_transfer.CTR",
+          "label": "CO2 transfer rate (CTR)",
+          "verdict": "mismatch",
+          "value": 0.0,
+          "meter": "\u0394 = -156.8 (100.0% rel)",
+          "detail": {
+            "rel": 1.0
+          }
+        },
+        {
+          "id": "gas_transfer.dissolved_o2",
+          "label": "Dissolved O2",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "summary": {
+      "verdict": "within_tol",
+      "axes": [
+        {
+          "id": "summary.comparison_executed",
+          "label": "Comparison executed (process-level)",
+          "verdict": "within_tol",
+          "value": true,
+          "meter": "pass",
+          "detail": {}
+        }
+      ]
+    },
+    "byproducts": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "byproducts.acetate",
+          "label": "Acetate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.lactate",
+          "label": "Lactate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.formate",
+          "label": "Formate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.ethanol",
+          "label": "Ethanol concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.pyruvate",
+          "label": "Pyruvate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        },
+        {
+          "id": "byproducts.succinate",
+          "label": "Succinate concentration",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "ph_control": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "ph_control.base_addition",
+          "label": "Base addition (cumulative)",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    }
+  },
+  "scope": "3-generation multigen PRODUCTION run (run_multigen_sqlite, single_daughters=True, steps_reached=9000, generations=[1], n_rows=150, cells_per_agent=1e+10). Real multi-generation lineage trajectory fed into the grader (vs the short-run smoke). Biological magnitudes remain far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
+  "multigen": {
+    "max_generations": 3,
+    "generations_seen": [
+      1
+    ],
+    "steps_reached": 9000,
+    "n_history_rows": 150,
+    "single_daughters": true,
+    "db_file": "out/mbp_production/millard/run.db"
+  },
+  "wall_s": 630.94,
+  "charts": [
+    "overlay_growth.png",
+    "overlay_OTR.png",
+    "overlay_CTR.png"
+  ]
+}

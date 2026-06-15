@@ -1,0 +1,88 @@
+{
+  "meta": {
+    "investigation": "multiscale-bioprocess",
+    "pr": "vivarium-collective/v2ecoli#69",
+    "source": "GitHub PR review (Files Changed tab)",
+    "reviewer": "cplong90 (Chris Long)",
+    "exported_at": "2026-05-28"
+  },
+  "reviews": [
+    {
+      "id": "PRR_kwDOR58sx88AAAABBTGJtQ",
+      "submitted_at": "2026-05-28T14:58:05Z",
+      "state": "COMMENTED",
+      "body": "A few small consistency catches in mbp-05 — looks like the renamings from the §10 reframe didn't fully propagate to `required_knowledge.claims.backs[]` and `regression_tests.inherits_from`, and `od_to_gdw` doesn't match mbp-02's 0.34. All trivial cleanup, flagging for follow-up rather than blocking.\n\nOtherwise everything I've verified so far (investigation.yaml, mbp-02, mbp-05) reads as a faithful and considered integration of the 5/26 review — including some additions that go beyond what I explicitly recommended (e.g. the `well-mixed-representative-sampling-equivalence` claim, the `scaling-factor-sets-stochastic-floor` open question, the 13 comparison_overlays vs my original 8). Working through mbp-06 + mbp-03 next; will flag anything as I go."
+    },
+    {
+      "id": "PRR_kwDOR58sx88AAAABBTlZUQ",
+      "submitted_at": "2026-05-28T16:02:35Z",
+      "state": "COMMENTED",
+      "body": "Verification pass on mbp-01, mbp-03, mbp-04, mbp-06 + chart sanity check. Three substantive observations + one cleanup pattern.\n\n**Substantive:**\n\n1. **Empirical confirmation that cells_per_agent scaling works.** `studies/mbp-02-population-aggregation/charts/01_population-scaling.svg` shows perfect log-y parallelism across cpa ∈ {1, 1e6, 1e9} — exact 9-orders-of-magnitude scaling, reaches Beulig regime (~10^12-10^13 cells/L at cpa=1e9) from a single-cell-with-Division simulation. `00_per-cell-mass-invariant.svg` shows three overlapping traces — aggregator never touches per-cell state. The architectural decision isn't just adopted in YAML; it's been validated empirically with actual sim runs.\n\n2. **mbp-06 schema extensions are extensive and fully adopted.** `mandatory_findings_to_consider` with all 4 carried priors (including the Eran-flagged low-GUR mass balance + the new `cells_per_agent-scaling-stochastic-floor`); `findings_schema` fully specified; `resolution_type` / `resolution_venue` / `decision_authority` / `provenance` fields; per-axis floors A=3, D=3, B=C=E=1; three new behavior tests enforcing the schema. The `framework_axis_e_gaps` block operationalized Comment B as 6 concrete upstream PR candidates with explicit `resolution_type: upstream_PR` + `resolution_venue` routing.\n\n3. **Cross-investigation hook fully wired.** `pbg-bioreactor-transport-fork` named as hard prerequisite in `mbp-03.pipeline_gate.prerequisites`; mbp-06 lists it as a pre-seeded candidate-future-study with `decision_authority: pbg-bioreactordesign maintainer (Chris)`. The Track 2 pbg-bioreactor investigation has explicit routing from this side.\n\n**Cleanup pattern (same root cause as Pass 1's mbp-05 catches):** when mbp-01's test set was reshaped under the §3 plumbing-only reframe, the downstream `regression_tests.inherits_from` blocks didn't get updated. Plus a few obsolete failure modes / unblocks lists. Six items inline below — all trivial.\n\nVerification of integration complete. Net read: extraordinarily faithful integration with thoughtful additions beyond what I recommended (the empirical chart validations, the framework_axis_e_gaps operationalization, the explicit Option-A fallback path documentation in mbp-03)."
+    }
+  ],
+  "inline_comments": [
+    {
+      "path": "studies/mbp-05-palsson-benchmark/study.yaml",
+      "line": 399,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T14:58:05Z",
+      "body": "Stale reference — `end-of-run-od-matches-published` was renamed to `end-of-run-od-comparison-rendered` in the §10 reframe (same for `time-to-target-od-matches-published`). The claim FK linkage in `backs[]` didn't get updated alongside the test renames."
+    },
+    {
+      "path": "studies/mbp-05-palsson-benchmark/study.yaml",
+      "line": 486,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T14:58:05Z",
+      "body": "Stale reference — `uptake-flux-tracks-external-glucose` was removed from mbp-01 per the §3 plumbing-only reframe. `regression_tests.inherits_from` should reference the new mbp-01 test names instead: `external_glucose_updates_propagate_within_one_step`, `cumulative-mass-balance-closes`, `zero-substrate-blocks-uptake`, `saturating-substrate-respects-vmax`, `plateau-across-saturating-range`, `static-env-baseline-unchanged`."
+    },
+    {
+      "path": "studies/mbp-05-palsson-benchmark/study.yaml",
+      "line": 279,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T14:58:05Z",
+      "body": "Cross-study inconsistency: this says `od_to_gdw, default 0.33` but mbp-02 (line 212) sets it to `0.34` (Beulig's value, per the resolved `req-1-palsson-ingestion` ingestion note). Worth aligning here to match."
+    },
+    {
+      "path": "studies/mbp-03-bird-reactor-coupling/study.yaml",
+      "line": 450,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T16:02:35Z",
+      "body": "Stale reference (same pattern as the mbp-05 catches in Pass 1): `uptake-flux-tracks-external-glucose` was removed from mbp-01 per the §3 plumbing-only reframe. `regression_tests.inherits_from` should reference the new mbp-01 test names instead (`external_glucose_updates_propagate_within_one_step`, `zero-substrate-blocks-uptake`, `saturating-substrate-respects-vmax`, `plateau-across-saturating-range`, `cumulative-mass-balance-closes`, `static-env-baseline-unchanged`)."
+    },
+    {
+      "path": "studies/mbp-03-bird-reactor-coupling/study.yaml",
+      "line": 409,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T16:02:35Z",
+      "body": "Under Option B, `BiRDTransportProcess` has no internal biomass ODE by construction, so these signatures (\"BiRD's internal biomass ODE not actually disabled\" and the line-414 check `Confirm BiRDReactorProcess config.max_growth_rate_per_h == 0 at boot`) aren't reachable on the primary path. They'd apply to the Option-A fallback documented in `model_change.notes`. Worth tagging them explicitly as \"Option-A fallback only\" if you want to keep them, or removing if the fallback isn't expected to be exercised. Minor cleanup."
+    },
+    {
+      "path": "studies/mbp-04-multigeneration-runs/study.yaml",
+      "line": 265,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T16:02:35Z",
+      "body": "Stale reference (same pattern as mbp-05 / mbp-03): `uptake-flux-tracks-external-glucose` was removed from mbp-01 per the §3 plumbing-only reframe. `regression_tests.inherits_from` should reference the new mbp-01 test names."
+    },
+    {
+      "path": "studies/mbp-01-time-varying-environment/study.yaml",
+      "line": 359,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T16:02:35Z",
+      "body": "Obsolete signature: `uptake-flux-tracks-external-glucose` was removed per the §3 reframe (noted explicitly in `limitations`). This failure mode is for a non-existent test. Either remove or repurpose to a current test's potential failure (e.g. `external_glucose_updates_propagate_within_one_step` propagation lag)."
+    },
+    {
+      "path": "studies/mbp-01-time-varying-environment/study.yaml",
+      "line": 414,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T16:02:35Z",
+      "body": "Stale reference: the `do-clamp-low` simulation was removed per the §3 reframe (replaced with `zero-substrate-clamp` and the two saturating-glucose sims). The unblocks list should reflect the current sim names."
+    },
+    {
+      "path": "studies/mbp-06-gap-analysis/study.yaml",
+      "line": 552,
+      "commit_id": "9b5c18c947b611129ff7bede1c13eb84b2d3f076",
+      "created_at": "2026-05-28T16:02:35Z",
+      "body": "Stale reference (parallel pattern to mbp-05 catches): `at-least-eight-gaps-total` was removed per the §11 tactical change (see explicit removal comment at line 266-269). `req-1-synthesis-harness.unblocks` should drop it (and possibly add the new schema-enforcement tests like `every-gap-has-resolution-type-and-venue`)."
+    }
+  ]
+}

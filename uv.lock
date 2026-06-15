@@ -2599,6 +2599,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pbg-bioreactordesign"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main#f40f82f0057d042cb06f349dbe1702306b35ddbf" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "pbg-superpowers" },
+    { name = "process-bigraph" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
 name = "pbg-copasi"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main#c5604b7ba9785d0b43c7d00d53a2023b4ce4a28f" }
@@ -4108,6 +4121,7 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pbg-bioreactordesign" },
     { name = "pbg-copasi" },
     { name = "pbg-emitters", extra = ["parquet", "xarray"] },
     { name = "pbg-ketchup" },
@@ -4146,6 +4160,7 @@ requires-dist = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pbg-bioreactordesign", git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main" },
     { name = "pbg-copasi", git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main" },
     { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },

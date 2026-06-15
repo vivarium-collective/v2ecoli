@@ -65,6 +65,9 @@
       font-family: inherit;
     }
     button:hover { border-color: var(--accent); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:disabled:hover { border-color: var(--border); }
+    #vr-button[data-vr-state="ready"], #vr-button[data-vr-state="active"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
     #canvas-wrap { grid-area: canvas; position: relative; overflow: hidden; }
     canvas { display: block; outline: none; }
     #drop-overlay { display: none; }
@@ -239,6 +242,7 @@
       <div style="flex:1"></div>
       <button id="about-btn" title="how this model was made">ⓘ about</button>
       <button id="reset-view">reset view</button>
+      <button id="vr-button" disabled title="Checking for a headset…">View in VR</button>
     </header>
 
     <div id="canvas-wrap">
@@ -306,7 +310,7 @@
         <input type="checkbox" id="toggle-bg-grid">
         <input type="range" id="mesh-budget" min="1" max="12" step="0.5" value="4">
         <span id="mesh-budget-value"></span>
-        <input type="range" id="sphere-budget" min="3" max="60" step="1" value="12">
+        <input type="range" id="sphere-budget" min="3" max="60" step="1" value="6">
         <span id="sphere-budget-value"></span>
         <select id="slice-axis"><option value="">none</option></select>
         <input type="range" id="slice-pos" min="-1" max="1" step="0.005" value="0">
@@ -323,6 +327,6 @@
     </footer>
   </div>
 
-  <script type="module" src="./viewer.js?v=15"></script>
+  <script type="module" src="./viewer.js?v=19"></script>
 </body>
 </html>

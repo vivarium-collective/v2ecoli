@@ -16,6 +16,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries, mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
+import { initVR } from "./vr.js?v=19";
 
 // ───── DOM refs ─────────────────────────────────────────────────────
 const canvasWrap = document.getElementById("canvas-wrap");
@@ -48,6 +49,7 @@ camera.position.set(150, 120, 200);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.localClippingEnabled = true;
+renderer.xr.enabled = true;   // WebXR ("View in VR") — see vr.js
 canvasWrap.appendChild(renderer.domElement);
 
 // Style + outline state. Declared here so the composer setup below
@@ -723,12 +725,17 @@ function robustBoundingRadius(geom) {
 /// whatever the http server is serving (which is the project root
 /// when launched via `view_pack.sh`). Absolute URLs and protocol
 /// URLs pass through unchanged.
+// Base directory of the loaded pack, used to resolve relative mesh URLs.
+// Mesh URLs in a pack are pack-relative (e.g. "meshes/foo.lod0.obj"); resolving
+// them against the pack's own directory is correct whether the pack is served
+// from the site root (local dev) or a deep path (gh-pages /repo/dashboard/...).
+let meshBaseUrl = "";
 function resolveMeshUrl(url) {
   if (!url) return url;
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) {
     return url;
   }
-  return "/" + url;
+  return meshBaseUrl + url;
 }
 
 // Fetch + parse one OBJ, with IDB cache around it. Pure function:
@@ -1394,7 +1401,7 @@ let lodVoxelPixelTarget = 4.0;
 // at 3 px they ALL route to meshes (no culling, mass OBJ loads) and the
 // view becomes unnavigable. Default to a higher budget so distant
 // instances stay cheap proxies; the "Mesh @px" slider tunes it.
-let lodSphereBudgetPx = 12.0;
+let lodSphereBudgetPx = 6.0;
 
 // Fraction of each ingredient's instances actually drawn — a viz-only
 // subsample (the pack order is random, so a prefix is a uniform random
@@ -1407,6 +1414,10 @@ let interiorFraction = 1.0;
 // that still reads as a crowded cell. Whole-cell packs (~1M+) are subsampled
 // down to this; smaller packs render in full.
 const TARGET_DRAWN = 250000;
+// Rare types (few copies) are always drawn in full — the global subsample is for
+// the abundant species. Without this, a 30-copy complex like the flagellum would
+// be culled to ~6 at a 20% show fraction.
+const ALWAYS_SHOW_MAX = 1000;
 function applyAdaptiveShowFraction(totalPlacements) {
   if (!totalPlacements) return;
   let pct = Math.min(100, Math.max(5, Math.round((TARGET_DRAWN / totalPlacements) * 100 / 5) * 5));
@@ -1496,7 +1507,11 @@ function refreshFrustum() {
 // total placement count (≈ 27k for mycoplasma_full).
 function reassessLODs() {
   refreshFrustum();
-  const camPos = camera.position;
+  // In VR the active camera is the headset rig (renderer.xr.getCamera()); use
+  // its world position so LOD/frustum picking tracks where the user actually is.
+  const camPos = renderer.xr.isPresenting
+    ? renderer.xr.getCamera().getWorldPosition(new THREE.Vector3())
+    : camera.position;
   const vh = renderer.domElement.clientHeight || 1;
   const fovHalfTan = Math.tan((camera.fov * Math.PI / 180) / 2);
   const camX = camPos.x, camY = camPos.y, camZ = camPos.z;
@@ -1528,7 +1543,9 @@ function reassessLODs() {
       }
     }
 
-    const nShow = Math.round(entry.placements.length * interiorFraction);
+    const nShow = entry.placements.length <= ALWAYS_SHOW_MAX
+      ? entry.placements.length
+      : Math.round(entry.placements.length * interiorFraction);
     for (let pi = 0; pi < nShow; pi++) {
       const p = entry.placements[pi];
       const px = p.position[0], py = p.position[1], pz = p.position[2];
@@ -2707,24 +2724,30 @@ function tick() {
   // cause a one-shot ten-frames-worth of motion that feels like a jerk.
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
-  if (autoSpin) {
-    controls.target;
-    const target = controls.target;
-    const offset = camera.position.clone().sub(target);
-    const ang = dt * 0.25;
-    const cos = Math.cos(ang), sin = Math.sin(ang);
-    const nx = offset.x * cos - offset.z * sin;
-    const nz = offset.x * sin + offset.z * cos;
-    offset.x = nx;
-    offset.z = nz;
-    camera.position.copy(target).add(offset);
-    // OrbitControls only emits "change" on user input, not on our
-    // own camera moves; reassess explicitly so spin keeps the LOD +
-    // frustum partition in sync.
+  if (renderer.xr.isPresenting) {
+    // VR: the headset drives the camera; controllers drive the dolly.
+    if (vrApi) vrApi.updateVR(dt);
     scheduleReassess();
+  } else {
+    if (autoSpin) {
+      controls.target;
+      const target = controls.target;
+      const offset = camera.position.clone().sub(target);
+      const ang = dt * 0.25;
+      const cos = Math.cos(ang), sin = Math.sin(ang);
+      const nx = offset.x * cos - offset.z * sin;
+      const nz = offset.x * sin + offset.z * cos;
+      offset.x = nx;
+      offset.z = nz;
+      camera.position.copy(target).add(offset);
+      // OrbitControls only emits "change" on user input, not on our
+      // own camera moves; reassess explicitly so spin keeps the LOD +
+      // frustum partition in sync.
+      scheduleReassess();
+    }
+    applyKeyboardMotion(dt);
+    controls.update();
   }
-  applyKeyboardMotion(dt);
-  controls.update();
   // The cel shader now provides Goodsell-style silhouette outlines
   // intrinsically (via view-aligned NdotV darkening), so we render
   // directly in both modes. The composer machinery is kept above as
@@ -2743,9 +2766,18 @@ function tick() {
     fpsCount = 0;
     fpsUpdate = now;
   }
-  requestAnimationFrame(tick);
 }
-requestAnimationFrame(tick);
+
+// WebXR "View in VR": enables the #vr-button when a headset is detected and
+// enters/exits immersive-VR. setAnimationLoop (not requestAnimationFrame) is
+// required so the headset can drive the render loop while presenting.
+const vrApi = initVR({
+  renderer, scene, camera,
+  button: document.getElementById("vr-button"),
+  onEnter: () => { controls.enabled = false; if (typeof autoSpin !== "undefined") autoSpin = false; },
+  onExit: () => { controls.enabled = true; scheduleReassess(); },
+});
+renderer.setAnimationLoop(tick);
 
 // ───── recipe dropdown ─────────────────────────────────────────────
 // `data/index.json` lists demo packings staged in `viewer/data/`.
@@ -2755,6 +2787,7 @@ requestAnimationFrame(tick);
 const demoPicker = document.getElementById("demo-picker");
 
 async function loadByPath(path) {
+  meshBaseUrl = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
   try {
     const resp = await fetch(path);
     if (!resp.ok) throw new Error(resp.statusText);

@@ -252,6 +252,23 @@ class Division(V2Step):
                         agent[key] = d_data[key]
                 agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
                 seed_mass_listener(agent, self.core)
+                # Advance the phylogeny. baseline() always wires the daughter's
+                # OWN internal division Step with the default agent_id='0' (see
+                # _helpers._get_step_config). Re-point it at this daughter's
+                # actual lineage id so that when *this* daughter later divides it
+                # removes the correct agent and emits descendant ids
+                # (e.g. parent '00' -> daughters '000'/'001'), instead of forever
+                # re-emitting '00'/'01'. Without this, _remove:['0'] removes
+                # nothing on the 2nd+ division and run_multigen_sqlite's
+                # followed-agent-disappeared branch never trips, so generations
+                # are under-counted even though gen-3 cells biologically run.
+                div_edge = agent.get('division')
+                if isinstance(div_edge, dict):
+                    if isinstance(div_edge.get('config'), dict):
+                        div_edge['config']['agent_id'] = daughter_id
+                    inst = div_edge.get('instance')
+                    if inst is not None:
+                        inst.agent_id = daughter_id
                 return doc
 
             d1_doc = _build_daughter_doc(d1_data, d1_seed, d1_id)

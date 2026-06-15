@@ -65,7 +65,10 @@ from v2ecoli.steps.environment_driver import (
     EnvironmentDriver,
 )
 from v2ecoli.steps.environment_mirror import EnvironmentMirror
-from v2ecoli.steps.reactor_cell_coupler import ReactorCellCoupler
+from v2ecoli.steps.reactor_cell_coupler import (
+    GLUCOSE_MEDIUM_LEAF,
+    ReactorCellCoupler,
+)
 
 
 # Top-level state keys / step names.
@@ -86,6 +89,21 @@ DEFAULT_BIRD_REACTOR_CONFIG: dict[str, Any] = {
 # equilibrium can't be computed at build time. ~O2 saturation at 37 C.
 FALLBACK_DISSOLVED_O2_MGL = 8.0
 FALLBACK_DISSOLVED_CO2_MGL = 0.5
+
+# Medium glucose recipe seed (mmol/L) for the ReactorCellCoupler medium
+# accumulator (#225 req-3). Default ~ M9 batch glucose (4 g/L / 180.16 g/mol =
+# 22.2 mM); the coupler draws this pool down by the cell's GLC uptake so
+# reactor.glucose_medium_mM is a gradeable remaining-glucose CONCENTRATION
+# (vs Beulig reactor_glucose_data.csv). Byproduct leaves seed at 0 (cumulative
+# secreted concentration).
+DEFAULT_INITIAL_GLUCOSE_MM = 22.2
+# Byproduct medium-concentration leaves seeded on the reactor store (mmol/L,
+# ADDITIVE float — only the coupler writes them). Mirrors
+# reactor_cell_coupler.BYPRODUCT_LEAVES.
+MEDIUM_BYPRODUCT_LEAVES = (
+    "acetate_mM", "lactate_mM", "formate_mM",
+    "ethanol_mM", "pyruvate_mM", "succinate_mM",
+)
 
 # BiRDTransportProcess update interval (SECONDS — v2ecoli's global time base).
 #
@@ -127,15 +145,25 @@ def _transport_equilibrium(bird_config: dict[str, Any]) -> tuple[float, float]:
         return FALLBACK_DISSOLVED_O2_MGL, FALLBACK_DISSOLVED_CO2_MGL
 
 
-def _reactor_store(bird_config: dict[str, Any]) -> dict[str, Any]:
+def _reactor_store(
+    bird_config: dict[str, Any],
+    initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
+) -> dict[str, Any]:
     """Seed the shared reactor store.
 
     ``dissolved_o2`` / ``dissolved_co2`` are bare floats (additive multi-writer
     shared stores). ``biomass`` is overwrite[float] (single writer = coupler,
     passthrough). Read-only inputs (``glucose``, ``gas_flow_rate_Lpm``,
     ``volume_L``) and the transport diagnostics are seeded so wires resolve.
+
+    ``glucose_medium_mM`` + the ``*_mM`` byproduct leaves are ADDITIVE float
+    medium-concentration accumulators the coupler integrates exchange counts into
+    (#225 req-3): glucose seeds at the medium recipe (drawn down by uptake);
+    byproducts seed at 0 (accumulate secretion).
     """
     cstar_o2, cstar_co2 = _transport_equilibrium(bird_config)
+    medium = {GLUCOSE_MEDIUM_LEAF: float(initial_glucose_mM)}
+    medium.update({leaf: 0.0 for leaf in MEDIUM_BYPRODUCT_LEAVES})
     return {
         # Additive shared dissolved-gas stores (mg/L) — both transport and the
         # coupler write deltas; the float _apply sums them. Seeded at the
@@ -156,6 +184,8 @@ def _reactor_store(bird_config: dict[str, Any]) -> dict[str, Any]:
         "o2_saturation":       {"_type": "overwrite[float]", "_default": 0.0},
         "co2_saturation":      {"_type": "overwrite[float]", "_default": 0.0},
         "gas_holdup":          {"_type": "overwrite[float]", "_default": 0.0},
+        # Medium-concentration accumulators (mmol/L; additive — coupler-only).
+        **medium,
     }
 
 
@@ -165,6 +195,8 @@ def add_reactor_coupling(
     *,
     bird_config: dict | None = None,
     cells_per_agent: float = 1.0,
+    initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
+    track_medium: bool = True,
 ) -> dict:
     """Layer the BiRD reactor + cell<->reactor coupling onto a cell document.
 
@@ -235,7 +267,7 @@ def add_reactor_coupling(
         flow_order.extend([ENVIRONMENT_DRIVER_STEP_NAME, ENVIRONMENT_MIRROR_STEP_NAME])
 
     # --- reactor side: shared stores + transport + coupler ----------------
-    state[REACTOR_STORE_NAME] = _reactor_store(bird_cfg)
+    state[REACTOR_STORE_NAME] = _reactor_store(bird_cfg, initial_glucose_mM)
 
     # BiRDTransportHours (local: link registered in build_core) — the
     # seconds->hours time-base adapter over BiRDTransportProcess. Reads the
@@ -273,6 +305,7 @@ def add_reactor_coupling(
     coupler_config = {
         "cells_per_agent":  float(cells_per_agent),
         "reactor_volume_L": float(bird_cfg.get("volume_L", 1.0)),
+        "track_medium":     bool(track_medium),
     }
     coupler = _make_instance(ReactorCellCoupler, coupler_config, core)
     coupler_edge = make_edge(
@@ -280,12 +313,22 @@ def add_reactor_coupling(
         config=coupler_config,
     )
     # Override the coupler's reactor output schema so biomass routes (overwrite)
-    # while dissolved gases stay additive (see module docstring — the bare
-    # InPlaceDict port silently drops biomass once reactor is a structured tree).
+    # while dissolved gases + the medium-concentration accumulators stay additive
+    # (see module docstring — the bare InPlaceDict port silently drops any leaf
+    # the per-leaf schema doesn't enumerate once reactor is a structured tree, so
+    # the new *_mM leaves MUST be listed here or the coupler's medium deltas never
+    # apply).
     coupler_edge["_outputs"]["reactor"] = {
         "biomass":       "overwrite[float]",
         "dissolved_o2":  "float",
         "dissolved_co2": "float",
+        GLUCOSE_MEDIUM_LEAF: "float",
+        "acetate_mM":   "float",
+        "lactate_mM":   "float",
+        "formate_mM":   "float",
+        "ethanol_mM":   "float",
+        "pyruvate_mM":  "float",
+        "succinate_mM": "float",
     }
     state[REACTOR_CELL_COUPLER_STEP_NAME] = coupler_edge
 
@@ -317,6 +360,14 @@ def add_reactor_coupling(
             "type": "object", "default": dict(DEFAULT_BIRD_REACTOR_CONFIG)},
         # Population-aggregator knobs forwarded to baseline_population.
         "cells_per_agent": {"type": "number", "default": 1.0},
+        # "fixed" (default) | "representative_doubling" (#225 item #1): grow the
+        # represented population 2x per generation so the coupled reactor sees an
+        # ACCUMULATING biomass / O2 demand instead of the single-lineage plateau.
+        "population_growth_mode": {"type": "string", "default": "fixed"},
+        # Medium glucose recipe seed (mmol/L) for the coupler's drawdown
+        # accumulator (#225 req-3 substrate/glucose-conc axis).
+        "initial_glucose_mM": {"type": "number",
+                               "default": DEFAULT_INITIAL_GLUCOSE_MM},
     },
 )
 def reactor_bird_coupled(
@@ -326,6 +377,8 @@ def reactor_bird_coupled(
     cache_dir: str = "out/cache",
     bird_reactor_config: dict | None = None,
     cells_per_agent: float = 1.0,
+    population_growth_mode: str = "fixed",
+    initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
 ) -> dict:
     """Build the reactor_bird_coupled document.
 
@@ -345,10 +398,12 @@ def reactor_bird_coupled(
     document = baseline_population(
         core, seed=seed, cache_dir=cache_dir, cells_per_agent=cells_per_agent,
         reactor_volume_L=float(bird_config.get("volume_L", 1.0)),
+        population_growth_mode=population_growth_mode,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)
     return add_reactor_coupling(
         document, core,
         bird_config=bird_config, cells_per_agent=cells_per_agent,
+        initial_glucose_mM=initial_glucose_mM,
     )

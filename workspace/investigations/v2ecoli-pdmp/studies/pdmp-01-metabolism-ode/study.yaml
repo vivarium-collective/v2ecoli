@@ -463,8 +463,10 @@ report:
   evidence_quality: first-run-confirmed
   conclusion: 'First run confirmed (2026-05-24): Millard 2017 SBML loads + simulates via pbg-copasi and recovers the published
     reference steady state for central carbon + energy metabolites (G6P, F6P, FDP, PEP, PYR, ATP/ADP, NADH/NADPH, MAL, AKG
-    all match BioModels MODEL1505110000 initial values to solver tolerance). FBA-bridge composite and LQR control layer not
-    yet built; Phase 0 ensemble comparison pending the v2ecoli baseline run.'
+    all match BioModels MODEL1505110000 initial values to solver tolerance). The FBA-bridge flux-pin now integrates the
+    Millard ODE into the WCM FBA (24 active pins) and the LQR was fixed to a real stabilizing gain (||K|| ≈ 4.39, commit
+    cc6a72d); the PDMP-vs-Phase-0 endpoint W₂ comparison is done on M9-glucose (±σ gate MET; cell_mass W₂/σ = 1.00,
+    dry_mass 1.09, commit 6a764fc), with acetate / +aa multi-condition still pending.'
   main_insight: pbg-copasi gives us the published Millard model as a first-class PB process without re-deriving rate laws
     — Phase 1 effort goes to the LQR + FBA-bridge, not to ODE re-implementation.
   caveat: 'LQR reference trajectory must not reintroduce a teleonomic parameter in disguise; the causal/teleonomic partition
@@ -884,9 +886,10 @@ discovery_implications:
     v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*) — its likelihood path was unbuildable
     until fixed in this refresh; (b) in the DEFAULT ''proportional'' ref-growth mode the composite CRASHES
     mid-run with "ValueError: Negative values at equilibrium steady state" (v2ecoli/processes/equilibrium.py)
-    and runs only in the ''consumption_matched'' mode; (c) even in consumption_matched mode the LQR Riccati
-    solve fails ("Failed to find a finite solution"; falls back to zero gain) — the outer controller is
-    degenerate.'
+    and runs only in the ''consumption_matched'' mode; (c) the LQR zero-gain Riccati bug (an A = I + J
+    finite-difference artifact) was root-caused and FIXED (commit cc6a72d; true Jacobian + conserved-moiety
+    CARE shift → ||K|| ≈ 4.39, regression-tested in tests/test_lqr_riccati_stabilizable.py), so the outer
+    controller is no longer degenerate (gain_degenerate=False across 12/12 replicates).'
   - 'The FBA-bridge composite has not been shown to hold interface statistics across ANY Phase-0
     condition; the M9-glucose, M9-acetate and M9-glucose+aa W2 audits are all pending (no condition is
     closed).'
@@ -916,9 +919,10 @@ discovery_implications:
   - mechanism_node_or_edge: metabolism (multi-objective FBA -> kinetic ODE)
     update_type: replace
     rationale: 'Substitute v2ecoli''s multi-objective modular_fba LP with the Millard 2017 kinetic ODE +
-      LQR outer control as the Phase-1-canonical metabolism layer. NOT yet accepted — the ±σ cell_mass /
-      dry_mass gate on M9-glucose is unmet (~ -20 σ / -18 σ at t=600 s) and no true W2 has been computed;
-      the multi-condition FBA-bridge validation is also pending.'
+      LQR outer control as the Phase-1-canonical metabolism layer. NOT yet accepted as canonical — but the
+      ±σ cell_mass / dry_mass gate is now MET on M9-glucose (endpoint W₂/σ = 1.00 / 1.09 after the
+      closed-loop WATER[c] fix, commit 6a764fc); the multi-condition (acetate / +aa) W₂ and the FBA-bridge
+      multi-condition validation remain pending (requires_expert_approval).'
     requires_expert_approval: true
   followup_study_proposals:
   - id: pdmp-01-fba-bridge-multicondition

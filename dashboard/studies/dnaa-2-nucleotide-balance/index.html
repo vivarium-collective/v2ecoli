@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study: dnaa-2-nucleotide-balance</title>
+<link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
+</head>
+<body>
+<main class="study-page">
+<header class="study-header">
+  <h1 class="study-title">
+    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">dnaa-2</span><span class="study-name" id="study-name" data-slug="dnaa-2-nucleotide-balance" title="dnaa-2-nucleotide-balance">Study 2 — Validate ATP/ADP Balance</span>
+    
+    
+    
+    <span class="status-pill gate-status gate-status-passed" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: passed</span>
+    
+    
+    
+    
+  </h1>
+</header>
+
+
+
+
+
+<div id="readiness-panel" data-slug="dnaa-2-nucleotide-balance"></div>
+
+
+
+
+
+
+<style>
+.status-detail-panel{margin:8px 0 14px 0;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+.status-detail-panel h2{margin:0 0 6px 0;font-size:0.82em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:600}
+.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
+.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
+/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
+.gate-status-blocked          { background:#e5e7eb; color:#374151 }
+.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
+.gate-status-passed           { background:#d1fae5; color:#065f46 }
+.gate-status-failed           { background:#fee2e2; color:#991b1b }
+.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
+.status-pill.gate-status{font-weight:500}
+</style>
+<details class="status-detail-panel" aria-label="Multi-axis status detail" open>
+  <summary class="study-fold-summary">Status detail (Pass A multi-axis)</summary>
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Design</span>
+    <span class="status-chip ">complete</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Implementation</span>
+    <span class="status-chip ">complete</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Simulation</span>
+    <span class="status-chip ">ran</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Evaluation</span>
+    <span class="status-chip ">evaluated</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Gate</span>
+    <span class="status-chip gate-status-passed">passed</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Expert review</span>
+    <span class="status-chip ">approved</span>
+  </div>
+  
+  
+</details>
+
+
+
+
+
+
+<style>
+.spine-summary{margin:6px 0 14px 0;border:1px solid #cbd5e1;border-left-width:5px;border-radius:6px;background:#f8fafc;font-size:0.9em}
+.spine-summary:empty{display:none}
+.spine-summary-head{padding:7px 14px 4px 14px;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700}
+.spine-row{display:flex;align-items:baseline;gap:10px;padding:4px 14px;border-top:1px solid #eef2f6}
+.spine-key{min-width:92px;color:#475569;font-weight:600;font-size:0.85em;text-transform:uppercase;letter-spacing:0.03em}
+.spine-val{flex:1;color:#1e293b}
+.spine-jump{white-space:nowrap}
+.spine-jump a,.spine-val a{color:#3b82f6;text-decoration:none}
+.spine-jump a:hover,.spine-val a:hover{text-decoration:underline}
+.spine-label{font-size:0.8em;color:#64748b;font-weight:500}
+.spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
+.spine-div{font-weight:600;color:#92400e}
+</style>
+<div id="spine-summary" class="spine-summary" data-slug="dnaa-2-nucleotide-balance"></div>
+
+<nav class="study-tabs" aria-label="Study sections">
+  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
+  
+  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
+  
+  
+  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
+  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
+  
+  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
+  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
+  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+</nav>
+<style>
+.phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
+.phase-design   { background:#e0e7ff; color:#3730a3 }
+.phase-build    { background:#fef3c7; color:#92400e }
+.phase-simulate { background:#dbeafe; color:#1e40af }
+.phase-evaluate { background:#fce7f3; color:#9d174d }
+.phase-decide   { background:#d1fae5; color:#065f46 }
+.classification-pill{display:inline-block;font-size:0.7em;padding:1px 8px;border-radius:9999px;margin-right:4px;font-weight:500}
+.classification-primary    { background:#fee2e2; color:#991b1b }
+.classification-supporting { background:#dbeafe; color:#1e40af }
+.classification-diagnostic { background:#fef3c7; color:#92400e }
+.classification-regression { background:#e5e7eb; color:#374151 }
+.sim-status-pill{display:inline-block;font-size:0.72em;padding:1px 8px;border-radius:9999px;margin-left:4px}
+.sim-status-ready  { background:#d1fae5; color:#065f46 }
+.sim-status-gated  { background:#fef3c7; color:#92400e }
+.sim-status-running{ background:#dbeafe; color:#1e40af }
+.sim-status-ran    { background:#d1fae5; color:#065f46 }
+.purpose-callout{margin-bottom:10px;padding:10px 14px;border-radius:4px;line-height:1.55}
+.purpose-callout strong{margin-right:6px}
+.followup-list{display:flex;flex-direction:column;gap:10px}
+.followup-card{padding:10px 14px;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.93em}
+.followup-card.followup-kind-existing{border-left-color:#3b82f6;background:#eff6ff}
+.followup-card.followup-kind-infrastructure_fix{border-left-color:#dc2626;background:#fef2f2}
+.followup-card.followup-kind-calibration_task{border-left-color:#f59e0b;background:#fefce8}
+.followup-card.followup-kind-expert_question{border-left-color:#a855f7;background:#faf5ff}
+.followup-card.followup-kind-new{border-left-color:#10b981;background:#f0fdf4}
+.followup-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.followup-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-effort{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-family:ui-monospace,monospace}
+.followup-status{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-status.status-blocked{background:#fef3c7;color:#92400e}
+.followup-status.status-done{background:#d1fae5;color:#065f46}
+.followup-title{flex:1;font-size:1em}
+.followup-why,.followup-unblocks,.followup-acceptance,.followup-hypothesis{margin:4px 0 0 0;font-size:0.92em;line-height:1.45}
+.followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
+.btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
+.btn-seed-followup:hover{background:#3b82f6;color:#fff}
+.charts-panel{margin-top:18px;display:flex;flex-direction:column;gap:18px}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px 12px 12px}
+/* SVGs scale to fit their card; preserves aspect ratio so a 1400×484
+   chart shrinks instead of overflowing horizontally + clipping. */
+.chart-card svg,.chart-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+.chart-caption{font-size:0.83em;color:#475569;margin-top:4px;line-height:1.4}
+/* findings */
+.findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
+.finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
+.finding-card.finding-status-confirms{border-left-color:#10b981}
+.finding-card.finding-status-partial{border-left-color:#f59e0b}
+.finding-card.finding-status-contradicts{border-left-color:#dc2626}
+.finding-card.finding-status-novel{border-left-color:#8b5cf6}
+.finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
+.finding-status-confirms .finding-status-glyph{color:#10b981}
+.finding-status-partial .finding-status-glyph{color:#f59e0b}
+.finding-status-contradicts .finding-status-glyph{color:#dc2626}
+.finding-status-novel .finding-status-glyph{color:#8b5cf6}
+.finding-id{font-family:ui-monospace,monospace;font-size:0.78em;color:#475569;background:#f1f5f9;padding:1px 6px;border-radius:3px}
+.finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
+.finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
+.finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
+.finding-explanation em{color:#475569;font-style:normal;font-weight:600}
+.finding-expert{margin:6px 0;padding:6px 10px;background:#fafafa;border:1px solid #e2e8f0;border-radius:4px}
+.finding-expert summary{cursor:pointer;font-size:0.85em;color:#475569;font-weight:500}
+.finding-expert-quote{border-left:3px solid #6366f1;margin:6px 0 4px 0;padding:6px 10px;background:#fafbff;font-style:italic;color:#1e1b4b;font-size:0.92em;line-height:1.5}
+.finding-expert-note{font-size:0.88em;color:#475569;margin-top:4px;font-style:italic}
+.finding-next{padding:6px 10px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:3px;font-size:0.9em;margin-top:8px;line-height:1.5}
+.finding-next strong{color:#065f46}
+/* discovery implications */
+.di-group{margin:14px 0}
+.di-group h3{margin:0 0 6px 0;font-size:0.95em}
+.di-uncertainties{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}
+.di-unc{flex:1;min-width:220px}
+.di-unc h4{margin:0 0 4px 0;font-size:0.88em}
+.di-unc-resolved h4{color:#065f46}
+.di-unc-remaining h4{color:#92400e}
+.di-unc ul{margin:0 0 0 18px;padding:0;font-size:0.9em;line-height:1.45}
+.di-card{padding:10px 14px;margin:8px 0;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.92em}
+.di-card-stmt{font-size:0.98em;line-height:1.5}
+.di-card-why{margin:4px 0 0 0;color:#475569;line-height:1.45}
+.di-card-line{margin:4px 0 0 0;font-size:0.88em;color:#475569;line-height:1.4}
+.di-lbl{color:#475569;font-weight:600;font-size:0.85em}
+.di-mech-card{border-left-color:#a855f7;background:#faf5ff}
+.di-mech-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.di-update-chip{font-size:0.7em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3}
+.di-conf-change{font-size:0.78em;color:#475569;font-family:ui-monospace,monospace}
+.di-approval-badge{font-size:0.68em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e}
+.di-fup-card{border-left-color:#10b981;background:#f0fdf4}
+.di-gain-high{background:#d1fae5;color:#065f46}
+.di-gain-medium{background:#fef3c7;color:#92400e}
+.di-gain-low{background:#e5e7eb;color:#374151}
+.di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+</style>
+
+<section class="study-tab-panel active" data-kind="overview" id="panel-overview">
+  <div class="study-overview">
+
+    
+    
+    
+    <div class="overview-section narrative-card" data-narrative-card="report">
+      <h2 class="overview-label">📋 Report — executive summary
+        <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+        Verdict + main insight are <strong>computed</strong> from canonical
+        fields (gate evaluator · findings) and shown read-only; the report
+        also derives <code>title</code>, <code>objective</code>, and
+        <code>key_metrics</code> from canonical content. Author only the
+        reviewer-facing notes below (confidence · evidence quality · caveat).
+      </p>
+      <div class="narrative-grid">
+        
+        <label class="narrative-row">
+          <span class="narrative-label">Verdict</span>
+          <span class="narrative-input verdict-badge-computed"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">passed</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Confidence</span>
+          <select class="narrative-input" data-narrative-path="report.confidence">
+            <option value="">(unset)</option>
+            <option value="high" selected>high</option>
+            <option value="medium" >medium</option>
+            <option value="low" >low</option>
+          </select>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Evidence quality</span>
+          <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
+                 value="empirical"
+                 placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
+        </label>
+        <div class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Main insight</span>
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">ADOPTED Haochen&#39;s mechanism (commit bf8b82e). The naive model pinned
+DnaA-ATP at ~0.997 because v2ecoli&#39;s ecoli-equilibrium integrates EVERY
+reaction to steady state each tick — including DnaA-ADP binding — so it
+instantly reverts hydrolysis-made DnaA-ADP back to apo → DnaA-ATP. Haochen&#39;s
+diagnosis: DnaA-ADP dissociation is SLOW (k_r ≈ 1×10⁻⁷/s ≪ k_hyd ≈ 1×10⁻⁴/s)
+and NOT at equilibrium. His fix keeps the DnaA-ADP reaction BIDIRECTIONAL but
+flags it integrate_dt=true (integrated kinetically over the timestep), and
+adds DnaA-ATP intrinsic hydrolysis as a one-way kinetic reaction in the same
+equilibrium machinery. With this, his LITERAL rate constants — no tuning,
+no override — land the DnaA-ATP fraction in [0.2, 0.5]. The mechanism is the
+lever; no K_d / [ATP]:[ADP] / expected-fraction revision is needed.
+
+            <span class="muted small">— computed from findings</span></span>
+        </div>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Caveat</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="report.caveat"
+                    placeholder="One sentence: the headline limitation a reviewer needs to know."></textarea>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Conclusion</span>
+          <textarea class="narrative-input narrative-textarea" rows="3"
+                    data-narrative-path="report.conclusion"
+                    placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
+        </label>
+      </div>
+      
+      <div style="margin-top:10px">
+        <button type="button" class="btn-view-skeptic action-btn"
+                style="font-size:0.85em" data-study="dnaa-2-nucleotide-balance">🕵 View as skeptic</button>
+        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
+      </div>
+    </div>
+
+    
+    
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">1 alternative(s) listed but none excluded yet</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The per-generation average DnaA-ATP fraction trends to the low edge of the band in later gens (~0.16–0.23, dipping below 0.2 in gens 5 &amp; 8); where in the band it sits is a k_r-tuning question left for Haochen.</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The strict per-generation in-band reproduction is not perfectly clean even on the directed seed (gen-1 burned-in transient above band; later-gen dips below) — a clean strict per-gen 7-gen run with raw data on this branch is still absent (gate_status pending).</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="biology-glance">
+      
+      <div class="biology-summary-callout">
+        <h2 class="biology-glance-label">Biology — what this study is about
+          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+        </h2>
+        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                  data-narrative-path="biological_summary"
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">DnaA is the master initiator of chromosome replication in E. coli. It exists in
+three nucleotide states: nucleotide-free (apo), ATP-bound (DnaA-ATP), and
+ADP-bound (DnaA-ADP). Only DnaA-ATP is competent to fire replication initiation
+at oriC, so the FRACTION of the pool that is ATP-bound — not just the total
+amount — controls when the cell initiates.
+
+Three reactions set that fraction. (1) apo-DnaA binds ATP rapidly and reversibly
+(K_d ≈ 29 nM) — fast enough to treat as an instantaneous equilibrium. (2) DnaA-ATP
+is slowly hydrolysed to DnaA-ADP by the protein&#39;s own weak intrinsic ATPase
+(~0.046/min). (3) DnaA-ADP releases its ADP only very slowly (k_r ≈ 1×10⁻⁷/s) to
+return to apo; this step is NOT at equilibrium on a cell-cycle timescale. The
+balance of slow hydrolysis draining DnaA-ATP versus slow ADP-release recharging it
+is what pins the steady-state DnaA-ATP fraction in the experimentally observed
+[0.2,0.5] band (Boesen 2024, Delta4 cells). Background metabolism keeps cellular
+[ATP]≫[ADP] (ratio ~20), so the partitioning is governed by the protein-level
+kinetics, not by the nucleotide-pool ratio.
+</textarea>
+        
+      </div>
+
+      
+      
+      
+      
+      
+      
+      
+      
+      <div class="study-card">
+        <h2 class="biology-glance-label">Study card
+          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
+        </h2>
+        <table class="study-card-table">
+          <tr><th>Goal</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.goal"
+                   value="On the V-tuned succinate lineage, partition the DnaA pool across its three
+nucleotide forms (apo-DnaA / DnaA-ATP / DnaA-ADP) and check the DnaA-ATP
+fraction lands in the biological [0.2,0.5] band with a clean cell cycle.
+"
+                   placeholder="One sentence — the single most important thing this study does.">
+          </td></tr>
+          <tr><th>Mechanism</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.mechanism"
+                   value="Haochen&#39;s bf8b82e: DnaA + ADP ⇌ DnaA-ADP kept bidirectional but flagged
+integrate_dt=true (integrated kinetically over the timestep, literal
+k_r=1×10⁻⁷/s); DnaA-ATP intrinsic hydrolysis added as a one-way kinetic
+reaction (k=0.046/min); DnaA + ATP stays fast-equilibrium.
+"
+                   placeholder="DnaA is the master initiator of chromosome replication in E. coli. It exists in
+three nucleotide states: nucleotide-free (apo), ATP-bound (DnaA-ATP), and
+ADP-bound (DnaA-ADP). Only DnaA-ATP is competent to fire replication initiation
+at oriC, so the FRACTION of the pool that is ATP-bound — not just the total
+amount — controls when the cell initiates.
+
+Three reactions set that fraction. (1) apo-DnaA binds ATP rapidly and reversibly
+(K_d ≈ 29 nM) — fast enough to treat as an instantaneous equilibrium. (2) DnaA-ATP
+is slowly hydrolysed to DnaA-ADP by the protein&#39;s own weak intrinsic ATPase
+(~0.046/min). (3) DnaA-ADP releases its ADP only very slowly (k_r ≈ 1×10⁻⁷/s) to
+return to apo; this step is NOT at equilibrium on a cell-cycle timescale. The
+balance of slow hydrolysis draining DnaA-ATP versus slow ADP-release recharging it
+is what pins the steady-state DnaA-ATP fraction in the experimentally observed
+[0.2,0.5] band (Boesen 2024, Delta4 cells). Background metabolism keeps cellular
+[ATP]≫[ADP] (ratio ~20), so the partitioning is governed by the protein-level
+kinetics, not by the nucleotide-pool ratio.
+">
+          </td></tr>
+          <tr><th>Why before next</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.why_before_next"
+                   value="dnaa-3 (DnaA-box binding) needs a correctly partitioned DnaA-ATP pool as its
+substrate — box occupancy is driven by free DnaA-ATP, so the fraction has to
+be right before box binding is meaningful.
+"
+                   placeholder="Why this study must finish before the next one in the DAG.">
+          </td></tr>
+          <tr><th>Expected result</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.expected_result"
+                   value="DnaA-ATP fraction in [0.2,0.5], total DnaA in [300,800], periodic mass
+doubling, and exactly one oriC initiation per generation — all on the
+generation-average criterion Rashmi directed.
+"
+                   placeholder="Literature-stated success criterion.">
+          </td></tr>
+          <tr><th>Main expert question</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.main_expert_question"
+                   value="Is the generation-average criterion (rather than strict every-generation)
+the right acceptance bar, given the gen-1 burn-in transient and the
+seed-variable late-generation pool overshoot above 800 at V=1e-3?
+"
+                   placeholder="The one question this study most wants an expert to answer.">
+          </td></tr>
+        </table>
+      </div>
+
+      
+
+      
+      <div class="literature-anchors">
+        <h2 class="biology-glance-label">Literature anchors</h2>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">DnaA-ATP / total-DnaA sits in [0.2, 0.5] (Delta4 cells).</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>MONOMER0-160[c] / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> Boesen et al. 2024, PNAS (papers.bib pnas-pnas-2322772121)</div>
+            
+            
+            <div class="anchor-status">
+              <em>Current status:</em> Verified — generation-average 0.268/0.267/0.302 across seeds 0/1/2.
+            </div>
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">DnaA-ATP is hydrolysed to DnaA-ADP by a weak intrinsic ATPase (~0.046/min).</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>DNAA-INTRINSIC-HYDROLYSIS-RXN flux (one-way kinetic reaction)</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> &#34;Intrinsic activity&#34; (papers.bib intrinsic-activity-sciencedirect-0092867487902212)</div>
+            
+            
+            <div class="anchor-status">
+              <em>Current status:</em> Implemented via Haochen&#39;s bf8b82e at the literal 0.046/min rate.
+            </div>
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation">Total DnaA abundance is ~300-800 per cell (mass-spec / EcoCyc range).</div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code>PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]</code>
+            </div>
+            
+            <div class="anchor-source"><em>Source:</em> DnaA abundance / mass-spec (papers.bib dnaa-abundance-jb-1991, liu-nature-microbiology-s41564-020-0717-x)</div>
+            
+            
+            <div class="anchor-status">
+              <em>Current status:</em> In band on the generation average (392/575/578); per-gen overshoot &gt;800 is seed-variable at V=1e-3.
+            </div>
+            
+          </li>
+        
+        </ul>
+      </div>
+      
+    </div>
+
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Each card states a finding, links the evidence (run + test + value), shows the literature/expert comparison, and marks whether v2ecoli's behavior <em>confirms</em>, <em>contradicts</em>, <em>partially</em> agrees with, or is <em>novel</em> vs the reference.
+      </p>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-novel">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">fraction-drift-is-total-dnaa-dependence-not-atp-adp-drift</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">novel literature</span>
+        </div>
+        <div class="finding-statement">The drift in the DnaA-ATP fraction is driven by total DnaA abundance, not by ATP/ADP nucleotide drift: the per-tick %DnaA-ATP-vs-total analysis across all 8 generations (run dnaa2-seed1-8gen) shows the fraction moves with the size of the total pool, isolating the real driver.</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          
+          
+          in run <a href="#run-dnaa2-seed1-8gen"><code>dnaa2-seed1-8gen (per-tick %DnaA-ATP vs total DnaA, all 8 gens)</code></a>
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-dnaa2-seed1-8gen"><code>dnaa2-seed1-8gen</code></a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">dnaa-atp-fraction-in-band-via-integrate-dt</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">Computing the DnaA-ATP fraction with the integrate-dt accumulator brings the cycle-mean into the Boesen [0.2, 0.5] band (run seed0-v1e-3-6gen), confirming the in-band target is reachable with the corrected measurement.</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          
+          
+          in run <a href="#run-seed0-v1e-3-6gen-ondisk"><code>seed0-v1e-3-6gen-ondisk (measured) + rashmi-reproduction-seed0 (chart only)</code></a>
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-seed0-v1e-3-6gen-ondisk"><code>seed0-v1e-3-6gen-ondisk</code></a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-contradicts">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✗</span>
+          <span class="finding-id">fast-equilibrium-assumption-was-the-artefact</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">contradicts literature</span>
+        </div>
+        <div class="finding-statement">The fast-equilibrium assumption was the source of the artefact: with it removed, the spurious ~0.997 pin on the DnaA-ATP fraction disappears and the cycle-mean drops to a realistic 0.283 (run seed0-v1e-3-6gen).</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          
+          
+          in run <a href="#run-seed0-v1e-3-6gen-ondisk"><code>seed0-v1e-3-6gen-ondisk (the ~0.997 pin is gone; cycle-mean 0.283)</code></a>
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-seed0-v1e-3-6gen-ondisk"><code>seed0-v1e-3-6gen-ondisk</code></a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-draft">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">F-04</span>
+          <span class="finding-kind">other</span>
+          <span class="finding-status-text">draft literature</span>
+        </div>
+        <div class="finding-statement">4 behaviour tests run on canonical seed-1 8-gen run, all PASS (reconcile=agree); review-approved, gate passed.</div>
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-draft">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">F-05</span>
+          <span class="finding-kind">other</span>
+          <span class="finding-status-text">draft literature</span>
+        </div>
+        <div class="finding-statement">Re-verified multi-seed (0/1/2) on the corrected full-per-gen emitter — results stand.</div>
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-draft">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">F-06</span>
+          <span class="finding-kind">other</span>
+          <span class="finding-status-text">draft literature</span>
+        </div>
+        <div class="finding-statement">Visualizations reduced to the latest run; tests now run and all 4 PASS.</div>
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-draft">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">F-07</span>
+          <span class="finding-kind">other</span>
+          <span class="finding-status-text">draft literature</span>
+        </div>
+        <div class="finding-statement">Visualizations section holds only the latest canonical run.</div>
+        
+        
+        
+        
+        
+      </div>
+      
+    </div>
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Purpose</h2>
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Starting from a V-tuned succinate lineage (total DnaA in [300, 800], clean
+cell cycle), how does the DnaA pool partition across forms (apo-DnaA /
+DnaA-ATP / DnaA-ADP) once DnaA nucleotide-binding + DnaA-ATP intrinsic
+hydrolysis are modelled correctly? Does the DnaA-ATP fraction land in the
+biological [0.2, 0.5] band — and if the naive equilibrium pins it near 1.0,
+what is the right fix?
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Pipeline gate</summary>
+      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+      </p>
+      
+      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+        <code>dnaa-1-expression</code>
+      </div>
+      
+      
+      
+    </details>
+    
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Key assumptions</summary>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">The DnaA nucleotide-binding equilibria + DnaA-ATP intrinsic hydrolysis are
+implemented in Haochen&#39;s bf8b82e via the equilibrium machinery&#39;s per-reaction
+integrate_dt flag (kinetic vs steady-state), with his literal rate constants.
+</li><li style="margin:2px 0">DnaA-form counts read from bulk: PD03831[c] (apo), MONOMER0-160[c]
+(DnaA-ATP), MONOMER0-4565[c] (DnaA-ADP); cellular pools ATP[c], ADP[c].
+</li>
+      </ul>
+    </details>
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Behavioral tests</h2>
+      
+      
+      
+      
+      
+      <p style="margin:0">
+        <strong>4</strong> tests defined —
+          <span class="classification-pill classification-primary">3 primary</span>
+        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+      </p>
+    </div>
+    
+
+    
+    <details class="overview-section pre-run-expert-review">
+      <summary class="overview-label">Pre-run expert review</summary>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Open biological questions the planning is contingent on. A "wrong" answer here
+        means a primary test threshold needs to change <em>before</em> the simulation
+        is run, not after. Each question lists alternatives + the impact of the wrong
+        choice + what downstream work it blocks.
+      </p>
+      <div class="expert-question-list">
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id">DNAA2-V-TENSION</span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> dnaa-1 needs V=0.8e-3 to hold the total-DnaA pool fully in [300,800], but
+dnaa-2&#39;s DnaA-ATP fraction needs ~1e-3 (at 0.8e-3 the fraction drifts below
+the 0.2 floor and the lineage crashes at gen 5). At V=1e-3 the pool overshoots
+&gt;800 per-gen in later generations (seed-variable). What lever closes both?
+</div>
+          
+          <div class="expert-question-alternatives">
+            <em>Alternatives:</em>
+            <ul><li>Per-study V (current): dnaa-2 keeps V=1e-3, dnaa-1 keeps 0.8e-3 (accepted stopgap).</li><li>A regulated / cell-cycle-coupled DnaA synthesis lever that closes band + fraction at one V (deferred to a regulation study).</li></ul>
+          </div>
+          
+          
+          
+          
+          <details class="expert-question-response">
+            <summary>Requested response format</summary>
+            <p>Rashmi / Haochen — is per-study V acceptable long-term, or is the regulated-synthesis lever required before dnaa-3?</p>
+          </details>
+          
+        </div>
+        
+        <div class="expert-question-card status-open">
+          <div class="expert-question-header">
+            <span class="expert-question-id">DNAA2-KR-CALIBRATION</span>
+            <span class="expert-question-status">open</span>
+            
+          </div>
+          <div class="expert-question-text"><strong>Q.</strong> The literal k_r=1e-7/s lands the DnaA-ATP fraction at the LOW edge of [0.2,0.5];
+a k_r sweep shows ~100× faster k_r lifts it mid-band. Should k_r be re-calibrated?
+</div>
+          
+          <div class="expert-question-alternatives">
+            <em>Alternatives:</em>
+            <ul><li>Keep literal k_r=1e-7/s (low-edge, in band).</li><li>Sweep k_r → center the band (followup study dnaa2-k_r-calibration).</li></ul>
+          </div>
+          
+          
+          
+          
+          <details class="expert-question-response">
+            <summary>Requested response format</summary>
+            <p>Haochen — preferred k_r / physiological bound.</p>
+          </details>
+          
+        </div>
+        
+      </div>
+    </details>
+    
+
+    
+
+    
+    
+
+    <div class="overview-section">
+      <h2 class="overview-label">Status</h2>
+      <select id="status-select" data-field="status" class="overview-status-select">
+        <option value="planned"     >planned</option>
+        <option value="running"     >running</option>
+        <option value="ran"         >ran</option>
+        <option value="complete"    >complete</option>
+        <option value="failed"      >failed</option>
+      </select>
+      
+    </div>
+
+    <div class="study-counts-strip">
+      <div class="count-cell">
+        <strong>2</strong>
+        <span class="count-label">simulations</span>
+      </div>
+      <div class="count-cell">
+        <strong>5</strong>
+        <span class="count-label">readouts</span>
+      </div>
+      <div class="count-cell">
+        <strong>3</strong>
+        <span class="count-label">requirements</span>
+      </div>
+      <div class="count-cell">
+        <strong>4</strong>
+        <span class="count-label">runs</span>
+      </div>
+    </div>
+
+    
+    <div id="feedback-tracked-panel"></div>
+
+  </div>
+</section>
+
+
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+
+  
+  
+  <div class="overview-section" id="model-section">
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study runs</span></h3>
+    <p class="muted" style="font-size:0.88em">Every study runs at least one composite. Click a composite to open a static view in the bigraph-loom explorer.</p>
+    
+    <div class="cond-block">
+      <div class="cond-block-title">
+        dnaa-2-nucleotide-balance
+        
+        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
+                onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 baseline.baseline — explore in bigraph-loom ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache_dnaa2</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">single_daughters</span>=<code>True</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">max_generations</span>=<code>7</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">perturbations</span>=<code>{&#39;TU00259[c]&#39;: 0.001}</code></span>
+        
+      </div>
+      
+    </div>
+    
+  </div>
+  
+
+  
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.baseline.baseline</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache_dnaa2</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">single_daughters</span>=<code>True</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">max_generations</span>=<code>7</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">perturbations</span>=<code>{&#39;TU00259[c]&#39;: 0.001}</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>seed-sweep-v1e3</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>directed-seed1-v1e3</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>v0p8e-3-rebase</code></td>
+            <td>
+              <em class="muted">(inherits baseline)</em>
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+    <div class="cond-block">
+      
+      <div class="cond-block-title">
+        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span>
+        
+      </div>
+      <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
+      <table class="cond-table cond-expert-table" data-study="dnaa-2-nucleotide-balance">
+        <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Current</th><th>Range</th><th>Gate</th><th></th></tr></thead>
+        <tbody>
+          
+          
+          
+          
+          <tr data-ei-name="dnaa-adp-kinetic">
+            <td title=""><code>dnaa-adp-kinetic</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('dnaa-2-nucleotide-balance', 'dnaa-adp-kinetic', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="dnaa-atp-hydrolysis">
+            <td title=""><code>dnaa-atp-hydrolysis</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('dnaa-2-nucleotide-balance', 'dnaa-atp-hydrolysis', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="dnaa-atp-binding">
+            <td title=""><code>dnaa-atp-binding</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('dnaa-2-nucleotide-balance', 'dnaa-atp-binding', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+  </div>
+  
+
+  
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline.baseline</code></p>
+    
+    
+    <p><strong>New state variables:</strong></p>
+    <ul style="margin:0 0 8px 18px">
+      <li><code>bulk MONOMER0-160[c] (DnaA-ATP)</code></li><li><code>bulk MONOMER0-4565[c] (DnaA-ADP)</code></li>
+    </ul>
+    
+    
+    <p><strong>New parameters:</strong></p>
+    <ul style="margin:0 0 8px 18px">
+      <li><code></code></li><li><code></code></li><li><code></code></li>
+    </ul>
+    
+    
+    
+    <p><strong>Modified processes:</strong></p>
+    <ul style="margin:0 0 8px 18px">
+      <li>ecoli-equilibrium: MONOMER0-4565_RXN kept bidirectional + flagged integrate_dt=true; DnaA-ATP intrinsic hydrolysis added as a one-way kinetic reaction</li>
+    </ul>
+    
+    
+  </div>
+  
+
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(3 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #f59e0b">
+      <summary style="cursor:pointer">
+        <strong>REQ-1</strong> — Adopt Haochen&#39;s bf8b82e integrate_dt equilibrium treatment (no re-implementation)
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">M</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[process]</span>
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #3b82f6">
+      <summary style="cursor:pointer">
+        <strong>REQ-2</strong> — Apply V=1e-3 dnaA expression perturbation (TU00259[c]) at succinate cache build
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">S</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[parameter_hook]</span>
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #3b82f6">
+      <summary style="cursor:pointer">
+        <strong>REQ-3</strong> — Remove the rejected bespoke DnaaAdpRelease/DnaaIntrinsicHydrolysis steps + 0.03/min override
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">S</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[data]</span>
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    
+  </div>
+  
+</section>
+
+
+
+
+
+<section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
+
+  
+  
+  <div class="overview-section" id="ran-section">
+    <h3>What we ran <span class="muted" style="font-size:0.85em;font-weight:normal">(composite + parameters)</span></h3>
+    <p class="muted" style="font-size:0.88em">The composite(s) this study simulated, their parameters, replication, and run status. Click a composite to open a static view in bigraph-loom.</p>
+    
+    <table class="cond-table" style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Run</th><th style="text-align:left">Composite</th><th style="text-align:left">Parameters</th><th style="text-align:left">Replication</th><th style="text-align:left">Status</th></tr></thead>
+      <tbody>
+      
+        <tr>
+          <td style="vertical-align:top"><strong>dnaa-2-nucleotide-balance</strong></td>
+          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 baseline.baseline ↗</button></td>
+          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span> <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache_dnaa2</code></span> <span class="cond-pill"><span class="cond-pill-k">single_daughters</span>=<code>True</code></span> <span class="cond-pill"><span class="cond-pill-k">max_generations</span>=<code>7</code></span> <span class="cond-pill"><span class="cond-pill-k">perturbations</span>=<code>{&#39;TU00259[c]&#39;: 0.001}</code></span> </td>
+          <td style="vertical-align:top" class="muted small">4 run(s)</td>
+          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">completed</span></td>
+        </tr>
+      
+      </tbody>
+    </table>
+    
+    <p class="muted small" style="margin-top:6px">4 recorded run(s): <code>dnaa2-reverify-multiseed-v1e3</code> (completed), <code>dnaa2-seed1-8gen</code> (completed), <code></code> (completed), <code></code> (completed)</p>
+  </div>
+  
+
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(2 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">dnaa2-reverify-multiseed-v1e3</strong>
+      <span class="sim-status-pill sim-status-completed">completed</span>
+      <span class="muted" style="font-size:0.85em">condition: V=1e-3 succinate, burned-in resume, corrected full-per-gen-history emitter (run on the mini)</span>
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline.baseline</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ? · <strong>8 generations</strong>
+      · <strong>Seeds:</strong> <code>0, 1, 2</code>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      <strong>Tests applied:</strong> 4 · 
+      <strong>Runs recorded:</strong> 2
+    </p>
+    
+    
+    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
+      <code>dnaa-atp-fraction-in-band-0.2-0.5</code> · <code>total-dnaa-in-band-300-800</code> · <code>periodic-mass-doubling</code> · <code>oric-one-initiation-per-generation</code>
+    </p>
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">dnaa2-seed1-8gen</strong>
+      <span class="sim-status-pill sim-status-completed">completed</span>
+      <span class="muted" style="font-size:0.85em">condition: V=1e-3 succinate, burned-in resume, PRE-FIX (truncated) emitter — superseded by the multi-seed re-verify; retained for provenance (carries the reconcile=agree computed_outcomes)</span>
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline.baseline</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> 500 min · <strong>8 generations</strong>
+      · <strong>Seeds:</strong> <code>1</code>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      <strong>Readouts collected:</strong> 181 · 
+      <strong>Tests applied:</strong> 4 · 
+      <strong>Runs recorded:</strong> 1 (<code>dnaa2-seed1-8gen</code>)
+    </p>
+    
+    
+    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
+      <code>dnaa-atp-fraction-in-band-0.2-0.5</code> · <code>total-dnaa-in-band-300-800</code> · <code>periodic-mass-doubling</code> · <code>oric-one-initiation-per-generation</code>
+    </p>
+    
+    
+  </div>
+  
+  
+  
+</section>
+
+
+<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
+  <div class="baseline-list">
+    
+    <article class="baseline-entry" data-baseline-name="dnaa-2-nucleotide-balance">
+      <header class="baseline-entry-header">
+        <h3 class="baseline-entry-name">dnaa-2-nucleotide-balance</h3>
+        <code class="baseline-entry-fqn">v2ecoli.composites.baseline.baseline</code>
+      </header>
+      
+      <table class="baseline-params">
+        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+        <tbody>
+          
+          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
+          
+          <tr><td><code>cache_dir</code></td><td><code>out/cache_dnaa2</code></td></tr>
+          
+          <tr><td><code>single_daughters</code></td><td><code>True</code></td></tr>
+          
+          <tr><td><code>max_generations</code></td><td><code>7</code></td></tr>
+          
+          <tr><td><code>perturbations</code></td><td><code>{&#39;TU00259[c]&#39;: 0.001}</code></td></tr>
+          
+        </tbody>
+      </table>
+      
+      <div class="baseline-entry-actions">
+        <button class="btn-run-baseline" data-baseline-name="dnaa-2-nucleotide-balance">Run</button>
+        <button class="btn-baseline-remove" data-baseline-name="dnaa-2-nucleotide-balance">Remove</button>
+      </div>
+    </article>
+    
+  </div>
+
+  <details class="baseline-add-form">
+    <summary class="btn-baseline-add">+ Add composite</summary>
+    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
+      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
+      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
+  <div class="observables-section">
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each readout resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    
+    
+    <table class="observables-table" style="width:100%; border-collapse: collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Name</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Status <span class="muted" style="font-weight:400">(authored)</span></th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Validated against composite</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Store path</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Indexed by</th>
+          <th style="text-align:left; padding:6px; border-bottom: 1px solid #e2e8f0;">Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="DnaA-ATP fraction">
+          <td style="padding:6px; vertical-align: top;"><code>DnaA-ATP fraction</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              primary
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="DnaA-ATP fraction"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="DnaA-form counts">
+          <td style="padding:6px; vertical-align: top;"><code>DnaA-form counts</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              measured
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="DnaA-form counts"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="oriC count">
+          <td style="padding:6px; vertical-align: top;"><code>oriC count</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              measured
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="oriC count"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="cell mass">
+          <td style="padding:6px; vertical-align: top;"><code>cell mass</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              measured
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="cell mass"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+        <tr style="border-bottom: 1px solid #f1f5f9;" data-readout="cellular bulk ATP[c] / ADP[c]">
+          <td style="padding:6px; vertical-align: top;"><code>cellular bulk ATP[c] / ADP[c]</code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span style="font-size: 0.75em; color: #475569;">
+              measured
+            </span>
+          </td>
+          
+          <td style="padding:6px; vertical-align: top;">
+            <span class="readout-validation" data-readout="cellular bulk ATP[c] / ADP[c]"
+                  style="font-size:0.75em"></span>
+          </td>
+          <td style="padding:6px; vertical-align: top;"><code style="font-size: 0.85em;"></code></td>
+          <td style="padding:6px; vertical-align: top;">
+            <span class="muted">—</span>
+          </td>
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;"></td>
+        </tr>
+        
+      </tbody>
+    </table>
+    
+
+    <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
+      <summary class="btn-baseline-add">+ Add observable from bigraph state</summary>
+      <div class="bigraph-picker" style="display: grid; grid-template-columns: minmax(360px, 2fr) 1fr; gap: 16px; margin-top: 10px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <input type="search" id="bigraph-filter" placeholder="Filter paths (regex)…"
+                   style="flex:1; padding:4px 6px; font-size:0.9em;">
+            <button class="btn-mini" onclick="_reloadBigraphPaths()">Reload</button>
+          </div>
+          <div id="bigraph-tree" style="border:1px solid #e2e8f0; border-radius:4px; padding:8px; max-height:520px; overflow:auto; font-family: ui-monospace, monospace; font-size:0.82em; background:#fafafa;">
+            <span class="muted">Click "Reload" or expand this panel to load the path tree.</span>
+          </div>
+          <div id="bigraph-source-info" class="muted" style="font-size:0.75em; margin-top:4px;"></div>
+        </div>
+        <aside style="border:1px solid #e2e8f0; border-radius:4px; padding:10px; background:#fff;">
+          <h4 style="margin:0 0 6px 0; font-size:0.9em;">Selected path</h4>
+          <div id="bigraph-selected" class="muted" style="font-size:0.85em;">Pick a leaf on the left.</div>
+          <h4 style="margin:12px 0 6px 0; font-size:0.9em;">Observable spec</h4>
+          <p class="muted" style="margin:0 0 6px 0; font-size:0.78em;">Copy into <code>studies/dnaa-2-nucleotide-balance/study.yaml</code> under <code>observables:</code>.</p>
+          <textarea id="bigraph-spec" readonly rows="8"
+                    style="width:100%; font-family: ui-monospace, monospace; font-size:0.78em; box-sizing: border-box;"></textarea>
+          <button class="btn-mini" onclick="_copyBigraphSpec()" style="margin-top:6px;">Copy</button>
+        </aside>
+      </div>
+    </details>
+    <script>
+      // Lazy load the bigraph tree the first time the observables panel
+      // becomes visible OR the details element opens.
+      (function() {
+        var loaded = false;
+        function load() {
+          if (loaded) return; loaded = true; _reloadBigraphPaths();
+        }
+        document.getElementById('bigraph-picker-details')
+                .addEventListener('toggle', function() {
+                  if (this.open) load();
+                });
+        // Also load on tab activation if the panel is already visible.
+        document.querySelector('[data-kind="observables"].study-tab')
+                .addEventListener('click', function() { setTimeout(load, 50); });
+      })();
+
+      function _reloadBigraphPaths() {
+        var tree = document.getElementById('bigraph-tree');
+        var info = document.getElementById('bigraph-source-info');
+        tree.innerHTML = '<span class="muted">Loading…</span>';
+        info.textContent = '';
+        fetch('/api/study-bigraph-paths?study=dnaa-2-nucleotide-balance', {headers: {Accept: 'application/json'}})
+          .then(function(r) { return r.json().then(function(j) { return {ok: r.ok, body: j}; }); })
+          .then(function(res) {
+            if (!res.ok) {
+              tree.innerHTML = '<span style="color:#b91c1c;">' + (res.body.error || 'failed to load') + '</span>';
+              if (res.body.looked_in) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">looked in: ' + res.body.looked_in.join(', ') + '</span>';
+              }
+              if (res.body.hint) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">hint: ' + res.body.hint + '</span>';
+              }
+              return;
+            }
+            window._bigraphNodes = res.body.nodes || [];
+            info.textContent = res.body.composite + '  ·  ' + res.body.source_file + '  ·  ' + res.body.node_count + ' leaves (max_depth=' + res.body.max_depth + ')';
+            _renderBigraphTree(window._bigraphNodes, '');
+          });
+      }
+
+      // Render the flat list as a nested <ul>. Group nodes by path[0..n] so
+      // siblings collapse under shared parents.
+      function _renderBigraphTree(nodes, filter) {
+        var tree = document.getElementById('bigraph-tree');
+        tree.innerHTML = '';
+        var rx = null;
+        if (filter) { try { rx = new RegExp(filter, 'i'); } catch (e) {} }
+        // Build a nested object: tree[seg] = {__leaf?:node, __children?:tree}
+        var root = {};
+        nodes.forEach(function(n) {
+          var p = n.path;
+          if (rx && !rx.test(p.join('.'))) return;
+          var cursor = root;
+          for (var i = 0; i < p.length - 1; i++) {
+            var seg = p[i];
+            if (!cursor[seg]) cursor[seg] = {__children: {}};
+            cursor = cursor[seg].__children;
+          }
+          var last = p[p.length - 1];
+          if (!cursor[last]) cursor[last] = {};
+          cursor[last].__leaf = n;
+        });
+
+        function render(level, container, prefix) {
+          Object.keys(level).sort().forEach(function(seg) {
+            var entry = level[seg];
+            var li = document.createElement('li');
+            li.style.listStyle = 'none';
+            li.style.margin = '1px 0';
+
+            var fullPath = prefix.concat([seg]);
+            var leaf = entry.__leaf;
+            var children = entry.__children;
+
+            if (leaf && !children) {
+              // Pure leaf — clickable.
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'bigraph-leaf-btn';
+              btn.style.cssText = 'background:none; border:none; padding:2px 4px; cursor:pointer; text-align:left; font-family:inherit; font-size:inherit; color:#1d4ed8; width:100%;';
+              btn.innerHTML = '<span style="color:#9ca3af;">·</span> ' + seg
+                + ' <span class="muted" style="font-size:0.85em;">(' + leaf.kind
+                + (leaf.fields ? ': ' + leaf.fields.join(', ') : '')
+                + (leaf.length !== undefined ? ', n=' + leaf.length : '')
+                + ')</span>';
+              btn.onclick = function() { _selectBigraphLeaf(leaf); };
+              li.appendChild(btn);
+            } else {
+              // Has children — make collapsible.
+              var det = document.createElement('details');
+              det.open = (prefix.length < 2);  // expand top-2 levels by default
+              var sum = document.createElement('summary');
+              sum.style.cursor = 'pointer';
+              sum.innerHTML = '<strong>' + seg + '</strong>';
+              det.appendChild(sum);
+              var ul = document.createElement('ul');
+              ul.style.cssText = 'margin:0 0 0 14px; padding:0;';
+              render(children, ul, fullPath);
+              det.appendChild(ul);
+              li.appendChild(det);
+              if (leaf) {  // both a leaf and has children — rare
+                var hint = document.createElement('span');
+                hint.className = 'muted';
+                hint.style.fontSize = '0.78em';
+                hint.textContent = ' (' + leaf.kind + ')';
+                sum.appendChild(hint);
+              }
+            }
+            container.appendChild(li);
+          });
+        }
+
+        var ul = document.createElement('ul');
+        ul.style.cssText = 'margin:0; padding:0;';
+        render(root, ul, []);
+        tree.appendChild(ul);
+      }
+
+      function _selectBigraphLeaf(leaf) {
+        var sel = document.getElementById('bigraph-selected');
+        sel.innerHTML = '<code style="font-size:0.85em;">' + leaf.path.join('.') + '</code>'
+          + '<br><span class="muted" style="font-size:0.78em;">kind: ' + leaf.kind
+          + (leaf.fields ? ', fields: [' + leaf.fields.join(', ') + ']' : '')
+          + (leaf.length !== undefined ? ', length: ' + leaf.length : '')
+          + (leaf.preview !== undefined ? ', value: ' + leaf.preview : '')
+          + '</span>';
+        // Suggest a slug from the last segment, with -<parent> for disambiguation if generic.
+        var last = leaf.path[leaf.path.length - 1] || 'obs';
+        var second = leaf.path[leaf.path.length - 2] || '';
+        var slug = (last === 'count' || last === 'id' || second.length > 0 && /listeners?$/.test(second))
+          ? (second + '_' + last).replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()
+          : last.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+        var pathStr = leaf.path.join('.');
+        var spec;
+        if (leaf.kind === 'structured_array') {
+          spec = '- name: ' + slug + '_by_id\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Bulk count by molecule id. Replace EXAMPLE_ID with the actual id\n'
+            + '    (e.g. "MONOMER0-160[c]" for DnaA).\n'
+            + '  store_path: ' + pathStr + '\n'
+            + '  index_by: {type: bulk_id, value: "EXAMPLE_ID"}\n';
+        } else if (leaf.kind === 'array') {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Array listener at ' + pathStr + ' (length=' + leaf.length + ' at snapshot time).\n'
+            + '    If this is indexed by id (e.g. tu_id, tf_id), add index_by:.\n'
+            + '  store_path: ' + pathStr + '\n';
+        } else {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: "Scalar observable at ' + pathStr + '"\n'
+            + '  store_path: ' + pathStr + '\n';
+        }
+        document.getElementById('bigraph-spec').value = spec;
+      }
+
+      function _copyBigraphSpec() {
+        var ta = document.getElementById('bigraph-spec');
+        if (!ta.value) return;
+        ta.select();
+        document.execCommand('copy');
+      }
+
+      document.getElementById('bigraph-filter').addEventListener('input', function(e) {
+        if (window._bigraphNodes) _renderBigraphTree(window._bigraphNodes, e.target.value);
+      });
+    </script>
+
+    
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="variants" id="panel-variants">
+  <div class="variants-list">
+    
+    <article class="variant-row" data-variant-name="seed-sweep-v1e3"
+             data-base-composite="dnaa-2-nucleotide-balance">
+      <header class="variant-row-header">
+        <h3 class="variant-name">seed-sweep-v1e3</h3>
+        <span class="variant-base">based on <code>dnaa-2-nucleotide-balance</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="seed-sweep-v1e3">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="seed-sweep-v1e3">Delete</button>
+        <button class="btn-variant-run" data-variant-name="seed-sweep-v1e3">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="directed-seed1-v1e3"
+             data-base-composite="dnaa-2-nucleotide-balance">
+      <header class="variant-row-header">
+        <h3 class="variant-name">directed-seed1-v1e3</h3>
+        <span class="variant-base">based on <code>dnaa-2-nucleotide-balance</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="directed-seed1-v1e3">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="directed-seed1-v1e3">Delete</button>
+        <button class="btn-variant-run" data-variant-name="directed-seed1-v1e3">Run</button>
+      </div>
+    </article>
+    
+    <article class="variant-row" data-variant-name="v0p8e-3-rebase"
+             data-base-composite="dnaa-2-nucleotide-balance">
+      <header class="variant-row-header">
+        <h3 class="variant-name">v0p8e-3-rebase</h3>
+        <span class="variant-base">based on <code>dnaa-2-nucleotide-balance</code></span>
+        <span class="variant-overrides-count muted">0 override(s)</span>
+      </header>
+      
+      <div class="variant-row-actions">
+        <button class="btn-variant-edit" data-variant-name="v0p8e-3-rebase">Edit params</button>
+        <button class="btn-variant-delete" data-variant-name="v0p8e-3-rebase">Delete</button>
+        <button class="btn-variant-run" data-variant-name="v0p8e-3-rebase">Run</button>
+      </div>
+    </article>
+    
+  </div>
+
+  <details class="variant-add-form-wrapper">
+    <summary class="btn-variant-new">+ New variant</summary>
+    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Base composite:
+        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
+          <option value="">— pick a baseline composite —</option>
+          
+          <option value="dnaa-2-nucleotide-balance" data-composite-id="v2ecoli.composites.baseline.baseline">dnaa-2-nucleotide-balance (v2ecoli.composites.baseline.baseline)</option>
+          
+        </select>
+      </label>
+      <div id="variant-new-params" class="param-form">
+        <p class="muted">Pick a base composite to see its parameters.</p>
+      </div>
+      <button type="submit">Save variant</button>
+    </form>
+  </details>
+
+  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
+  <dialog id="variant-edit-dialog">
+    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
+      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
+      <div id="variant-edit-params" class="param-form"></div>
+      <menu>
+        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
+        <button type="submit">Save</button>
+      </menu>
+    </form>
+  </dialog>
+</section>
+
+<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
+  <div class="interventions-list">
+    
+    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
+    
+  </div>
+
+  <details class="intervention-add-form-wrapper">
+    <summary class="btn-intervention-new">+ New intervention</summary>
+    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <div class="runs-section">
+    <h3 class="section-title">Runs</h3>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Per-run record of what was executed. Visualizations live in the
+      <a href="#" onclick="_setStudyTab('visualizations');return false">Visualizations</a> tab.
+    </p>
+    <table id="runs-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Variant / Baseline</th>
+          <th>Composite</th>
+          <th>Steps</th>
+          <th>Started (UTC)</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Test results</th>
+          <th>Model changes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+        
+        <tr id="run-dnaa2-reverify-multiseed-v1e3"
+            data-run-id=""
+            data-spec-id=""
+            data-started-at="">
+          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
+          <td>
+            baseline
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">—</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-completed">completed</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+            
+              
+              
+                
+                
+              
+                
+                
+              
+                
+                
+              
+                
+                
+              
+              <span class="ok" title="authored pass">✓ 4</span>
+              
+              
+              <span class="muted" style="font-size:0.85em"> (authored)</span>
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="">View</button>
+            
+            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
+            <button class="btn-delete-run" data-run-id="">Delete</button>
+          </td>
+        </tr>
+        
+        
+        
+        <tr id="run-dnaa2-seed1-8gen"
+            data-run-id=""
+            data-spec-id=""
+            data-started-at="">
+          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
+          <td>
+            baseline
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">—</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-completed">completed</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+              
+              
+              
+            
+              
+              
+              
+            
+              
+              
+              
+            
+              
+              
+              
+            
+            
+              <span class="ok" title="passed">✓ 4</span>
+              
+              
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="">View</button>
+            
+            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
+            <button class="btn-delete-run" data-run-id="">Delete</button>
+          </td>
+        </tr>
+        
+        
+        
+        <tr id="run-dnaa2-reverify-multiseed-v1e3"
+            data-run-id="dnaa2-reverify-multiseed-v1e3"
+            data-spec-id="dnaa-2-nucleotide-balance"
+            data-started-at="">
+          <td><input type="checkbox" class="run-compare-checkbox" value="dnaa2-reverify-multiseed-v1e3"></td>
+          <td>
+            baseline
+            
+              <div class="muted" style="font-size:0.78em">dnaa2-reverify-multiseed-v1e3</div>
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">dnaa-2-nucleotide-balance</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-completed">completed</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+            
+              <span class="muted">—</span>
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="dnaa2-reverify-multiseed-v1e3">View</button>
+            
+            <button class="btn-launch-ptools" data-run-id="dnaa2-reverify-multiseed-v1e3" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
+            <button class="btn-delete-run" data-run-id="dnaa2-reverify-multiseed-v1e3">Delete</button>
+          </td>
+        </tr>
+        
+        
+        
+        <tr id="run-dnaa2-seed1-8gen"
+            data-run-id="dnaa2-seed1-8gen"
+            data-spec-id="dnaa-2-nucleotide-balance"
+            data-started-at="">
+          <td><input type="checkbox" class="run-compare-checkbox" value="dnaa2-seed1-8gen"></td>
+          <td>
+            baseline
+            
+              <div class="muted" style="font-size:0.78em">dnaa2-seed1-8gen</div>
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">dnaa-2-nucleotide-balance</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-completed">completed</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+            
+              <span class="muted">—</span>
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="dnaa2-seed1-8gen">View</button>
+            
+            <button class="btn-launch-ptools" data-run-id="dnaa2-seed1-8gen" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
+            
+            <button class="btn-delete-run" data-run-id="dnaa2-seed1-8gen">Delete</button>
+          </td>
+        </tr>
+        
+      </tbody>
+    </table>
+    <div class="runs-actions">
+      <button class="btn-compare-selected">Compare selected</button>
+      <button class="btn-clear-runs danger">Clear all runs</button>
+    </div>
+  </div>
+
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <div class="tests-header">
+    <h3>Behavioral Tests</h3>
+    <p class="muted" style="margin: 0 0 8px 0;">
+      Each prediction below is paired with a precise <code>given / measure / expect</code>
+      rule so one English sentence auto-generates one pytest assertion. The
+      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
+      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
+      against the latest simulation run.
+    </p>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="run-tests-btn" class="btn-primary">Run tests</button>
+      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+    </div>
+    <div class="tests-config" style="margin-top: 6px;">
+      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+    </div>
+  </div>
+
+  
+  
+  
+  
+    
+      
+        
+        
+      
+        
+        
+      
+        
+        
+      
+        
+        
+      
+    
+  
+    
+      
+        
+        
+      
+        
+        
+      
+        
+        
+      
+        
+        
+      
+    
+  
+    
+  
+    
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-dnaa-atp-fraction-in-band-0.2-0.5"
+        data-pytest-node="dnaa-atp-fraction-in-band-0.2-0.5"
+        data-classification="primary"
+        data-result="PASS"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">dnaa-atp-fraction-in-band-0.2-0.5</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Is the DnaA-ATP fraction in [0.2, 0.5] on the generation average?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Generation-average in band (Rashmi 2026-06-04 criterion): all-gen avg 0.26,
+steady-gen avg (excl. gen-1 stabilizing transient) 0.222, both in [0.2,0.5].
+Per-gen averages trend low in later gens (k_r-tuning question for Haochen,
+not a blocker) but the generation average passes.
+</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "generation_average", "path": "MONOMER0-160[c] / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])"}
+expect:  {"high": 0.5, "low": 0.2, "op": "range"}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-total-dnaa-in-band-300-800"
+        data-pytest-node="total-dnaa-in-band-300-800"
+        data-classification="secondary"
+        data-result="PASS"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="classification-pill classification-secondary">secondary</span>
+        <strong style="font-size: 0.9em;">total-dnaa-in-band-300-800</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does total DnaA stay in [300, 800] on the generation average?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Generation-average in band across re-verified seeds (all-gen avg 392/575/578
+in [300,800]). On the corrected full-per-gen-history the per-gen MEAN ramps
+&gt;800 in mid-late gens for seeds 1&amp;2 (seed 0 stays in band) — SEED-VARIABLE
+drift of the V=1e-3 pool; &#34;in band&#34; = the generation average (Rashmi 2026-06-04).
+</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "generation_average", "path": "PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]"}
+expect:  {"high": 800, "low": 300, "op": "generation_average_in_range"}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-periodic-mass-doubling"
+        data-pytest-node="periodic-mass-doubling"
+        data-classification="primary"
+        data-result="PASS"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">periodic-mass-doubling</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does cell mass show periodic doubling (sawtooth) across generations?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: 8/8 generations divide; cell mass periodic sawtooth (τ 53-79 min).</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "per_generation_mass_ratio", "path": "listeners.mass.dry_mass_fold_change", "window": "peak_of_each_cycle"}
+expect:  {"high": 2.3, "low": 1.7, "op": "in_range"}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-oric-one-initiation-per-generation"
+        data-pytest-node="oric-one-initiation-per-generation"
+        data-classification="primary"
+        data-result="PASS"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">oric-one-initiation-per-generation</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does oriC go 1→2 exactly once per generation (no re-initiation, never 4)?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: oriC in {1,2} every generation; one 1→2 initiation per cycle, never 4.</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "snapshot_window", "path": "listeners.replication_data.number_of_oric", "window": "full_lineage_from_gen_0"}
+expect:  {"high": 2, "low": 1, "op": "in_range"}</pre>
+      </details>
+      
+      
+      
+    </li>
+    
+  </ul>
+  
+</section>
+
+<section class="study-tab-panel" data-kind="visualizations" id="panel-visualizations" hidden>
+  <div class="viz-section">
+
+    
+    
+
+    <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
+    <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+      These charts re-render each time the page loads, against the most recent simulation in the study's <code>runs.db</code>.
+      They are also embedded into the downloadable investigation HTML report.
+    </p>
+    <div id="viz-charts-panel" class="charts-panel"></div>
+    <h3 class="section-title" style="margin-top:24px">Registered visualization modules</h3>
+    <div id="viz-list">
+      
+      <div class="viz-config">dnaa2_reverify_multiseed <code class="muted">image:charts/dnaa2_reverify_multiseed.png</code>
+        
+      </div>
+      
+    </div>
+    <button class="btn-add-viz" style="margin-top:8px">+ Add visualization</button>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+    <h2 class="overview-label">Discovery implications</h2>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+    
+    <div class="di-uncertainties">
+      
+      <div class="di-unc di-unc-resolved">
+        <h4>✓ Resolved uncertainties</h4>
+        <ul><li>Haochen&#39;s bf8b82e mechanism — DnaA + ADP ⇌ DnaA-ADP kept bidirectional but flagged integrate_dt (kinetic, literal k_r = 1×10⁻⁷/s) plus one-way DnaA-ATP intrinsic hydrolysis (k = 0.046/min) — drives the DnaA-ATP fraction off the ~0.997 fast-equilibrium pin into the Boesen [0.2,0.5] band with no rate override.</li><li>The ~0.997 pin was a fast-equilibrium modelling artefact (the tick-wise solve reverting kinetically-trapped DnaA-ADP), not a K_d / [ATP]:[ADP] / expected-fraction parameter inconsistency.</li><li>Re-verified multi-seed (seeds 0/1/2) on the corrected emitter — all four must-preserve behaviours pass on Rashmi&#39;s generation-average criterion (DnaA-ATP fraction avg 0.268/0.267/0.302, total DnaA gen-avg 392/575/578, periodic mass doubling, one oriC initiation per generation). [The original seed-1 0.26/535 reading was on pre-fix truncated data — superseded.]</li></ul>
+      </div>
+      
+      
+      <div class="di-unc di-unc-remaining">
+        <h4>● Remaining uncertainties</h4>
+        <ul><li>The per-generation average DnaA-ATP fraction trends to the low edge of the band in later gens (~0.16–0.23, dipping below 0.2 in gens 5 &amp; 8); where in the band it sits is a k_r-tuning question left for Haochen.</li><li>The strict per-generation in-band reproduction is not perfectly clean even on the directed seed (gen-1 burned-in transient above band; later-gen dips below) — a clean strict per-gen 7-gen run with raw data on this branch is still absent (gate_status pending).</li></ul>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="di-group">
+      <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+      
+      <div class="di-card">
+        <div class="di-card-stmt"><strong>The DnaA-ATP fraction&#39;s drift to the low edge of the band in later generations is driven by total DnaA abundance (fraction anti-correlated with total DnaA, r=−0.88), not by any [ATP]:[ADP] nucleotide-ratio drift.</strong></div>
+        <div class="di-card-why">The background [ATP]:[ADP] ratio is constant at 20.3 across all 8 gens (pinned by metabolism), while the fraction falls from 0.53 to ~0.16–0.23 as the pool grows from ~185 to ~640 — so at the proper [300,800] abundance the kinetic steady state lands at the band&#39;s low edge.</div>
+        
+        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+          <code>dnaA-atp-fraction</code>, <code>dnaA-nucleotide-equilibria</code>
+        </div>
+        
+        
+        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+          <code>dnaA-atp-fraction-vs-total-dnaa</code>, <code>dnaA-atp-fraction-vs-k_r</code>
+        </div>
+        
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="di-group">
+      <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+      
+      <div class="di-card di-mech-card">
+        <div class="di-mech-head">
+          <code>dnaA-adp-dissociation-rate (k_r)</code>
+          <span class="di-update-chip">revise</span>
+          <span class="di-conf-change">Δconfidence: Investigating (literal k_r=1e-7/s lands in band but at the low edge; ~100× faster k_r needed to lift mid-band)</span>
+          <span class="di-approval-badge">needs expert approval</span>
+        </div>
+        <div class="di-card-why">A k_r sweep confirms faster DnaA-ADP dissociation re-charges DnaA-ATP and lifts the fraction, but it takes ~100× to shift it meaningfully; the exact k_r is Haochen&#39;s call, so the rate is flagged as a tuning lever rather than settled.</div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    <div class="di-group">
+      <h3>Follow-up study proposals
+        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+        <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+      <div class="followup-list">
+        
+        
+        <div class="di-card di-fup-card">
+          <div class="followup-header">
+            <strong class="followup-title">Calibrate the DnaA-ADP dissociation rate k_r to center the band</strong>
+            <span class="di-chip">calibration</span>
+            <span class="di-chip">missing_parameter</span>
+            <span class="di-chip di-gain-high">gain: high</span>
+            <span class="di-chip">priority: medium</span>
+          </div>
+          <div class="di-card-why">Sweep k_r (e.g. 1e-7 → 1e-5/s) on the seed-1 8-gen lineage and pick the value that holds the per-generation-average DnaA-ATP fraction mid-band without breaking the cell cycle.</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Targets:</span>
+            <code>dnaA-adp-dissociation-rate</code>, <code>dnaA-atp-fraction</code>
+          </div>
+          
+          <div class="followup-actions" style="margin-top:8px">
+            <button class="btn-seed-followup"
+                    onclick="_seedFollowupProposal('dnaa-2-nucleotide-balance', "dnaa2-k_r-calibration")">➕ Add to investigation</button>
+          </div>
+        </div>
+        
+        
+        <div class="di-card di-fup-card">
+          <div class="followup-header">
+            <strong class="followup-title">Clean strict per-generation in-band reproduction</strong>
+            <span class="di-chip">rerun</span>
+            <span class="di-chip">contradiction</span>
+            <span class="di-chip di-gain-medium">gain: medium</span>
+            <span class="di-chip">priority: medium</span>
+          </div>
+          <div class="di-card-why">Produce a clean multi-gen succinate run (raw parquet on this branch) where the strict per-generation DnaA-ATP fraction stays in [0.2,0.5], to close the gap between the generation-average PASS and the unmet strict per-gen gate.</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Targets:</span>
+            <code>dnaA-atp-fraction</code>
+          </div>
+          
+          <div class="followup-actions" style="margin-top:8px">
+            <button class="btn-seed-followup"
+                    onclick="_seedFollowupProposal('dnaa-2-nucleotide-balance', "dnaa2-clean-strict-pergen-reproduction")">➕ Add to investigation</button>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
+      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+    </h2>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Each track is independent. <em>Regression</em> answers "does the code
+      still build and run cleanly?", <em>biological</em> answers "does the
+      model match the literature?", <em>explanatory</em> answers "did we
+      learn something new?". Each <strong>result is computed</strong> from
+      canonical fields (gate evaluator, run status, finding tiers) — author
+      only the <em>basis</em> (the rationale) for each track.
+    </p>
+    <div class="narrative-grid">
+      <label class="narrative-row">
+        <span class="narrative-label">Regression compatibility</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+              title="Computed from run status (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PASS</span>
+        <span class="muted small" style="margin-left:6px">computed from run status</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Regression basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged.">The cell cycle is preserved under the adopted mechanism: 8/8 generations
+divide with a periodic mass sawtooth and oriC oscillates 1↔2 (one
+initiation per generation, never 4) across all re-verified seeds (0/1/2).
+</textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Biological validation</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+              title="Computed from the gate evaluator (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PASS</span>
+        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Biological basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5].">DnaA-ATP fraction in the Boesen [0.2,0.5] band (gen-avg 0.268/0.267/0.302)
+and total DnaA in the [300,800] band (gen-avg 392/575/578), both on
+Rashmi&#39;s generation-average criterion. CAVEAT: total-DnaA per-gen mean
+overshoots &gt;800 in later generations at V=1e-3 (seed-variable; seed 0
+stays in band) — in-band on the generation average, not strictly per-gen.
+</textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Explanatory gain</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+              title="Computed from interpretation-tier findings (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">POSITIVE</span>
+        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Explanatory basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed.">Diagnosed the spurious ~0.997 DnaA-ATP pin as a fast-equilibrium artefact
+(the tick-wise solve reverting kinetically-trapped DnaA-ADP), not a
+parameter inconsistency. Modelling DnaA-ADP dissociation as a slow kinetic
+step (integrate_dt) with literal rate constants is the lever — no K_d /
+[ATP]:[ADP] / expected-fraction revision needed.
+</textarea>
+      </label>
+    </div>
+  </div>
+
+  
+  
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
+      
+      
+    </div>
+    
+
+    
+    
+    
+    <div class="decide-section" style="margin-top:18px">
+      <h3 class="overview-label">Conclusion logic — gate decision</h3>
+      
+      <div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:4px;margin-bottom:8px">
+        <strong>✓ If primary tests pass:</strong>
+        
+        
+        
+      </div>
+      
+      
+      <div style="padding:10px 14px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px">
+        <strong>✗ If primary tests fail:</strong>
+        
+        
+      </div>
+      
+    </div>
+    
+
+    
+    
+
+    
+    
+  </div>
+  
+
+</section>
+
+</main>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard" };</script>
+<script src="/v2ecoli/dashboard/assets/data-source.js"></script>
+<script>
+window._studyName = "dnaa-2-nucleotide-balance";
+window._study = null;  // populated by _bootstrapStudy() in study-detail.js
+
+// Save handler for the Conditions → Model settings editable rows.
+// POSTs to /api/study-expert-input-set (route kept for back-compat)
+// which patches study.yaml in place.
+// On success: flashes "saved" + updates the row's data-current attribute.
+// On failure: flashes the error (HTTP body) for ~5s.
+function _saveExpertInput(studyName, eiName, btn) {
+  var row = btn.closest('tr');
+  var input = row && row.querySelector('.cond-ei-input');
+  var flash = row && row.querySelector('.cond-ei-flash');
+  if (!input || !flash) return;
+  var raw = (input.value || '').trim();
+  // Coerce numeric inputs so yaml carries the right type
+  var val = raw;
+  if (input.type === 'number' && raw !== '') {
+    var n = Number(raw);
+    if (!isNaN(n)) val = n;
+  } else if (raw === '') {
+    val = null;
+  }
+  btn.disabled = true;
+  flash.className = 'cond-ei-flash';
+  flash.style.display = '';
+  flash.textContent = 'saving…';
+  fetch('/api/study-expert-input-set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({study: studyName, name: eiName, current: val}),
+  }).then(function(r) {
+    return r.text().then(function(t) { return {ok: r.ok, status: r.status, body: t}; });
+  }).then(function(res) {
+    if (res.ok) {
+      flash.className = 'cond-ei-flash saved';
+      flash.textContent = '✓ saved';
+      setTimeout(function() { flash.style.display = 'none'; }, 2500);
+    } else {
+      flash.className = 'cond-ei-flash error';
+      flash.textContent = '✗ ' + (res.body || ('HTTP ' + res.status));
+    }
+  }).catch(function(err) {
+    flash.className = 'cond-ei-flash error';
+    flash.textContent = '✗ ' + String(err);
+  }).finally(function() {
+    btn.disabled = false;
+  });
+}
+
+// ── Seed a child study from this study's discovery_implications /
+//    follow_up_studies and make it appear in the investigation graph ──────
+// Both POST /api/study-seed-followup. On success they flash an inline
+// confirmation on the clicked button, then refresh the surface the user is
+// in: when embedded inside the investigation iframe, ask the parent to
+// re-render the investigation detail (and reload as a fallback); standalone,
+// reload the page so the seeded child is reflected.
+//
+// NOTE: these are defined AFTER /study-detail.js loads (see the script order
+// below) so they take precedence over the legacy _seedFollowupStudy there,
+// which navigates away instead of refreshing the embedded investigation.
+function _flashSeedBtn(btn, text, ok) {
+  if (!btn) return;
+  btn.textContent = text;
+  btn.style.borderColor = ok ? '#10b981' : '#dc2626';
+  btn.style.color = ok ? '#065f46' : '#991b1b';
+}
+function _afterSeedRefresh() {
+  // Embedded inside the investigation iframe → refresh the parent's graph.
+  if (window.parent && window.parent !== window) {
+    try {
+      if (window.parent._refreshInvestigationDetail) {
+        window.parent._refreshInvestigationDetail();
+        return;
+      }
+    } catch (e) { /* cross-origin or missing — fall through to reload */ }
+    try { window.parent.location.reload(); return; } catch (e) { /* fall through */ }
+  }
+  location.reload();
+}
+function _seedFollowup(payload, btn) {
+  var orig = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; _flashSeedBtn(btn, '… seeding', true); }
+  fetch('/api/study-seed-followup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(function(r) {
+    return r.json().then(function(d) { return {ok: r.ok, status: r.status, body: d}; })
+      .catch(function() { return {ok: r.ok, status: r.status, body: {}}; });
+  }).then(function(res) {
+    if (!res.ok || (res.body && res.body.error)) {
+      _flashSeedBtn(btn, '✗ ' + ((res.body && res.body.error) || ('HTTP ' + res.status)), false);
+      if (btn) btn.disabled = false;
+      return;
+    }
+    _flashSeedBtn(btn, '✓ added', true);
+    setTimeout(_afterSeedRefresh, 600);
+  }).catch(function(err) {
+    _flashSeedBtn(btn, '✗ ' + String(err), false);
+    if (btn) btn.disabled = false;
+  });
+}
+function _seedFollowupStudy(parent, idx) {
+  _seedFollowup({parent: parent, followup_idx: idx}, window.event && window.event.target);
+}
+function _seedFollowupProposal(parent, proposalId) {
+  _seedFollowup({parent: parent, proposal_id: proposalId}, window.event && window.event.target);
+}
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script src="/v2ecoli/dashboard/assets/study-detail.js"></script>
+<script>
+// Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
+// defines its own navigate-away _seedFollowupStudy). The embedded
+// investigation view prefers staying in place over a full navigation.
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+</body>
+</html>

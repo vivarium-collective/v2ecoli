@@ -259,7 +259,7 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">needs_calibration</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
@@ -1417,22 +1417,15 @@ unum). Cross-tool parca_compare additionally needs vivarium-ecoli
     <li class="expected-behavior-item" id="bt-parca-builds-full-51-conditions"
         data-pytest-node="parca-builds-full-51-conditions"
         data-classification="primary"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">parca-builds-full-51-conditions</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does --mode full fit all 51 TF conditions (the full-mode proof, vs ~7 in fast/debug)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: 51 TF conditions fitted (--mode full, 142.4 s on the mini); 51 = full vs 7 = fast/debug.</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1455,22 +1448,15 @@ expect:  {"op": "==", "value": 51}</pre>
     <li class="expected-behavior-item" id="bt-cache-bundle-complete"
         data-pytest-node="cache-bundle-complete"
         data-classification="primary"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">cache-bundle-complete</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does the cache bundle contain all four artifacts (initial_state.json, sim_data_cache.dill, metadata, cache_version)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: All four artifacts present in out/cache-showcase — initial_state.json (10.39 MB), sim_data_cache.dill (164.92 MB), metadata.json (210 B), cache_version.json (1.1 KB).</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1493,27 +1479,15 @@ expect:  {"artifacts": ["initial_state.json", "sim_data_cache.dill", "metadata",
     <li class="expected-behavior-item" id="bt-sim_data-reproduces-parca-comparison"
         data-pytest-node="sim_data-reproduces-parca-comparison"
         data-classification="primary"
-        data-result="PARTIAL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fde68a; color: #92400e">◐ partial</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">sim_data-reproduces-parca-comparison</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does the rebuilt sim_data reproduce the parca_compare reference?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Verified at structural-inventory + simulation-readiness level (4538 genes /
-3277 TUs / 4309 monomers / 1118 complexes / 9460 metabolic reactions;
-5-step baseline smoke run, no equilibrium-solver crash). The full cross-tool
-parca_compare HTML diff was not re-run — it needs vivarium-ecoli
---save-intermediates reference checkpoints, absent on the mini this session.
-</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">

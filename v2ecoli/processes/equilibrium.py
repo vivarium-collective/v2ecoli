@@ -77,7 +77,7 @@ _FORM_BOUND_ATP = 1
 # Per-spec pseudo-first-order rate constant (Sekimizu 1987 / Stage 1 PDF):
 # k = 0.046 / min ≈ 7.667e-4 / s. The dnaa_box_binding step uses the same rate
 # (independently) for the in-place bound ATP→ADP form swap.
-_HYDROLYSIS_RATE_PER_SEC = 0.046 / 60.0
+_HYDROLYSIS_RATE_PER_SEC = 0.025 / 60.0
 
 
 class Equilibrium(Step):

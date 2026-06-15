@@ -111,14 +111,14 @@ FORM_BOUND_ATP = 1
 FORM_BOUND_ADP = 2
 
 # K_d values in molar (mol / L).
-KD_HIGH_M = 1e-9    # 1 nM — chromosomal_high, oriC_high, promoter_high
+KD_HIGH_M = 3e-9    # 3 nM — chromosomal_high, oriC_high, promoter_high
 KD_LOW_M = 100e-9   # 100 nM — oriC_low (ATP only)
 
 # DnaA-ATP intrinsic hydrolysis rate. Bound DnaA-ATP hydrolyzes at the same
 # rate as free DnaA-ATP (Sekimizu 1987, k = 0.046 / min). bf8b82e's equilibrium
 # step hydrolyzes the FREE pool only; this step additionally hydrolyzes the
 # BOUND pool, in-place (bound box-ATP → bound box-ADP on the same row).
-HYDROLYSIS_RATE_PER_MIN = 0.046
+HYDROLYSIS_RATE_PER_MIN = 0.025
 
 
 class DnaABoxBinding(Step):
@@ -591,6 +591,19 @@ class DnaABoxBinding(Step):
                 current = attrs(boxes, [submass_field])[0]
                 box_set[submass_field] = current + mass_delta[:, idx]
 
+        # dnaa-4 autoregulation: publish dnaA-promoter occupancy fraction so
+        # transcript_initiation.py can repress the dnaA TU when DnaA has bound
+        # the promoter sites (negative feedback). f = bound / total over the
+        # POOL_PROMOTER_HIGH boxes in this cell (2 sites per chromosome; 2-4
+        # total over the cell cycle as the fork passes the promoter region).
+        prom_mask = pool_masks[POOL_PROMOTER_HIGH]
+        n_prom_total = int(prom_mask.sum())
+        if n_prom_total > 0:
+            n_prom_bound = int((new_bound_form[prom_mask] != FORM_FREE).sum())
+            promoter_fraction = float(n_prom_bound) / float(n_prom_total)
+        else:
+            promoter_fraction = 0.0
+
         update = {
             "DnaA_boxes": {"set": box_set},
             "next_update_time": states["global_time"] + states["timestep"],
@@ -599,6 +612,7 @@ class DnaABoxBinding(Step):
             # SAME hydrolysis events rather than independently re-sampling.
             "dnaa_hydrolysis": {
                 "bound_count": int(delta_h_bound),
+                "promoter_fraction": promoter_fraction,
             },
         }
         if bulk_update:

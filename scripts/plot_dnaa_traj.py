@@ -54,14 +54,20 @@ BOUND_FIELDS = [
     "listeners__replication_data__oriC_low_bound_atp",
     "listeners__replication_data__promoter_high_bound_atp",
     "listeners__replication_data__promoter_high_bound_adp",
+    "listeners__replication_data__promoter_high_free",
 ]
+
+# Autoreg panels: dnaA promoter occupancy + dnaA transcription events
+DNAA_TU_IDX = 2778
+RNA_INIT_FIELD = "listeners__rnap_data__rna_init_event"
 
 
 def _lineage_agent(gen: int) -> str:
     return "0" * gen
 
 
-def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> dict:
+def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int,
+                 start_gen: int = 1) -> dict:
     times: list[np.ndarray] = []
     cell_mass: list[np.ndarray] = []
     n_oric: list[np.ndarray] = []
@@ -71,11 +77,13 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
     apo: list[np.ndarray] = []
     bulk_atp: list[np.ndarray] = []
     bulk_adp: list[np.ndarray] = []
+    prom_occ: list[np.ndarray] = []           # dnaA-promoter bound fraction
+    tx_events: list[np.ndarray] = []          # dnaA TU init events per tick
     gen_boundaries: list[float] = []
     durations: list[float] = []
     t_offset = 0.0
 
-    for gen in range(1, n_gens + 1):
+    for gen in range(start_gen, n_gens + 1):
         agent = _lineage_agent(gen)
         pat = (f"{exp_root}/history/experiment_id={exp_id}/variant=0/"
                f"lineage_seed={lineage_seed}/generation={gen}/agent_id={agent}/*.pq")
@@ -93,10 +101,15 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         a_apo = []
         b_atp = []
         b_adp = []
+        po = []  # promoter occupancy = bound/(free+bound)
+        tx = []  # dnaA TU init events at this tick
         # Detect Phase 2 listener columns once per gen.
         schema = pq.read_schema(files[0])
         has_bound = all(c in schema.names for c in BOUND_FIELDS)
+        has_rna_init = RNA_INIT_FIELD in schema.names
         cols_to_read = COLS + (BOUND_FIELDS if has_bound else [])
+        if has_rna_init:
+            cols_to_read = cols_to_read + [RNA_INIT_FIELD]
         for f in files:
             tbl = pq.read_table(f, columns=cols_to_read).to_pandas()
             for _, r in tbl.iterrows():
@@ -132,6 +145,24 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
                 a_apo.append(lookup.get(DNAA_APO_ID, 0))
                 b_atp.append(lookup.get(ATP_ID, 0))
                 b_adp.append(lookup.get(ADP_ID, 0))
+                # dnaA-promoter occupancy: bound / (free + bound)
+                if has_bound:
+                    p_bound = (
+                        int(r["listeners__replication_data__promoter_high_bound_atp"]) +
+                        int(r["listeners__replication_data__promoter_high_bound_adp"])
+                    )
+                    p_free = int(r["listeners__replication_data__promoter_high_free"])
+                    p_total = p_bound + p_free
+                    po.append(p_bound / p_total if p_total > 0 else 0.0)
+                else:
+                    po.append(np.nan)
+                # dnaA TU transcription initiation events at this tick
+                if has_rna_init:
+                    arr = r[RNA_INIT_FIELD]
+                    arr = np.asarray(arr) if hasattr(arr, "__iter__") else np.array([arr])
+                    tx.append(int(arr[DNAA_TU_IDX]) if len(arr) > DNAA_TU_IDX else 0)
+                else:
+                    tx.append(0)
         t_g = np.asarray(t_g)
         order = np.argsort(t_g)
         t_g = t_g[order]
@@ -143,6 +174,8 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         a_apo = np.asarray(a_apo)[order]
         b_atp = np.asarray(b_atp)[order]
         b_adp = np.asarray(b_adp)[order]
+        po = np.asarray(po)[order]
+        tx = np.asarray(tx)[order]
 
         dur = float(t_g[-1] - t_g[0])
         times.append(t_g + t_offset)
@@ -154,6 +187,8 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         apo.append(a_apo)
         bulk_atp.append(b_atp)
         bulk_adp.append(b_adp)
+        prom_occ.append(po)
+        tx_events.append(tx)
         durations.append(dur)
         t_offset = float(times[-1][-1])
         gen_boundaries.append(t_offset)
@@ -170,6 +205,8 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         "apo": np.concatenate(apo) if apo else np.array([]),
         "bulk_atp": np.concatenate(bulk_atp) if bulk_atp else np.array([]),
         "bulk_adp": np.concatenate(bulk_adp) if bulk_adp else np.array([]),
+        "prom_occ": np.concatenate(prom_occ) if prom_occ else np.array([]),
+        "tx_events": np.concatenate(tx_events) if tx_events else np.array([]),
         "gen_boundaries": gen_boundaries[:-1] if gen_boundaries else [],
         "durations_min": [d / 60 for d in durations],
     }
@@ -185,7 +222,7 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
         frac_adp = np.where(total > 0, d["adp"] / total, np.nan)
         frac_apo = np.where(total > 0, d["apo"] / total, np.nan)
 
-    fig, axes = plt.subplots(6, 1, figsize=(14, 18), sharex=True)
+    fig, axes = plt.subplots(8, 1, figsize=(14, 22), sharex=True)
     fig.suptitle(
         f"{title_extra}\n"
         "DnaA-ATP intrinsic hydrolysis wired into equilibrium (k = 0.046/min)\n"
@@ -224,28 +261,10 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
 
     # 4. DnaA total / cell mass
     ax = axes[3]
-    # Per-gen CV ±10% bands centred on each gen's own mean. Gen 1 is
-    # transient (resume-dill warm-in) so we still draw a band but flag
-    # it visually with a dashed mean line.
-    gen_edges = [t_min[0]] + list(boundaries_min) + [t_min[-1]]
-    for gi in range(len(gen_edges) - 1):
-        t0, t1 = gen_edges[gi], gen_edges[gi + 1]
-        mask = (t_min >= t0) & (t_min < t1)
-        vals = per_mass[mask]
-        vals = vals[np.isfinite(vals)]
-        if vals.size == 0:
-            continue
-        m = float(np.mean(vals))
-        ax.fill_between([t0, t1], m * 0.9, m * 1.1,
-                        color="#fbcfe8", alpha=0.45, zorder=0)
-        ax.hlines(m, t0, t1, color="#9d174d", lw=0.8, ls="--",
-                  alpha=0.75, zorder=1)
-    ax.plot(t_min, per_mass, color="#ec4899", lw=1.4, zorder=2)
+    ax.plot(t_min, per_mass, color="#ec4899", lw=1.4)
     vlines(ax)
     ax.set_ylabel("DnaA total /\ncell mass")
-    ax.text(0.99, 0.02, "Per-gen CV ±10% band, dashed = gen mean",
-            transform=ax.transAxes, ha="right", va="bottom",
-            fontsize=8, color="#9d174d")
+    ax.set_ylim(bottom=0)
 
     # 5. DnaA-form fractions
     ax = axes[4]
@@ -264,8 +283,51 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
     ax.semilogy(t_min, d["bulk_adp"], color="#2563eb", lw=1.2, label="bulk ADP")
     vlines(ax)
     ax.set_ylabel("bulk count")
-    ax.set_xlabel("Time (min)")
     ax.legend(loc="lower right", fontsize=8, frameon=False)
+
+    # 7. dnaA-promoter FREE fraction — inverse of occupancy.
+    # Plot (1 - f) so the saturated-bound state is at 0 (baseline) and
+    # cycle-phase unbinding events spike UP. Much more visually informative
+    # than f, which sits pinned at the top of the panel.
+    ax = axes[6]
+    if d["prom_occ"].size and not np.all(np.isnan(d["prom_occ"])):
+        free_frac = 1.0 - d["prom_occ"]
+        ax.plot(t_min, free_frac, color="#b91c1c", lw=1.2)
+        ax.axhline(0.0, color="#94a3b8", lw=0.8, ls=":")
+        ax.set_ylim(bottom=-0.02)
+    else:
+        ax.text(0.5, 0.5, "no listener data", transform=ax.transAxes,
+                ha="center", va="center", color="#9ca3af")
+        ax.set_ylim(-0.05, 1.10)
+    vlines(ax)
+    ax.set_ylabel("dnaA-promoter\nfree fraction (1 − f)")
+
+    # 8. dnaA transcription event count over time — cumulative per gen
+    ax = axes[7]
+    if d["tx_events"].size and d["t"].size > 1:
+        # Cumulative event count, RESET at each gen boundary so the line
+        # reads as one sawtooth per cell cycle — mirrors the DnaA panel.
+        t_sec = d["t"]
+        boundaries_sec = list(d["gen_boundaries"]) + [float(t_sec[-1]) + 1]
+        cum = np.zeros_like(d["tx_events"], dtype=float)
+        gen_start_idx = 0
+        running = 0.0
+        for i in range(len(t_sec)):
+            # Reset counter when we cross a gen boundary
+            if (gen_start_idx < len(boundaries_sec)
+                    and t_sec[i] >= boundaries_sec[gen_start_idx]):
+                running = 0.0
+                gen_start_idx += 1
+            running += float(d["tx_events"][i])
+            cum[i] = running
+        ax.plot(t_min, cum, color="#0f766e", lw=1.2)
+        ax.set_ylim(bottom=0)
+    else:
+        ax.text(0.5, 0.5, "no listener data", transform=ax.transAxes,
+                ha="center", va="center", color="#9ca3af")
+    vlines(ax)
+    ax.set_ylabel("dnaA tx events\n(cumulative per gen)")
+    ax.set_xlabel("Time (min)")
 
     for ax in axes:
         ax.tick_params(labelsize=8)
@@ -284,12 +346,16 @@ def main():
                     help="e.g. out/dnaa2_seed0_v8e4_parquet/dnaa2_seed0_v8e4")
     ap.add_argument("--exp-id", required=True)
     ap.add_argument("--lineage-seed", type=int, default=0)
-    ap.add_argument("--gens", type=int, default=6)
+    ap.add_argument("--gens", type=int, default=6,
+                    help="Last generation to include (inclusive).")
+    ap.add_argument("--start-gen", type=int, default=1,
+                    help="First generation to include (default 1).")
     ap.add_argument("--title-extra", default="")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    d = load_lineage(args.exp_root, args.exp_id, args.lineage_seed, args.gens)
+    d = load_lineage(args.exp_root, args.exp_id, args.lineage_seed, args.gens,
+                     start_gen=args.start_gen)
     if d["t"].size == 0:
         print("No data loaded — aborting.")
         return

@@ -1,26 +1,28 @@
-"""dnaa-3 Phase 2 mechanism schematic.
+"""dnaa-3 Phase 2 / dnaa-4 mechanism schematic.
 
-Renders a single-page diagram of what Phase 2 wires into the simulation:
+Renders a single-page diagram of what the box-binding stack wires into the
+simulation. The ``--variant`` flag toggles between:
 
-  Translation pool  →  apo DnaA  →  charging (bf8b82e)  →  bulk DnaA-ATP / DnaA-ADP
-                                                              │
-                                                              ├──→ 4 affinity pools
-                                                              │      • chromosomal_high (302 sites, K_d=1 nM, ATP or ADP)
-                                                              │      • oriC_high      (3 sites:  R1/R2/R4, K_d=1 nM, ATP or ADP)
-                                                              │      • oriC_low       (8 sites:  R5M/τ2/I1/I2/C3/C2/I3/C1, K_d=100 nM, ATP only)
-                                                              │      • promoter_high  (2 sites:  box1/box2, K_d=1 nM, ATP or ADP)
-                                                              │
-                                                              ├──→ bf8b82e hydrolysis  (free + bound pools, k=0.046/min, Pi+PROTON+WATER tracked via stoich)
-                                                              │
-                                                              └──→ fork-passage release (DnaA returns to bulk when replisome crosses a bound box)
+  dnaa3 (default)
+    Phase 2 only: 4 affinity pools, K_d_high = 1 nM, intrinsic hydrolysis at
+    k_h = 0.046/min (Sekimizu 1987), mass-only initiation gate, no
+    self-autoregulation.
 
-Box-pool occupancy listener emits 11 per-pool / per-form counts.
-
-Initiation gate is unchanged from Phase 1 — still mass-only.
+  dnaa4
+    Phase 2 + dynamic dnaA self-autoregulation. Three changes:
+      • K_d_high raised to 3 nM (chromosomal_high, oriC_high, promoter_high)
+        so the promoter genuinely de-occupies at low DnaA and the
+        autoregulation loop has a titration handle.
+      • k_h lowered to 0.025/min so ATPfr settles inside the 0.2-0.5 band.
+      • Hill-form repression on TU00259[c] (dnaA operon):
+            scale = 1 − s · f^n / (K^n + f^n)
+        with s = 0.8 (5x at saturation), n = 4, K = 0.5, where f is the
+        promoter_high bound-fraction read from the replication_data listener.
 
 Usage:
     python scripts/plot_dnaa3_phase2_schematic.py \\
-        --out out/figures/dnaa3_phase2_schematic.png
+        --variant dnaa4 \\
+        --out out/figures/dnaa4_schematic.png
 """
 from __future__ import annotations
 
@@ -58,25 +60,67 @@ def _label(ax, xy, text, fontsize=8, color="#475569",
             ha=ha, va=va, bbox=bbox, zorder=4)
 
 
-def draw(out_path: Path) -> None:
-    fig, ax = plt.subplots(figsize=(14, 9))
-    ax.set_xlim(0, 14)
+def _bar_arrow(ax, xy_from, xy_to, color="#b91c1c", lw=1.6,
+               connectionstyle="arc3,rad=0.0", zorder=1):
+    """Repression arrow ending in a T-bar instead of a normal arrowhead."""
+    arrow = mpatches.FancyArrowPatch(
+        xy_from, xy_to, arrowstyle="-[, widthB=0.5, lengthB=0.18",
+        mutation_scale=12, color=color, lw=lw,
+        connectionstyle=connectionstyle, zorder=zorder)
+    ax.add_patch(arrow)
+
+
+def draw(out_path: Path, variant: str = "dnaa3",
+         linear_s: float | None = None,
+         te_mult: float = 1.0) -> None:
+    if variant not in ("dnaa3", "dnaa4"):
+        raise ValueError(f"unknown variant {variant!r}; expected dnaa3 or dnaa4")
+    kd_high_nM = 3 if variant == "dnaa4" else 1
+    k_h = 0.025 if variant == "dnaa4" else 0.046
+    kd_note = "   [was 1]" if variant == "dnaa4" else ""
+    kh_note = "   [was 0.046]" if variant == "dnaa4" else ""
+    # When linear_s is set on the dnaa-4 variant, switch the autoregulation
+    # form from Hill to linear. Hill default is kept for backward compatibility.
+    is_linear = variant == "dnaa4" and linear_s is not None
+    has_te_callout = variant == "dnaa4" and te_mult > 1.0
+    # Extend canvas to make room for the CHANGES sidebar on dnaa-4.
+    fig_w = 17 if variant == "dnaa4" else 14
+    x_max = 17 if variant == "dnaa4" else 14
+
+    fig, ax = plt.subplots(figsize=(fig_w, 9))
+    ax.set_xlim(0, x_max)
     ax.set_ylim(0, 9)
     ax.set_aspect("equal")
     ax.axis("off")
 
-    fig.suptitle(
-        "dnaa-3 Phase 2 — DnaA-box binding mechanism (what we wired into v2ecoli)",
-        fontsize=12, y=0.96,
-    )
+    if variant == "dnaa4":
+        autoreg_label = "linear" if is_linear else "Hill"
+        title = (f"dnaa-4 — DnaA-box binding + dynamic dnaA self-autoregulation "
+                 f"({autoreg_label} on promoter occupancy)")
+    else:
+        title = "dnaa-3 Phase 2 — DnaA-box binding mechanism (what we wired into v2ecoli)"
+    fig.suptitle(title, fontsize=12, y=0.96)
 
     # Translation source -------------------------------------------------
-    _box(ax, (0.3, 7.5), 1.8, 0.7,
-         "Translation\n(dnaA mRNA → apo DnaA)",
-         fc="#fef3c7", ec="#b45309", fontsize=8)
+    if variant == "dnaa4":
+        # Add an explicit transcript_initiation box upstream so the
+        # autoregulation T-bar has somewhere clear to land.
+        _box(ax, (-0.05, 7.5), 1.4, 0.7,
+             "transcript_initiation\nTU00259[c]",
+             fc="#fde68a", ec="#92400e", fontsize=7)
+        _box(ax, (1.55, 7.5), 1.20, 0.7,
+             "Translation\n(mRNA → apo)",
+             fc="#fef3c7", ec="#b45309", fontsize=7)
+        _arrow(ax, (1.35, 7.85), (1.55, 7.85))
+    else:
+        _box(ax, (0.3, 7.5), 1.8, 0.7,
+             "Translation\n(dnaA mRNA → apo DnaA)",
+             fc="#fef3c7", ec="#b45309", fontsize=8)
 
     # Bulk apo + charging ------------------------------------------------
-    _box(ax, (2.8, 7.5), 1.6, 0.7,
+    apo_x = 2.85 if variant == "dnaa4" else 2.8
+    apo_w = 1.55 if variant == "dnaa4" else 1.6
+    _box(ax, (apo_x, 7.5), apo_w, 0.7,
          "apo DnaA\n[PD03831]",
          fc="#fef9c3", ec="#a16207", fontsize=8)
 
@@ -88,7 +132,10 @@ def draw(out_path: Path) -> None:
          "bulk DnaA-ATP    bulk DnaA-ADP\n[MONOMER0-160] [MONOMER0-4565]",
          fc="#dcfce7", ec="#166534", fontsize=8)
 
-    _arrow(ax, (2.1, 7.85), (2.8, 7.85))
+    # Translation → apo arrow: dnaa-4 has narrower Translation, so the
+    # arrow starts further right.
+    _arrow(ax, (2.75 if variant == "dnaa4" else 2.10, 7.85),
+           (apo_x, 7.85))
     _arrow(ax, (4.4, 7.85), (4.9, 7.85))
     _arrow(ax, (5.8, 7.85), (6.3, 7.85))
     _label(ax, (5.35, 8.30), "apo + ATP ⇌ DnaA-ATP", fontsize=7,
@@ -99,7 +146,7 @@ def draw(out_path: Path) -> None:
     # Intrinsic hydrolysis (with the Phase 2 extension to bound pool) -----
     _box(ax, (9.3, 7.4), 4.4, 0.95,
          "DnaA-ATP intrinsic hydrolysis (Sekimizu 1987)\n"
-         "k = 0.046/min on (free + bound) DnaA-ATP\n"
+         f"k_h = {k_h}/min on (free + bound) DnaA-ATP{kh_note}\n"
          "→ DnaA-ADP + Pi + PROTON − WATER (stoich-tracked)\n"
          "Bound-pool: in-place ATP→ADP form swap; molecule\n"
          "stays attached, then re-equilibrates next tick",
@@ -112,11 +159,11 @@ def draw(out_path: Path) -> None:
     pool_w = 3.0
 
     _box(ax, (0.4, pool_y), pool_w, pool_h,
-         "chromosomal_high\n302 sites\nK_d = 1 nM\nbinds ATP or ADP",
+         f"chromosomal_high\n302 sites\nK_d = {kd_high_nM} nM{kd_note}\nbinds ATP or ADP",
          fc="#e0e7ff", ec="#3730a3", fontsize=8)
 
     _box(ax, (3.7, pool_y), pool_w, pool_h,
-         "oriC_high\n3 sites (R1, R2, R4)\nK_d = 1 nM\nbinds ATP or ADP",
+         f"oriC_high\n3 sites (R1, R2, R4)\nK_d = {kd_high_nM} nM{kd_note}\nbinds ATP or ADP",
          fc="#fae8ff", ec="#6b21a8", fontsize=8)
 
     _box(ax, (7.0, pool_y), pool_w, pool_h,
@@ -125,7 +172,7 @@ def draw(out_path: Path) -> None:
          fc="#cffafe", ec="#0e7490", fontsize=8)
 
     _box(ax, (10.3, pool_y), pool_w, pool_h,
-         "promoter_high\n2 sites (box1, box2)\nK_d = 1 nM\nbinds ATP or ADP",
+         f"promoter_high\n2 sites (box1, box2)\nK_d = {kd_high_nM} nM{kd_note}\nbinds ATP or ADP",
          fc="#fff7ed", ec="#9a3412", fontsize=8)
 
     # Binding step label between bulk and pools --------------------------
@@ -142,6 +189,64 @@ def draw(out_path: Path) -> None:
         _arrow(ax, (7.6, 6.05), (px, pool_y + pool_h),
                color="#155e75", lw=1.0,
                connectionstyle="arc3,rad=0.0")
+
+    # Autoregulation loop (dnaa-4 only) ----------------------------------
+    if variant == "dnaa4":
+        # Autoreg formula box sits directly above promoter_high, visually
+        # tying the math to the pool that drives the feedback signal.
+        if is_linear:
+            autoreg_text = (
+                "Dynamic dnaA self-autoregulation\n"
+                "prob_TU00259[c]  ×=  1 − s · f\n"
+                f"f = promoter_high bound-fraction\n"
+                f"s = {linear_s}   (≈{1.0/(1.0 - linear_s):.1f}× repression at saturation)"
+            )
+        else:
+            autoreg_text = (
+                "Dynamic dnaA self-autoregulation\n"
+                "prob_TU00259[c]  ×=  1 − s · f^n / (K^n + f^n)\n"
+                "f = promoter_high bound-fraction\n"
+                "s = 0.8, n = 4, K = 0.5   (≈5× repression at saturation)"
+            )
+        autoreg_box_xy = (9.95, 5.45)
+        autoreg_box_w  = 3.55
+        autoreg_box_h  = 1.05
+        _box(
+            ax, autoreg_box_xy, autoreg_box_w, autoreg_box_h,
+            autoreg_text,
+            fc="#fee2e2", ec="#b91c1c", fontsize=7, color="#7f1d1d",
+        )
+        # T-bar arrow: route as L-shape through the empty corridor between
+        # binding-step (top y=6.7) and the bulk row (bottom y=7.5) so the
+        # path doesn't cross any box or equilibrium label. Lands on the
+        # BOTTOM edge of transcript_initiation (centered at x=0.65, y=7.5).
+        corridor_y = 7.10
+        x_right = autoreg_box_xy[0] + 0.30           # left edge of autoreg box
+        y_top_autoreg = autoreg_box_xy[1] + autoreg_box_h
+        x_left = 0.65                                  # center of transcript_initiation
+        # Plain polyline for the up + across segments (no arrowhead/T-bar).
+        ax.plot(
+            [x_right, x_right, x_left],
+            [y_top_autoreg, corridor_y, corridor_y],
+            color="#b91c1c", lw=1.6, zorder=5,
+        )
+        # Final short vertical with the T-bar pressing UP against the
+        # transcript_initiation box's bottom edge.
+        _bar_arrow(
+            ax,
+            (x_left, corridor_y),
+            (x_left, 7.48),
+            color="#b91c1c", lw=1.6,
+            zorder=5,
+        )
+        # Short connector arrow promoter_high (top edge) → autoreg box
+        # (bottom edge) so the signal source is unambiguous.
+        _arrow(
+            ax,
+            (10.4, pool_y + pool_h),
+            (autoreg_box_xy[0] + 0.6, autoreg_box_xy[1]),
+            color="#b91c1c", lw=1.2,
+        )
 
     # Fork-passage release -----------------------------------------------
     # Place it directly under the bulk DnaA pool so the arrow can be a short
@@ -176,11 +281,67 @@ def draw(out_path: Path) -> None:
     _label(ax, (6.95, 5.5), "fork-released DnaA-ATP/ADP\n→ back to bulk",
            fontsize=7, color="#991b1b", ha="left")
 
+    # TE callout (dnaa-4 + te_mult > 1 only) -----------------------------
+    if has_te_callout:
+        _box(
+            ax, (1.45, 8.30), 1.70, 0.45,
+            f"TE × {te_mult:g}  (dnaA only)",
+            fc="#fef3c7", ec="#b45309", fontsize=7, color="#78350f",
+        )
+
+    # CHANGES sidebar (dnaa-4 only, uses extended canvas) ----------------
+    if variant == "dnaa4":
+        sb_x = 14.3
+        sb_w = 2.5
+        # Header
+        _box(ax, (sb_x, 8.0), sb_w, 0.7,
+             "DNAA-4 CHANGES",
+             fc="#1f2937", ec="#0f172a", fontsize=10, color="#f9fafb")
+        # Each modification as its own row. Only items NEW or MODIFIED in
+        # this dnaa-4 study — the box-binding mechanism, fork-passage release,
+        # and replication_data listener were inherited from dnaa-3.
+        lines = []
+        lines.append(("NEW", "Dynamic dnaA autoreg",
+                      ("linear: prob ×= (1 − s·f)\n"
+                       f"s = {linear_s}") if is_linear
+                      else "Hill: prob ×= (1 − s·f^n/(K^n+f^n))\ns=0.8, n=4, K=0.5",
+                      "#dcfce7", "#166534"))
+        lines.append(("MOD", "K_d (high-affinity)",
+                      "3 nM   [was 1 nM]", "#fef3c7", "#b45309"))
+        lines.append(("MOD", "k_h (intrinsic hydrolysis)",
+                      "0.025/min   [was 0.046]", "#fef3c7", "#b45309"))
+        if has_te_callout:
+            lines.append(("MOD", "dnaA translation efficiency",
+                          f"× {te_mult:g}", "#fef3c7", "#b45309"))
+        # Render rows top-down
+        row_h = 1.0
+        gap = 0.08
+        y_cursor = 7.85
+        for badge, title_text, body, body_fc, body_ec in lines:
+            y_cursor -= (row_h + gap)
+            # Badge pill (left, vertically centered)
+            badge_fc = "#16a34a" if badge == "NEW" else "#d97706"
+            _box(ax, (sb_x + 0.05, y_cursor + row_h - 0.40), 0.55, 0.32,
+                 badge, fc=badge_fc, ec=badge_fc, fontsize=7, color="white")
+            # Title + body inside one rounded box
+            _box(ax, (sb_x + 0.05, y_cursor), sb_w - 0.10, row_h - 0.45,
+                 body, fc=body_fc, ec=body_ec, fontsize=6.5, color="#1f2937")
+            # Title text above body
+            _label(ax, (sb_x + 0.70, y_cursor + row_h - 0.24),
+                   title_text, fontsize=7.5, color="#0f172a", ha="left")
+
     # Initiation gate note (out of scope) -------------------------------
+    if variant == "dnaa4":
+        gate_caption = (
+            "Initiation gate — mass-only (unchanged). "
+            "dnaa-4 wires the autoregulation loop; Phase 3 will replace mass-only "
+            "with oriC_low-occupancy.")
+    else:
+        gate_caption = (
+            "Initiation gate — unchanged from Phase 1 (mass-only). "
+            "Phase 2 is bookkeeping; Phase 3 will gate on oriC_low occupancy.")
     _label(
-        ax, (7.0, 0.85),
-        "Initiation gate — unchanged from Phase 1 (mass-only). "
-        "Phase 2 is bookkeeping; Phase 3 will gate on oriC_low occupancy.",
+        ax, (7.0, 0.85), gate_caption,
         fontsize=8, color="#1f2937", ha="center",
         bbox=dict(boxstyle="round,pad=0.4", facecolor="#fff7ed",
                   edgecolor="#9a3412"))
@@ -194,8 +355,18 @@ def draw(out_path: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="out/figures/dnaa3_phase2_schematic.png")
+    ap.add_argument("--variant", choices=("dnaa3", "dnaa4"), default="dnaa3",
+                    help="dnaa3 = Phase 2 only (K_d=1 nM, k_h=0.046, no autoreg). "
+                         "dnaa4 = adds self-autoregulation, K_d=3 nM, k_h=0.025.")
+    ap.add_argument("--linear-s", type=float, default=None,
+                    help="If set on dnaa-4 variant, use linear autoreg "
+                         "(1 - s·f) with this s value instead of Hill.")
+    ap.add_argument("--te-mult", type=float, default=1.0,
+                    help="If >1 on dnaa-4 variant, add a TE multiplier callout "
+                         "for dnaA (translation efficiency boost).")
     args = ap.parse_args()
-    draw(Path(args.out))
+    draw(Path(args.out), variant=args.variant,
+         linear_s=args.linear_s, te_mult=args.te_mult)
 
 
 if __name__ == "__main__":

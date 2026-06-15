@@ -88,7 +88,27 @@ TOPOLOGY = {
     "listeners": ("listeners",),
     "timestep": ("timestep",),
     "ppgpp_state": ("ppgpp_state",),
+    # dnaa-4 autoregulation: optional port reading dnaA-promoter occupancy
+    # published by dnaa_box_binding.py. When wired, this drives a per-tick
+    # repression factor on the dnaA TU's init prob. Absent in older composites
+    # → autoregulation collapses to no-op (strength * 0 = 0 scaling).
+    "dnaa_hydrolysis": ("process_state", "dnaa_hydrolysis"),
 }
+
+# dnaa-4 autoregulation constants. DNAA_TU_IDX = row index of TU00259[c]
+# in the TU-level arrays (rna_data.fullArray()["id"]). Repression follows a
+# Hill function on the bound-fraction f of the 2-4 dnaA-promoter sites:
+#   repressed_frac = f^n / (K^n + f^n)
+#   scaled_prob    = base_prob * (1 - s * repressed_frac)
+# Hill (n=4, K=0.5) keeps transcription nearly full at low f (~2.5% repression
+# at f=0.2) and clamps hard once promoter saturates (~75% repression at f=1).
+# Strength=0.8 caps maximum repression at ~5x, close to the -2.31 log2 FC
+# encoded in fold_changes_nca.tsv (which the L1-norm ParCa fit drops to zero
+# — this step restores it as a dynamic, occupancy-driven feedback).
+DNAA_TU_IDX = 2778
+AUTOREG_STRENGTH = 0.6
+AUTOREG_HILL_N = 2.0
+AUTOREG_HILL_K = 0.5
 
 
 class TranscriptInitiation(Step):
@@ -315,11 +335,23 @@ class TranscriptInitiation(Step):
                 'mass': {
                     'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
+                # dnaa-4 autoregulation: read dnaA-promoter occupancy
+                # (published every tick by steps/derivers/replication_data.py).
+                'replication_data': {
+                    'promoter_high_free': {'_type': 'integer', '_default': 0},
+                    'promoter_high_bound_atp': {'_type': 'integer', '_default': 0},
+                    'promoter_high_bound_adp': {'_type': 'integer', '_default': 0},
+                },
             },
             'timestep': {'_type': 'integer', '_default': 1.0},
             'ppgpp_state': {
                 'basal_prob': {'_type': 'array[float]', '_default': []},
                 'frac_active_rnap': {'_type': 'float', '_default': 0.0},
+            },
+            # dnaa-4 autoregulation: read dnaA-promoter occupancy published by
+            # dnaa_box_binding.py. Optional — defaults to 0 when port is unwired.
+            'dnaa_hydrolysis': {
+                'promoter_fraction': {'_type': 'float', '_default': 0.0},
             },
         }
 
@@ -395,6 +427,32 @@ class TranscriptInitiation(Step):
                     self.genetic_perturbations["fixedSynthProbs"],
                     TU_index,
                 )
+
+            # dnaa-4 autoregulation: scale the dnaA TU's per-promoter init prob
+            # by (1 - s * f), where f is the bound fraction of the 2-4 dnaA-
+            # promoter sites (published by dnaa_box_binding.py). Applied AFTER
+            # Mechanism A's _rescale_initiation_probs so Mechanism A defines
+            # the baseline rate V and autoregulation modulates it down toward
+            # zero as DnaA accumulates and saturates the promoter.
+            # Read promoter occupancy from the replication_data listener
+            # fields that dnaa_box_binding → derivers/replication_data writes
+            # every tick. Listeners are universally wired so this avoids the
+            # process_state port-resolution issue.
+            rd = states.get("listeners", {}).get("replication_data", {})
+            n_free = int(rd.get("promoter_high_free", 0) or 0)
+            n_bound_atp = int(rd.get("promoter_high_bound_atp", 0) or 0)
+            n_bound_adp = int(rd.get("promoter_high_bound_adp", 0) or 0)
+            n_total = n_free + n_bound_atp + n_bound_adp
+            promoter_fraction = (
+                float(n_bound_atp + n_bound_adp) / float(n_total)
+                if n_total > 0 else 0.0)
+            if promoter_fraction > 0.0 and AUTOREG_STRENGTH > 0.0:
+                dnaa_promoters = (TU_index == DNAA_TU_IDX)
+                if dnaa_promoters.any():
+                    # Linear repression: scaled_prob = base * (1 − s·f).
+                    # AUTOREG_HILL_{N,K} kept for back-compat but ignored.
+                    self.promoter_init_probs[dnaa_promoters] *= (
+                        1.0 - AUTOREG_STRENGTH * promoter_fraction)
 
             # Adjust probabilities to not be negative
             self.promoter_init_probs[self.promoter_init_probs < 0] = 0.0

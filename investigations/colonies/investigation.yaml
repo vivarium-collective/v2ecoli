@@ -178,9 +178,10 @@ inputs:
 studies:
   - colonies-01-hpc-readiness
   - colonies-02-parallel-multigen-perf      # natural-division drift + Ray scaling
-  # - colonies-03-hpc-deployment            # (was colonies-02) added when scaffolded;
-  #   renumbered because the parallel-multigen perf study runs BEFORE HPC deployment —
-  #   it validates the flat-per-cell + bounded-RSS assumptions the HPC sizing relies on.
+  - colonies-03-wcm-rss-leak                # BLOCKER: localize + fix the inner-WCM RSS leak
+  # - colonies-04-hpc-deployment            # (was colonies-02/03) added when scaffolded;
+  #   colonies-02 found per-cell RSS is NOT bounded (unbounded ~7.7 MB/sim-s WCM leak),
+  #   so HPC deployment is gated on colonies-03 fixing the leak first.
 
 expert_docs: []
 
@@ -191,4 +192,7 @@ acceptance_criteria:
   - {study: colonies-02-parallel-multigen-perf, behavior: per-cell-wall-drift-within-20pct}
   - {study: colonies-02-parallel-multigen-perf, behavior: per-cell-rss-drift-bounded}
   - {study: colonies-02-parallel-multigen-perf, behavior: ray-lifts-gil-ceiling}
-  # - {study: colonies-03-hpc-deployment, behavior: hpc-per-cell-within-20pct-of-projection}
+  - {study: colonies-03-wcm-rss-leak, behavior: leak-localized}
+  - {study: colonies-03-wcm-rss-leak, behavior: per-cell-rss-bounded-after-fix}
+  - {study: colonies-03-wcm-rss-leak, behavior: biology-unchanged-by-fix}
+  # - {study: colonies-04-hpc-deployment, behavior: hpc-per-cell-within-20pct-of-projection}

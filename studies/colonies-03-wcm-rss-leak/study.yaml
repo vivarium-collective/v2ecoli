@@ -1,0 +1,132 @@
+schema_version: 3
+name: colonies-03-wcm-rss-leak
+title: Inner EcoliWCM RSS leak — localize and fix
+description: |
+  colonies-02 REFUTED per-cell-rss-drift-bounded: a single EcoliWCM grows
+  RSS ~7.7 MB/sim-s (emitter-independent), reaching ~19 GB before its first
+  division and OOM-killing the sequential colony at 27.5 GB. Under Ray the
+  leak just moves into the per-cell actors (~34 GB at 2 cells), so process
+  parallelism lifts the GIL/compute ceiling but RAM becomes the binding
+  constraint. This unbounded growth makes the colonies cells-per-node budget
+  untrustworthy and BLOCKS HPC deployment. This study localizes the leak to
+  a named allocation site and fixes it so per-cell RSS stays bounded over a
+  natural-division lifetime.
+topic: scaling
+tags: [colony, perf, memory, leak, debugging, requires-viva-munk, blocker]
+created: '2026-06-15'
+
+status: planned
+phase: Design
+
+design_status: in-progress
+implementation_status: not-started
+simulation_status: not-run
+evaluation_status: not-evaluated
+gate_status: pending
+
+baseline:
+- name: single-ecoliwcm-long
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+  note: |
+    Profile a SINGLE EcoliWCM over a long pre-division run (~2500s) — no
+    colony, no pymunk — so the leak is isolated to the inner whole-cell
+    composite, not the colony wiring. colonies-02 already showed it is
+    transport- and emitter-independent.
+
+purpose:
+  question: |
+    Where does the ~7.7 MB/sim-s RSS growth in a single EcoliWCM come from,
+    and can it be fixed so per-cell RSS stays bounded (sawtooth around a
+    flat baseline) across a natural-division lifetime — unblocking the
+    colonies HPC sizing?
+  mechanism: |
+    Each EcoliWCM tick runs an inner Composite.run(interval). Candidate
+    accumulation sites (to confirm/refute by profiling, not assume):
+    (a) v2ecoli/bridge.py:243 — self.chromosome_history.append(...) every
+        tick, never trimmed (unbounded list of chromosome snapshots incl.
+        fork/RNAP coordinate lists); a definite unbounded growth, though
+        likely too small alone to explain 7.7 MB/sim-s.
+    (b) inner-composite state/history retention in the process-bigraph
+        engine (per-tick snapshots, view/project caches, escape_merges).
+    (c) growing unique_molecule numpy arrays as the cell approaches
+        division (legitimate biomass growth vs. arrays never reclaimed).
+    (d) numpy / cache fragmentation or objects held by closures.
+  expected_outcome: |
+    A tracemalloc/gc profile attributes the bulk of growth to one or two
+    named sites. After the fix, a single-cell ~2500s run holds RSS within a
+    bounded band (no monotonic climb), and a re-run of colonies-02's
+    seq-1cell-4div completes 3 generations WITHOUT OOM while leaving the
+    biology unchanged (first division still tick 2338, masses within RNG).
+
+build_tasks:
+- id: leak-localization
+  motivation: |
+    Fixing before localizing risks treating a symptom. colonies-02 proved
+    the leak is real, emitter- and transport-independent; this pins it to a
+    site.
+  action: |
+    Run sims/profile_leak.py: a single EcoliWCM for ~2500 ticks with
+    tracemalloc snapshots every ~200 ticks, recording top allocation deltas,
+    gc object-type counts, len(chromosome_history), and inner-composite
+    state size. Commit profiling/leak_profile.csv + a top-sites table as
+    evidence. Decide the fix from the data.
+- id: leak-fix
+  motivation: |
+    Bounded per-cell RSS is the gate condition for HPC deployment.
+  action: |
+    Apply the smallest fix the profile justifies (e.g. cap/disable
+    chromosome_history when unused; release inner-composite per-tick
+    retention). Keep it behind a flag if it changes recorded outputs.
+
+pipeline_gate:
+  prerequisites:
+  - colonies-02-parallel-multigen-perf
+  enables:
+  - colonies-04-hpc-deployment
+  proceed_condition: |
+    colonies-02 recorded the leak (done). Proceed once a profile localizes
+    >=~80% of the growth to named site(s).
+  blocks_until_resolved: |
+    colonies-04-hpc-deployment stays blocked until per-cell RSS is bounded
+    over a natural-division lifetime — otherwise any cells-per-node budget
+    is a lower bound that OOMs in practice.
+
+simulation_set:
+- name: profile-1cell-predivision
+  description: |
+    Single EcoliWCM (no colony/pymunk), ~2500 ticks (pre-first-division),
+    tracemalloc + gc profiling. Localization run.
+  perturbation: {n_cells: 1}
+  duration_min: 45
+  seeds: [0]
+- name: postfix-seq-1cell-4div
+  description: |
+    After the fix, re-run colonies-02's sequential natural-division colony
+    to confirm 3 generations complete without OOM and RSS stays bounded.
+    (Run via colonies-02 sims/run.py on the fixed branch.)
+  perturbation: {n_cells: 1, parallel_processes: false, jitter_per_second: 1.0e-4, init_mass: 200.0}
+  duration_min: 180
+  seeds: [0]
+
+behavior_tests:
+- name: leak-localized
+  classification: primary
+  description: |
+    A profiling run attributes >=~80% of RSS growth to one or two named
+    allocation sites (so the fix is targeted, not speculative).
+- name: per-cell-rss-bounded-after-fix
+  classification: primary
+  description: |
+    Post-fix single-cell ~2500s run holds RSS in a bounded band (no
+    monotonic ~MB/sim-s climb); colonies-02's seq-1cell-4div completes
+    >=3 generations without OOM.
+- name: biology-unchanged-by-fix
+  classification: primary
+  description: |
+    The fix does not alter recorded biology: first division still at tick
+    2338, per-cell mass at division within RNG of the colonies-02 run.
+
+findings: []

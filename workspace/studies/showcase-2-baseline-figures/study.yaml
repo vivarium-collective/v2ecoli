@@ -100,6 +100,87 @@ report:
     correlates Schmidt/Wisniewski). Gate stays
     passed, unblocking showcase-3 (the reviewer variant decision).
 
+# --- v4 narrative-spine sections (filled from this study's recorded results) ---
+study_card:
+  phase: Simulate / Evaluate
+  one_liner: "Run the wild-type baseline single-cell→division ensemble (2 seeds × 3 gens) and confirm it reproduces measured E. coli properties."
+  status: complete
+  headline: "PASS — doubling ~46–52 min (in-band), protein fraction 0.461, Toya-2010 FBA flux R = 0.6990, proteome Schmidt r = 0.728 / Wisniewski r = 0.602."
+
+runtime:
+  wall_seconds: 1228
+  dispatch: Ray-parallel (run_seeds_parallel, 6 threads/worker)
+  scale: 2 seeds × 3 generations, 6500 steps/cell
+  hardware: Mac mini
+
+readouts:
+- {name: doubling-time, description: "cap-immune doubling time t2 = ln(2)/mu averaged over the full lineage (min)"}
+- {name: mass-fractions, description: "dry-mass fractions (protein / rRNA / tRNA / DNA) per generation"}
+- {name: fba-flux-vs-toya2010, description: "central-carbon FBA flux vs Toya 2010 C13-MFA (Pearson R over 23 reactions)"}
+- {name: proteome-correlation, description: "proteome correlation vs Schmidt 2015 and Wisniewski 2014 (log10 monomer counts)"}
+- {name: replication-and-regulation, description: "replication program (oriC copy number over the cell cycle) and ppGpp / tRNA-charging traces"}
+
+enforced_params:
+- {name: cache_dir, value: out/cache-showcase, why: "resume from the showcase-1 full-mode (51-condition) ParCa cache"}
+- {name: seeds, value: "0–1", why: "multiseed ensemble (2 seeds), seed 0 anchors the baseline condition"}
+- {name: generations, value: 3, why: "single-cell→division lineage depth"}
+- {name: emitter, value: parquet-sidecar, why: "the in-engine ParquetEmitter is a RAM trap; the parquet sidecar is authoritative"}
+
+biological_summary: |
+  The wild-type baseline is the unperturbed v2ecoli whole cell growing in
+  glucose minimal medium. Reproducing the four measured-property classes —
+  doubling time, biomass composition (mass fractions), central-carbon flux
+  (vs Toya 2010), and the proteome (vs Schmidt 2015 / Wisniewski 2014) — across
+  a multiseed/multigen ensemble is the evidence that the cell is "the same
+  E. coli" the upstream WCM was validated against, and the reference that all
+  showcase-4 perturbation variants are measured against.
+
+literature_anchors:
+- {cite: macklin2020, note: "The Covert-lab whole-cell model; the source of the validated baseline properties (doubling time, mass fractions, Toya-2010 FBA flux + Schmidt/Wisniewski proteome cross-evaluation) v2ecoli reproduces here."}
+
+model_change: |
+  None — this is the unperturbed wild-type baseline. The only configuration is
+  the multiseed/multigen ensemble + Ray-parallel dispatch + parquet emit (see
+  model_settings); no process parameters are altered.
+
+implementation_requirements: |
+  v2ecoli.composites.baseline.baseline resumed from out/cache-showcase;
+  run_seeds_parallel (Ray) dispatch; parquet sidecar store; the native analyses
+  (v2ecoli/workflow/analyses/) consuming the parquet; sim_data hydrated from
+  out/sim_data-showcase/parca_state.pkl.gz via hydrate_sim_data_from_state;
+  Schmidt/Wisniewski + restored Toya-2010 (toya_2010_central_carbon_fluxes.tsv)
+  validation data attached; figures via scripts/render_showcase2.py.
+
+design_pivot_required: false
+
+conclusion_verdicts:
+- {claim: "doubling time is in the physiological band", verdict: supported, basis: "divided-generation ~46 min; cap-immune instantaneous t2 = 52.4 min (in [35,55])"}
+- {claim: "mass fractions are physiological", verdict: supported, basis: "protein 0.461, rRNA 0.105, tRNA 0.019, DNA 0.018"}
+- {claim: "FBA fluxes correlate with Toya 2010", verdict: supported, basis: "Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions)"}
+- {claim: "proteome correlates with Schmidt / Wisniewski", verdict: supported, basis: "Schmidt r = 0.728 (n=2228), Wisniewski r = 0.602 (n=2226)"}
+
+conclusion_logic:
+  if_primary_tests_pass:
+    summary: "The wild-type baseline ensemble reproduces measured E. coli properties (doubling time in-band, physiological mass fractions, Toya-2010 FBA flux correlation, Schmidt/Wisniewski proteome correlation), so it is a trusted reference and showcase-3 (the reviewer variant decision) is unblocked."
+    block_downstream: false
+    pipeline_unblocks: [showcase-3-variant-decide]
+    biological_validation: "All four property classes land in their physiological ranges with no calibration trade-off among them, consistent with the upstream WCM baseline (macklin2020)."
+  if_primary_tests_fail:
+    summary: "If any property class falls out of band (e.g. doubling time off-band, non-physiological mass fractions, FBA fluxes uncorrelated with Toya 2010, or proteome decorrelated), the baseline is not a trustworthy reference and the perturbation studies (showcase-3/4) must wait for re-calibration."
+    block_downstream: true
+    diagnose: ["doubling time out of [35,55] min", "protein fraction out of [0.40,0.55]", "Toya-2010 FBA correlation lost", "Schmidt/Wisniewski proteome correlation lost"]
+    biological_validation: "A baseline that misses the measured-property classes would mean the resumed ParCa cache is mis-calibrated, so every downstream perturbation delta would be untrustworthy."
+
+simulation_set:
+- name: showcase2-baseline-ensemble
+  kind: simulation
+  status: complete
+  base_model: baseline
+  duration_steps: 6500
+  seeds: "0–1 (2 seeds) × 3 generations"
+  metrics: [doubling time, mass fractions, Toya-2010 FBA flux R, Schmidt/Wisniewski proteome r]
+  pass_fail_tests: [doubling-time-in-band, mass-fraction-physiological, fba-flux-correlates-toya2010, proteome-correlates-schmidt-wisniewski]
+
 conditions:
   baseline:
     composite: baseline
@@ -112,7 +193,13 @@ conditions:
     # analyses (doubling time, mass fractions, Toya FBA fluxes,
     # Schmidt/Wisniewski proteome) render from the parquet sidecar of that
     # ensemble (.pbg/runs/showcase2-baseline-clean/).
-  variants: []
+  variants:
+  # The wild-type baseline carries no perturbation variants — it is itself the
+  # reference. The perturbation variants live in showcase-4 and are measured
+  # against this baseline.
+  - name: wild-type baseline (no perturbation)
+    role: reference
+    detail: "Unperturbed glucose-minimal whole cell; the reference all showcase-4 perturbation deltas are taken against."
   model_settings:
   - name: multiseed-multigen-ensemble
     detail: "Run is a multiseed + multigen ensemble (2 seeds × 3 generations, not a single cell); the tests are evaluated over the ensemble."
@@ -153,6 +240,13 @@ tests:
     formula: 0.011552453009332421 / listeners.mass.instantaneous_growth_rate
     window: full_lineage_from_gen_0
     detail: Doubling time t2 = ln(2)/mu (min) from the per-step instantaneous specific growth rate, averaged over the full lineage. Cap-immune (no division-event / step-window dependence).
+  cites: [macklin2020]
+  cites_note: |
+    Central value sourced to the Covert-lab whole-cell model baseline
+    (macklin2020), whose glucose-minimal wild-type doubles at ~40–45 min; the
+    [35, 55] min band is an analyst tolerance window around that published
+    value, not a separately-published interval. The primary growth-physiology
+    datasets aggregated by the WCM are not individually in references/papers.bib.
   pass_if:
     op: in_range
     low: 35
@@ -172,6 +266,12 @@ tests:
     path: listeners.mass.protein_mass / listeners.mass.dry_mass
     window: every_generation
     detail: Protein dry-mass fraction (listeners.mass.protein_mass / listeners.mass.dry_mass), generation-averaged, vs the physiological E. coli band.
+  cites: [macklin2020]
+  cites_note: |
+    Central value (protein ~0.47 of dry mass) sourced to the Covert-lab
+    whole-cell model baseline (macklin2020); the [0.40, 0.55] band is an analyst
+    tolerance window around that published composition, not a separately-
+    published interval.
   pass_if:
     op: in_range
     low: 0.40
@@ -237,7 +337,14 @@ runs:
     attached. 11 figures rendered to PNG+SVG (vl_convert for Altair, matplotlib
     for the Voronoi / flux-barplot / heatmap views) via scripts/render_showcase2.py.
   dispatch: ray
-  emitter: xarray+parquet
+  # Authoritative persisted store is the parquet sidecar. The xarray/zarr emit
+  # was attempted as the primary store but seed_00 failed to write (Quantity
+  # 'shape' AttributeError) and seed_01 captured only gens 1–2; the parquet
+  # sidecar carries the clean [1,2,3] phylogeny for both seeds and is what every
+  # analysis ran off, so parquet is recorded as the emitter of record here.
+  emitter:
+    kind: parquet
+    note: "parquet sidecar (authoritative); xarray/zarr emit attempted but incomplete"
   cache_dir: out/cache-showcase
   wall_seconds: 1228
   # Local parquet sidecar (hive-partitioned, has history/) for the evaluator's

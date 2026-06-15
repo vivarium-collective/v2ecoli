@@ -23,7 +23,7 @@ class EcoliStructuralStep(Step):
         "out_dir": {"_type": "string", "_default": "out/ecoli3d"},
         "name": {"_type": "string", "_default": "ecoli_3d"},
         "top_n": {"_type": "integer", "_default": 40},
-        "scale": {"_type": "float", "_default": 0.3},
+        "scale": {"_type": "float", "_default": 1.0},
         "state_source": {"_type": "string", "_default": "snapshot"},  # "snapshot" | "live"
         "proxy_lod": {"_type": "integer", "_default": 2},
     }
@@ -53,14 +53,14 @@ class EcoliStructuralStep(Step):
     parameters={
         "top_n": {"type": "integer", "default": 40,
                   "description": "How many of the most-abundant protein monomers to include (AlphaFold-modelled), beyond the curated assemblies."},
-        "scale": {"type": "number", "default": 0.3,
+        "scale": {"type": "number", "default": 1.0,
                   "description": "Abundance scale applied to copy numbers (1.0 = full abundance; lower = lighter/faster)."},
         "state_source": {"type": "string", "default": "snapshot",
                          "description": "'snapshot' (saved v2ecoli state, fast) or 'live' (run the baseline composite)."},
         "out_dir": {"type": "string", "default": "out/ecoli3d"},
     },
 )
-def parsimony_ecoli(core: Any = None, *, top_n: int = 40, scale: float = 0.3,
+def parsimony_ecoli(core: Any = None, *, top_n: int = 40, scale: float = 1.0,
                     state_source: str = "snapshot", out_dir: str = "out/ecoli3d") -> dict:
     if core is None:
         from v2ecoli.core import build_core

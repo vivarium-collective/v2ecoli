@@ -410,16 +410,46 @@ variants:
     - M9-glucose+aa
 interventions: []
 runs:
-- name: millard2017-bootstrap-2026-05-24
+# F2 migration: the legacy 20-step standalone bootstrap run
+# (v2ecoli.composites.millard2017_metabolism__1779656618__525838, 2026-05-24) was a first-run confirmation;
+# its run_id is not in this checkout's runs.db, so it was dropped from runs[] to clear the runs-yaml-vs-db
+# drift. It remains documented in planned_runs[millard-standalone-bootstrap] + simulation_set.
+# The entry below summarises the real 2026-06-11 Phase-1 work (W2 ensemble + FBA-bridge flux-pin); raw
+# stores are gitignored, so no authoritative run_id is asserted (provenance lives in the findings + RUN_REPORT).
+- name: phase1-pdmp-vs-phase0-and-fba-bridge
   composite: v2ecoli.composites.millard2017_metabolism
-  run_id: v2ecoli.composites.millard2017_metabolism__1779656618__525838
   status: completed
-  n_steps: 20
-  started_at: '2026-05-24T20:43:38Z'
-  summary: First standalone run of the Millard 2017 SBML via pbg-copasi. 20 steps × 100s = 2000s simulated time, ~6s wall
-    clock. Recovered published reference state for central metabolism intermediates. Confirms (a) pbg-copasi works end-to-end
-    with this SBML, (b) the COPASI/basico backend produces correct numerical values, (c) the v2ecoli composite catalog correctly
-    resolves v2ecoli.composites.millard2017_metabolism.
+  started_at: '2026-06-11'
+  emitter: parquet
+  summary: 'Real Phase-1 deliverables (2026-06-11): (1) standalone Millard 2017 steady-state recovery via
+    pbg-copasi; (2) N=12 PDMP (consumption_matched, closed-loop WATER[c] fix) vs N=32 Phase-0 M9-glucose
+    W2 — cell_mass W2/σ = 1.00, dry_mass 1.09 (±σ gate MET on M9-glucose only); (3) FBA-bridge flux-pin
+    integrating the kinetic ODE into the WCM FBA (24 active pins, glycolysis+PPP hold exactly). Raw stores
+    gitignored. HONEST: the multi-condition (acetate / +aa) W2 gate and the LQR Sobol/FIM audit are open.'
+  outcomes:
+    millard-published-ref-state-reproduced:
+      result: PASS
+      note: 'Standalone Millard 2017 recovers the published reference concentrations to solver tolerance
+        (G6P/F6P/FDP/PEP/PYR/ATP/ADP/NADH/NADPH/MAL/AKG); verified 2026-05-24, cites millard2017.'
+    fba-bridge-round-trip-residual:
+      result: PASS
+      note: 'Pure-function unit conversion mM→count→mM residual < 1e-9 mM; tests/test_fba_bridge.py::test_mM_count_roundtrip green.'
+    fba-bridge-coupled-pilot-runs:
+      result: SKIP
+      note: 'Coupled pilot runs (NaN-at-init root-caused + fixed 2026-05-25), but the ±20%-of-2.57 mM
+        ATP acceptance metric is NOT confirmed (pilot ATP_millard ≈ 15.4 mM); the test was not evaluated
+        to its gate. The newer FBA-bridge flux-pin (finding fba-bridge-flux-pin-works) is a different,
+        more principled coupling.'
+    lqr-growth-rate-tracking:
+      result: SKIP
+      note: 'The multi-state LQR was fixed from a zero-gain bug to a real stabilizing gain (||K|| ≈ 4.39),
+        but the <10% growth-rate RMS-tracking gate was not evaluated; closing the loop did not change the
+        cell_mass W2 (finding lqr-not-the-cell-mass-cause).'
+    interface-statistics-match-phase0-W2:
+      result: SKIP
+      note: 'Gating criterion (W2_ratio < 0.05 across ≥3 conditions) NOT met: only M9-glucose has been
+        compared (via the ±σ endpoint gate, a different metric). The acetate / +aa W2 is pending — this
+        is the open gate, so the verdict is kept at in_progress, not passed.'
 bibliography:
   bib_keys:
   - millard2017
@@ -480,7 +510,7 @@ design_status: approved
 implementation_status: prototype
 simulation_status: ran
 evaluation_status: pending_review
-gate_status: pending
+gate_status: in_progress
 expert_review_status: not_requested
 pipeline_gate:
   prerequisites:
@@ -499,30 +529,33 @@ study_card:
     step, without breaking the rest of the cell model.
 readouts:
 - name: millard-standalone-steady-state
-  status: implemented
-  path: out/trajectories/millard_*.csv
+  status: ran
   units: mM
-  notes: G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG. Verified 2026-05-24 vs BioModels MODEL1505110000 initial
-    values.
+  notes: 'Standalone Millard 2017 steady state verified 2026-05-24 vs BioModels MODEL1505110000 initial
+    values (G6P 0.86, F6P 0.26, FDP 0.28, PEP 1.0, PYR 0.24, ATP 2.57, ADP 0.60, NADH 0.16, NADPH 0.09,
+    MAL 1.03, AKG 0.60 mM). The raw CSV (was out/trajectories/millard_steady_approach_10000s.csv — a
+    10,000 s basico/LSODA run, see planned_runs[millard-steady-state-10000s]) is gitignored / NOT
+    committed in this checkout, so no clickable artifact path is asserted; the verified values are
+    recorded here and re-checked by the millard-published-ref-state-reproduced test (cites millard2017).'
 - name: fba-bridge-flux-seam
   status: planned
-  path: planned, not yet produced -- v2ecoli_pdmp/composites/fba_bridge.schema.json
+  path: (planned) v2ecoli_pdmp/composites/fba_bridge.schema.json
   units: flux name -> source (ODE or FBA)
   notes: Which fluxes the Millard ODE exports vs which v2ecoli kFBA consumes. The contract negotiated in this study.
 - name: lqr-sobol-indices
   status: planned
-  path: planned, not yet produced -- out/trajectories/lqr_sobol.csv
+  path: (planned) out/trajectories/lqr_sobol.csv
   units: dimensionless Sobol index
   notes: First-order + total Sobol on growth rate, glucose uptake, ATP yield. LQR weights with total < 0.01 are flagged free-parameter
     rot.
 - name: w2-per-metabolite
   status: planned
-  path: planned, not yet produced -- out/trajectories/w2_millard_vs_phase0.csv
+  path: (planned) out/trajectories/w2_millard_vs_phase0.csv
   units: Wasserstein-2 distance (mM)
   notes: 'Per interface variable. Gating: within Phase-0 bootstrap CI of self-replicate spread.'
 - name: fim-conditioning
   status: planned
-  path: planned, not yet produced -- out/trajectories/fim_kappa.csv
+  path: (planned) out/trajectories/fim_kappa.csv
   units: condition number kappa
   notes: 'Per causal parameter. Required: kappa(FIM) < 10^8 before inference-ready claim.'
 planned_runs:
@@ -739,6 +772,9 @@ tests:
     field: max_residual_mM
   requires_simulation: none (pure-function test)
   cites: []
+  cites_note: 'Floating-point round-trip tolerance (< 1e-9 mM): a machine-precision engineering bound on a
+    pure unit-conversion function, not a literature-sourced band. No published source exists — recorded as
+    an honest provenance gap, not invented. Verified green by tests/test_fba_bridge.py::test_mM_count_roundtrip.'
 - name: fba-bridge-coupled-pilot-runs
   classification: primary
   description: 'millard_fba_bridge composite runs for 100 model-seconds without COPASI emitting NaN. ATP[c] (Millard side)
@@ -914,6 +950,7 @@ findings:
   provenance:
     run_ids: [pdmp-ensemble-vs-phase0]
   next_action: 'Confirm the gate on M9-acetate and M9-glucose+aa (multi-condition).'
+  next_action_type: replicate
 - id: fba-bridge-flux-pin-works
   kind: computational
   status: novel
@@ -930,6 +967,7 @@ findings:
   provenance:
     run_ids: [millard_fba_bridge_harness]
   next_action: 'Implement variant/sum-level pinning to restore PFK/FBA/PYK (core glycolysis) to the held set; per-condition pin sets; growth-couple the TCA pin to WCM biomass demand.'
+  next_action_type: refine_representation
 - id: lqr-not-the-cell-mass-cause
   kind: computational
   status: novel
@@ -939,3 +977,61 @@ findings:
   evidence:
     from_test: test_multistate_lqr_gain_is_nonzero_and_stabilizing
     observed: '||K|| ~ 4.4 (was 0); cell_mass W2/sigma unchanged 3.02 with working LQR'
+# --- v4 narrative spine (filled from existing study content; honest, no new results) ---
+runtime:
+  notes: 'Standalone Millard via pbg-copasi/basico (LSODA, rtol=1e-6/atol=1e-9): a 10,000 s steady-state
+    approach runs in ~0.1 s; the ATP-drain time course ~6 s. PDMP-vs-Phase-0 W2 used N=12 PDMP replicates
+    (consumption_matched, 600 s, seeds 1000–1011) vs the N=32 Phase-0 M9-glucose reference. FBA-bridge
+    flux-pin harness: full WCM baseline + Millard source + coupler, M9-glucose, 120 s.'
+assumptions:
+- Millard 2017 (BioModels MODEL1505110000) is an adequate kinetic model of E. coli central carbon + energy metabolism for the substitution.
+- A Wasserstein-2 endpoint match within ±σ of the Phase-0 ensemble is an acceptable interface-fidelity gate (M9-glucose only so far).
+- The causal/teleonomic parameter partition (kinetic constants causal; LQR weights/reference teleonomic) is meaningful and auditable via FIM conditioning + Sobol.
+- COPASI/basico LSODA at rtol=1e-6/atol=1e-9 keeps numerical error below the Phase-0 MC noise floor.
+enforced_params:
+- name: solver
+  value: COPASI/basico LSODA, rtol=1e-6, atol=1e-9
+- name: ref_growth_driver
+  value: consumption_matched with closed-loop WATER[c] regulation (commit 6a764fc)
+- name: emitter
+  value: XArrayEmitter (workspace default); the 2026-06-11 runs used parquet persistence
+biological_summary: 'Replaces v2ecoli''s multi-objective FBA central-carbon metabolism with the Millard
+  2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either
+  via a consumption_matched growth driver or, more principledly, by pinning the ODE-predicted central fluxes
+  into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble
+  within ±σ; the ~20 fg offset was traced to open-loop water drift, not the kinetics or control.'
+literature_anchors:
+- key: millard2017
+  relevance: The kinetic ODE of central metabolism being substituted in (the calibrated source model).
+- key: birch2014
+  relevance: tFBA contrast — clarifies how v2ecoli's single-LP-per-step FBA differs from target-tracking FBA.
+- key: kwakernaak1972
+  relevance: LQR / optimal-control theory underpinning the outer growth-rate controller.
+- key: villani2008
+  relevance: Wasserstein/optimal-transport basis for the W2 interface-fidelity metric.
+- key: uygun2006
+  relevance: Kinetic/identifiability modelling context for the metabolic ODE.
+model_change: 'Replace the multi-objective FBA (wholecell.utils.modular_fba, glpk-linear) central-carbon
+  block with the Millard 2017 kinetic ODE + an LQR outer controller, integrated via an FBA-bridge that pins
+  ODE-predicted central fluxes into the remaining WCM FBA. NOT yet accepted (requires_expert_approval: true).'
+implementation_requirements:
+- pbg-copasi (CopasiUTCProcess / CopasiSteadyStateStep) wrapping the published SBML.
+- FBAFluxCoupler + millard_v2ecoli_reaction_map.yaml (36 central reactions) to pin fluxes into the WCM LP.
+- LQR linearization with the true Jacobian + conserved-moiety CARE shift (commit cc6a72d; regression-tested).
+- Closed-loop WATER[c] regulation in the ref_growth_driver (listeners.mass input; commit 6a764fc).
+design_pivot_required: 'No fundamental pivot, but two open redesign tasks: (a) per-condition / variant-level
+  flux-pin curation so core glycolysis (PFK/FBA/PYK) holds without over-constraining the TCA; (b) the
+  multi-condition W2 gate + LQR Sobol/FIM identifiability audit before any acceptance.'
+conclusion_verdicts:
+- claim: Standalone Millard 2017 recovers its published reference state via pbg-copasi.
+  verdict: confirmed
+  basis: Central-metabolite concentrations match BioModels MODEL1505110000 to solver tolerance (cites millard2017).
+- claim: The FBA-bridge flux-pin drives WCM central flux from the kinetic ODE.
+  verdict: confirmed (scoped)
+  basis: For held pins (glycolysis+PPP) realized FBA flux equals the ODE bound exactly; TCA relaxes (growth-coupled). M9-glucose only.
+- claim: PDMP cell_mass + dry_mass match the Phase-0 ensemble within ±σ.
+  verdict: met_on_m9glucose_only
+  basis: cell_mass W2/σ = 1.00, dry_mass 1.09 after the closed-loop water fix; acetate / +aa not yet run.
+- claim: Interface statistics match Phase-0 across ≥3 conditions (the Phase-1 gate).
+  verdict: not_met
+  basis: Multi-condition W2 + LQR Sobol/FIM audit are pending; gate kept open (in_progress).

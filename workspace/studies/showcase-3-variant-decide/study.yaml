@@ -80,13 +80,116 @@ report:
     4. SCOPE — should the showcase run exactly one perturbation, or a small set,
        to demonstrate v2ecoli's response?
 
+# --- v4 narrative-spine sections (decision study — filled from existing content) ---
+study_card:
+  phase: Decide
+  one_liner: "A reviewer-decision gate: which perturbation should we run on top of the wild-type baseline to demonstrate v2ecoli's response? Four candidates proposed, none committed."
+  status: design (open decision)
+  headline: "OPEN — reviewers choose among ppGpp-off / linspace parameter sweep / media-condition change / dnaA expression knob. No simulation runs until a variant is chosen."
+
+runtime:
+  status: "not run — reviewer-decision study; no compute until a variant is selected"
+
+readouts:
+- {name: decision-outcome, description: "Decision outcome: which candidate perturbation(s) the reviewer selects to run"}
+- {name: per-candidate-readout, description: "Per candidate, the proposed primary readout (growth rate, expression, a pathway flux, or the DnaA pool — to be chosen by the reviewer)"}
+
+enforced_params:
+- {name: baseline, value: "showcase-2 validated wild-type baseline", why: "each candidate variant is a clean delta against a trusted reference"}
+
+biological_summary: |
+  This study commits no perturbation. It frames an explicit reviewer choice among
+  four mechanistically-distinct levers — a global regulatory toggle (ppGpp), a
+  dose-response parameter sweep (a transcription/translation knob), an
+  environmental change (carbon source), and a targeted single-gene expression
+  knob (dnaA / TU00259[c]) — each of which would exercise a different part of the
+  v2ecoli whole cell's response. The biology of each candidate lives in the
+  followup_study_proposals below.
+
+literature_anchors:
+- {cite: macklin2020, note: "The Covert-lab whole-cell model; the wild-type baseline (showcase-2) each candidate perturbation would be applied on top of."}
+
+model_change: |
+  None yet — the model change is the OPEN decision. Each candidate would alter a
+  different knob (ppgpp_regulation toggle, a swept transcription/translation
+  factor, the growth condition / media, or sim_data.genetic_perturbations
+  ["TU00259[c]"]); see followup_study_proposals.
+
+implementation_requirements: |
+  Single-cache for ppGpp-off / linspace sweep / dnaA knob (reuse the showcase-1
+  glucose cache); the media-condition change needs its OWN full ParCa cache per
+  condition (~2.5 min each) — the cost trade-off flagged for reviewers.
+
+design_pivot_required: true   # the study is intentionally a decision/pivot gate — a reviewer choice is REQUIRED before any run
+
+conclusion_verdicts:
+- {claim: "the reviewer-perturbation choice is open", verdict: pending, basis: "four candidates proposed; none committed — resolves when a reviewer selects one (or more)"}
+
+simulation_set:
+- name: candidate-ppgpp-off
+  kind: simulation
+  status: planned   # conditional on reviewer selection
+  base_model: baseline
+  duration_steps: "same multiseed/multigen ensemble as showcase-2"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [growth rate, ribosome/RNAP allocation, expression]
+  pass_fail_tests: [reviewer-selects-perturbation-variant]
+- name: candidate-parameter-sweep-linspace
+  kind: simulation
+  status: planned
+  base_model: baseline
+  duration_steps: "one parameterized run per linspace point"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [growth rate, mass fractions vs swept value (dose-response)]
+  pass_fail_tests: [reviewer-selects-perturbation-variant]
+- name: candidate-media-condition-change
+  kind: simulation
+  status: planned   # FLAG: a separate full ParCa cache per condition (~2.5 min each)
+  base_model: baseline
+  duration_steps: "same ensemble in the new media"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [growth rate, central-carbon flux, mass composition]
+  pass_fail_tests: [reviewer-selects-perturbation-variant]
+- name: candidate-dnaa-expression-knob
+  kind: simulation
+  status: planned
+  base_model: baseline
+  duration_steps: "same ensemble with the TU00259[c] override"
+  seeds: "set when the reviewer selects this candidate"
+  metrics: [DnaA pool, replication-initiation response]
+  pass_fail_tests: [reviewer-selects-perturbation-variant]
+
+planned_runs:
+- name: chosen-perturbation-run
+  status: planned
+  n_steps: "as showcase-2 (multiseed/multigen ensemble)"
+  details: "Runs ONLY after a reviewer selects one (or more) of the four candidate perturbations below; until then this study is intentionally un-run."
+
 conditions:
   baseline:
     composite: baseline
     # No variant committed — this is a reviewer-decision study. The four
     # candidate perturbations live in decisions_needed +
     # discovery_implications.followup_study_proposals.
-  variants: []
+  variants:
+  # PROPOSED, not committed — the reviewer chooses among these four. Listed here
+  # so the study card shows the candidate perturbations (status: proposed).
+  - name: ppgpp-regulation-off
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Disable the ppGpp regulatory layer — a clean global single-switch knock-out."
+  - name: parameter-sweep-linspace
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Sweep a transcription/translation knob (e.g. RNAP or ribosome elongation-rate factor) across a linspace — a dose-response."
+  - name: media-condition-change
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Switch growth condition (e.g. glucose->succinate). FLAG: needs its own full ParCa cache per condition (~2.5 min each)."
+  - name: dnaa-expression-knob
+    role: proposed (uncommitted)
+    status: proposed
+    detail: "Targeted single-gene perturbation via sim_data.genetic_perturbations['TU00259[c]'] (the dnaa-replication Mechanism-A lever)."
   model_settings: []
 
 assumptions:
@@ -170,3 +273,19 @@ pipeline_gate:
   gate_status: pending
 
 runs: []
+
+visualizations:
+# PLANNED mockup — this is a reviewer-decision study with no run yet. The figure
+# describes what the chosen perturbation WOULD produce once a reviewer selects a
+# candidate; it is not rendered from data.
+- name: PLANNED — perturbation-vs-baseline delta (mockup)
+  status: planned
+  address: "planned:perturbation-vs-baseline-delta"   # no rendered chart yet — decision study
+  config:
+    title: "PLANNED: chosen perturbation vs wild-type baseline — the readout the reviewer selects (growth / expression / flux / DnaA pool)"
+    caption: >-
+      Placeholder for the chosen-perturbation figure. Once a reviewer selects one
+      (or more) of the four candidates (ppGpp-off / linspace sweep / media change
+      / dnaA knob), this becomes a delta-vs-baseline chart on the reviewer's
+      chosen primary readout. No data yet — the study is intentionally un-run.
+  chart: planned-mockup

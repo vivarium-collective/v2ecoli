@@ -306,22 +306,22 @@ study_card:
 readouts:
 - name: catalyst-export-artefact
   status: planned
-  path: 'planned output: compiled_pdmp.jl (not yet produced)'
+  path: (planned) compiled_pdmp.jl
   units: Julia source + binary
   notes: Catalyst.jl + ModelingToolkit compiled model with symbolic Jacobian + automatic sensitivity equations.
 - name: per-step-profile-compiled
   status: planned
-  path: 'planned output: out/trajectories/compiled_profile.csv (not yet produced)'
+  path: (planned) out/trajectories/compiled_profile.csv
   units: ms per bucket
   notes: 'Same 5 buckets as Phase 0. Gating: marshalling fraction < 10% of total.'
 - name: parallel-throughput
   status: planned
-  path: 'planned output: out/trajectories/throughput_vs_n_trajectories.csv (not yet produced)'
+  path: (planned) out/trajectories/throughput_vs_n_trajectories.csv
   units: trajectories per second
   notes: 'Sweep parallelism N in {10, 100, 1000, 10000}. Gating: >=10^3 parallel.'
 - name: abc-posterior-variance-vs-walltime
   status: planned
-  path: 'planned output: out/trajectories/abc_posterior_efficiency.csv (not yet produced)'
+  path: (planned) out/trajectories/abc_posterior_efficiency.csv
   units: posterior std * wall-clock-s
   notes: 'Standard MCMC efficiency metric. Required: 1/sqrt(N) scaling on doubling parallelism.'
 planned_runs:
@@ -536,6 +536,9 @@ tests:
     field: L_inf_error
   requires_simulation: phase4-equivalence-test
   cites: []
+  cites_note: 'Engineering reproducibility tolerance (L-inf relative error < 1e-4) for compiled-vs-reference
+    trajectory equivalence; a numerical-drift budget, not a published biological/physical constant. No
+    literature source exists for this band — recorded as an honest provenance gap, not invented.'
 - name: memory-fits-1024-cells-per-node
   classification: supporting
   description: Steady-state RAM footprint of N=1024 cells × full PDMP state stays under 256 GB on a single HPC node. Currently
@@ -550,6 +553,9 @@ tests:
     field: RSS_GB
   requires_simulation: phase4-memory-1024
   cites: []
+  cites_note: 'Hardware budget (RSS < 256 GB = single HPC-node memory capacity); an infrastructure target,
+    not a literature-sourced band. The per-cell footprint is projected from colonies-01 sizing. No published
+    source exists for this threshold — recorded as an honest provenance gap, not invented.'
 embed_visualizations:
 - name: Phase 4 — JAX/Julia backend speedup (Phase 1 wrap-up)
   url: /reports/figures/pdmp-04/jax_julia_speedup.html
@@ -639,3 +645,45 @@ discovery_implications:
       ABC test posterior.'
     expected_information_gain: high
     expert_gate_required: true
+# --- v4 narrative spine (filled from existing study content; honest, no new results) ---
+runtime:
+  notes: 'simulation_status: not_started, gate: blocked. No compiled runtime has been built or benchmarked;
+    the throughput / memory / equivalence numbers are targets, projected (memory from colonies-01 sizing),
+    not measured here.'
+assumptions:
+- The PDMP can be compiled (Catalyst.jl/ModelingToolkit or JAX/Diffrax) to a symbolic-Jacobian form that runs ≥10× faster than the Python+glpk baseline.
+- A column-centric (struct-of-arrays) state layout removes the marshalling overhead Phase 0 motivates.
+- Deterministic floating-point summation (pairwise/Kahan) preserves numerical equivalence with the Phase-3 reference.
+enforced_params:
+- name: implementation_status
+  value: not built — compilation + parallel runtime are planned
+- name: gate
+  value: blocked on the Phase-1/2/3 model being finalized for compilation
+biological_summary: 'No biology is added: Phase 4 is a performance/runtime re-implementation of the
+  already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3
+  parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.'
+literature_anchors:
+- key: loman2023
+  relevance: Catalyst.jl — the symbolic reaction-network compilation toolchain targeted.
+- key: jumpprocessesjl
+  relevance: JumpProcesses.jl — compiled jump-process integration backend.
+- key: xarray2017
+  relevance: XArray/zarr — the column-centric, chunked state representation for compiled output.
+model_change: 'No mechanistic change — a runtime/representation change: compile the PDMP to a fast backend
+  and invert the per-step loop to a column-centric layout. Equivalence with Phase 3 must be proven.'
+implementation_requirements:
+- A Catalyst.jl/ModelingToolkit (or JAX/Diffrax) export of the PDMP with symbolic Jacobian + sensitivities.
+- A column-centric runner + deterministic summation; a parallel throughput harness (N in {10,100,1000,10000}).
+- A 1024-cell memory profile to verify the <256 GB/node budget directly (currently only projected).
+design_pivot_required: 'No pivot yet — Phase 4 has not started. The design hinges on the upstream PDMP
+  being stable enough to compile; that prerequisite (Phases 1–3) is not yet complete.'
+conclusion_verdicts:
+- claim: A compiled PDMP achieves ≥10× throughput vs the Python+glpk baseline.
+  verdict: not_started
+  basis: No compiled runtime built or benchmarked; threshold is a target, not a measurement.
+- claim: Compilation preserves numerical equivalence with the Phase-3 reference (L∞ < 1e-4).
+  verdict: not_started
+  basis: No equivalence test has been run; gate blocked.
+- claim: N=1024 cells fit under 256 GB on one HPC node.
+  verdict: projected_only
+  basis: Per-cell footprint projected from colonies-01 sizing; not yet verified with a 1024-cell ensemble.

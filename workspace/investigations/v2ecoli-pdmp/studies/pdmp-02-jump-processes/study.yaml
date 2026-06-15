@@ -409,24 +409,24 @@ study_card:
 readouts:
 - name: anderson-darling-results
   status: planned
-  path: planned, not yet produced -- out/trajectories/ad_exp1_per_jump.csv
+  path: (planned) out/trajectories/ad_exp1_per_jump.csv
   units: A-D statistic + p-value
   notes: 'Per jump process (transcription, translation, division, competition). >=10^4 inter-event intervals each. Gating:
     p > 0.05.'
 - name: fpt-distribution
   status: planned
-  path: planned, not yet produced -- out/trajectories/fpt_division.csv
+  path: (planned) out/trajectories/fpt_division.csv
   units: first-passage time (s)
   notes: 'Cell-volume threshold crossing. OU analytical validation: KS distance < 0.02 vs analytical CDF.'
 - name: trajectory-w2
   status: planned
-  path: planned, not yet produced -- out/trajectories/pdmp_w2_vs_baseline.csv
+  path: (planned) out/trajectories/pdmp_w2_vs_baseline.csv
   units: W2 distance per summary stat
   notes: Growth rate, mean per-gene mRNA/protein, division-time CV. N>=200 trajectories. Within tolerance across all Phase
     0 conditions = gating.
 - name: markov-property-record
   status: planned
-  path: planned, not yet produced -- out/trajectories/markov_segments.json
+  path: (planned) out/trajectories/markov_segments.json
   units: bit-equivalence result per re-sim
   notes: Re-simulate jump-segments with same (state, RNG-seed); verify bit-identical deterministic ODE flow between jumps.
 planned_runs:
@@ -450,7 +450,7 @@ planned_runs:
     ensemble complete (.pbg/runs/phase0-multigen/), wall 74 min total. 9 real division events observed
     across 4 replicates. First-division times match M9-glucose τ ≈ 2640s (within ±5%); daughter/mother
     mass ratio centers near 0.5 with binomial-consistent spread. These inheritance/division findings rest
-    on the .pbg/runs/phase0-multigen/ run data. ACTUAL jump-process implementation still TBD; this Phase-0 data
+    on the .pbg/runs/phase0-multigen/ run data. ACTUAL jump-process implementation still pending; this Phase-0 data
     proves the inheritance machinery + division detection work for the test contract, ready to be
     repointed at jump-process output when that lands.'
 - name: jump-process-event-rate-profile
@@ -772,6 +772,7 @@ findings:
   provenance:
     run_ids: [phase2-progress]
   next_action: 'Re-anchor the distribution-match test on count-level listeners (rnap_data / ribosome_data / monomer_counts).'
+  next_action_type: refine_representation
 - id: jump-variance-lives-at-count-level
   kind: computational
   status: confirms
@@ -788,3 +789,49 @@ findings:
   provenance:
     run_ids: [phase2-count-variance-diagnostic]
   next_action: 'Build the count-level distribution-match gate (rna_init / monomer counts) as the Phase-2/3 acceptance criterion.'
+  next_action_type: refine_representation
+# --- v4 narrative spine (filled from existing study content; honest, no new results) ---
+runtime:
+  notes: 'Not yet run as a jump-process implementation (simulation_status: not_started, gate: blocked).
+    The committed diagnostics use v2ecoli baseline runs: a Phase-0 N=4 × 8000-step multi-gen ensemble
+    (~74 min) for inheritance/division, and an N=4 × 250-step tick-by-tick run for count-level variance.'
+assumptions:
+- Discrete-time WCM updates can be re-expressed as a continuous-time jump process (transcription, translation, division, competition jumps) with exponential inter-event clocks.
+- A trajectory-distribution match (Wasserstein-2) against the baseline ensemble is the right acceptance gate — but the right OBSERVABLE is count-level, not aggregate mass (see findings).
+- First-passage-time division and binomial inheritance are the load-bearing stochastic structures to reproduce.
+enforced_params:
+- name: implementation_status
+  value: not built — jump-process layer is planned; current evidence is baseline-run diagnostics
+- name: gate
+  value: blocked on the Phase-1 metabolism substitution + a count-level distribution-match gate
+biological_summary: 'Aims to represent the cell''s discrete molecular events (transcription/translation
+  initiation, division, resource competition) as a continuous-time stochastic jump process rather than
+  fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry
+  mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the
+  direct event counts (rna_init) carry ~30× more variance — so the stochasticity lives at the count level.'
+literature_anchors:
+- key: dibaeinia2020
+  relevance: Stochastic gene-expression / network simulation context for the jump-process layer.
+- key: metz1986
+  relevance: First-passage-time / renewal-theory basis for division-time distributions.
+- key: kuritz2017
+  relevance: Inference/identifiability framing for stochastic single-cell dynamics.
+model_change: 'Replace fixed-timestep discrete updates of the stochastic subprocesses with a continuous-time
+  jump-process formulation (exponential clocks per reaction channel). Not yet implemented.'
+implementation_requirements:
+- A jump-process runner with per-channel propensities + exponential inter-event sampling (Gillespie/tau-leap).
+- Anderson-Darling validation of inter-event intervals; OU/analytical first-passage validation for division.
+- A count-level distribution-match gate (rna_init / monomer counts) replacing the cell_mass W2 gate.
+design_pivot_required: 'Yes — a targeted pivot of the ACCEPTANCE OBSERVABLE: the cell_mass trajectory-W2
+  gate failed (Poisson tau-leap W2 grows 9.73 → 49.46, monotonic), and the decisive finding is that
+  cell_mass is the wrong observable; the gate must move to count-level listeners.'
+conclusion_verdicts:
+- claim: The cell_mass trajectory-distribution-match gate is met.
+  verdict: contradicted
+  basis: Poisson tau-leap cell_mass W2 grows monotonically (9.73 → 15.35 → 49.46); gate NOT met.
+- claim: Jump-process stochasticity is observable at the aggregate-mass level.
+  verdict: refuted
+  basis: Aggregate CV ~0.03% vs cumulative rna_init CV 0.85% (~30×); variance lives at the count level.
+- claim: A continuous-time jump-process layer replaces the discrete-time updates.
+  verdict: not_started
+  basis: Implementation is planned; gate blocked. Current evidence is baseline-run diagnostics only.

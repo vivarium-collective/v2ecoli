@@ -28,6 +28,40 @@ executive:
     rendered to a grouped HTML table. It is a reference artifact, not a gated
     result — there are no pass/fail acceptance criteria.
 
+# ── Scientific argument ────────────────────────────────────────────────────
+# This is a DESCRIPTIVE reference investigation (no hypothesis test), so the
+# "claim" is methodological rather than a biological result.
+scientific_argument:
+  main_claim: |
+    Every unit-bearing readout the E. coli whole-cell composite exposes can be
+    cataloged directly from its declared `quantity[...]` / `float[unit]` port
+    types via live schema resolution — without running a simulation — yielding a
+    complete, navigable units reference grouped by physical dimension.
+  evidence_for:
+  - "build_units_index resolves units live from the typed port schema and finds 27 unit-bearing readouts across six physical dimensions (concentration 13, mass 4, time 3, count 2, rate 1, other 4). [REALIZED — units-atlas-01-readout-inventory.]"
+  - "Each readout row carries its dotted store path and declared unit straight from the schema, so the catalog is reproducible from source types alone (no run, no hand-curation). [REALIZED.]"
+  - "The same declared-unit resolution backs the units-on-axes feature, which auto-labels plot axes — demonstrating the atlas is wired to a live, reused source of truth rather than a static list. [REALIZED.]"
+  caveats:
+  - "Descriptive reference, not a hypothesis test — there are no pass/fail acceptance criteria."
+  - "Example magnitude + range columns are blank until a baseline parquet run is sampled; the units and paths are schema-derived and always present."
+  - "Coverage is limited to process classes the index can introspect; a few config-dependent readouts may be absent (logged, not silently dropped)."
+
+# ── Biology — the mechanism ────────────────────────────────────────────────
+biological_story: |
+  Although this is an infrastructure/reference investigation, the readouts it
+  catalogs ARE the cell's measurable biology, and grouping them by physical
+  dimension is what makes them interpretable. The whole-cell model exposes cell
+  dry mass in femtograms (mass), metabolite and growth-limiting nutrient levels
+  as concentrations in mM/uM (concentration — the largest group, including FBA
+  targets), reaction and elongation rates in 1/s (rate), molecule copy numbers
+  as counts, the cell's volume and length as it elongates (volume/length), and a
+  handful of flux-like quantities (e.g. g*s/L, mmol/g/h) in "other". Each of
+  these dimensions corresponds to a distinct biological quantity a modeler reads
+  off the simulation, and a unit attached to a readout is what lets that number
+  be compared to a measurement or another model. The atlas exists so that the
+  meaning and units of every observable are explicit and auditable — and so the
+  same declared units can automatically label plot axes downstream.
+
 studies:
   - units-atlas-01-readout-inventory
 

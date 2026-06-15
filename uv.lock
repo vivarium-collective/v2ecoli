@@ -853,6 +853,15 @@ wheels = [
 ]
 
 [[package]]
+name = "et-xmlfile"
+version = "2.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/38/af70d7ab1ae9d4da450eeec1fa3918940a5fafb9055e934af8d6eb0c2313/et_xmlfile-2.0.0.tar.gz", hash = "sha256:dab3f4764309081ce75662649be815c4c9081e88f0837825f90fd28317d4da54", size = 17234, upload-time = "2024-10-25T17:25:40.039Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/8b/5fe2cc11fee489817272089c4203e679c63b570a5aaeb18d852ae3cbba6a/et_xmlfile-2.0.0-py3-none-any.whl", hash = "sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa", size = 18059, upload-time = "2024-10-25T17:25:39.051Z" },
+]
+
+[[package]]
 name = "execnet"
 version = "2.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -2406,6 +2415,18 @@ wheels = [
 ]
 
 [[package]]
+name = "openpyxl"
+version = "3.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "et-xmlfile" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/f9/88d94a75de065ea32619465d2f77b29a0469500e99012523b91cc4141cd1/openpyxl-3.1.5.tar.gz", hash = "sha256:cf0e3cf56142039133628b5acffe8ef0c12bc902d2aadd3e0fe5878dc08d1050", size = 186464, upload-time = "2024-06-28T14:03:44.161Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c0/da/977ded879c29cbd04de313843e76868e6e13408a94ed6b987245dc7c8506/openpyxl-3.1.5-py2.py3-none-any.whl", hash = "sha256:5282c12b107bffeef825f4617dc029afaf41d0ea60823bbb665ef3079dc79de2", size = 250910, upload-time = "2024-06-28T14:03:41.161Z" },
+]
+
+[[package]]
 name = "optlang"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2578,17 +2599,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pbg-basic-processes"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?branch=main#cbd10e73b79e4e8c7dd9e33bf84614881b559072" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "process-bigraph" },
-    { name = "sympy" },
-]
-
-[[package]]
 name = "pbg-bioreactordesign"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main#f40f82f0057d042cb06f349dbe1702306b35ddbf" }
@@ -2641,9 +2651,24 @@ xarray = [
 ]
 
 [[package]]
+name = "pbg-ketchup"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-ketchup.git?branch=main#b116ade379e3da109da1b0384f0d0d9da74c53b0" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "cobra" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "process-bigraph" },
+    { name = "pyomo" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
 name = "pbg-parsimony"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#6174b0fab5ccda3cef759b54aa2e234ff4573992" }
+source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#0d10c523aea846d7a59dab574a62080ca05efd5b" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "process-bigraph" },
@@ -2652,13 +2677,12 @@ dependencies = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#5196dbb5f21c2b4f78772743e6958ebf9c72bee4" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#9718c135f0a33e09f4703783f3bb8c80f3d5b70c" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
-    { name = "pbg-basic-processes" },
     { name = "pbg-emitters" },
     { name = "process-bigraph" },
     { name = "pypdf" },
@@ -3109,6 +3133,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ff/87/8f0be89a37dba05b38d619a9710b2294dc6773d982d08fb7373328b4cfd0/pymunk-7.2.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:4b24986e5539d1d63c5f8394e599c88117b16b7c673a76c2a3e503bce6fa70b3", size = 1016314, upload-time = "2025-11-02T18:46:59.218Z" },
     { url = "https://files.pythonhosted.org/packages/3d/e1/2ff42c5bdb137a74b3996848ac3e93edb7aa44eb41b8a84b404361ab9ac8/pymunk-7.2.0-cp312-cp312-win32.whl", hash = "sha256:4a073698e5d483ba94b0393ad242f6716b4eff6859790df9f3c0ca3262255b1f", size = 317855, upload-time = "2025-11-02T18:47:26.639Z" },
     { url = "https://files.pythonhosted.org/packages/d3/b7/122edb075504ff709414f2ec8cbfdcbdcb9c7e2d4a188ae389b83f536a37/pymunk-7.2.0-cp312-cp312-win_amd64.whl", hash = "sha256:006a5c0731cd6e47b0da7f6c1f85cbb7049af90ffbaedf87b6856502e5c8b47b", size = 368376, upload-time = "2025-11-02T18:47:28.085Z" },
+]
+
+[[package]]
+name = "pyomo"
+version = "6.10.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/16/5ee100614f82b8bc482336afc15a554b98d847d0bcdc22e51bb559112183/pyomo-6.10.1.tar.gz", hash = "sha256:74a9109c3b4ab97e69d6b1a1ca4e96a54442a177d8b1a19393e417e6ba008ba3", size = 3276980, upload-time = "2026-06-04T21:45:42.76Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/3d/55089dbb8fdbed2b08600c50c52a7f2193f1de8bd6454a6541a8c56643ee/pyomo-6.10.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:f446764a499e535c6980435b71f297873cb13f0b040a1275853431abd35033d9", size = 4554942, upload-time = "2026-06-04T21:49:53.156Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/c9/2aeb79f0cb6069a7391b6724be6137624a78ac38856a3b89f62b57d1bcfb/pyomo-6.10.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1ffae4d4cd96c87d48ea19a25dd942b69b3d8383374e133f7a040ea63e361f68", size = 4540416, upload-time = "2026-06-04T21:49:55.855Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/b9/dd9e82c7cf1c13a5ee4f0e30fb802ec599d5a765c1e759d0b7c101a802fc/pyomo-6.10.1-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:2ed5fe352c74b249c35437e366413582c24d1869b995fdc648e29675bb9e8c3a", size = 4610464, upload-time = "2026-06-04T22:43:09.79Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/1a/e82ad06861982b139e20a903b12edb654ac912c1f8669fb2efb9b2193ff0/pyomo-6.10.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:be91786a9340230c031bec0e82c17acfcb5bba04801253ad09e85e4ddaf87d51", size = 4639806, upload-time = "2026-06-04T21:49:58.235Z" },
+    { url = "https://files.pythonhosted.org/packages/40/ba/8526e3d84432a01dd4d12a3c0b3cdc8ec67432792b854ebc911e575646ca/pyomo-6.10.1-py3-none-any.whl", hash = "sha256:7a81b5301d4c0389809c1afd12311d23db04522341566332229d8ce4226bccb1", size = 4175938, upload-time = "2026-06-04T21:45:39.569Z" },
 ]
 
 [[package]]
@@ -4087,6 +4124,7 @@ dependencies = [
     { name = "pbg-bioreactordesign" },
     { name = "pbg-copasi" },
     { name = "pbg-emitters", extra = ["parquet", "xarray"] },
+    { name = "pbg-ketchup" },
     { name = "pbg-parsimony" },
     { name = "pbg-superpowers" },
     { name = "plotly" },
@@ -4126,6 +4164,7 @@ requires-dist = [
     { name = "pbg-copasi", git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main" },
     { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
+    { name = "pbg-ketchup", git = "https://github.com/vivarium-collective/pbg-ketchup.git?branch=main" },
     { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
     { name = "plotly", specifier = ">=5.0" },
@@ -4143,7 +4182,7 @@ requires-dist = [
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
-    { name = "vivarium-dashboard", editable = "../../../../vivarium-dashboard" },
+    { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
 ]
 provides-extras = ["dev", "parquet", "xarray", "emitters", "ray"]
 
@@ -4259,7 +4298,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { editable = "../../../../vivarium-dashboard" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#9a2dd27bc7f7a14636d386a9032ed5590a02a512" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },
@@ -4271,26 +4310,6 @@ dependencies = [
     { name = "pypdf" },
     { name = "pyyaml" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "bigraph-loom", git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=main" },
-    { name = "bigraph-schema", specifier = ">=1.4.1" },
-    { name = "imageio", marker = "extra == 'viz'" },
-    { name = "jinja2" },
-    { name = "jsonschema", extras = ["format-nongpl"], specifier = ">=4.21" },
-    { name = "matplotlib", marker = "extra == 'viz'" },
-    { name = "numpy" },
-    { name = "numpy", marker = "extra == 'viz'" },
-    { name = "pbg-superpowers" },
-    { name = "process-bigraph" },
-    { name = "pypdf", specifier = ">=4.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
-    { name = "pytest-json-report", marker = "extra == 'dev'", specifier = ">=1.5" },
-    { name = "pytest-timeout", marker = "extra == 'dev'" },
-    { name = "pyyaml" },
-]
-provides-extras = ["viz", "dev"]
 
 [[package]]
 name = "vl-convert-python"

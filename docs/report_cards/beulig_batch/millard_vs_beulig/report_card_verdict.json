@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "reactor_bird_coupled_millard",
   "reference_model": "Beulig 2025 WT batch prefix",
-  "generated": "2026-06-14 23:50Z",
+  "generated": "2026-06-15 00:01Z",
   "overall": "mismatch",
   "groups": {
     "growth": {
@@ -12,10 +12,10 @@
           "id": "growth.biomass_gDW_per_L",
           "label": "Biomass (OD x 0.34)",
           "verdict": "mismatch",
-          "value": 0.012687301743705626,
+          "value": 0.012775899251920665,
           "meter": "\u0394 = -12.91 (99.9% rel)",
           "detail": {
-            "rel": 0.9990180107009516
+            "rel": 0.9990111533086748
           }
         }
       ]
@@ -27,10 +27,10 @@
           "id": "substrate.GUR",
           "label": "Glucose uptake rate",
           "verdict": "mismatch",
-          "value": 1.5457716382029199,
-          "meter": "\u0394 = -12.9 (89.3% rel)",
+          "value": 443.29392204291037,
+          "meter": "\u0394 = +428.8 (2968.2% rel)",
           "detail": {
-            "rel": 0.8930105201843835
+            "rel": 29.682272175684304
           }
         },
         {
@@ -50,10 +50,10 @@
           "id": "gas_transfer.OTR",
           "label": "O2 transfer rate (OTR)",
           "verdict": "mismatch",
-          "value": 0.0015660606559542761,
-          "meter": "\u0394 = -8496 (100.0% rel)",
+          "value": 6.649733971152584,
+          "meter": "\u0394 = -8489 (99.9% rel)",
           "detail": {
-            "rel": 0.9999998156621478
+            "rel": 0.9992172731800988
           }
         },
         {
@@ -156,8 +156,8 @@
       ]
     }
   },
-  "scope": "SHORT-RUN SMOKE (5 steps, cells_per_agent=1e+10); NOT the full ~33h Beulig batch production run (follow-up execution). Biological magnitudes are far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
-  "wall_s": 8.08,
+  "scope": "SHORT-RUN SMOKE (600 steps, cells_per_agent=1e+10); NOT the full ~33h Beulig batch production run (follow-up execution). Biological magnitudes are far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
+  "wall_s": 53.59,
   "charts": [
     "overlay_growth.png",
     "overlay_OTR.png",

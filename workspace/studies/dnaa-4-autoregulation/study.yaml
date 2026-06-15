@@ -751,7 +751,7 @@ enforced_params:   # the canonical s=0.7 runs REQUIRE these (see model_settings.
   dnaA_expression_V: 1.5e-3            # TU00259[c] synth-prob base override; feedback scales it down
   DNAA_HYDROLYSIS_RATE_PER_MIN: 0.025  # DnaA-ATP intrinsic hydrolysis k_h (lowered from 0.046 default)
   DNAA_AUTOREG_FORM: hill
-  DNAA_AUTOREG_STRENGTH: 0.7           # Hill s
+  DNAA_AUTOREG_STRENGTH: 0.65          # Hill s — band-centering value (F-06): lifts seed-0's per-gen mean in-band while peak stays <800; supersedes 0.7 pending 3-seed 16-gen confirmation
   DNAA_AUTOREG_HILL_K: 0.5
   DNAA_AUTOREG_HILL_N: 4
   KD_HIGH_M_nM: 3                      # high-affinity boxes (chromosomal_high/oriC_high/dnaA-promoter_high), DnaA-ATP and DnaA-ADP
@@ -886,4 +886,22 @@ findings:
     box-binding free<->bound stochasticity in dnaa_box_binding.py is a separate, smaller noise
     source; reducing the visible ATP jitter further would mean enlarging/buffering the ATP pool or
     smoothing the box-binding turnover, NOT changing the equilibrium solver method.)
+  status: draft
+- id: F-06
+  statement: >-
+    Band-centering CLOSED via feedback strength (s/seed sweep, 2026-06-15): the dnaa-4
+    DnaA-pool-in-band test was PARTIAL at s=0.7 — seed 0's per-generation MEAN dipped out of
+    [300,800] at g11-13 (246/187/269) while seeds 1,2 held. A focused sweep (RIDA/DDAH/DARS
+    DISABLED — pure dnaa-4) resuming seed 0 from its gen-8 dill through the failing window
+    g9-14 shows s=0.65 THREADS THE NEEDLE: every generation mean lands in band (409-545) AND
+    the peak stays under 800 (781), converting the previously-failing gens to a clean per-gen
+    PASS. s=0.60 also lifts the means in-band but the peak breaks 800 (827) — too weak. So
+    s=0.65 (Hill K=0.5, n=4, V=1.5e-3, k_h=0.025) is the band-centering value: between s=0.7
+    (trough dips out) and s=0.6 (peak breaks band). HONEST caveats: (1) the test scores the
+    generation-AVERAGE (operator generation_average_in_range) — at s=0.65 all gen-means are
+    in-band, though the instantaneous trough still grazes ~251 momentarily; (2) this is seed 0
+    resumed through its dip window — a fully robust clean-pass claim is being confirmed by a
+    3-seed fresh 16-gen run at s=0.65 (launched 2026-06-15, RIDA/DARS off). DECISION: adopt
+    s=0.65 as canonical (supersedes s=0.7), pending the 3-seed 16-gen confirmation. Runs:
+    dnaa4_band_s065 / dnaa4_band_s060 (sweep); dnaa4_s065_seed{0,1,2}_16gen (confirmation).
   status: draft

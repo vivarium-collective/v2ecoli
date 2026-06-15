@@ -39,10 +39,21 @@ report:
     (declarative sweeps are not yet runnable in the framework, so a
     `canonical_runs` script executes the titration). Reference x-axis = growth
     rate (an emergent model output at each knob setting), matching how Basan
-    reports the curve. Arms reuse the composites from ketchup-baseline-comparison:
-    baseline FBA (v2ecoli.composites.baseline), Millard kinetic ODE, and the live
-    FBA-bridge (millard_fba_bridge_harness). Reference curve = the Basan 2015
-    acetate-vs-growth points (investigation input basan2015-acetate-vs-growth).
+    reports the curve — and matching the causal direction of Basan's experiment,
+    which titrates transporter EXPRESSION (Pu-ptsG, inducer 3MBA) → carbon uptake
+    → emergent growth rate (a chemostat would invert this: clamp growth, let
+    uptake follow). Arms reuse the composites from ketchup-baseline-comparison:
+    baseline FBA (v2ecoli.composites.baseline), the Millard kinetic ODE, and the
+    live FBA-bridge (millard_fba_bridge_harness). Reference = the Basan 2015
+    Fig-1 source data (investigation input basan2015-acetate-vs-growth, populated);
+    grade against the `uptake_titration` series — `ptsG_glucose` is the direct
+    apples-to-apples match for a glucose-cache sweep. Acetate units (mM/OD600/h)
+    need an external OD600→gDCW factor to compare to the model's mmol/gDCW/h
+    (see inputs/notes/basan2015.md).
+    Key test: overflow is a constraint phenomenon — plain growth-max FBA respires
+    fully and excretes no acetate (the ketchup baseline finding), so this grades
+    whether v2ecoli encodes the proteome/respiration limit that makes overflow
+    emerge (baseline-FBA predicted no overflow; the kinetic/bridge arms may differ).
   # report_cards: <built at Evaluate — docs/report_cards/metabolic_perturbation/overflow_acetate_vs_growth/>
 
 bibliography:
@@ -57,8 +68,15 @@ assumptions:
 - text: |
     A glucose-uptake-rate (or glucose-concentration) titration moves the model
     along a growth-rate axis comparable to Basan's, on the existing glucose ParCa
-    cache — no new data bundle needed for this condition.
+    cache — no new data bundle needed for this condition. (Mirrors Basan's
+    transporter-titration causal direction: set uptake → growth emerges.)
   verified_in_v2ecoli: false   # to confirm at Build
+- text: |
+    The OD600→gDCW factor used to convert Basan's reported Jac (mM/OD600/h) to the
+    model's acetate exchange flux (mmol/gDCW/h) is an EXTERNAL assumption (not in
+    Basan 2015) — either import a sourced NCM3722 factor or grade in per-OD units
+    by converting the model side. See inputs/notes/basan2015.md.
+  verified_in_v2ecoli: false   # build-time decision
 
 conditions:
   # Arms reused from ketchup-baseline-comparison. The GUR titration itself is
@@ -83,7 +101,7 @@ conditions:
     detail: "Millard 2017 central-carbon kinetic ODE arm (the flux source behind the FBA-bridge). Included to test whether the kinetic core induces overflow the baseline FBA misses."
   - name: basan2015-reference-curve
     gate: required
-    detail: "Reference: Basan 2015 acetate-secretion-vs-growth-rate curve (investigation input basan2015-acetate-vs-growth). The curve_response criterion grades the onset growth-rate threshold + overflow slope against these points."
+    detail: "Reference: Basan 2015 Fig-1 acetate-vs-growth source data (investigation input basan2015-acetate-vs-growth, POPULATED — inputs/datasets/basan2015_acetate_vs_growth.csv). Grade against the `uptake_titration` series (`ptsG_glucose` = NQ1243 Pu-ptsG, the direct glucose-uptake-titration match; `lacY_lactose` secondary). The `carbon_source` / `carbon_source_aa` series are earmarked for the future carbon-source study, not graded here. The curve_response criterion grades onset λac (≈0.7–0.8 h⁻¹) + overflow slope. Units: mM/OD600/h → mmol/gDCW/h needs an external OD600→gDCW factor (see inputs/notes/basan2015.md)."
   - name: curve-response-criterion
     gate: required
     detail: "NET-NEW grading: a `curve_response` criterion (planned, to be added to v2ecoli card_criteria.py and carved to main as a feature PR) emits a within_tol/drift/mismatch verdict for the 'overflow' card group from the swept (growth_rate, acetate) response vs the Basan curve. Surfaced to the framework via the existing report_card_axis workspace evaluator + report_card_verdict.json."

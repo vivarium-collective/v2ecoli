@@ -106,11 +106,14 @@ inputs:
   - name: basan2015-acetate-vs-growth
     path: inputs/datasets/basan2015_acetate_vs_growth.csv
     supports_claims:
-    - "Aerobic acetate secretion rises ~linearly with growth rate above a critical growth-rate threshold (Basan et al. 2015, Nature)."
-    status: placeholder   # curve to be extracted from the Basan 2015 supplement
+    - "Aerobic acetate excretion is ~0 below a threshold growth rate (λac ≈ 0.7–0.8 h⁻¹) and rises ~linearly with growth rate above it (Basan et al. 2015, Nature; Fig. 1 / Extended Data Table 1)."
+    - "Acetate overflow is an innate response that depends on the degree of carbon influx, not on the carbon source — shown by titrating transporter expression (Pu-ptsG / LacY) within a single carbon source (Basan 2015)."
+    status: populated   # extracted from Basan 2015 Fig-1 source data (supplement MOESM62)
+    units_note: "Acetate as reported in mM/OD600/h; OD600→gDCW conversion to the model's mmol/gDCW/h is an external assumption (not in Basan 2015) — see inputs/notes/basan2015.md."
   references:
   - basan2015
-  expert_docs: []
+  expert_docs:
+  - inputs/notes/basan2015.md
 
 studies:
 - overflow-acetate-vs-growth

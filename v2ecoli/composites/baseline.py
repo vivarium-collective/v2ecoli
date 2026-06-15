@@ -470,6 +470,13 @@ def _get_step_config(
             "default": {},
             "description": "Declarative '<process>.<key>': value config overrides (variants)",
         },
+        "features": {
+            "type": "list",
+            "default": [],
+            "description": "Opt-in feature-module names to insert in addition to "
+                           "the boolean toggles (e.g. ['mass_conservation']). "
+                           "Each must be a key in FEATURE_MODULES.",
+        },
         # --- Biological feature toggles (insert/remove feature-module steps) ---
         "ppgpp_regulation": {
             "type": "bool",
@@ -531,6 +538,7 @@ def baseline(
     transcript_initiation_mode: str = "discrete",
     polypeptide_initiation_mode: str = "discrete",
     config_overrides: dict | None = None,
+    features: list | None = None,
     ppgpp_regulation: bool = True,
     trna_attenuation: bool = False,
     supercoiling: bool = False,
@@ -617,8 +625,13 @@ def baseline(
         'supercoiling': supercoiling,
         'mass_conservation': mass_conservation,
     }
+    _requested_features = list(features or [])
     features = [name for name, on in _toggle_features.items() if on]
     for f in _EXTRA_FEATURES:
+        if f not in features:
+            features.append(f)
+    # Explicit per-call opt-in feature modules (e.g. mass_conservation).
+    for f in _requested_features:
         if f not in features:
             features.append(f)
 

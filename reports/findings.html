@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><title>v2ecoli — findings index</title>
+<link rel="stylesheet" href="assets/style.css">
+<style>
+/* Pass 10B findings-index — small additions on top of the shared style.css */
+.crumb{font-size:0.9em;margin-bottom:8px}
+.crumb a{color:var(--accent2);text-decoration:none}
+.crumb a:hover{text-decoration:underline}
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0 14px 0}
+.chips label{font-size:0.82em;color:var(--gray);margin-right:4px}
+.chip{display:inline-block;padding:3px 8px;border:1px solid var(--border);border-radius:12px;font-size:0.82em;background:#fff;cursor:pointer;user-select:none}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chip.inline{cursor:default;background:rgba(0,0,0,0.04);font-size:0.78em;padding:2px 6px}
+.view-toggle{display:inline-flex;border:1px solid var(--border);border-radius:4px;overflow:hidden;margin-left:auto}
+.view-toggle button{padding:5px 10px;background:#fff;border:0;border-right:1px solid var(--border);font-size:0.85em;cursor:pointer}
+.view-toggle button:last-child{border-right:0}
+.view-toggle button.active{background:var(--accent2);color:#fff}
+.group-head{margin:18px 0 6px 0;font-size:1.05em;color:#333}
+.group-head .count{color:var(--gray);font-weight:normal;font-size:0.85em;margin-left:6px}
+.finding-row{padding:8px 10px;border-bottom:1px solid var(--border)}
+.finding-row:last-child{border-bottom:0}
+.finding-row .top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}
+.finding-row .id{font-family:ui-monospace,Menlo,monospace;font-weight:600;color:var(--accent2)}
+.finding-row .study{font-size:0.85em;color:var(--gray)}
+.finding-row .study a{color:var(--gray)}
+.finding-row .statement{flex:1;min-width:260px}
+.finding-row details{margin-top:4px;font-size:0.9em;color:#444}
+.finding-row details summary{cursor:pointer;color:var(--accent2);font-size:0.85em}
+.finding-row details pre{background:rgba(0,0,0,0.03);padding:6px 8px;border-radius:4px;white-space:pre-wrap;font-size:0.85em}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:0.75em;line-height:1.6;border:1px solid var(--border)}
+.badge.status-confirms{background:#d1fae5;border-color:#a7f3d0;color:#065f46}
+.badge.status-partial{background:#fef3c7;border-color:#fde68a;color:#92400e}
+.badge.status-contradicts{background:#fee2e2;border-color:#fca5a5;color:#991b1b}
+.badge.status-novel{background:#ede9fe;border-color:#c4b5fd;color:#5b21b6}
+.badge.kind-biological{background:#e0f2fe;border-color:#bae6fd;color:#075985}
+.badge.kind-computational{background:#fef3c7;border-color:#fde68a;color:#854d0e}
+.badge.kind-methodological{background:#f3e8ff;border-color:#e9d5ff;color:#6b21a8}
+.row-extras{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px}
+.row-extras .chip.bib{background:#eff6ff;border-color:#dbeafe;color:#1e40af;font-family:ui-monospace,Menlo,monospace}
+.row-extras .chip.doc{background:#fefce8;border-color:#fef08a;color:#854d0e}
+.hidden{display:none !important}
+.empty{padding:18px;color:var(--gray);text-align:center;font-style:italic}
+</style>
+</head><body>
+<header><h1>v2ecoli — findings</h1>
+<p class="subtitle">Cross-study findings index · regenerated 2026-05-29</p></header>
+<main>
+<p class="crumb"><a href="index.html">← Workspace dashboard</a></p>
+
+
+<div class="panel">
+  <div class="chips" id="filter-bar">
+    <label>Filter status:</label>
+    
+      <span class="chip filter-status active" data-status="confirms">confirms</span>
+    
+      <span class="chip filter-status active" data-status="partial">partial</span>
+    
+      <span class="chip filter-status active" data-status="contradicts">contradicts</span>
+    
+      <span class="chip filter-status active" data-status="novel">novel</span>
+    
+    <label style="margin-left:14px">Filter kind:</label>
+    
+      <span class="chip filter-kind active" data-kind="biological">biological</span>
+    
+      <span class="chip filter-kind active" data-kind="computational">computational</span>
+    
+      <span class="chip filter-kind active" data-kind="methodological">methodological</span>
+    
+    <span class="view-toggle">
+      <button data-view="status" class="active">Group by status</button>
+      <button data-view="kind">Group by kind</button>
+    </span>
+  </div>
+
+  
+  <div id="view-status">
+    
+      
+      
+        <h3 class="group-head" data-group-status="confirms">confirms<span class="count">(3)</span></h3>
+        <div class="group" data-group-status="confirms">
+        
+          
+<div class="finding-row" data-status="confirms" data-kind="computational">
+  <div class="top">
+    <span class="id">F-01-per-cell-wall-flat</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-confirms">confirms</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight DECREASE with N as Python/import overhead amortizes).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+DECREASE with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="confirms" data-kind="computational">
+  <div class="top">
+    <span class="id">F-03-per-cell-rss</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-confirms">confirms</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">Steady-state per-cell RSS is ~450 MB, atop a ~1 GB Python baseline (ParCa + WCM imports + cached numpy arrays).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>Steady-state per-cell RSS is ~450 MB, atop a ~1 GB Python baseline
+(ParCa + WCM imports + cached numpy arrays).
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="confirms" data-kind="computational">
+  <div class="top">
+    <span class="id">F-04-pymunk-negligible</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-confirms">confirms</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">pymunk 2D physics is essentially free at the N values we tested (≤ 0.2 ms/tick at N=8).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>pymunk 2D physics is essentially free at the N values we tested
+(≤ 0.2 ms/tick at N=8). All wall-time cost is the inner EcoliWCM.
+</pre></details>
+  
+  
+</div>
+
+        
+        </div>
+      
+    
+      
+      
+    
+      
+      
+    
+      
+      
+        <h3 class="group-head" data-group-status="novel">novel<span class="count">(3)</span></h3>
+        <div class="group" data-group-status="novel">
+        
+          
+<div class="finding-row" data-status="novel" data-kind="computational">
+  <div class="top">
+    <span class="id">F-02-gil-bottleneck</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-novel">novel</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">The GIL is the dominant bottleneck at colony scale.</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>The GIL is the dominant bottleneck at colony scale. Process-bigraph
+composites are single-threaded by design — one process uses ~1 CPU core
+regardless of how many cells it holds. Scaling means more processes, not
+more cells/process.
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="novel" data-kind="computational">
+  <div class="top">
+    <span class="id">F-06-rss-growth-over-time</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-novel">novel</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second (1126 MB at tick 0 → 7016 MB by tick 1050, before division).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
+(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Indicates
+either accumulating state in the EcoliWCM internal composite or a leak;
+visible only in long runs, not in the 60s N-sweep windows.
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="novel" data-kind="methodological">
+  <div class="top">
+    <span class="id">F-05-build-phase-bugs</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-novel">novel</span>
+    <span class="badge kind-methodological">methodological</span>
+    <span class="statement">Three independent bugs blocked daughter hydration through the engine and had to be fixed before the Decide phase could run.</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>Three independent bugs blocked daughter hydration through the engine
+and had to be fixed before the Decide phase could run.
+</pre></details>
+  
+  
+</div>
+
+        
+        </div>
+      
+    
+  </div>
+
+  
+  <div id="view-kind" class="hidden">
+    
+      
+      
+    
+      
+      
+        <h3 class="group-head" data-group-kind="computational">computational<span class="count">(5)</span></h3>
+        <div class="group" data-group-kind="computational">
+        
+          
+<div class="finding-row" data-status="confirms" data-kind="computational">
+  <div class="top">
+    <span class="id">F-01-per-cell-wall-flat</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-confirms">confirms</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight DECREASE with N as Python/import overhead amortizes).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+DECREASE with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="confirms" data-kind="computational">
+  <div class="top">
+    <span class="id">F-03-per-cell-rss</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-confirms">confirms</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">Steady-state per-cell RSS is ~450 MB, atop a ~1 GB Python baseline (ParCa + WCM imports + cached numpy arrays).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>Steady-state per-cell RSS is ~450 MB, atop a ~1 GB Python baseline
+(ParCa + WCM imports + cached numpy arrays).
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="confirms" data-kind="computational">
+  <div class="top">
+    <span class="id">F-04-pymunk-negligible</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-confirms">confirms</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">pymunk 2D physics is essentially free at the N values we tested (≤ 0.2 ms/tick at N=8).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>pymunk 2D physics is essentially free at the N values we tested
+(≤ 0.2 ms/tick at N=8). All wall-time cost is the inner EcoliWCM.
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="novel" data-kind="computational">
+  <div class="top">
+    <span class="id">F-02-gil-bottleneck</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-novel">novel</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">The GIL is the dominant bottleneck at colony scale.</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>The GIL is the dominant bottleneck at colony scale. Process-bigraph
+composites are single-threaded by design — one process uses ~1 CPU core
+regardless of how many cells it holds. Scaling means more processes, not
+more cells/process.
+</pre></details>
+  
+  
+</div>
+
+        
+          
+<div class="finding-row" data-status="novel" data-kind="computational">
+  <div class="top">
+    <span class="id">F-06-rss-growth-over-time</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-novel">novel</span>
+    <span class="badge kind-computational">computational</span>
+    <span class="statement">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second (1126 MB at tick 0 → 7016 MB by tick 1050, before division).</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
+(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Indicates
+either accumulating state in the EcoliWCM internal composite or a leak;
+visible only in long runs, not in the 60s N-sweep windows.
+</pre></details>
+  
+  
+</div>
+
+        
+        </div>
+      
+    
+      
+      
+        <h3 class="group-head" data-group-kind="methodological">methodological<span class="count">(1)</span></h3>
+        <div class="group" data-group-kind="methodological">
+        
+          
+<div class="finding-row" data-status="novel" data-kind="methodological">
+  <div class="top">
+    <span class="id">F-05-build-phase-bugs</span>
+    <span class="study">
+      colonies-01-hpc-readiness
+    </span>
+    <span class="badge status-novel">novel</span>
+    <span class="badge kind-methodological">methodological</span>
+    <span class="statement">Three independent bugs blocked daughter hydration through the engine and had to be fixed before the Decide phase could run.</span>
+  </div>
+  
+  <details><summary>full statement</summary><pre>Three independent bugs blocked daughter hydration through the engine
+and had to be fixed before the Decide phase could run.
+</pre></details>
+  
+  
+</div>
+
+        
+        </div>
+      
+    
+  </div>
+</div>
+
+
+</main>
+<script src="assets/render-helpers.js"></script>
+<script>
+// Tiny in-page filter + view toggle. No framework.
+(function(){
+  const bar = document.getElementById('filter-bar');
+  if(!bar) return;
+  const statusChips = bar.querySelectorAll('.filter-status');
+  const kindChips = bar.querySelectorAll('.filter-kind');
+  const viewBtns = bar.querySelectorAll('.view-toggle button');
+  const viewStatus = document.getElementById('view-status');
+  const viewKind = document.getElementById('view-kind');
+
+  function activeSet(chips, attr){
+    const out = new Set();
+    chips.forEach(c => { if(c.classList.contains('active')) out.add(c.dataset[attr]); });
+    return out;
+  }
+  function applyFilter(){
+    const sActive = activeSet(statusChips, 'status');
+    const kActive = activeSet(kindChips, 'kind');
+    document.querySelectorAll('.finding-row').forEach(row => {
+      const s = row.dataset.status, k = row.dataset.kind;
+      row.classList.toggle('hidden', !sActive.has(s) || !kActive.has(k));
+    });
+    // Hide group heads whose group has no visible rows.
+    document.querySelectorAll('.group-head').forEach(h => {
+      const groupAttr = h.dataset.groupStatus ? 'group-status' : 'group-kind';
+      const val = h.dataset.groupStatus || h.dataset.groupKind;
+      const sel = `.group[data-${groupAttr}="${val}"]`;
+      const group = h.parentElement.querySelector(sel);
+      if(!group){ return; }
+      const visible = group.querySelectorAll('.finding-row:not(.hidden)').length;
+      h.classList.toggle('hidden', visible === 0);
+      group.classList.toggle('hidden', visible === 0);
+    });
+  }
+  statusChips.forEach(c => c.addEventListener('click', () => { c.classList.toggle('active'); applyFilter(); }));
+  kindChips.forEach(c => c.addEventListener('click', () => { c.classList.toggle('active'); applyFilter(); }));
+  viewBtns.forEach(b => b.addEventListener('click', () => {
+    viewBtns.forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    if(b.dataset.view === 'status'){ viewStatus.classList.remove('hidden'); viewKind.classList.add('hidden'); }
+    else { viewKind.classList.remove('hidden'); viewStatus.classList.add('hidden'); }
+    applyFilter();
+  }));
+})();
+</script>
+</body></html>

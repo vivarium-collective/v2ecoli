@@ -5,12 +5,30 @@ fires their ``@composite_generator`` decorators and registers the generators
 in ``pbg_superpowers.composite_generator._REGISTRY``.
 """
 
-from v2ecoli.composites import baseline, colony, parca  # noqa: F401
-from v2ecoli.composites import millard_pdmp_baseline  # noqa: F401
-from v2ecoli.composites import millard_fba_bridge_harness  # noqa: F401
+from v2ecoli.composites import (  # noqa: F401
+    baseline,
+    baseline_millard,
+    baseline_population,
+    baseline_time_varying_env,
+    colony,
+    millard_fba_bridge_harness,
+    millard_pdmp_baseline,
+    parca,
+    reactor_bird_coupled,
+    reactor_bird_coupled_millard,
+)
 from v2ecoli.structural import composite as parsimony_ecoli  # noqa: F401 — registers "parsimony-ecoli"
 
 __all__ = [
-    "baseline", "colony", "parca", "millard_pdmp_baseline",
-    "millard_fba_bridge_harness", "parsimony_ecoli",
+    "baseline",
+    "baseline_millard",
+    "baseline_population",
+    "baseline_time_varying_env",
+    "colony",
+    "millard_fba_bridge_harness",
+    "millard_pdmp_baseline",
+    "parca",
+    "reactor_bird_coupled",
+    "reactor_bird_coupled_millard",
+    "parsimony_ecoli",
 ]

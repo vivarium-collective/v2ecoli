@@ -11,6 +11,23 @@ study references:
 
   * ``wcm``     -> ``docs/report_cards/beulig_batch/vs_beulig``        (mbp-05 + mbp-09 WCM)
   * ``millard`` -> ``docs/report_cards/beulig_batch/millard_vs_beulig``(mbp-09 Millard)
+  * ``iml1515`` -> ``docs/report_cards/beulig_batch/iml1515_vs_beulig``(mbp-09 genome-scale)
+
+iML1515 arm — NOT apples-to-apples (read this)
+----------------------------------------------
+The ``iml1515`` arm is the Palsson genome-scale FBA model (cobra ``load_model``),
+NOT a process-bigraph composite. It does NOT predict the batch trajectory from
+first principles: for each Beulig batch-phase sample it SETS iML1515's glucose +
+O2 uptake **lower bounds from the MEASURED Beulig uptake rates** and solves FBA,
+so the only genuine PREDICTIONS are growth μ and acetate flux. We grade μ
+(predicted-vs-measured, ``r2`` criterion) and mark the uptake INPUTS
+(substrate/gas_transfer) honestly ``ungraded`` — grading an input as if it were a
+prediction would be dishonest. Acetate is ``ungraded`` too (the Beulig batch
+samples carry no measured acetate). This makes the iML1515 arm an
+*easier / different* test than the wcm/millard arms (which predict the whole
+trajectory from first principles); the 3-way comparison must NOT be read as
+apples-to-apples. Reuses ``scripts/runnable_sims/iml1515_vs_beulig.py`` for the
+sample loading + FBA bound-setting (no duplicated FBA setup).
 
 SCOPE — SHORT-RUN SMOKE (important)
 ----------------------------------
@@ -73,7 +90,10 @@ ARM_COMPOSITE = {
 ARM_CARD_DIR = {
     "wcm": "vs_beulig",
     "millard": "millard_vs_beulig",
+    "iml1515": "iml1515_vs_beulig",
 }
+# All gradeable arms (the two PB composite arms + the genome-scale FBA arm).
+ALL_ARMS = list(ARM_COMPOSITE) + ["iml1515"]
 
 # --- constants --------------------------------------------------------------
 
@@ -91,6 +111,11 @@ NOMINAL_VOLUME_L = 0.05
 DEFAULT_TOL_REL = 0.25               # execute-and-report band (lenient diagnostic)
 DEFAULT_SMOKE_STEPS = 5
 DEFAULT_CPA = 1.0e10                 # representative-sampling scale (coupling active)
+# iML1515 arm — predicted-vs-measured μ grading band (model-validation style;
+# documented diagnostic, NOT tuned to pass). R² vs the identity line y=x.
+IML1515_R2_MIN = 0.70                # within_tol at/above
+IML1515_R2_DRIFT = 0.30             # drift down to this; mismatch below
+DEFAULT_IML1515_SAMPLES = 40         # Beulig batch-phase samples to solve FBA over
 
 
 # --- low-level numeric helpers ---------------------------------------------
@@ -418,17 +443,178 @@ def render_overlay_charts(arm: str, sim: dict, out_dir: Path) -> list[str]:
     return written
 
 
+# --- iML1515 genome-scale FBA arm -------------------------------------------
+
+def run_iml1515_arm(max_samples: int = DEFAULT_IML1515_SAMPLES) -> list[dict]:
+    """Run the iML1515 genome-scale FBA arm over the Beulig batch-phase samples.
+
+    REUSES ``scripts/runnable_sims/iml1515_vs_beulig.py`` for the sample loading
+    + the FBA bound-setting / solve (no duplicated FBA setup). Returns the list
+    of paired samples (each with ``mu_measured``/``mu_predicted``/
+    ``acetate_flux_predicted``/``solver_status`` …).
+    """
+    # Ensure the repo root is importable when run as a script (python scripts/…),
+    # so the sibling `scripts.runnable_sims.*` package resolves (pytest's conftest
+    # already does this; direct CLI invocation does not).
+    import sys
+    if str(WS_ROOT) not in sys.path:
+        sys.path.insert(0, str(WS_ROOT))
+    from scripts.runnable_sims.iml1515_vs_beulig import (
+        load_beulig_batch_phase_samples, run_iml1515)
+
+    samples = load_beulig_batch_phase_samples(max_samples=max_samples)
+    return run_iml1515(samples)
+
+
+def build_iml1515_axes(pairs: list[dict]) -> tuple[dict, dict]:
+    """Build the report_card ``reference`` axes + measured ``card`` for iML1515.
+
+    The genuine PREDICTIONS are graded; the FBA INPUTS (uptake bounds set from
+    Beulig) are emitted ungraded so the groups are present but nothing is graded
+    as a prediction it is not. Returns ``(reference, card)``.
+    """
+    mu_meas = [_f(p.get("mu_measured")) for p in pairs]
+    mu_pred = [_f(p.get("mu_predicted")) for p in pairs]
+    mu_meas = [m for m in mu_meas if m is not None]
+    mu_pred = [m for m in mu_pred if m is not None]
+    n_opt = sum(1 for p in pairs if p.get("solver_status") == "optimal")
+
+    # (path, group, label, units, criterion, measured_value)
+    rows = [
+        # GRADED — predicted vs measured μ across samples (r2 vs identity y=x).
+        ("growth.mu_predicted_vs_measured", "growth",
+         "Growth rate μ — predicted (iML1515 @ matched uptake) vs measured", "1/h",
+         {"type": "r2", "ref_vector": mu_meas,
+          "r2_min": IML1515_R2_MIN, "r2_drift": IML1515_R2_DRIFT},
+         {"vector": mu_pred}),
+        # GRADED — boolean process-level: iML1515 ran + predicted μ for N samples.
+        ("summary.iml1515_ran", "summary",
+         f"iML1515 ran + predicted μ for {len(pairs)} Beulig samples "
+         f"({n_opt} optimal solves)", "",
+         {"type": "boolean"}, bool(pairs) and n_opt > 0),
+        # UNGRADED — Beulig batch samples carry no measured acetate; predicted
+        # acetate flux has no reference to grade against.
+        ("byproducts.acetate", "byproducts",
+         "Acetate flux — predicted (no measured acetate in Beulig batch samples)",
+         "mmol/(gDW*h)", {"type": "r2", "ref_vector": None}, None),
+        # UNGRADED — these are INPUTS: iML1515's glucose / O2 uptake LOWER BOUNDS
+        # are SET from the measured Beulig rates, so grading them would grade an
+        # input as if it were a prediction. Honestly ungraded.
+        ("substrate.glucose_uptake_input", "substrate",
+         "Glucose uptake (INPUT: FBA bound set from Beulig, not predicted)",
+         "mmol/(gDW*h)", {"type": "rel_tol", "reference": None}, None),
+        ("gas_transfer.o2_uptake_input", "gas_transfer",
+         "O2 uptake (INPUT: FBA bound set from Beulig, not predicted)",
+         "mmol/(gDW*h)", {"type": "rel_tol", "reference": None}, None),
+    ]
+
+    axes: dict[str, dict] = {}
+    card: dict = {}
+    for path, group, label, units, criterion, value in rows:
+        axes[path] = {"group": group, "label": label, "units": units,
+                      "criterion": criterion}
+        if value is not None:
+            node = card
+            parts = path.split(".")
+            for p in parts[:-1]:
+                node = node.setdefault(p, {})
+            node[parts[-1]] = value
+    reference = {"title": "Beulig 2025 WT batch prefix (iML1515 genome-scale)",
+                 "axes": axes}
+    return reference, card
+
+
+def render_iml1515_scatter(pairs: list[dict], out_dir: Path) -> list[str]:
+    """Predicted-vs-measured μ parity scatter -> overlay_growth.png. Best-effort."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except Exception:
+        return []
+    mu_m = [_f(p.get("mu_measured")) or 0.0 for p in pairs]
+    mu_p = [_f(p.get("mu_predicted")) or 0.0 for p in pairs]
+    if not mu_m:
+        return []
+    fig, ax = plt.subplots(figsize=(6.2, 5.6))
+    ax.scatter(mu_m, mu_p, s=26, alpha=0.78, c="#6366f1", edgecolor="#3730a3",
+               label=f"{len(pairs)} Beulig samples")
+    lim = max(max(mu_m, default=0.1), max(mu_p, default=0.1), 0.1) * 1.15
+    ax.plot([0, lim], [0, lim], "--", color="#9ca3af", lw=1, label="y = x (perfect)")
+    ax.set_xlim(0, lim)
+    ax.set_ylim(0, lim)
+    ax.set_xlabel("measured μ (Beulig 2025) [1/h]")
+    ax.set_ylabel("predicted μ (iML1515 @ matched uptake) [1/h]")
+    ax.set_title("iML1515 predicted vs measured μ\n"
+                 "(uptake bounds SET from Beulig — NOT apples-to-apples vs wcm/millard)",
+                 fontsize=10)
+    ax.legend(loc="upper left", fontsize=8)
+    ax.grid(alpha=0.3)
+    fig.tight_layout()
+    out = out_dir / "overlay_growth.png"
+    fig.savefig(out, dpi=120, bbox_inches="tight")
+    plt.close(fig)
+    return [out.name]
+
+
+def run_iml1515_harness(max_samples: int = DEFAULT_IML1515_SAMPLES,
+                        render: bool = True) -> dict:
+    """Run the iML1515 arm, grade vs Beulig, write report_card_verdict.json."""
+    t0 = time.perf_counter()
+    pairs = run_iml1515_arm(max_samples=max_samples)
+    reference, card = build_iml1515_axes(pairs)
+    report = grade_card(card, reference)
+    verdict = verdict_json(
+        report,
+        model_ref="iML1515 (Palsson genome-scale FBA, cobra)",
+        reference_model="Beulig 2025 WT batch prefix",
+        generated=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%MZ"),
+    )
+    n_opt = sum(1 for p in pairs if p.get("solver_status") == "optimal")
+    verdict["scope"] = (
+        f"iML1515 genome-scale FBA over {len(pairs)} Beulig batch-phase samples "
+        f"({n_opt} optimal solves). NOT apples-to-apples with the wcm/millard arms: "
+        "iML1515's glucose + O2 uptake LOWER BOUNDS ARE SET FROM the measured Beulig "
+        "rates, so the only genuine PREDICTIONS graded are growth μ "
+        "(predicted-vs-measured, r2 vs identity y=x). substrate/gas_transfer are "
+        "INPUTS -> honestly ungraded; acetate is ungraded (no measured acetate in "
+        "the Beulig batch samples). The wcm/millard arms predict the whole batch "
+        "trajectory from first principles; iML1515 predicts μ from MEASURED uptake "
+        "(a different, arguably easier test). Order-of-magnitude parity, not "
+        "calibrated overlap."
+    )
+    verdict["n_samples"] = len(pairs)
+    verdict["n_optimal"] = n_opt
+    verdict["wall_s"] = round(time.perf_counter() - t0, 2)
+
+    out_dir = CARD_ROOT / ARM_CARD_DIR["iml1515"]
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "report_card_verdict.json").write_text(
+        json.dumps(verdict, indent=2), encoding="utf-8")
+    if render:
+        verdict["charts"] = render_iml1515_scatter(pairs, out_dir)
+        (out_dir / "report_card_verdict.json").write_text(
+            json.dumps(verdict, indent=2), encoding="utf-8")
+    return verdict
+
+
 # --- top-level harness ------------------------------------------------------
 
 def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
                 tol_rel: float = DEFAULT_TOL_REL,
                 cells_per_agent: float = DEFAULT_CPA,
-                render: bool = True) -> dict:
+                render: bool = True,
+                max_samples: int = DEFAULT_IML1515_SAMPLES) -> dict:
     """Run one arm, grade vs Beulig, write report_card_verdict.json (+ charts).
 
     Returns the verdict dict (also written to disk)."""
+    if arm == "iml1515":
+        # Genome-scale FBA arm — not a PB composite; separate path (reuses the
+        # iml1515_vs_beulig FBA harness), graded by the SAME grader.
+        return run_iml1515_harness(max_samples=max_samples, render=render)
+
     if arm not in ARM_COMPOSITE:
-        raise ValueError(f"unknown arm {arm!r}; expected one of {list(ARM_COMPOSITE)}")
+        raise ValueError(f"unknown arm {arm!r}; expected one of {ALL_ARMS}")
 
     t0 = time.perf_counter()
     sim = run_arm(arm, steps, cells_per_agent=cells_per_agent)
@@ -461,19 +647,28 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--arm", choices=list(ARM_COMPOSITE) + ["both"], default="both")
+    ap.add_argument("--arm", choices=ALL_ARMS + ["both", "all"], default="both",
+                    help="'both' = the two PB composite arms (wcm+millard); "
+                         "'all' = those plus the iml1515 genome-scale arm")
     ap.add_argument("--steps", type=int, default=DEFAULT_SMOKE_STEPS,
                     help="WCM steps (small for the smoke build)")
     ap.add_argument("--tol-rel", type=float, default=DEFAULT_TOL_REL)
     ap.add_argument("--cells-per-agent", type=float, default=DEFAULT_CPA)
+    ap.add_argument("--iml-samples", type=int, default=DEFAULT_IML1515_SAMPLES,
+                    help="Beulig batch-phase samples the iml1515 arm solves FBA over")
     ap.add_argument("--no-render", action="store_true")
     args = ap.parse_args()
 
-    arms = list(ARM_COMPOSITE) if args.arm == "both" else [args.arm]
+    if args.arm == "both":
+        arms = list(ARM_COMPOSITE)
+    elif args.arm == "all":
+        arms = ALL_ARMS
+    else:
+        arms = [args.arm]
     for arm in arms:
         v = run_harness(arm, steps=args.steps, tol_rel=args.tol_rel,
                         cells_per_agent=args.cells_per_agent,
-                        render=not args.no_render)
+                        render=not args.no_render, max_samples=args.iml_samples)
         groups = {g: d["verdict"] for g, d in v["groups"].items()}
         print(f"[{arm}] -> {CARD_ROOT / ARM_CARD_DIR[arm]}/report_card_verdict.json")
         print(f"  overall={v['overall']}  groups={groups}  ({v['wall_s']}s)")

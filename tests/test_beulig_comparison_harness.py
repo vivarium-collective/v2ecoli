@@ -74,6 +74,59 @@ def test_build_axes_group_mapping_covers_all_five_groups():
     assert groups["byproducts"]["verdict"] == "ungraded"
 
 
+# --- unit: iML1515 arm (predicted-vs-measured μ, graded via r2) -------------
+
+@pytest.mark.sim
+@pytest.mark.slow
+def test_iml1515_arm_grades_growth_via_r2():
+    """The iml1515 arm loads the Beulig batch-phase samples, runs iML1515 FBA at
+    the measured uptake bounds, and grades growth (predicted-vs-measured μ) via
+    an r2 criterion — the growth group resolves (NON-ungraded). Inputs the FBA
+    BOUNDS are set from (glucose / O2 uptake) are honestly ungraded, and the
+    summary boolean records that iML1515 ran."""
+    pairs = h.run_iml1515_arm(max_samples=8)
+    assert pairs, "no iML1515 pairs produced"
+    assert all("mu_measured" in p and "mu_predicted" in p for p in pairs)
+
+    reference, card = h.build_iml1515_axes(pairs)
+    from v2ecoli.library.report_card import grade_card, verdict_json
+    verdict = verdict_json(grade_card(card, reference))
+    groups = verdict["groups"]
+
+    # growth is GRADED (r2), not ungraded.
+    assert "growth" in groups, "growth group missing"
+    assert groups["growth"]["verdict"] != "ungraded", (
+        f"growth not graded: {groups['growth']}")
+    assert groups["growth"]["axes"][0]["meter"].startswith("R²")
+    # inputs the bounds are set from must NOT be graded as predictions.
+    assert groups["substrate"]["verdict"] == "ungraded"
+    assert groups["gas_transfer"]["verdict"] == "ungraded"
+    # iML1515 ran -> summary passes.
+    assert groups["summary"]["verdict"] == "within_tol"
+
+
+@pytest.mark.sim
+@pytest.mark.slow
+def test_iml1515_arm_writes_verdict_and_resolves():
+    """run_harness('iml1515') writes report_card_verdict.json at the card path,
+    and the workspace evaluator resolves (PASS/FAIL, not ungraded) for growth."""
+    verdict = h.run_harness("iml1515", max_samples=8, render=False)
+    vpath = h.CARD_ROOT / "iml1515_vs_beulig" / "report_card_verdict.json"
+    assert vpath.is_file(), f"verdict not written at {vpath}"
+    on_disk = json.loads(vpath.read_text())
+    assert on_disk["schema"] == "report_card_verdict/v1"
+    assert "iML1515" in (on_disk.get("model_ref") or "")
+    assert "not apples-to-apples" in (on_disk.get("scope") or "").lower()
+
+    from pbg_v2ecoli.evaluators import evaluate_report_card_group
+    test = {"measure": {"kind": "report_card_axis",
+                        "card": "docs/report_cards/beulig_batch/iml1515_vs_beulig",
+                        "group": "growth"}}
+    res = evaluate_report_card_group(test, None, str(WS_ROOT))
+    assert res["result"] in ("PASS", "FAIL"), (
+        f"growth group did not resolve: {res}")
+
+
 # --- integration: run both arms (smoke) ------------------------------------
 
 @pytest.mark.sim

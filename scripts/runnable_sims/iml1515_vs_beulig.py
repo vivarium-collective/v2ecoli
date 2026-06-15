@@ -25,7 +25,14 @@ from collections import defaultdict
 from pathlib import Path
 
 WORKSPACE = Path(__file__).resolve().parents[2]
-BEULIG_CSV = WORKSPACE / "references" / "papers" / "palsson-2025-supp" / "process_summary_interpol.csv"
+# Beulig supplement lives under workspace/references/ (the older layout had it at
+# the repo root); resolve whichever exists so this script + the comparison
+# harness that imports it both find the CSV.
+_BEULIG_CANDIDATES = [
+    WORKSPACE / "workspace" / "references" / "papers" / "palsson-2025-supp" / "process_summary_interpol.csv",
+    WORKSPACE / "references" / "papers" / "palsson-2025-supp" / "process_summary_interpol.csv",
+]
+BEULIG_CSV = next((p for p in _BEULIG_CANDIDATES if p.is_file()), _BEULIG_CANDIDATES[0])
 OUT_DIR    = WORKSPACE / "reports" / "runnable_sims"
 
 

@@ -2617,6 +2617,15 @@ xarray = [
 ]
 
 [[package]]
+name = "pbg-parsimony"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#0d10c523aea846d7a59dab574a62080ca05efd5b" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "process-bigraph" },
+]
+
+[[package]]
 name = "pbg-superpowers"
 version = "0.14.0"
 source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#9718c135f0a33e09f4703783f3bb8c80f3d5b70c" }
@@ -4052,6 +4061,7 @@ dependencies = [
     { name = "pandas" },
     { name = "pbg-copasi" },
     { name = "pbg-emitters", extra = ["parquet", "xarray"] },
+    { name = "pbg-parsimony" },
     { name = "pbg-superpowers" },
     { name = "plotly" },
     { name = "plum-dispatch" },
@@ -4089,6 +4099,7 @@ requires-dist = [
     { name = "pbg-copasi", git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main" },
     { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
+    { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
     { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
@@ -4221,7 +4232,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#a5f33925a3c873953dfa0080cce80685fbff7e99" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#9a2dd27bc7f7a14636d386a9032ed5590a02a512" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },

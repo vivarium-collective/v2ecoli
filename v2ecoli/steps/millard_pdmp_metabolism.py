@@ -63,6 +63,25 @@ FG_PER_G = 1.0e-15
 #
 # CO2: the Millard model has NO CO2 species/reaction, so no CO2 efflux is
 # emitted here (consistent with the WCM arm, which emits ~zero CO2 efflux in M9).
+# --- Energy/redox currency homeostasis ------------------------------------
+# Millard-governed metabolites that whole-cell processes OUTSIDE the Millard
+# reaction network (translation, transcription, charging, ...) consume
+# cell-wide. The FBA Metabolism this Process replaces regenerates them every
+# tick to balance that demand, so in the FBA arm ATP[c] stays ~steady. Millard
+# 2017's reduced central-carbon network does NOT carry the whole-cell ATP/redox
+# turnover, and in delta_mode it only nudges the bulk by its own tiny per-tick
+# ΔmM. With nothing replenishing them, these pools drain monotonically to zero
+# (ATP[c] ~tick 130) and then negative, which makes the ATP-dependent
+# TF-phosphorylation reactions in the Equilibrium process unsolvable
+# ("Negative values at equilibrium steady state"). The homeostatic floor in
+# update() tops these — and only these — pools back up to the concentration
+# Millard's kinetics sustain (current_mM x V), so Millard acts as the cell's
+# metabolic engine for the energy currency exactly as the FBA arm does.
+HOMEOSTATIC_COFACTOR_MILLARD_IDS = frozenset({
+    "ATP", "ADP", "AMP", "NAD", "NADH", "NADP", "NADPH",
+})
+
+
 MEDIUM_EXCHANGE_REACTIONS: dict[str, tuple[str, float, float]] = {
     # reaction:   (bare_name,          species_coeff, sign)
     "CYTBO":      ("OXYGEN-MOLECULE",  1.0,           -1.0),  # O2 consumed (uptake)
@@ -189,6 +208,7 @@ class MillardPDMPMetabolism(Process):
         # Resolved lazily on first update (need bulk['id'] from state).
         self._mids: list[str] | None = None
         self._bulk_idx: np.ndarray | None = None
+        self._cofactor_mask: np.ndarray | None = None
         self._tick = 0
 
     def __init__(self, config=None, core=None):
@@ -412,6 +432,12 @@ class MillardPDMPMetabolism(Process):
                     resolved_idx.append(int(idx))
                 self._mids = resolved_mids
                 self._bulk_idx = np.asarray(resolved_idx, dtype=np.int64)
+                # Mask (aligned with _mids / _bulk_idx) marking the energy/redox
+                # currency cofactors that get the homeostatic floor.
+                self._cofactor_mask = np.fromiter(
+                    (mid in HOMEOSTATIC_COFACTOR_MILLARD_IDS
+                     for mid in resolved_mids),
+                    dtype=bool, count=len(resolved_mids))
 
             if self._bulk_idx is not None and self._bulk_idx.size > 0:
                 # Same live-volume mM→count factor used for medium exchange.
@@ -440,13 +466,34 @@ class MillardPDMPMetabolism(Process):
                     # path open; see config "delta_mode": False).
                     targets = current_mM * conc_to_count
                     delta = np.rint(targets - current).astype(np.int64)
-                # Floor at min_count: don't push counts below zero.
+                # Per-metabolite lower bound for the resulting bulk count.
+                # Default = min_count (≥0). For the energy/redox currency
+                # cofactors, raise the bound to the homeostatic level Millard's
+                # kinetics sustain (current_mM × V): these pools are drained
+                # cell-wide by processes outside the Millard network (which the
+                # FBA Metabolism this Process replaces used to balance), so
+                # without this floor they drain to zero and crash the
+                # ATP-dependent Equilibrium reactions. The floor only ever tops
+                # a pool back UP when a consumer drew it below the sustained
+                # concentration; a pool already above it (e.g. v2ecoli's larger
+                # initial inventory) is left untouched — no t=0 collapse, no
+                # pinning-down — exactly mirroring how the FBA arm holds ATP
+                # steady. See HOMEOSTATIC_COFACTOR_MILLARD_IDS.
+                floor = np.full_like(current, float(self.min_count),
+                                     dtype=np.float64)
+                if self._cofactor_mask.any():
+                    homeostatic = np.rint(current_mM * conc_to_count)
+                    floor = np.where(
+                        self._cofactor_mask,
+                        np.maximum(homeostatic, float(self.min_count)),
+                        floor,
+                    )
                 new_counts = current + delta
-                below = new_counts < self.min_count
+                below = new_counts < floor
                 if below.any():
                     delta = np.where(
                         below,
-                        np.int64(self.min_count) - current.astype(np.int64),
+                        (floor - current).astype(np.int64),
                         delta,
                     )
                 if delta.any():

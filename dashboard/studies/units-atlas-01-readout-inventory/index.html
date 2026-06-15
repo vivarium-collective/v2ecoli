@@ -721,8 +721,10 @@ rate (1, 1/s), other (4, flux-like units such as g*s/L and mmol/g/h).
           <td style="padding:6px; vertical-align: top;">
             <span class="muted">—</span>
           </td>
-          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">Per-readout example magnitude + range — populated only when a baseline
-parquet run is sampled (blank in the schema-only pass).
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">Per-readout example magnitude + range — populated wherever a baseline
+parquet run is sampled (e.g. cell_mass ~2174 fg, ppGpp ~86.9 uM from a
+two_generations run); &#39;—&#39; only for config-dependent readouts not exercised by
+the sampled run.
 </td>
         </tr>
         

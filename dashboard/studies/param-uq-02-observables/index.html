@@ -305,6 +305,32 @@
 
     
     
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
 
     <div class="biology-glance">
       
@@ -788,6 +814,7 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
     <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(1 items)</span></h3>
     <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
     
+    
     <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #f59e0b">
       <summary style="cursor:pointer">
         <strong>req-multi-observable-uq</strong> — Per-observable Sobol over an extended window
@@ -806,6 +833,7 @@ for dry_mass, cell_mass, instantaneous_growth_rate.
       
       
     </details>
+    
     
   </div>
   
@@ -831,7 +859,7 @@ for dry_mass, cell_mass, instantaneous_growth_rate.
           <td style="vertical-align:top"><strong>param-uq-02-observables</strong></td>
           <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('baseline')">🧬 baseline ↗</button></td>
           <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span> </td>
-          <td style="vertical-align:top" class="muted small">2 run(s)</td>
+          <td style="vertical-align:top" class="muted small">2 (parameter sweep)</td>
           <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">completed</span></td>
         </tr>
       

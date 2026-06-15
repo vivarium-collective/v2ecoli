@@ -305,6 +305,68 @@
 
     
     
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">replication</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
 
     <div class="biology-glance">
       
@@ -800,6 +862,7 @@ reachable via the config_overrides path used in studies 00–02.
     <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(2 items)</span></h3>
     <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
     
+    
     <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
       <summary style="cursor:pointer">
         <strong>req-sim-data-injection-adapter</strong> — sim_data-level injection adapter in pbg-uq
@@ -818,6 +881,8 @@ config_overrides). Each perturbed sample mutates the SimulationDataEcoli datacla
       
     </details>
     
+    
+    
     <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
       <summary style="cursor:pointer">
         <strong>req-per-sample-parca-rebuild</strong> — Per-sample ParCa cache rebuild
@@ -835,6 +900,7 @@ the mini). Budget must account for ~n × 2.5 min of rebuild time.
       
       
     </details>
+    
     
   </div>
   

@@ -18,11 +18,11 @@ created: '2026-06-15'
 status: planned
 phase: Design
 
-design_status: in-progress
-implementation_status: not-started
-simulation_status: not-run
+design_status: complete
+implementation_status: complete       # leak localized (inner RAMEmitter) + fix landed
+simulation_status: not-run            # post-fix verification pending on the mini
 evaluation_status: not-evaluated
-gate_status: pending
+gate_status: pending                  # flips to passed once bounded RSS + no-OOM verified
 
 baseline:
 - name: single-ecoliwcm-long
@@ -43,17 +43,24 @@ purpose:
     flat baseline) across a natural-division lifetime — unblocking the
     colonies HPC sizing?
   mechanism: |
-    Each EcoliWCM tick runs an inner Composite.run(interval). Candidate
-    accumulation sites (to confirm/refute by profiling, not assume):
-    (a) v2ecoli/bridge.py:243 — self.chromosome_history.append(...) every
-        tick, never trimmed (unbounded list of chromosome snapshots incl.
-        fork/RNAP coordinate lists); a definite unbounded growth, though
-        likely too small alone to explain 7.7 MB/sim-s.
-    (b) inner-composite state/history retention in the process-bigraph
-        engine (per-tick snapshots, view/project caches, escape_merges).
-    (c) growing unique_molecule numpy arrays as the cell approaches
-        division (legitimate biomass growth vs. arrays never reclaimed).
-    (d) numpy / cache fragmentation or objects held by closures.
+    LOCALIZED (2026-06-15): the leak is the INNER per-cell RAMEmitter, not
+    chromosome_history. Each embedded cell's inner Composite (built by
+    baseline() in the EcoliWCM bridge) gets a default RAMEmitter whose
+    no-override branch (v2ecoli/composites/_helpers.py) captures `bulk`
+    (~25k-molecule array) + four unique-molecule node arrays (full_chromosome
+    / active_replisome / active_RNAP / chromosome_domain) EVERY tick into an
+    unbounded history list (RAMEmitter.update -> history.append(tree_copy)).
+    The inner RAM history is never read (the bridge reads composite.state
+    directly), so it is pure leak — and it matches the ~7.7 MB/sim-s. This
+    corrects colonies-02's "emitter-independent" call: the no-emitter probe
+    there nulled only the OUTER colony emitter; each cell's INNER emitter kept
+    accumulating.
+    FIX: a `_RAM_EMITTER_CAPTURE='minimal'` mode in _helpers.py (global_time
+    + listeners only) that the bridge sets for embedded cells; default stays
+    'full' for standalone callers that read the in-RAM tree.
+    (Other candidates ruled out as dominant: chromosome_history append
+    (bridge.py:243) is unbounded but small; unique-molecule array growth is
+    legitimate biomass, not a leak.)
   expected_outcome: |
     A tracemalloc/gc profile attributes the bulk of growth to one or two
     named sites. After the fix, a single-cell ~2500s run holds RSS within a

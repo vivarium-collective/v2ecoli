@@ -80,6 +80,14 @@ class EcoliWCM(Process):
 
         internal_core = build_core()
 
+        # Embedded inner WCM: its in-RAM emitter history is never read (the
+        # bridge reads composite.state directly). Capture only global_time +
+        # listeners so the per-cell RAMEmitter doesn't accumulate bulk + 4
+        # unique-node arrays every tick — the colonies-02 ~7.7 MB/sim-s leak
+        # that OOM-killed the colony (localized + fixed in colonies-03).
+        from v2ecoli.composites._helpers import set_ram_emitter_capture
+        set_ram_emitter_capture('minimal')
+
         document = baseline(core=internal_core, seed=seed, cache_dir=cache_dir)
 
         # Use the full document directly — preserves agents wrapper.

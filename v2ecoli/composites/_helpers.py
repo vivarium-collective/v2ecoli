@@ -150,11 +150,39 @@ _EMITTER_OVERRIDE: dict | None = None
 # (parquet wins — sqlite stays available for dashboard's Simulations-DB tab).
 _PARQUET_EMITTER_OVERRIDE: dict | None = None
 
+# Controls how much the no-override in-RAM RAMEmitter captures per tick.
+# When the composite runs EMBEDDED (each cell's inner WCM inside the colony /
+# EcoliWCM bridge), the in-RAM history is never queried, yet the legacy 'full'
+# capture appends `bulk` (~25k molecules) + four unique-molecule node arrays
+# every tick into an unbounded list (RAMEmitter.update -> history.append).
+# That was the ~7.7 MB/sim-s per-cell RSS leak that OOM-killed the colony
+# before HPC deployment (colonies-02 mis-attributed it as emitter-independent;
+# localized to the INNER per-cell RAMEmitter in colonies-03-wcm-rss-leak).
+# 'minimal' captures only global_time + listeners (a few bytes/tick), bounding
+# per-cell RSS. Default 'full' keeps legacy behaviour for standalone callers
+# that actually read the in-RAM state tree.
+_RAM_EMITTER_CAPTURE: str = 'full'   # 'full' | 'minimal'
+
 
 def set_emitter_override(config: dict | None) -> None:
     """Set the module-level SQLite emitter override. Pass None to clear."""
     global _EMITTER_OVERRIDE
     _EMITTER_OVERRIDE = config
+
+
+def set_ram_emitter_capture(mode: str) -> None:
+    """Set how much the no-override in-RAM RAMEmitter captures per tick.
+
+    'full'    — legacy: bulk + unique-molecule node arrays (multi-MB/tick,
+                unbounded; only safe for short standalone runs that read it).
+    'minimal' — global_time + listeners only; bounds per-cell RSS for embedded
+                WCMs (colony cells), whose RAM history is never read.
+    """
+    global _RAM_EMITTER_CAPTURE
+    if mode not in ('full', 'minimal'):
+        raise ValueError(
+            f"ram_emitter_capture must be 'full'|'minimal', got {mode!r}")
+    _RAM_EMITTER_CAPTURE = mode
 
 
 def set_parquet_emitter_override(config: dict | None) -> None:
@@ -932,6 +960,20 @@ def _get_special_step(loader, step_name, core):
             }
             cfg = {'emit': emit_schema, **override}
             instance = SQLiteEmitter(cfg, core)
+        elif _RAM_EMITTER_CAPTURE == 'minimal':
+            # Embedded inner WCM (colony cell): RAM history is never read, so
+            # capture only global_time + listeners (a few bytes/tick) instead
+            # of bulk + 4 unique-node arrays. This bounds per-cell RSS — the
+            # fix for the colonies-02 ~7.7 MB/sim-s leak (colonies-03).
+            emit_schema = {
+                'global_time': 'float',
+                'listeners': listeners_schema,
+            }
+            topo = {
+                'global_time': ('global_time',),
+                'listeners': ('listeners',),
+            }
+            instance = RAMEmitter({'emit': emit_schema}, core)
         else:
             # In-memory RAMEmitter: no disk cost, so keep the full capture
             # (bulk + chromosome/replisome structures) for callers that

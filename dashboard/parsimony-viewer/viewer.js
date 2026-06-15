@@ -1407,6 +1407,10 @@ let interiorFraction = 1.0;
 // that still reads as a crowded cell. Whole-cell packs (~1M+) are subsampled
 // down to this; smaller packs render in full.
 const TARGET_DRAWN = 250000;
+// Rare types (few copies) are always drawn in full — the global subsample is for
+// the abundant species. Without this, a 30-copy complex like the flagellum would
+// be culled to ~6 at a 20% show fraction.
+const ALWAYS_SHOW_MAX = 1000;
 function applyAdaptiveShowFraction(totalPlacements) {
   if (!totalPlacements) return;
   let pct = Math.min(100, Math.max(5, Math.round((TARGET_DRAWN / totalPlacements) * 100 / 5) * 5));
@@ -1528,7 +1532,9 @@ function reassessLODs() {
       }
     }
 
-    const nShow = Math.round(entry.placements.length * interiorFraction);
+    const nShow = entry.placements.length <= ALWAYS_SHOW_MAX
+      ? entry.placements.length
+      : Math.round(entry.placements.length * interiorFraction);
     for (let pi = 0; pi < nShow; pi++) {
       const p = entry.placements[pi];
       const px = p.position[0], py = p.position[1], pz = p.position[2];

@@ -432,21 +432,30 @@ def run_arm_multigen(
     from v2ecoli.library.sqlite_run import run_multigen_sqlite
     from vivarium_dashboard.lib import composite_runs
 
+    from v2ecoli.composites.baseline import set_null_emitter_override
+
     composite = ARM_COMPOSITE[arm]
     # Per-seed run dir so a multi-seed sweep doesn't clobber prior seeds.
     arm_tag = arm if seed == 0 else f"{arm}-seed{seed}"
     out_dir = WS_ROOT / "out" / "mbp_production" / arm_tag
     out_dir.mkdir(parents=True, exist_ok=True)
-    # Some composite viz/division steps write under .pbg/parquet-runs; ensure it
-    # exists so a long multigen run doesn't abort mid-flight (the gen-2 dir bug).
-    (WS_ROOT / ".pbg" / "parquet-runs").mkdir(parents=True, exist_ok=True)
     db_file = out_dir / "run.db"
     if db_file.exists():
         db_file.unlink()
     run_id = f"mbp-production-{arm_tag}"
 
-    c = build_composite(composite, seed=seed, cache_dir="out/cache",
-                        cells_per_agent=cells_per_agent)
+    # The external SQLite emitter (run_multigen_sqlite) handles emission, so NULL
+    # the composite's internal ParquetEmitter. Otherwise it fires every chunk,
+    # writes to .pbg/parquet-runs/<run>/history/experiment_id=…/ (a nested hive
+    # dir it doesn't create), and aborts the run at ~gen 2 with FileNotFoundError
+    # — and it's the documented RAM trap. Must be set BEFORE build (the emitter
+    # step materializes at build time).
+    set_null_emitter_override(True)
+    try:
+        c = build_composite(composite, seed=seed, cache_dir="out/cache",
+                            cells_per_agent=cells_per_agent)
+    finally:
+        set_null_emitter_override(False)
     result = run_multigen_sqlite(
         c,
         run_id=run_id,

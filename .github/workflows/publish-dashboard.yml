@@ -1,0 +1,101 @@
+name: Publish read-only dashboard
+
+# Build the workspace into a self-contained static SPA snapshot and publish it
+# to the gh-pages branch at dashboard/ (served at
+# vivarium-collective.github.io/v2ecoli/dashboard/). This is the READ-ONLY
+# mirror of every investigation + study on main — browsable with no server.
+#
+# Built by vivarium-dashboard-publish (scripts/publish_dashboard.sh), the same
+# build you can run locally to preview. Companion to publish-reports.yml (which
+# publishes the per-investigation HTML reports); this one publishes the
+# interactive dashboard SPA.
+#
+# DEPLOY job (post-merge to main), NOT a PR gate — a failure here never blocks a
+# merge. It only ever writes dashboard/ on gh-pages; the investigation reports,
+# viewers, and docs mirror there are left untouched.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Republish when anything that changes the snapshot changed.
+      - 'workspace/**'
+      - 'reports/figures/**'
+      - 'scripts/publish_dashboard.sh'
+      - '.github/workflows/publish-dashboard.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: publish-dashboard
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # push to the gh-pages branch
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12.9
+
+      - name: Install dependencies (incl. vivarium-dashboard)
+        # The publish build needs vivarium-dashboard. The hatchling build works
+        # now that bigraph-schema is un-pinned; the `|| uv sync` fallback keeps
+        # the job alive if an optional extra fails to build.
+        run: uv sync --extra dev || uv sync
+
+      - name: Ensure the publish CLI is present (latest dashboard main)
+        # uv.lock may pin a vivarium-dashboard commit that predates the publish
+        # CLI (vivarium_dashboard.publish). Force the current main so
+        # `vivarium-dashboard-publish` exists and carries the latest publish
+        # robustness fixes.
+        run: uv pip install --reinstall-package vivarium-dashboard "vivarium-dashboard @ git+https://github.com/vivarium-collective/vivarium-dashboard.git@main"
+
+      - name: Build dashboard snapshot
+        # Builds the static SPA bundle (all investigations + studies) and strips
+        # bigraph-loom source maps. No sim run / ParCa cache needed.
+        #
+        # Run inside the activated venv rather than via `uv run`: `uv run`
+        # re-syncs the env to uv.lock first, which would UNDO the previous step's
+        # ad-hoc install of vivarium-dashboard@main and drop the
+        # `vivarium-dashboard-publish` console script (-> exit 127).
+        run: |
+          source .venv/bin/activate
+          bash scripts/publish_dashboard.sh reports/published/dashboard
+
+      - name: Publish to gh-pages
+        # Surgical: replace ONLY dashboard/ on gh-pages via a worktree. Never
+        # touches investigations/*.html, the viewers, or the docs mirror.
+        # Commits only on a diff (config.json carries the source commit, so a
+        # new main commit always produces one).
+        run: |
+          set -euo pipefail
+          if [ ! -f reports/published/dashboard/index.html ]; then
+            echo "::error::build produced no bundle (no index.html); nothing to publish"
+            exit 1
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages
+          git worktree add /tmp/ghp gh-pages
+          rm -rf /tmp/ghp/dashboard
+          mkdir -p /tmp/ghp/dashboard
+          cp -R reports/published/dashboard/. /tmp/ghp/dashboard/
+          cd /tmp/ghp
+          git add dashboard
+          if git diff --cached --quiet; then
+            echo "dashboard snapshot unchanged; skipping commit"
+          else
+            git commit -m "gh-pages: republish read-only dashboard (automated, ${GITHUB_SHA::7})"
+            git push origin gh-pages
+            echo "published read-only dashboard snapshot to gh-pages:dashboard/"
+          fi

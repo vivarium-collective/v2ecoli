@@ -46,10 +46,19 @@ def build_composite(
             f"unknown composite architecture {name!r}; available: {available}"
         )
     if len(matches) > 1:
-        raise ValueError(
-            f"ambiguous architecture name {name!r}; multiple generators registered: "
-            f"{[e.id for e in matches]}"
-        )
+        # The same architecture may be registered under more than one id (e.g. a
+        # clean-id alias added so the dashboard's ".composites.<slug>" resolver
+        # finds it — see v2ecoli/composites/__init__.py). Those entries share the
+        # same generator function, so dedupe by function identity and pick the
+        # canonical (shortest) id. Only genuinely-distinct generators are
+        # ambiguous.
+        if len({e.func for e in matches}) == 1:
+            matches = [min(matches, key=lambda e: len(e.id))]
+        else:
+            raise ValueError(
+                f"ambiguous architecture name {name!r}; multiple generators registered: "
+                f"{[e.id for e in matches]}"
+            )
     doc = build_generator(matches[0], overrides=kwargs, core=core)
     return Composite(doc, core=core)
 

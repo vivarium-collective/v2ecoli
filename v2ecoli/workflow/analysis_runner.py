@@ -45,7 +45,40 @@ def group_for_scale(scale: str, records: list[dict]) -> dict[tuple, list[dict]]:
 
 
 _MASS_COLS = ("listeners__mass__dry_mass", "listeners__mass__protein_mass",
-              "listeners__mass__rRna_mass", "listeners__mass__dna_mass")
+              "listeners__mass__rRna_mass", "listeners__mass__dna_mass",
+              "listeners__mass__rna_mass")  # rna_mass = total RNA (rRna+tRna+mRna)
+
+# Per-timestep scalar physiology columns (time-averaged per cell). fork count is
+# an array length expression appended separately.
+_PHYSIO_COLS = ("listeners__mass__cell_mass", "listeners__mass__volume",
+                "listeners__replication_data__number_of_oric")
+_FORK_LEN = "len(listeners__replication_data__fork_coordinates)"
+
+# Ribosome columns. active count + elongation rate + rRNA-initiation (a
+# ribosome-biogenesis-rate proxy; ribosome_data__did_initialize isn't emitted
+# in this build) are clean listeners; the inactive 30S/50S subunit counts have
+# NO listener, so they're pulled from the bulk arrays by molecule id
+# (sim_data.molecule_ids.s30_full_complex / s50_full_complex = the 30S/50S full
+# complexes). Total ribosomes = active + min(30S, 50S), mirroring vEcoli's
+# ecoli/analysis/multigeneration/ribosome_usage.py.
+_RIBO_COLS = ("listeners__growth_limits__active_ribosome_allocated",
+              "listeners__ribosome_data__effective_elongation_rate",
+              "listeners__ribosome_data__total_rRNA_initiated")
+_S30_COUNT = "list_extract(bulk__count, list_position(bulk__id, 'CPLX0-3953[c]'))"
+_S50_COUNT = "list_extract(bulk__count, list_position(bulk__id, 'CPLX0-3962[c]'))"
+
+
+def _replication_events(times, oric, nforks):
+    """Per-cell replication event times (since birth — global_time resets each
+    generation). Initiation = first oriC step-up (a new round fires, origin
+    duplicates). Completion = forks first clear after being active (a round
+    terminates). Either is None if the event doesn't occur within the cell's
+    observed cycle (e.g. a cell born between rounds never re-initiates)."""
+    init = next((times[i] for i in range(1, len(oric)) if oric[i] > oric[i - 1]),
+                None)
+    completion = next((times[i] for i in range(1, len(nforks))
+                       if nforks[i] == 0 and nforks[i - 1] > 0), None)
+    return init, completion
 
 
 def _history_from_clause(sweep_dir: str) -> str:
@@ -89,18 +122,39 @@ def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
 
 
 def resolve_sim_data(sweep_dir: str):
-    """Locate + load the sweep's ParCa sim_data via v2ecoli's loader."""
+    """Locate + load the sweep's ParCa sim_data via v2ecoli's loader.
+
+    Resolution order:
+      1. A sweep-local ``sim_data*.cPickle/.pkl`` — the exact pairing, preferred.
+      2. ``$V2ECOLI_SIM_DATA`` — explicit override (use when you know the
+         matching sim_data path).
+      3. The ParCa knowledge-base build (``out/kb/simData.cPickle`` /
+         ``out/workflow/simData.cPickle``) — the fallback that makes analyses
+         (e.g. the ptools_* exports) runnable on a sweep that ran from the
+         cached sim-input bundle, which does NOT itself contain a sim_data
+         pickle (it stores process configs only). Emits a warning because the
+         kb build can in principle be a different sim_data version than the
+         sweep's cache; ensure they're from the same ParCa run.
+    """
     from v2ecoli.library.sim_data import LoadSimData
-    # NB: do NOT match `**/kb/simData*.cPickle` — out/kb/simData.cPickle is the
-    # ParCa knowledge-base build, which can be a DIFFERENT sim_data version than
-    # the one the sweep ran with (see the pairing correction in the parity note).
     for pat in ("sim_data*.cPickle", "sim_data*.pkl", "simData*.cPickle",
                 "**/sim_data*.cPickle", "**/simData*.cPickle"):
         hits = glob.glob(os.path.join(sweep_dir, pat), recursive=True)
         if hits:
             return LoadSimData(sim_data_path=hits[0]).sim_data
+    env = os.environ.get("V2ECOLI_SIM_DATA")
+    if env and os.path.isfile(env):
+        return LoadSimData(sim_data_path=env).sim_data
+    for fallback in (os.path.join("out", "kb", "simData.cPickle"),
+                     os.path.join("out", "workflow", "simData.cPickle")):
+        if os.path.isfile(fallback):
+            print(f"  sim_data: no sweep-local pickle; falling back to the ParCa "
+                  f"build {fallback!r} — ensure it matches the sweep's cache "
+                  f"(set $V2ECOLI_SIM_DATA to override).")
+            return LoadSimData(sim_data_path=fallback).sim_data
     raise FileNotFoundError(
-        f"no sim_data pickle under {sweep_dir!r} (needed by Analysis steps)")
+        f"no sim_data pickle under {sweep_dir!r}, no $V2ECOLI_SIM_DATA, and no "
+        f"out/kb/simData.cPickle (needed by Analysis steps)")
 
 
 def resolve_validation_data(sim_data):
@@ -148,7 +202,9 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
         return {}
     flist = "[" + ",".join("'" + f.replace("'", "''") + "'" for f in files) + "]"
     sel = ("variant, lineage_seed, generation, agent_id, global_time, "
-           + ", ".join(_MASS_COLS))
+           + ", ".join(_MASS_COLS) + ", " + ", ".join(_PHYSIO_COLS)
+           + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
+           + ", " + _S30_COUNT + ", " + _S50_COUNT)
     rows = duckdb.sql(
         f"SELECT {sel} FROM read_parquet({flist}, hive_partitioning=true) "
         f"ORDER BY variant, lineage_seed, generation, agent_id, global_time"
@@ -156,23 +212,50 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
 
     by_cell: dict[tuple, list] = {}
     for row in rows:
-        v, ls, g, a, t, dry, prot, rrna, dna = row
+        (v, ls, g, a, t, dry, prot, rrna, dna, rna, cmass, vol, oric, nfork,
+         active, elong, rrna_init, s30, s50) = row
         ck = (int(v), int(ls), int(g), str(a))
         by_cell.setdefault(ck, []).append(
-            (float(t), float(dry), float(prot), float(rrna), float(dna)))
+            (float(t), float(dry), float(prot), float(rrna), float(dna), float(rna),
+             float(cmass), float(vol), float(oric), int(nfork),
+             float(active), float(elong), float(rrna_init),
+             float(s30 or 0.0), float(s50 or 0.0)))
 
     records: dict[tuple, dict] = {}
     for ck, rs in by_cell.items():
-        fr = {"protein": [], "rRna": [], "dna": []}
+        fr = {"protein": [], "rRna": [], "rna": [], "dna": []}
         ts = []
-        for (t, dry, prot, rrna, dna) in rs:
+        cmasses, vols, orics, nforks, times = [], [], [], [], []
+        ribo_total, ribo_active_frac, elongs, productions = [], [], [], []
+        for (t, dry, prot, rrna, dna, rna, cmass, vol, oric, nfork,
+             active, elong, rrna_init, s30, s50) in rs:
             ts.append({"listeners": {"mass": {"dry_mass": dry, "protein_mass": prot,
-                                              "rRna_mass": rrna, "dna_mass": dna}}})
+                                              "rRna_mass": rrna, "dna_mass": dna,
+                                              "rna_mass": rna}}})
+            times.append(t); cmasses.append(cmass); vols.append(vol)
+            orics.append(oric); nforks.append(nfork)
+            # Ribosomes: total = active + min(free 30S, free 50S) assemblable;
+            # active fraction = translating / total (vEcoli ribosome_usage.py).
+            total = active + min(s30, s50)
+            ribo_total.append(total)
+            if total > 0:
+                ribo_active_frac.append(active / total)
+            if elong > 0:
+                elongs.append(elong)
+            productions.append(rrna_init)
             if dry > 0:
                 fr["protein"].append(prot / dry)
                 fr["rRna"].append(rrna / dry)
+                fr["rna"].append(rna / dry)      # total RNA / dry weight
                 fr["dna"].append(dna / dry)
         div = div_by_cell.get(ck, {})
+        repl_init, repl_complete = _replication_events(times, orics, nforks)
+
+        def _mean(xs):
+            return (sum(xs) / len(xs)) if xs else 0.0
+
+        # Per-cell means are the CELL-level statistic (time-average within the
+        # cell -> one value per cell). Population stats live across cells.
         records[ck] = {
             "variant": ck[0], "lineage_seed": ck[1], "generation": ck[2], "agent_id": ck[3],
             "divided": div.get("divided"),
@@ -181,9 +264,22 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
             # because each generation runs a fresh composite (global_time resets).
             "division_time": div.get("division_time", float(rs[-1][0])),
             "newborn_dry_mass": rs[0][1], "final_dry_mass": rs[-1][1],
-            "protein_fraction_mean": (sum(fr["protein"]) / len(fr["protein"])) if fr["protein"] else 0.0,
-            "rRna_fraction_mean": (sum(fr["rRna"]) / len(fr["rRna"])) if fr["rRna"] else 0.0,
-            "dna_fraction_mean": (sum(fr["dna"]) / len(fr["dna"])) if fr["dna"] else 0.0,
+            "protein_fraction_mean": _mean(fr["protein"]),
+            "rRna_fraction_mean": _mean(fr["rRna"]),
+            "rna_fraction_mean": _mean(fr["rna"]),
+            "dna_fraction_mean": _mean(fr["dna"]),
+            # Physiology (cell cycle): time-mean level + per-cell event times.
+            "cell_mass_mean": _mean(cmasses),
+            "volume_mean": _mean(vols),
+            "oric_mean": _mean(orics),
+            "replication_initiation_time": repl_init,
+            "replication_completion_time": repl_complete,
+            # Ribosomes: total (components), active fraction + elongation rate
+            # (usage), rRNA-initiation (production proxy).
+            "ribosome_total_mean": _mean(ribo_total),
+            "ribosome_active_fraction_mean": _mean(ribo_active_frac),
+            "ribosome_elongation_mean": _mean(elongs),
+            "ribosome_production_mean": _mean(productions),
             "timeseries": ts,
         }
     return records
@@ -259,7 +355,11 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 warnings.warn(f"analysis {name!r} is scale {step_cls.scale}, "
                               f"not {scale}; skipping")
                 continue
-            step = step_cls({}, core=core)
+            # Pass the per-analysis options dict (the value under the analysis
+            # name in analysis_options) as the Step's config, so analyses can
+            # be parameterized (e.g. population_phenotype_basal's generation_lower_bound).
+            # Analyses with config_schema={} simply ignore a populated config.
+            step = step_cls(analyses.get(name) or {}, core=core)
             per_group: dict[str, Any] = {}
 
             if issubclass(step_cls, Analysis):

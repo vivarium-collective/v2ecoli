@@ -1130,6 +1130,15 @@ def _get_special_step(loader, step_name, core):
                 'rnap_data': {
                     'rna_init_event': 'array[integer]',
                     'did_initialize': 'integer',
+                    # Phase-3 sprint-1 per-tick log-likelihood; needed
+                    # alongside rna_init_event so post-hoc inference
+                    # can compare observation to model.
+                    'log_likelihood': 'float',
+                },
+                'ribosome_data': {
+                    # Phase-3 sprint-2 per-tick log-likelihood from
+                    # PolypeptideInitiation.
+                    'log_likelihood': 'float',
                 },
                 'replication_data': {
                     'number_of_oric': 'integer',
@@ -1168,6 +1177,16 @@ def _get_special_step(loader, step_name, core):
                         'n_total': 'overwrite[integer]',
                     },
                     'total_DnaA_bound': 'overwrite[integer]',
+                },
+                # Phase-3 sprint-3: aggregate likelihood listener
+                # written by LikelihoodCollector. Single-scalar per-tick
+                # observable for downstream inference tools (ABC-SMC,
+                # SBC) — read directly from the emitter store without
+                # re-aggregating per-process fields.
+                'likelihood': {
+                    'transcript_init': 'float',
+                    'polypeptide_init': 'float',
+                    'total': 'float',
                 },
             })
 

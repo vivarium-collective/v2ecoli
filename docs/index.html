@@ -41,14 +41,17 @@ whose output is live on this page.</p>
 
 <h2>Engine comparison</h2>
 <ul>
-  <li><a href="v1_v2_comparison.html">vEcoli vs v2ecoli</a>
-      &mdash; runtime and growth-behavior comparison of vEcoli (the established
-      vivarium-based whole-cell model) and the current v2ecoli baseline
-      (process-bigraph). Wall-time benchmarks and mass/growth trajectories over
-      a matched simulation duration.</li>
-  <li><a href="composite_comparison.html">Composite comparison</a>
-      &mdash; side-by-side comparison of two composites: summary metrics and
-      observable trajectories over time.</li>
+  <li><a href="composite_comparison.html"><strong>Composite comparison</strong></a>
+      &mdash; <strong>the default engine comparison.</strong> Thorough multi-engine
+      run of vEcoli, the v2ecoli baseline, and the millard_fba_bridge_harness over
+      a full division cycle: per-step runtime (mean/median/p95 + peak RSS),
+      divergence-verdict badges and shared-axis behavioral overlays for every
+      observable, FBA-bridge flux-pin diagnostics, and a per-reaction flux
+      divergence deep-dive (which metabolic pathways carry different flux between
+      engines).</li>
+  <li><a href="v1_v2_comparison.html">vEcoli vs v2ecoli (legacy 2-way)</a>
+      &mdash; the older fixed two-engine report: wall-time benchmarks and
+      mass/growth trajectories. Superseded by the Composite comparison above.</li>
 </ul>
 
 <h2>ParCa</h2>

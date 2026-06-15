@@ -1,0 +1,467 @@
+schema_version: 4
+name: showcase-6-equivalence-large
+investigation: v2ecoli-baseline-showcase   # owning investigation (back-reference)
+title: "v1↔v2 equivalence at scale: a large (16×16) baseline ensemble graded against vEcoli"
+created: '2026-06-12'
+status: in_progress   # legacy back-compat; canonical axes below
+
+# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+#   REQUIRED top-level: schema_version, name, question, conditions, tests, status
+#   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
+
+# Canonical 6-axis status. Design + config wired; the large ensembles run on the
+# mini (v2 16×16 + a matched vEcoli 16×16 reference from the in-repo vEcoli source).
+design_status: complete
+implementation_status: complete   # config + card machinery (PR #134) in place
+simulation_status: complete       # v2 256/256 cells + vEcoli 185-cell matched reference run on the mini
+evaluation_status: evaluated      # 21-axis card graded: 12 within_tol / 6 drift / 3 mismatch
+gate_status: failed               # card-driven: 2 of 5 groups FAIL (exchange_fluxes O₂/CO₂ #143; gene_expression transcriptome below strict band). Equivalence criterion not fully met — partial equivalence (3/5 groups within tolerance).
+expert_review_status: pending
+
+question: |
+  Is the v2ecoli wild-type baseline still "the same E. coli" as vEcoli (v1) when
+  measured at LARGE ensemble scale? This study applies the PR #134 behavioral
+  report-card approach (population_phenotype_basal in its v1↔v2 *equivalence*
+  reference mode) to a large multi-generation baseline ensemble — 16 seeds × 16
+  generations — and grades v2's emergent population phenotype against a matched
+  vEcoli 16×16 reference within tolerance. #134 exercised the same loop at 8×16
+  as a demo; this study scales it to a population large enough to tighten the
+  omics/flux equivalence axes and to read v2's multi-generation behavior (the
+  in-process sawtooth, #142) honestly against v1.
+
+report:
+  title: showcase-6 — v1↔v2 equivalence of the baseline phenotype at large (16×16) scale
+  verdict: partial   # largely equivalent; a reproducible, localized metabolic (O₂/CO₂) divergence + gene-expression below the strict band drive the card's overall MISMATCH
+  confidence: high
+  evidence_quality: matched 16×16 v2 (256 cells) vs vEcoli (185 cells) ensembles + reference-driven typed-criteria report card (PR #134), all 21 axes graded
+
+  objective: |
+    Establish whether the v2ecoli wild-type baseline population phenotype is
+    equivalent (within tolerance) to vEcoli's at large ensemble scale. The
+    instrument is the population_phenotype_basal report card (PR #134) rendered
+    in its vs_vecoli equivalence mode: the SAME 21-axis / 5-group card
+    (Physiology · Composition · Ribosomes · Exchange fluxes · Gene expression),
+    graded against a matched vEcoli ("v1") ensemble rather than v2's self-pin.
+    Scale is 16 seeds × 16 generations (2× the seeds of the #134 8×16 demo),
+    burn-in generation_lower_bound=3.
+
+  setup: |
+    Card kind: population phenotypes (emergent behaviors over a seeds × gens
+    ensemble; cell-level aggregation — time-mean within a cell, then population
+    stats across cells). Reference mode: v1↔v2 equivalence (vs vEcoli).
+
+    MEASURED (v2) side: v2ecoli.composites.baseline.baseline driven by the basal
+    stimulus config v2ecoli/configs/population_phenotype_basal_16x16.json
+    (16 seeds × 16 generations, single_daughters, burn-in 3), resumed from a
+    full-ParCa cache (out/cache_full, 51 TF conditions). Dispatched Ray-parallel
+    (run_seeds_parallel) on the Mac mini with the parquet store as authoritative
+    (the in-engine ParquetEmitter is a RAM trap — use the sidecar). The card is
+    regenerated over the existing sweep with `v2ecoli-analyze <sweep> --config
+    configs/population_phenotype_basal_16x16.json` (no re-sim).
+
+    REFERENCE (vEcoli / v1) side: a matched 16×16 vEcoli ensemble produced from
+    the vEcoli source ALREADY AVAILABLE WITHIN v2ecoli (the in-repo vEcoli /
+    comparison-harness machinery used by the other v1↔v2 comparison reports —
+    NOT an external SMS/vecoli-benchmarking checkout). The reference is pinned
+    with scripts/pin_vecoli_equivalence_reference.py, which reuses the self-pin
+    reference as the presentation/criterion template and swaps in v1's per-cell
+    distributions (it carries self-contained cross-implementation readers for
+    the two v1↔v2 emit-schema differences — vEcoli's cumulative `time` vs
+    `global_time`, and positional `bulk` vs paired `bulk__id`/`bulk__count`), so
+    the shared analysis_runner stays untouched. The v1 commit is stamped in the
+    reference's stimulus.blessed_model_ref.
+
+    RENDER: reports/population_phenotype_basal_report.py
+    --analysis out/ppb16_parallel/parquet/analysis.json
+    --reference docs/report_cards/population_phenotype_basal/vs_vecoli/vecoli_reference.json
+    --sweep-dir out/ppb16_parallel/parquet --gen-lb 3 --model-ref bd2123d2
+    --out-dir docs/report_cards/population_phenotype_basal/vs_vecoli/
+    → report_card.{html,md} (regenerated at 16×16 for this study). Rendered WITH
+    vector extraction (not --no-vectors) so the gene-expression r2 + exchange-flux
+    axes are graded, not ungraded.
+
+    ACTUAL RUN: v2 dispatched via the NEW parallel-by-default multi-seed path
+    (run_workflow → run_seeds_parallel, one Ray worker per seed, ~6 concurrent on
+    the 12-core/64 GB mini), which cut wall-time from ~17 h (single-process
+    meta-composite, ~4 min/cell sequential) to ~3.6 h for the full 256-cell
+    ensemble. vEcoli ran its own Nextflow workflow (CovertLab/vEcoli @ b237873e)
+    from the sibling in-repo checkout.
+
+  result: |
+    Card overall: MISMATCH (12 within_tol ✓ · 6 drift ≈ · 3 mismatch ✗ · 0
+    ungraded), over all 21 axes graded at 16×16. v2 measured side = 256/256
+    cells (16 seeds × 16 full generations); v1 reference = 185-cell matched
+    vEcoli ensemble (b237873e); burn-in gen_lb 3. Sim-health banner: 232/256 v2
+    generations divided cleanly, 24 hit the duration cap without dividing (the
+    expected v2 in-process sawtooth, #142 — flagged, not hidden).
+
+    By group (Δ = v2 vs v1; p = Welch; d = Cohen's d):
+      • PHYSIOLOGY (4 ✓ / 2 ≈): doubling time Δ −2.2% ✓, cell mass −4.4% ✓, cell
+        volume −4.4% ✓, replication completion +4.7% ✓; oriC −6.3% ≈ drift,
+        replication initiation −7.2% ≈ drift.
+      • COMPOSITION (3 ✓): protein/DW +3.3% ✓, RNA/DW −1.5% ✓, DNA/DW +1.0% ✓ —
+        fully equivalent.
+      • RIBOSOMES (2 ✓ / 2 ≈): active fraction +0.1% ✓, elongation rate +0.2% ✓;
+        total ribosomes −5.8% ≈ drift, rRNA-init production −8.7% ≈ drift.
+      • EXCHANGE FLUXES (3 ✓ / 1 ≈ / 2 ✗ — THE DIVERGENCE): overall flux
+        fingerprint R² = 0.9989 ✓ (40 matched, 0 appeared/lost, 6 sub-floor),
+        glucose −4.4% ✓, ammonium −2.4% ✓; but O₂ exchange Δ −40.4% ✗ mismatch
+        and CO₂ exchange Δ −20.3% ✗ mismatch (acetate sentinel ≈ drift, near
+        floor). This is the O₂/CO₂ respiration deficit filed as issue #143 —
+        and it PERSISTS at 16×16.
+      • GENE EXPRESSION (1 ≈ / 1 ✗): transcriptome (mRNA cistrons) R² = 0.9461 ✗
+        (below the strict 0.99 band), proteome (monomers) R² = 0.9613 ≈ drift —
+        highly correlated but short of the strict self-pin equivalence band.
+
+  interpretation: |
+    The #134 8×16 equivalence picture HOLDS at the larger 16×16 scale: v2 is
+    behaviorally the same E. coli as v1 on physiology, biomass composition, and
+    ribosome content (12 axes within tolerance, 6 in minor drift), and the
+    overall exchange-flux fingerprint is essentially identical (R² = 0.9989). The
+    card's overall MISMATCH is driven entirely by the THREE known, reproducible
+    divergences — O₂ (−40%) and CO₂ (−20%) exchange and the transcriptome R²
+    (0.95, below the strict 0.99 band) — not by any new discrepancy. The larger
+    seed count tightened the statistics (sub-percent p-values, clean effect
+    sizes) without changing the qualitative verdict: the divergence is a
+    localized respiratory-metabolism signature (issue #143) plus a gene-
+    expression correlation that sits just under the strict equivalence band, both
+    consistent with the 8×16 reading (R² ≈ 0.93–0.94 then, 0.95–0.96 now). The
+    instrument behaves as designed at scale: the metabolic divergence is the
+    signal, surfaced via typed criteria and the exchange-flux significance floor,
+    while FBA jitter near zero is shown but held below the floor.
+
+  decision: |
+    PARTIAL EQUIVALENCE at 16×16. v2ecoli reproduces vEcoli's wild-type baseline
+    phenotype on physiology / composition / ribosomes / overall flux fingerprint
+    within tolerance; the divergence is confined to respiratory exchange (O₂/CO₂,
+    issue #143) and a gene-expression correlation just below the strict band. The
+    behavioral report-card instrument (PR #134) is confirmed to scale from 8×16
+    to 16×16 as a v1↔v2 equivalence test, and the divergence it flags is stable,
+    localized, and already filed — no new bug. Next: the principled cross-impl
+    statistics (TOST + per-axis δ margins) would convert the strict-band
+    gene-expression "mismatch" into an explicit equivalence-margin verdict.
+
+# --- v4 narrative-spine sections (filled from this study's recorded results) ---
+study_card:
+  phase: Simulate / Evaluate
+  one_liner: "Grade a large (16×16) v2ecoli baseline ensemble against a matched vEcoli (v1) reference with the PR #134 report card in its v1↔v2 equivalence mode."
+  status: in_progress
+  headline: "PARTIAL EQUIVALENCE — 12 axes within tol / 6 drift / 3 mismatch; Physiology/Composition/Ribosomes equivalent + overall flux fingerprint R²=0.9989, divergence confined to O₂/CO₂ exchange (#143) + transcriptome R²=0.946 (strict band)."
+
+runtime:
+  wall_seconds: 12960   # ~3.6 h for the 256-cell v2 ensemble
+  dispatch: Ray-parallel-per-seed (run_seeds_parallel, ~6 concurrent)
+  scale: v2 16 seeds × 16 generations (256 cells); vEcoli reference 185 cells; burn-in gen_lb 3
+  hardware: Mac mini (12-core / 64 GB)
+
+readouts:
+- {name: physiology-group, description: "Physiology group: doubling time, cell mass, cell volume, oriC, replication init/completion timing"}
+- {name: composition-group, description: "Composition group: protein / RNA / DNA dry-mass fractions"}
+- {name: ribosomes-group, description: "Ribosomes group: total ribosomes, active fraction, elongation rate, rRNA-init production"}
+- {name: exchange-fluxes-group, description: "Exchange fluxes group: overall flux fingerprint R², glucose / ammonium / O₂ / CO₂ / acetate exchange"}
+- {name: gene-expression-group, description: "Gene expression group: transcriptome (mRNA cistrons) R² + proteome (monomers) R² over ensemble-mean count vectors"}
+
+enforced_params:
+- {name: config, value: population_phenotype_basal_16x16.json, why: "16 seeds × 16 generations, single_daughters, burn-in generation_lower_bound=3"}
+- {name: cache_dir, value: out/cache_full, why: "full ParCa cache (51 TF conditions, the showcase-1 build)"}
+- {name: reference_mode, value: vs_vecoli, why: "grade against the matched vEcoli (v1) ensemble, not v2's self-pin — 'equivalence is a reference mode, not a card'"}
+
+biological_summary: |
+  Whether v2ecoli is still "the same E. coli" as the upstream vEcoli (v1) at a
+  population scale large enough to tighten the omics/flux equivalence axes. The
+  report card grades emergent population phenotypes (cell-level aggregation over
+  a 16×16 seeds×gens ensemble) on 21 axes / 5 groups, comparing v2's distribution
+  against a matched v1 reference. Equivalence on physiology / composition /
+  ribosomes with a localized respiratory-exchange divergence (#143) is the
+  honest reading of how faithfully v2 reproduces v1's wild-type phenotype.
+
+literature_anchors:
+- {cite: macklin2020, note: "The Covert-lab whole-cell model underlying both v1 (vEcoli) and v2 (v2ecoli); the equivalence test asks whether v2 reproduces v1's validated WCM phenotype at scale."}
+
+# Structured bibliography (papers.bib key) so the report's References section
+# renders the WCM anchor.
+bibliography:
+  bib_keys:
+  - macklin2020
+
+# Rich (non-bib) source: the GitHub tracking issue named throughout the
+# run-outcome prose for the O2/CO2 respiratory-exchange divergence. Wired here
+# as a {name,url,role} reference so it renders as a standalone source in the
+# report instead of being prose-only.
+references:
+- name: "v2ecoli issue #143 — O2/CO2 respiratory-exchange divergence"
+  url: "https://github.com/vivarium-collective/v2ecoli/issues/143"
+  role: "Tracking issue for the localized respiratory-exchange (O2 -40% / CO2 -20%) deficit this study confirms is stable and localized at 16x16 scale (not a new bug)."
+
+model_change: |
+  None to the model — this grades the unperturbed baseline at scale. The change
+  vs the #134 8×16 demo is purely SCALE (16 seeds × 16 gens, 2× the seeds) and
+  the reference MODE (vs_vecoli equivalence rather than self-pin), plus the new
+  parallel-by-default multi-seed dispatch (run_seeds_parallel) that cut wall-time
+  from ~17 h to ~3.6 h.
+
+implementation_requirements: |
+  v2 side: v2ecoli.composites.baseline.baseline driven by
+  configs/population_phenotype_basal_16x16.json, Ray-parallel dispatch, parquet
+  store; card regenerated with v2ecoli-analyze (no re-sim). Reference side: a
+  matched 16×16 vEcoli ensemble from the in-repo sibling vEcoli (CovertLab/vEcoli
+  @ b237873e) via its own Nextflow workflow, pinned with
+  scripts/pin_vecoli_equivalence_reference.py (cross-impl readers for the v1↔v2
+  emit-schema differences). Render: reports/population_phenotype_basal_report.py
+  WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
+
+design_pivot_required: false
+
+conclusion_verdicts:
+- {claim: "Physiology is equivalent within tolerance", verdict: supported, basis: "4 within_tol / 2 minor drift (oriC -6.3%, repl-init -7.2%); no mismatch"}
+- {claim: "Composition is equivalent", verdict: supported, basis: "3/3 within_tol — protein +3.3%, RNA -1.5%, DNA +1.0%"}
+- {claim: "Ribosomes are equivalent within tolerance", verdict: supported, basis: "2 within_tol / 2 minor drift (total -5.8%, rRNA-init -8.7%); no mismatch"}
+- {claim: "Exchange fluxes are equivalent", verdict: refuted, basis: "O₂ Δ-40.4% + CO₂ Δ-20.3% mismatch (issue #143); overall fingerprint R²=0.9989, glucose/ammonium within tol"}
+- {claim: "Gene expression correlates with vEcoli", verdict: partial, basis: "transcriptome R²=0.946 below the strict 0.99 band (mismatch), proteome R²=0.961 drift; strict-band artifact, TOST would soften"}
+
+conclusion_logic:
+  if_primary_tests_pass:
+    summary: "If all five groups land within tolerance, the v2ecoli baseline population phenotype is fully equivalent to vEcoli at 16×16 scale, confirming v2 ≡ v1 as the same E. coli and that the #134 equivalence instrument scales cleanly."
+    block_downstream: false
+    pipeline_unblocks: []
+    biological_validation: "Equivalent physiology, composition, ribosome content, exchange fluxes, and gene expression at scale would mean v2's emergent population phenotype is statistically indistinguishable from v1's."
+  if_primary_tests_fail:
+    summary: "The REALIZED case — exchange_fluxes (O₂ -40% / CO₂ -20%, issue #143) and gene_expression (transcriptome R²=0.946 below the strict 0.99 band) drive an overall MISMATCH, so the verdict is PARTIAL equivalence: equivalent on physiology / composition / ribosomes / overall flux fingerprint, with a localized, reproducible, already-filed divergence — not a new bug."
+    block_downstream: false   # demonstrative equivalence instrument; the divergence is characterized, not a blocker
+    diagnose: ["O₂/CO₂ respiratory-exchange deficit (#143) persists at scale", "transcriptome R² sits just under the strict self-pin 0.99 band (TOST + per-axis δ margins would express this as an equivalence-margin verdict)"]
+    biological_validation: "The divergence is confined to respiratory exchange (O₂/CO₂) and a gene-expression correlation just below the strict band; all other axes are equivalent, so v2 is behaviorally the same E. coli except for the localized respiration signature."
+
+simulation_set:
+- name: v2-16x16-parallel-ensemble
+  kind: simulation
+  status: complete
+  base_model: baseline
+  duration_steps: "16 generations (burn-in gen_lb 3)"
+  seeds: "16 seeds × 16 generations (256 cells)"
+  metrics: [Physiology, Composition, Ribosomes, Exchange fluxes, Gene expression — 21 axes]
+  pass_fail_tests: [physiology-equivalent-to-vecoli, composition-equivalent-to-vecoli, ribosomes-equivalent-to-vecoli, exchange-fluxes-equivalent-to-vecoli, gene-expression-correlates-vecoli]
+- name: vecoli-16x16-reference-ensemble
+  kind: simulation
+  status: complete
+  base_model: "vEcoli (CovertLab/vEcoli @ b237873e)"
+  duration_steps: "16 generations"
+  seeds: "16 seeds × 16 generations (ran to its natural maximum of 185 cells)"
+  metrics: ["21-axis v1 reference (pinned into vecoli_reference.json)"]
+  pass_fail_tests: [vecoli-reference-pinned]
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+      cache_dir: out/cache_full
+    # NOTE: the RUN is NOT a single seed-0 cell. seed 0 anchors the baseline
+    # condition; the actual MEASURED run is a 16-seed × 16-generation basal
+    # ensemble (population_phenotype_basal_16x16.json) dispatched Ray-parallel
+    # via run_seeds_parallel. The report card's population phenotypes are
+    # computed over that ensemble (cell-level aggregation, burn-in 3).
+  variants:
+  # No perturbation — the "variant" is the v1↔v2 comparison arm: v2's measured
+  # 16×16 ensemble is graded against the matched vEcoli (v1) reference ensemble.
+  - name: vEcoli (v1) reference ensemble
+    role: reference (comparison arm)
+    detail: "Matched 16×16 vEcoli reference (CovertLab/vEcoli @ b237873e, 185 cells) pinned into vecoli_reference.json; the v2 measured side is graded against it in vs_vecoli equivalence mode."
+  model_settings:
+  - name: reference-mode-v1v2-equivalence
+    detail: "Report card rendered in its vs_vecoli equivalence mode — graded against a matched vEcoli (v1) ensemble, not v2's self-pin. 'Equivalence is a reference mode, not a card' (PR #134)."
+  - name: large-ensemble-16x16
+    detail: "16 seeds × 16 generations (2× the seeds of the #134 8×16 demo, same lineage depth); burn-in generation_lower_bound=3. Both the v2 and the vEcoli reference ensembles are run at this matched scale."
+  - name: ray-parallel-dispatch
+    detail: "Seeds fanned out Ray-parallel via run_seeds_parallel on the mini."
+  - name: parquet-authoritative
+    detail: "Parquet sidecar is the authoritative store; the in-engine ParquetEmitter is a RAM trap and is avoided."
+  - name: vecoli-source-in-repo
+    detail: "The vEcoli (v1) reference ensemble is produced from the vEcoli source already available within v2ecoli (the comparison-harness machinery used by the other v1↔v2 reports), NOT an external checkout."
+
+assumptions:
+- text: |
+    A matched 16×16 vEcoli reference can be generated from the in-repo vEcoli
+    source and pinned with pin_vecoli_equivalence_reference.py; v1 and v2 share
+    cistron/monomer/flux ordering exactly, so the omics/flux vectors align
+    positionally with no ID remapping (verified at 8×16 in #134).
+  verified_in_v2ecoli: true
+- text: |
+    The population_phenotype_basal report card (PR #134) grades the SAME 21
+    axes at 16×16 as at 8×16 — scale changes the population statistics, not the
+    axis definitions or criteria — so the equivalence verdict at large scale is
+    directly comparable to the #134 8×16 demo.
+  verified_in_v2ecoli: true
+- text: |
+    v2's single-process multi-generation lineage runner sawtooths (in-process
+    state accumulation → degrade → divide-fail → reset-from-cache; #142); at
+    16 generations the burn-in (generation_lower_bound=3) and the card's
+    stationarity flag / variance decomposition surface this honestly rather than
+    letting it corrupt the graded window.
+  verified_in_v2ecoli: true
+
+tests:
+# The report card grades each group with a typed criterion (ttest / rel_tol /
+# r2 / flux_scatter) earning a 4-state verdict (within_tol / drift / mismatch /
+# ungraded). These are graded by the card, not the run-data DSL, so they are
+# evaluated_by agent (non-run-data kind), like showcase-2's correlation tests.
+- name: physiology-equivalent-to-vecoli
+  classification: primary
+  status: passed   # 4 within_tol / 2 minor drift (oriC -6.3%, repl-init -7.2%), no mismatch
+  question: Is v2's physiology group (doubling time, cell mass/volume, oriC, replication timing) equivalent to vEcoli within tolerance at 16×16?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: physiology
+    detail: "Physiology axes graded by ttest (Welch, magnitude bands + p-guard) vs the matched vEcoli reference; group verdict = worst axis (4 within_tol / 2 drift → drift → PASS+caveat)."
+  pass_if:
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
+- name: composition-equivalent-to-vecoli
+  classification: primary
+  status: passed   # 3/3 within_tol (protein +3.3%, RNA -1.5%, DNA +1.0%)
+  question: Are v2's biomass mass fractions (protein / RNA / DNA) equivalent to vEcoli within tolerance at 16×16?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: composition
+    detail: "Composition axes graded by ttest vs the matched vEcoli reference; group verdict = worst axis (3/3 within_tol → PASS)."
+  pass_if:
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
+- name: ribosomes-equivalent-to-vecoli
+  classification: primary
+  status: passed   # 2 within_tol (active fraction, elongation) / 2 minor drift (total -5.8%, rRNA-init -8.7%), no mismatch
+  question: Are v2's ribosome axes (total, active fraction, elongation rate, production) equivalent to vEcoli within tolerance at 16×16?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: ribosomes
+    detail: "Ribosome axes graded by ttest; v1's 30S/50S counts read via a positional-bulk index adapter. Group verdict = worst axis (2 within_tol / 2 drift → drift → PASS+caveat)."
+  pass_if:
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
+- name: exchange-fluxes-equivalent-to-vecoli
+  classification: primary
+  status: failed   # DIVERGENCE (expected, #143): O₂ -40.4% ✗ + CO₂ -20.3% ✗ mismatch; overall fingerprint R²=0.9989 ✓, glucose/ammonium ✓
+  question: Are v2's exchange fluxes equivalent to vEcoli at 16×16, or does the #143 metabolic (O₂/CO₂) divergence persist at scale?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: exchange_fluxes
+    detail: "Exchange-flux signed scatter + KPIs vs the matched vEcoli reference; near-floor exchanges held below a significance floor. Group verdict = worst axis (O₂/CO₂ mismatch → FAIL); overall fingerprint R²=0.9989. The #143 respiration divergence."
+  pass_if:
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
+- name: gene-expression-correlates-vecoli
+  classification: primary
+  status: failed   # card worst-of: transcriptome R²=0.946 below strict 0.99 band → mismatch → FAIL (proteome R²=0.961 drift). Strict-band artifact; TOST would soften (see open question).
+  question: Does v2's transcriptome/proteome correlate with vEcoli at 16×16 (and does the outlier-gene set stay coherent)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/population_phenotype_basal/vs_vecoli
+    group: gene_expression
+    detail: "Transcriptome + proteome graded by r2 over ensemble-mean count vectors; companion outlier-gene tables. Group verdict = worst axis: transcriptome R²=0.946 is below the strict 0.99 band → mismatch → FAIL (proteome R²=0.961 → drift). The strict-band threshold drives the FAIL; TOST + per-axis δ margins (see study open question) would express this as an equivalence-margin verdict instead."
+  pass_if:
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
+
+discovery_implications:
+  resolved_uncertainties:
+  - "The #134 8×16 equivalence picture HOLDS at 16×16: Physiology / Composition / Ribosomes within tolerance (12 axes ✓, 6 minor drift), the overall exchange-flux fingerprint near-identical (R²=0.9989), the exchange-flux metabolic divergence (O₂ -40%, CO₂ -20%) persisting (issue #143), and gene expression highly correlated but below the strict 0.99 band (transcriptome R²=0.946, proteome R²=0.961 vs ~0.93–0.94 at 8×16). The larger sample tightened the statistics without changing the qualitative verdict."
+  - "A matched 16×16 vEcoli reference IS feasible from the in-repo sibling vEcoli (CovertLab/vEcoli @ b237873e) via its own Nextflow workflow. It ran to its natural maximum of 185 cells (9/16 single-daughter lineages completed all 16 gens; 7 truncated at deterministic FBA metabolic dead-ends — 256 unreachable for this seed set). 185 cells is a large, valid reference (> the 128-cell 8×16 demo)."
+  - "v2's single-process meta-composite is impractically slow for 16×16 (~4 min/cell sequential → ~17 h); the new parallel-by-default multi-seed path (run_seeds_parallel) cut it to ~3.6 h for the full 256-cell ensemble. v2 completed all 16/16 lineages (256 cells); 24/256 generations hit the duration cap without dividing (the #142 sawtooth), surfaced by the card's sim-health banner."
+  remaining_uncertainties:
+  - "The gene-expression 'mismatch' is a strict-band artifact (R²=0.946 vs a 0.99 threshold inherited from the self-pin template). The principled cross-impl form — TOST + per-axis δ equivalence margins — would convert this into an explicit equivalence-margin verdict rather than a hard fail. Nice-to-have, not blocking."
+  - "Root cause of the O₂/CO₂ respiratory-exchange divergence (issue #143) is not resolved here — this study confirms it is stable and localized at scale, it does not explain it."
+  followup_study_proposals: []
+
+pipeline_gate:
+  prerequisites:
+  - showcase-2-baseline-figures
+  enables: []
+  gate_status: failed   # card-driven roll-up: exchange_fluxes + gene_expression FAIL (see gate_status note above)
+
+runs:
+- name: v2-16x16-parallel-ensemble
+  status: completed
+  kind: simulation
+  canonical: true
+  description: |
+    v2ecoli 16-seed × 16-generation basal ensemble (measured side of the v1↔v2
+    equivalence card), v2ecoli.composites.baseline.baseline resumed from the full
+    ParCa cache (out/cache_full → showcase-1's 51-condition cache). Dispatched via
+    the NEW parallel-by-default multi-seed path (run_workflow → run_seeds_parallel,
+    one Ray worker per seed, ~6 concurrent on the 12-core/64 GB mini). 256/256
+    cells, all 16 lineages reached generation 15; total wall ~3.6 h (vs ~17 h for
+    the prior single-process meta-composite). 24/256 generations hit the duration
+    cap without dividing (the #142 in-process sawtooth — flagged by the card's
+    sim-health banner). Parquet hive store is authoritative.
+  dispatch: ray-parallel-per-seed
+  emitter: parquet
+  cache_dir: out/cache_full
+  parquet: out/ppb16_parallel/parquet
+  result: PARTIAL
+  outcomes:
+    physiology-equivalent-to-vecoli:
+      result: PASS
+      detail: "4 within_tol (doubling time Δ-2.2%, cell mass -4.4%, cell volume -4.4%, replication completion +4.7%) / 2 minor drift (oriC -6.3%, replication initiation -7.2%); no mismatch."
+    composition-equivalent-to-vecoli:
+      result: PASS
+      detail: "3/3 within_tol — protein/DW +3.3%, RNA/DW -1.5%, DNA/DW +1.0%. Fully equivalent."
+    ribosomes-equivalent-to-vecoli:
+      result: PASS
+      detail: "2 within_tol (active fraction +0.1%, elongation rate +0.2%) / 2 minor drift (total ribosomes -5.8%, rRNA-init production -8.7%); no mismatch."
+    exchange-fluxes-equivalent-to-vecoli:
+      result: FAIL
+      detail: "DIVERGENCE (expected, issue #143): O₂ exchange Δ-40.4% ✗ and CO₂ exchange Δ-20.3% ✗ mismatch. Overall flux fingerprint R²=0.9989 ✓ (40 matched, 0 appeared/lost), glucose -4.4% ✓, ammonium -2.4% ✓, acetate near-floor drift. The respiratory-exchange divergence persists at 16×16."
+    gene-expression-correlates-vecoli:
+      result: FAIL
+      detail: "Card worst-of: transcriptome (mRNA cistrons) R²=0.9461 is below the strict 0.99 band → mismatch → FAIL; proteome (monomers) R²=0.9613 → drift. Highly correlated overall, consistent with the 8×16 reading (R²≈0.93–0.94); the FAIL is a strict-band artifact (TOST + per-axis δ margins would express it as an equivalence-margin verdict)."
+- name: vecoli-16x16-reference-ensemble
+  status: completed
+  kind: simulation
+  canonical: false
+  description: |
+    vEcoli (v1) 16-seed × 16-generation reference ensemble — the equivalence
+    reference. Produced by vEcoli's own Nextflow workflow from the in-repo sibling
+    checkout (CovertLab/vEcoli @ b237873e), parquet emitter, basal/minimal
+    condition, prebuilt full ParCa (out/kb/simData.cPickle). Ran to its natural
+    maximum: 185 cells (9/16 single-daughter lineages completed all 16 gens; 7
+    truncated at deterministic FBA metabolic dead-ends). Pinned to the card's v1
+    reference via scripts/pin_vecoli_equivalence_reference.py (--gen-lb 3,
+    --s30-idx 5456 --s50-idx 5464), all 21 axes.
+  dispatch: nextflow
+  emitter: parquet
+  parquet: vEcoli/out/ppb_vecoli_16x16 (sibling checkout; pinned into vecoli_reference.json)
+  result: PASS
+  outcomes:
+    vecoli-reference-pinned:
+      result: PASS
+      detail: "21-axis v1 reference pinned (docs/report_cards/population_phenotype_basal/vs_vecoli/vecoli_reference.json, 1.1 MB, blessed_model_ref b237873e, gen_lb 3) from the 185-cell matched ensemble."
+
+visualizations:
+# The headline figure is the self-contained pre-rendered HTML report card,
+# surfaced via embed_visualizations (below) rather than the chart pipeline
+# (which renders studies/<name>/charts/*.png|svg). This entry registers it so
+# the study's Visualizations surface is non-empty.
+- name: v1↔v2 equivalence report card (16×16)
+  address: html:docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.html
+  config:
+    title: "21-axis v1↔v2 equivalence report card at 16×16 (overall MISMATCH — 12 within_tol / 6 drift / 3 mismatch)"
+    caption: >-
+      Pre-rendered self-contained HTML card: per-axis verdict tables for all 5
+      groups (Physiology / Composition / Ribosomes / Exchange fluxes / Gene
+      expression) + violin / log-log scatter / signed-flux plots + a sim-health
+      banner + gene-expression outlier-gene tables. Equivalent on physiology /
+      composition / ribosomes / overall flux fingerprint (R²=0.9989); the overall
+      MISMATCH is driven entirely by the O₂/CO₂ respiratory-exchange divergence
+      (#143) + transcriptome R²=0.946 (strict band). See embed_visualizations.
+  chart: embed
+  source_run: v2-16x16-parallel-ensemble
+
+# The 16×16 v1↔v2 equivalence report card — a pre-rendered, self-contained
+# inline-SVG HTML artifact (per-axis verdict tables for all 5 groups + violin /
+# log-log scatter / signed-flux plots + sim-health banner + gene-expression
+# outlier-gene tables). Surfaced in the dashboard study Visualizations tab as an
+# embedded iframe. The url points at the COMMITTED canonical card
+# (docs/report_cards/...) which the dashboard serves as a workspace-relative
+# static file — portable across checkouts (reports/figures/ is gitignored).
+embed_visualizations:
+- name: v1↔v2 equivalence report card (16×16)
+  url: /docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.html
+  description: "21-axis v1↔v2 equivalence card at 16×16 — overall MISMATCH (12 within_tol / 6 drift / 3 mismatch), driven by O₂/CO₂ exchange (#143) + transcriptome R²=0.946. Rendered by reports/population_phenotype_basal_report.py against the v2 256-cell ensemble vs the pinned 185-cell vEcoli reference."

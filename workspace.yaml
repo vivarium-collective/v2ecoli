@@ -4,94 +4,142 @@ created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
 layout:
+  studies: workspace/studies
   investigations: workspace/investigations
   references: workspace/references
   experiments: workspace/experiments
 runtime:
-  default_emitter: parquet  # 'parquet' | 'sqlite' | 'xarray'
+  # PDMP investigation runs on the XArrayEmitter (zarr-partitioned,
+  # multi-generation native): its validation pipeline aligns every phase on a
+  # single time-series format (see investigation.yaml guidelines.emitter).
+  # parquet stays available as a fallback — pass an explicit ParquetEmitter or
+  # use the parquet runners in v2ecoli.library.parquet_run.
+  default_emitter: xarray   # 'parquet' | 'sqlite' | 'xarray'
   max_generations: 8        # multi-gen cap (xarray + parquet runs) — bumped for PDMP validation ensembles
   # Multiseed parallelism: 'ray' runs one worker process per seed (parity with
   # vEcoli — see docs/perf/). Unset/None = sequential. Needs `v2ecoli[ray]`.
   # Runners use v2ecoli.library.parallel_seeds.run_seeds_parallel(mode=<this>).
-  parallel:                 # 'ray' | null
-
-# ─── DASHBOARD ────────────────────────────────────────────────────────
-# Per-workspace dashboard customization (vivarium-dashboard). All keys
-# optional; missing keys fall back to the default "Vivarium dashboard"
-# branding and an unfiltered registry.
-dashboard:
-  registry:
-    # Per-workspace catalog OVERRIDE: `modules` REPLACES pbg's default 19-pkg
-    # catalog (vs `include`, which can only HIDE default entries — it can't
-    # surface a package pbg doesn't ship, like viva-munk). The Registry-tab
-    # PROCESS grid derives its allow-list from these names too (plus the
-    # workspace-self package), so the class grid and the catalog show the same
-    # set: v2ecoli + pbg-bioreactordesign + viva-munk.
-    #   - bare string → inherit full metadata from pbg's default catalog
-    #   - dict        → a custom entry pbg doesn't ship (used verbatim)
-    # (v2ecoli, the workspace's own package, is added automatically — not listed.)
-    modules:
-      - pbg-bioreactordesign            # inherits metadata from default catalog
-      - name: viva-munk                 # custom; pbg doesn't ship it
-        package: viva_munk
-        source: https://github.com/vivarium-collective/Viva-munk
-        homepage: https://github.com/vivarium-collective/Viva-munk
-        ref: main
-        description: "multi-cell simulations with pymunk 2d physics"
-        category: visualization
-        tags: [visualization, multicell, physics]
-      - name: pbg-emitters              # emitters (Parquet/XArray/SQLite); pbg framework component
-        package: pbg_emitters
-        source: https://github.com/vivarium-collective/pbg-emitters
-        homepage: https://github.com/vivarium-collective/pbg-emitters
-        ref: main
-        description: "Emitters for process-bigraph workspaces — Parquet, XArray, SQLite"
-        category: emitter
-        tags: [emitter, infrastructure]
-  data_sources:
-    # Repo-wide data-source bundle shown in the Inputs tab. The provider is an
-    # importable `module:func` returning [{key, path, category, kind, size_bytes}].
-    provider: "v2ecoli.processes.parca.reconstruction.ecoli.sources:enumerate_for_dashboard"
-    label: "ecoli-sources"
-
-# ─── IMPORTS ──────────────────────────────────────────────────────────
-# Declared external pbg packages — classifies their registry classes as
-# in_workspace (vs environment_only). import names: viva_munk,
-# pbg_bioreactordesign.
-imports:
-  - name: viva-munk
-    package: viva_munk
-    source: https://github.com/vivarium-collective/viva-munk
-  - name: pbg-bioreactordesign
-    package: pbg_bioreactordesign
-    source: https://github.com/vivarium-collective/pbg-bioreactordesign
-
+  parallel: ray             # 'ray' | null
 observables: []
 visualizations: []
 simulations: []
 datasets: []
 expert_docs:
-- name: duf-final-report
-  path: workspace/references/expert/duf_final_report_2026.pdf
-  sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
-  description: "DARPA DUF ARC final report (HR0011-24-3-0372, UConn, PI Agmon,\nSep\
-    \ 2024\u2013Sep 2025): \"An Integrated Discovery Workflow for an\nE. coli Whole-Cell\
-    \ Model\". Establishes the motivation for the\nPDMP reformulation of v2ecoli \u2014\
-    \ the current hybrid-algorithmic\nWCM is not a well-defined dynamical system and\
-    \ resists\nlikelihood-based inference and causal discovery.\n"
-  contributor: eran
-- name: v2ecoli-pdmp-roadmap
-  path: workspace/references/expert/v2ecoli_pdmp_roadmap.pdf
-  sha256: f11aa49dab7ad53dfe78766a49f40b42d745ecba980beac0a8f9e0cbcb2aadb5
-  description: "Six-phase incremental roadmap for transforming v2ecoli into a\npiecewise-deterministic\
-    \ Markov process (PDMP). Phases 0\u20135:\ncharacterization \u2192 kinetic-ODE\
-    \ metabolism \u2192 continuous-time\njump layer \u2192 likelihood/Bayesian interface\
-    \ \u2192 compiled runtime \u2192\ncausal discovery / functional annotation. Spine\
-    \ of the\nv2ecoli-pdmp investigation.\n"
-  contributor: eran
+  - name: multiscale_bioprocess_roadmap
+    title: Multiscale bioprocess upstream roadmap
+    path: workspace/references/expert/multiscale_bioprocess_roadmap.md
+    description: |
+      Pointer to the upstream vivarium-collective/multiscale-bioprocess
+      roadmap (chris/initial-scaffolding) that inspired (but is diverged
+      from by) the v2ecoli-workspace multiscale-bioprocess investigation.
+  - name: cell_side_interface_contract
+    title: Cell-side interface contract (substitutability)
+    path: workspace/references/expert/cell_side_interface_contract.md
+    description: |
+      The substitutability story made concrete: what an engine wired to
+      the reactor MUST provide (inputs / outputs / lifecycle hooks /
+      identifier scheme). Load-bearing for mbp-03 (Monod → v2ecoli swap)
+      and for future engine comparator studies (dFBA, surrogate, WCM
+      variants). Inherits the upstream multiscale-bioprocess roadmap's
+      "engine substitution as a phase boundary" open question.
+  - name: palsson_2025_fed_batch
+    title: Beulig et al. 2025 — high-cell-density fed-batch E. coli (mSystems)
+    path: workspace/references/expert/palsson_2025_fed_batch.md
+    description: |
+      Beulig F, ..., Palsson B. "Trade-off between resistance and persistence
+      in high cell density cultures." mSystems 10(7), 2025.
+      doi:10.1128/msystems.00323-25. Open access; PDF at
+      workspace/references/papers/Beulig_2025_mSystems_high_cell_density.pdf.
+      The quantitative benchmark targeted by study mbp-05. Bib key
+      `Beulig2025mSystems` in workspace/references/papers.bib.
+  - name: chris_feedback_2026_05_26
+    title: Chris Long — multiscale-bioprocess review (2026-05-26)
+    path: workspace/references/expert/chris_feedback_2026_05_26.md
+    description: |
+      Structured digest of Chris Long's inline-feedback review on the
+      multiscale-bioprocess investigation (rpt-20260523011545, exported
+      2026-05-26). Drives the next-round spec revisions: mbp-01 plumbing/
+      biology split, mbp-02 cells_per_agent scaling, mbp-03 Option-B
+      BiRDTransportProcess fork, mbp-04 explicit C/N auditor requirements,
+      mbp-05 reframe as evaluation phase with generic comparison_overlays,
+      mbp-06 carried-forward priors + resolution_type schema. Raw YAML
+      preserved at workspace/references/expert/raw/chris_feedback_2026_05_26.yaml.
+      MUST be read before drafting any further mbp-* spec edits or
+      advancing a study to Build phase.
+  - name: duf-final-report
+    path: workspace/references/expert/duf_final_report_2026.pdf
+    sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
+    description: |
+      DARPA DUF ARC final report (HR0011-24-3-0372, UConn, PI Agmon,
+      Sep 2024–Sep 2025): "An Integrated Discovery Workflow for an
+      E. coli Whole-Cell Model". Establishes the motivation for the
+      PDMP reformulation of v2ecoli — the current hybrid-algorithmic
+      WCM is not a well-defined dynamical system and resists
+      likelihood-based inference and causal discovery.
+    contributor: eran
+  - name: v2ecoli-pdmp-roadmap
+    path: workspace/references/expert/v2ecoli_pdmp_roadmap.pdf
+    sha256: f11aa49dab7ad53dfe78766a49f40b42d745ecba980beac0a8f9e0cbcb2aadb5
+    description: |
+      Six-phase incremental roadmap for transforming v2ecoli into a
+      piecewise-deterministic Markov process (PDMP). Phases 0–5:
+      characterization → kinetic-ODE metabolism → continuous-time
+      jump layer → likelihood/Bayesian interface → compiled runtime →
+      causal discovery / functional annotation. Spine of the
+      v2ecoli-pdmp investigation.
+    contributor: eran
 references_pdfs:
-- bib_key: millard2017
-  path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
-  sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
+  - bib_key: millard2017
+    path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
+    sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
+imports:
+  pbg_oxidizeme:
+    source: https://github.com/vivarium-collective/pbg-oxidizeme
+    ref: '0.1.0'
+    mode: reference
+    description: |
+      OxidizeME ME-model wrapper (Yang et al. 2019 PNAS / Palsson lab).
+      Conforms to the cell-side interface contract — drop-in candidate
+      engine for mbp-03 / mbp-06 comparator studies. Real-solver path is
+      gated by upstream Python 2.7 / qMINOS install; non-strict mode lets
+      the wrapper be browsed in the dashboard without the solver. Live
+      demo report: https://vivarium-collective.github.io/pbg-oxidizeme/
 server:
   enabled: true
+dashboard:
+  # Registry tab: show ONLY this repo's own process/type classes. Without this
+  # the grid lists every installed pbg-* package's classes (pbg-cellpack, …)
+  # auto-registered by allocate_core(). Display-only allow-list by top-level
+  # package; discovery is unchanged.
+  registry:
+    include: [v2ecoli]
+  # Sources page: surface the ecoli-sources bundle (the ParCa/reconstruction
+  # input files) with links — inherited files link to the pinned ecoli-sources
+  # GitHub commit, local overrides to this repo. See v2ecoli/dashboard_sources.py.
+  data_sources:
+    provider: "v2ecoli.dashboard_sources:enumerate_sources"
+    label: "ecoli-sources"
+
+# Pathway Tools Omics Viewer launcher (Analyses tab → "PTools" card).
+# Points at the local sms-ptools container
+# (ghcr.io/vivarium-collective/sms-ptools, Cellular Overview on :1555). The
+# dashboard's default Omics-Viewer URL template targets this exact build, so no
+# template override is needed. Run the container, then the card launches the
+# Omics Viewer with a study's ptools TSVs overlaid on the E. coli metabolic map.
+ui:
+  ptools_server_url: "http://localhost:1555"
+  # When launching with data, the PTools container fetches the TSV from this
+  # dashboard over HTTP, so it must point at a host the *container* can reach —
+  # e.g. http://host.docker.internal:<dashboard-port>. Unset = inferred from the
+  # browser's Host header, which the container can't resolve. Uncomment + set
+  # your dashboard port once a study emits ptools TSVs (studies/<n>/**/ptools/*.tsv).
+  # The PTools container fetches study TSVs from this dashboard over HTTP;
+  # host.docker.internal lets the container reach the dashboard on the host.
+  # Adjust the port to match how you serve the dashboard.
+  dashboard_public_base_url: "http://host.docker.internal:8771"
+  # sms-ptools 0.8.2 reads the omics file from its OWN filesystem (it does not
+  # fetch the URL over HTTP). Mount the workspace into the container and set the
+  # container-side path of the dashboard's --workspace root here; the launcher
+  # then passes <ptools_data_dir>/<rel> as the data file. Run the container with:
+  #   -v <host>/v2ecoli/workspace:/ptools-data/workspace:ro
+  ptools_data_dir: "/ptools-data"

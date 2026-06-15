@@ -33,13 +33,24 @@ investigations/*/.run.lock
 studies/*/sims/*.subprocess.py
 studies/*/sims/parquet-rerun-*/
 studies/*/viz/
+# ParquetEmitter hive-partitioned per-study runs (workspace-default
+# emitter per workspace.yaml.runtime.default_emitter). Each experiment_id
+# is its own hive subtree under studies/<study>/parquet-runs/ —
+# regenerable by re-running scripts/run_mbp_tracked.py --emitter parquet.
 studies/*/parquet-runs/
-reports/
+# Ignore reports/ contents (not the dir itself) so specific subtrees can be
+# re-included below. (git can't re-include a path under a fully-excluded dir.)
+reports/*
 # dashboard re-render targets (regenerated on demand by /api/render)
 reports/assets/*
 !reports/assets/.keep
+# pre-resolved composite states shipped to the read-only dashboard (tracked)
+!reports/composite-state/
 investigations/*/viz/
 .dashboard.log
+# Dashboard re-render targets (regenerated on demand by /api/render)
+reports/assets/*
+!reports/assets/.keep
 
 # Local git-worktree checkouts under .claude/worktrees/ — per-session working
 # trees, never part of the repo.

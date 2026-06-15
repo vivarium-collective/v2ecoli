@@ -1,0 +1,14 @@
+{
+  "inherit_from": ["default.json"],
+  "experiment_id": "ptools_baseline",
+  "generations": 1,
+  "n_init_sims": 1,
+  "max_duration_per_gen": 150.0,
+  "analysis_options": {
+    "single": {
+      "ptools_rna": {"n_tp": 8},
+      "ptools_rxns": {"n_tp": 8},
+      "ptools_proteins": {"n_tp": 8}
+    }
+  }
+}

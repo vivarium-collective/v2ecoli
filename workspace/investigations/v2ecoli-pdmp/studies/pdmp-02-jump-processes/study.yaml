@@ -1,8 +1,19 @@
 schema_version: 4
 name: pdmp-02-jump-processes
+investigation: v2ecoli-pdmp
 title: 'Phase 2 — Jump Process Layer: Discrete-Time → Continuous-Time Stochastic'
-status: planned
-phase: Design
+claim: |
+  Per-promoter and per-protein Poisson tau-leap samplers land in `poisson` mode. The acceptance gate
+  `pdmp-trajectory-distribution-match` FAILED: the cell_mass Poisson Wasserstein-2 grows monotonically
+  9.73 → 15.35 → 49.46. The decisive finding is negative but legitimate: cell_mass is the WRONG
+  observable for jump-process variance — the consumption_matched homeostat washes per-tick variance out
+  by construction, so Phase-3 inference must anchor on count-level listeners, not mass. (The "150 fg"
+  headline is max |Δ cell_mass| = 150 fg between configs — a transient on a single trajectory pair
+  computed in scripts/trajectory_divergence.py on the cell_mass quantity; it is NOT measured at the
+  rnap_data listener, and it cuts against this study's own thesis that cell_mass is the wrong observable.)
+confidence: Investigating
+status: running
+phase: Decide
 topic: pdmp
 tags:
 - pdmp
@@ -15,9 +26,6 @@ tags:
 - gillespie
 - xarray-emitter
 created: '2026-05-24'
-parent_studies:
-- study: pdmp-01-metabolism-ode
-  condition: tests-passed
 question: 'Can v2ecoli''s discrete-time stochastic layer (Poisson gene-
 
   expression draws scaled by timestep/doubling time, the teleonomic
@@ -212,7 +220,7 @@ expected_behavior:
     observable: propensity-function-source
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: division-first-passage
   en: Division events occur as first-passage crossings of a threshold in cell volume or total protein mass; the teleonomic
@@ -224,7 +232,7 @@ expected_behavior:
     observable: division-event-record
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: pdmp-trajectory-distribution-match
   en: Summary statistics over PDMP trajectory ensembles (growth rate distribution, mean mRNA/protein abundances per gene,
@@ -237,7 +245,10 @@ expected_behavior:
     observable: trajectory-summary-distribution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: 'GATE FAILED on cell_mass — the Poisson cell_mass Wasserstein-2 grows monotonically 9.73 → 15.35
+      → 49.46 (does NOT converge within tolerance). Per the closeout this is the wrong observable
+      (consumption_matched homeostat washes per-tick variance out of cell_mass), so the negative result
+      is reframed as structural — but the gate itself is FAILED, not passed/accepted.'
   status: stub
 - name: markov-property-verified
   en: Between any two jump events, state evolves deterministically under the ODE; jump times follow ∫ λ(s) ds = E for E ~
@@ -249,7 +260,7 @@ expected_behavior:
     observable: between-jump-evolution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-exponential-clock-anderson-darling
   en: Cumulative hazard ∫λ(s)ds at successive events for each jump process passes an Anderson-Darling Exp(1) test (α=0.05)
@@ -261,7 +272,7 @@ expected_behavior:
     observable: cumulative-hazard-distribution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-fpt-analytical-validation
   en: The first-passage implementation, applied to an OU process with analytically known FPT distribution, recovers the analytical
@@ -273,7 +284,7 @@ expected_behavior:
     observable: ornstein-uhlenbeck-fpt-distribution
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-tau-leap-validity
   en: For every τ-leaping jump process, the leap-condition (max Δλ/λ < 0.03) is monitored; fraction of timesteps where it
@@ -285,7 +296,7 @@ expected_behavior:
     observable: leap-condition-fraction-violated
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 - name: uq-trajectory-w2-mcse
   en: Trajectory-distribution comparison vs v2ecoli baseline uses W₂ on summary distributions over N≥200 PDMP trajectories
@@ -298,7 +309,7 @@ expected_behavior:
     observable: w2-with-MCSE
   expect:
     op: within-tolerance
-    note: Tolerance / target gate to be defined when this study moves Design → Build.
+    note: Acceptance band set as this test is built out (design-stage readout).
   status: stub
 baseline:
 - name: pdmp-jump-runner-tbd
@@ -351,8 +362,15 @@ report:
     match v2ecoli baseline summaries within W₂ tolerance.
   main_insight: 'The PDMP contract is the smoking-gun test for stochastic correctness: between-jump deterministic ODE flow
     + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches every propensity bug.'
-  caveat: τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition (max Δλ/λ < 0.03) is monitored
-    at every step and processes get switched to exact SSA when violated >0.1% of the time.
+  caveat: 'τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition (max Δλ/λ
+    < 0.03) is monitored at every step and processes get switched to exact SSA when violated >0.1% of the
+    time. NOTE on provenance: the per-sprint σ/μ/W2 summary table (base_mu/base_sd/pdmp_mu/pdmp_sd/w2_cm,
+    incl. the cell_mass W2 progression 9.73 → 15.35 → 49.46) is HAND-ENTERED in
+    scripts/phase2_progress_report.py (marked "Hardcoded here" so the report survives source-HTML churn) —
+    it is transcribed, not recomputed at render time. Report figures are limited to the artifacts committed in this
+    checkout (initiation-mode comparisons, event-rate / per-TU distributions, trajectory-divergence, ensemble-validation);
+    the multi-gen inheritance / Gillespie / waiting-time figure set regenerates from a re-run of the phase0-multigen and
+    jump-process pilots.'
   key_metrics:
   - label: Anderson-Darling Exp(1) per jump
     status: stub
@@ -391,24 +409,24 @@ study_card:
 readouts:
 - name: anderson-darling-results
   status: planned
-  path: TBD — planned at out/trajectories/ad_exp1_per_jump.csv
+  path: (planned) out/trajectories/ad_exp1_per_jump.csv
   units: A-D statistic + p-value
   notes: 'Per jump process (transcription, translation, division, competition). >=10^4 inter-event intervals each. Gating:
     p > 0.05.'
 - name: fpt-distribution
   status: planned
-  path: TBD — planned at out/trajectories/fpt_division.csv
+  path: (planned) out/trajectories/fpt_division.csv
   units: first-passage time (s)
   notes: 'Cell-volume threshold crossing. OU analytical validation: KS distance < 0.02 vs analytical CDF.'
 - name: trajectory-w2
   status: planned
-  path: TBD — planned at out/trajectories/pdmp_w2_vs_baseline.csv
+  path: (planned) out/trajectories/pdmp_w2_vs_baseline.csv
   units: W2 distance per summary stat
   notes: Growth rate, mean per-gene mRNA/protein, division-time CV. N>=200 trajectories. Within tolerance across all Phase
     0 conditions = gating.
 - name: markov-property-record
   status: planned
-  path: TBD — planned at out/trajectories/markov_segments.json
+  path: (planned) out/trajectories/markov_segments.json
   units: bit-equivalence result per re-sim
   notes: Re-simulate jump-segments with same (state, RNG-seed); verify bit-identical deterministic ODE flow between jumps.
 planned_runs:
@@ -431,9 +449,8 @@ planned_runs:
     source for the inheritance machinery the test needs). Phase 0 N=4 × 8000-step multi-gen baseline
     ensemble complete (.pbg/runs/phase0-multigen/), wall 74 min total. 9 real division events observed
     across 4 replicates. First-division times match M9-glucose τ ≈ 2640s (within ±5%); daughter/mother
-    mass ratio centers near 0.5 with binomial-consistent spread. Real-data viz at
-    reports/figures/pdmp-02/multigen_{cell_mass_trajectories, division_time_distribution,
-    inheritance_mass_split}.html. ACTUAL jump-process implementation still TBD; this Phase-0 data
+    mass ratio centers near 0.5 with binomial-consistent spread. These inheritance/division findings rest
+    on the .pbg/runs/phase0-multigen/ run data. ACTUAL jump-process implementation still pending; this Phase-0 data
     proves the inheritance machinery + division detection work for the test contract, ready to be
     repointed at jump-process output when that lands.'
 - name: jump-process-event-rate-profile
@@ -446,30 +463,19 @@ visualizations:
   address: file:reports/figures/planned-comparisons/phase2_jump_ad_test.html
   description: PLANNED — Anderson-Darling Exp(1) test on cumulative-hazard ∫λ(s)ds at successive events. Will render Q-Q plot
     + p-value per jump process.
-- name: jump-division-time-distribution-real
-  address: file:reports/figures/pdmp-02/jump_division_time_distribution_real.html
-  description: Jump-process division time distribution — multi-gen
 - name: jump-event-rates-real
   address: file:reports/figures/pdmp-02/jump_event_rates_real.html
-  description: Per-cell event rates — spans 6+ OOM
-- name: jump-gillespie-trajectory-real
-  address: file:reports/figures/pdmp-02/jump_gillespie_trajectory_real.html
-  description: Jump-process — single-cell mRNA/protein trajectory
-- name: jump-inheritance-distribution-real
-  address: file:reports/figures/pdmp-02/jump_inheritance_distribution_real.html
-  description: Jump-process inheritance — daughter1 − daughter2 distribution
-- name: jump-inter-event-waiting-times
-  address: file:reports/figures/pdmp-02/jump_inter_event_waiting_times.html
-  description: Jump-process inter-event waiting times — exponentiality test
-- name: multigen-cell-mass-trajectories
-  address: file:reports/figures/pdmp-02/multigen_cell_mass_trajectories.html
-  description: Phase 0 multi-gen — cell mass(t) with division events
-- name: multigen-division-time-distribution
-  address: file:reports/figures/pdmp-02/multigen_division_time_distribution.html
-  description: Phase 0 multi-gen — division time distribution
-- name: multigen-inheritance-mass-split
-  address: file:reports/figures/pdmp-02/multigen_inheritance_mass_split.html
-  description: Phase 0 multi-gen — inheritance distribution
+  description: Per-tick transcription-initiation rate, discrete vs Poisson tau-leap
+    (real 300 s baseline run). Both track the growth-driven rising trend; Poisson
+    adds per-tick stochasticity (sd 12.2 vs 9.7) while cell/dry mass endpoints are
+    conserved to <0.05%. Generated by sims/make_charts.py from
+    .pbg/runs/pdmp-02/initiation_modes_summary.json.
+- name: jump-initiation-per-tu-distribution-real
+  address: file:reports/figures/pdmp-02/jump_initiation_per_tu_distribution_real.html
+  description: Per-TU cumulative initiation count distribution across all 3277 TUs,
+    discrete vs Poisson (real run). Same per-TU mean (4.52 vs 4.61) and heavy-tailed
+    shape — the Poisson sampler reproduces per-gene initiation statistics, not just
+    the aggregate rate. Generated by sims/make_charts.py.
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
@@ -654,35 +660,178 @@ tests:
   cites:
   - cao2006
 embed_visualizations:
-- name: Jump-process division time distribution — multi-gen
-  url: /reports/figures/pdmp-02/jump_division_time_distribution_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_division_time_distribution_real.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Per-cell event rates — spans 6+ OOM
-  url: /reports/figures/pdmp-02/jump_event_rates_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_event_rates_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Jump-process — single-cell mRNA/protein trajectory
-  url: /reports/figures/pdmp-02/jump_gillespie_trajectory_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_gillespie_trajectory_real.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Jump-process inheritance — daughter1 − daughter2 distribution
-  url: /reports/figures/pdmp-02/jump_inheritance_distribution_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_inheritance_distribution_real.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Jump-process inter-event waiting times — exponentiality test
-  url: /reports/figures/pdmp-02/jump_inter_event_waiting_times.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_inter_event_waiting_times.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 multi-gen — cell mass(t) with division events
-  url: /reports/figures/pdmp-02/multigen_cell_mass_trajectories.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_cell_mass_trajectories.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 multi-gen — division time distribution
-  url: /reports/figures/pdmp-02/multigen_division_time_distribution.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_division_time_distribution.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 multi-gen — inheritance distribution
-  url: /reports/figures/pdmp-02/multigen_inheritance_mass_split.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_inheritance_mass_split.html. Inlined
-    into the downloaded report as iframe srcdoc.
+- name: Phase 2 — division time distribution
+  url: /reports/figures/pdmp-02/division_time_distribution.html
+  description: First-passage division-time distribution from the stochastic bisection driver.
+- name: Phase 2 — initial ensemble validation
+  url: /reports/figures/pdmp-02/ensemble_validation.html
+  description: Phase-2 baseline ensemble vs Phase-0 reference before homeostat tuning landed.
+- name: Phase 2 sprint 9 — sparse-injection ensemble validation
+  url: /reports/figures/pdmp-02/ensemble_validation_period60.html
+  description: '60-tick injection period: homeostat washes per-tick variance, confirming the closeout finding.'
+- name: Phase 2 sprint 9 — τ=60 ensemble validation
+  url: /reports/figures/pdmp-02/ensemble_validation_tau60.html
+  description: Same sparse-injection experiment with τ=60 averaging window.
+- name: Phase 2 sprint 2 — discrete vs Poisson trajectory overlay
+  url: /reports/figures/pdmp-02/initiation_modes_comparison.html
+  description: Side-by-side trajectories under the two initiation modes for TranscriptInitiation and PolypeptideInitiation.
+- name: Phase 2 — stochastic gene trajectories
+  url: /reports/figures/pdmp-02/stochastic_gene_trajectories.html
+  description: Per-gene RNA-init + ribosome-init event-stream diagnostic.
+- name: Phase 2 sprint 4 — trajectory-shape divergence
+  url: /reports/figures/pdmp-02/trajectory_divergence.html
+  description: 'max |Δ cell_mass| = 150 fg between configs (transient, single trajectory pair; computed in
+    scripts/trajectory_divergence.py on the cell_mass quantity — NOT at the rnap_data listener). Closeout
+    finding: cell_mass is the WRONG observable for jump-process variance — the consumption_matched
+    homeostat washes per-tick variance out by construction.'
+- name: Phase 2 — trajectory divergence in `discrete` mode
+  url: /reports/figures/pdmp-02/trajectory_divergence_discrete.html
+  description: Same as the aggregate trajectory divergence, restricted to the original discrete-time stochastic branch — for
+    side-by-side comparison with the Poisson mode.
+- name: Phase 2 — trajectory divergence in `poisson` mode
+  url: /reports/figures/pdmp-02/trajectory_divergence_poisson.html
+  description: Same as the aggregate trajectory divergence, restricted to the per-promoter / per-protein Poisson tau-leap
+    branch.
+discovery_implications:
+  resolved_uncertainties:
+  - 'Continuous-time per-promoter / per-protein Poisson tau-leap samplers were implemented and land in
+    `poisson` mode. The "150 fg" headline is max |Delta cell_mass| = 150 fg between configs — a transient
+    on a single trajectory pair, computed in scripts/trajectory_divergence.py on the cell_mass quantity
+    (NOT measured at the rnap_data listener, which is a narrative literal absent from the computing
+    script); and it cuts against this study''s own thesis that cell_mass is the wrong observable.'
+  - 'cell_mass is decisively the WRONG observable for jump-process variance: the consumption_matched
+    homeostat (from Phase 1) washes per-tick variance out of cell_mass by construction. Three controller-
+    tuning attempts (tau-EMA, open-loop, sparse injection) all failed to recover mass variance.'
+  remaining_uncertainties:
+  - 'The original Phase-2 gate `pdmp-trajectory-distribution-match` — trajectory-distribution W2 match to
+    the v2ecoli baseline on cell_mass across all Phase-0 conditions — FAILED: the Poisson cell_mass W2
+    grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the WRONG gate (cell_mass is the
+    wrong observable), a legitimate negative/structural result — but the gate status is FAILED, not
+    passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been
+    formally specified or passed.'
+  - 'The Anderson-Darling Exp(1) exponential-clock verification (>=1e4 inter-event intervals) and the OU
+    first-passage division-trigger validation (KS < 0.02) remain unrun.'
+  alternate_hypotheses:
+  - id: homeostat-is-the-variance-sink
+    statement: 'It is the consumption_matched homeostat specifically (not jump sampling per se) that
+      erases per-tick variance; loosening or disabling the homeostat would restore cell_mass as a usable
+      variance observable.'
+    why_plausible: 'The homeostat actively tracks a reference growth trajectory, so any per-tick
+      fluctuation it sees is corrected within a tick.'
+    mechanism_elements_affected:
+    - consumption_matched-driver
+    - cell_mass-observable
+    - jump-variance-propagation
+    discriminating_observables:
+    - cell_mass CV with the homeostat on vs off under identical jump seeds
+    - count-listener variance (rnap_data, ribosome_data) vs cell_mass variance
+    evidence_for:
+    - Open-loop (homeostat-off) was one of the three tuning attempts.
+    evidence_against:
+    - 'Even open-loop, cell_mass did not become the right inference channel — pointing to counts, not
+      mass, as the signal carrier.'
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: inference-observable (cell_mass -> count-level listeners)
+    update_type: revise
+    rationale: 'Anchor all downstream variance-based inference on count-level listeners (rnap_data,
+      ribosome_data, monomer_counts) rather than cell_mass; the homeostat makes mass variance-blind.
+      This redirected Phase 3.'
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: pdmp-02-count-trajectory-gate
+    title: Count-level trajectory-distribution match as the Phase-2 acceptance gate
+    study_type: criterion_redesign
+    source_trigger: negative_finding
+    proposed_experiment: 'Define and run a trajectory-distribution W2/KS criterion on count-level
+      listeners (transcript/protein initiation counts) vs the v2ecoli baseline, replacing the cell_mass
+      gate the closeout invalidated.'
+    expected_information_gain: high
+    expert_gate_required: true
+  - id: pdmp-02-exponential-clock-validation
+    title: Anderson-Darling Exp(1) exponential-clock + OU first-passage division validation
+    study_type: validation
+    source_trigger: open_deliverable
+    proposed_experiment: 'Verify the cumulative hazard integral of lambda is Exp(1)-distributed over
+      >=1e4 inter-event intervals (A-D, alpha=0.05) and validate the first-passage division trigger
+      against an OU analytical CDF (KS < 0.02).'
+    expected_information_gain: medium
+    expert_gate_required: false
+findings:
+- id: trajectory-match-gate-failed-cellmass-wrong-observable
+  kind: computational
+  status: contradicts
+  statement: 'The Phase-2 trajectory-distribution-match gate FAILED on cell_mass: the Poisson tau-leap
+    Wasserstein-2 grows monotonically rather than converging. The decisive (negative) finding is that
+    cell_mass is the WRONG observable for jump-process variance -- the consumption_matched homeostat
+    washes per-tick variance out by construction -- redirecting Phase-3 inference onto count-level listeners.'
+  evidence:
+    from_run: 'phase2-progress (Poisson tau-leap vs baseline)'
+    observed: 'cell_mass Poisson W2 grows 9.73 -> 15.35 -> 49.46 (monotonic; gate NOT met)'
+  expected:
+    range: [0.0, 9.73]
+  provenance:
+    run_ids: [phase2-progress]
+  next_action: 'Re-anchor the distribution-match test on count-level listeners (rnap_data / ribosome_data / monomer_counts).'
+  next_action_type: refine_representation
+- id: jump-variance-lives-at-count-level
+  kind: computational
+  status: confirms
+  statement: 'Empirical confirmation of the Phase-2 redirect: across 4 seeds at 250 steps, every
+    AGGREGATE observable (cell_mass, dry_mass, total monomer, ATP[c] count) washes out to ~0.028%
+    cross-seed CV, while the DIRECT jump-event count (cumulative transcription-initiation events,
+    rnap_data.rna_init_event) shows 0.85% CV -- ~30x higher. So the jump-process stochasticity is
+    real but lives at the per-event count level, not in aggregate mass/pool observables the
+    consumption_matched homeostat regulates -- which is exactly why Phase-3 inference must anchor on
+    count-level listeners.'
+  evidence:
+    from_run: 'baseline N=4 x 250 steps tick-by-tick (scripts/phase2_count_variance.py)'
+    observed: 'CV: cell_mass 0.0285%, dry_mass 0.0288%, monomer 0.0273%, ATP 0.0283%, cumulative rna_init 0.846% (~30x)'
+  provenance:
+    run_ids: [phase2-count-variance-diagnostic]
+  next_action: 'Build the count-level distribution-match gate (rna_init / monomer counts) as the Phase-2/3 acceptance criterion.'
+  next_action_type: refine_representation
+# --- v4 narrative spine (filled from existing study content; honest, no new results) ---
+runtime:
+  notes: 'Not yet run as a jump-process implementation (simulation_status: not_started, gate: blocked).
+    The committed diagnostics use v2ecoli baseline runs: a Phase-0 N=4 × 8000-step multi-gen ensemble
+    (~74 min) for inheritance/division, and an N=4 × 250-step tick-by-tick run for count-level variance.'
+assumptions:
+- Discrete-time WCM updates can be re-expressed as a continuous-time jump process (transcription, translation, division, competition jumps) with exponential inter-event clocks.
+- A trajectory-distribution match (Wasserstein-2) against the baseline ensemble is the right acceptance gate — but the right OBSERVABLE is count-level, not aggregate mass (see findings).
+- First-passage-time division and binomial inheritance are the load-bearing stochastic structures to reproduce.
+enforced_params:
+- name: implementation_status
+  value: not built — jump-process layer is planned; current evidence is baseline-run diagnostics
+- name: gate
+  value: blocked on the Phase-1 metabolism substitution + a count-level distribution-match gate
+biological_summary: 'Aims to represent the cell''s discrete molecular events (transcription/translation
+  initiation, division, resource competition) as a continuous-time stochastic jump process rather than
+  fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry
+  mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the
+  direct event counts (rna_init) carry ~30× more variance — so the stochasticity lives at the count level.'
+literature_anchors:
+- key: dibaeinia2020
+  relevance: Stochastic gene-expression / network simulation context for the jump-process layer.
+- key: metz1986
+  relevance: First-passage-time / renewal-theory basis for division-time distributions.
+- key: kuritz2017
+  relevance: Inference/identifiability framing for stochastic single-cell dynamics.
+model_change: 'Replace fixed-timestep discrete updates of the stochastic subprocesses with a continuous-time
+  jump-process formulation (exponential clocks per reaction channel). Not yet implemented.'
+implementation_requirements:
+- A jump-process runner with per-channel propensities + exponential inter-event sampling (Gillespie/tau-leap).
+- Anderson-Darling validation of inter-event intervals; OU/analytical first-passage validation for division.
+- A count-level distribution-match gate (rna_init / monomer counts) replacing the cell_mass W2 gate.
+design_pivot_required: 'Yes — a targeted pivot of the ACCEPTANCE OBSERVABLE: the cell_mass trajectory-W2
+  gate failed (Poisson tau-leap W2 grows 9.73 → 49.46, monotonic), and the decisive finding is that
+  cell_mass is the wrong observable; the gate must move to count-level listeners.'
+conclusion_verdicts:
+- claim: The cell_mass trajectory-distribution-match gate is met.
+  verdict: contradicted
+  basis: Poisson tau-leap cell_mass W2 grows monotonically (9.73 → 15.35 → 49.46); gate NOT met.
+- claim: Jump-process stochasticity is observable at the aggregate-mass level.
+  verdict: refuted
+  basis: Aggregate CV ~0.03% vs cumulative rna_init CV 0.85% (~30×); variance lives at the count level.
+- claim: A continuous-time jump-process layer replaces the discrete-time updates.
+  verdict: not_started
+  basis: Implementation is planned; gate blocked. Current evidence is baseline-run diagnostics only.

@@ -1,0 +1,312 @@
+{
+  "schema": "report_card_verdict/v1",
+  "model_ref": "bd2123d2",
+  "reference_model": "vEcoli (v1)",
+  "generated": "2026-06-13 01:37",
+  "overall": "mismatch",
+  "groups": {
+    "physiology": {
+      "verdict": "drift",
+      "axes": [
+        {
+          "id": "physiology.doubling_time",
+          "label": "Doubling time",
+          "verdict": "within_tol",
+          "value": 3032.010752688172,
+          "meter": "\u0394 = -2.2% \u00b7 p = 0.014 \u00b7 d = -0.26",
+          "detail": {
+            "p": 0.014310581590914029,
+            "t": -2.4619718466626965,
+            "cohens_d": -0.2640488397153509,
+            "delta_rel": -0.022483838901209953
+          }
+        },
+        {
+          "id": "physiology.cell_mass",
+          "label": "Cell mass",
+          "verdict": "within_tol",
+          "value": 1507.2086288044986,
+          "meter": "\u0394 = -4.4% \u00b7 p = 0.000 \u00b7 d = -0.65",
+          "detail": {
+            "p": 1.0666898080458097e-09,
+            "t": -6.267402733134003,
+            "cohens_d": -0.6520825266075574,
+            "delta_rel": -0.044490774600759335
+          }
+        },
+        {
+          "id": "physiology.cell_volume",
+          "label": "Cell volume",
+          "verdict": "within_tol",
+          "value": 1.3701896625495442,
+          "meter": "\u0394 = -4.4% \u00b7 p = 0.000 \u00b7 d = -0.65",
+          "detail": {
+            "p": 1.0666898080460362e-09,
+            "t": -6.267402733133967,
+            "cohens_d": -0.6520825266075556,
+            "delta_rel": -0.04449077460075921
+          }
+        },
+        {
+          "id": "physiology.oric",
+          "label": "Replication origins (oriC)",
+          "verdict": "drift",
+          "value": 2.1630682214165717,
+          "meter": "\u0394 = -6.3% \u00b7 p = 0.000 \u00b7 d = -0.81",
+          "detail": {
+            "p": 4.4736566721796024e-13,
+            "t": -7.553576854633926,
+            "cohens_d": -0.8066411005309096,
+            "delta_rel": -0.06301577528039742
+          }
+        },
+        {
+          "id": "physiology.replication_initiation",
+          "label": "Replication initiation",
+          "verdict": "drift",
+          "value": 2296.502762430939,
+          "meter": "\u0394 = -7.2% \u00b7 p = 0.030 \u00b7 d = -0.23",
+          "detail": {
+            "p": 0.03005377618543071,
+            "t": -2.17900813283012,
+            "cohens_d": -0.232770245362972,
+            "delta_rel": -0.07209069105792307
+          }
+        },
+        {
+          "id": "physiology.replication_completion",
+          "label": "Replication completion",
+          "verdict": "within_tol",
+          "value": 2000.6859903381642,
+          "meter": "\u0394 = +4.7% \u00b7 p = 0.004 \u00b7 d = +0.30",
+          "detail": {
+            "p": 0.004234022368157725,
+            "t": 2.8783313116908604,
+            "cohens_d": 0.2954177867578062,
+            "delta_rel": 0.047435018975325906
+          }
+        }
+      ]
+    },
+    "composition": {
+      "verdict": "within_tol",
+      "axes": [
+        {
+          "id": "composition.protein_fraction",
+          "label": "Protein / dry weight",
+          "verdict": "within_tol",
+          "value": 0.4390688666943225,
+          "meter": "\u0394 = +3.3% \u00b7 p = 0.000 \u00b7 d = +0.61",
+          "detail": {
+            "p": 2.5684149015715395e-09,
+            "t": 6.111839400062794,
+            "cohens_d": 0.6108681003100994,
+            "delta_rel": 0.03269663006888033
+          }
+        },
+        {
+          "id": "composition.rna_fraction",
+          "label": "Total RNA / dry weight",
+          "verdict": "within_tol",
+          "value": 0.1284305559895541,
+          "meter": "\u0394 = -1.5% \u00b7 p = 0.000 \u00b7 d = -0.38",
+          "detail": {
+            "p": 0.0001874364135591131,
+            "t": -3.774340997630703,
+            "cohens_d": -0.3786933252730474,
+            "delta_rel": -0.015466667265711845
+          }
+        },
+        {
+          "id": "composition.dna_fraction",
+          "label": "DNA / dry weight",
+          "verdict": "within_tol",
+          "value": 0.018288098167881753,
+          "meter": "\u0394 = +1.0% \u00b7 p = 0.000 \u00b7 d = +0.36",
+          "detail": {
+            "p": 0.00036565921011242817,
+            "t": 3.597462218220473,
+            "cohens_d": 0.3630401618860872,
+            "delta_rel": 0.010203174834018927
+          }
+        }
+      ]
+    },
+    "ribosomes": {
+      "verdict": "drift",
+      "axes": [
+        {
+          "id": "ribosomes.total",
+          "label": "Total ribosomes",
+          "verdict": "drift",
+          "value": 20156.459187441105,
+          "meter": "\u0394 = -5.8% \u00b7 p = 0.000 \u00b7 d = -0.62",
+          "detail": {
+            "p": 6.449287824078217e-09,
+            "t": -5.952106572731489,
+            "cohens_d": -0.6224144100652262,
+            "delta_rel": -0.058399815294197306
+          }
+        },
+        {
+          "id": "ribosomes.active_fraction",
+          "label": "Active fraction",
+          "verdict": "within_tol",
+          "value": 0.8333910047075613,
+          "meter": "\u0394 = +0.1% \u00b7 p = 0.141 \u00b7 d = +0.15",
+          "detail": {
+            "p": 0.14126301824162252,
+            "t": 1.4742941474945184,
+            "cohens_d": 0.15053777233883597,
+            "delta_rel": 0.0009573510149730502
+          }
+        },
+        {
+          "id": "ribosomes.elongation_rate",
+          "label": "Elongation rate",
+          "verdict": "within_tol",
+          "value": 15.465721971120004,
+          "meter": "\u0394 = +0.2% \u00b7 p = 0.800 \u00b7 d = +0.03",
+          "detail": {
+            "p": 0.7996245087668638,
+            "t": 0.25401794689489576,
+            "cohens_d": 0.025717608837449744,
+            "delta_rel": 0.002395627771988866
+          }
+        },
+        {
+          "id": "ribosomes.production",
+          "label": "Ribosome production (rRNA init)",
+          "verdict": "drift",
+          "value": 4.179683183723491,
+          "meter": "\u0394 = -8.7% \u00b7 p = 0.000 \u00b7 d = -0.42",
+          "detail": {
+            "p": 6.123127584769601e-05,
+            "t": -4.055609986149728,
+            "cohens_d": -0.41704401776542,
+            "delta_rel": -0.08739243116946979
+          }
+        }
+      ]
+    },
+    "gene_expression": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "omics.transcriptome",
+          "label": "Transcriptome (mRNA cistron counts)",
+          "verdict": "mismatch",
+          "value": 0.9461466054439908,
+          "meter": "R\u00b2 = 0.9461",
+          "detail": {
+            "r2": 0.9461466054439908,
+            "n": 4156
+          }
+        },
+        {
+          "id": "omics.proteome",
+          "label": "Proteome (monomer counts)",
+          "verdict": "drift",
+          "value": 0.9613181173126263,
+          "meter": "R\u00b2 = 0.9613",
+          "detail": {
+            "r2": 0.9613181173126263,
+            "n": 4170
+          }
+        }
+      ]
+    },
+    "exchange_fluxes": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "fluxes.exchange",
+          "label": "Exchange-flux fingerprint",
+          "verdict": "within_tol",
+          "value": 0.9988523826936855,
+          "meter": "R\u00b2 = 0.9989 \u00b7 40 matched \u00b7 0 appeared \u00b7 0 lost \u00b7 6 sub-floor",
+          "detail": {
+            "r2": 0.9988523826936855,
+            "appeared": [],
+            "disappeared": [],
+            "sub_floor": [
+              5,
+              46,
+              48,
+              53,
+              66,
+              85
+            ],
+            "n_matched": 40,
+            "qual_eps": 0.001
+          }
+        },
+        {
+          "id": "fluxes.glucose",
+          "label": "Glucose exchange",
+          "verdict": "within_tol",
+          "value": -5.17065087970017,
+          "meter": "\u0394 = -4.4% \u00b7 p = 0.000 \u00b7 d = +0.41",
+          "detail": {
+            "p": 8.649470116643726e-05,
+            "t": 3.9701543448413985,
+            "cohens_d": 0.4054153797825962,
+            "delta_rel": -0.043983769417838714
+          }
+        },
+        {
+          "id": "fluxes.o2",
+          "label": "O\u2082 exchange",
+          "verdict": "mismatch",
+          "value": -0.4524350140031308,
+          "meter": "\u0394 = -40.4% \u00b7 p = 0.000 \u00b7 d = +0.89",
+          "detail": {
+            "p": 7.726651684433857e-16,
+            "t": 8.462353113121212,
+            "cohens_d": 0.8894835647383195,
+            "delta_rel": -0.4038112586596543
+          }
+        },
+        {
+          "id": "fluxes.nitrogen",
+          "label": "Ammonium (N source) exchange",
+          "verdict": "within_tol",
+          "value": -7.062624955827815,
+          "meter": "\u0394 = -2.4% \u00b7 p = 0.020 \u00b7 d = +0.24",
+          "detail": {
+            "p": 0.020165720691467378,
+            "t": 2.333445700917453,
+            "cohens_d": 0.2370144292154519,
+            "delta_rel": -0.023673846589656638
+          }
+        },
+        {
+          "id": "fluxes.co2",
+          "label": "CO\u2082 exchange",
+          "verdict": "mismatch",
+          "value": 1.7050836539614134,
+          "meter": "\u0394 = -20.3% \u00b7 p = 0.000 \u00b7 d = -0.87",
+          "detail": {
+            "p": 1.5438357386287004e-15,
+            "t": -8.348516513747903,
+            "cohens_d": -0.8662810628168569,
+            "delta_rel": -0.20270607378612565
+          }
+        },
+        {
+          "id": "fluxes.acetate",
+          "label": "Acetate exchange (overflow sentinel)",
+          "verdict": "drift",
+          "value": 2.223341613596022e-06,
+          "meter": "\u0394 = -48.3% \u00b7 p = 0.460 \u00b7 d = -0.08",
+          "detail": {
+            "p": 0.4595956364015984,
+            "t": -0.7405168022448564,
+            "cohens_d": -0.08078121460752256,
+            "delta_rel": -0.4831616641599274
+          }
+        }
+      ]
+    }
+  }
+}

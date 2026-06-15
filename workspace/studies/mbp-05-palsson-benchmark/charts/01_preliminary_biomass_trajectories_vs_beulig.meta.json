@@ -1,0 +1,7 @@
+{
+  "title": "Biomass trajectories (cpa=1/1e6/1e9) vs Beulig 2025 batch endpoint",
+  "caption": "log-y population.biomass_concentration_gL(t) for cpa \u2208 {1, 1e6, 1e9} v2ecoli runs alongside Beulig 2025's batch-phase endpoint band at t=6h. Time-series counterpart to chart 00.",
+  "simulations": "aggregator-cpa1/1e6/1e9-multigen (60 sim-min, 2 gen, seed=0).",
+  "interpretation": "Visual rendering of the 4-5 order density-gap at the same time-axis as Beulig's batch endpoint. v2ecoli's 60-min trajectories end far below Beulig's 6-h endpoint band, and the slopes don't suggest the gap would close with a 6x duration extension \u2014 per-cell mass plateaus after ~1 generation in the M9-glucose calibration regime. Closing the gap needs the architectural moves listed in chart 00's meta (longer duration via fed-batch / impossibly-large cpa / candidate surrogate engine in mbp-06).",
+  "preliminary": true
+}

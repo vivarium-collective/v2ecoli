@@ -1,0 +1,140 @@
+schema_version: 2
+name: parameter-uq
+title: "Parameter UQ — global sensitivity of v2ecoli"
+created: '2026-06-12'
+status: running
+
+question: |
+  Which sim_data parameters drive variance in v2ecoli single-cell observables?
+  Starting with the ribosome-elongation subsystem, forward uncertainty
+  quantification (PCRV-sampled PCE surrogate + analytic Sobol indices) identifies
+  which elongation knobs most control mass/growth variance, setting a template for
+  a systematic global-sensitivity sweep across the full parameter space.
+
+hypothesis: |
+  Among ribosome-elongation parameters, the energetic cost of elongation
+  (gtpPerElongation) — not raw elongation speed — is the dominant lever on
+  single-cell mass/growth, because GTP availability couples translation to the
+  cell's energy budget. Forward UQ should surface a single dominant driver
+  (total-order Sobol ≥ 0.5) rather than a diffuse, evenly-shared sensitivity.
+
+executive:
+  what_is_this: |
+    A multi-study forward UQ investigation using the pbg-uq package to identify
+    dominant sources of parameter-driven variance in the v2ecoli whole-cell
+    baseline. The program proceeds in a structured graph:
+
+    1. param-uq-00-screen (EXECUTED): A low/high parameter screen over 7
+       config-reachable knobs identifies the 3 that actually move instantaneous
+       growth rate (>2% response), defining the effective UQ surface.
+
+    2. param-uq-01-elongation (EXECUTED): Full PCE-based forward UQ on the 3
+       effective knobs (120-step window, n=30+10, 3 PCRV seeds) confirms that
+       basal_elongation_rate dominates (Sobol ≈ 0.97), correcting an earlier
+       artifact (v2ecoli PR #197).
+
+    3. param-uq-02-observables (EXECUTED): Over a 360-step window the mass
+       observables become responsive and basal_elongation_rate dominates them
+       (dry_mass/cell_mass Sobol ~0.86). Discovery: the growth-rate ranking is
+       window-dependent — kS overtakes basal_elongation_rate by 360 steps.
+
+    4. param-uq-03-growth-stratified (PLANNED): Cell-cycle-stratified Sobol
+       analysis (10 θ bins, birth→division) to determine whether parameter
+       influence is uniform or episodic across the cell cycle (RFC006 strategy 4).
+       Requires multi-generation runs (~2760 steps/gen) and a pbg-uq strategy
+       extension.
+
+    5. param-uq-04-deep-params (PLANNED): Sensitivity to the deeper
+       SimulationDataEcoli physiological parameters (RNAP fractions, FBA weights,
+       mass fractions) via sim_data-level injection + per-sample ParCa cache
+       rebuild. Needs a new pbg-uq injection adapter.
+  verdict: |
+    The ribosome's translation basal_elongation_rate robustly DOMINATES variance in
+    instantaneous growth rate among the effective config-reachable elongation knobs
+    — total-order Sobol ≈ 0.97 (stable across 3 PCRV seeds, range 0.955–0.987), vs
+    ppGpp-synthesis kS ≈ 0.04 and DNA-pol elongation rate ≈ 0.01, with a near-
+    perfect surrogate fit (~1.7% test error). The original hypothesis (GTP cost
+    dominates) is REFUTED: that 0.88 reading was a state-carryover artifact (fixed
+    in v2ecoli PR #197), and gtpPerElongation / ribosomeElongationRate turned out
+    to be inert. The pipeline is now trustworthy end-to-end.
+  verdict_status: passed
+  verdict_detail: |
+    param-uq-01-elongation PASSES (gate passed) after a full root-cause + redesign:
+    fixed the carryover bug (PR #197), screened parameters to the 3 that actually
+    affect the sim, switched to the responsive observable (instantaneous growth
+    rate), and ran an adequate, robustness-checked budget (n=30+10, 3 seeds). The
+    finding is mechanistically expected — basal_elongation_rate directly sets
+    ribosome speed → protein-synthesis flux → growth rate.
+
+    The broader program is underway: param-uq-00-screen (EXECUTED) established the
+    effective parameter surface; param-uq-02-observables (EXECUTED) tested
+    multi-observable robustness at 360 steps; param-uq-03-growth-stratified and
+    param-uq-04-deep-params are PLANNED — the former requires multi-generation
+    runs + pbg-uq strategy extension, the latter requires sim_data injection +
+    ParCa-level cache rebuilds. The core elongation finding stands while the
+    roadmap executes.
+  decisions_needed:
+  - question: Expand to the DEEP sim_data physiological parameters (ParCa-level injection)?
+    context: |
+      This study varied only config-reachable top-level knobs. The richer
+      physiological params (kinetic rates, mass fractions) need sim_data-level
+      mutation + cache rebuild — a heavier path that would broaden the sensitivity map.
+
+scientific_argument:
+  main_claim: |
+    Among effective config-reachable elongation knobs, the ribosome's translation
+    basal_elongation_rate robustly dominates instantaneous-growth-rate variance
+    (Sobol ≈ 0.97).
+  evidence_for:
+  - "Total-order Sobol of basal_elongation_rate = 0.966 (range 0.955–0.987 across 3 PCRV seeds); dominant knob identical every seed (argmax [0,0,0])."
+  - "first-order ≈ total (0.956 vs 0.966) → the effect is overwhelmingly direct, little interaction."
+  - "PCE surrogate test relative error 1.3–2.1% → the variance attribution is well-supported."
+  - "Mechanistically expected: basal_elongation_rate sets ribosome speed → protein synthesis → growth rate."
+  evidence_against:
+  - "Scope: only config-reachable top-level knobs were varied; deep sim_data physiological params (kinetic rates, mass fractions) need ParCa-level injection and were not tested."
+  - "Observable is instantaneous growth rate over a 120-step window (~4% of a generation); mass observables don't respond at this window, and longer windows could shift weights."
+  key_figures:
+  - "charts/sobol_indices.png — Sobol bars (across-seed whiskers): basal_elongation_rate ≈ 0.97 dominant."
+  - "charts/pce_response_curves.png — growth rate rises with basal_elongation_rate; flat vs kS and DNA-pol rate."
+  caveats:
+  - "This CORRECTS an earlier artifact; the original demo's 'GTP-dominant 0.88' was a carryover bug (v2ecoli PR #197), and 2 of its 3 params were inert."
+
+at_a_glance:
+- study: param-uq-00-screen
+  role: "Foundational parameter screen: identifies the 3 config-reachable knobs that actually move growth rate (>2% response) and excludes 4 inert ones, defining the effective UQ surface for studies 01–03."
+- study: param-uq-01-elongation
+  role: "Robustly finds translation basal_elongation_rate dominates growth-rate variance (Sobol ≈ 0.97) among effective elongation knobs — after fixing the carryover bug (PR #197) and screening to effective params."
+- study: param-uq-02-observables
+  role: "EXECUTED: basal_elongation_rate dominance HOLDS for mass observables (dry_mass/cell_mass Sobol ~0.86) over a 360-step window; KEY DISCOVERY — the growth-rate ranking is window-dependent (kS overtakes basal by 360 steps)."
+- study: param-uq-03-growth-stratified
+  role: "PLANNED: determines whether parameter influence on growth/mass is uniform or stage-dependent across the cell cycle (10 θ bins, requires multi-gen runs + pbg-uq extension)."
+- study: param-uq-04-deep-params
+  role: "PLANNED: extends UQ to deep SimulationDataEcoli physiological parameters (RNAP fractions, FBA weights, mass fraction) via ParCa-level injection — out of reach of the current config_overrides path."
+
+biological_story: |
+  Translation is one of the cell's largest energy sinks, so it is natural to ask
+  which elongation dial most shapes how fast a cell grows. After a careful redesign
+  — fixing a state-carryover bug that had faked the original signal, screening to
+  the parameters that actually move the simulation, and using instantaneous growth
+  rate as the observable — forward uncertainty quantification gives a clear,
+  robust answer: the ribosome's basal elongation rate dominates, accounting for
+  ~97% of the growth-rate variance among these knobs, far above ppGpp synthesis or
+  the DNA-polymerase rate. That makes biological sense — basal_elongation_rate
+  directly sets how fast ribosomes add amino acids, which sets the protein-synthesis
+  flux that drives growth. The path here is also a cautionary tale: the very first
+  "answer" (GTP cost dominates) was an artifact, and only end-to-end correctness —
+  independent samples, effective parameters, a responsive observable, an adequate
+  budget — turned a misleading number into a trustworthy one.
+
+studies:
+- param-uq-00-screen
+- param-uq-01-elongation
+- param-uq-02-observables
+- param-uq-03-growth-stratified
+- param-uq-04-deep-params
+
+acceptance_criteria:
+- study: param-uq-00-screen
+  behavior: screen-identifies-effective-knobs
+- study: param-uq-01-elongation
+  behavior: single-elongation-knob-robustly-dominates

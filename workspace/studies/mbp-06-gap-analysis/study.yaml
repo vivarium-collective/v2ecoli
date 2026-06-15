@@ -1043,3 +1043,9 @@ conclusion_logic:
     All five axes covered with per-axis floors met (A6/B2/C2/D3/E2), every gap carries a resolution_type+venue (+decision_authority for scope_decision), a provenance, and all four mandatory carried priors are incorporated -> the gap taxonomy is accepted as the next-iteration roadmap. Drive the next cycle from the priority-1 gaps: the both-daughters population runner + fed-batch (batch-scale architectural gap), Millard kinetic calibration to division, and the pbg-bioreactordesign fed-batch PR.
   if_primary_tests_fail: |-
     If an axis floor is unmet or a gap lacks a resolution/provenance, the synthesis is incomplete: re-walk the upstream mbp-01..07 limitations/open_questions and the beulig_batch report cards for the missed axis before locking the taxonomy (see failure_modes).
+# >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
+embed_visualizations:
+- name: "Gap inventory — 15 gaps by axis (interactive)"
+  url: "/reports/figures/mbp-06-gap-analysis/gap_inventory_interactive.html"
+  description: "The 15-gap synthesis grouped by axis; hover for each gap's title and status. Makes the gap landscape scannable at a glance."
+# <<< interactive-plotly embeds <<<

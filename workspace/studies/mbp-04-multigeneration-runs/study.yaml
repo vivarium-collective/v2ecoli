@@ -412,3 +412,9 @@ conclusion_verdicts:
 - verdict: PENDING
   statement: Not yet built or run — blocked on mbp-03. Glucose-pool / cells_per_agent pairing and wall-clock budget to be calibrated from the first real run.
   evidence: 'open_questions glucose-pool-sizing + wall-clock-budget-target (status: open); runs: [].'
+# >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
+embed_visualizations:
+- name: "Multi-generation accumulation — WCM x53 over 6 generations vs Millard flat (interactive)"
+  url: "/reports/figures/mbp-04-multigeneration-runs/biomass_accumulation_interactive.html"
+  description: "The headline result. WCM-FBA divides 5x to 6 generations, representative biomass x53 (the representative_doubling path toward batch scale); Millard-ODE stays at gen 1 (x1.04) — the documented inherent reduced-model slow-growth. Toggle arms in the legend; hover for per-step mass."
+# <<< interactive-plotly embeds <<<

@@ -804,3 +804,15 @@ conclusion_verdicts:
 - verdict: PENDING
   statement: Full comparison overlays (~13 surfaces) + four-category divergence triage not yet produced — awaits req-2 comparison harness; divergences will seed mbp-06 gaps.
   evidence: 'simulation_set palsson-matched-batch (status: planned); behavior_tests *-comparison-rendered all planned.'
+# >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
+embed_visualizations:
+- name: "3-arm Beulig overlay — WCM-FBA / Millard / iML1515 vs reference (interactive)"
+  url: "/reports/figures/mbp-05-palsson-benchmark/beulig_3arm_biomass_overlay_interactive.html"
+  description: "Sim arms vs the Beulig 2025 batch reference for biomass/growth. Each arm is a toggleable trace; the published reference is shown as markers. Makes the ~3-order batch-scale gap directly comparable."
+- name: "Byproduct reference — secretion vs Beulig peaks (interactive)"
+  url: "/reports/figures/mbp-05-palsson-benchmark/beulig_byproduct_reference_interactive.html"
+  description: "Byproduct trajectories (acetate/lactate/formate/...) against the Beulig reference peaks. Hover for values; toggle species in the legend."
+- name: "Report-card verdict heatmap — graded axes (interactive)"
+  url: "/reports/figures/mbp-05-palsson-benchmark/beulig_verdict_heatmap_interactive.html"
+  description: "groups x axes colored within_tol / drift / mismatch from report_card_verdict.json; hover for the per-axis sim/ref/tolerance detail. The graded summary of the 3-arm comparison."
+# <<< interactive-plotly embeds <<<

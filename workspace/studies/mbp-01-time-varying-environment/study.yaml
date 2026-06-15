@@ -850,3 +850,9 @@ conclusion_verdicts:
   statement: Quantitative transport-kinetics fidelity (GUR-vs-[glucose] shape, mu response near Km, acetate at sub-Vmax 
     DO) is out of scope.
   evidence: limitations[0]; routed to mbp-06 axis A transport-kinetics-fidelity candidate-future-study.
+# >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
+embed_visualizations:
+- name: "Environment coupling — uptake & growth track the medium (interactive)"
+  url: "/reports/figures/mbp-01-time-varying-environment/env_coupling_interactive.html"
+  description: "baseline WCM, 40 steps: glucose & O2 uptake fluxes and the FBA growth objective respond to the external medium. Hover for per-step values; toggle traces in the legend. Establishes that the cell is environment-responsive — the prerequisite for reactor coupling."
+# <<< interactive-plotly embeds <<<

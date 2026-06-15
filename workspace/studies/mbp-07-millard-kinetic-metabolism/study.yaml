@@ -366,3 +366,12 @@ simulation_set:
   - wcm-growth-axes-graded-vs-beulig
   - wcm-gas_transfer-axes-graded-vs-beulig
   status: smoke_run
+# >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
+embed_visualizations:
+- name: "Metabolism-swap growth — cell_mass + central fluxes under Millard (interactive)"
+  url: "/reports/figures/mbp-07-millard-kinetic-metabolism/metabolism_swap_growth_interactive.html"
+  description: "baseline_millard, 60 steps: cell_mass and live Millard central-carbon fluxes with the kinetic ODE replacing FBA. Hover/zoom; toggle fluxes."
+- name: "Millard env-responsiveness — PTS uptake vs external glucose (interactive)"
+  url: "/reports/figures/mbp-07-millard-kinetic-metabolism/env_responsiveness_interactive.html"
+  description: "Glucose sweep: the Millard PTS uptake flux responds to external glucose (0.05 to 50 mM), confirming the kinetic arm is environment-coupled."
+# <<< interactive-plotly embeds <<<

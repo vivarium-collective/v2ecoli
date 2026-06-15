@@ -625,3 +625,9 @@ conclusion_verdicts:
 - verdict: PENDING
   statement: Coupling not yet built or run — blocked on mbp-01/mbp-02 impl + the upstream pbg-bioreactor-transport-fork PR.
   evidence: 'pipeline_gate.prerequisites includes pbg-bioreactor-transport-fork (upstream); runs: [].'
+# >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
+embed_visualizations:
+- name: "Reactor-cell coupling — dissolved O2 falls under cell load (interactive)"
+  url: "/reports/figures/mbp-03-bird-reactor-coupling/reactor_coupling_interactive.html"
+  description: "reactor_bird_coupled: the BiRD reactor's dissolved O2 and biomass over time as the cell draws O2/glucose and secretes byproducts through the ReactorCellCoupler. The keystone bidirectional coupling, now interactive (hover/zoom/toggle)."
+# <<< interactive-plotly embeds <<<

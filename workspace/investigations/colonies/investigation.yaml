@@ -25,8 +25,9 @@ hypothesis: |
   processes, not cells per process.
 
 description: |
-  Two-study investigation to certify the colony composite for HPC
-  deployment.
+  Investigation to certify the colony composite for HPC deployment. One study
+  is complete (colonies-01-hpc-readiness); a second (colonies-02-hpc-deployment)
+  is planned.
 
   Study 1 — colonies-01-hpc-readiness (this study):
     Build phase: fix daughter-process hydration so structural _add

@@ -23,6 +23,14 @@ IMAGE="ghcr.io/vivarium-collective/sms-ptools:0.8.2"
 NAME="sms-ptools"
 URL="http://localhost:1555/overviewsWeb/celOv.shtml?orgid=ECOLI"
 MIN_VM_GIB=6
+# Mount this repo's workspace into the container so the dashboard "Launch in
+# Omics Viewer" button works: the image reads the omics file from its OWN
+# filesystem (it does not fetch a URL), so the dashboard launcher passes a
+# server-local path /ptools-data/workspace/... (ui.ptools_data_dir=/ptools-data
+# in workspace.yaml). The CLI launcher (ptools_launch.sh) docker-cp's the file
+# instead, so it works with or without this mount.
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKSPACE_MOUNT="${PTOOLS_WORKSPACE_MOUNT:-$REPO_ROOT/workspace}"
 
 ensure_runtime() {
   if ! docker info >/dev/null 2>&1; then
@@ -42,7 +50,8 @@ ensure_runtime() {
 run_fresh() {
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   docker run -d --platform linux/amd64 --name "$NAME" --restart unless-stopped \
-    -e SERVER_HOST_NAME=localhost -p 1555:1555 -p 5008:5008 "$IMAGE" >/dev/null
+    -e SERVER_HOST_NAME=localhost -p 1555:1555 -p 5008:5008 \
+    -v "$WORKSPACE_MOUNT:/ptools-data/workspace:ro" "$IMAGE" >/dev/null
 }
 
 wait_ready() {

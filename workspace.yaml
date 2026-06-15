@@ -62,3 +62,18 @@ dashboard:
   data_sources:
     provider: "v2ecoli.dashboard_sources:enumerate_sources"
     label: "ecoli-sources"
+
+# Pathway Tools Omics Viewer launcher (Analyses tab → "PTools" card).
+# Points at the local sms-ptools container
+# (ghcr.io/vivarium-collective/sms-ptools, Cellular Overview on :1555). The
+# dashboard's default Omics-Viewer URL template targets this exact build, so no
+# template override is needed. Run the container, then the card launches the
+# Omics Viewer with a study's ptools TSVs overlaid on the E. coli metabolic map.
+ui:
+  ptools_server_url: "http://localhost:1555"
+  # When launching with data, the PTools container fetches the TSV from this
+  # dashboard over HTTP, so it must point at a host the *container* can reach —
+  # e.g. http://host.docker.internal:<dashboard-port>. Unset = inferred from the
+  # browser's Host header, which the container can't resolve. Uncomment + set
+  # your dashboard port once a study emits ptools TSVs (studies/<n>/**/ptools/*.tsv).
+  # dashboard_public_base_url: "http://host.docker.internal:8771"

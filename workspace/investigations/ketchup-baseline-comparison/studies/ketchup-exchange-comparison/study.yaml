@@ -76,6 +76,16 @@ report:
   # The same cards are mirrored to reports/figures/ketchup-exchange-comparison/
   # so the dashboard report generator auto-embeds them as iframe figures.
 
+# Structured bibliography (resolved in references/papers.bib) so the report's
+# References section renders the kinetic-model + estimator sources this study
+# compares against, which were previously named only in the run-outcome prose:
+# Millard 2017 (the central-carbon kinetic ODE) and K-FIT / Gopalakrishnan 2020
+# (the IPOPT estimator that fits the KETCHUP k-ecoli74 / k-ecoli307 models).
+bibliography:
+  bib_keys:
+  - millard2017
+  - gopalakrishnan2020
+
 assumptions:
 - text: |
     The pinned population_phenotype_basal reference (20-seed baseline ensemble
@@ -165,6 +175,7 @@ tests:
     kind: flux_scatter
     reference: KETCHUP k-ecoli74
     detail: "Identity-line R^2 over the 6 shared glucose-normalized central-carbon exchange fluxes, plus appeared/disappeared, via report_card.py."
+  cites: [gopalakrishnan2020]   # KETCHUP k-ecoli74 is fit by the K-FIT estimator
   pass_if:
     op: correlates
     r2_min: 0.8
@@ -176,6 +187,7 @@ tests:
     kind: flux_scatter
     reference: KETCHUP k-ecoli307
     detail: "Whole-vector flux_scatter R^2 + per-metabolite rel_tol (O2/CO2/NH3) vs KETCHUP k-ecoli307, via report_card.py."
+  cites: [gopalakrishnan2020]   # KETCHUP k-ecoli307 is fit by the K-FIT estimator
   pass_if:
     op: correlates
     r2_min: 0.8
@@ -187,6 +199,7 @@ tests:
     kind: flux_scatter
     reference: Millard 2017 ODE
     detail: "Whole-vector flux_scatter R^2 vs the Millard 2017 central-carbon ODE (glucose + acetate only), via report_card.py."
+  cites: [millard2017]   # the Millard 2017 kinetic ODE this band is anchored to
   pass_if:
     op: correlates
     r2_min: 0.8

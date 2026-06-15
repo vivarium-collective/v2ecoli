@@ -179,6 +179,17 @@ biological_summary: |
 literature_anchors:
 - {cite: macklin2020, note: "The Covert-lab whole-cell model; the baseline (variant 0) and its Toya-2010 FBA-flux + Schmidt/Wisniewski proteome validation surfaces come from this WCM."}
 
+# Structured bibliography (resolved in references/papers.bib) so the report's
+# References section renders the validation-data anchors this study reports
+# against per variant: Toya 2010 (central-carbon FBA flux r), Schmidt 2016 +
+# Wisniewski 2014 (proteome r).
+bibliography:
+  bib_keys:
+  - macklin2020
+  - toya2010
+  - schmidt2016
+  - wisniewski2014
+
 model_change: |
   Four process-level perturbations against the baseline (see enforced_params /
   conditions.variants): ppGpp regulation toggle, dnaA (TU00259[c]) init-prob 2x,

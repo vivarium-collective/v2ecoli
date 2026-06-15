@@ -1,7 +1,0 @@
-{
-  "title": "Distribution of doubling times across the ensemble",
-  "caption": "Doubling-time histogram across seeds and generations.",
-  "interpretation": "The distribution shows the true ~43 min gen-1 mode plus a longer gen-2 mode inflated by the step-window cap. The physiologically meaningful gen-1 mode sits in the expected band for the baseline glucose condition.",
-  "source_run": "showcase2-baseline-ensemble",
-  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
-}

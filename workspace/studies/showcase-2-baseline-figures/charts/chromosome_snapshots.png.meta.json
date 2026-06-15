@@ -1,8 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-chromo",
-  "rendered_at": 1781204571.833175,
-  "title": "Chromosome state at three points across the seed-0 lineage",
-  "interpretation": "Chromosome state at three points across the seed-0 lineage (t=2/23/42 min): oriC (green), Ter (red), replisomes (gold), replication bubbles (green arcs), and RNA polymerases (blue) now placed ON the replication bubbles (replicating arms) as well as the rim, via the per-step chromosome-domain tree.",
-  "command": "scripts/render_chromosome_snapshots.py over .pbg/runs/showcase2-baseline-chromo (2 seeds x 3 gens, emitted with V2ECOLI_EMIT_UNIQUE=1 so the active_RNAP / active_replisome / full_chromosome unique coordinate columns are present); reuses v2ecoli.visualizations.workflow ._plot_chromosome_map; matplotlib -> PNG/SVG.",
-  "caption": "Chromosome state at three points across the seed-0 lineage (t=2/23/42 min): oriC (green), Ter (red), replisomes (gold), replication bubbles (green arcs), and RNA polymerases (blue) now placed ON the replication bubbles (replicating arms) as well as the rim, via the per-step chromosome-domain tree."
+  "title": "Chromosome replication state across the cell cycle",
+  "caption": "oriC count (1->2->4) and replication-fork positions vs time, both seeds.",
+  "interpretation": "The red step trace shows the number of replication origins rising 1->2->4 at initiation events while blue points show replication-fork positions sweeping from oriC toward terC; division resets the state. The regular oriC-doubling and fork sweeps in both seeds confirm coordinated, once-per-cell-cycle replication initiation.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
 }

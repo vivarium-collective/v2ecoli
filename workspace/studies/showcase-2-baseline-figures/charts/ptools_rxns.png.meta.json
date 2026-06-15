@@ -1,7 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-clean",
-  "rendered_at": 1781180776.627669,
   "title": "Metabolic reaction-flux heatmap (reaction x timepoint)",
-  "interpretation": "FBA base-reaction fluxes across the cell cycle (seed 0, gen 1); |flux| on a log10 color scale with reactions sorted by magnitude. The active band (top) vs inactive reactions (bottom) is legible; fluxes are stable across the cycle.",
-  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+  "caption": "FBA reaction fluxes across the cell cycle as a reaction-by-timepoint heatmap.",
+  "interpretation": "Per-reaction FBA fluxes over the cell cycle (seed 0, gen 1) as a reaction-by-timepoint heatmap; most fluxes are stable across the cycle with the expected central-carbon reactions carrying the highest flux. A qualitative ProtoolsViz-style metabolic overview.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
 }

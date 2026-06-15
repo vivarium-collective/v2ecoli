@@ -1,7 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-clean",
-  "rendered_at": 1781237205.86639,
-  "title": "Distribution of doubling times across the ensemble (cap-immune)",
-  "interpretation": "Histogram of the cap-immune instantaneous doubling time t2 = ln(2)/mu over all emitted timesteps in the 2-seed x 3-gen ensemble (many samples). Tight distribution centred near ~52 min; immune to the final-generation step-cap truncation that biased the old per-cell-span histogram toward a spurious low-end bin.",
-  "command": "scripts/render_showcase2.py doubling_time_{line,hist}: cap-immune instantaneous t2=ln(2)/mu trace over the clean showcase2 sweep parquet; Altair->PNG/SVG via vl_convert."
+  "title": "Distribution of doubling times across the ensemble",
+  "caption": "Doubling-time histogram across seeds and generations.",
+  "interpretation": "The distribution shows the true ~43 min gen-1 mode plus a longer gen-2 mode inflated by the step-window cap. The physiologically meaningful gen-1 mode sits in the expected band for the baseline glucose condition.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
 }

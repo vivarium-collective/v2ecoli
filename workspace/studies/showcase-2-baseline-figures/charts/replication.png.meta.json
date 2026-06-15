@@ -1,7 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-clean",
-  "rendered_at": 1781180776.232894,
-  "title": "Chromosome replication across a lineage (oriC 2->4->2)",
-  "interpretation": "oriC / replisome / fork dynamics across the seed-0 3-generation lineage. Replication initiates and completes each generation; oriC doubles then halves at division.",
-  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+  "title": "Chromosome replication across a lineage (seed 0)",
+  "caption": "Fork positions, fork pairs, oriC count and dry mass over a seed-0 lineage.",
+  "interpretation": "Multi-panel replication view for the seed-0 lineage: DNA-polymerase fork positions sweep oriC->terC, replication-fork pairs and the oriC count rise 2->4 then reset to 2 at division, tracking dry-mass growth. Confirms the expected coordinated replication program.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
 }

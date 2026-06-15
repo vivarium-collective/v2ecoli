@@ -1,7 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-clean",
-  "rendered_at": 1781180774.48125,
-  "title": "Cell dry mass over the cell cycle (3 clean generations)",
-  "interpretation": "Per-cell growth-and-division across the clean 2-seed x 3-generation baseline ensemble (variant 0). Each line is one cell's monotonic growth ramp coloured by generation; gen-1/gen-2/gen-3 cells each grow ~a doubling of mass and divide. With the clean phylogeny (gen1 agent=0 / gen2 agent=00 / gen3 agent=000) and the #173 last-generation fix, all three generations render as distinct clean ramps (no folded gen-2 / missing gen-3).",
-  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+  "title": "Cell dry mass over the cell cycle",
+  "caption": "Sawtooth single-cell growth and division across the 2-seed x 2-gen ensemble.",
+  "interpretation": "Cell dry mass grows exponentially and halves at each division (gen-1 ~390->680 fg, dividing at ~43 min; gen-2 repeats the mass-halving). The clean sawtooth confirms exponential single-cell growth with division near a doubling of mass.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
 }

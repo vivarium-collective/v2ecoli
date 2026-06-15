@@ -1,7 +1,0 @@
-{
-  "title": "ppGpp pool over the cell cycle (both seeds)",
-  "caption": "ppGpp concentration settles into a steady ~60-70 uM band.",
-  "interpretation": "ppGpp concentration trajectories for both seeds: from a ~26 uM startup the pool rises into a steady ~60-70 uM band (median ~67 uM, max ~83 uM). The stable ppGpp pool indicates a balanced stringent-response signal at steady growth.",
-  "source_run": "showcase2-baseline-ensemble",
-  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
-}

@@ -1,7 +1,0 @@
-{
-  "title": "Cell dry mass over the cell cycle",
-  "caption": "Sawtooth single-cell growth and division across the 2-seed x 2-gen ensemble.",
-  "interpretation": "Cell dry mass grows exponentially and halves at each division (gen-1 ~390->680 fg, dividing at ~43 min; gen-2 repeats the mass-halving). The clean sawtooth confirms exponential single-cell growth with division near a doubling of mass.",
-  "source_run": "showcase2-baseline-ensemble",
-  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
-}

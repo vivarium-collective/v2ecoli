@@ -1,7 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-clean",
-  "rendered_at": 1781185351.873888,
-  "title": "tRNA charged fraction over the cell cycle (all seeds)",
-  "interpretation": "Mean charged-tRNA fraction (averaged across the 86 tRNA species) over the cell cycle across both seeds / three generations; remains high (~0.95-0.98).",
-  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
+  "title": "tRNA charged fraction over the cell cycle (both seeds)",
+  "caption": "Mean tRNA charging stays high (~0.97) throughout the cell cycle.",
+  "interpretation": "Mean fraction of charged tRNA (averaged over the 86 tRNA species, shaded band = per-species range) stays high at ~0.97 (median 0.966) for both seeds across the cell cycle. High, stable charging is consistent with amino-acid-replete exponential growth.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
 }

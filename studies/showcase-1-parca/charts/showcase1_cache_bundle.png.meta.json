@@ -1,7 +1,0 @@
-{
-  "source_run_id": "showcase1-parca-full-2026-06-09",
-  "rendered_at": 1781063835.685262,
-  "title": "ParCa cache bundle contents (out/cache-showcase)",
-  "command": ".venv/bin/python studies/showcase-1-parca/sims/fig3_cache_bundle.py --cache out/cache-showcase --out studies/showcase-1-parca/charts",
-  "interpretation": "The four cache-bundle artifacts all present: initial_state.json (10.39 MB), sim_data_cache.dill (164.92 MB), metadata.json (210 B), cache_version.json (1.1 KB). initial_state has 16321 bulk molecule species + 11 unique molecule types across 4 top-level stores (bulk/unique/environment/boundary). All four are required for showcase-2 to resume. NB: the cache_version artifact ships as cache_version.json (not a dotfile .cache_version)."
-}

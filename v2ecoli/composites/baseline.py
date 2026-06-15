@@ -97,6 +97,15 @@ BASE_EXECUTION_LAYERS = [
     # DnaA-ATP → DnaA-ADP, scaling the extrinsic inactivation with fork number.
     ['rida'], FLUSH,
 
+    # Layer 2d: DDAH (dnaa-5) — datA-locus-copy-number-coupled DnaA-ATP
+    # hydrolysis. Sequential after RIDA so each conversion caps against the
+    # current free DnaA-ATP pool (no joint over-draw of the small free pool).
+    ['ddah'], FLUSH,
+
+    # Layer 2e: DARS1/DARS2 (dnaa-5) — locus-copy-number-coupled reactivation
+    # (DnaA-ADP → DnaA-ATP), the recovery arm opposing RIDA/DDAH.
+    ['dars'], FLUSH,
+
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
 
@@ -233,6 +242,8 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     from v2ecoli.processes.complexation import Complexation
     from v2ecoli.steps.dnaa_box_binding import DnaABoxBinding
     from v2ecoli.steps.rida import Rida
+    from v2ecoli.steps.ddah import Ddah
+    from v2ecoli.steps.dars import Dars
     from v2ecoli.processes.protein_degradation import ProteinDegradation
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
@@ -331,6 +342,33 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             'time_step': 1,
         }
         instance = _make_instance(Rida, rida_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DDAH — datA-locus-coupled DnaA-ATP hydrolysis.
+    if step_name == 'ddah':
+        ddah_cfg = {
+            'rate_multiplier': float(os.environ.get('DDAH_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'ddah'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Ddah, ddah_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DARS1/DARS2 — locus-copy-number-coupled DnaA reactivation.
+    if step_name == 'dars':
+        dars_cfg = {
+            'dars1_multiplier': float(os.environ.get('DARS1_RATE_MULTIPLIER', '1.0')),
+            'dars2_multiplier': float(os.environ.get('DARS2_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'dars'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Dars, dars_cfg, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
             topology = topology()

@@ -60,7 +60,6 @@ BIG_ASSEMBLIES = {"70S_ribosome", "groel"}
 #  blob: read subunits from complexation_reactions.tsv + pack their AlphaFolds.)
 COMPLEX_CATALOG = [
     # complex_id,   display_name,                 category,    arrangement,      region
-    ("CPLX0-7452", "flagellum (motor + filament)", "Motility", "motor+filament", "surface"),
 ]
 
 
@@ -556,8 +555,6 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200})
     res = build_pack(ingredients, capsule, chromosome,
                      out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
-    _cluster_complex_at_pole(res["pack_path"], Path(out_dir) / "meshes",
-                             "CPLX0-7452", "flagellum")
     return res
 
 

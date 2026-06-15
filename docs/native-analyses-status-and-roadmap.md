@@ -128,11 +128,42 @@ scripts/ptools_launch.sh <sweep>/ptools/ptools_rna__<group>.tsv   # class inferr
 
 It stages the file into the server (this image's Omics Viewer only loads
 server-local files) and opens `celOv.shtml?omics=t&url=…&class=…&column1=1-N`.
-(The vivarium-dashboard "Launch ptools" button does the same thing for a study
-run once `ui.ptools_server_url` is set; locally the launcher script is the
-reliable path since the data must live on the PTools server.)
+
+**The dashboard "Launch in Omics Viewer" button** (Analyses tab) now works the
+same way for any study with `ptools/*.tsv` exports — see the team setup below.
 
 The manual steps below explain what that script does and why.
+
+### Team setup — using the dashboard "Launch in Omics Viewer" button
+
+Works on any teammate's machine (macOS/Linux/Windows Docker). The button needs a
+**local** dashboard + the **local** `sms-ptools` container; it can't work on the
+published gh-pages site (no server to build the launch URL). One-time:
+
+1. **Start the PTools server** (mounts this repo's `workspace/` into the
+   container — required so PTools can read the omics file off disk; it does *not*
+   fetch URLs):
+   ```sh
+   scripts/ptools_server.sh up        # see auth/runtime prereqs in the appendix below
+   ```
+2. **Run the dashboard locally**, pointed at this repo:
+   ```sh
+   vivarium-dashboard serve --workspace . --port 8771
+   ```
+   (Run from a venv where `v2ecoli` + `vivarium-dashboard` are installed. The
+   `ui.ptools_server_url` and `ui.ptools_data_dir: "/ptools-data"` keys are
+   already set in `workspace.yaml`.)
+3. Open **http://localhost:8771** → **Analyses** tab → **Launch in Omics Viewer**
+   for a study that has `studies/<name>/**/ptools/*.tsv` (e.g. the committed
+   `showcase-2-baseline-figures`). To generate TSVs for other studies, run the
+   `ptools_rna` / `ptools_rxns` / `ptools_proteins` analyses (config:
+   `v2ecoli/configs/ptools_baseline.json`).
+
+How it works: PTools reads the file from its own filesystem, so the launcher
+passes `url=/ptools-data/workspace/studies/.../x.tsv` (the mount), not an HTTP
+URL. The mount lives only on the running container — `scripts/ptools_server.sh`
+adds it automatically; if you ever `docker run` by hand, include
+`-v "$PWD/workspace:/ptools-data/workspace:ro"`.
 
 **1. A container runtime.** On macOS without Docker Desktop, colima gives a
 headless daemon + the `docker` CLI. **Give the VM ≥ 8 GiB** — the overview's
@@ -162,6 +193,7 @@ docker pull  --platform linux/amd64 ghcr.io/vivarium-collective/sms-ptools:0.8.2
 docker run -d --platform linux/amd64 --name sms-ptools --restart unless-stopped \
   -e SERVER_HOST_NAME=localhost \
   -p 1555:1555 -p 5008:5008 \
+  -v "$PWD/workspace:/ptools-data/workspace:ro" \
   ghcr.io/vivarium-collective/sms-ptools:0.8.2
 docker logs -f sms-ptools          # wait for "Starting Pathway Tools WWW server at http://localhost:1555/"
 ```
@@ -169,6 +201,14 @@ docker logs -f sms-ptools          # wait for "Starting Pathway Tools WWW server
 The `SERVER_HOST_NAME` override matters: the image defaults to a
 Kubernetes-internal hostname (`ptools.sms-api-eks.svc.cluster.local`) that won't
 resolve locally; set it to `localhost`.
+
+The `-v "$PWD/workspace:/ptools-data/workspace:ro"` mount matters for the
+**dashboard button**: this image's Omics Viewer loads omics data from the PTools
+server's *own filesystem* (it does not fetch a remote URL), so the dashboard
+launcher passes a server-local path under `/ptools-data` (configured by
+`ui.ptools_data_dir`). Without the mount the dashboard button reports
+*"No file containing valid data was received."* (The CLI `ptools_launch.sh`
+docker-cp's the file in, so it works without the mount.)
 
 **Gotchas (learned the hard way):**
 - **OOM.** Browsing the overview triggers on-demand tile generation, which is

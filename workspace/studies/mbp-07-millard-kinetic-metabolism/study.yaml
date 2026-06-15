@@ -197,11 +197,19 @@ open_questions:
     directly), so the standard MassConservationDeriver (which reads
     environment.exchange) historically emitted None on the Millard arm. req-1
     routed Millard's uptake/evolution into the cell-side exchange so the
-    wcm-mass-conservation-closes-millard gate can evaluate, but closure to within
-    5% on the Millard arm is NOT yet confirmed — the short smoke runs leave growth
-    (and hence cumulative mass change) unresolved (cell_mass flat 1268.7->1268.8 fg
-    over 60 s vs the ~2700 s cell cycle). Full closure verification awaits the
-    longer batch run.
+    wcm-mass-conservation-closes-millard gate can evaluate. UPDATE (#225 item-5,
+    2026-06-15): the dominant residual was un-tracked CO2 (decarboxylation) and
+    H2O (respiration) efflux — the Millard SBML holds HCO3/H2O as FIXED buffers,
+    so O2/glucose uptake looked like phantom mass import. CO2+H2O efflux is now
+    reconstructed from reaction stoichiometry and emitted to environment.exchange
+    (BYPRODUCT_EFFLUX_REACTIONS). The gate now CLOSES on a sustained 100-step
+    run: conservation_relative_cumulative 8.09 BEFORE -> 0.0284 AFTER (< 0.05),
+    a ~285x reduction (net mass-in +2.46->+0.09 fg). At 40 ticks it's still ~1.4
+    during the early flat-growth transient (tiny Δcell_mass denominator) but
+    converges below 5% by ~80-100 steps. Mass closure is now decoupled from the
+    slow-growth limitation (see mbp-06 millard-growth-too-slow-to-divide): the
+    cell still grows far slower than FBA and will not divide, but the boundary
+    mass balance itself is closed.
 
 tests:
   pytest_args: [tests/test_baseline_millard.py]

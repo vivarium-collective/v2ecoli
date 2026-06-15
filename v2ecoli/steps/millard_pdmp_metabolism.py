@@ -61,8 +61,9 @@ FG_PER_G = 1.0e-15
 # integrated over the tick. The flux is read from the same per-tick
 # ``central_fluxes`` map this Process already computes.
 #
-# CO2: the Millard model has NO CO2 species/reaction, so no CO2 efflux is
-# emitted here (consistent with the WCM arm, which emits ~zero CO2 efflux in M9).
+# CO2 / H2O: the Millard SBML has no free-CO2 species and holds HCO3 + H2O as
+# FIXED buffer species, so their efflux is accounted separately from the
+# reaction stoichiometry — see BYPRODUCT_EFFLUX_REACTIONS below.
 # --- Energy/redox currency homeostasis ------------------------------------
 # Millard-governed metabolites that whole-cell processes OUTSIDE the Millard
 # reaction network (translation, transcription, charging, ...) consume
@@ -87,6 +88,36 @@ MEDIUM_EXCHANGE_REACTIONS: dict[str, tuple[str, float, float]] = {
     "CYTBO":      ("OXYGEN-MOLECULE",  1.0,           -1.0),  # O2 consumed (uptake)
     "XCH_GLC":    ("GLC",              1.0,           -1.0),  # GLCx -> GLCp (uptake)
     "_ACE_OUT":   ("ACET",            1.0,           +1.0),  # ACEx -> medium (secretion)
+}
+
+
+# --- Byproduct efflux (CO2 / H2O) -----------------------------------------
+# Decarboxylation CO2 and respiratory H2O cross the cell boundary as efflux,
+# but in the Millard SBML their carriers (HCO3, H2O) are FIXED species — the
+# kinetic network produces them into an infinite buffer, so they never appear
+# as a tracked pool and (before this) their mass left the boundary accounting
+# entirely. That made O2 + glucose UPTAKE look like phantom mass IMPORT (the
+# substrate carbon actually leaves as CO2, the consumed O2 leaves as H2O),
+# inflating the Millard-cell mass-conservation residual ~40x (measured: net
+# boundary mass-in +2.46 fg / 40 ticks vs an actual Δcell_mass of ~+0.06 fg).
+# Accounting the NET byproduct production as medium SECRETION (positive count,
+# WCM convention) closes the boundary: for a respiring cell, glucose-C in =
+# CO2-C out and O2 in = H2O out, so net boundary mass ≈ retained biomass.
+#
+# CO2 is modeled in Millard as bicarbonate (HCO3) produced by the
+# decarboxylating reactions (GND/PDH/ICD/LPD/MAE/PCK); PPC (anaplerotic) re-
+# fixes it, so the NET CO2 efflux is producers − PPC. Mass is accounted as CO2
+# (44 g/mol — the carbon physically leaving the organic pool, the respiratory-
+# quotient convention), NOT bicarbonate: the extra O/H of HCO3 come from the
+# fixed H2O buffer, not the dynamic cell pools. H2O efflux is the 2 H2O per
+# CYTBO turnover. Maps a BARE v2ecoli env name -> {reaction: stoich_coeff of
+# the byproduct in that reaction} (positive coeff = produced/secreted).
+BYPRODUCT_EFFLUX_REACTIONS: dict[str, dict[str, float]] = {
+    "CARBON-DIOXIDE": {
+        "GND": 1.0, "PDH": 1.0, "ICD": 1.0, "LPD": 1.0,
+        "MAE": 1.0, "PCK": 1.0, "PPC": -1.0,
+    },
+    "WATER": {"CYTBO": 2.0},
 }
 
 
@@ -445,6 +476,25 @@ class MillardPDMPMetabolism(Process):
             # mM exchanged this tick = flux[mM/s] * tick_s * stoich.
             mM = flux * self.tick_s * coeff
             count = round(sign * mM * conc_to_count)
+            if count != 0.0:
+                exchange[bare] = exchange.get(bare, 0.0) + count
+
+        # Byproduct efflux (CO2 from decarboxylation, H2O from respiration): the
+        # NET production summed over its source reactions -> medium SECRETION
+        # (positive count). Closes the boundary mass accounting the O2/glucose
+        # uptake otherwise leaves open. See BYPRODUCT_EFFLUX_REACTIONS.
+        for bare, rxn_coeffs in BYPRODUCT_EFFLUX_REACTIONS.items():
+            net_mM = 0.0
+            seen = False
+            for rxn, coeff in rxn_coeffs.items():
+                flux = central_fluxes.get(rxn)
+                if flux is None or not math.isfinite(flux):
+                    continue
+                net_mM += coeff * flux * self.tick_s
+                seen = True
+            if not seen:
+                continue
+            count = round(net_mM * conc_to_count)  # +secretion (WCM convention)
             if count != 0.0:
                 exchange[bare] = exchange.get(bare, 0.0) + count
         if exchange:

@@ -813,7 +813,7 @@ findings:
     review_by: Eran 2026-06-14 (synthesis author); Chris expert review pending
   - signature: millard-growth-too-slow-to-divide
     description: |-
-      The Millard coupled arm ran 9000 steps and stayed in GENERATION 1 (generations_seen=[1]) while the WCM-FBA arm divided by ~2640 steps (generations_seen=[1,2] at 6900 steps). Millard kinetic metabolism does not drive the WCM to the division mass threshold within the run. Caveat: bounded by run length, but the gen-1 ceiling at 9000 steps is itself the signal.
+      The Millard coupled arm ran 9000 steps and stayed in GENERATION 1 (generations_seen=[1]) while the WCM-FBA arm divided by ~2640 steps. ROOT CAUSE DIAGNOSED (2026-06-15, #225 item-5): this is INHERENT to the reduced Millard 2017 model, NOT a tuning gap. Millard 2017 is a central-carbon + energy model only (glycolysis / PPP / TCA / glyoxylate / respiration / PTS); it has NO amino-acid, nucleotide, lipid, or cell-wall biosynthesis. The FBA Metabolism it replaces supplies ALL biomass precursors. With Millard in place, the whole-cell translation/transcription machinery consumes amino-acid and NTP pools that nothing replenishes, so they drain monotonically. Measured over 80 steps (seed 0, baseline vs baseline_millard): in the FBA arm NTPs hold steady (ATP +1.4%, GTP +1.4%, CTP +1.4%) and amino acids are replenished; in the Millard arm PHE -99.5%, LEU -96.8%, VAL -50%, ARG -38%, and NTPs ATP -74% / GTP -71% / CTP -68% / UTP -24%. As precursors deplete, biomass synthesis throttles: instantaneous_growth_rate 7.3e-6/s (Millard) vs 2.15e-4/s (FBA) — ~30x slower; cell_mass accumulates +0.0005 fg/step (Millard) vs +0.238 fg/step (FBA), ~480x slower. The homeostatic-cofactor floor keeps ATP/NAD/NADP from crashing to zero (so the ODE/Equilibrium stay solvable), but amino acids and the other NTPs have no floor (correctly — Millard has no reactions making them, so flooring them would FABRICATE biology the model does not contain). NOT cleanly fixable without grafting amino-acid + nucleotide biosynthesis kinetics onto Millard (a large model-building effort) or faking precursor supply (disallowed). Documented as an inherent reduced-model limitation.
     axis: A
     provenance: this_investigation
     evidence:
@@ -821,18 +821,22 @@ findings:
       source_ref: mbp-07:millard-growth-axes-graded-vs-beulig
     - source_kind: external
       source_ref: docs/report_cards/beulig_batch/millard_vs_beulig/report_card_verdict.json (multigen.generations_seen=[1], steps_reached=9000)
-    resolution_type: model_improvement
+    - source_kind: external
+      source_ref: 'precursor-drain diagnostic (80 steps, seed 0): PHE -99.5% / LEU -96.8% / NTPs -24..-74% in Millard vs steady in FBA; mu 7.3e-6 vs 2.15e-4 /s'
+    resolution_type: scope_decision
     resolution_venue: v2ecoli
     candidate_resolution:
-      type: model_improvement
+      type: scope_decision
       venue: v2ecoli
       target_slug: mbp-07-millard-kinetic-metabolism
-      notes: Calibrate Millard kinetic fluxes so biomass synthesis reaches the WCM division mass threshold on a comparable timescale to the FBA arm.
+      notes: 'INHERENT limitation — Millard 2017 central-carbon network cannot supply the whole-cell biomass-precursor (amino-acid/nucleotide) demand the FBA arm does, so it cannot grow the WCM at FBA rates. Not faked. A genuine fix requires either grafting precursor-biosynthesis kinetics onto Millard or a hybrid Millard-central-carbon + FBA-precursor-supply engine; both are out of scope for the swap. Use Millard for central-carbon kinetic fidelity, FBA for whole-cell growth.'
+      decision_authority: Eran + Chris (investigation owners)
     priority: 1
-    review_by: Eran 2026-06-14 (synthesis author); Chris expert review pending
+    review_by: Eran 2026-06-15 (item-5 diagnosis); Chris expert review pending
+    decision_authority: Eran + Chris (investigation owners)
   - signature: millard-mass-balance-non-closure
     description: |-
-      The Millard cell mass-conservation gate is now evaluable (req-1 routed uptake/evolution into the cell-side exchange) but closure to within 5% is NOT confirmed: the Millard SBML imports O2 yet tracks no H2O/CO2 efflux, so the boundary is incomplete. Compounded by the flat-growth issue above leaving cumulative mass change unresolved on short runs.
+      DIAGNOSED + RESOLVED (2026-06-15, #225 item-5). Root cause: the Millard SBML imports O2 (CYTBO) and glucose but holds HCO3 (its only CO2 form) and H2O as FIXED buffer species, so decarboxylation CO2 and respiratory H2O efflux never crossed the boundary accounting. The substrate carbon physically leaves as CO2 and the consumed O2 leaves as H2O, but only the O2/glucose UPTAKE was tracked — making uptake look like phantom mass IMPORT. Measured (baseline_millard, seed 0, 40 ticks): net boundary mass-in was +2.46 fg (vs an actual cumulative Δcell_mass of only ~+0.06 fg). FIX (implemented): reconstruct CO2 efflux from decarboxylation stoichiometry (net of GND+PDH+ICD+LPD+MAE+PCK − PPC anaplerotic re-fixation, accounted as CO2 at 44 g/mol per respiratory-quotient convention) and H2O efflux (2 H2O per CYTBO turnover), emitted to environment.exchange as medium secretion (BYPRODUCT_EFFLUX_REACTIONS in millard_pdmp_metabolism.py). The ODE is untouched (HCO3/H2O stay fixed) — only the exchange-layer accounting changed. RESULT: net boundary mass-in +2.46 → +0.09 fg, and over a sustained 100-step run the conservation gate now CLOSES — conservation_relative_cumulative 8.09 (809%) BEFORE → 0.0284 (2.84%) AFTER, a ~285x reduction that passes wcm-mass-conservation-closes-millard (in_range 0-0.05). (At 40 ticks the relative metric is still ~1.4 because the cumulative Δcell_mass denominator is tiny during the early flat/dip transient; it converges below 5% as the cell accumulates mass over ~80-100 steps.) Mass closure is now DECOUPLED from the slow-growth limitation (millard-growth-too-slow-to-divide): the cell still grows far slower than FBA and will not divide, but the boundary mass balance itself is closed.
     axis: A
     provenance: this_investigation
     evidence:
@@ -840,15 +844,17 @@ findings:
       source_ref: mbp-07:wcm-mass-conservation-closes-millard
     - source_kind: open_question
       source_ref: mbp-07:millard-mass-balance-non-closure
+    - source_kind: external
+      source_ref: 'mass-balance diagnostic (baseline_millard, seed 0, 40 ticks): net mass-in +2.46 fg / cumRel ~25 BEFORE; +0.09 fg / cumRel ~1.4 AFTER CO2+H2O efflux accounting'
     resolution_type: model_improvement
     resolution_venue: v2ecoli
     candidate_resolution:
       type: model_improvement
       venue: v2ecoli
       target_slug: mbp-07-millard-kinetic-metabolism
-      notes: Add H2O/CO2 (and remaining) efflux exchanges to the Millard boundary so the conservation gate can close to within 5%.
+      notes: 'DONE (item-5): CO2 (decarboxylation) + H2O (respiration) efflux now accounted in the exchange layer (BYPRODUCT_EFFLUX_REACTIONS). The wcm-mass-conservation-closes-millard gate now passes on a 100-step run (8.09 -> 0.028, < 0.05). No further efflux terms needed.'
     priority: 2
-    review_by: Eran 2026-06-14 (synthesis author); Chris expert review pending
+    review_by: Eran 2026-06-15 (item-5 diagnosis + fix); Chris expert review pending
   - signature: o2-not-throttling-millard-kinetics
     description: |-
       The reactor does not feed dissolved-O2 back into the Millard ODE — O2 is treated as fixed in the kinetic rate laws — so reactor aeration cannot limit Millard metabolism. The Millard arm's CTR graded 'mismatch' (0.0 vs 156.8) and OTR 'mismatch', consistent with a respiration path decoupled from reactor DO.

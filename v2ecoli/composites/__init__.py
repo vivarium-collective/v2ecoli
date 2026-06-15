@@ -48,6 +48,32 @@ def _baseline_alias(core=None, **kwargs):
     return baseline.baseline(core=core, **kwargs)
 
 
+# --- Package-level alias for the parca composite -----------------------------
+# Same doubling as ``baseline``: ``parca.py``'s ``@composite_generator(name=
+# "parca")`` registers under ``v2ecoli.composites.parca.parca`` (DOUBLED tail),
+# so showcase-1-parca's short ``parca`` ref fails trailing-segment resolution.
+# Re-register from THIS package module under the clean id
+# ``v2ecoli.composites.parca`` so the ref resolves and the Explorer can build it.
+_parca_entry = parca.parca._composite_generator_entry
+
+
+@_composite_generator(
+    name="parca",
+    description=_parca_entry.description,
+    parameters=_parca_entry.parameters,
+    visualizations=_parca_entry.visualizations,
+    emitters=_parca_entry.emitters,
+    default_n_steps=_parca_entry.default_n_steps,
+)
+def _parca_alias(core=None, **kwargs):
+    """Package-level alias of :func:`v2ecoli.composites.parca.parca`.
+
+    Registered as ``v2ecoli.composites.parca`` so showcase-1-parca's short
+    ``parca`` composite ref resolves. Delegates to the real builder.
+    """
+    return parca.parca(core=core, **kwargs)
+
+
 __all__ = [
     "baseline", "colony", "parca", "millard_pdmp_baseline",
     "millard_fba_bridge_harness", "parsimony_ecoli",

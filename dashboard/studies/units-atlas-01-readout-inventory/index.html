@@ -316,8 +316,8 @@
                   data-narrative-path="biological_summary"
                   placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">The cataloged readouts are the cell&#39;s measurable quantities: dry mass (fg),
 metabolite / growth-limiting nutrient concentrations (mM, uM), reaction and
-elongation rates (1/s), molecule counts, cell volume/length, and flux-like
-terms. Grouping by physical dimension is what makes each observable
+elongation rates (1/s), molecule counts, characteristic times (s), and
+flux-like terms. Grouping by physical dimension is what makes each observable
 interpretable and comparable to data; attaching the declared unit is what lets
 a simulation number be checked against a measurement.
 </textarea>
@@ -354,8 +354,8 @@ Reference artifact — no pass/fail gate."
                    value=""
                    placeholder="The cataloged readouts are the cell&#39;s measurable quantities: dry mass (fg),
 metabolite / growth-limiting nutrient concentrations (mM, uM), reaction and
-elongation rates (1/s), molecule counts, cell volume/length, and flux-like
-terms. Grouping by physical dimension is what makes each observable
+elongation rates (1/s), molecule counts, characteristic times (s), and
+flux-like terms. Grouping by physical dimension is what makes each observable
 interpretable and comparable to data; attaching the declared unit is what lets
 a simulation number be checked against a measurement.
 ">
@@ -721,10 +721,10 @@ rate (1, 1/s), other (4, flux-like units such as g*s/L and mmol/g/h).
           <td style="padding:6px; vertical-align: top;">
             <span class="muted">—</span>
           </td>
-          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">Per-readout example magnitude + range — populated wherever a baseline
-parquet run is sampled (e.g. cell_mass ~2174 fg, ppGpp ~86.9 uM from a
-two_generations run); &#39;—&#39; only for config-dependent readouts not exercised by
-the sampled run.
+          <td style="padding:6px; vertical-align: top; max-width: 380px; font-size: 0.9em;">Per-readout example magnitude + range columns — populated for the 7 readouts
+emitted by the sampled showcase-2 baseline ensemble (e.g. cell_mass ~1469 fg,
+ppGpp ~69.6 uM from a 2-seed × 3-gen run); &#39;—&#39; for the config-dependent
+readouts that run did not emit.
 </td>
         </tr>
         

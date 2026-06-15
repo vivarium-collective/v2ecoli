@@ -723,17 +723,12 @@ function robustBoundingRadius(geom) {
 /// whatever the http server is serving (which is the project root
 /// when launched via `view_pack.sh`). Absolute URLs and protocol
 /// URLs pass through unchanged.
-// Base directory of the loaded pack, used to resolve relative mesh URLs.
-// Mesh URLs in a pack are pack-relative (e.g. "meshes/foo.lod0.obj"); resolving
-// them against the pack's own directory is correct whether the pack is served
-// from the site root (local dev) or a deep path (gh-pages /repo/dashboard/...).
-let meshBaseUrl = "";
 function resolveMeshUrl(url) {
   if (!url) return url;
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) {
     return url;
   }
-  return meshBaseUrl + url;
+  return "/" + url;
 }
 
 // Fetch + parse one OBJ, with IDB cache around it. Pure function:
@@ -1399,7 +1394,7 @@ let lodVoxelPixelTarget = 4.0;
 // at 3 px they ALL route to meshes (no culling, mass OBJ loads) and the
 // view becomes unnavigable. Default to a higher budget so distant
 // instances stay cheap proxies; the "Mesh @px" slider tunes it.
-let lodSphereBudgetPx = 6.0;
+let lodSphereBudgetPx = 12.0;
 
 // Fraction of each ingredient's instances actually drawn — a viz-only
 // subsample (the pack order is random, so a prefix is a uniform random
@@ -1412,10 +1407,6 @@ let interiorFraction = 1.0;
 // that still reads as a crowded cell. Whole-cell packs (~1M+) are subsampled
 // down to this; smaller packs render in full.
 const TARGET_DRAWN = 250000;
-// Rare types (few copies) are always drawn in full — the global subsample is for
-// the abundant species. Without this, a 30-copy complex like the flagellum would
-// be culled to ~6 at a 20% show fraction.
-const ALWAYS_SHOW_MAX = 1000;
 function applyAdaptiveShowFraction(totalPlacements) {
   if (!totalPlacements) return;
   let pct = Math.min(100, Math.max(5, Math.round((TARGET_DRAWN / totalPlacements) * 100 / 5) * 5));
@@ -1537,9 +1528,7 @@ function reassessLODs() {
       }
     }
 
-    const nShow = entry.placements.length <= ALWAYS_SHOW_MAX
-      ? entry.placements.length
-      : Math.round(entry.placements.length * interiorFraction);
+    const nShow = Math.round(entry.placements.length * interiorFraction);
     for (let pi = 0; pi < nShow; pi++) {
       const p = entry.placements[pi];
       const px = p.position[0], py = p.position[1], pz = p.position[2];
@@ -2766,7 +2755,6 @@ requestAnimationFrame(tick);
 const demoPicker = document.getElementById("demo-picker");
 
 async function loadByPath(path) {
-  meshBaseUrl = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
   try {
     const resp = await fetch(path);
     if (!resp.ok) throw new Error(resp.statusText);

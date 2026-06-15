@@ -177,11 +177,18 @@ inputs:
 
 studies:
   - colonies-01-hpc-readiness
-  # - colonies-02-hpc-deployment   # added when scaffolded
+  - colonies-02-parallel-multigen-perf      # natural-division drift + Ray scaling
+  # - colonies-03-hpc-deployment            # (was colonies-02) added when scaffolded;
+  #   renumbered because the parallel-multigen perf study runs BEFORE HPC deployment —
+  #   it validates the flat-per-cell + bounded-RSS assumptions the HPC sizing relies on.
 
 expert_docs: []
 
 acceptance_criteria:
   - {study: colonies-01-hpc-readiness, behavior: daughters-hydrated}
   - {study: colonies-01-hpc-readiness, behavior: per-cell-cost-within-2x-reference}
-  # - {study: colonies-02-hpc-deployment, behavior: hpc-per-cell-within-20pct-of-projection}
+  - {study: colonies-02-parallel-multigen-perf, behavior: natural-division-2-generations}
+  - {study: colonies-02-parallel-multigen-perf, behavior: per-cell-wall-drift-within-20pct}
+  - {study: colonies-02-parallel-multigen-perf, behavior: per-cell-rss-drift-bounded}
+  - {study: colonies-02-parallel-multigen-perf, behavior: ray-lifts-gil-ceiling}
+  # - {study: colonies-03-hpc-deployment, behavior: hpc-per-cell-within-20pct-of-projection}

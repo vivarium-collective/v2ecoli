@@ -1,0 +1,190 @@
+schema_version: 3
+name: colonies-02-parallel-multigen-perf
+title: Parallel multi-generation colony — natural-division perf & Ray scaling
+description: |
+  Redo the colony simulation from ONE whole-cell agent, let it divide
+  NATURALLY (no forced same-tick division), keep both daughters, and
+  follow the colony as it doubles 1 → 2 → 4 → 8. Track the per-cell
+  compute hit (wall, RSS) generation-by-generation to resolve colonies-01's
+  open F-06 anomaly (RSS climbing ~5 MB/sim-s in long runs) and the
+  PASS-narrow caveat (colonies-01 validated only FORCED division). Run
+  the same growing colony under the updated process-bigraph Ray protocol
+  (sharded RayProtocol / actor pool) to test whether process-level
+  parallelism lifts the single-process ~13-cells GIL ceiling. Produce a
+  detailed compute-requirements profile that seeds colonies-03-hpc-deployment.
+topic: scaling
+tags: [colony, multi-cell, perf, scaling, parallel, ray, natural-division, requires-pymunk, requires-viva-munk]
+created: '2026-06-15'
+
+# Single-axis legacy status (Design phase — not yet built/run).
+status: planned
+phase: Design
+
+design_status: in-progress
+implementation_status: not-started
+simulation_status: not-run
+evaluation_status: not-evaluated
+gate_status: pending
+expert_review_status: not_requested
+
+baseline:
+- name: colony-1cell-natural
+  composite: v2ecoli.composites.colony.colony
+  params:
+    seed: 0
+    cache_dir: out/cache
+    n_cells: 1            # START from a single WCM, let it grow + divide naturally
+    env_size: 30
+    physics_interval: 1.0
+    ecoli_interval: 1.0
+    # NOTE: jitter_per_second / mass coupling are under review in Build phase
+    # (see build_tasks). colonies-01 ran jitter_per_second=0.5 (~5000x the
+    # viva-munk default 1e-4); the colony.gif shows cells fluctuating heavily.
+
+purpose:
+  question: |
+    Starting from ONE whole-cell E. coli agent and letting it divide
+    naturally through 3-4 generations (1 → 2 → 4 → 8), does per-cell
+    compute cost (wall + RSS) stay flat, or does it drift as daughter
+    EcoliWCM internal composites accumulate history? And does running
+    the growing colony under the process-bigraph Ray protocol (one OS
+    process per cell / sharded actor pool) lift the single-process
+    GIL ceiling colonies-01 measured (~13 cells/process at realtime)?
+  mechanism: |
+    The `colony` composite (v2ecoli/composites/colony.py) wires N copies
+    of EcoliWCM (v2ecoli/bridge.py) into one pymunk 2D environment from
+    viva-munk. At division the bridge emits a structural update (_remove
+    mother, _add two daughter EcoliWCMs) hydrated natively by the engine
+    (the colonies-01 daughter-hydration fix). Sequential runs walk all
+    inner 55-process WCM steps on one GIL-bound thread. The updated
+    process-bigraph Ray protocol (process_bigraph/protocols/ray.py —
+    RayProtocol sharded actor pool via `ray:EcoliWCM` + Composite
+    parallel_processes=True) runs each cell's update in its own OS
+    process, so independent cells solve concurrently across cores.
+  expected_outcome: |
+    (H1, drift) Per-cell wall drifts <=20% across gens 0-3 of a natural-
+    division colony; if >20%, the inner composite is accumulating dead
+    nodes / growing allocations (resolves F-06). (H2, RSS) Per-cell RSS
+    stays bounded once startup is amortized; the ~5 MB/sim-s climb is
+    pre-division warmup, not an unbounded leak. (H3, Ray) Under Ray,
+    total wall for the growing colony stays sub-realtime well past the
+    ~13-cell single-process ceiling, with biology (masses, division
+    timing) consistent vs the sequential run modulo RNG.
+
+# ── BUILD PHASE: physics fidelity + Ray wiring must land before the long runs.
+build_tasks:
+- id: jitter-mass-diagnostic
+  motivation: |
+    colony.gif shows excessive cell movement. Two coupled causes:
+    (1) colony.py passes jitter_per_second=0.5, ~5000x viva-munk's 1e-4
+        schema default; jitter is a Gaussian impulse applied per substep
+        (multibody.apply_jitter_force) and velocity change = impulse/mass.
+    (2) EcoliWCM emits dry_mass ~380 (fg, raw number) -> body.mass=380,
+        but build_microbe's initial body is density=0.02 -> mass ~0.056.
+        If the WCM mass does not actually land (or units are off), the
+        effective body mass is tiny and the high jitter flings cells.
+  action: |
+    5-tick diagnostic: print body.mass per cell each tick (does WCM
+    dry_mass reach the pymunk body?) and per-tick displacement. Decide
+    the fix: (a) lower jitter_per_second to the viva-munk default range,
+    and/or (b) correct the mass->pymunk coupling (scale dry_mass to a
+    consistent physics mass unit, or drive density from cell geometry).
+- id: ray-wiring
+  motivation: |
+    Run the growing colony under the updated process-bigraph Ray protocol.
+    Cells are `local:EcoliWCM` today (incl. daughters added by
+    _handle_division in bridge.py). To parallelize, both initial cells AND
+    dynamically-added daughters must use the Ray address.
+  action: |
+    Wire EcoliWCM through RayProtocol: register_process_class("EcoliWCM", ..),
+    switch cell address to `ray:EcoliWCM`, build with parallel_processes=True,
+    and update bridge._handle_division so daughter specs inherit the Ray
+    address. Per-actor ParCa cache loading via register_type_provider so each
+    actor hydrates its own sim_data (relates to the parca-cache-contention
+    open question). Verify daughters hydrate as Ray actors, not local procs.
+
+pipeline_gate:
+  prerequisites:
+  - colonies-01-hpc-readiness
+  enables:
+  - colonies-03-hpc-deployment
+  proceed_condition: |
+    colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
+    per_cell_ms / per_cell_rss recorded as projection inputs.
+  blocks_until_resolved: |
+    If natural multi-generation division cannot run unattended (daughter
+    hydration regresses under Ray, or the F-06 RSS climb is an unbounded
+    leak that OOMs before gen 3), the cells-per-node budget colonies-03
+    will validate is not trustworthy and HPC deployment should not start.
+
+simulation_set:
+- name: seq-1cell-4div
+  description: |
+    Sequential (single-threaded) baseline. One cell, natural division,
+    ~3 generations. Per-tick wall, per-cell wall, pymunk_step_ms, RSS,
+    live_cell_count, generation index recorded each tick. This is the
+    drift reference and the F-06 resolution run.
+  perturbation: {n_cells: 1, parallel_processes: false}
+  duration_min: 180
+  seeds: [0]
+- name: ray-1cell-4div
+  description: |
+    Same natural-division colony under the process-bigraph Ray protocol
+    (ray:EcoliWCM, parallel_processes=True, sharded actor pool). Measures
+    whether per-cell wall stays flat AND whether total wall stays
+    sub-realtime past the single-process GIL ceiling as the colony grows.
+  perturbation: {n_cells: 1, parallel_processes: true}
+  duration_min: 180
+  seeds: [0]
+- name: ray-nsweep-static
+  description: |
+    Optional confirmation: hold N static at {2,4,8,16} under Ray and
+    measure total wall vs N. Sequential crossed realtime at N~13; Ray
+    should push that ceiling out by ~n_cores. Short windows (60 ticks).
+  perturbation: {n_cells_sweep: [2, 4, 8, 16], parallel_processes: true}
+  duration_min: 5
+  seeds: [0]
+
+behavior_tests:
+- name: natural-division-2-generations
+  classification: primary
+  description: |
+    One cell divides NATURALLY (no --force-divide) to 2, then both
+    daughters divide to 4 — all cells advancing on subsequent ticks.
+    Resolves colonies-01's PASS-narrow (forced-division-only) caveat.
+- name: per-cell-wall-drift-within-20pct
+  classification: primary
+  description: |
+    Per-cell wall (ms/tick/cell) drifts <=20% across generations 0-3 of
+    the natural-division colony. Directly resolves F-06 for wall time.
+- name: per-cell-rss-drift-bounded
+  classification: primary
+  description: |
+    Per-cell RSS stabilizes after startup rather than climbing
+    unbounded; the colonies-01 ~5 MB/sim-s climb is amortized warmup,
+    not a leak that OOMs a growing colony. Resolves F-06 for RAM.
+- name: ray-lifts-gil-ceiling
+  classification: primary
+  description: |
+    Under the Ray protocol, total wall for the growing colony stays
+    sub-realtime past the sequential ~13-cell ceiling (target: scales
+    with cores), with division timing + masses consistent vs sequential.
+- name: ray-biology-consistency
+  classification: secondary
+  description: |
+    Ray and sequential runs produce the same colony trajectory (cell
+    count over time, per-cell mass at division) modulo RNG ordering.
+
+# Compute-requirements profile is the headline deliverable; these feed
+# colonies-03-hpc-deployment as projection inputs.
+compute_requirements_profile:
+  records:
+  - per_cell_wall_ms_by_generation
+  - per_cell_rss_mb_by_generation
+  - total_wall_vs_realtime_ratio_seq_vs_ray
+  - ray_actor_count_and_per_actor_rss
+  - cells_per_core_at_realtime_seq_vs_ray
+  seeds_downstream:
+  - colonies-03-hpc-deployment
+
+findings: []

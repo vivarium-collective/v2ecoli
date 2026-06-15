@@ -52,10 +52,10 @@ from v2ecoli.composites._helpers import (
     DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
 
-# Reuse the parent's step-config dispatcher, feature modules, and the env
+# Reuse the shared step-config dispatcher, feature modules, and the env
 # store registration hook. Only the metabolism edge wiring and the execution
 # layers differ here (no LQR controller).
-from v2ecoli.composites.millard_pdmp_baseline import (
+from v2ecoli.composites._millard_helpers import (
     _get_step_config,
     _register_millard_pdmp_links,
     FEATURE_MODULES,

@@ -864,12 +864,26 @@ findings:
     ATP is abundant, so DnaA-ATP binding equilibrates fast — fast-equilibrium is the appropriate
     approximation) and is the ORIGINAL whole-cell-model treatment. So the smoothness asymmetry is
     an EXPECTED consequence of that justified design, not an artifact to "correct".
-    EXPERIMENT (Haochen/Eran endorsed "try this too"): set MONOMER0-160_RXN integrate_dt
-    false->true (kinetic integration of DnaA-ATP formation) purely to TEST whether the DnaA-ATP
-    dynamics become smoother — trading the abundant-ATP fast-equilibrium approximation for a
-    kinetic one. Validation run in progress (ParCa-full rebuild with the flag flipped + a 6-gen
-    s=0.7 sim, then re-render the DnaA-forms plot). DECISION pending the result: adopt the kinetic
-    treatment only if it smooths DnaA-ATP AND keeps the pool physically reasonable (in-band, right
-    level); otherwise revert to the justified fast-equilibrium default. (Residual box-binding
-    free<->bound stochasticity in dnaa_box_binding.py is a separate, smaller noise source.)
+    EXPERIMENT (Haochen/Eran endorsed "try this too") — RUN AND RESOLVED 2026-06-14: set
+    MONOMER0-160_RXN integrate_dt false->true (kinetic integration of DnaA-ATP formation) to TEST
+    whether the DnaA-ATP curve becomes smoother. Method: rather than a full-ParCa rebuild (which
+    independently fails at the unrelated promoter-binding cvxpy solver, promoter_fitting.py:548 —
+    NOT caused by this flag), the integrate_dt_mask was patched directly in a copy of the canonical
+    cache (cache_dnaa4_autoreg, which already had ADP+hydrolysis kinetic), flipping ONLY
+    MONOMER0-160 to kinetic, then resumed from the seed-1 gen5 dill for gen 6 (s=0.7 Hill, V=1.5e-3,
+    k_h=0.025; gen completed cleanly, tau=59 min, divided). RESULT — NEGATIVE: kinetic ATP did NOT
+    smooth the DnaA-ATP curve. Tick-jitter/mean of the DnaA-ATP form went 0.0082 (fast-eq) -> 0.0132
+    (kinetic, marginally WORSE), the ATP/ADP asymmetry ratio went 2.11 -> 2.41 (worse), and the ATP
+    fraction shifted 0.327 -> 0.293. CONCLUSION: the asymmetry is NOT a solver-method artifact for
+    ATP — it is a pool-size/topology effect. DnaA-ADP is the larger terminal sink (~278 vs ~132
+    molecules) that accumulates downstream, so its relative noise is intrinsically lower (~1/sqrt N
+    buffering); DnaA-ATP is the smaller dynamic intermediate (formed by ATP binding, drained by
+    hydrolysis + oriC/box turnover) and necessarily carries the turnover fluctuations. Noise DOES
+    propagate ATP->ADP but is averaged out by the large ADP pool. DECISION (taken): REVERTED
+    MONOMER0-160_RXN integrate_dt back to false — the justified, abundant-ATP, original-WCM
+    fast-equilibrium default stands; the kinetic variant is not adopted (it doesn't help and is
+    marginally worse). Comparison figure: out/dnaa4_atp_kinetic_vs_fasteq_gen6.png. (Residual
+    box-binding free<->bound stochasticity in dnaa_box_binding.py is a separate, smaller noise
+    source; reducing the visible ATP jitter further would mean enlarging/buffering the ATP pool or
+    smoothing the box-binding turnover, NOT changing the equilibrium solver method.)
   status: draft

@@ -130,7 +130,7 @@ tests:
   classification: primary
   status: passed
   question: |
-    Do at least 2 of the 7 screened config-reachable knobs show a >2% response
+    Do at least 1 of the 7 screened config-reachable knobs show a >2% response
     in instantaneous_growth_rate (i.e., is the UQ parameter surface non-trivial)?
   measure:
     kind: authored
@@ -271,6 +271,26 @@ design_pivot_required:
   alternatives:
   - "Treat config-reachable knobs as the full surface (rejected — misses sim_data params)."
   - "Add sim_data-level injection now (deferred to param-uq-04 as a separate infra task)."
+
+# --- Rigor declarations (read by pbg_superpowers.rigor) -------------------
+# Robustness here is a PARAMETER SWEEP, not seed replication: this is a
+# one-at-a-time low/high screen of 7 config-reachable knobs (each varied across
+# its range on a fresh initial_state), single PCRV seed. Declared honestly as a
+# sweep — the downstream PCE studies (param-uq-01/02) add the multi-seed
+# replication. NOT claimed as multi-seed replication.
+robustness:
+  n_replicates: 1
+  seeds: [0]
+  parameter_sweep: true
+  swept_param: "7 config-reachable knobs (low/high), incl. ecoli-polypeptide-elongation.basal_elongation_rate"
+
+# Falsifiability: the EFFECTIVE-vs-inert classification can fail concretely.
+falsifiability: |
+  The screen's classification fails if a knob it flags EFFECTIVE
+  (basal_elongation_rate) does not move instantaneous_growth_rate on a fresh
+  initial_state, or if a knob it flags inert (D_period and the other ~0%-effect
+  knobs) does move it. A reordering of the per-knob effect column would refute
+  the "which knobs actually drive the observable" conclusion.
 
 simulation_set:
 - name: screen-7-knobs

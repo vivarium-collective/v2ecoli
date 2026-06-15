@@ -286,13 +286,13 @@ description: |
   Studies, in dependency order (with current `phase` shown — multi-axis
   status is canonical, see each study.yaml):
 
-  1. mbp-01-time-varying-environment — **Build phase** — v2ecoli
+  1. mbp-01-time-varying-environment — **Evaluate phase** — v2ecoli
      enhancement: media / environment becomes externally driven (time-
      varying nutrient pool consumed by the existing Layer-1 Steps). PLUMBING
      + qualitative-extreme tests only (per chris_feedback_2026_05_26 §3);
      gradient-shape / quantitative-biology defer to
      `transport-kinetics-fidelity` candidate-future-study.
-  2. mbp-02-population-aggregation   — **Build phase** — v2ecoli
+  2. mbp-02-population-aggregation   — **Evaluate phase** — v2ecoli
      enhancement: aggregate per-cell mass into reactor-scale biomass /
      OD600 / cell-count via `cells_per_agent` representative-sampling
      scaling (chris_feedback_2026_05_26 §4; Eran's choice over literal-sum
@@ -322,6 +322,11 @@ description: |
      Walks the mbp-01..05 artifacts, synthesizes gaps across five axes
      (v2ecoli biology / coupling / BiRD physics / Beulig scope /
      methodology), and feeds the next investigation iteration.
+  7. mbp-07-millard-kinetic-metabolism — Evaluate phase — kinetic-metabolism
+     (Millard 2017) drop-in cell engine (baseline_millard) + reactor coupling,
+     validated against the FBA baseline and graded head-to-head against the
+     Beulig WT batch prefix alongside the WCM-FBA and iML1515 arms (3-arm
+     report cards).
 
 
 # ─── Methodology discipline ─────────────────────────────────────────────────
@@ -433,7 +438,9 @@ executive:
     population aggregation with representative-sampling scaling (mbp-02),
     BiRD reactor coupling (mbp-03), multigeneration coupled runs (mbp-04),
     a structured sim-vs-Beulig comparison report (mbp-05, EVALUATION
-    phase), and gap analysis feeding the next iteration (mbp-06).
+    phase), gap analysis feeding the next iteration (mbp-06), and a
+    kinetic-metabolism (Millard 2017) drop-in engine with 3-arm Beulig
+    report cards (mbp-07).
 
   verdict: |
     **Build phase complete for mbp-01 and mbp-02; ready for Evaluate

@@ -312,6 +312,32 @@ design_pivot_required:
   alternatives:
   - "Report a single window-agnostic growth-rate ranking (rejected — the ranking is window-dependent)."
 
+# --- Rigor declarations (read by pbg_superpowers.rigor) -------------------
+# Replication: the per-observable Sobol indices were computed across 2 PCRV
+# design seeds on top of the order-2 PCE parameter sweep; the mass-dominance
+# result (basal_elongation_rate total-order Sobol ~0.86) is robust across both
+# seeds. Declared so the parameter-sweep replication stops reading as a gap.
+robustness:
+  n_replicates: 2
+  seeds: [0, 1]
+  parameter_sweep: true
+  swept_param: "ecoli-polypeptide-elongation.basal_elongation_rate (+ ppGpp kS, chromosome basal_elongation_rate), per-observable PCE"
+
+# Falsifiability: the headline (mass-dominance) claim can fail, and the study
+# already exhibits the boundary where the growth-rate ranking does flip.
+falsifiability: |
+  The mass-dominance claim fails if a longer/shorter integration window or a
+  held-out PCRV seed reorders the per-observable Sobol ranking for the mass
+  observables. The companion growth-rate ranking IS already shown to be
+  window-dependent (kS overtakes basal_elongation_rate by 360 steps), which both
+  bounds the claim and demonstrates the test can discriminate.
+
+# Alternative explanation that the evidence excludes.
+alternative_hypotheses:
+- claim: "basal_elongation_rate dominates every observable uniformly, at any integration window."
+  discriminated_by: "Per-observable Sobol across windows — mass dominance holds (~0.86) but the growth-rate ranking is window-dependent (kS overtakes basal_elongation_rate by 360 steps), so dominance is observable- and window-specific."
+  status: excluded
+
 simulation_set:
 - name: uq-observables-w360-n24x2seeds
   kind: sensitivity_analysis

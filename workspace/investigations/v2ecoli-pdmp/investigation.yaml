@@ -511,7 +511,7 @@ how_we_run_pdmps: "This section is the operational complement to the conceptual 
   \ across the\n    trajectory axis; downstream emitter writes whole rows to zarr.\n\n## RNG, seeds, replicates\n\n- Each\
   \ replicate has a unique seed (`overrides.seed = <int>`).\n  The composite's stochastic processes (FBA stochasticRound,\
   \ jump\n  timing) draw from a numpy `default_rng(seed)`-derived stream.\n- Ensembles are scheduled as N independent runs\
-  \ with seeds\n  0..N-1 (Phase 0 reference is N=64 per condition × 3 conditions =\n  192 runs). The dashboard's run-runner\
+  \ with seeds\n  0..N-1 (the canonical Phase 0 reference TARGET is N=64 per condition × 3 conditions =\n  192 runs; the committed ensemble is N=32 = 96 runs — do NOT cite as N=64). The dashboard's run-runner\
   \ enforces a CONCURRENCY_CAP\n  so we don't OOM; long ensembles run as a serial queue.\n- PDMP segments are reproducible\
   \ bit-identically when re-simulated\n  with the same (state, seed) — this is the Markov-property\n  verification gate.\n\
   \n## Storage / persistence\n\n- Trajectories: zarr stores under `.pbg/runs/<run_id>/store.zarr/`\n  (chunked on time axis,\

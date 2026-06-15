@@ -137,3 +137,9 @@ ui:
   # host.docker.internal lets the container reach the dashboard on the host.
   # Adjust the port to match how you serve the dashboard.
   dashboard_public_base_url: "http://host.docker.internal:8771"
+  # sms-ptools 0.8.2 reads the omics file from its OWN filesystem (it does not
+  # fetch the URL over HTTP). Mount the workspace into the container and set the
+  # container-side path of the dashboard's --workspace root here; the launcher
+  # then passes <ptools_data_dir>/<rel> as the data file. Run the container with:
+  #   -v <host>/v2ecoli/workspace:/ptools-data/workspace:ro
+  ptools_data_dir: "/ptools-data"

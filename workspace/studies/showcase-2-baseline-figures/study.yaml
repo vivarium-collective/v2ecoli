@@ -35,7 +35,7 @@ report:
     resumed from the showcase-1 full ParCa cache, reproduces measured wild-type
     E. coli properties across a multiseed/multigen ensemble: doubling time in
     band, physiological mass fractions, FBA flux correlation to Toya 2010, and
-    proteome correlation to Schmidt 2015 / Wisniewski 2014.
+    proteome correlation to Schmidt 2016 / Wisniewski 2014.
 
   setup: |
     Composite: baseline (v2ecoli.composites.baseline.baseline), resumed from the
@@ -68,7 +68,7 @@ report:
     reads short (~10–19 min); the cap-immune measure and the divided-generation
     headline are unaffected. Mass fractions are physiological: protein 0.461
     (per-gen 0.477 / 0.453 / 0.442), rRNA 0.105, tRNA 0.019, DNA 0.018; mean dry
-    mass ≈467 fg, cell mass ≈1556 fg. The proteome correlates with Schmidt 2015
+    mass ≈467 fg, cell mass ≈1556 fg. The proteome correlates with Schmidt 2016
     at r = 0.728 (n=2228 monomers) and Wisniewski 2014 at r = 0.602 (n=2226).
     The native-analysis gallery (11 figures) reproduces the clean 3-generation
     cell-mass ramps, the replication program (oriC 2→4→2 per division, twice
@@ -80,7 +80,7 @@ report:
   interpretation: |
     The v2ecoli baseline reproduces wild-type single-cell physiology: clean
     3-generation growth/division (cell_mass ramps), physiological biomass
-    composition, and a proteome that correlates with Schmidt 2015 (r≈0.73) and
+    composition, and a proteome that correlates with Schmidt 2016 (r≈0.73) and
     Wisniewski 2014 (r≈0.60), consistent with the upstream vEcoli baseline. The
     doubling-time artifact that the prior run carried is RESOLVED: with #173,
     gen-2 now ends at its own division (43–52 min in-band) instead of emitting
@@ -117,7 +117,7 @@ readouts:
 - {name: doubling-time, description: "cap-immune doubling time t2 = ln(2)/mu averaged over the full lineage (min)"}
 - {name: mass-fractions, description: "dry-mass fractions (protein / rRNA / tRNA / DNA) per generation"}
 - {name: fba-flux-vs-toya2010, description: "central-carbon FBA flux vs Toya 2010 C13-MFA (Pearson R over 23 reactions)"}
-- {name: proteome-correlation, description: "proteome correlation vs Schmidt 2015 and Wisniewski 2014 (log10 monomer counts)"}
+- {name: proteome-correlation, description: "proteome correlation vs Schmidt 2016 and Wisniewski 2014 (log10 monomer counts)"}
 - {name: replication-and-regulation, description: "replication program (oriC copy number over the cell cycle) and ppGpp / tRNA-charging traces"}
 
 enforced_params:
@@ -130,13 +130,24 @@ biological_summary: |
   The wild-type baseline is the unperturbed v2ecoli whole cell growing in
   glucose minimal medium. Reproducing the four measured-property classes —
   doubling time, biomass composition (mass fractions), central-carbon flux
-  (vs Toya 2010), and the proteome (vs Schmidt 2015 / Wisniewski 2014) — across
+  (vs Toya 2010), and the proteome (vs Schmidt 2016 / Wisniewski 2014) — across
   a multiseed/multigen ensemble is the evidence that the cell is "the same
   E. coli" the upstream WCM was validated against, and the reference that all
   showcase-4 perturbation variants are measured against.
 
 literature_anchors:
 - {cite: macklin2020, note: "The Covert-lab whole-cell model; the source of the validated baseline properties (doubling time, mass fractions, Toya-2010 FBA flux + Schmidt/Wisniewski proteome cross-evaluation) v2ecoli reproduces here."}
+
+# Structured bibliography: the bib keys (resolved in references/papers.bib) this
+# study cites, so the report's References section renders them. Mirrors the
+# anchors named in the run-outcome prose (Toya 2010 FBA flux; Schmidt 2016 +
+# Wisniewski 2014 proteome) which were previously prose-only.
+bibliography:
+  bib_keys:
+  - macklin2020
+  - toya2010
+  - schmidt2016
+  - wisniewski2014
 
 model_change: |
   None — this is the unperturbed wild-type baseline. The only configuration is
@@ -284,6 +295,7 @@ tests:
     kind: flux_correlation
     reference: Toya 2010
     detail: Correlate baseline FBA fluxes against Toya 2010 measured fluxes.
+  cites: [toya2010]   # the Toya 2010 C13-MFA central-carbon flux dataset this band is anchored to
   pass_if:
     op: correlates
 - name: proteome-correlates-schmidt-wisniewski
@@ -294,6 +306,7 @@ tests:
     kind: proteome_correlation
     reference: Schmidt 2016 / Wisniewski
     detail: Correlate baseline protein abundances against the Schmidt/Wisniewski measured proteome.
+  cites: [schmidt2016, wisniewski2014]   # the two measured-proteome datasets this band is anchored to
   pass_if:
     op: correlates
 
@@ -373,7 +386,7 @@ runs:
       detail: "Baseline central-carbon FBA fluxes vs Toya 2010 C13-MFA measured fluxes — Pearson R = 0.6990 (p = 2.1e-4) over 23 reactions (central_carbon_metabolism_scatter, multiseed over 2 seeds). Toya flat file (toya_2010_central_carbon_fluxes.tsv) restored; validation_data.reactionFlux.toya2010fluxes now built by build_validation_data."
     proteome-correlates-schmidt-wisniewski:
       result: PASS
-      detail: log10 average monomer counts vs measured proteomics — Schmidt 2015 Pearson r = 0.728 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.602 (n=2226) (protein_counts_validation, multiseed over 2 seeds).
+      detail: log10 average monomer counts vs measured proteomics — Schmidt 2016 Pearson r = 0.728 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.602 (n=2226) (protein_counts_validation, multiseed over 2 seeds).
 
   computed_outcomes:
     doubling-time-in-band:
@@ -481,10 +494,10 @@ visualizations:
   source_run: showcase2-baseline-ensemble
   render: ptools_rxns (single, seed 0 gen 1) over the clean sweep — matplotlib heatmap (vl_convert overflows on the ~4500-row mark_rect spec)
 # --- Gene expression / proteome ---
-- name: proteome vs Schmidt 2015 / Wisniewski 2014
+- name: proteome vs Schmidt 2016 / Wisniewski 2014
   address: image:charts/protein_counts_validation.png
   config:
-    title: Proteome vs Schmidt 2015 (r=0.73) and Wisniewski 2014 (r=0.60)
+    title: Proteome vs Schmidt 2016 (r=0.73) and Wisniewski 2014 (r=0.60)
   chart: scatter
   source_run: showcase2-baseline-ensemble
   render: protein_counts_validation (multiseed over 2 seeds) over the clean sweep

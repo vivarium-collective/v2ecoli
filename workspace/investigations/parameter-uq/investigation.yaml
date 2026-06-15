@@ -67,7 +67,7 @@ executive:
     ribosome speed → protein-synthesis flux → growth rate.
 
     The broader program is underway: param-uq-00-screen (EXECUTED) established the
-    effective parameter surface; param-uq-02-observables (RUNNING) is testing
+    effective parameter surface; param-uq-02-observables (EXECUTED) tested
     multi-observable robustness at 360 steps; param-uq-03-growth-stratified and
     param-uq-04-deep-params are PLANNED — the former requires multi-generation
     runs + pbg-uq strategy extension, the latter requires sim_data injection +

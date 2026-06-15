@@ -8,8 +8,8 @@ question: |
   What quantities does the E. coli whole-cell simulation expose on its
   listener and process ports, in what physical units, and over what magnitude
   ranges? This is a DESCRIPTIVE reference, not a hypothesis test — a navigable
-  catalog of every unit-bearing readout, grouped by physical dimension (mass,
-  time, concentration, rate, count, volume, length), built directly from the
+  catalog of every unit-bearing readout, grouped by physical dimension
+  (concentration, count, mass, rate, time, and "other"), built directly from the
   declared `quantity[...]` / `float[unit]` port types via live schema
   resolution (`v2ecoli.library.units_resolver.build_units_index`). It pairs
   with the units-propagation feature that auto-labels plot axes from these same
@@ -54,7 +54,8 @@ biological_story: |
   dry mass in femtograms (mass), metabolite and growth-limiting nutrient levels
   as concentrations in mM/uM (concentration — the largest group, including FBA
   targets), reaction and elongation rates in 1/s (rate), molecule copy numbers
-  as counts, the cell's volume and length as it elongates (volume/length), and a
+  as counts, cell and molecular masses in fg (mass) and characteristic times in
+  seconds (time), and a
   handful of flux-like quantities (e.g. g*s/L, mmol/g/h) in "other". Each of
   these dimensions corresponds to a distinct biological quantity a modeler reads
   off the simulation, and a unit attached to a readout is what lets that number

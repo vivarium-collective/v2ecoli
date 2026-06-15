@@ -50,7 +50,7 @@ report:
         glucose + acetate.)
       • KETCHUP k-ecoli74 / k-ecoli307 — MISMATCH (R^2 = -0.89 / -0.72): directions
         agree (uptake −, CO2 secretion +) but per 100 glucose the cores respire
-        far harder (O2 ≈ -135 vs v2ecoli -9; CO2 ≈ +145 vs +33) and secrete acetate
+        far harder (O2 ≈ -135 vs v2ecoli -9; CO2 ≈ +144 vs +33) and secrete acetate
         (≈ +71, absent in v2ecoli → 'lost'). Per-metabolite axes confirm: O2 and
         CO2 mismatch, NH3 drift.
       • v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness) — MISMATCH but
@@ -75,6 +75,16 @@ report:
   - docs/report_cards/ketchup_vs_baseline/fdh-dynamic.html
   # The same cards are mirrored to reports/figures/ketchup-exchange-comparison/
   # so the dashboard report generator auto-embeds them as iframe figures.
+
+# Structured bibliography (resolved in references/papers.bib) so the report's
+# References section renders the kinetic-model + estimator sources this study
+# compares against, which were previously named only in the run-outcome prose:
+# Millard 2017 (the central-carbon kinetic ODE) and K-FIT / Gopalakrishnan 2020
+# (the IPOPT estimator that fits the KETCHUP k-ecoli74 / k-ecoli307 models).
+bibliography:
+  bib_keys:
+  - millard2017
+  - gopalakrishnan2020
 
 assumptions:
 - text: |
@@ -165,6 +175,7 @@ tests:
     kind: flux_scatter
     reference: KETCHUP k-ecoli74
     detail: "Identity-line R^2 over the 6 shared glucose-normalized central-carbon exchange fluxes, plus appeared/disappeared, via report_card.py."
+  cites: [gopalakrishnan2020]   # KETCHUP k-ecoli74 is fit by the K-FIT estimator
   pass_if:
     op: correlates
     r2_min: 0.8
@@ -176,6 +187,7 @@ tests:
     kind: flux_scatter
     reference: KETCHUP k-ecoli307
     detail: "Whole-vector flux_scatter R^2 + per-metabolite rel_tol (O2/CO2/NH3) vs KETCHUP k-ecoli307, via report_card.py."
+  cites: [gopalakrishnan2020]   # KETCHUP k-ecoli307 is fit by the K-FIT estimator
   pass_if:
     op: correlates
     r2_min: 0.8
@@ -187,6 +199,7 @@ tests:
     kind: flux_scatter
     reference: Millard 2017 ODE
     detail: "Whole-vector flux_scatter R^2 vs the Millard 2017 central-carbon ODE (glucose + acetate only), via report_card.py."
+  cites: [millard2017]   # the Millard 2017 kinetic ODE this band is anchored to
   pass_if:
     op: correlates
     r2_min: 0.8

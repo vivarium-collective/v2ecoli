@@ -14,9 +14,12 @@ status: active
 #   4. run ALL four candidate perturbations as a 5-variant sweep and rank how
 #      far each moves the cell off baseline (media-succinate strongest;
 #      ppGpp-off de-represses; dnaA-2x partial; elong-down near-null),
-#   5. stop at the NEXT-direction DECISION, seeded from the showcase-4 ranking.
-# showcase-4 is RUN (5-variant sweep + 8 comparison figures); studies 3 and 5
-# are reviewer-decision studies that stay un-run until a choice is made.
+#   5. stop at the NEXT-direction DECISION, seeded from the showcase-4 ranking,
+#   6. run the 16x16 v1<->v2 equivalence-at-scale ensemble, graded against the
+#      vEcoli reference across 21 axes (in progress; PARTIAL — exchange-flux +
+#      gene-expression below the strict band, a localized #143 divergence).
+# showcase-4 and showcase-6 are RUN; studies 3 and 5 are reviewer-decision
+# studies that stay un-run until a choice is made.
 
 question: |
   Can v2ecoli, starting from the raw ecoli-sources flat files, rebuild the
@@ -30,7 +33,7 @@ question: |
 
 executive:
   what_is_this: |
-    A five-study walkthrough of the v2ecoli pipeline, built as a demonstration
+    A six-study walkthrough of the v2ecoli pipeline, built as a demonstration
     rather than a hypothesis test:
       • showcase-1-parca — rebuild the ParCa in full from the ~133
         ecoli-sources flat files (--mode full, 51 TF conditions) and confirm
@@ -58,8 +61,15 @@ executive:
         seeded from the showcase-4 ranking: deepen the strongest contrast (a
         growth-condition panel), chase the ppGpp-off surprise (synthesis vs
         regulation 2x2), push the dnaA knob, or rescue the elong-down null.
-    showcase-4 is RUN (the 5-variant sweep + 8 figures are complete); the two
-    decision studies (3 and 5) stay un-run until a reviewer chooses.
+      • showcase-6-equivalence-large — run the 16x16 v1<->v2 equivalence-at-scale
+        ensemble and grade v2ecoli against the vEcoli reference across 21 axes.
+        In progress; PARTIAL — physiology, composition, and ribosomes fall within
+        tolerance, while exchange-flux (O2/CO2) and gene-expression sit below the
+        strict band (a localized, expected divergence, issue #143), so the overall
+        report card reads MISMATCH.
+    showcase-4 and showcase-6 are RUN (the 5-variant sweep + 8 figures, and the
+    16x16 equivalence ensemble); the two decision studies (3 and 5) stay un-run
+    until a reviewer chooses.
   verdict_status: in-progress
   verdict_detail: |
     The pipeline is exercised end-to-end and the perturbation-response half is

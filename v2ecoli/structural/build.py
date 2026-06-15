@@ -123,11 +123,17 @@ def _align_to_z(coords):
 
 
 def _build_flagellum_pdb(struct_cache, *, motor=("cif", "6SD5"), filament=("pdb", "1UCU"),
-                         whip_len=15000.0) -> Path:
-    """Assemble a composite flagellum PDB: motor/basal-body at the base (−z,
-    membrane side) + a flagellin filament repeated into a whip along +z. Returns
-    the composite path; the whip points along local +z so a ``surface`` ingredient
-    with principal_vector (0,0,1) anchors the motor in the envelope, whip outward."""
+                         contour_len=12000.0, helix_radius=450.0, helix_pitch=2800.0,
+                         strand_radius=30.0, n_strands=4) -> Path:
+    """Assemble a composite flagellum PDB: motor/basal-body at the base (−z, on
+    axis) + a thick, **helical** flagellin filament swept along +z.
+
+    A single flagellin chain stacked straight renders as a thin (~22 Å) needle. To
+    look like a real flagellum we (a) bundle ``n_strands`` flagellin strands for
+    thickness (~2·strand_radius wide), and (b) sweep the bundle along a helix
+    (the characteristic corkscrew waveform). The helix axis is +z, so a ``surface``
+    ingredient with principal_vector (0,0,1) anchors the motor at the envelope with
+    the corkscrew projecting outward."""
     struct_cache = Path(struct_cache); struct_cache.mkdir(parents=True, exist_ok=True)
     out = struct_cache / "flagellum.pdb"
     if out.exists() and out.stat().st_size > 0:
@@ -137,17 +143,30 @@ def _build_flagellum_pdb(struct_cache, *, motor=("cif", "6SD5"), filament=("pdb"
         fetch(StructureRef(*motor), struct_cache))
     fz = _align_to_z(np.array([(x, y, z) for x, y, z, _ in fil])); fe = [e for *_, e in fil]
     mz = _align_to_z(np.array([(x, y, z) for x, y, z, _ in mot])); me = [e for *_, e in mot]
+    mz = mz * np.array([1.0, -1.0, -1.0])                      # flip motor (arbitrary PCA sign)
     seg = float(fz[:, 2].max() - fz[:, 2].min()) or 1.0
-    nrep = max(3, int(round(whip_len / seg)))
+    nrep = max(3, int(round(contour_len / seg)))
+    f0 = fz.copy(); f0[:, 2] -= fz[:, 2].min()                 # filament base at z=0
+    # straight bundle, as (local_x, local_y, contour_s, element)
+    offs = [(0.0, 0.0)] + [(strand_radius * np.cos(a), strand_radius * np.sin(a))
+                           for a in np.linspace(0, 2 * np.pi, max(1, n_strands - 1), endpoint=False)]
     atoms = []
-    mz = mz * np.array([1.0, -1.0, -1.0])                      # flip motor 180° about x:
-    #   PCA-axis sign is arbitrary, which can seat the motor backwards. Present the
-    #   opposite (basal/ring) end to the filament so the rod/hook feeds the whip.
-    mb = mz.copy(); mb[:, 2] -= mz[:, 2].max()                 # motor top at z=0 (base below)
+    mb = mz.copy(); mb[:, 2] -= mz[:, 2].max()                 # motor base below z=0, on axis
     atoms += [(x, y, z, e) for (x, y, z), e in zip(mb, me)]
-    f0 = fz.copy(); f0[:, 2] -= fz[:, 2].min()                  # filament base at z=0
-    for r in range(nrep):
-        atoms += [(x, y, z + r * seg, e) for (x, y, z), e in zip(f0, fe)]
+    Lturn = float(np.hypot(2 * np.pi * helix_radius, helix_pitch))
+    for ox, oy in offs:
+        for r in range(nrep):
+            for (x, y, z), e in zip(f0, fe):
+                s = z + r * seg                                # contour position
+                th = 2 * np.pi * s / Lturn
+                Reff = helix_radius * min(1.0, s / Lturn)      # ramp radius over 1st turn (hook)
+                c = np.array([Reff * np.cos(th), Reff * np.sin(th), helix_pitch * th / (2 * np.pi)])
+                N = np.array([np.cos(th), np.sin(th), 0.0])    # radial ⟂ tangent
+                T = np.array([-2 * np.pi * helix_radius * np.sin(th),
+                              2 * np.pi * helix_radius * np.cos(th), helix_pitch]); T /= np.linalg.norm(T)
+                B = np.cross(T, N)
+                p = c + (x + ox) * N + (y + oy) * B
+                atoms.append((p[0], p[1], p[2], e))
     with open(out, "w") as f:
         for i, (x, y, z, e) in enumerate(atoms, 1):
             f.write(f"ATOM  {i % 100000:5d}  CA  ALA A{i % 9999:4d}    "
@@ -481,10 +500,9 @@ def _cluster_complex_at_pole(pack_path, mesh_dir, name, mesh_stem, cone_deg=55.0
     vs = np.array([[float(x) for x in line.split()[1:4]]
                    for line in open(finest) if line.startswith("v ")])
     zc = vs[:, 2] - vs[:, 2].mean()
-    # motor = the wider end; A = its distance from the centroid along the +z axis
-    r_lo = np.linalg.norm(vs[zc < zc.min() + 300][:, :2] - vs[:, :2].mean(0), axis=1).mean()
-    r_hi = np.linalg.norm(vs[zc > zc.max() - 300][:, :2] - vs[:, :2].mean(0), axis=1).mean()
-    A = float(-zc.min() if r_lo > r_hi else zc.max())
+    # The composite is built motor-at-−z, filament-along-+z, so the motor end is
+    # the most-negative-z point; A is its distance from the centroid.
+    A = float(-zc.min())
     cap = next(c for c in d["compartments"] if c.get("kind") == "capsule")
     a = np.array(cap["a"], float); radius = float(cap["radius"])
     pole = a / np.linalg.norm(a)                    # outward axis of the −x cap

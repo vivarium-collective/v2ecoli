@@ -178,6 +178,21 @@ biological_summary: |
 literature_anchors:
 - {cite: macklin2020, note: "The Covert-lab whole-cell model underlying both v1 (vEcoli) and v2 (v2ecoli); the equivalence test asks whether v2 reproduces v1's validated WCM phenotype at scale."}
 
+# Structured bibliography (papers.bib key) so the report's References section
+# renders the WCM anchor.
+bibliography:
+  bib_keys:
+  - macklin2020
+
+# Rich (non-bib) source: the GitHub tracking issue named throughout the
+# run-outcome prose for the O2/CO2 respiratory-exchange divergence. Wired here
+# as a {name,url,role} reference so it renders as a standalone source in the
+# report instead of being prose-only.
+references:
+- name: "v2ecoli issue #143 — O2/CO2 respiratory-exchange divergence"
+  url: "https://github.com/vivarium-collective/v2ecoli/issues/143"
+  role: "Tracking issue for the localized respiratory-exchange (O2 -40% / CO2 -20%) deficit this study confirms is stable and localized at 16x16 scale (not a new bug)."
+
 model_change: |
   None to the model — this grades the unperturbed baseline at scale. The change
   vs the #134 8×16 demo is purely SCALE (16 seeds × 16 gens, 2× the seeds) and

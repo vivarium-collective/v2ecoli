@@ -854,10 +854,12 @@ embed_visualizations:
     W₂/σ = 3.0 under open-loop water). Closing the water loop moved PDMP cell_mass 1481.0 → 1456.8 fg vs
     Phase-0 1461.1; dry_mass W₂/σ ticked up 0.86 → 1.09 but stays within ±σ. Remaining: acetate / +aa
     conditions not yet run.'
-- name: Phase 1 — PR progress report
-  url: /reports/figures/pdmp-01/phase1_progress.html
-  description: 'Closeout summary for PR #72. Charts: bridge round-trip residual, FBA-bridge architecture, Millard kinetic
-    ATP drain, W₂ gap vs Phase 0, per-condition growth rate.'
+# REMOVED: "Phase 1 — PR progress report" (phase1_progress.html) — a stale
+# PROMOTIONAL dev-journal ("PR Progress Report", overnight-session log, "PDMP now
+# BEATS the kFBA baseline", speedup PRs #89/#91) that contradicted this
+# investigation's honest "no gate met" reality. The real W2 result is carried by
+# the pdmp_vs_phase0 figure above; the honest negative-result narrative lives in
+# discovery_implications below.
 discovery_implications:
   resolved_uncertainties:
   - 'The Millard 2017 SBML loads and integrates via pbg-copasi''s CopasiUTCProcess and recovers the

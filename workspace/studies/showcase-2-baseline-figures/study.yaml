@@ -138,6 +138,17 @@ biological_summary: |
 literature_anchors:
 - {cite: macklin2020, note: "The Covert-lab whole-cell model; the source of the validated baseline properties (doubling time, mass fractions, Toya-2010 FBA flux + Schmidt/Wisniewski proteome cross-evaluation) v2ecoli reproduces here."}
 
+# Structured bibliography: the bib keys (resolved in references/papers.bib) this
+# study cites, so the report's References section renders them. Mirrors the
+# anchors named in the run-outcome prose (Toya 2010 FBA flux; Schmidt 2016 +
+# Wisniewski 2014 proteome) which were previously prose-only.
+bibliography:
+  bib_keys:
+  - macklin2020
+  - toya2010
+  - schmidt2016
+  - wisniewski2014
+
 model_change: |
   None — this is the unperturbed wild-type baseline. The only configuration is
   the multiseed/multigen ensemble + Ray-parallel dispatch + parquet emit (see
@@ -284,6 +295,7 @@ tests:
     kind: flux_correlation
     reference: Toya 2010
     detail: Correlate baseline FBA fluxes against Toya 2010 measured fluxes.
+  cites: [toya2010]   # the Toya 2010 C13-MFA central-carbon flux dataset this band is anchored to
   pass_if:
     op: correlates
 - name: proteome-correlates-schmidt-wisniewski
@@ -294,6 +306,7 @@ tests:
     kind: proteome_correlation
     reference: Schmidt 2016 / Wisniewski
     detail: Correlate baseline protein abundances against the Schmidt/Wisniewski measured proteome.
+  cites: [schmidt2016, wisniewski2014]   # the two measured-proteome datasets this band is anchored to
   pass_if:
     op: correlates
 

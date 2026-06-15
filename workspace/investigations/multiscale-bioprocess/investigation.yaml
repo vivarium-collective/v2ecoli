@@ -87,9 +87,7 @@ at_a_glance:
       across five axes (v2ecoli biology / coupling / BiRD physics / Beulig
       scope / methodology), each with a resolution type and venue, feeding
       the next investigation iteration.
-  - mbp-07-millard-kinetic-metabolism-swap: "Build: replace v2ecoli's central-carbon FBA metabolism with the Millard 2017 kinetic ODE (growth still from the WCM), env-responsive via the Millard step's external_concentrations input. Deliverable: baseline_millard.\n"
-  - mbp-08-millard-swap-validation: "Build/test: validate the Millard swap is a runnable WCM that recovers growth vs the FBA baseline (standalone). Mass-conservation + env-response checks deferred to mbp-09 (need Millard mass accounting / a reactor).\n"
-  - mbp-09-millard-reactor-comparison: "Evaluate: head-to-head Millard-kinetic vs WCM-FBA metabolism, both coupled to the BiRD reactor, graded vs Beulig batch via report cards. Gated on the Millard exchange accounting + the mbp-05 Beulig harness.\n"
+  - mbp-07-millard-kinetic-metabolism: "Build->Validate->Compare (consolidated): replace v2ecoli's central-carbon FBA with the Millard 2017 kinetic ODE as a drop-in cell engine (baseline_millard), validate it recovers growth vs the FBA baseline, then couple it to the BiRD reactor and grade it head-to-head against the Beulig WT batch prefix alongside the WCM-FBA and iML1515 genome-scale FBA arms (3-arm report cards). Deliverables: baseline_millard + reactor_bird_coupled_millard + 3-arm Beulig comparison.\n"
   blocked:
   - |
     Reaching the Beulig high-density regime (~50–80 gDW/L fed-batch endpoint,
@@ -680,12 +678,7 @@ studies:
 - mbp-04-multigeneration-runs
 - mbp-05-palsson-benchmark
 - mbp-06-gap-analysis
-
-# Expert docs supporting the investigation. Each name must match a
-# `workspace.yaml.expert_docs[].name` entry.
-- mbp-07-millard-kinetic-metabolism-swap
-- mbp-08-millard-swap-validation
-- mbp-09-millard-reactor-comparison
+- mbp-07-millard-kinetic-metabolism
 expert_docs:
 - multiscale_bioprocess_roadmap          # upstream-divergence pointer
 - cell_side_interface_contract           # substitutability discipline (NEW)
@@ -731,6 +724,6 @@ acceptance_criteria:
 - {study: mbp-04-multigeneration-runs, behavior: carbon-mass-balance-closes-over-3-generations, gating: per_study}
 - {study: mbp-05-palsson-benchmark, behavior: end-of-run-od-comparison-rendered, gating: per_study}
 - {study: mbp-05-palsson-benchmark, behavior: acetate-profile-comparison-rendered, gating: per_study}
-- study: mbp-08-millard-swap-validation
+- study: mbp-07-millard-kinetic-metabolism
   behavior: growth-recovered-vs-baseline
   gating: per_study

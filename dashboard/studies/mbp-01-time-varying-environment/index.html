@@ -2118,6 +2118,30 @@ cites:   ["Monod1949AnnRevMicrobiol"]</pre>
 
     
     
+    <div class="embed-viz-section" style="margin-bottom:24px">
+      <h3 class="section-title">Embedded visualizations</h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Self-contained HTML pages produced by the study's runner. Each iframe
+        below is a standalone artefact you can also open in a separate tab.
+      </p>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Environment coupling — uptake &amp; growth track the medium (interactive)</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/mbp-01-time-varying-environment/env_coupling_interactive.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">baseline WCM, 40 steps: glucose &amp; O2 uptake fluxes and the FBA growth objective respond to the external medium. Hover for per-step values; toggle traces in the legend. Establishes that the cell is environment-responsive — the prerequisite for reactor coupling.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/mbp-01-time-varying-environment/env_coupling_interactive.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Environment coupling — uptake &amp; growth track the medium (interactive)"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
+    
 
     <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
     <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">

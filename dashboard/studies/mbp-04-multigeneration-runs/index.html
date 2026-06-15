@@ -11,7 +11,7 @@
   <h1 class="study-title">
     <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">mbp-04</span><span class="study-name" id="study-name" data-slug="mbp-04-multigeneration-runs" title="mbp-04-multigeneration-runs">Multigeneration runs</span>
     
-    <span class="phase-pill phase-design" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Design</span>
+    <span class="phase-pill phase-simulate" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Simulate</span>
     
     
     
@@ -73,14 +73,14 @@
   
   <div class="status-detail-row">
     <span class="status-detail-axis">Implementation</span>
-    <span class="status-chip ">not_started</span>
+    <span class="status-chip ">in_progress</span>
   </div>
   
   
   
   <div class="status-detail-row">
     <span class="status-detail-axis">Simulation</span>
-    <span class="status-chip ">not_run</span>
+    <span class="status-chip ">ran</span>
   </div>
   
   
@@ -594,7 +594,7 @@ budget met; no NaN / divergence.
         <option value="failed"      >failed</option>
       </select>
       
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Design</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Simulate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
       
     </div>
 
@@ -1559,6 +1559,30 @@ cites:   ["agmon2022"]</pre>
   <div class="viz-section">
 
     
+    
+    <div class="embed-viz-section" style="margin-bottom:24px">
+      <h3 class="section-title">Embedded visualizations</h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Self-contained HTML pages produced by the study's runner. Each iframe
+        below is a standalone artefact you can also open in a separate tab.
+      </p>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Multi-generation accumulation — WCM x53 over 6 generations vs Millard flat (interactive)</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/mbp-04-multigeneration-runs/biomass_accumulation_interactive.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">The headline result. WCM-FBA divides 5x to 6 generations, representative biomass x53 (the representative_doubling path toward batch scale); Millard-ODE stays at gen 1 (x1.04) — the documented inherent reduced-model slow-growth. Toggle arms in the legend; hover for per-step mass.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/mbp-04-multigeneration-runs/biomass_accumulation_interactive.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Multi-generation accumulation — WCM x53 over 6 generations vs Millard flat (interactive)"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
     
 
     <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>

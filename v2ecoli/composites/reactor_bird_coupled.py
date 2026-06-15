@@ -317,6 +317,10 @@ def add_reactor_coupling(
             "type": "object", "default": dict(DEFAULT_BIRD_REACTOR_CONFIG)},
         # Population-aggregator knobs forwarded to baseline_population.
         "cells_per_agent": {"type": "number", "default": 1.0},
+        # "fixed" (default) | "representative_doubling" (#225 item #1): grow the
+        # represented population 2x per generation so the coupled reactor sees an
+        # ACCUMULATING biomass / O2 demand instead of the single-lineage plateau.
+        "population_growth_mode": {"type": "string", "default": "fixed"},
     },
 )
 def reactor_bird_coupled(
@@ -326,6 +330,7 @@ def reactor_bird_coupled(
     cache_dir: str = "out/cache",
     bird_reactor_config: dict | None = None,
     cells_per_agent: float = 1.0,
+    population_growth_mode: str = "fixed",
 ) -> dict:
     """Build the reactor_bird_coupled document.
 
@@ -345,6 +350,7 @@ def reactor_bird_coupled(
     document = baseline_population(
         core, seed=seed, cache_dir=cache_dir, cells_per_agent=cells_per_agent,
         reactor_volume_L=float(bird_config.get("volume_L", 1.0)),
+        population_growth_mode=population_growth_mode,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)

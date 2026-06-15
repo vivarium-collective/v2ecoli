@@ -20,6 +20,7 @@ from v2ecoli.core import build_core
 from v2ecoli.steps.population_aggregator import (
     DEFAULT_OD_TO_GDW,
     FG_PER_GRAM,
+    GROWTH_MODE_DOUBLING,
     PopulationAggregator,
 )
 
@@ -167,6 +168,96 @@ def test_aggregator_never_writes_agents_store(core):
     agents = {str(i): _agent(1.0e15) for i in range(3)}
     out = p.next_update(1.0, {"agents": agents})
     assert "agents" not in out
+
+
+# --- Representative-growing-population mode (#225 item #1) ------------------
+
+def _doubling_agg(core, cpa: float = 1.0) -> PopulationAggregator:
+    return PopulationAggregator(
+        config={"cells_per_agent": cpa,
+                "population_growth_mode": GROWTH_MODE_DOUBLING},
+        core=core,
+    )
+
+
+def test_default_mode_is_fixed(core):
+    """Default population_growth_mode is 'fixed' — backward compatible with mbp-02."""
+    p = PopulationAggregator(config={}, core=core)
+    assert p.population_growth_mode == "fixed"
+
+
+def test_fixed_mode_ignores_lineage_doublings(core):
+    """In the default fixed mode the lineage.doublings store is ignored — the
+    represented count never scales with generation (mbp-02 plateau behavior)."""
+    p = PopulationAggregator(config={"cells_per_agent": 1.0}, core=core)
+    out = p.next_update(
+        1.0, {"agents": {"0": _agent(1.0e15)}, "lineage": {"doublings": 5}},
+    )["population"]
+    assert out["cell_count"] == pytest.approx(1.0)          # 2^5 NOT applied
+    assert out["total_biomass_gDW"] == pytest.approx(1.0e15 * FG_PER_GRAM)
+
+
+def test_doubling_mode_no_lineage_store_is_factor_one(core):
+    """representative_doubling with no lineage store -> 0 doublings -> factor 1
+    (founder generation never scales; safe when the runner hasn't wired it)."""
+    p = _doubling_agg(core)
+    out = p.next_update(1.0, {"agents": {"0": _agent(1.0e15)}})["population"]
+    assert out["cell_count"] == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize("doublings,factor", [(0, 1.0), (1, 2.0), (2, 4.0), (3, 8.0)])
+def test_doubling_factor_applies_to_count_and_biomass(core, doublings, factor):
+    """representative_doubling multiplies BOTH cell_count and total_biomass_gDW
+    by 2^doublings (doublings = generation - 1 injected by the runner)."""
+    p = _doubling_agg(core)
+    out = p.next_update(
+        1.0, {"agents": {"0": _agent(1.0e15)}, "lineage": {"doublings": doublings}},
+    )["population"]
+    assert out["cell_count"] == pytest.approx(1.0 * factor)
+    assert out["total_biomass_gDW"] == pytest.approx(1.0e15 * FG_PER_GRAM * factor)
+    assert out["biomass_concentration_gL"] == pytest.approx(1.0 * factor)  # vol=1 L
+
+
+def test_representative_doubling_continuous_then_grows(core):
+    """The load-bearing invariant (#225 item #1): across a division the
+    represented total biomass is CONTINUOUS (daughter halves mass while count
+    doubles), then GROWS ~2x into the next generation — versus the fixed mode
+    which HALVES (plateau / oscillation).
+
+    Explicit values (cpa=1.0, reactor_volume_L=1.0):
+      gen g peak  : cell_mass = 2e15 fg, doublings = g-1
+      gen g+1 birth: cell_mass = 1e15 fg (halved), doublings = g
+    """
+    p = _doubling_agg(core)
+    M = 2.0e15  # division mass (fg); daughter is born at M/2
+
+    def biomass(mass_fg, doublings):
+        return p.next_update(
+            1.0, {"agents": {"0": _agent(mass_fg)}, "lineage": {"doublings": doublings}},
+        )["population"]["biomass_concentration_gL"]
+
+    # gen 1 peak (doublings 0): 2e15 * 1 * 1e-15 = 2.0 g/L
+    b_gen1_peak = biomass(M, 0)
+    assert b_gen1_peak == pytest.approx(2.0)
+    # daughter born halved, doublings -> 1: 1e15 * 2 * 1e-15 = 2.0 g/L
+    b_gen2_birth = biomass(M / 2.0, 1)
+    assert b_gen2_birth == pytest.approx(b_gen1_peak)   # CONTINUOUS across division
+    # gen 2 grows back to division mass with doublings 1: 2e15 * 2 * 1e-15 = 4.0
+    b_gen2_peak = biomass(M, 1)
+    assert b_gen2_peak == pytest.approx(2.0 * b_gen1_peak)  # ~2x growth per gen
+    # gen 3 peak: 2e15 * 4 * 1e-15 = 8.0 -> exponential accumulation
+    assert biomass(M, 2) == pytest.approx(4.0 * b_gen1_peak)
+
+    # Contrast: FIXED mode plateaus — daughter HALVES with no count growth.
+    pf = PopulationAggregator(config={"cells_per_agent": 1.0}, core=core)
+
+    def biomass_fixed(mass_fg):
+        return pf.next_update(
+            1.0, {"agents": {"0": _agent(mass_fg)}},
+        )["population"]["biomass_concentration_gL"]
+
+    assert biomass_fixed(M) == pytest.approx(2.0)
+    assert biomass_fixed(M / 2.0) == pytest.approx(1.0)  # HALVES (no accumulation)
 
 
 # --- Defensive: missing cell_mass / odd agent shapes -----------------------

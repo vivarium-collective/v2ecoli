@@ -71,6 +71,8 @@ from v2ecoli.steps.population_aggregator import (
         # Population-aggregator knobs.
         "cells_per_agent": {"type": "number", "default": DEFAULT_CELLS_PER_AGENT},
         "od_to_gdw":       {"type": "number", "default": DEFAULT_OD_TO_GDW},
+        # "fixed" (default) | "representative_doubling" (#225 item #1).
+        "population_growth_mode": {"type": "string", "default": "fixed"},
     },
     core_extensions=[_register_millard_pdmp_links],
 )
@@ -84,6 +86,7 @@ def reactor_bird_coupled_millard(
     bird_reactor_config: dict | None = None,
     cells_per_agent: float = DEFAULT_CELLS_PER_AGENT,
     od_to_gdw: float = DEFAULT_OD_TO_GDW,
+    population_growth_mode: str = "fixed",
 ) -> dict:
     """Build the reactor_bird_coupled_millard document.
 
@@ -110,6 +113,7 @@ def reactor_bird_coupled_millard(
         cells_per_agent=cells_per_agent,
         od_to_gdw=od_to_gdw,
         reactor_volume_L=float(bird_config.get("volume_L", 1.0)),
+        population_growth_mode=population_growth_mode,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled) ---

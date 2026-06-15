@@ -408,6 +408,7 @@ def run_arm_multigen(
     cells_per_agent: float = DEFAULT_CPA,
     single_daughters: bool = True,
     seed: int = 0,
+    population_growth_mode: str = "fixed",
 ) -> dict:
     """PRODUCTION path: run a coupled arm across ``max_generations`` divisions,
     following the lineage with a RAM-safe externally-driven SQLite emitter, then
@@ -453,7 +454,8 @@ def run_arm_multigen(
     set_null_emitter_override(True)
     try:
         c = build_composite(composite, seed=seed, cache_dir="out/cache",
-                            cells_per_agent=cells_per_agent)
+                            cells_per_agent=cells_per_agent,
+                            population_growth_mode=population_growth_mode)
     finally:
         set_null_emitter_override(False)
     result = run_multigen_sqlite(
@@ -519,6 +521,7 @@ def run_arm_multigen(
             "n_rows": len(rows),
             "max_steps_reached": result.get("steps"),
             "db_file": str(db_file.relative_to(WS_ROOT)),
+            "population_growth_mode": population_growth_mode,
         },
     )
 
@@ -806,7 +809,8 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
                 max_steps: int = DEFAULT_MULTIGEN_MAX_STEPS,
                 chunk: int = DEFAULT_MULTIGEN_CHUNK,
                 single_daughters: bool = True,
-                seed: int = 0) -> dict:
+                seed: int = 0,
+                population_growth_mode: str = "fixed") -> dict:
     """Run one arm, grade vs Beulig, write report_card_verdict.json (+ charts).
 
     ``production=True`` uses the multi-generation lineage-following runner
@@ -829,7 +833,8 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
         sim = run_arm_multigen(
             arm, max_generations=max_generations, max_steps=max_steps,
             chunk=chunk, cells_per_agent=cells_per_agent,
-            single_daughters=single_daughters, seed=seed)
+            single_daughters=single_daughters, seed=seed,
+            population_growth_mode=population_growth_mode)
     else:
         sim = run_arm(arm, steps, cells_per_agent=cells_per_agent)
     reference, card = build_axes(sim, tol_rel)
@@ -841,15 +846,24 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
         generated=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%MZ"),
     )
     if production:
+        _growing = population_growth_mode == "representative_doubling"
+        _growth_note = (
+            " Represented population GROWS 2x/generation (representative_doubling): "
+            f"biomass accumulates ~2^(g-1) across the {max_generations} generations "
+            "instead of plateauing — verdict reflects how far the accumulation "
+            "actually reaches (no faked Beulig closure)."
+            if _growing else
+            " Single-lineage FIXED mode: biomass plateaus (documented architectural "
+            "gap) so graded axes verdict 'mismatch' by design (execute-and-report)."
+        )
         verdict["scope"] = (
             f"{max_generations}-generation multigen PRODUCTION run "
             f"(run_multigen_sqlite, single_daughters={single_daughters}, "
             f"steps_reached={sim.get('max_steps_reached')}, "
             f"generations={sim.get('generations')}, n_rows={sim.get('n_rows')}, "
-            f"cells_per_agent={cells_per_agent:g}). Real multi-generation lineage "
-            "trajectory fed into the grader (vs the short-run smoke). Biological "
-            "magnitudes remain far below Beulig (documented architectural gap) so "
-            "graded axes verdict 'mismatch' by design (execute-and-report)."
+            f"cells_per_agent={cells_per_agent:g}, "
+            f"population_growth_mode={population_growth_mode}). Real multi-generation "
+            "lineage trajectory fed into the grader (vs the short-run smoke)." + _growth_note
         )
         verdict["multigen"] = {
             "max_generations": max_generations,
@@ -857,6 +871,7 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
             "steps_reached": sim.get("max_steps_reached"),
             "n_history_rows": sim.get("n_rows"),
             "single_daughters": single_daughters,
+            "population_growth_mode": population_growth_mode,
             "db_file": sim.get("db_file"),
         }
     else:
@@ -910,6 +925,12 @@ def main() -> int:
     ap.set_defaults(single_daughters=True)
     ap.add_argument("--seed", type=int, default=0,
                     help="(production) RNG seed; per-seed run dir for multi-seed sweeps")
+    ap.add_argument("--population-growth-mode",
+                    choices=["fixed", "representative_doubling"], default="fixed",
+                    help="(production) 'representative_doubling' grows the represented "
+                         "population 2x/generation so biomass ACCUMULATES toward the "
+                         "Beulig batch scale (breaks the single-lineage plateau); "
+                         "'fixed' (default) is the legacy single-lineage behavior")
     args = ap.parse_args()
 
     if args.arm == "both":
@@ -925,7 +946,8 @@ def main() -> int:
                         production=args.production,
                         max_generations=args.generations,
                         max_steps=args.max_steps, chunk=args.chunk,
-                        single_daughters=args.single_daughters, seed=args.seed)
+                        single_daughters=args.single_daughters, seed=args.seed,
+                        population_growth_mode=args.population_growth_mode)
         groups = {g: d["verdict"] for g, d in v["groups"].items()}
         print(f"[{arm}] -> {CARD_ROOT / ARM_CARD_DIR[arm]}/report_card_verdict.json")
         print(f"  overall={v['overall']}  groups={groups}  ({v['wall_s']}s)")

@@ -128,6 +128,20 @@ def draw(ax, i):
                linewidths=0.8, zorder=8)
     ax.text(0, R + 0.13, "oriC", ha="center", va="bottom", fontsize=9, fontweight="bold")
     ax.text(0, -R - 0.13, "terC", ha="center", va="top", fontsize=8, color="#64748b")
+    # DnaA-cycle regulatory loci (oriC-relative coords). DARS1/DARS2 reactivate
+    # DnaA-ADP -> DnaA-ATP; datA titrates/hydrolyses (DDAH). Markers now; their
+    # effect on box color (ATP recovery) appears once dnaa-5 DARS/DDAH are wired.
+    LOCI = {"DARS1": (1529044, "#0891b2", "v"), "DARS2": (-956504, "#0891b2", "v"),
+            "datA": (467079, "#b45309", "P")}
+    for nm, (c, col, mk) in LOCI.items():
+        aa = angle(c)
+        x0, y0 = R * np.cos(aa), R * np.sin(aa)
+        x1, y1 = 1.17 * np.cos(aa), 1.17 * np.sin(aa)
+        ax.plot([x0, x1], [y0, y1], color=col, lw=1.0, zorder=4)
+        ax.scatter([x0], [y0], marker=mk, s=60, c=col, edgecolors="white",
+                   linewidths=0.6, zorder=9)
+        ax.text(x1 * 1.03, y1 * 1.03, nm, fontsize=7.5, color=col, fontweight="bold",
+                ha="left" if x1 >= 0 else "right", va="center")
     # center stats
     ax.text(0, 0.12, f"t = {t[i]:.0f} min", ha="center", fontsize=10, fontweight="bold")
     ax.text(0, -0.02, f"DnaA {total[i]:.0f}", ha="center", fontsize=8.5)
@@ -158,6 +172,8 @@ leg = [
     Line2D([0], [0], marker="*", color="w", markerfacecolor="#f59e0b", markersize=15, label="oriC"),
     Line2D([0], [0], marker="s", color="w", markerfacecolor="#bfdbfe", markeredgecolor="#3b82f6",
            markersize=11, label="replicated (2 copies)"),
+    Line2D([0], [0], marker="v", color="w", markerfacecolor="#0891b2", markersize=9, label="DARS1/2 (reactivation)"),
+    Line2D([0], [0], marker="P", color="w", markerfacecolor="#b45309", markersize=9, label="datA (DDAH/titration)"),
 ]
 fig.legend(handles=leg, loc="lower center", ncol=7, fontsize=8.5, frameon=False, bbox_to_anchor=(0.5, -0.02))
 fig.suptitle(title, fontsize=13.5, y=1.02)

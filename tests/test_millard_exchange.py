@@ -83,8 +83,28 @@ def test_millard_emits_signed_medium_exchange(core):
         f"glucose exchange {exch['GLC']} != expected {expected_glc}"
     )
 
-    # --- no CO2: the Millard model has no CO2 species/reaction ---
-    assert "CARBON-DIOXIDE" not in exch
+    # --- CO2 efflux (decarboxylation) + H2O efflux (CYTBO respiration) ---
+    # The Millard SBML holds HCO3/H2O as FIXED buffer species; their efflux is
+    # reconstructed from reaction stoichiometry (BYPRODUCT_EFFLUX_REACTIONS) and
+    # emitted as medium SECRETION (POSITIVE count) so the boundary mass
+    # accounting closes (substrate-C leaves as CO2, consumed O2 leaves as H2O).
+    assert "CARBON-DIOXIDE" in exch, "CO2 efflux missing"
+    assert exch["CARBON-DIOXIDE"] > 0.0, "CO2 exchange must be positive (secretion)"
+    assert "WATER" in exch, "respiratory H2O efflux missing"
+    assert exch["WATER"] > 0.0, "H2O exchange must be positive (secretion)"
+    # CO2 net efflux = (GND+PDH+ICD+LPD+MAE+PCK) − PPC, integrated over the tick.
+    co2_rxns = {"GND": 1.0, "PDH": 1.0, "ICD": 1.0, "LPD": 1.0,
+                "MAE": 1.0, "PCK": 1.0, "PPC": -1.0}
+    expected_co2 = round(
+        sum(coeff * fluxes.get(r, 0.0) for r, coeff in co2_rxns.items())
+        * tick_s * conc_to_count)
+    assert exch["CARBON-DIOXIDE"] == expected_co2, (
+        f"CO2 exchange {exch['CARBON-DIOXIDE']} != expected {expected_co2}"
+    )
+    expected_h2o = round(2.0 * fluxes.get("CYTBO", 0.0) * tick_s * conc_to_count)
+    assert exch["WATER"] == expected_h2o, (
+        f"H2O exchange {exch['WATER']} != expected {expected_h2o}"
+    )
 
 
 @pytest.mark.sim

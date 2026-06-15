@@ -123,8 +123,8 @@ def _align_to_z(coords):
 
 
 def _build_flagellum_pdb(struct_cache, *, motor=("cif", "6SD5"), filament=("pdb", "1UCU"),
-                         contour_len=12000.0, helix_radius=450.0, helix_pitch=2800.0,
-                         strand_radius=30.0, n_strands=4) -> Path:
+                         contour_len=13000.0, helix_radius=260.0, helix_pitch=4200.0,
+                         strand_radius=30.0, n_strands=1) -> Path:
     """Assemble a composite flagellum PDB: motor/basal-body at the base (−z, on
     axis) + a thick, **helical** flagellin filament swept along +z.
 

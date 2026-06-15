@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "reactor_bird_coupled",
   "reference_model": "Beulig 2025 WT batch prefix",
-  "generated": "2026-06-15 00:01Z",
+  "generated": "2026-06-15 01:40Z",
   "overall": "mismatch",
   "groups": {
     "growth": {
@@ -12,10 +12,10 @@
           "id": "growth.biomass_gDW_per_L",
           "label": "Biomass (OD x 0.34)",
           "verdict": "mismatch",
-          "value": 0.014698308869527941,
-          "meter": "\u0394 = -12.91 (99.9% rel)",
+          "value": 0.026021188280167935,
+          "meter": "\u0394 = -12.89 (99.8% rel)",
           "detail": {
-            "rel": 0.9988623599946186
+            "rel": 0.9979859761393058
           }
         }
       ]
@@ -27,10 +27,10 @@
           "id": "substrate.GUR",
           "label": "Glucose uptake rate",
           "verdict": "mismatch",
-          "value": 942.3899667797481,
-          "meter": "\u0394 = +927.9 (6422.7% rel)",
+          "value": 0.0,
+          "meter": "\u0394 = -14.45 (100.0% rel)",
           "detail": {
-            "rel": 64.22684841496971
+            "rel": 1.0
           }
         },
         {
@@ -50,20 +50,20 @@
           "id": "gas_transfer.OTR",
           "label": "O2 transfer rate (OTR)",
           "verdict": "mismatch",
-          "value": 1.9639075941760276,
-          "meter": "\u0394 = -8494 (100.0% rel)",
+          "value": 6.649733971152584,
+          "meter": "\u0394 = -8489 (99.9% rel)",
           "detail": {
-            "rel": 0.9997688323845078
+            "rel": 0.9992172731800988
           }
         },
         {
           "id": "gas_transfer.CTR",
           "label": "CO2 transfer rate (CTR)",
-          "verdict": "mismatch",
-          "value": 0.6228895122878956,
-          "meter": "\u0394 = -156.2 (99.6% rel)",
+          "verdict": "drift",
+          "value": 101.29894466062758,
+          "meter": "\u0394 = -55.52 (35.4% rel)",
           "detail": {
-            "rel": 0.9960280532729269
+            "rel": 0.35405235798097756
           }
         },
         {
@@ -156,8 +156,19 @@
       ]
     }
   },
-  "scope": "SHORT-RUN SMOKE (600 steps, cells_per_agent=1e+10); NOT the full ~33h Beulig batch production run (follow-up execution). Biological magnitudes are far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
-  "wall_s": 52.31,
+  "scope": "3-generation multigen PRODUCTION run (run_multigen_sqlite, single_daughters=True, steps_reached=6900, generations=[1, 2], n_rows=115, cells_per_agent=1e+10). Real multi-generation lineage trajectory fed into the grader (vs the short-run smoke). Biological magnitudes remain far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
+  "multigen": {
+    "max_generations": 3,
+    "generations_seen": [
+      1,
+      2
+    ],
+    "steps_reached": 6900,
+    "n_history_rows": 115,
+    "single_daughters": true,
+    "db_file": "out/mbp_production/wcm/run.db"
+  },
+  "wall_s": 598.46,
   "charts": [
     "overlay_growth.png",
     "overlay_OTR.png",

@@ -688,7 +688,7 @@ runs:
   runner: v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
   note: |
     Long-duration batch-prefix run targeting 6h sim — terminated at
-    sim_min=175 (29% of target) when the sim's RSS reached ~72 GB and
+    sim_min=175 (~49% of target) when the sim's RSS reached ~72 GB and
     the system's 128 GB physical memory was effectively exhausted.
     Salvaged trajectory is more than sufficient for the plateau
     diagnostic that mbp-05 chart 02 surfaces; reaching 6h would not

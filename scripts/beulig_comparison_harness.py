@@ -407,6 +407,7 @@ def run_arm_multigen(
     chunk: int = DEFAULT_MULTIGEN_CHUNK,
     cells_per_agent: float = DEFAULT_CPA,
     single_daughters: bool = True,
+    seed: int = 0,
 ) -> dict:
     """PRODUCTION path: run a coupled arm across ``max_generations`` divisions,
     following the lineage with a RAM-safe externally-driven SQLite emitter, then
@@ -432,14 +433,19 @@ def run_arm_multigen(
     from vivarium_dashboard.lib import composite_runs
 
     composite = ARM_COMPOSITE[arm]
-    out_dir = WS_ROOT / "out" / "mbp_production" / arm
+    # Per-seed run dir so a multi-seed sweep doesn't clobber prior seeds.
+    arm_tag = arm if seed == 0 else f"{arm}-seed{seed}"
+    out_dir = WS_ROOT / "out" / "mbp_production" / arm_tag
     out_dir.mkdir(parents=True, exist_ok=True)
+    # Some composite viz/division steps write under .pbg/parquet-runs; ensure it
+    # exists so a long multigen run doesn't abort mid-flight (the gen-2 dir bug).
+    (WS_ROOT / ".pbg" / "parquet-runs").mkdir(parents=True, exist_ok=True)
     db_file = out_dir / "run.db"
     if db_file.exists():
         db_file.unlink()
-    run_id = f"mbp-production-{arm}"
+    run_id = f"mbp-production-{arm_tag}"
 
-    c = build_composite(composite, seed=0, cache_dir="out/cache",
+    c = build_composite(composite, seed=seed, cache_dir="out/cache",
                         cells_per_agent=cells_per_agent)
     result = run_multigen_sqlite(
         c,
@@ -790,7 +796,8 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
                 max_generations: int = DEFAULT_MULTIGEN_GENERATIONS,
                 max_steps: int = DEFAULT_MULTIGEN_MAX_STEPS,
                 chunk: int = DEFAULT_MULTIGEN_CHUNK,
-                single_daughters: bool = True) -> dict:
+                single_daughters: bool = True,
+                seed: int = 0) -> dict:
     """Run one arm, grade vs Beulig, write report_card_verdict.json (+ charts).
 
     ``production=True`` uses the multi-generation lineage-following runner
@@ -813,7 +820,7 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
         sim = run_arm_multigen(
             arm, max_generations=max_generations, max_steps=max_steps,
             chunk=chunk, cells_per_agent=cells_per_agent,
-            single_daughters=single_daughters)
+            single_daughters=single_daughters, seed=seed)
     else:
         sim = run_arm(arm, steps, cells_per_agent=cells_per_agent)
     reference, card = build_axes(sim, tol_rel)
@@ -892,6 +899,8 @@ def main() -> int:
                     help="(production) keep BOTH daughters at each division "
                          "(2^N cells — memory grows; cap --generations)")
     ap.set_defaults(single_daughters=True)
+    ap.add_argument("--seed", type=int, default=0,
+                    help="(production) RNG seed; per-seed run dir for multi-seed sweeps")
     args = ap.parse_args()
 
     if args.arm == "both":
@@ -907,7 +916,7 @@ def main() -> int:
                         production=args.production,
                         max_generations=args.generations,
                         max_steps=args.max_steps, chunk=args.chunk,
-                        single_daughters=args.single_daughters)
+                        single_daughters=args.single_daughters, seed=args.seed)
         groups = {g: d["verdict"] for g, d in v["groups"].items()}
         print(f"[{arm}] -> {CARD_ROOT / ARM_CARD_DIR[arm]}/report_card_verdict.json")
         print(f"  overall={v['overall']}  groups={groups}  ({v['wall_s']}s)")

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import binascii
 import copy
+import os
 from typing import Any
 
 import numpy as np
@@ -90,6 +91,11 @@ BASE_EXECUTION_LAYERS = [
     # Must run AFTER ecoli-equilibrium so DnaA-ATP / DnaA-ADP form swap
     # is applied to the bulk pool before box occupancy equilibrates.
     ['dnaa-box-binding'], FLUSH,
+
+    # Layer 2c: RIDA (dnaa-5) — replisome-coupled DnaA-ATP inactivation.
+    # Reads the active-replisome count (prior tick) and converts free
+    # DnaA-ATP → DnaA-ADP, scaling the extrinsic inactivation with fork number.
+    ['rida'], FLUSH,
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
@@ -226,6 +232,7 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     from v2ecoli.processes.rna_maturation import RnaMaturation
     from v2ecoli.processes.complexation import Complexation
     from v2ecoli.steps.dnaa_box_binding import DnaABoxBinding
+    from v2ecoli.steps.rida import Rida
     from v2ecoli.processes.protein_degradation import ProteinDegradation
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
@@ -309,6 +316,21 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             'submass_indices': tf_cfg.get('submass_indices'),
         }
         instance = _make_instance(DnaABoxBinding, dnaa_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: RIDA — replisome-coupled DnaA-ATP inactivation. No ParCa config;
+    # built from class defaults. rate_multiplier=0.0 gives the rida-knockout
+    # variant (set via env RIDA_RATE_MULTIPLIER for the knockout sweep).
+    if step_name == 'rida':
+        rida_cfg = {
+            'rate_multiplier': float(os.environ.get('RIDA_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'rida'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Rida, rida_cfg, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
             topology = topology()

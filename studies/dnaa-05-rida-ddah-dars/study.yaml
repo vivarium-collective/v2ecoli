@@ -2,11 +2,11 @@ schema_version: 4
 name: dnaa-05-rida-ddah-dars
 investigation: chromosome-cycle-calibration   # owning investigation (back-reference)
 created: '2026-05-26'
-phase: Design
-status: planned
+phase: Build
+status: in_progress   # 2026-06-15: increment 1 (RIDA) implemented + primary mechanism validated (anti-correlation -0.890); DDAH/DARS next.
 design_status: complete
-implementation_status: planned
-simulation_status: planned
+implementation_status: in_progress
+simulation_status: in_progress
 evaluation_status: not_run
 gate_status: pending
 expert_review_status: pending
@@ -126,7 +126,16 @@ implementation_requirements:
   title: RIDA process (replisome-coupled DnaA-ATP → DnaA-ADP)
   kind: model
   effort: M
-  status: open
+  status: done
+  description: >-
+    Implemented as v2ecoli/steps/rida.py (Rida step) wired into the dnaa-4
+    composite at execution layer 2c (after dnaa-box-binding). Reads the active-replisome
+    count, converts free DnaA-ATP -> DnaA-ADP at rate k_rida*n_forks*dt following the
+    intrinsic-hydrolysis stoichiometry (ATP+WATER->ADP+Pi+PROTON), capped by free DnaA-ATP.
+    rate_multiplier=0 gives the rida-knockout variant (env RIDA_RATE_MULTIPLIER). Validated
+    2026-06-15 (run dnaa5_rida_test, gen 6 on the dnaa-4 s=0.7 cache) — builds+divides cleanly
+    (tau=59 min), fires scaling with fork count, and the PRIMARY anti-correlation test passes
+    hard (Spearman(forks, DnaA-ATP form) = -0.890, gate <= -0.5).
 - id: REQ-2
   title: DDAH process (datA-locus-coupled hydrolysis)
   kind: model
@@ -203,9 +212,44 @@ behavior_tests:
     op: <=
     value: 0.2
   requires_simulation: knockout-sweep
-findings: []
+findings:
+- id: F-01
+  statement: >-
+    RIDA increment 1 (2026-06-15): the replisome-coupled DnaA-ATP inactivation mechanism is
+    IMPLEMENTED and the primary mechanism VALIDATED. RIDA (v2ecoli/steps/rida.py) reads the
+    active-replisome count and converts free DnaA-ATP -> DnaA-ADP at k_rida*n_forks*dt. Wired
+    into the dnaa-4 (box-binding + autoregulation) composite at layer 2c, it builds, runs a full
+    generation, and divides cleanly (tau=59 min, no ballooning) — the small per-tick flux means
+    byproducts (Pi/PROTON/WATER) written directly to bulk do not perturb FBA. PRIMARY TEST PASSES:
+    Spearman(active-replisomes, DnaA-ATP form) = -0.890 (gate <= -0.5) — when forks appear the
+    DnaA-ATP form drops from ~145 to 0 within ~10 min, exactly the post-initiation inactivation
+    signature. TWO calibration findings: (1) the literature target rate 40/min/fork is FAR too
+    strong applied to the model's small free DnaA-ATP pool — it crashes the DnaA-ATP/total fraction
+    from 0.327 (no-RIDA) to a 0.120 mean (dips to 0), well below the Boesen 0.2-0.5 band. (2)
+    RIDA-alone only DRAINS DnaA-ATP -> there is no reactivation arm, so once forks appear the pool
+    monotonically depletes rather than recovering. The healthy cyclic oscillation (drop post-init,
+    RECOVER mid-cycle) therefore REQUIRES DARS (REQ-3, the DnaA-ADP -> DnaA-ATP reactivation) — that
+    is the natural next increment, after which RIDA's rate can be co-calibrated against DARS to land
+    the mean fraction in band with a fork-driven oscillation. NOTE: the listeners.rida emit group is
+    not in the emitter's fixed listener allow-list, so n_active_replisomes/conversion_count were
+    derived from the emitted listeners.replication_data.fork_coordinates instead; adding 'rida' to
+    the emit allow-list is a minor follow-up.
+  status: draft
+  provenance:
+    run_ids: [dnaa5_rida_test]
 followup_proposals: []
-runs: []
+runs:
+- name: dnaa5_rida_test
+  status: completed
+  seeds: [1]
+  emitter:
+    kind: parquet
+    store: out/dnaa5_rida_test/dnaa5_rida_test
+  note: 'RIDA increment-1 validation, gen 6 from dnaa-4 s=0.7 seed1 gen5 dill, RIDA_RATE_PER_MIN=40
+    (over-strong). Anti-correlation Spearman(forks, DnaA-ATP)=-0.890 PASS; ATP fraction over-depleted
+    (0.12 mean) pending DARS + rate co-calibration.'
+  generations: 1
+  sim_minutes: 59
 tests:
   data_source: all_runs
 visualizations: []

@@ -80,17 +80,22 @@ BASE_EXECUTION_LAYERS = [
     ['ecoli-tf-unbinding'],
     ['exchange_data'], FLUSH,
 
-    # Layer 2: standalone (no partitioning needed)
-    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
+    # Layer 2: standalone. dnaa_box_binding_listener (dnaa-3) sits next to
+    # ecoli-equilibrium so its listeners.mass read resolves to the prior tick.
+    # INVESTIGATION wiring (dnaa-replication) — NOT on main's default baseline
+    # (main keeps these dormant; see PR #244); restored on this branch for the
+    # dnaa runs (dnaa-3 box-binding, dnaa-4 autoreg, dnaa-5 rida/ddah/dars).
+    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
+     'dnaa_box_binding_listener'], FLUSH,
 
-    # NOTE: the dnaA-investigation mechanism steps — dnaa-3 (dnaa-box-binding +
-    # dnaa_box_binding_listener), dnaa-4 (autoregulation in transcript_initiation),
-    # and dnaa-5 (rida / ddah / dars + library/locus_copy_number) — remain in the
-    # tree as DORMANT infrastructure but are NOT wired into the default baseline.
-    # Main's default model is the pre-investigation WCM; these are activated only
-    # by the dnaa-replication investigation (draft PR), which re-adds the layers.
+    # Layer 2b: DnaA-box equilibrium binding (dnaa-3 Phase 2) — after equilibrium.
+    ['dnaa-box-binding'], FLUSH,
 
-    # Layer 3: TF binding
+    # Layer 2c-2e: dnaa-5 extrinsic DnaA-ATP/ADP conversion — RIDA (replisome),
+    # DDAH (datA), DARS1/DARS2 (reactivation). Sequential so each caps the free pool.
+    ['rida'], FLUSH,
+    ['ddah'], FLUSH,
+    ['dars'], FLUSH,
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,

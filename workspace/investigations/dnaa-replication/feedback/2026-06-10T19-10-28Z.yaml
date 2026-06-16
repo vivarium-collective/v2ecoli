@@ -1,0 +1,71 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260610175524"
+  generated_at: "2026-06-10T19:10:28.314Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-10-3%20(1).html"
+annotations:
+  "study-dnaa-3-box-binding-charts":
+  - ts: "2026-06-10T19:09:25.127Z"
+    author: "Rashmi"
+    text: "DnaA pool is still not stable within 300-800. We need to first get it to oscillate wthin the band by trying out different v values and multiple seeds"
+  - ts: "2026-06-10T19:10:26.904Z"
+    author: "Rashmi"
+    text: "Please also include the circular chromosome schematic which keeps track of the box occupancy so that we see if the fix worked."
+responses:
+  study-dnaa-3-box-binding-charts:
+    status: done
+    by: claude
+    at: '2026-06-11'
+    response: |-
+      Both points actioned.
+
+      (1) "DnaA pool still not stable within 300-800 — try different V values + multiple
+      seeds to get it oscillating within the band." Done — a V-sweep on the active
+      box-binding mechanism: V = 0.5e-3 / 0.6e-3 / 0.7e-3 × seeds {0,1} (+ 0.8/1.0/1.2e-3
+      references), on the mini. Chart dnaa3_v_sweep_band. RESULT: NO constitutive V keeps
+      the WHOLE oscillation within [300,800]:
+        V=0.5e-3: 193-696 / 140-702   (peaks OK, troughs < 300)
+        V=0.6e-3: 122-476 / 169-560   (troughs < 300)
+        V=0.7e-3: 208-723 / 201-628   (troughs < 300)
+        V=0.8e-3: 327-1035            (peaks > 800)
+      Lowering V to fix the peaks pushes the troughs below 300; raising V to lift the
+      troughs overshoots the peaks. The per-cycle DnaA amplitude (~3-4x peak/trough, the
+      accumulate-then-halve of the cell cycle) is WIDER than the band's 2.67x range at
+      every V, robustly across both seeds. So a CONSTANT synthesis rate structurally cannot
+      hold the oscillation in the band — this is the V-tension, now proven empirically by
+      the sweep. The fix is DnaA negative AUTOREGULATION (dnaa-4): feedback-controlled
+      synthesis (less when DnaA is high, more when low) dampens the cycle amplitude to fit
+      the band, which no fixed V can do. This sweep is the direct empirical case for it.
+
+      (2) "Include the circular chromosome schematic that tracks box occupancy so we can
+      see if the fix worked." Already restored — dnaa3_box_occupancy is the chromosome
+      occupancy-by-region map (5 cycle snapshots: oriC / dnaA-promoter / chromosomal / ter,
+      filled=bound, open=free + the free-DnaA-ATP-vs-100nM-K_d panel). Your report predated
+      that commit (864930a). It shows the BINDING fix worked: oriC-low fills gradually
+      (~0.5-0.64, not pinned ~0.8), boxes double with the fork (oriC 11->22, chromosomal
+      302->604), and free DnaA-ATP sits ~5-67 nM BELOW the 100 nM K_d (was ~389 nM above) —
+      the over-binding resolved. The POOL-band issue (point 1) is the separate, V-independent
+      problem that autoregulation addresses.
+actions:
+  fb-e068a4797be2542e:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: 'V-sweep: no constitutive V holds the band -> seeded dnaa-4 (autoregulation); residual is the V-tension, tracked there.'
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: 'V-sweep: no constitutive V holds the band -> seeded dnaa-4 (autoregulation); residual is the V-tension, tracked there.'
+  fb-c3b91175d4238d1b:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: chromosome_dnaa_boxes + replication animation + occupancy charts show box occupancy on the fix.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: chromosome_dnaa_boxes + replication animation + occupancy charts show box occupancy on the fix.

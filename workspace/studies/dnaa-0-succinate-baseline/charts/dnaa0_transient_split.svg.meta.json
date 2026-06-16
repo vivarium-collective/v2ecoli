@@ -1,0 +1,73 @@
+{
+  "source_run_id": "dnaa0_fullhist",
+  "generation_id": null,
+  "rendered_at": 1780919910.238734,
+  "command": "python scripts/render_dnaa0_transient_split.py --run /Users/eranagmon/code/v2e-invest/out/dnaa0_fullhist/dnaa0_fullhist --out /Users/eranagmon/code/v2e-invest/studies/dnaa-0-succinate-baseline/charts",
+  "note": "FULL per-generation history (per-gen-history emit fix). oriC max in this seed-1 COLD-START run = 2: the REAL pattern is periodic 1<->2 in EVERY generation and NEVER 4 \u2014 there is no 4-oriC overshoot. Background shading separates the transient cold-start gens 1-2 from the accepted steady-state window gen 3+; canonical all-zeros daughter lineage, sub-5-min daughter-stub gens (e.g. gen 8) filtered.",
+  "per_generation": [
+    {
+      "gen": 1,
+      "ticks": 3547,
+      "dur_min": 59.1,
+      "oric_set": [
+        1,
+        2
+      ]
+    },
+    {
+      "gen": 2,
+      "ticks": 3068,
+      "dur_min": 51.1,
+      "oric_set": [
+        1,
+        2
+      ]
+    },
+    {
+      "gen": 3,
+      "ticks": 3464,
+      "dur_min": 57.7,
+      "oric_set": [
+        1,
+        2
+      ]
+    },
+    {
+      "gen": 4,
+      "ticks": 4060,
+      "dur_min": 67.7,
+      "oric_set": [
+        1,
+        2
+      ]
+    },
+    {
+      "gen": 5,
+      "ticks": 4271,
+      "dur_min": 71.2,
+      "oric_set": [
+        1,
+        2
+      ]
+    },
+    {
+      "gen": 6,
+      "ticks": 4103,
+      "dur_min": 68.4,
+      "oric_set": [
+        1,
+        2
+      ]
+    },
+    {
+      "gen": 7,
+      "ticks": 5774,
+      "dur_min": 96.2,
+      "oric_set": [
+        1,
+        2
+      ]
+    }
+  ],
+  "oric_max": 2
+}

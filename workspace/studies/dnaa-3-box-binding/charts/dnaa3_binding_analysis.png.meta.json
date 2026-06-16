@@ -1,0 +1,8 @@
+{
+  "run_id": "dnaa4_s07_seed1_16gen_fixed",
+  "source_run_id": "dnaa4_s07_seed1_16gen_fixed",
+  "generation_id": null,
+  "rendered_at": 1781569012.8731232,
+  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa4_s07_seed1_16gen_fixed --out out/dnaa3_autoreg_charts/dnaa3_binding_analysis",
+  "content_hash": "sha256:ca5d9f0ae32d039e9b0d3cd2bc9e5eea8a50c60cd11bd86353b74aa4af4f4c99"
+}

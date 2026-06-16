@@ -1,0 +1,55 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260607231122"
+  generated_at: "2026-06-08T00:21:12.131Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-07-17.html"
+annotations:
+  "finding-sink-capacity-tuned-to-chipseq-resolves-overbinding":
+  - ts: "2026-06-08T00:13:28.549Z"
+    author: "Rashmi"
+    text: "Do not use outside references unless provided. ChIP-seq strong-site count (Smith 2024: ~13 strongly DnaA-bound regions / 32 strict consensus. Do not use this as this information was not provided."
+  "study-dnaa-3-box-binding-charts":
+  - ts: "2026-06-08T00:19:36.148Z"
+    author: "Rashmi"
+    text: "for this run, please provide all plots including no. of oriC, cell mass, DnaA counts in all forms (DnaA-ATP, DnaA-ADP, apoDnaA) including bound + free, DnaA concentration (bound + free), DnaA-ATP and DnaA-ADP fraction across all generations. For the DnaA box occupancy visualization we can select a later generation which shows steady state behavior."
+  - ts: "2026-06-08T00:21:04.597Z"
+    author: "Rashmi"
+    text: "If you essentially have the correct DnaA-ATP ratio (0.2-0.5), not all low affinity sites will be saturated and you wouldn't need the 32 cap. Do not use mechanisms other than the ones that are explicitly provided."
+responses:
+  finding-sink-capacity-tuned-to-chipseq-resolves-overbinding:
+    status: addressed
+    by: claude
+    at: '2026-06-08'
+    response: |-
+      Agreed and fixed. The two outside references an earlier automated pass introduced without your approval — Smith 2024 (genome-wide ChIP-seq DnaA-binding landscape) and the ~200-DnaA/oriC abundance citations (Si/Sekar; Hansen) — are removed; both were added by commit 4d65fdc while 'resolving Haochen 4a', not provided by you. The box-capacity cap=32 they justified and that finding are gone; only the three provided references remain. To prevent recurrence we added a framework guardrail: agents now record any suggested reference/mechanism under investigation.proposed_inputs (status: pending) and you Accept/Decline it in the report. These three (Smith ChIP-seq, abundance, datA) are surfaced there for your decision — not silently applied or silently dropped.
+  study-dnaa-3-box-binding-charts:
+  - re: all-plots-across-generations
+    status: delivered
+    response: |-
+      Done. dnaa-3 binding is now strictly the provided read-only occupancy observer (no cap, no sink), re-run multi-generation. (We also fixed a separate emit bug that had been truncating each generation's parquet history at division to ~the first minute — full per-gen cycles are now retained.) The plot set, across all generations: number of oriC; cell mass; DnaA in all forms (DnaA-ATP, DnaA-ADP, apoDnaA) bound + free; DnaA concentration (bound+free); DnaA-ATP and DnaA-ADP fraction with the [0.2,0.5] band shaded; and the DnaA-box occupancy at a steady-state generation. Charts in studies/dnaa-3-box-binding/charts/.
+  - re: correct-atp-ratio-no-cap-only-provided-mechanisms
+    status: addressed-with-open-finding
+    response: |-
+      Mechanism discipline fixed: the box cap AND the sink (both non-provided) are removed; the model is strictly the provided read-only observer. On the science — we checked your point directly. The DnaA-ATP FRACTION is in band (0.23, in [0.2,0.5]). But across all 7 generations the free DnaA-ATP CONCENTRATION stays ~380-550 nM (mean ~430) — about 4x the 100 nM oriC-low K_d — for 100% of every cell cycle, so oriC low-affinity occupancy remains ~0.8 throughout, every generation (high-affinity pools saturate, K_d 1 nM). So with only the provided mechanisms the low-affinity sites do NOT become modestly occupied even with the correct ATP fraction — the over-binding persists. We are NOT re-introducing a cap or sink to force it down; we're flagging this honestly as an OPEN question for you/Haochen within the provided mechanisms (nothing in the provided read-only model lowers free DnaA-ATP). Possible next directions live as pending proposed_inputs for you to accept or decline.
+actions:
+  fb-8eff5621c3dd9fd6:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Covered by dnaa3_readouts + dnaa3_fullhist_pergen; occupancy on steady gen-5.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: Covered by dnaa3_readouts + dnaa3_fullhist_pergen; occupancy on steady gen-5.
+  fb-658ef634703b7636:
+    kind: finding
+    target_study: dnaa-3-box-binding
+    proposed_text: Box-capacity cap removed; over-binding resolved by the active depleted-pool mechanism (no outside mechanism).
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:31Z'

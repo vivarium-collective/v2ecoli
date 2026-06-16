@@ -1,0 +1,29 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260608125948"
+  generated_at: "2026-06-08T13:17:50.390Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-08.html"
+annotations:
+  "finding-v-retune-1.7e-3-reduces-overshoot":
+  - ts: "2026-06-08T13:12:37.133Z"
+    author: "Rashmi"
+    text: "we need to tune the v value to get the DnaA levels to oscillate between 300-800. You can do a sweep of v values to figure out what the value should be. My guess would be 1e-3."
+responses:
+  _acknowledgments: |-
+    Rashmi (2026-06-08): confirmed the parquet-emitter fix and that the report starts over cleanly; liked the report structure. Noted with thanks.
+  finding-v-retune-1.7e-3-reduces-overshoot:
+    status: done-with-tradeoff-flagged
+    by: claude
+    at: '2026-06-08'
+    response: |-
+      Done — swept V over {1.7e-3, 1.0e-3, 0.8e-3} via the recorded --perturbation override (one shared cache, full per-gen history, seed 1, 7 gens). The DnaA pool ramps up from dnaa-0's low baseline and where it settles scales with V (per-gen cycle-mean, band [300,800]):
+        • V=1.7e-3 → ramps to ~1131 (out of band).
+        • V=1.0e-3 (your guess) → 359→832, in band gens 3-6 but EXITS by gen 7; dnaA init rate ON TARGET (~0.8-1.4/min, median ~1).
+        • V=0.8e-3 → 337/338/360/415 (gens 4-7), BAND-STABLE plateau, per-cycle peaks <800, oriC clean 1↔2; but init rate SUB-physiological (0.46-0.71/min).
+      Chosen V=0.8e-3 as canonical — it satisfies your primary ask (DnaA oscillating in [300,800]); the DnaA-pool band test flips FAIL→PASS, figure re-rendered.
+
+      HONEST TRADEOFF for your re-review: the in-band-pool and ~1/min-init-rate criteria are in TENSION at the dnaa-0 succinate initial condition. Both rise with V, so no single V at this start hits both: 0.8e-3 gives the in-band pool with a low rate; your 1.0e-3 gives the ~1/min rate with the pool exiting band by gen 7. Options for your call: (a) keep 0.8e-3 (in-band pool, low rate), (b) take 1.0e-3 (~1/min rate, slight band exit), or (c) revisit the initial DnaA condition / reconcile the band-vs-rate targets. Provenance: each run's V is recorded (run_registry + figure run_id).

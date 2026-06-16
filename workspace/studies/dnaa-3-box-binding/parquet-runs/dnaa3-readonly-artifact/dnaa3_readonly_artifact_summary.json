@@ -1,0 +1,17 @@
+{
+  "experiment_id": "dnaa3_readonly_artifact",
+  "cache_dir": "out/cache_dnaa3",
+  "generations_requested": 1,
+  "generations_completed": 1,
+  "pipeline_wall_seconds": 209.6397533416748,
+  "gens": [
+    {
+      "gen": 6,
+      "agent_id": "000000",
+      "duration_min": 55.0,
+      "divided": false,
+      "final_dry_mass_fg": 370.22632903328724,
+      "wall_seconds": 209.46869587898254
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "title": "dnaa-4 reference: linear s=0.6 + F-05 + V=1.5e-3 (Rashmi/Haochen config, reproduced)",
+  "caption": "Multi-generation trajectory for the adopted reference config (linear autoregulation 1-s*f at s=0.6, F-05 kinetic apo+ATP charging, V=1.5e-3, seed 1; reproduction of Rashmi's commit eb4ea39). Clean cell cycle (mass sawtooth, oriC 1<->2 every gen, 12/12 divided); DnaA total per-gen mean in [300,800] across all steady gens (g4-11) - a clean band pass; DnaA-ATP fraction ~0.26 in [0.2,0.5]. Reproduces page 1 of v1.5e-3_s06_F05_seed1_combined.pdf.",
+  "source_runs": ["dnaa4_s06_F05_seed1_12gen"],
+  "script": "scripts/plot_dnaa_traj.py"
+}

@@ -295,12 +295,14 @@ def main() -> None:
     study_warnings: list[str] = []
     studies_missing_viz: list[str] = []
 
-    # A study "has a visualization" if it declares one in study.yaml OR ships a
-    # chart/viz artifact on disk (charts/, viz/, or reports/figures/<slug>/).
-    figures_root = _dir("studies").parent / "reports" / "figures"
+    # A study "has a visualization" if it declares one in study.yaml
+    # (visualizations[] or embed_visualizations[]) OR ships a chart/viz artifact
+    # on disk (charts/, viz/, or the canonical reports/figures/<slug>/ — the
+    # same WS_ROOT/reports/figures dir the dashboard auto-discovers embeds from).
+    figures_root = WS_ROOT / "reports" / "figures"
 
     def _has_visualization(study_dir_path, study_data) -> bool:
-        if study_data.get("visualizations"):
+        if study_data.get("visualizations") or study_data.get("embed_visualizations"):
             return True
         if any(study_dir_path.glob("charts/*")):
             return True

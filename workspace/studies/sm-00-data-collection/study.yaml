@@ -102,13 +102,10 @@ runs:
   computed_outcomes:
     _status: store_unresolved
 
-visualizations:
-- name: Training dataset overview
-  address: "image:../../reports/figures/sm-00-data-collection/dataset_overview.html"
-  config:
-    title: "Broad observable-panel composition + cell_mass/growth trajectories across 8 seeds"
-  chart: interactive
-  render: "Log-scale group-dimensionality bar (11569 obs across 6 groups) + per-seed cell_mass and growth-rate trajectories showing ensemble coverage and finiteness."
+embed_visualizations:
+- name: "Training dataset — panel composition & per-seed trajectories (interactive)"
+  url: /reports/figures/sm-00-data-collection/dataset_overview.html
+  description: "Log-scale group-dimensionality bar (11,569 observables across 6 groups: mass, exchange, base_flux, monomer, mrna, chromosome) + per-seed cell_mass and instantaneous_growth_rate trajectories across the 8 sampled seeds. Demonstrates broad coverage and that every extracted value is finite — the corpus that trains the surrogate."
 
 pipeline_gate:
   prerequisites: []

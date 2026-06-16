@@ -48,8 +48,10 @@ generic surrogate machinery:
    autoregressively for the scalar observables; and benchmark surrogate
    inference speed against the full simulator.
 
-5. **Figures** (`make_figures.py`). Interactive Plotly report (per-group
-   fidelity, rollout overlays, speedup).
+5. **Figures** (`report_figures.py`). Self-contained interactive Plotly reports
+   written to `reports/figures/<study>/` (auto-discovered as dashboard embeds):
+   panel composition + per-seed trajectories (dataset); per-group R², one-step
+   parity, per-column R² distribution, and autoregressive rollout (surrogate).
 
 ## Studies
 
@@ -85,11 +87,11 @@ $PY sample_baseline.py --seeds 0 1 2 3 4 5 6 7 --n-steps 250 --out ../run
 # 2. broad surrogate (sm-01): train, evaluate, figure
 $PY train_surrogate.py --data ../run --hidden 256 256 --epochs 200
 $PY evaluate_surrogate.py --data ../run
-$PY report_figures.py --kind dataset   --data ../run --out ../../../reports/figures/sm-00-data-collection/dataset_overview.html
-$PY report_figures.py --kind surrogate --data ../run --out ../../../reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
+$PY report_figures.py --kind dataset   --data ../run --out ../../../../reports/figures/sm-00-data-collection/dataset_overview.html
+$PY report_figures.py --kind surrogate --data ../run --out ../../../../reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
 # 3. compact surrogate (sm-01): slice growth/mass, retrain, figure
 $PY slice_compact.py --src ../run --dst ../run_compact --groups mass chromosome
 $PY train_surrogate.py --data ../run_compact --hidden 64 64 --epochs 400 --lr 5e-3
 $PY evaluate_surrogate.py --data ../run_compact
-$PY report_figures.py --kind surrogate --data ../run_compact --out ../../../reports/figures/sm-01-nn-surrogate/compact_surrogate.html
+$PY report_figures.py --kind surrogate --data ../run_compact --out ../../../../reports/figures/sm-01-nn-surrogate/compact_surrogate.html
 ```

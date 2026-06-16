@@ -152,19 +152,13 @@ runs:
   computed_outcomes:
     _status: store_unresolved
 
-visualizations:
-- name: Compact surrogate — fidelity, parity, rollout, speed
-  address: "image:../../reports/figures/sm-01-nn-surrogate/compact_surrogate.html"
-  config:
-    title: "Compact surrogate (growth/mass): per-group R^2, one-step parity, per-column R^2 distribution, 60-step rollout vs baseline, speedup"
-  chart: interactive
-  render: "Speedup banner + per-group median R^2 bar + one-step parity scatter (predicted vs actual mass, on the y=x line) + per-column R^2 histogram (100% of mass cols R^2>0.5) + cell_mass/growth autoregressive rollout overlays (tracks baseline, correlation 1.000)."
-- name: Broad panel — coverage, divergence, speed
-  address: "image:../../reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html"
-  config:
-    title: "Broad 11.5k-observable panel: per-group coverage, per-column R^2 distribution, divergent rollout, speedup"
-  chart: interactive
-  render: "Speedup banner + per-group median R^2 bar + one-step parity scatter + per-column R^2 histogram (~2.5% of 4058 varying cols R^2>0.5) + autoregressive rollout that DIVERGES to NaN at ~step 9 — directly showing the high-dimensional instability."
+embed_visualizations:
+- name: "Compact surrogate (growth/mass) — fidelity, parity, rollout, speed (interactive)"
+  url: /reports/figures/sm-01-nn-surrogate/compact_surrogate.html
+  description: "Speedup banner (~2,700×) + per-group median per-column R² bar + one-step parity scatter (predicted vs actual mass, on the y=x line) + per-column R² histogram (100% of mass columns R²>0.5) + cell_mass and growth-rate autoregressive rollout overlays that track baseline at correlation 1.000. The working surrogate."
+- name: "Broad 11.5k-observable surrogate — coverage, divergence, speed (interactive)"
+  url: /reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
+  description: "Speedup banner (~265×) + per-group median R² bar + one-step parity scatter + per-column R² histogram (only ~2.5% of 4,058 varying columns reach R²>0.5) + an autoregressive rollout that DIVERGES to NaN at ~step 9 — directly visualizing the high-dimensional instability and the open frontier."
 
 pipeline_gate:
   prerequisites:

@@ -63,6 +63,20 @@ def shape_from_mass(mass_fg: float, width_um: float = 1.0,
 # Backwards-compatible alias (the step originally exposed only the capsule).
 capsule_from_mass = shape_from_mass
 
+# Emitted shape keys (the shape_from_mass dict minus the Capsule object). A
+# map[float] store only merges updates onto keys that already exist, so the
+# 'shape' store must be pre-seeded with these (see zero_shape()).
+SHAPE_KEYS = (
+    "mass_fg", "density_g_per_ml", "width_um", "volume_fl", "length_um",
+    "outer_sa_um2", "inner_sa_um2", "periplasm_vol_fl", "cytoplasm_vol_fl",
+    "radius_A", "half_len_A",
+)
+
+
+def zero_shape():
+    """Zero-filled shape dict for seeding a map[float] 'shape' store."""
+    return {k: 0.0 for k in SHAPE_KEYS}
+
 
 class ShapeStep(Step):
     """Compute capsule cell shape from mass (fixed width, density, periplasm frac)."""

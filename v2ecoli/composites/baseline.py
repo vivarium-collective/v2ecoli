@@ -904,13 +904,14 @@ def baseline(
     # after dependency injection so it imposes no ordering constraints; it just
     # reports the current geometry, so the envelope tracks growth over the sim.
     if core is not None:
-        from v2ecoli.structural.shape import ShapeStep
+        from v2ecoli.structural.shape import ShapeStep, zero_shape
         core.register_link("ShapeStep", ShapeStep)
         # Top-level 'shape' output store (same pattern as the structural step's
         # 'pack'). Wire the whole listeners.mass sub-store as the input; the step
         # reads cell_mass from it (wiring a sub-store, not a scalar leaf, is what
-        # schema realization supports — see ShapeStep.inputs).
-        cell_state.setdefault('shape', {})
+        # schema realization supports — see ShapeStep.inputs). Seed the store with
+        # all shape keys: a map[float] store only merges onto existing keys.
+        cell_state['shape'] = zero_shape()
         cell_state['shape_step'] = {
             '_type': 'step',
             'address': 'local:ShapeStep',

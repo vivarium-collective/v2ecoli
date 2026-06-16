@@ -27,6 +27,17 @@ evaluation_status: evaluated          # all 4 primary + 1 secondary behavior_tes
 gate_status: blocked                  # unbounded per-cell RSS leak makes cells-per-node untrustworthy
 expert_review_status: not_requested
 
+visualizations:
+- name: colony-animation
+  address: gif:colony.gif
+  description: |
+    A colony growing from ONE whole-cell agent through staged divisions
+    (1 -> 2 -> 4 -> 6 cells) with the FIXED physics: jitter_per_second=1e-4
+    (the old 0.5 flung cells around the frame) + coherent fg body mass + the
+    viva-munk in-place shape update. Capsules are cells; daughters are
+    hue-shifted variants of their mother (phylogeny coloring). Regenerate via
+    `python .../colonies-02-parallel-multigen-perf/sims/make_gif.py`.
+
 baseline:
 - name: colony-1cell-natural
   composite: v2ecoli.composites.colony.colony

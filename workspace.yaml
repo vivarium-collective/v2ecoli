@@ -143,3 +143,9 @@ ui:
   # then passes <ptools_data_dir>/<rel> as the data file. Run the container with:
   #   -v <host>/v2ecoli/workspace:/ptools-data/workspace:ro
   ptools_data_dir: "/ptools-data"
+  # External viewer URLs for Analyses-tab 3D cards, keyed by pack name. The
+  # ecoli_3d whole-cell pack is served from Cloudflare R2 (free egress, no
+  # GitHub Pages 429 rate-limiting on the heavy pack + meshes); the dashboard
+  # card links + embeds this instead of the bundled gh-pages viewer.
+  viz_viewer_urls:
+    ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?file=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/ecoli_3d.pack.json"

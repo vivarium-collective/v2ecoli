@@ -22,6 +22,42 @@ from pbg_parsimony.structures import fetch
 
 DATA = Path(__file__).parent / "data"
 
+# ── Chromosome geometry constants (E. coli K-12 MG1655) ──────────────────────
+# Genome length and the per-replichore length the replication forks travel
+# (oriC→terC), from v2ecoli's replication reconstruction.
+GENOME_BP = 4_641_652
+REPLICHORE_BP = GENOME_BP // 2  # 2,320,826
+# Coarse-grained bead count representing one full (unreplicated) genome. The
+# theta builder adds ~fork_fraction×GENOME_BEADS more via the sister strand, so
+# total DNA contour scales as n_chromosomes×(1+fork_fraction) — i.e. with the
+# real total bp / dna_mass of the state.
+GENOME_BEADS = 34_000
+
+
+def chromosome_state(state_source="snapshot"):
+    """Return ``(n_chromosomes, fork_fraction)`` for the given state.
+
+    ``n_chromosomes`` is the ``full_chromosome`` count; ``fork_fraction`` is the
+    mean replication-fork position as a fraction of the replichore length
+    (0 = unreplicated, 0.5 = forks halfway to terC). Read from the saved state
+    npz (keys ``n_chromosomes`` / ``fork_fraction``), with sane defaults when a
+    state predates the chromosome fields.
+    """
+    if state_source == "division":
+        npz = DATA / "v2ecoli_state_division.npz"
+        default = (2, 728_151 / REPLICHORE_BP)
+    else:
+        npz = DATA / "v2ecoli_state.npz"
+        default = (1, 1_040_161 / REPLICHORE_BP)
+    try:
+        st = np.load(npz)
+        n = int(st["n_chromosomes"]) if "n_chromosomes" in st else default[0]
+        f = float(st["fork_fraction"]) if "fork_fraction" in st else default[1]
+        return n, f
+    except Exception:
+        return default
+
+
 # Category → display colour (RGB 0–1).
 CATEGORY_COLOR = {
     "Translation": (0.95, 0.55, 0.25), "Transcription": (0.35, 0.6, 0.95),
@@ -539,6 +575,37 @@ def _cluster_complex_at_pole(pack_path, mesh_dir, name, mesh_stem, cone_deg=55.0
     return {"placed": n, "offset": A}
 
 
+def compact_to_array8(pack_path):
+    """Rewrite an object-format pack in place as compact ``array8`` placements.
+
+    Each placement becomes ``[ingredient_id, x, y, z (int Å), w, qx, qy, qz
+    (3 dp)]`` and ``placement_format`` is set to ``"array8"`` — the format the
+    R2-hosted viewer loads (smaller files, faster load). Idempotent.
+    """
+    p = Path(pack_path)
+    d = json.loads(p.read_text())
+    if d.get("placement_format") == "array8":
+        return d
+    # Pack-relative mesh URLs (meshes/X.lodN.obj) so they resolve next to the
+    # pack wherever it's hosted (R2), not at an absolute local path.
+    for ing in d.get("ingredients", []):
+        for lod in ing.get("shape", {}).get("lods", []):
+            if "url" in lod:
+                lod["url"] = "meshes/" + os.path.basename(lod["url"])
+    out = []
+    for pl in d["placements"]:
+        x, y, z = pl["position"]
+        w, qx, qy, qz = pl["rotation"]
+        out.append([pl["ingredient"],
+                    round(float(x)), round(float(y)), round(float(z)),
+                    round(float(w), 3), round(float(qx), 3),
+                    round(float(qy), 3), round(float(qz), 3)])
+    d["placements"] = out
+    d["placement_format"] = "array8"
+    p.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
+    return d
+
+
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
                 state_source="snapshot", proxy_lod=2, top_complexes=150,
                 width_um=1.0, density_g_per_ml=1.1) -> dict:
@@ -552,6 +619,22 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     struct_cache = Path(out_dir) / "structures"
     ingredients = select_ingredients(counts, top_n=top_n, struct_cache=struct_cache,
                                      top_complexes=top_complexes)
+    # Chromosome landmark molecules, seated by the chromosome stage at their real
+    # loci (count=0 → not placed randomly, only at the forks/origins/terminus).
+    # The replisome and oriC are genuine unique molecules in the cell state (their
+    # counts = active_replisome / oriC counts); terC is the terminus locus.
+    ingredients.append(Ingredient(
+        id="replisome", count=0, sphere_radius=90.0,
+        color=(1.0, 0.35, 0.1), category="Replication",
+        display_name="Replisome (active_replisome, at fork)"))
+    ingredients.append(Ingredient(
+        id="oriC", count=0, sphere_radius=70.0,
+        color=(0.2, 0.9, 0.4), category="Replication",
+        display_name="oriC (origin of replication)"))
+    ingredients.append(Ingredient(
+        id="terminus", count=0, sphere_radius=70.0,
+        color=(0.35, 0.5, 1.0), category="Replication",
+        display_name="terC (replication terminus)"))
     # Cell envelope from the Shape step (Skalnik et al. 2023): fixed width +
     # density, length derived from volume — so a pre-division state yields the
     # elongated, about-to-divide capsule.
@@ -559,14 +642,44 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     mass_fg = volume_fl * density_g_per_ml * 1000.0
     capsule = shape_from_mass(mass_fg, width_um=width_um,
                               density_g_per_ml=density_g_per_ml)["capsule"]
+    # Chromosome state from the model: number of chromosomes + how far the
+    # replication forks have travelled. Each chromosome is laid out as a theta
+    # structure with a replication bubble pinched at two forks; DNA contour (and
+    # so size/mass) scales as n_chromosomes×(1+fork_fraction) — matching the
+    # state's real total DNA bp.
+    n_chrom, fork_fraction = chromosome_state(state_source)
     chromosome = Chromosome(
-        beads=34000, spacing=135.0, bead_radius=12.0,
+        beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
         segment=StructureRef("pdb", "1BNA"),
-        supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200})
+        supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200},
+        n_chromosomes=n_chrom, fork_fraction=fork_fraction,
+        fork_marker="replisome", oric_marker="oriC", ter_marker="terminus")
     res = build_pack(ingredients, capsule, chromosome,
                      out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
+    # The landmark markers (replisome/oriC/terC) are seated by the packer at the
+    # forks/origins/terminus, so build_pack recorded count=0 for them in the
+    # sidecar. Backfill the real counts from the finished pack so the viewer's
+    # legend shows e.g. "replisome ×4".
+    _backfill_marker_counts(res["pack_path"], res["sidecar_path"],
+                            ("replisome", "oriC", "terminus"))
     return res
+
+
+def _backfill_marker_counts(pack_path, sidecar_path, marker_ids):
+    """Set each marker ingredient's sidecar count to its placement count."""
+    pack = json.loads(Path(pack_path).read_text())
+    arr8 = pack.get("placement_format") == "array8"
+    id_by_name = {ing["name"]: ing["id"] for ing in pack["ingredients"]}
+    from collections import Counter
+    counts = Counter(p[0] if arr8 else p["ingredient"] for p in pack["placements"])
+    side = json.loads(Path(sidecar_path).read_text())
+    ings = side.get("ingredients", side)
+    for name in marker_ids:
+        iid = id_by_name.get(name)
+        if iid is not None and name in ings:
+            ings[name]["count"] = int(counts.get(iid, 0))
+    Path(sidecar_path).write_text(json.dumps(side, indent=1))
 
 
 if __name__ == "__main__":

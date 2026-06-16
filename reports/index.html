@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><title>v2ecoli</title>
-<link rel="stylesheet" href="assets/style.css?v=1780862437_1780862437">
+<link rel="stylesheet" href="assets/style.css?v=1781314981_1781314981">
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
 /* Modal overlay */
@@ -48,14 +48,6 @@
   border-radius: 4px; cursor: pointer; font-size: 0.88em;
 }
 .action-btn:hover { background: #bbdefb; }
-/* Emitter-type pills for the Simulations DB table */
-.emitter-pill {
-  display: inline-block; padding: 2px 8px; border-radius: 10px;
-  font-size: 12px; font-weight: 500; white-space: nowrap;
-}
-.emitter-sqlite  { background: #e5e7eb; color: #374151; }   /* gray  */
-.emitter-parquet { background: #fef3c7; color: #92400e; }   /* amber */
-.emitter-xarray  { background: #ccfbf1; color: #0f766e; }   /* teal  */
 .action-btn--secondary {
   margin-top: 10px; padding: 5px 12px;
   border: 1px solid #b91c1c; background: #fef2f2;
@@ -112,6 +104,16 @@
 
 /* Workspace switcher (top of the left rail). */
 .viv-workspace-switcher { position: relative; padding: 8px 12px; }
+.viv-workspace-name {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 8px; font-size: 14px; color: #1c2330;
+  text-decoration: none; border-radius: 6px; font-weight: 600;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+a.viv-workspace-name:hover { background: #f3f4f6; color: #0969da; }
+.viv-workspace-name strong { font-weight: 600; letter-spacing: 0.01em; }
+.viv-workspace-gh { font-size: 12px; color: #8a94a6; }
+a.viv-workspace-name:hover .viv-workspace-gh { color: #0969da; }
 .viv-workspace-switcher-trigger {
   display: flex; align-items: center; gap: 6px;
   width: 100%; padding: 6px 8px; background: #fff;
@@ -310,13 +312,14 @@
     </div>
 
     <div class="viv-workspace-switcher" id="viv-workspace-switcher">
-      <button class="viv-workspace-switcher-trigger" type="button"
-              aria-haspopup="true" aria-expanded="false"
-              id="viv-workspace-switcher-trigger">
-        <span class="viv-workspace-switcher-glyph">●</span>
+      
+      
+      <a class="viv-workspace-name" href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener"
+         title="Open v2ecoli on GitHub">
         <strong>v2ecoli</strong>
-        <span class="viv-arrow">▾</span>
-      </button>
+        <span class="viv-workspace-gh" aria-hidden="true">&#8599;</span>
+      </a>
+      
     </div>
 
     <!-- Primary nav -->
@@ -377,7 +380,7 @@
             <path d="M8.5 12L16 19"/>
           </svg>
         </span>
-        <span class="viv-rail-link-label">Investigations</span>
+        <span class="viv-rail-link-label">Investigation</span>
       </a>
       <a href="#simulations"       class="viv-rail-link menu-link" data-page="simulations">
         <span class="viv-rail-link-icon">
@@ -502,13 +505,2171 @@
 <!-- ===== PAGE: WORKSPACE INPUTS ===== -->
 <section id="page-workspace-inputs" class="page" data-page="workspace-inputs">
   <h2 class="page-title">Inputs</h2>
-  <p class="page-lead">The loaded investigation's inputs come first &mdash; the datasets, references, and expert docs it owns. Below them are the repo-wide / shared data sources every investigation can draw on (imported source packages plus shared datasets and references). Simulation modules (the Python packages providing Processes/Steps) live in the <a href="#registry">Registry</a> tab.</p>
+  <p class="page-lead">External resources you bring into the workspace. Datasets feed validation, references and expert docs anchor the science. Simulation modules (the Python packages providing Processes/Steps) live in the <a href="#registry">Registry</a> tab.</p>
 
-  <!-- Investigation-first inputs, rendered client-side from /api/inputs.
-       Single source of truth for the datasets/references/expert-docs lists;
-       the management panels below provide the add/edit actions + bib explorer. -->
-  <div id="inputs-api-render" class="panel">
-    <p class="muted" style="font-style:italic">Loading inputs…</p>
+  <!-- Datasets panel -->
+  <div class="panel">
+    <h3>Datasets</h3>
+    <p class="panel-lead">Register datasets your model will compare against. Each entry maps to specific model claims it supports.</p>
+    
+    <p style="color:#888;font-style:italic">No datasets registered yet.</p>
+    
+    <button class="action-btn" onclick="openModal('modal-dataset')">+ Add dataset</button>
+  </div>
+
+  <!-- Expert knowledge panel — card layout (replaces cramped 5-column table) -->
+  <div class="panel">
+    <h3>Expert knowledge</h3>
+    <p class="panel-lead">Curated expert documents &mdash; PDFs, lab notes, expert review docs &mdash; that aren&rsquo;t formal publications but capture domain knowledge driving the model. Linked to the claims they support.</p>
+    
+    <div class="expert-docs-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:14px;margin-bottom:12px">
+    
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">multiscale_bioprocess_roadmap</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 2.1 KB</span>
+            
+            <a href="/workspace/references/expert/multiscale_bioprocess_roadmap.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">workspace/references/expert/multiscale_bioprocess_roadmap.md</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Pointer to the upstream vivarium-collective/multiscale-bioprocess
+roadmap (chris/initial-scaffolding) that inspired (but is diverged
+from by) the v2ecoli-workspace multiscale-bioprocess investigation.
+</p>
+        
+        
+        
+      </div>
+    
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">cell_side_interface_contract</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 8.8 KB</span>
+            
+            <a href="/workspace/references/expert/cell_side_interface_contract.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">workspace/references/expert/cell_side_interface_contract.md</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">The substitutability story made concrete: what an engine wired to
+the reactor MUST provide (inputs / outputs / lifecycle hooks /
+identifier scheme). Load-bearing for mbp-03 (Monod → v2ecoli swap)
+and for future engine comparator studies (dFBA, surrogate, WCM
+variants). Inherits the upstream multiscale-bioprocess roadmap's
+"engine substitution as a phase boundary" open question.
+</p>
+        
+        
+        
+      </div>
+    
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">palsson_2025_fed_batch</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 4.3 KB</span>
+            
+            <a href="/workspace/references/expert/palsson_2025_fed_batch.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">workspace/references/expert/palsson_2025_fed_batch.md</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Beulig F, ..., Palsson B. "Trade-off between resistance and persistence
+in high cell density cultures." mSystems 10(7), 2025.
+doi:10.1128/msystems.00323-25. Open access; PDF at
+workspace/references/papers/Beulig_2025_mSystems_high_cell_density.pdf.
+The quantitative benchmark targeted by study mbp-05. Bib key
+`Beulig2025mSystems` in workspace/references/papers.bib.
+</p>
+        
+        
+        
+      </div>
+    
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">chris_feedback_2026_05_26</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 33 KB</span>
+            
+            <a href="/workspace/references/expert/chris_feedback_2026_05_26.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">workspace/references/expert/chris_feedback_2026_05_26.md</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Structured digest of Chris Long's inline-feedback review on the
+multiscale-bioprocess investigation (rpt-20260523011545, exported
+2026-05-26). Drives the next-round spec revisions: mbp-01 plumbing/
+biology split, mbp-02 cells_per_agent scaling, mbp-03 Option-B
+BiRDTransportProcess fork, mbp-04 explicit C/N auditor requirements,
+mbp-05 reframe as evaluation phase with generic comparison_overlays,
+mbp-06 carried-forward priors + resolution_type schema. Raw YAML
+preserved at workspace/references/expert/raw/chris_feedback_2026_05_26.yaml.
+MUST be read before drafting any further mbp-* spec edits or
+advancing a study to Build phase.
+</p>
+        
+        
+        
+      </div>
+    
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">duf-final-report</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 315 KB</span>
+            
+            <a href="/workspace/references/expert/duf_final_report_2026.pdf" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">workspace/references/expert/duf_final_report_2026.pdf</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">DARPA DUF ARC final report (HR0011-24-3-0372, UConn, PI Agmon,
+Sep 2024–Sep 2025): "An Integrated Discovery Workflow for an
+E. coli Whole-Cell Model". Establishes the motivation for the
+PDMP reformulation of v2ecoli — the current hybrid-algorithmic
+WCM is not a well-defined dynamical system and resists
+likelihood-based inference and causal discovery.
+</p>
+        
+        
+        <p style="margin:6px 0;font-size:0.85em"><strong>Contributor:</strong> <span class="muted">eran</span></p>
+        
+        
+      </div>
+    
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">v2ecoli-pdmp-roadmap</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 11 KB</span>
+            
+            <a href="/workspace/references/expert/v2ecoli_pdmp_roadmap.pdf" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">workspace/references/expert/v2ecoli_pdmp_roadmap.pdf</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Six-phase incremental roadmap for transforming v2ecoli into a
+piecewise-deterministic Markov process (PDMP). Phases 0–5:
+characterization → kinetic-ODE metabolism → continuous-time
+jump layer → likelihood/Bayesian interface → compiled runtime →
+causal discovery / functional annotation. Spine of the
+v2ecoli-pdmp investigation.
+</p>
+        
+        
+        <p style="margin:6px 0;font-size:0.85em"><strong>Contributor:</strong> <span class="muted">eran</span></p>
+        
+        
+      </div>
+    
+    </div>
+    
+    <button class="action-btn" onclick="openModal('modal-expert-doc')">+ Add expert document</button>
+  </div>
+
+  <!-- References panel — papers.bib explorer + PDF status + add-reference action -->
+  <div class="panel">
+    <h3>References <span class="muted" style="font-size:0.75em;font-weight:normal">(57 entries, 1 PDFs in references/papers.bib)</span></h3>
+    <p class="panel-lead">Formal publications cited across the studies, plus the PDFs committed alongside them. Click any card to expand its details; click <em>Open ↗</em> to access the paper. Reading notes (if present) live at <code>references/notes/&lt;bib-key&gt;.md</code>. Adds entries to <code>references/papers.bib</code> and <code>references/claims.yaml</code>.</p>
+
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      <input type="search" id="bib-filter" placeholder="Filter by key, title, author, year…"
+             style="flex:1;min-width:240px;max-width:480px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:0.9em"
+             oninput="_filterBibEntries(this.value)">
+      <button class="action-btn" onclick="openModal('modal-reference')">+ Add reference (PDF)</button>
+    </div>
+
+    
+    
+
+    
+    <details style="margin-bottom:12px">
+      <summary class="muted" style="cursor:pointer;font-size:0.85em">PDF files on disk (1)</summary>
+      <table style="font-size:0.86em;margin-top:8px"><thead><tr><th>Bib key</th><th>File</th></tr></thead><tbody>
+      
+      <tr>
+        <td><code>millard2017</code></td>
+        <td>
+          
+            <span class="file-status status-ok">✓ 4.8 MB</span>
+            <a href="/workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf" target="_blank" class="file-link">Open ↗</a><br>
+            <small class="muted">workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf</small>
+          
+        </td>
+      </tr>
+      
+      </tbody></table>
+    </details>
+    
+
+    
+    <div id="bib-entries-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px">
+    
+      <details class="bib-entry" data-key="pnas-pnas-2322772121" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">pnas-pnas-2322772121</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="pnas-pnas-2322772121"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.pnas.org/doi/abs/10.1073/pnas.2322772121" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Referenced from the workflow plan without further description in Study 1; same URL appears in Study 2 as the source of the DnaA-ATP / total-DnaA fraction observed in Delta4 cells.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="mass-spec-nbt-3418" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">mass-spec-nbt-3418</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="mass-spec-nbt-3418"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.nature.com/articles/nbt.3418" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``Mass spec literatures, for protein abundance such as SeqA, DiaA, etc''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="mass-spec-cell-2014-00232-3" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">mass-spec-cell-2014-00232-3</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="mass-spec-cell-2014-00232-3"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.cell.com/fulltext/S0092-8674(14)00232-3" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``Mass spec literatures, for protein abundance such as SeqA, DiaA, etc''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="mass-spec-msb-20209536" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">mass-spec-msb-20209536</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="mass-spec-msb-20209536"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://link.springer.com/article/10.15252/msb.20209536" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``Mass spec literatures, for protein abundance such as SeqA, DiaA, etc''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="liu-nature-microbiology-s41564-020-0717-x" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">liu-nature-microbiology-s41564-020-0717-x</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="liu-nature-microbiology-s41564-020-0717-x"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.nature.com/articles/s41564-020-0717-x" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Described as ``Chenli Liu's Nature Microbiology for DnaA stoichiometry/mass-spec data''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="dnaa-abundance-jb-1991" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">dnaa-abundance-jb-1991</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="dnaa-abundance-jb-1991"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://journals.asm.org/doi/abs/10.1128/jb.173.16.5194-5199.1991" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Described as ``Original DnaA protein abundance measurement''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="dnaa-stability-jb-1999" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">dnaa-stability-jb-1999</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="dnaa-stability-jb-1999"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://journals.asm.org/doi/full/10.1128/jb.181.18.5557-5562.1999" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``DnaA protein stability literatures''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="dnaa-stability-frontiers-2021-fmolb-629953" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">dnaa-stability-frontiers-2021-fmolb-629953</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="dnaa-stability-frontiers-2021-fmolb-629953"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.frontiersin.org/journals/molecular-biosciences/articles/10.3389/fmolb.2021.629953/full" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``DnaA protein stability literatures''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="dnaa-review-frontiers-2018-fmicb-00319" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">dnaa-review-frontiers-2018-fmicb-00319</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="dnaa-review-frontiers-2018-fmicb-00319"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.frontiersin.org/journals/microbiology/articles/10.3389/fmicb.2018.00319/full" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Described as ``Key review paper''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="intrinsic-activity-sciencedirect-0092867487902212" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">intrinsic-activity-sciencedirect-0092867487902212</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="intrinsic-activity-sciencedirect-0092867487902212"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.sciencedirect.com/science/article/pii/0092867487902212" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Described as ``Intrinsic activity''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="initiator-titration-nat-comm-s41467-022-33886-6" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">initiator-titration-nat-comm-s41467-022-33886-6</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="initiator-titration-nat-comm-s41467-022-33886-6"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.nature.com/articles/s41467-022-33886-6" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``Modeling papers considering initiator titration''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="initiator-titration-prxlife-1-013011" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">initiator-titration-prxlife-1-013011</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="initiator-titration-prxlife-1-013011"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://journals.aps.org/prxlife/abstract/10.1103/PRXLife.1.013011" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``Modeling papers considering initiator titration''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="initiator-titration-sciencedirect-0923250891900256" data-title="" data-author="" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">initiator-titration-sciencedirect-0923250891900256</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="initiator-titration-sciencedirect-0923250891900256"
+                    data-bib-title=""
+                    data-bib-author=""
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500"></div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://www.sciencedirect.com/science/article/pii/0923250891900256" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Listed under ``Modeling papers considering initiator titration''.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="macklin2020" data-title="simultaneous cross-evaluation of heterogeneous e. coli datasets via mechanistic simulation" data-author="macklin, derek n. and ahn-horst, travis a. and choi, heejo and ruggero, nicholas a. and carrera, javier and mason, john c. and others" data-year="2020"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">macklin2020</code>
+            <span class="muted" style="font-size:0.82em">2020</span>
+            <span style="font-size:0.85em">Science</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Simultaneous cross-evaluation of heterogeneous E. coli datasets via mechanistic simulation</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Macklin, Derek N. and Ahn-Horst, Travis A. and Choi, Heejo and Ruggero, Nicholas A. and Carrera, Javier and Mason, John C. and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Science</em> 369(6502), pp. eaav3751 (2020).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1126/science.aav3751" target="_blank">10.1126/science.aav3751</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> The v2ecoli (Covert-lab) WCM. DUF ref [1].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="agmon2022" data-title="vivarium: an interface and engine for integrative multiscale modeling in computational biology" data-author="agmon, eran and spangler, ryan k. and skalnik, christopher j. and poole, william and peirce, shayn m. and morrison, james h. and covert, markus w." data-year="2022"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">agmon2022</code>
+            <span class="muted" style="font-size:0.82em">2022</span>
+            <span style="font-size:0.85em">Bioinformatics</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Vivarium: an interface and engine for integrative multiscale modeling in computational biology</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Agmon, Eran and Spangler, Ryan K. and Skalnik, Christopher J. and Poole, William and Peirce, Shayn M. and Morrison, James H. and Covert, Markus W.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Bioinformatics</em> 38(7), pp. 1972--1979 (2022).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1093/bioinformatics/btac049" target="_blank">10.1093/bioinformatics/btac049</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Vivarium framework — the discrete-event composition engine that hosts v2ecoli. DUF ref [2].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="birch2014" data-title="incorporation of flexible objectives and time-linked simulation with flux balance analysis" data-author="birch, elsa w. and udell, madeleine and covert, markus w." data-year="2014"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">birch2014</code>
+            <span class="muted" style="font-size:0.82em">2014</span>
+            <span style="font-size:0.85em">Journal of Theoretical Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Incorporation of flexible objectives and time-linked simulation with flux balance analysis</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Birch, Elsa W. and Udell, Madeleine and Covert, Markus W.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Theoretical Biology</em> 345, pp. 12--21 (2014).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jtbi.2013.12.009" target="_blank">10.1016/j.jtbi.2013.12.009</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> tFBA — the time-linked FBA formulation that v2ecoli currently uses for metabolism. The Phase 1 substitution target. DUF ref [3].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="millard2017" data-title="metabolic regulation is sufficient for global and robust coordination of glucose uptake, catabolism, energy production and growth in escherichia coli" data-author="millard, pierre and smallbone, kieran and mendes, pedro" data-year="2017"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">millard2017</code>
+            <span class="muted" style="font-size:0.82em">2017</span>
+            <span style="font-size:0.85em">PLOS Computational Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Metabolic regulation is sufficient for global and robust coordination of glucose uptake, catabolism, energy production and growth in Escherichia coli</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Millard, Pierre and Smallbone, Kieran and Mendes, Pedro</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>PLOS Computational Biology</em> 13(2), pp. e1005396 (2017).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1371/journal.pcbi.1005396" target="_blank">10.1371/journal.pcbi.1005396</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Kinetic ODE of E. coli central carbon + energy metabolism; substrate for the v2ecoli-pdmp Phase 1 ODE substitution. BioModels MODEL1505110000. DUF ref [4]. PDF in references/papers/.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="saa2017" data-title="formulation, construction and analysis of kinetic models of metabolism: a review of modelling frameworks" data-author="saa, pedro a. and nielsen, lars k." data-year="2017"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">saa2017</code>
+            <span class="muted" style="font-size:0.82em">2017</span>
+            <span style="font-size:0.85em">Biotechnology Advances</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Formulation, construction and analysis of kinetic models of metabolism: A review of modelling frameworks</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Saa, Pedro A. and Nielsen, Lars K.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Biotechnology Advances</em> 35(8), pp. 981--1003 (2017).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.biotechadv.2017.09.005" target="_blank">10.1016/j.biotechadv.2017.09.005</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Survey of kinetic-model inference for metabolism. DUF ref [5].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="backman2023" data-title="bayflux: a bayesian method to quantify metabolic fluxes and their uncertainty at the genome scale" data-author="backman, tyler w. h. and schenk, christina and radivojevic, tijana and ando, david and singh, jahnavi and czajka, jeffrey j. and others" data-year="2023"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">backman2023</code>
+            <span class="muted" style="font-size:0.82em">2023</span>
+            <span style="font-size:0.85em">PLOS Computational Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">BayFlux: A Bayesian method to quantify metabolic fluxes and their uncertainty at the genome scale</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Backman, Tyler W. H. and Schenk, Christina and Radivojevic, Tijana and Ando, David and Singh, Jahnavi and Czajka, Jeffrey J. and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>PLOS Computational Biology</em> 19(11), pp. e1011111 (2023).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1371/journal.pcbi.1011111" target="_blank">10.1371/journal.pcbi.1011111</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> MCMC for genome-scale bulk-flux inference. DUF ref [6].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="chirho2024" data-title="chirho: causal reasoning with python" data-author="basisresearch" data-year="2024"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">chirho2024</code>
+            <span class="muted" style="font-size:0.82em">2024</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="chirho2024"
+                    data-bib-title="ChiRho: Causal reasoning with Python"
+                    data-bib-author="BasisResearch"
+                    data-bib-year="2024"
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">ChiRho: Causal reasoning with Python</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">BasisResearch</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://github.com/BasisResearch/chirho" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Reference inspiration for the Vivarium observe(variable, likelihood) / intervene(variable, value) algebraic effects in Phase 3. DUF ref [7].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="vowels2022" data-title="d'ya like dags? a survey on structure learning and causal discovery" data-author="vowels, matthew j. and camgoz, necati cihan and bowden, richard" data-year="2022"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">vowels2022</code>
+            <span class="muted" style="font-size:0.82em">2022</span>
+            <span style="font-size:0.85em">ACM Computing Surveys</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">D'ya Like DAGs? A Survey on Structure Learning and Causal Discovery</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Vowels, Matthew J. and Camgoz, Necati Cihan and Bowden, Richard</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>ACM Computing Surveys</em> 55(4), pp. 82:1--82:36 (2022).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1145/3527154" target="_blank">10.1145/3527154</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [8].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="toth2022" data-title="active bayesian causal inference" data-author="toth, christian and lorch, lars and knoll, christian and krause, andreas and pernkopf, franz and peharz, robert and others" data-year="2022"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">toth2022</code>
+            <span class="muted" style="font-size:0.82em">2022</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="toth2022"
+                    data-bib-title="Active Bayesian Causal Inference"
+                    data-bib-author="Toth, Christian and Lorch, Lars and Knoll, Christian and Krause, Andreas and Pernkopf, Franz and Peharz, Robert and others"
+                    data-bib-year="2022"
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Active Bayesian Causal Inference</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Toth, Christian and Lorch, Lars and Knoll, Christian and Krause, Andreas and Pernkopf, Franz and Peharz, Robert and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em></em> 35, pp. 16261--16275 (2022).</p>
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Active causal inference framework for Phase 5's intervention-selection loop. DUF ref [9].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="peters2022" data-title="causal models for dynamical systems" data-author="peters, jonas and bauer, stefan and pfister, niklas" data-year="2022"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">peters2022</code>
+            <span class="muted" style="font-size:0.82em">2022</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Causal Models for Dynamical Systems</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Peters, Jonas and Bauer, Stefan and Pfister, Niklas</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em></em>, pp. 671--690 (2022).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1145/3501714.3501752" target="_blank">10.1145/3501714.3501752</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [10].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="bongers2022" data-title="causal modeling of dynamical systems" data-author="bongers, stephan and blom, tineke and mooij, joris m." data-year="2022"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">bongers2022</code>
+            <span class="muted" style="font-size:0.82em">2022</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="bongers2022"
+                    data-bib-title="Causal Modeling of Dynamical Systems"
+                    data-bib-author="Bongers, Stephan and Blom, Tineke and Mooij, Joris M."
+                    data-bib-year="2022"
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Causal Modeling of Dynamical Systems</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Bongers, Stephan and Blom, Tineke and Mooij, Joris M.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [11].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="tejada2025" data-title="causal machine learning for single-cell genomics" data-author="tejada-lapuerta, alejandro and bertin, paul and bauer, stefan and aliee, hananeh and bengio, yoshua and theis, fabian j." data-year="2025"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">tejada2025</code>
+            <span class="muted" style="font-size:0.82em">2025</span>
+            <span style="font-size:0.85em">Nature Genetics</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Causal machine learning for single-cell genomics</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Tejada-Lapuerta, Alejandro and Bertin, Paul and Bauer, Stefan and Aliee, Hananeh and Bengio, Yoshua and Theis, Fabian J.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Nature Genetics</em> 57(4), pp. 797--808 (2025).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/s41588-025-02124-2" target="_blank">10.1038/s41588-025-02124-2</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [12].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="stumpf2021" data-title="statistical and computational challenges for whole cell modelling" data-author="stumpf, michael p. h." data-year="2021"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">stumpf2021</code>
+            <span class="muted" style="font-size:0.82em">2021</span>
+            <span style="font-size:0.85em">Current Opinion in Systems Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Statistical and computational challenges for whole cell modelling</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Stumpf, Michael P. H.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Current Opinion in Systems Biology</em> 26, pp. 58--63 (2021).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.coisb.2021.04.005" target="_blank">10.1016/j.coisb.2021.04.005</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [13].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="yang2024" data-title="improved enzyme functional annotation prediction using contrastive learning with structural inference" data-author="yang, yang and jerger, alexander and feng, sihao and wang, ziqiang and brasfield, christian and others" data-year="2024"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">yang2024</code>
+            <span class="muted" style="font-size:0.82em">2024</span>
+            <span style="font-size:0.85em">Communications Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Improved enzyme functional annotation prediction using contrastive learning with structural inference</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Yang, Yang and Jerger, Alexander and Feng, Sihao and Wang, Ziqiang and Brasfield, Christian and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Communications Biology</em> 7(1), pp. 1690 (2024).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/s42003-024-07434-5" target="_blank">10.1038/s42003-024-07434-5</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [14].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="dreyfuss2013" data-title="reconstruction and validation of a genome-scale metabolic model for the filamentous fungus neurospora crassa using farm" data-author="dreyfuss, jonathan m. and zucker, jeremy d. and hood, heather m. and ocasio, loretta r. and sachs, matthew s. and galagan, james e." data-year="2013"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">dreyfuss2013</code>
+            <span class="muted" style="font-size:0.82em">2013</span>
+            <span style="font-size:0.85em">PLOS Computational Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Reconstruction and Validation of a Genome-Scale Metabolic Model for the Filamentous Fungus Neurospora crassa Using FARM</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Dreyfuss, Jonathan M. and Zucker, Jeremy D. and Hood, Heather M. and Ocasio, Loretta R. and Sachs, Matthew S. and Galagan, James E.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>PLOS Computational Biology</em> 9(7), pp. e1003126 (2013).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1371/journal.pcbi.1003126" target="_blank">10.1371/journal.pcbi.1003126</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [15].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="choi2023" data-title="mitigating biomass composition uncertainties in flux balance analysis using ensemble representations" data-author="choi, yoon mi and choi, dong hyun and lee, yi qing and koduru, lokanand and lewis, nathan e. and lakshmanan, meiyappan and others" data-year="2023"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">choi2023</code>
+            <span class="muted" style="font-size:0.82em">2023</span>
+            <span style="font-size:0.85em">Computational and Structural Biotechnology Journal</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Mitigating biomass composition uncertainties in flux balance analysis using ensemble representations</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Choi, Yoon Mi and Choi, Dong Hyun and Lee, Yi Qing and Koduru, Lokanand and Lewis, Nathan E. and Lakshmanan, Meiyappan and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Computational and Structural Biotechnology Journal</em> 21, pp. 3736--3745 (2023).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.csbj.2023.07.017" target="_blank">10.1016/j.csbj.2023.07.017</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [16].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="metz1986" data-title="the dynamics of physiologically structured populations" data-author="" data-year="1986"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">metz1986</code>
+            <span class="muted" style="font-size:0.82em">1986</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="metz1986"
+                    data-bib-title="The Dynamics of Physiologically Structured Populations"
+                    data-bib-author=""
+                    data-bib-year="1986"
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">The Dynamics of Physiologically Structured Populations</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px"></div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em></em> 68 (1986).</p>
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Reference for Phase 3 structured-population layer. DUF ref [17].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="kuritz2017" data-title="on the relationship between cell cycle analysis with ergodic principles and age-structured cell population models" data-author="kuritz, karsten and st\"ohr, daniela and pollak, nadine and allg\"ower, frank" data-year="2017"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">kuritz2017</code>
+            <span class="muted" style="font-size:0.82em">2017</span>
+            <span style="font-size:0.85em">Journal of Theoretical Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">On the relationship between cell cycle analysis with ergodic principles and age-structured cell population models</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Kuritz, Karsten and St\"ohr, Daniela and Pollak, Nadine and Allg\"ower, Frank</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Theoretical Biology</em> 414, pp. 91--102 (2017).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jtbi.2016.11.024" target="_blank">10.1016/j.jtbi.2016.11.024</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [18].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="dibaeinia2020" data-title="sergio: a single-cell expression simulator guided by gene regulatory networks" data-author="dibaeinia, payam and sinha, saurabh" data-year="2020"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">dibaeinia2020</code>
+            <span class="muted" style="font-size:0.82em">2020</span>
+            <span style="font-size:0.85em">Cell Systems</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">SERGIO: A Single-Cell Expression Simulator Guided by Gene Regulatory Networks</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Dibaeinia, Payam and Sinha, Saurabh</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Cell Systems</em> 11(3), pp. 252--271.e11 (2020).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.cels.2020.08.003" target="_blank">10.1016/j.cels.2020.08.003</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [19].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="blom2023" data-title="causality and independence in perfectly adapted dynamical systems" data-author="blom, tineke and mooij, joris m." data-year="2023"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">blom2023</code>
+            <span class="muted" style="font-size:0.82em">2023</span>
+            <span style="font-size:0.85em">Journal of Causal Inference</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Causality and independence in perfectly adapted dynamical systems</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Blom, Tineke and Mooij, Joris M.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Causal Inference</em> 11(1) (2023).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1515/jci-2022-0019" target="_blank">10.1515/jci-2022-0019</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [20].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="uygun2006" data-title="dfba-lqr: an optimal control approach to flux balance analysis" data-author="uygun, korkut and matthew, howard w. t. and huang, yinlun" data-year="2006"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">uygun2006</code>
+            <span class="muted" style="font-size:0.82em">2006</span>
+            <span style="font-size:0.85em">Industrial \& Engineering Chemistry Research</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">DFBA-LQR: An Optimal Control Approach to Flux Balance Analysis</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Uygun, Korkut and Matthew, Howard W. T. and Huang, Yinlun</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Industrial \& Engineering Chemistry Research</em> 45(25), pp. 8554--8564 (2006).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1021/ie050979g" target="_blank">10.1021/ie050979g</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Reference design for the Phase 1 LQR control layer. DUF ref [21].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="gherman2025" data-title="accelerated design of escherichia coli reduced genomes using a whole-cell model and machine learning" data-author="gherman, iuliana m. and sharma, kavya and rees-garbutt, joshua and pang, wei and abdallah, zahraa s. and gorochowski, thomas e. and others" data-year="2025"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">gherman2025</code>
+            <span class="muted" style="font-size:0.82em">2025</span>
+            <span style="font-size:0.85em">Cell Systems</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Accelerated design of Escherichia coli reduced genomes using a whole-cell model and machine learning</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Gherman, Iuliana M. and Sharma, Kavya and Rees-Garbutt, Joshua and Pang, Wei and Abdallah, Zahraa S. and Gorochowski, Thomas E. and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Cell Systems</em> 16(10), pp. 101392 (2025).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.cels.2025.101392" target="_blank">10.1016/j.cels.2025.101392</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [22].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="ahman2020" data-title="runners in action" data-author="ahman, danel and bauer, andrej" data-year="2020"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">ahman2020</code>
+            <span class="muted" style="font-size:0.82em">2020</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Runners in Action</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Ahman, Danel and Bauer, Andrej</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1007/978-3-030-44914-8\_2" target="_blank">10.1007/978-3-030-44914-8\_2</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Algebraic-effect runners — the PL-theoretic framing for the Phase 3 Vivarium runtime extension. DUF ref [23].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="xarray2017" data-title="xarray: n-d labeled arrays and datasets in python" data-author="hoyer, stephan and hamman, joseph" data-year="2017"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">xarray2017</code>
+            <span class="muted" style="font-size:0.82em">2017</span>
+            <span style="font-size:0.85em">Journal of Open Research Software</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">xarray: N-D labeled Arrays and Datasets in Python</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Hoyer, Stephan and Hamman, Joseph</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Open Research Software</em> 5(1), pp. 10 (2017).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.5334/jors.148" target="_blank">10.5334/jors.148</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> The N-D labelled-array library underpinning XArrayEmitter. DUF ref [24].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="jumpprocessesjl" data-title="jumpprocesses.jl: stochastic simulation algorithms for jump processes, jump-odes, and jump-diffusions" data-author="sciml community" data-year=""
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">jumpprocessesjl</code>
+            <span class="muted" style="font-size:0.82em"></span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="jumpprocessesjl"
+                    data-bib-title="JumpProcesses.jl: Stochastic Simulation Algorithms for Jump Processes, Jump-ODEs, and Jump-Diffusions"
+                    data-bib-author="SciML community"
+                    data-bib-year=""
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">JumpProcesses.jl: Stochastic Simulation Algorithms for Jump Processes, Jump-ODEs, and Jump-Diffusions</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">SciML community</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://github.com/SciML/JumpProcesses.jl" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Reference target for Phase 4 PDMP compilation. DUF ref [25].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="loman2023" data-title="catalyst: fast and flexible modeling of reaction networks" data-author="loman, torkel e. and ma, yingbo and ilin, vasily and gowda, shashi and korsbo, niklas and yewale, nikhil and others" data-year="2023"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">loman2023</code>
+            <span class="muted" style="font-size:0.82em">2023</span>
+            <span style="font-size:0.85em">PLOS Computational Biology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Catalyst: Fast and flexible modeling of reaction networks</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Loman, Torkel E. and Ma, Yingbo and Ilin, Vasily and Gowda, Shashi and Korsbo, Niklas and Yewale, Nikhil and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>PLOS Computational Biology</em> 19(10), pp. e1011530 (2023).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1371/journal.pcbi.1011530" target="_blank">10.1371/journal.pcbi.1011530</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Phase 4 compilation target. DUF ref [26].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="bertin2025" data-title="a scalable gene network model of regulatory dynamics in single cells" data-author="bertin, paul and viviano, joseph d. and tejada-lapuerta, alejandro and wang, wendy and bauer, stefan and theis, fabian j. and others" data-year="2025"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">bertin2025</code>
+            <span class="muted" style="font-size:0.82em">2025</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="bertin2025"
+                    data-bib-title="A scalable gene network model of regulatory dynamics in single cells"
+                    data-bib-author="Bertin, Paul and Viviano, Joseph D. and Tejada-Lapuerta, Alejandro and Wang, Wendy and Bauer, Stefan and Theis, Fabian J. and others"
+                    data-bib-year="2025"
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">A scalable gene network model of regulatory dynamics in single cells</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Bertin, Paul and Viviano, Joseph D. and Tejada-Lapuerta, Alejandro and Wang, Wendy and Bauer, Stefan and Theis, Fabian J. and others</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [27].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="lyne2015" data-title="on russian roulette estimates for bayesian inference with doubly-intractable likelihoods" data-author="lyne, anne-marie and girolami, mark and atchad\'e, yves and strathmann, heiko and simpson, daniel" data-year="2015"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">lyne2015</code>
+            <span class="muted" style="font-size:0.82em">2015</span>
+            <span style="font-size:0.85em">Statistical Science</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">On Russian Roulette Estimates for Bayesian Inference with Doubly-Intractable Likelihoods</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Lyne, Anne-Marie and Girolami, Mark and Atchad\'e, Yves and Strathmann, Heiko and Simpson, Daniel</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Statistical Science</em> 30(4), pp. 443--467 (2015).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1214/15-STS523" target="_blank">10.1214/15-STS523</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Foundational reference for Phase 5 marginal-likelihood estimation. DUF ref [28].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="hari2024" data-title="mergem: merging, comparing, and translating genome-scale metabolic models using universal identifiers" data-author="hari, archana and zarrabi, ali and lobo, daniel" data-year="2024"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">hari2024</code>
+            <span class="muted" style="font-size:0.82em">2024</span>
+            <span style="font-size:0.85em">NAR Genomics and Bioinformatics</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">mergem: merging, comparing, and translating genome-scale metabolic models using universal identifiers</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Hari, Archana and Zarrabi, Ali and Lobo, Daniel</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>NAR Genomics and Bioinformatics</em> 6(1), pp. lqae010 (2024).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1093/nargab/lqae010" target="_blank">10.1093/nargab/lqae010</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> DUF ref [29].</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="talts2018sbc" data-title="validating bayesian inference algorithms with simulation-based calibration" data-author="talts, sean and betancourt, michael and simpson, daniel and vehtari, aki and gelman, andrew" data-year="2018"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">talts2018sbc</code>
+            <span class="muted" style="font-size:0.82em">2018</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="talts2018sbc"
+                    data-bib-title="Validating Bayesian inference algorithms with simulation-based calibration"
+                    data-bib-author="Talts, Sean and Betancourt, Michael and Simpson, Daniel and Vehtari, Aki and Gelman, Andrew"
+                    data-bib-year="2018"
+                    data-bib-journal=""
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Validating Bayesian inference algorithms with simulation-based calibration</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Talts, Sean and Betancourt, Michael and Simpson, Daniel and Vehtari, Aki and Gelman, Andrew</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> SBC — the rank-histogram uniformity check used for the UQ acceptance criteria in pdmp-03-inference and pdmp-05-causal-discovery.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="cook2006posterior" data-title="validation of software for bayesian models using posterior quantiles" data-author="cook, samantha r. and gelman, andrew and rubin, donald b." data-year="2006"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">cook2006posterior</code>
+            <span class="muted" style="font-size:0.82em">2006</span>
+            <span style="font-size:0.85em">Journal of Computational and Graphical Statistics</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Validation of Software for Bayesian Models Using Posterior Quantiles</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Cook, Samantha R. and Gelman, Andrew and Rubin, Donald B.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Computational and Graphical Statistics</em> 15(3), pp. 675--692 (2006).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1198/106186006X136976" target="_blank">10.1198/106186006X136976</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Precursor to Talts et al. 2018; cited in pdmp-05 for the model-comparison-level SBC extension.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="toya2010" data-title="13c-metabolic flux analysis for batch culture of escherichia coli and its pyk and pgi gene knockout mutants based on mass isotopomer distribution of intracellular metabolites" data-author="toya, yoshihiro and ishii, nobuyoshi and nakahigashi, kenji and hirasawa, takashi and soga, tomoyoshi and tomita, masaru and shimizu, kazuyuki" data-year="2010"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">toya2010</code>
+            <span class="muted" style="font-size:0.82em">2010</span>
+            <span style="font-size:0.85em">Biotechnology Progress</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">13C-Metabolic flux analysis for batch culture of Escherichia coli and its Pyk and Pgi gene knockout mutants based on mass isotopomer distribution of intracellular metabolites</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Toya, Yoshihiro and Ishii, Nobuyoshi and Nakahigashi, Kenji and Hirasawa, Takashi and Soga, Tomoyoshi and Tomita, Masaru and Shimizu, Kazuyuki</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Biotechnology Progress</em> 26(4), pp. 975--992 (2010).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1002/btpr.420" target="_blank">10.1002/btpr.420</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> C13-MFA central-carbon flux measurements for glucose-grown E. coli; the reference flux dataset the v2ecoli baseline FBA fluxes are correlated against (showcase-2/showcase-4). toya_2010_central_carbon_fluxes.tsv.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="schmidt2016" data-title="the quantitative and condition-dependent escherichia coli proteome" data-author="schmidt, alexander and kochanowski, karl and vedelaar, silke and ahrn\'e, erik and volkmer, benjamin and callipo, luciano and knoops, k\`evin and bauer, manuel and aebersold, ruedi and heinemann, matthias" data-year="2016"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">schmidt2016</code>
+            <span class="muted" style="font-size:0.82em">2016</span>
+            <span style="font-size:0.85em">Nature Biotechnology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">The quantitative and condition-dependent Escherichia coli proteome</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Schmidt, Alexander and Kochanowski, Karl and Vedelaar, Silke and Ahrn\'e, Erik and Volkmer, Benjamin and Callipo, Luciano and Knoops, K\`evin and Bauer, Manuel and Aebersold, Ruedi and Heinemann, Matthias</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Nature Biotechnology</em> 34(1), pp. 104--110 (2016).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/nbt.3418" target="_blank">10.1038/nbt.3418</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Absolute condition-dependent E. coli proteome (often cited as "Schmidt 2015/2016"); the measured proteome the v2ecoli baseline monomer counts are correlated against (showcase-2 Schmidt r, showcase-4 proteome panel).</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="wisniewski2014" data-title="multi-enzyme digestion fasp and the `total protein approach'-based absolute quantification of the escherichia coli proteome" data-author="wi\'sniewski, jacek r. and rakus, dariusz" data-year="2014"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">wisniewski2014</code>
+            <span class="muted" style="font-size:0.82em">2014</span>
+            <span style="font-size:0.85em">Journal of Proteomics</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Multi-enzyme digestion FASP and the `Total Protein Approach'-based absolute quantification of the Escherichia coli proteome</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Wi\'sniewski, Jacek R. and Rakus, Dariusz</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Proteomics</em> 109, pp. 322--331 (2014).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.jprot.2014.07.012" target="_blank">10.1016/j.jprot.2014.07.012</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Total-Protein-Approach absolute E. coli proteome quantification; the second measured-proteome reference the v2ecoli baseline monomer counts are correlated against (showcase-2 Wisniewski r ~0.60, showcase-4 proteome panel).</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="gopalakrishnan2020" data-title="k-fit: an accelerated kinetic parameterization algorithm using steady-state fluxomic data" data-author="gopalakrishnan, saratram and dash, satyakam and maranas, costas" data-year="2020"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">gopalakrishnan2020</code>
+            <span class="muted" style="font-size:0.82em">2020</span>
+            <span style="font-size:0.85em">Metabolic Engineering</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">K-FIT: An accelerated kinetic parameterization algorithm using steady-state fluxomic data</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Gopalakrishnan, Saratram and Dash, Satyakam and Maranas, Costas</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Metabolic Engineering</em> 61, pp. 197--205 (2020).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.ymben.2020.03.001" target="_blank">10.1016/j.ymben.2020.03.001</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> The K-FIT kinetic-parameterization algorithm (IPOPT-based) that fits the KETCHUP k-ecoli74 / k-ecoli307 kinetic E. coli models compared against the v2ecoli baseline exchange phenotype in ketchup-exchange-comparison.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="beulig2025msystems" data-title="trade-off between resistance and persistence in high cell density cultures" data-author="beulig, f. and bafna-r\"uhrer, j. and jensen, p. e. and kim, s. h. and patel, a. and kandasamy, v. and steffen, c. and decker, k. and zielinski, d. and yang, l. and \"ozdemir, e. and sudarsan, s. and palsson, b." data-year="2025"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Beulig2025mSystems</code>
+            <span class="muted" style="font-size:0.82em">2025</span>
+            <span style="font-size:0.85em">mSystems</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Trade-off between resistance and persistence in high cell density cultures</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Beulig, F. and Bafna-R\"uhrer, J. and Jensen, P. E. and Kim, S. H. and Patel, A. and Kandasamy, V. and Steffen, C. and Decker, K. and Zielinski, D. and Yang, L. and \"Ozdemir, E. and Sudarsan, S. and Palsson, B.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>mSystems</em> 10(7) (2025).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1128/msystems.00323-25" target="_blank">10.1128/msystems.00323-25</a></p>
+          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://journals.asm.org/doi/10.1128/msystems.00323-25" target="_blank">Open ↗</a></p>
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Open access (CC BY 4.0). Received 6 March 2025; Accepted 7 May 2025; Published 13 June 2025. Two-stage batch-to-fed-batch fermentation, exponential feeding, to high cell density (50–80 gDW/L). 5 strain groups (BW25113 WT, 31 single-gene knockouts SGKO, TRP, TRPp, melatonin MEL); 4 fermentation phases I–IV; >470 transcriptomic samples. Senior author B. Palsson. PDF in references/papers/Beulig_2025_mSystems_high_cell_density.pdf.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="monod1949annrevmicrobiol" data-title="the growth of bacterial cultures" data-author="monod, jacques" data-year="1949"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Monod1949AnnRevMicrobiol</code>
+            <span class="muted" style="font-size:0.82em">1949</span>
+            <span style="font-size:0.85em">Annual Review of Microbiology</span>
+            
+            
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="Monod1949AnnRevMicrobiol"
+                    data-bib-title="The growth of bacterial cultures"
+                    data-bib-author="Monod, Jacques"
+                    data-bib-year="1949"
+                    data-bib-journal="Annual Review of Microbiology"
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">The growth of bacterial cultures</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Monod, Jacques</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Annual Review of Microbiology</em> 3, pp. 371--394 (1949).</p>
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Source for Monod kinetics (placeholder cell process in mbp-01).</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="sander2015atmoschemphys" data-title="compilation of henry's law constants (version 4.0) for water as solvent" data-author="sander, r." data-year="2015"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Sander2015AtmosChemPhys</code>
+            <span class="muted" style="font-size:0.82em">2015</span>
+            <span style="font-size:0.85em">Atmospheric Chemistry and Physics</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Compilation of Henry's law constants (version 4.0) for water as solvent</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Sander, R.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Atmospheric Chemistry and Physics</em> 15, pp. 4399--4981 (2015).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.5194/acp-15-4399-2015" target="_blank">10.5194/acp-15-4399-2015</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Source for O2/CO2 Henry constants used in mbp-02 kLa transport.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="gardengarciaochoa2009biotechadv" data-title="bioreactor scale-up and oxygen transfer rate in microbial processes: an overview" data-author="garcia-ochoa, felix and gomez, emilio" data-year="2009"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">GardenGarciaOchoa2009BiotechAdv</code>
+            <span class="muted" style="font-size:0.82em">2009</span>
+            <span style="font-size:0.85em">Biotechnology Advances</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Bioreactor scale-up and oxygen transfer rate in microbial processes: An overview</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Garcia-Ochoa, Felix and Gomez, Emilio</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Biotechnology Advances</em> 27, pp. 153--176 (2009).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.biotechadv.2008.10.006" target="_blank">10.1016/j.biotechadv.2008.10.006</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Reference for kLa correlations and oxygen transfer in stirred bioreactors (mbp-02).</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="vemuri2006applenvironmicrobiol" data-title="overflow metabolism in escherichia coli during steady-state growth: transcriptional regulation and effect of the redox ratio" data-author="vemuri, g. n. and altman, e. and sangurdekar, d. p. and khodursky, a. b. and eiteman, m. a." data-year="2006"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Vemuri2006ApplEnvironMicrobiol</code>
+            <span class="muted" style="font-size:0.82em">2006</span>
+            <span style="font-size:0.85em">Applied and Environmental Microbiology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Overflow metabolism in Escherichia coli during steady-state growth: Transcriptional regulation and effect of the redox ratio</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Vemuri, G. N. and Altman, E. and Sangurdekar, D. P. and Khodursky, A. B. and Eiteman, M. A.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Applied and Environmental Microbiology</em> 72, pp. 3653--3661 (2006).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1128/AEM.72.5.3653-3661.2006" target="_blank">10.1128/AEM.72.5.3653-3661.2006</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Acetate overflow under low DO; cited in mbp-03 acceptance tests.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="basan2015nature" data-title="overflow metabolism in \em escherichia coli results from efficient proteome allocation" data-author="basan, markus and hui, sheng and okano, hiroyuki and zhang, zhongge and shen, yang and williamson, james r. and hwa, terence" data-year="2015"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Basan2015Nature</code>
+            <span class="muted" style="font-size:0.82em">2015</span>
+            <span style="font-size:0.85em">Nature</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Overflow metabolism in \em Escherichia coli results from efficient proteome allocation</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Basan, Markus and Hui, Sheng and Okano, Hiroyuki and Zhang, Zhongge and Shen, Yang and Williamson, James R. and Hwa, Terence</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Nature</em> 528, pp. 99--104 (2015).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/nature15765" target="_blank">10.1038/nature15765</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Proteome-allocation explanation of acetate overflow.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="enjalbert2017scirep" data-title="acetate fluxes in \em escherichia coli are determined by the thermodynamic control of the pta-acka pathway" data-author="enjalbert, brice and millard, pierre and dinclaux, mickael and portais, jean-charles and letisse, fabien" data-year="2017"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Enjalbert2017SciRep</code>
+            <span class="muted" style="font-size:0.82em">2017</span>
+            <span style="font-size:0.85em">Scientific Reports</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Acetate fluxes in \em Escherichia coli are determined by the thermodynamic control of the Pta-AckA pathway</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Enjalbert, Brice and Millard, Pierre and Dinclaux, Mickael and Portais, Jean-Charles and Letisse, Fabien</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Scientific Reports</em> 7, pp. 42135 (2017).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/srep42135" target="_blank">10.1038/srep42135</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Acetate reconsumption phase; cited in mbp-03.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="lee1996trendsbiotechnol" data-title="high cell-density culture of \em escherichia coli" data-author="lee, sang yup" data-year="1996"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Lee1996TrendsBiotechnol</code>
+            <span class="muted" style="font-size:0.82em">1996</span>
+            <span style="font-size:0.85em">Trends in Biotechnology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">High cell-density culture of \em Escherichia coli</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Lee, Sang Yup</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Trends in Biotechnology</em> 14, pp. 98--105 (1996).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/0167-7799(96)80930-9" target="_blank">10.1016/0167-7799(96)80930-9</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Fed-batch operations reference; cited in mbp-04.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="korz1995jbiotechnol" data-title="simple fed-batch technique for high cell density cultivation of \em escherichia coli" data-author="korz, d. j. and rinas, u. and hellmuth, k. and sanders, e. a. and deckwer, w.-d." data-year="1995"
+               style="border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Korz1995JBiotechnol</code>
+            <span class="muted" style="font-size:0.82em">1995</span>
+            <span style="font-size:0.85em">Journal of Biotechnology</span>
+            
+            
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Simple fed-batch technique for high cell density cultivation of \em Escherichia coli</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Korz, D. J. and Rinas, U. and Hellmuth, K. and Sanders, E. A. and Deckwer, W.-D.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Biotechnology</em> 39, pp. 59--65 (1995).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/0168-1656(94)00143-Z" target="_blank">10.1016/0168-1656(94)00143-Z</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Exponential feed protocol; cited in mbp-04.</p>
+          
+          
+        </div>
+      </details>
+    
+    </div>
+    <script>
+      function _filterBibEntries(q) {
+        q = (q || '').toLowerCase().trim();
+        document.querySelectorAll('#bib-entries-grid .bib-entry').forEach(function(el) {
+          var hay = (el.dataset.key + ' ' + el.dataset.title + ' ' + el.dataset.author + ' ' + el.dataset.year).toLowerCase();
+          el.style.display = (!q || hay.indexOf(q) >= 0) ? '' : 'none';
+        });
+      }
+
+      // Per-entry "hand off to Claude" — builds a focused single-entry
+      // research prompt and copies it to the user's clipboard. Pasted into
+      // any Claude Code session running in this workspace, the agent
+      // searches for the paper, downloads an OA PDF if available, and
+      // updates references/papers.bib + workspace.yaml.references_pdfs.
+      // Replaces the previous bulk "hand off N references" banner: users
+      // now triage one paper at a time as they're browsing the
+      // bibliography.
+      function _handOffRef(btn) {
+        var d = btn.dataset;
+        var citation = '- ' + d.bibKey + ' — "' + d.bibTitle + '" (' +
+                       d.bibAuthor + ', ' + d.bibYear +
+                       (d.bibJournal ? ', ' + d.bibJournal : '') + ')';
+        var prompt =
+          'Resolve this reference in `references/papers.bib`:\n\n' +
+          citation + '\n\n' +
+          'Do the following, then commit on the active workstream branch:\n\n' +
+          '1. Search the web for the paper using its title + first author + year.\n' +
+          '   Use WebSearch / WebFetch to find the canonical publisher page.\n' +
+          '2. Note the DOI and the publisher URL.\n' +
+          '3. If an open-access PDF is available (publisher, arXiv, bioRxiv,\n' +
+          '   PubMed Central, author site, institutional repository, …),\n' +
+          '   download it to `references/' + d.bibKey + '.pdf` and add the\n' +
+          '   entry to `workspace.yaml.references_pdfs` with the sha256 of\n' +
+          '   the downloaded file.\n' +
+          '4. Edit the entry in `references/papers.bib` to add `doi = {...}`\n' +
+          '   and `url = {...}` fields where missing. Preserve the existing\n' +
+          '   entry structure.\n' +
+          '5. If you cannot find a freely-available PDF but can identify a\n' +
+          '   stable URL, just add the `url` / `doi` and skip the PDF download.\n' +
+          '6. After updating, run `python scripts/lint-workspace.py` to confirm\n' +
+          '   nothing is broken.\n\n' +
+          'Short-circuit DOI + Unpaywall lookup with:\n' +
+          '    curl -X POST -H \'Content-Type: application/json\' \\\n' +
+          '         -d \'{"key":"' + d.bibKey + '"}\' \\\n' +
+          '         http://localhost:8765/api/references-fetch\n\n' +
+          '…but treat that as a fallback — manual search usually finds links\n' +
+          'Unpaywall misses (paywalled DOIs the publisher hosts a free PDF\n' +
+          'for, preprint servers, etc.).\n';
+        var done = function(ok) {
+          var orig = btn.textContent;
+          btn.textContent = ok ? '✓ Copied' : '⚠ Copy failed';
+          btn.disabled = true;
+          setTimeout(function() { btn.textContent = orig; btn.disabled = false; }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(prompt).then(function() { done(true); },
+                                                      function() { done(false); });
+        } else {
+          // Fallback: stash in a temporary textarea + execCommand for
+          // older browsers / non-HTTPS contexts.
+          var ta = document.createElement('textarea');
+          ta.value = prompt;
+          document.body.appendChild(ta);
+          ta.select();
+          try { done(document.execCommand('copy')); } catch (e) { done(false); }
+          document.body.removeChild(ta);
+        }
+      }
+      window._handOffRef = _handOffRef;
+    </script>
+    
   </div>
 
 </section>
@@ -655,13 +2816,13 @@
 <!-- ===== PAGE: STUDIES ===== -->
 <section id="page-investigations" class="page" data-page="investigations">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <h2 class="page-title" style="margin:0">Investigations</h2>
+    <h2 class="page-title" style="margin:0">Investigation</h2>
     <div style="display:flex;gap:8px;align-items:center">
       <!-- "Switch investigation" + "+ New Investigation" actions now live in
            the left-rail investigation switcher dropdown (top of the rail). -->
     </div>
   </div>
-  <p class="page-lead" id="investigation-page-lead">All investigations in this repo. Select one to open it — its studies appear in the left rail. Merged investigations are preserved as artifacts; in-progress ones live on their branch/PR.</p>
+  <p class="page-lead" id="investigation-page-lead">The active investigation. Click a node in the DAG to open a study. Use the investigation switcher at the top of the left rail to switch active investigation or start a new one.</p>
 
   <!-- List view: investigation cards. -->
   <div id="investigations-list" class="investigations-list-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap:12px;">
@@ -744,8 +2905,6 @@
 
   <!-- Detail view: one investigation's DAG. Toggled on click. -->
   <div id="investigation-detail-view" style="display:none; margin-top:8px">
-    <button class="iset-back-link" onclick="_showInvestigationList()" title="Back to all investigations"
-            style="background:none; border:none; padding:0; margin:0 0 4px; color:#64748b; font-size:0.82em; cursor:pointer; display:inline-flex; align-items:center; gap:4px">&larr; All investigations</button>
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
       <h3 id="investigation-detail-title" style="margin:0; flex:1"></h3>
       <span id="investigation-detail-status" class="status-pill planned" style="font-size:0.85em"></span>
@@ -764,26 +2923,20 @@
       <!-- At-a-glance grid: one tile per study with a one-line role. Populated by JS. -->
       <div id="investigation-at-a-glance" class="inv-at-a-glance" style="display:none"></div>
       <!-- How to read this: ordered list of usage tips for the evaluator. -->
-      <details id="investigation-how-to-read" class="inv-how-to-read" style="display:none">
-        <summary>How to read this</summary>
+      <div id="investigation-how-to-read" class="inv-how-to-read" style="display:none">
+        <strong>How to read this</strong>
         <ol></ol>
-      </details>
+      </div>
       <!-- Glossary: collapsible. -->
       <details id="investigation-glossary" class="inv-glossary" style="display:none">
         <summary>Glossary</summary>
         <dl></dl>
       </details>
       <!-- Biology story (free-form prose). Hidden if the yaml omits it. -->
-      <details id="investigation-biology-story" class="inv-bio-story" style="display:none">
-        <summary class="inv-bio-story-label">Biology — the mechanism this investigation models</summary>
+      <div id="investigation-biology-story" class="inv-bio-story" style="display:none">
+        <strong class="inv-bio-story-label">Biology story</strong>
         <div id="investigation-biology-story-text" class="inv-bio-story-text"></div>
-      </details>
-    </div>
-    <!-- Discourse-graph framing: studies as knowledge-producing operations. -->
-    <div id="investigation-dag-lead" style="margin: 4px 0 8px; font-size: 0.88em; color: #475569; line-height: 1.4;">
-      <strong>Investigation graph</strong> — each study is a knowledge-producing operation that
-      builds understanding of the mechanism. Each node shows the <em>question</em> it asks and
-      the <em>evidence</em> it produced; edges show what a result leads to.
+      </div>
     </div>
     <div id="investigation-dag-shell"
          style="position: relative; border: 1px solid #e2e8f0; border-radius: 6px; background: #fafafa;
@@ -988,60 +3141,52 @@
 <section id="page-simulations" class="page" data-page="simulations">
   <h2 class="page-title">Simulations DB</h2>
   <p class="page-lead">
-    Every persisted run across this workspace, tagged by investigation and
-    study, gathered from each <code>studies/&lt;name&gt;/runs.db</code>.
-    Defaults to the current investigation — toggle to see all.
+    All persisted runs across this workspace, gathered from
+    <code>.pbg/composite-runs.db</code> and every
+    <code>studies/&lt;name&gt;/runs.db</code>. Delete a row to remove its
+    DB rows, run artifacts, and any Study references.
   </p>
 
-  <div style="margin: 8px 0 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-    <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
-      <input id="sim-all-toggle" type="checkbox" /> All investigations
-    </label>
-    <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
-      Study
-      <select id="sim-study-filter" style="padding:4px 8px; font-size:13px;
-              border:1px solid #d1d5db; border-radius:4px;">
-        <option value="">All</option>
-      </select>
-    </label>
-    <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
-      Emitter
-      <select id="sim-emitter-filter" style="padding:4px 8px; font-size:13px;
-              border:1px solid #d1d5db; border-radius:4px;">
-        <option value="">All</option>
-      </select>
-    </label>
+  <div style="margin: 8px 0 12px; display: flex; gap: 8px; align-items: center;">
+    <input id="sim-filter" type="search" placeholder="Filter by composite, investigation, study, or label…"
+           style="flex: 1; max-width: 480px; padding: 6px 10px; font-size: 14px;
+                  border: 1px solid #d1d5db; border-radius: 4px;" />
     <button id="sim-refresh" class="action-btn">Refresh</button>
   </div>
 
   <div id="sim-loading" style="color: #6b7280; padding: 12px;">Loading simulations…</div>
   <div id="sim-empty"   style="color: #6b7280; padding: 12px; display: none;">
-    No simulation runs found.
+    No simulations yet. Run a composite from the
+    <a href="#composite-explore">Composite Explorer</a> or from a
+    <a href="#studies">Study</a> to see entries here.
   </div>
 
   <table id="sim-table" style="width:100%; border-collapse: collapse; font-size: 13px; display: none;">
     <thead>
       <tr style="background:#f3f4f6;">
+        <th style="text-align:left; padding:6px 8px;">Composite</th>
         <th style="text-align:left; padding:6px 8px;">Investigation</th>
-        <th style="text-align:left; padding:6px 8px;">Study</th>
-        <th style="text-align:left; padding:6px 8px;">Run</th>
-        <th style="text-align:left; padding:6px 8px; width:90px;">Emitter</th>
-        <th style="text-align:left; padding:6px 8px; width:140px;">Time</th>
+        <th style="text-align:left; padding:6px 8px;">Studies</th>
         <th style="text-align:left; padding:6px 8px; width:90px;">Status</th>
-        <th style="text-align:center; padding:6px 8px; width:120px;">Actions</th>
+        <th style="text-align:left; padding:6px 8px; width:80px;">Steps</th>
+        <th style="text-align:left; padding:6px 8px;">Label</th>
+        <th style="text-align:left; padding:6px 8px; width:120px;">Started</th>
+        <th style="text-align:left; padding:6px 8px; width:80px;">Run</th>
+        <th style="text-align:left; padding:6px 8px; width:60px;"></th>
       </tr>
     </thead>
     <tbody id="sim-tbody"></tbody>
   </table>
 
-  <!-- Confirmation dialog for full simulation delete -->
+  <!-- Delete confirmation dialog -->
   <div id="sim-delete-dialog" style="display:none; position:fixed; inset:0;
-       background:rgba(0,0,0,0.4); align-items:center; justify-content:center; z-index:1000;">
-    <div style="background:#fff; border-radius:8px; padding:20px; max-width:520px;
-         width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+                                      background:rgba(0,0,0,0.45); z-index:1000;
+                                      align-items:center; justify-content:center;">
+    <div style="background:#fff; max-width:560px; padding:20px; border-radius:6px;
+                 box-shadow:0 4px 16px rgba(0,0,0,0.2);">
       <h3 style="margin:0 0 12px;">Delete simulation?</h3>
-      <div id="sim-delete-body" style="font-size:13px; color:#374151;"></div>
-      <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+      <div id="sim-delete-body" style="font-size:14px; color:#374151;"></div>
+      <div style="text-align:right; margin-top:16px;">
         <button id="sim-delete-cancel" class="action-btn">Cancel</button>
         <button id="sim-delete-confirm" class="action-btn"
                 style="background:#dc2626; color:#fff;">Delete</button>
@@ -1162,7 +3307,7 @@
         <button class="btn-mini" onclick="_popoutLoom('composite-explore-frame')" title="Open in a separate window. If it opens as a tab, your browser's 'open new pages as tabs' preference is overriding the popup hint (Safari → Tabs → 'Open pages in tabs instead of windows' → set to 'Manually').">Pop out &#8599;</button>
       </div>
       <iframe id="composite-explore-frame"
-              src="/bigraph-loom/index.html"
+              src="/loom-explore/index.html"
               title="Composite Explorer"
               style="width:100%;height:720px;border:1px solid #ddd;background:#fff"></iframe>
     </div>
@@ -1521,8 +3666,8 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
 
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/walkthrough.js?v=1780862437_1780862437" onerror="/* walkthrough unavailable */"></script>
-<script src="assets/github-login.js?v=1780862437_1780862437" onerror="/* github-login unavailable */"></script>
+<script src="assets/walkthrough.js?v=1781314981_1781314981" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/github-login.js?v=1781314981_1781314981" onerror="/* github-login unavailable */"></script>
 <script src="assets/investigations.js" onerror="/* investigations unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher

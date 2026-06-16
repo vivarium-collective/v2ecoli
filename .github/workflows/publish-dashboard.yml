@@ -20,6 +20,9 @@ on:
     paths:
       # Republish when anything that changes the snapshot changed.
       - 'workspace/**'
+      # Root workspace.yaml is NOT under workspace/** — list it explicitly so
+      # registry/layout/runtime changes (e.g. dashboard.registry.include) republish.
+      - 'workspace.yaml'
       - 'reports/figures/**'
       - 'scripts/publish_dashboard.sh'
       - '.github/workflows/publish-dashboard.yml'

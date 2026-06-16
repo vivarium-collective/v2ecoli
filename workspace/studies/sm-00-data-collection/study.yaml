@@ -1,0 +1,140 @@
+schema_version: 4
+name: sm-00-data-collection
+investigation: surrogate-modeling
+title: "Surrogate data collection — broad observable transition-dataset from baseline rollouts"
+created: '2026-06-16'
+status: evaluated
+
+design_status: complete
+implementation_status: complete
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: passed
+expert_review_status: pending
+
+claim: |
+  An 8-seed ensemble of baseline rollouts can be flattened into a single
+  pbg-torch TransitionDataset spanning a broad observable panel (growth/mass,
+  exchange fluxes, metabolic fluxes, protein and transcript abundance,
+  chromosome state) — ~11.5k observables per step — suitable for training a
+  neural-network surrogate.
+confidence: Accepted
+
+question: |
+  Can the deeply-nested baseline state (pint Quantities, per-agent keys,
+  dict-valued exchange fluxes, high-dimensional count/flux vectors) be extracted
+  into a stable, flat (state_t, state_t+1) transition dataset covering every
+  observable category?
+
+report:
+  title: sm-00-data-collection — broad transition dataset
+  verdict: pass
+  confidence: high
+  evidence_quality: 8 seeds x 250 steps = 2000 transitions x 11569 observables
+  objective: |
+    Build the training corpus for the surrogate: roll out the v2ecoli baseline
+    for 8 seeds, stepping one simulated second at a time, and extract a flat
+    observable vector before and after each step. The PanelLayout (code/observables.py)
+    discovers a stable column ordering across six observable groups and handles
+    pint magnitudes, the single-agent key, and the dict-valued exchange fluxes.
+  setup: |
+    code/sample_baseline.py builds the baseline composite per seed (shared ParCa
+    cache), steps it, and assembles a pbg_torch.TransitionDataset. Trajectories
+    halt at division (the single-agent assumption breaks once daughters appear).
+  result: |
+    Dataset: 2000 transitions x 11569 observables from 8 trajectories.
+    Group dimensionality:
+      mass=7, exchange=87, base_flux=2820, monomer=4309, mrna=4345, chromosome=1.
+    All six target groups captured; every step yields a finite flat vector.
+  interpretation: |
+    The broad panel spans all the requested categories. Slowly-varying groups
+    (mass, counts) and fast/erratic groups (metabolic fluxes) are both present,
+    which sets up sm-01 to measure where a surrogate is trustworthy.
+  decision: |
+    PASS — the transition dataset is built and feeds sm-01.
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  variants:
+  - name: 8-seed-ensemble
+    perturbation: "Seeds 0-7, 250 steps each, fresh initial state per seed."
+    expected_contrast: "Stochastic trajectory diversity for state-space coverage."
+    measured_contrast: "8 trajectories x ~250 transitions = 2000 transitions."
+
+tests:
+- name: ensemble-builds-broad-transition-dataset
+  classification: primary
+  status: passed
+  question: |
+    Does the sampler produce a transition dataset covering all six target
+    observable groups with finite values?
+  measure:
+    kind: authored
+    detail: |
+      Number of observable groups captured (target = 6: mass, exchange,
+      base_flux, monomer, mrna, chromosome). 2000 transitions, 11569 dims,
+      all finite.
+    measured_value: 6.0
+  pass_if:
+    op: in_range
+    low: 6.0
+    high: 6.0
+  cites_note: "Methodological completeness check; not literature-derived."
+
+runs:
+- name: sample-8-seeds
+  status: completed
+  kind: ensemble
+  canonical: true
+  description: |
+    8-seed baseline ensemble, 250 steps/seed, null emitter, broad observable
+    extraction. ~185s wall on a laptop.
+  dispatch: serial
+  emitter: null
+  result: PASS
+  outcomes:
+    ensemble-builds-broad-transition-dataset:
+      result: PASS
+      detail: "2000 transitions x 11569 observables; all 6 groups captured; all finite."
+  computed_outcomes:
+    _status: store_unresolved
+
+visualizations: []
+
+pipeline_gate:
+  prerequisites: []
+  enables:
+  - sm-01-nn-surrogate
+  gate_status: passed
+
+readouts:
+- name: broad-observable-panel
+  notes: "mass(7) + exchange(87) + base_flux(2820) + monomer(4309) + mrna(4345) + chromosome(1)."
+
+robustness:
+  n_replicates: 1
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  parameter_sweep: false
+  swept_param: "none (seed ensemble)"
+
+falsifiability: |
+  Fails if any target group is missing from the extracted vector, if extraction
+  produces non-finite values, or if the per-agent key handling breaks before
+  division.
+
+simulation_set:
+- name: sample-8-seeds
+  kind: ensemble
+  status: ran
+  base_model: v2ecoli.composites.baseline
+  duration_steps: 250
+  seeds: 8
+  details: "Broad observable extraction into a pbg-torch TransitionDataset."
+  metrics:
+  - n_transitions
+  - n_observables
+  pass_fail_tests:
+  - ensemble-builds-broad-transition-dataset

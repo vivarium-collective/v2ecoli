@@ -1,0 +1,210 @@
+schema_version: 4
+name: sm-01-nn-surrogate
+investigation: surrogate-modeling
+title: "NN surrogate — emulating baseline growth/mass, and profiling the speedup"
+created: '2026-06-16'
+status: evaluated
+
+design_status: complete
+implementation_status: complete
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: passed
+expert_review_status: pending
+
+claim: |
+  A pbg-torch residual-MLP surrogate trained on baseline transitions emulates
+  the cell's growth/mass dynamics with near-perfect fidelity (one-step R^2 ~ 1.0;
+  60-step autoregressive rollout tracks baseline cell_mass at correlation 1.000,
+  ~0.01% error) and runs ~10^3x faster than the simulator. The full
+  high-dimensional panel (~11.5k observables) is NOT yet emulated well by a
+  single monolithic delta-MLP on modest data — its autoregressive rollout
+  diverges — marking the open frontier.
+confidence: Accepted
+
+question: |
+  How faithfully can a neural-network surrogate emulate the baseline per-step
+  dynamics — for a compact physiological panel vs. the full broad panel — and
+  what inference speedup does it deliver?
+
+report:
+  title: sm-01-nn-surrogate — surrogate fidelity and speed
+  verdict: pass
+  confidence: high
+  evidence_quality: held-out trajectory (250 transitions); compact + broad surrogates; speed profiled
+  objective: |
+    Train pbg-torch surrogates on the sm-00 dataset, hold out one whole
+    trajectory, and measure (a) one-step prediction fidelity per observable
+    group, (b) autoregressive rollout fidelity for interpretable scalars, and
+    (c) inference speed vs. the full simulator.
+  setup: |
+    code/train_surrogate.py fits a residual-MLP predicting normalized per-step
+    deltas; code/evaluate_surrogate.py reports per-column R^2 (median across a
+    group, since pooled R^2 across incommensurate columns is misleading),
+    autoregressive rollouts, and a speed benchmark. Two surrogates: a COMPACT
+    panel (mass + chromosome, 8 dims) and the BROAD panel (11569 dims).
+  result: |
+    COMPACT surrogate (mass + chromosome, 8 dims), held-out trajectory:
+      - mass: median per-column R^2 = 1.000 (7/7 columns R^2 > 0.5)
+      - 60-step autoregressive rollout: cell_mass correlation 1.000, mean
+        relative error 0.0001 (0.01%); instantaneous_growth_rate correlation 1.000
+      - inference: 39,000 steps/s vs simulator 14.3 steps/s -> ~2,700x
+    BROAD surrogate (11569 dims), held-out trajectory:
+      - one-step per-column fidelity is poor for the high-dimensional groups
+        (overall ~2% of columns reach R^2 > 0.5); exchange/base_flux/mrna are
+        not emulated well on this modest local ensemble
+      - the full-vector autoregressive rollout diverges (NaN within ~60 steps):
+        a single monolithic delta-MLP over thousands of coupled observables is
+        unstable, and one NaN poisons the shared vector
+      - inference: ~3,800 steps/s vs 14.4 steps/s -> ~265x (speedup holds at full breadth)
+  interpretation: |
+    Surrogates are immediately useful for the smooth, low-dimensional physiology
+    (growth/mass): near-perfect emulation and ~10^3x speedup. The broad
+    high-dimensional panel is the honest open challenge: a single delta-MLP
+    neither predicts most columns one-step nor rolls out stably. Two documented
+    paths forward: (1) more training data (many more seeds / multi-generation
+    rollouts on the Mac mini, already supported by the pipeline), and (2) a
+    latent encode-decode surrogate (autoencoder + latent dynamics) for the
+    high-dimensional groups, a natural pbg-torch extension.
+  decision: |
+    PASS — the surrogate demonstrably emulates baseline growth/mass and profiles
+    a large speedup. The broad-panel limitation is characterized, not hidden.
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  variants:
+  - name: compact-surrogate
+    perturbation: "Residual-MLP (64,64) on mass+chromosome (8 dims), delta parameterization."
+    expected_contrast: "High-fidelity, stable rollout."
+    measured_contrast: "mass R^2=1.000; cell_mass rollout corr 1.000; ~2700x speedup."
+  - name: broad-surrogate
+    perturbation: "Residual-MLP (256,256) on the full 11569-observable panel."
+    expected_contrast: "Demonstration-grade; high-dim fidelity is the open challenge."
+    measured_contrast: "~2% of columns R^2>0.5; rollout diverges (NaN); ~265x speedup."
+
+tests:
+- name: surrogate-emulates-growth-and-profiles-speedup
+  classification: primary
+  status: passed
+  question: |
+    Does the surrogate emulate baseline cell_mass over a 60-step autoregressive
+    rollout with correlation > 0.95 on a held-out trajectory?
+  measure:
+    kind: authored
+    detail: |
+      Compact-panel surrogate; 60-step autoregressive rollout of cell_mass on
+      held-out trajectory 7; Pearson correlation to baseline.
+    measured_value: 1.0
+  pass_if:
+    op: gt
+    low: 0.95
+  cites_note: "Methodological fidelity threshold; not literature-derived."
+- name: surrogate-delivers-speedup
+  classification: supporting
+  status: passed
+  question: |
+    Is surrogate inference at least 100x faster than the simulator?
+  measure:
+    kind: authored
+    detail: "Compact surrogate steps/s (39,009) / simulator steps/s (14.25)."
+    measured_value: 2737.0
+  pass_if:
+    op: gt
+    low: 100.0
+
+runs:
+- name: train-eval-compact
+  status: completed
+  kind: surrogate_training
+  canonical: true
+  description: |
+    Train residual-MLP (64,64) on mass+chromosome panel (400 epochs); evaluate
+    one-step R^2 + 60-step rollout + speed on held-out trajectory 7.
+  dispatch: serial
+  emitter: null
+  result: PASS
+  outcomes:
+    surrogate-emulates-growth-and-profiles-speedup:
+      result: PASS
+      detail: "cell_mass 60-step rollout correlation 1.000 (mean rel err 0.01%); mass one-step median R^2 1.000."
+    surrogate-delivers-speedup:
+      result: PASS
+      detail: "39,009 surrogate steps/s vs 14.25 simulator steps/s -> 2737x."
+  computed_outcomes:
+    _status: store_unresolved
+- name: train-eval-broad
+  status: completed
+  kind: surrogate_training
+  canonical: false
+  description: |
+    Train residual-MLP (256,256) on the full 11569-observable panel (200 epochs);
+    characterize one-step per-column coverage, rollout stability, and speed.
+  dispatch: serial
+  emitter: null
+  result: PARTIAL
+  outcomes:
+    surrogate-emulates-growth-and-profiles-speedup:
+      result: PARTIAL
+      detail: "Broad panel: ~2% of columns reach R^2>0.5; full-vector rollout diverges (NaN). Speedup ~265x holds. Open challenge."
+  computed_outcomes:
+    _status: store_unresolved
+
+visualizations:
+- name: Compact surrogate — fidelity, rollout, speed
+  address: "image:../../reports/figures/sm-01-nn-surrogate/compact_surrogate.html"
+  config:
+    title: "Compact surrogate (growth/mass): per-group R^2, 60-step rollout vs baseline, speedup"
+  chart: interactive
+  render: "Per-group R^2 bar + cell_mass/growth rollout overlays + speedup banner."
+- name: Broad panel — coverage and speedup
+  address: "image:../../reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html"
+  config:
+    title: "Broad 11.5k-observable panel: per-group one-step coverage + speedup"
+  chart: interactive
+  render: "Per-group median R^2 bar (high-dim groups poor) + speedup banner."
+
+pipeline_gate:
+  prerequisites:
+  - sm-00-data-collection
+  enables: []
+  gate_status: passed
+
+conclusion_verdicts:
+- claim: "A surrogate emulates baseline growth/mass with near-perfect fidelity."
+  verdict: supported
+  basis: "Compact-panel cell_mass rollout correlation 1.000; one-step mass R^2 1.000."
+- claim: "Surrogate inference is orders of magnitude faster than the simulator."
+  verdict: supported
+  basis: "~2700x (compact) and ~265x (broad) over baseline steps/s."
+- claim: "A single monolithic delta-MLP emulates the full high-dimensional panel."
+  verdict: refuted
+  basis: "Broad-panel rollout diverges (NaN); ~2% of columns reach R^2>0.5 one-step."
+
+robustness:
+  n_replicates: 1
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  parameter_sweep: false
+  swept_param: "held-out trajectory 7 for test"
+
+falsifiability: |
+  The growth-emulation claim fails if the held-out cell_mass rollout correlation
+  drops below 0.95 or the rollout diverges. The speedup claim fails below 100x.
+
+simulation_set:
+- name: train-eval-compact
+  kind: surrogate_training
+  status: ran
+  base_model: v2ecoli.composites.baseline
+  duration_steps: 0
+  seeds: 0
+  details: "Uses sm-00 dataset; trains compact surrogate; evaluates fidelity + speed."
+  metrics:
+  - median_r2
+  - rollout_correlation
+  - inference_speedup
+  pass_fail_tests:
+  - surrogate-emulates-growth-and-profiles-speedup
+  - surrogate-delivers-speedup

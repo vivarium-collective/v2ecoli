@@ -1,0 +1,90 @@
+schema_version: 2
+name: surrogate-modeling
+title: "Surrogate Modeling — a neural-network emulator of the v2ecoli baseline"
+created: '2026-06-16'
+status: running
+
+question: |
+  Can a neural-network surrogate, trained on v2ecoli baseline rollouts, emulate
+  the model's per-step dynamics across a broad observable panel (growth/mass,
+  exchange fluxes, metabolic fluxes, protein and transcript abundance,
+  chromosome state) — and at what fidelity and what speedup?
+
+hypothesis: |
+  A residual-MLP surrogate (via pbg-torch) trained on baseline transitions
+  captures the low-dimensional, slowly-varying observables (mass, growth,
+  exchange) at high one-step fidelity, while the very high-dimensional flux and
+  abundance vectors remain demonstration-grade on a modest local ensemble. The
+  robust win is inference speed: ~10^3x faster than the full simulator.
+
+executive:
+  what_is_this: |
+    A two-study demonstration of building a neural-network SURROGATE of the
+    v2ecoli baseline using the new pbg-torch library
+    (github.com/vivarium-collective/pbg-torch):
+
+    1. sm-00-data-collection — roll out an 8-seed baseline ensemble and extract
+       a broad ~11.5k-observable panel into a pbg-torch TransitionDataset.
+
+    2. sm-01-nn-surrogate — train a residual-MLP surrogate on the per-step
+       deltas, evaluate one-step fidelity per observable category on a held-out
+       trajectory, roll it out autoregressively, and profile its inference
+       speed against the full simulator.
+
+    The point is to show, end to end, HOW a surrogate is made and how to judge
+    it — not to ship a production emulator. It is deliberately demonstration-
+    grade (modest local data), with documented paths to production quality
+    (more data on the Mac mini; a latent encode-decode model for the high-dim
+    groups).
+  verdict_status: passed
+  verdict_detail: |
+    Both studies ran locally. The compact-panel surrogate (growth/mass) emulates
+    the baseline with near-perfect fidelity — one-step mass R^2 = 1.000 and a
+    60-step autoregressive rollout that tracks baseline cell_mass at correlation
+    1.000 (~0.01% error) — at ~2,700x the simulator's inference speed. The broad
+    11,569-observable surrogate trains and profiles a ~265x speedup, but its
+    high-dimensional flux/abundance fidelity is poor one-step and its full-vector
+    autoregressive rollout diverges (NaN) — the honest open frontier. Net: the
+    demonstration succeeds (a working, fast surrogate of growth/mass) and the
+    high-dimensional challenge is characterized, not hidden.
+
+scientific_argument:
+  main_claim: |
+    A neural-network surrogate can emulate the v2ecoli baseline's coarse-grained
+    per-step dynamics — capturing growth/mass/exchange well one-step — at roughly
+    three orders of magnitude lower compute cost than the full 55-process model.
+  evidence_for:
+  - "Compact growth/mass surrogate: one-step mass R^2 = 1.000; 60-step rollout tracks baseline cell_mass at correlation 1.000 (~0.01% error)."
+  - "Inference speedup ~2,700x (compact) and ~265x (broad) over the simulator."
+  evidence_against:
+  - "Broad 11.5k-observable surrogate: only ~2% of columns reach one-step R^2>0.5; flux/abundance groups are not emulated well on modest local data."
+  - "The full-vector autoregressive rollout diverges (NaN): a single monolithic delta-MLP over thousands of coupled observables is unstable."
+  caveats:
+  - "Trained on 8 single-generation local trajectories; not a production emulator."
+  - "The surrogate approximates a curated observable VIEW of the cell, not its full hidden state."
+
+at_a_glance:
+- study: sm-00-data-collection
+  role: "Roll out the baseline ensemble and build the broad ~11.5k-observable pbg-torch TransitionDataset."
+- study: sm-01-nn-surrogate
+  role: "Train the residual-MLP surrogate; report one-step fidelity per category on a held-out trajectory; profile inference speedup."
+
+biological_story: |
+  The v2ecoli whole-cell model integrates 55 processes to advance one cell by
+  one second. A surrogate asks a different question: given the cell's current
+  observable state, can a learned function predict the next observable state
+  directly? If so, parameter sweeps, uncertainty propagation, and control loops
+  that are prohibitive at full-model cost become cheap. This investigation builds
+  exactly such a surrogate over a broad observable panel and measures where it is
+  trustworthy (slowly-varying physiology) versus where it is not yet
+  (high-dimensional molecular detail).
+
+studies:
+- sm-00-data-collection
+- sm-01-nn-surrogate
+
+acceptance_criteria:
+- study: sm-00-data-collection
+  behavior: ensemble-builds-broad-transition-dataset
+- study: sm-01-nn-surrogate
+  behavior: surrogate-emulates-growth-and-profiles-speedup

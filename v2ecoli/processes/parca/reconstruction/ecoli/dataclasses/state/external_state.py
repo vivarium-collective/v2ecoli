@@ -14,6 +14,8 @@ Initializes the environment using conditions and time series from raw_data.
 
 """
 
+import os
+
 import numpy as np
 
 from v2ecoli.processes.parca.wholecell.utils import units
@@ -157,7 +159,16 @@ class ExternalState(object):
         for carbon_source_id in self.carbon_sources:
             if carbon_source_id in importUnconstrainedExchangeMolecules:
                 if oxygen_id in importUnconstrainedExchangeMolecules:
-                    importConstrainedExchangeMolecules[carbon_source_id] = 20.0 * (
+                    # Aerobic carbon-source uptake cap (default 20.0 mmol/gDCW/h).
+                    # GUR-titration knob for the metabolic-perturbation-response
+                    # investigation: overridable per-run via env var (cf. the
+                    # RIDA_RATE_MULTIPLIER env-var pattern in composites/baseline.py).
+                    # Read inline so a sweep runner that sets the env var before
+                    # each composite build is picked up when the FBA recomputes
+                    # import constraints. Default preserves stock behavior.
+                    aerobic_cap = float(
+                        os.environ.get("V2ECOLI_GLC_UPTAKE_CAP_AEROBIC", "20.0"))
+                    importConstrainedExchangeMolecules[carbon_source_id] = aerobic_cap * (
                         units.mmol / units.g / units.h
                     )
                 else:

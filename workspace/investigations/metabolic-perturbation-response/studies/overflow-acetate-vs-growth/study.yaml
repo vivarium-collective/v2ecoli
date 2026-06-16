@@ -128,4 +128,18 @@ pipeline_gate:
   enables: []
   gate_status: planned
 
+# Bespoke sweep runner (declarative simulation_set sweeps aren't runnable in the
+# framework). At each glucose-uptake cap it runs the basal-card ensemble
+# (run-to-division, Ray), then extracts μ (build_cell_records doubling_time) +
+# exchange phenotype (extract_vectors) and derives biomass yield + carbon balance.
+# Knob = the V2ECOLI_GLC_UPTAKE_CAP_AEROBIC env var (external_state.py).
+# STATUS: extraction validated against the existing basal sweep (--from-sweep);
+# the live run path (env-var cap -> ensemble) is not yet end-to-end validated.
+canonical_runs:
+- name: gur-titration
+  default: true
+  label: "GUR titration (baseline): sweep glucose-uptake cap -> doubling-time mu + acetate + yield + carbon balance"
+  script: workspace/investigations/metabolic-perturbation-response/studies/overflow-acetate-vs-growth/sims/run_gur_titration.py
+  args: ["--caps", "1,2,3,4,5,6", "--n-seeds", "3", "--generations", "3", "--gen-lb", "1"]
+
 runs: []

@@ -25,16 +25,14 @@ rm -rf "$WT/viewers" "$WT/baseline-viewer"
 cp -R docs/viewers "$WT/viewers"
 cp -R docs/baseline-viewer "$WT/baseline-viewer"
 
-(
-  cd "$WT"
-  git add viewers baseline-viewer
-  if git diff --cached --quiet; then
-    echo "no viewer changes to publish"
-    exit 0
-  fi
+cd "$WT"
+git add viewers baseline-viewer
+if git diff --cached --quiet; then
+  echo "no viewer changes to publish"
+else
   git -c user.name="github-actions[bot]" \
       -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
       commit -m "publish composite viewers hub"
   git push origin gh-pages
-)
-echo "published docs/viewers/ -> gh-pages:viewers/"
+  echo "published docs/viewers/ -> gh-pages:viewers/"
+fi

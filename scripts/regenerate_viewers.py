@@ -48,6 +48,11 @@ def trim_state_for_view(obj, *, max_list: int = 8):
     if isinstance(obj, dict):
         return {k: trim_state_for_view(v, max_list=max_list) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
+        # NOTE: this caps EVERY list, including any structural list (e.g. a
+        # process with >max_list ports expressed as a list). All current
+        # composites are safe — their structural lists are short wiring paths
+        # (<=4) — but a future composite with a long list in schema position
+        # would be silently truncated; bump max_list or special-case if so.
         return [trim_state_for_view(v, max_list=max_list) for v in obj[:max_list]]
     # numpy (and other 1-D array-likes): cap then recurse on the python list.
     tolist = getattr(obj, "tolist", None)
@@ -153,8 +158,12 @@ def _log_resolve_failure(spec_id: str) -> None:
         )
         if spec_id not in _REGISTRY:
             discover_generators()
-        build_generator(_REGISTRY[spec_id], overrides={})
-        reason = "resolver returned None but the generator built — unexpected"
+        entry = _REGISTRY.get(spec_id)
+        if entry is None:
+            reason = "composite is not registered (check the id in viewers.json)"
+        else:
+            build_generator(entry, overrides={})
+            reason = "resolver returned None but the generator built — unexpected"
     except Exception as exc:  # noqa: BLE001
         reason = f"{type(exc).__name__}: {exc}"
     print(f"  ! skipped {spec_id}: {reason}\n"

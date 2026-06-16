@@ -96,10 +96,12 @@ def test_copy_loom_bundle_copies_index_and_assets(tmp_path, monkeypatch):
     src = tmp_path / "src_dist"; (src / "assets").mkdir(parents=True)
     (src / "index.html").write_text("<html>loom</html>")
     (src / "assets" / "app.js").write_text("//js")
+    (src / "assets" / "app.js.map").write_text("{}")  # source map — must be stripped
     dest = tmp_path / "viewers" / "loom"
     mod.copy_loom_bundle(dest, src=src)
     assert (dest / "index.html").read_text() == "<html>loom</html>"
     assert (dest / "assets" / "app.js").is_file()
+    assert not (dest / "assets" / "app.js.map").exists()  # a read-only viewer drops maps
 
 
 def test_write_state_serializes_numpy_arrays(tmp_path):

@@ -66,3 +66,23 @@ def test_hub_html_omits_links_for_missing_artifacts():
     assert 'href="viz2/colony.html"' not in html
     assert 'href="img/colony.svg"' not in html
     assert "loom/index.html?static=1&id=v2ecoli.composites.colony.colony" in html
+
+
+def test_build_rows_skips_unresolvable_and_records_artifacts(tmp_path):
+    mod = _load_mod()
+    entries = [
+        mod.Entry("baseline", "v2ecoli.composites.baseline.baseline", "Baseline", ""),
+        mod.Entry("broken", "v2ecoli.composites.broken.broken", "Broken", ""),
+    ]
+    def fake_resolve(spec_id):
+        return {"x": 1} if "baseline" in spec_id else None
+    def fake_svg(state, slug, out): return (out / f"{slug}.svg") if slug == "baseline" else None
+    def fake_viz2(state, slug, out): return (out / f"{slug}.html") if slug == "baseline" else None
+
+    rows = mod.build_rows(entries, VIEWERS_DIR=tmp_path,
+                          resolve=fake_resolve, render_svg=fake_svg, render_viz2=fake_viz2)
+    slugs = [r["entry"].slug for r in rows]
+    assert slugs == ["baseline"]
+    assert (tmp_path / "data" / "baseline.state.json").is_file()
+    assert rows[0]["has_svg"] and rows[0]["has_viz2"]
+    assert rows[0]["has_view"] is False

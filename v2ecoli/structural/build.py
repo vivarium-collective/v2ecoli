@@ -242,7 +242,11 @@ def load_state(state_source="snapshot", advance_s=2.0, seed=0):
         ids = [str(x) for x in bulk["id"]]
         cnts = list(bulk["count"])
     else:
-        st = np.load(DATA / "v2ecoli_state.npz")
+        # "division" = pre-division (max-mass) state extracted from a cached
+        # two-generation run (end of generation 1); "snapshot" = birth state.
+        fname = ("v2ecoli_state_division.npz" if state_source == "division"
+                 else "v2ecoli_state.npz")
+        st = np.load(DATA / fname)
         ids = [str(x) for x in st["ids"]]
         cnts = list(st["counts"])
         volume_fl = float(st["volume"])
@@ -536,7 +540,8 @@ def _cluster_complex_at_pole(pack_path, mesh_dir, name, mesh_stem, cone_deg=55.0
 
 
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
-                state_source="snapshot", proxy_lod=2, top_complexes=150) -> dict:
+                state_source="snapshot", proxy_lod=2, top_complexes=150,
+                width_um=1.0, density_g_per_ml=1.1) -> dict:
     """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result.
 
     ``scale`` defaults to 1.0 (true abundance from the state — every molecule is
@@ -547,7 +552,13 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     struct_cache = Path(out_dir) / "structures"
     ingredients = select_ingredients(counts, top_n=top_n, struct_cache=struct_cache,
                                      top_complexes=top_complexes)
-    capsule = Capsule.from_volume_fl(volume_fl)
+    # Cell envelope from the Shape step (Skalnik et al. 2023): fixed width +
+    # density, length derived from volume — so a pre-division state yields the
+    # elongated, about-to-divide capsule.
+    from v2ecoli.structural.shape import shape_from_mass
+    mass_fg = volume_fl * density_g_per_ml * 1000.0
+    capsule = shape_from_mass(mass_fg, width_um=width_um,
+                              density_g_per_ml=density_g_per_ml)["capsule"]
     chromosome = Chromosome(
         beads=34000, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),

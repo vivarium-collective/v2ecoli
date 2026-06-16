@@ -86,3 +86,14 @@ def test_build_rows_skips_unresolvable_and_records_artifacts(tmp_path):
     assert (tmp_path / "data" / "baseline.state.json").is_file()
     assert rows[0]["has_svg"] and rows[0]["has_viz2"]
     assert rows[0]["has_view"] is False
+
+
+def test_copy_loom_bundle_copies_index_and_assets(tmp_path, monkeypatch):
+    mod = _load_mod()
+    src = tmp_path / "src_dist"; (src / "assets").mkdir(parents=True)
+    (src / "index.html").write_text("<html>loom</html>")
+    (src / "assets" / "app.js").write_text("//js")
+    dest = tmp_path / "viewers" / "loom"
+    mod.copy_loom_bundle(dest, src=src)
+    assert (dest / "index.html").read_text() == "<html>loom</html>"
+    assert (dest / "assets" / "app.js").is_file()

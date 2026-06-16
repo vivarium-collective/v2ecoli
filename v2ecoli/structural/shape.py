@@ -95,10 +95,12 @@ class ShapeStep(Step):
                                        "_default": 0.0}}}
 
     def outputs(self):
-        # map[float] (a container type) resolves to a dict schema; a bare "any"
-        # resolves to a string that schema realization can't annotate with a
-        # link path in the full baseline composite. The shape dict is all floats.
-        return {"shape": "map[float]"}
+        # map[overwrite[float]] (a container type) resolves to a dict schema, and
+        # overwrite makes each tick SET the value rather than accumulate — the
+        # step reports the current geometry each step, it doesn't add to it. A
+        # plain map[float] would sum the per-tick shapes; a bare "any" resolves to
+        # a string that schema realization can't annotate in the full composite.
+        return {"shape": "map[overwrite[float]]"}
 
     def update(self, state, interval=None):
         # cell_mass arrives as a pint Quantity (live baseline listeners) nested

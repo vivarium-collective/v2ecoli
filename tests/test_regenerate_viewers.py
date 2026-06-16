@@ -100,3 +100,30 @@ def test_copy_loom_bundle_copies_index_and_assets(tmp_path, monkeypatch):
     mod.copy_loom_bundle(dest, src=src)
     assert (dest / "index.html").read_text() == "<html>loom</html>"
     assert (dest / "assets" / "app.js").is_file()
+
+
+def test_write_state_serializes_numpy_arrays(tmp_path):
+    """Composite states are full of numpy bulk-count arrays; write_state must
+    serialize them via the dashboard's _json_body (ndarray -> list) rather than
+    choking on a plain json.dumps."""
+    import numpy as np
+    mod = _load_mod()
+    out = mod.write_state({"counts": np.array([1, 2, 3])}, "x", tmp_path / "data")
+    written = json.loads(out.read_text())
+    assert written["state"]["counts"] == [1, 2, 3]
+
+
+def test_build_rows_isolates_a_failing_composite(tmp_path):
+    """One composite raising mid-render must not abort the whole run."""
+    mod = _load_mod()
+    entries = [mod.Entry("a", "id.a", "A", ""), mod.Entry("b", "id.b", "B", "")]
+    def res(spec_id): return {"x": 1}
+    def boom_svg(state, slug, out):
+        if slug == "a":
+            raise RuntimeError("kaboom")
+        return out / f"{slug}.svg"
+    def ok_viz2(state, slug, out): return out / f"{slug}.html"
+    rows = mod.build_rows(entries, viewers_dir=tmp_path,
+                          resolve=res, render_svg=boom_svg, render_viz2=ok_viz2)
+    # "a" dropped (its render raised); the run continued and produced "b".
+    assert [r["entry"].slug for r in rows] == ["b"]

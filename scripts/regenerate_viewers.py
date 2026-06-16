@@ -38,8 +38,14 @@ def load_manifest(path: Path) -> list[Entry]:
 def write_state(state: dict, slug: str, data_dir: Path) -> Path:
     data_dir.mkdir(parents=True, exist_ok=True)
     out = data_dir / f"{slug}.state.json"
-    # loom's ?stateUrl= reader expects the {"state": <bigraph-state>} wrapper.
-    out.write_text(json.dumps({"state": state}, indent=2), encoding="utf-8")
+    # Serialize EXACTLY as the dashboard's /api/composite-state does, via its
+    # _json_body: _json_default turns numpy arrays/scalars, Path, and sets into
+    # JSON-native values (composite states are full of numpy bulk-count arrays),
+    # and allow_nan=False + the _json_sanitize fallback replaces inf/nan with
+    # null. Plain json.dumps chokes on the ndarrays. loom's ?stateUrl= reader
+    # expects the {"state": <bigraph-state>} wrapper.
+    from vivarium_dashboard.server import _json_body
+    out.write_bytes(_json_body({"state": state}))
     return out
 
 
@@ -99,14 +105,38 @@ _PAGE_TEMPLATE = """<!doctype html>
 
 def resolve_state_via_dashboard(spec_id: str) -> dict | None:
     """Resolve a composite to its loom state dict by reusing the dashboard's
-    pure resolver. Returns None on any failure (logged by caller)."""
+    pure resolver. Returns None on failure, after surfacing WHY."""
     import vivarium_dashboard.server as srv
     # This script is always run standalone; point the dashboard's pure resolver at this workspace.
     srv.WORKSPACE = REPO_ROOT
     data = srv._composite_resolve_data(spec_id)
-    if not data or not isinstance(data.get("state"), dict):
-        return None
-    return data["state"]
+    if data and isinstance(data.get("state"), dict):
+        return data["state"]
+    # _composite_resolve_data swallows the real error and returns None. Re-run
+    # the generator directly to surface it — the usual culprit is a stale ParCa
+    # cache (e.g. a CountsDeriver config missing 'tf_ids'), fixed by rebuilding:
+    #   PYTHONPATH=. .venv/bin/python scripts/build_cache.py
+    _log_resolve_failure(spec_id)
+    return None
+
+
+def _log_resolve_failure(spec_id: str) -> None:
+    """Print the underlying reason a composite failed to resolve (the dashboard
+    resolver hides it behind a None return)."""
+    try:
+        from pbg_superpowers.composite_generator import (
+            _REGISTRY, build_generator, discover_generators,
+        )
+        if spec_id not in _REGISTRY:
+            discover_generators()
+        build_generator(_REGISTRY[spec_id], overrides={})
+        reason = "resolver returned None but the generator built — unexpected"
+    except Exception as exc:  # noqa: BLE001
+        reason = f"{type(exc).__name__}: {exc}"
+    print(f"  ! skipped {spec_id}: {reason}\n"
+          f"    (if this is a stale cache, run: "
+          f"PYTHONPATH=. .venv/bin/python scripts/build_cache.py)",
+          file=sys.stderr)
 
 
 def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
@@ -116,6 +146,11 @@ def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
         img_dir.mkdir(parents=True, exist_ok=True)
         plot_bigraph(state, out_dir=str(img_dir), filename=slug,
                      file_format="svg", show_compiled_state=False)
+        # plot_bigraph also writes the intermediate Graphviz DOT source as a
+        # bare <slug> file (no extension) alongside <slug>.svg — drop it.
+        dot_src = img_dir / slug
+        if dot_src.is_file():
+            dot_src.unlink()
         out = img_dir / f"{slug}.svg"
         return out if out.is_file() else None
     except Exception as exc:  # noqa: BLE001
@@ -144,13 +179,17 @@ def build_rows(entries, *, viewers_dir, resolve, render_svg, render_viz2):
     rows = []
     for e in entries:
         print(f"- {e.slug} ({e.id})")
-        state = resolve(e.id)
-        if state is None:
-            print(f"  ! skipped: {e.id} did not resolve", file=sys.stderr)
+        try:
+            state = resolve(e.id)
+            if state is None:
+                continue  # resolve() already logged why
+            write_state(state, e.slug, data_dir)
+            svg = render_svg(state, e.slug, img_dir)
+            viz2 = render_viz2(state, e.slug, viz2_dir)
+        except Exception as exc:  # noqa: BLE001 — one bad composite must not abort the run
+            print(f"  ! skipped {e.slug}: {type(exc).__name__}: {exc}",
+                  file=sys.stderr)
             continue
-        write_state(state, e.slug, data_dir)
-        svg = render_svg(state, e.slug, img_dir)
-        viz2 = render_viz2(state, e.slug, viz2_dir)
         rows.append({
             "entry": e,
             "has_view": (data_dir / f"{e.slug}.view.json").is_file(),

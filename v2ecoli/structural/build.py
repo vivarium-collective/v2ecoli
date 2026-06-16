@@ -575,6 +575,52 @@ def _cluster_complex_at_pole(pack_path, mesh_dir, name, mesh_stem, cone_deg=55.0
     return {"placed": n, "offset": A}
 
 
+def _constricted_capsule_mesh(half_len, radius, depth, width=None,
+                              n_axial=160, n_theta=56):
+    """Triangle mesh (verts, faces) for a spherocylinder (``half_len`` cyl
+    half-length, ``radius``, axis = x) with a Gaussian radius dip of fractional
+    ``depth`` at midcell — a dividing cell's septum constriction. ``depth`` 0 =
+    smooth rod, ~0.5 = a deep waist. Used as the cell compartment so the membrane
+    pinches and the interior leaves a midcell gap for the division site."""
+    L, R = float(half_len), float(radius)
+    w = float(width) if width is not None else 0.5 * R
+    # Drop the exact tips (radius 0) — add explicit apex points + fans instead,
+    # so there are no degenerate rings.
+    xs = np.linspace(-(L + R), (L + R), n_axial)[1:-1]
+    thetas = np.linspace(0.0, 2.0 * np.pi, n_theta, endpoint=False)
+
+    def rad(x):
+        ax = abs(x)
+        if ax <= L:
+            return R * (1.0 - depth * np.exp(-((x / w) ** 2)))
+        dx = ax - L
+        return float(np.sqrt(max(0.0, R * R - dx * dx)))
+
+    verts = []
+    for x in xs:
+        r = rad(float(x))
+        for th in thetas:
+            verts.append((float(x), float(r * np.cos(th)), float(r * np.sin(th))))
+    faces = []
+    n_rings = len(xs)
+    for i in range(n_rings - 1):
+        for j in range(n_theta):
+            a = i * n_theta + j
+            b = i * n_theta + (j + 1) % n_theta
+            c = (i + 1) * n_theta + (j + 1) % n_theta
+            d = (i + 1) * n_theta + j
+            faces.append((a, b, c))
+            faces.append((a, c, d))
+    # Cap the two ends with apex points fanned to the first / last rings.
+    apex_lo = len(verts); verts.append((float(-(L + R)), 0.0, 0.0))
+    apex_hi = len(verts); verts.append((float(L + R), 0.0, 0.0))
+    base = (n_rings - 1) * n_theta
+    for j in range(n_theta):
+        faces.append((apex_lo, j, (j + 1) % n_theta))
+        faces.append((apex_hi, base + (j + 1) % n_theta, base + j))
+    return verts, faces
+
+
 def compact_to_array8(pack_path):
     """Rewrite an object-format pack in place as compact ``array8`` placements.
 
@@ -608,7 +654,7 @@ def compact_to_array8(pack_path):
 
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
                 state_source="snapshot", proxy_lod=2, top_complexes=150,
-                width_um=1.0, density_g_per_ml=1.1) -> dict:
+                width_um=1.0, density_g_per_ml=1.1, septum_fraction=None) -> dict:
     """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result.
 
     ``scale`` defaults to 1.0 (true abundance from the state — every molecule is
@@ -655,8 +701,17 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200},
         n_chromosomes=n_chrom, fork_fraction=fork_fraction,
         fork_marker="replisome", oric_marker="oriC", ter_marker="terminus")
+    # Septum: a pre-division cell (≥2 chromosomes) is constricting at midcell, so
+    # give it a pinched-capsule envelope (the membrane + interior follow it). 0 =
+    # smooth rod. Auto: 0.45 for a pre-division cell, else 0.
+    if septum_fraction is None:
+        septum_fraction = 0.5 if n_chrom >= 2 else 0.0
+    cell_mesh = (_constricted_capsule_mesh(capsule.half_len, capsule.radius,
+                                           depth=septum_fraction)
+                 if septum_fraction > 0.0 else None)
     res = build_pack(ingredients, capsule, chromosome,
-                     out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
+                     out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod,
+                     cell_mesh=cell_mesh)
     # The landmark markers (replisome/oriC/terC) are seated by the packer at the
     # forks/origins/terminus, so build_pack recorded count=0 for them in the
     # sidecar. Backfill the real counts from the finished pack so the viewer's

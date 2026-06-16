@@ -898,6 +898,25 @@ def baseline(
     inject_flow_dependencies(
         cell_state, flow_order, layers=execution_layers)
 
+    # Shape step (Skalnik et al. 2023): derive the capsule cell geometry from
+    # mass each tick — length from volume = mass/density, fixed width. A passive
+    # listener (reads listeners.mass.cell_mass, writes listeners.shape), added
+    # after dependency injection so it imposes no ordering constraints; it just
+    # reports the current geometry, so the envelope tracks growth over the sim.
+    if core is not None:
+        from v2ecoli.structural.shape import ShapeStep
+        core.register_link("ShapeStep", ShapeStep)
+        cell_state['listeners'].setdefault('shape', {})
+        cell_state['shape_step'] = {
+            '_type': 'step',
+            'address': 'local:ShapeStep',
+            'config': {'width_um': 1.0, 'density_g_per_ml': 1.1,
+                       'periplasm_fraction': 0.2},
+            'inputs': {'mass_fg': ['listeners', 'mass', 'cell_mass']},
+            'outputs': {'shape': ['listeners', 'shape']},
+        }
+        flow_order.append('shape_step')
+
     state = {
         'agents': {'0': cell_state},
         'global_time': 0.0,

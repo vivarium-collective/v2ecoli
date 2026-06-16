@@ -80,7 +80,10 @@ class ShapeStep(Step):
         return {"shape": "any"}
 
     def update(self, state, interval=None):
-        mass = float(state.get("mass_fg") or 0.0)
+        # cell_mass may arrive as a plain float (npz snapshots) or a pint
+        # Quantity (live baseline listeners); unwrap .magnitude if present.
+        raw = state.get("mass_fg")
+        mass = float(getattr(raw, "magnitude", raw) or 0.0)
         return {"shape": shape_from_mass(
             mass, self.config["width_um"], self.config["density_g_per_ml"],
             self.config["periplasm_fraction"])}

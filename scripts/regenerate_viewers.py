@@ -59,7 +59,7 @@ def hub_html(rows: list[dict]) -> str:
     cards = []
     for r in rows:
         e = r["entry"]
-        buttons = [f'<a class="btn" href="{_esc(loom_url(e, has_view=r["has_view"]))}">Loom</a>']
+        buttons = [f'<a class="btn" href="{loom_url(e, has_view=r["has_view"])}">Loom</a>']
         if r["has_viz2"]:
             buttons.append(f'<a class="btn" href="viz2/{e.slug}.html">Viz2</a>')
         if r["has_svg"]:

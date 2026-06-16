@@ -1,7 +1,0 @@
-{
-  "title": "Chromosome state with RIDA active: DnaA-ATP depleted as forks drive inactivation (dnaa-5, gen 6)",
-  "caption": "Same circular-chromosome view as dnaa-4 (oriC top, terC bottom; DnaA boxes colored free=gray / DnaA-ATP=green / DnaA-ADP=amber; red diamonds=forks; blue band=replicated). With RIDA wired in, the chromosome's DnaA boxes start DnaA-ATP-bound (green, ATP-form 37% at birth) and progressively flip to DnaA-ADP-bound (amber) as replication forks appear and drive RIDA inactivation: ATP-form 38% pre-initiation -> 4% post-initiation -> 0% at max replication. The spatial readout makes the RIDA mechanism (and, here, its over-strength at rate 40/min/fork) visible at a glance.",
-  "interpretation": "Visual confirmation of dnaa-5 finding F-01: RIDA inactivates DnaA-ATP coupled to replication-fork count (the anti-correlation, Spearman -0.890, seen spatially as green->amber). At rate 40/min/fork it over-depletes (ATP-form -> 0%); the cyclic recovery needs the DARS reactivation arm. Contrast with the dnaa-4 (no-RIDA) chromosome figure, where boxes stay green.",
-  "source_runs": ["dnaa5_rida_test"],
-  "script": "scripts/render_chromosome_state.py"
-}

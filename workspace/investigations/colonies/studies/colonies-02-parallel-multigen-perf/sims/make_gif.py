@@ -1,11 +1,15 @@
-"""Generate colony.gif for colonies-02 — a growing colony with the FIXED physics.
+"""Generate colony.gif for colonies-02 — NATURAL-division colony growth.
 
-Starts from ONE whole-cell agent and grows it through staged divisions
-(1 -> 2 -> 4) with the physics fixes live: jitter_per_second=1e-4 (the old 0.5
-flung cells around) + init_mass=200 fg (coherent mass-unit) + the viva-munk
-in-place shape update (#11) + bounded inner/outer emitters. Capped at 4 cells /
-~95 ticks so it stays well under the multi-cell RAM ceiling (the dominant
-colony leak, F-04, only bites at higher counts / long runs).
+Starts from ONE whole-cell agent and lets it grow and divide NATURALLY (no
+forced division): each cell elongates as its dry mass accumulates toward the
+division threshold (~one cell cycle ≈ 2300+ ticks), then splits into two
+daughters that reset and regrow. Runs until ~4 cells (gen 2), subsampling
+one frame every `stride` ticks so the gif shows real growth, not pops.
+
+Physics fixes live: jitter_per_second=1e-4 (the old 0.5 flung cells around) +
+coherent fg body mass + viva-munk in-place shape update + bounded emitters.
+Capped at 4 cells / a tick budget so it stays under the multi-cell RAM ceiling
+(F-04 native leak only bites at higher counts / longer runs).
 
 Renders via viva_munk.plots.multibody_plots.simulation_to_gif.
 Output: <study>/colony.gif
@@ -39,21 +43,17 @@ def _snapshot(state: dict) -> dict:
     return out
 
 
-def _force_divide(comp):
-    """Trip the inner WCM divide flag on every current cell."""
-    for cid in list(comp.state["cells"].keys()):
-        inst = comp.state["cells"][cid]["ecoli"]["instance"]
-        inst._composite.state["agents"]["0"]["divide"] = True
-
-
 def main():
     from v2ecoli.colony import make_colony
     from viva_munk.plots.multibody_plots import simulation_to_gif
 
     env_size = 30
-    grow = 28  # ticks per growth phase between divisions
+    stride = 40                 # capture one frame every `stride` sim ticks
+    stop_cells = 4              # stop once gen 2 is reached (RAM ceiling)
+    post_div_ticks = 600        # observe the 4-cell stage a bit before stopping
+    max_ticks = 6000            # hard budget (RAM safety)
 
-    print("Building N=1 colony (fixed physics)…")
+    print("Building N=1 colony (natural division, fixed physics)…")
     comp = make_colony(
         n_cells=1, env_size=env_size, cache_dir="out/cache", seed=0,
         jitter_per_second=1e-4, init_mass=200.0, emit_cells=False,
@@ -65,24 +65,24 @@ def main():
         history.append({"agents": _snapshot(comp.state),
                         "time": float(comp.state.get("global_time", 0))})
 
-    capture()
-    comp.run(1.0)            # warmup builds the inner WCM
+    comp.run(1.0)               # warmup builds the inner WCM
     capture()
 
-    # 1 cell grows -> divide -> 2 grow -> divide -> 4 grow
-    for stage, n_before in enumerate([1, 2]):
-        print(f"Growth phase {stage} ({len(comp.state['cells'])} cell(s))…")
-        for _ in range(grow):
-            comp.run(1.0)
+    t = 0
+    reached_at = None
+    while t < max_ticks:
+        comp.run(1.0)
+        t += 1
+        n = len(comp.state["cells"])
+        if t % stride == 0:
             capture()
-        print(f"  force-dividing {len(comp.state['cells'])} cell(s)…")
-        _force_divide(comp)
-        comp.run(1.0)
-        capture()
-    print(f"Final growth ({len(comp.state['cells'])} cells)…")
-    for _ in range(grow):
-        comp.run(1.0)
-        capture()
+            masses = [round(c.get("mass", 0)) for c in comp.state["cells"].values()]
+            print(f"  tick {t}: {n} cells, masses(fg)={masses}", flush=True)
+        if reached_at is None and n >= stop_cells:
+            reached_at = t
+            print(f"  reached {stop_cells} cells at tick {t}", flush=True)
+        if reached_at is not None and t >= reached_at + post_div_ticks:
+            break
 
     gif_path = STUDY_DIR / "colony.gif"
     print(f"Rendering {len(history)} frames -> {gif_path}…")
@@ -92,12 +92,12 @@ def main():
         agents_key="agents",
         filename="colony.gif",
         out_dir=str(STUDY_DIR),
-        frame_duration_ms=140,
+        frame_duration_ms=120,
         show_time_title=True,
         color_by_phylogeny=True,
     )
     print(f"  done. {len(comp.state['cells'])} cells, "
-          f"{gif_path.stat().st_size/1024:.0f} KB")
+          f"{gif_path.stat().st_size/1024:.0f} KB, last tick {t}")
 
 
 if __name__ == "__main__":

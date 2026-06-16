@@ -31,11 +31,15 @@ visualizations:
 - name: colony-animation
   address: gif:colony.gif
   description: |
-    A colony growing from ONE whole-cell agent through staged divisions
-    (1 -> 2 -> 4 -> 6 cells) with the FIXED physics: jitter_per_second=1e-4
-    (the old 0.5 flung cells around the frame) + coherent fg body mass + the
-    viva-munk in-place shape update. Capsules are cells; daughters are
-    hue-shifted variants of their mother (phylogeny coloring). Regenerate via
+    A colony growing from ONE whole-cell agent by NATURAL division (no forcing):
+    each cell elongates as its dry mass accumulates toward the division threshold
+    (~one cell cycle ≈ 2400 ticks), then splits into two daughters that reset and
+    regrow — 1 -> 2 -> 4 -> 6 cells over ~5300 ticks (subsampled 1 frame/40 ticks).
+    Fixed physics: jitter_per_second=1e-4 (the old 0.5 flung cells around the
+    frame) + coherent fg body mass + the viva-munk in-place shape update. Capsules
+    are cells; daughters are hue-shifted variants of their mother (phylogeny
+    coloring). Capped at gen 2 to stay under the F-04 native RAM ceiling.
+    Regenerate via
     `python .../colonies-02-parallel-multigen-perf/sims/make_gif.py`.
 
 baseline:

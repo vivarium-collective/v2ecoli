@@ -137,25 +137,37 @@ def _surrogate_report(data_dir, out, title):
     Xh, Yh = ds.X[sel], ds.Y[sel]
     pred = net.predict_next(Xh)
 
-    # (1) per-group median R^2 bar
-    groups, med, frac, dims = [], [], [], []
+    # (1) per-group emulation COVERAGE — fraction of columns predicted well.
+    # Median R^2 alone is unreadable here: the poorly-emulated groups have
+    # medians like -1e7 that all clamp to a uniform floor (indistinguishable,
+    # and the labels collide with the axis). "Fraction of columns with R^2>0.5"
+    # is the intuitive, bounded [0,1] answer to "how much of this group does the
+    # surrogate get right"; the true median R^2 rides along as a text annotation.
+    def _fmt_r2(v):
+        if not np.isfinite(v):
+            return "n/a"
+        return f"{v:.1e}" if abs(v) >= 1000 else f"{v:.2f}"
+
+    groups, frac, med_true, dims = [], [], [], []
     for g, m in metrics["per_group"].items():
         if not np.isfinite(m["median_r2"]):
             continue
         groups.append(g)
-        med.append(max(m["median_r2"], -1.0))
         frac.append(m["frac_r2_above_0.5"])
+        med_true.append(m["median_r2"])
         dims.append(m["n_dims"])
     f_bar = go.Figure(go.Bar(
-        x=groups, y=med,
-        text=[f"med R²={v:.3f}<br>{f*100:.0f}% cols>0.5<br>{d} dims"
-              for v, f, d in zip(med, frac, dims)],
+        x=groups, y=frac,
+        text=[f"<b>{f*100:.0f}%</b><br>{d:,} dims<br>med R²={_fmt_r2(v)}"
+              for f, d, v in zip(frac, dims, med_true)],
         textposition="outside",
-        marker_color=["#2ca02c" if v > 0.8 else "#ff7f0e" if v > 0 else "#d62728" for v in med]))
-    f_bar.add_hline(y=0.95, line_dash="dash", line_color="green", annotation_text="R²=0.95")
-    f_bar.update_layout(title="One-step fidelity per group (median per-column R², held-out)",
-                        yaxis_title="median per-column R² (clamped −1)", yaxis_range=[-1.1, 1.2],
-                        height=420, template="plotly_white")
+        marker_color=["#2ca02c" if f > 0.8 else "#ff7f0e" if f > 0.2 else "#d62728" for f in frac],
+        hovertemplate="%{x}<br>fraction of columns with R²>0.5: %{y:.1%}<extra></extra>",
+    ))
+    f_bar.update_layout(
+        title="Per-group emulation coverage — fraction of columns predicted well (R²>0.5), held-out",
+        yaxis=dict(title="fraction of columns with R² > 0.5", range=[0, 1.18], tickformat=".0%"),
+        xaxis_title="observable group", height=440, template="plotly_white", margin=dict(t=80))
 
     # (2) parity scatter for mass (one-step, pooled across the 7 mass dims)
     ms, me = layout.group_slices["mass"]

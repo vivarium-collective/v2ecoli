@@ -20,4 +20,13 @@ def build_core():
     core = core_import()
     core.register_types(ECOLI_TYPES)
     core.register_link("EcoliWCM", EcoliWCM)
+    # pbg-torch NeuralProcess — the learned surrogate of the baseline
+    # (investigations/surrogate-modeling). Registered explicitly so it appears
+    # in the dashboard Registry. Guarded: a v2ecoli env without pbg-torch
+    # installed still builds (the surrogate investigation is its only consumer).
+    try:
+        from pbg_torch import NeuralProcess
+        core.register_link("NeuralProcess", NeuralProcess)
+    except Exception:
+        pass
     return core

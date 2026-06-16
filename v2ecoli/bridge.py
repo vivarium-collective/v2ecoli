@@ -301,35 +301,45 @@ class EcoliWCM(Process):
         env_size = float(self.config.get('env_size', 30))
         d_address = f'{transport}:EcoliWCM'
 
-        from viva_munk.processes.multibody import make_rng, build_microbe
+        from viva_munk.processes.multibody import (
+            make_rng, build_microbe, daughter_locations)
         rng = make_rng(seed + hash(agent_id) % 10000)
 
-        # Place daughters near mother
-        mother_loc = state.get('location', (15, 15))
+        # Place daughters with viva-munk's CANONICAL geometry-aware placement
+        # (the same daughter_locations GrowDivide uses): two non-overlapping
+        # capsules centered on the mother's position along her long axis, so
+        # they replace the mother in place instead of jumping elsewhere.
+        mother_loc = state.get('location', (env_size / 2, env_size / 2))
         if isinstance(mother_loc, (list, tuple)) and len(mother_loc) >= 2:
             mx, my = float(mother_loc[0]), float(mother_loc[1])
         else:
-            mx, my = 15.0, 15.0
+            mx, my = env_size / 2, env_size / 2
         mother_angle = float(state.get('angle', 0))
-
-        offset = 1.5  # µm apart
-        dx = offset * math.cos(mother_angle)
-        dy = offset * math.sin(mother_angle)
+        d_length, d_radius = 2.0, 0.5
+        parent_state = {
+            'location': (mx, my), 'angle': mother_angle, 'type': 'segment',
+            'length': d_length * 2.0, 'radius': d_radius,
+        }
+        locs = daughter_locations(
+            parent_state, gap=d_radius * 0.1,
+            daughter_length=d_length, daughter_radius=d_radius)
 
         daughters = {}
-        for i, (ox, oy) in enumerate([(dx, dy), (-dx, -dy)]):
+        for i, loc in enumerate(locs):
             d_id = f'{agent_id}_{i}'
             # Pass agent_id=d_id so the daughter's `id` field MATCHES its key in
             # the colony cells map. Without this, build_microbe assigns a random
             # id, so when the daughter later divides its _remove=[random-id]
             # never matches its key -> the mother is never removed -> the colony
             # over-counts (2 -> 6 instead of 2 -> 4) and stale mothers clutter
-            # the layout. Place daughters near the mother within the colony's
-            # actual env_size (not a hard-coded 40).
+            # the layout. velocity=(0,0) so daughters DON'T get build_microbe's
+            # random kick (0-0.4 um/s) and fly away from the placement spot —
+            # they inherit the mother's (near-zero) velocity like GrowDivide.
             _, d_body = build_microbe(
                 rng, env_size=env_size, agent_id=d_id,
-                x=mx + ox, y=my + oy, angle=mother_angle + rng.uniform(-0.3, 0.3),
-                length=2.0, radius=0.5, density=0.02,
+                x=float(loc[0]), y=float(loc[1]), angle=mother_angle,
+                length=d_length, radius=d_radius, density=0.02,
+                velocity=(0.0, 0.0),
             )
             d_body['mass'] = float(init_mass) if init_mass is not None else half_mass
             # Each daughter gets its own EcoliWCM, inheriting the mother's

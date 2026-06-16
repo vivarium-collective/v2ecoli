@@ -1,2 +1,0 @@
-{"source_run_id":"dnaa4_autoreg_hill_s06_v15e3 (V=1.5e-3, Hill s=0.6, k_h=0.025, K_d=3nM, 16 gens)",
- "caption":"Lineage stability under autoregulation (Rashmi's request): oriC 1<->2, periodic mass-doubling (sawtooth), DnaA concentration (nM), and DnaA-ATP/ADP fractions vs the [0.2,0.5] band — minutes axis, dotted lineage boundaries. The lineage is stable across 16 generations."}

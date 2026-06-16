@@ -1,2 +1,0 @@
-{"source_run_id":"dnaa3_adopt_v1e3_seed0 (active binding, V=1e-3 — the in-band V used before, not 1.2e-3)",
- "caption":"oriC LOW-affinity box occupancy over a STEADY cell cycle (gen 5), time in minutes. The 8 low-affinity boxes are NOT all occupied at cell birth (~0.3) — they FILL GRADUALLY over the cycle (to ~0.7 peak) as free DnaA-ATP accumulates toward initiation, exactly the behaviour Rashmi/Haochen expected (not pre-filled). The active Langmuir solve depletes the free pool, so early-cycle occupancy is low. No gridlines."}

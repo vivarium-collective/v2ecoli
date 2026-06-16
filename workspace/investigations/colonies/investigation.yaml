@@ -1,0 +1,114 @@
+schema_version: 1
+name: colonies
+title: Colony Composite — HPC Scaling Readiness
+created: '2026-05-16'
+status: in_progress
+
+question: |
+  How many whole-cell E. coli agents can we fit per HPC node, and at
+  what per-cell wall-time cost, so that a colonies-on-HPC workload is
+  realistic to plan against? More fundamentally: does the multi-cell
+  colony composite (each cell embedding the full 55-process WCM via
+  EcoliWCM) actually support clean parallel growth + division at
+  scale, or are there per-cell-cost or per-cell-RAM cliffs that show
+  up only at N > 1?
+
+hypothesis: |
+  After fixing daughter-process hydration, the colony composite scales
+  linearly with N (per-cell wall ≈ constant, per-cell RAM ≈ constant)
+  on a single machine for N up to at least 8, and the dominant cost
+  is the inner EcoliWCM (not pymunk or scheduler). HPC sizing is then
+  a function of (RAM_per_node / RAM_per_cell, cores_per_node /
+  cells_per_process_at_realtime). The single bottleneck visible at
+  laptop scale will be the Python GIL — process-bigraph composites
+  are single-threaded by design, so HPC scaling means scaling
+  processes, not cells per process.
+
+description: |
+  Investigation to certify the colony composite for HPC deployment. One study
+  is complete (colonies-01-hpc-readiness); a second (colonies-02-hpc-deployment)
+  is planned.
+
+  Study 1 — colonies-01-hpc-readiness (this study):
+    Build phase: fix daughter-process hydration so structural _add
+    instantiates daughter EcoliWCMs through the composite engine.
+    Decide phase: N-sweep (N ∈ {1, 2, 4, 8}) on one machine to
+    extract per-cell wall-time + RSS scaling and identify the
+    bottleneck. Produces a recommended cells/process and
+    cells/HPC-node budget.
+
+  Study 2 — colonies-02-hpc-deployment (planned):
+    Cross-node validation of the projected sizing. Run the
+    recommended cells-per-process count across many processes on
+    one HPC node, then across multiple nodes; confirm per-cell wall
+    stays within ±20% of the laptop projection and that biology is
+    consistent between distributed configurations.
+
+# ── Narrative spine (reviewer-facing report sections) ──────────────────────
+# Authored from the recorded content of colonies-01-hpc-readiness (its runs[],
+# findings F-01..F-06, and Decide conclusion). This is a computational /
+# infrastructure investigation, so the "biology" section is honest about the
+# fact that no biological model change was made.
+executive:
+  what_is_this: |
+    An HPC scaling-readiness investigation for the colony composite — N copies
+    of the full 55-process whole-cell model (EcoliWCM) wired into a pymunk 2D
+    physics environment. One study is complete (colonies-01-hpc-readiness);
+    colonies-02-hpc-deployment is planned (cross-node validation).
+  verdict: |
+    PIPELINE-OPEN to colonies-02. In colonies-01 three build-phase bugs that
+    blocked daughter-cell hydration through the composite engine were fixed,
+    after which a pure-WC N=2 colony force-divided into 4 hydrated daughters
+    that all advance (daughters-hydrated PASS). The N-sweep over N ∈ {1,2,4,8}
+    on one laptop shows per-cell wall time FLAT at ~70–74 ms/tick/cell (slight
+    decrease with N as import overhead amortizes; per-cell-cost-within-2x test
+    PASSES at every N), pymunk physics negligible (≤0.2 ms/tick at N=8), and
+    peak RSS linear at ~450 MB/cell atop a ~1 GB baseline. The dominant ceiling
+    is the GIL: process-bigraph composites are single-threaded, so one process
+    uses ~1 core regardless of cell count. Recommended sizing on a 64-core /
+    256 GB node: ~6 cells/process × 64 processes ≈ 384 cells/node. NOTE: these
+    are single-seed (seed 0), single-machine measurements; cross-node validation
+    is colonies-02's job.
+
+scientific_argument:
+  main_claim: |
+    The pure whole-cell colony composite scales linearly on a single machine —
+    per-cell wall time is flat at 70–74 ms/tick/cell across N ∈ {1,2,4,8} — and
+    because the engine is single-threaded by design, HPC scaling is achieved by
+    running more processes, not more cells per process.
+  evidence_for:
+  - "Per-cell wall flat at ~70–74 ms/tick/cell across N=1,2,4,8 (per-cell-cost-within-2x-reference PASS at all N; ratios 0.96–0.99). [REALIZED — runs nsweep-n1..n8, finding F-01.]"
+  - "pymunk physics is essentially free (≤0.2 ms/tick at N=8); all cost is the inner EcoliWCM update walked sequentially in one thread. [REALIZED — finding F-04.]"
+  - "Peak RSS linear at ~450 MB/cell atop a ~1 GB Python baseline (1508/2013/2946/4713 MB at N=1/2/4/8), giving the per-node cell ceiling. [REALIZED — finding F-03.]"
+  - "Three build bugs (viva-munk 3-tuple realize, missing `agents` wire on initial cells, hard-coded daughter interval) had to be fixed before daughters hydrated through the engine; afterwards N=2 force-divided to 4 advancing daughters. [REALIZED — finding F-05, daughters-hydrated PASS.]"
+  caveats:
+  - "Single machine, single seed (0), short 60-tick steady-state windows — not a multi-generation natural-division run. The two-generations-complete test passed only via forced same-tick division (PASS-narrow)."
+  - "A long single-cell run showed RSS climbing ~5 MB/sim-second before division (F-06) — possible accumulation/leak in the inner composite, visible only over long runs and not captured by the N-sweep windows. Folded into the proposed multi-gen-perf-drift follow-up."
+  - "Cross-node scaling, distributed environment field, and per-cell ParCa cache contention are explicitly out of scope here and handed to colonies-02."
+
+biological_story: |
+  The biological object under study is a growing population (microcolony) of
+  E. coli, where every agent embeds the full whole-cell model — the same
+  55-process baseline that grows, transcribes, translates, replicates its
+  chromosome, and divides — embedded in a 2D pymunk physics environment that
+  resolves the cells' physical packing. The only biology this investigation
+  exercises is clean per-cell growth and DIVISION at population scale: when a
+  cell's internal WCM signals division, the bridge must instantiate two daughter
+  EcoliWCMs that continue to advance. This study made NO change to the biological
+  model (model_change records no new processes, state variables, or parameters);
+  the work was entirely infrastructural — getting daughter cells to hydrate
+  through the composite engine and measuring the computational cost of running
+  many whole cells at once. The biological payoff is downstream: a colony
+  composite that survives division at N>1 is the prerequisite for any
+  population-/colony-level E. coli phenotype study on HPC.
+
+studies:
+  - colonies-01-hpc-readiness
+  # - colonies-02-hpc-deployment   # added when scaffolded
+
+expert_docs: []
+
+acceptance_criteria:
+  - {study: colonies-01-hpc-readiness, behavior: daughters-hydrated}
+  - {study: colonies-01-hpc-readiness, behavior: per-cell-cost-within-2x-reference}
+  # - {study: colonies-02-hpc-deployment, behavior: hpc-per-cell-within-20pct-of-projection}

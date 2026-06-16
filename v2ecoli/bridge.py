@@ -65,6 +65,9 @@ class EcoliWCM(Process):
         # Optional realistic starting body mass (fg) for daughters, mirroring
         # the colony's init_mass so units stay coherent across generations.
         'init_mass':      {'_default': None},
+        # Colony environment edge (um) so division places daughters within the
+        # actual environment bounds (not a hard-coded default).
+        'env_size':       {'_default': 30},
     }
 
     def initialize(self, config):
@@ -295,6 +298,7 @@ class EcoliWCM(Process):
         seed = int(self.config.get('seed', 0))
         transport = self.config.get('transport', 'local')
         init_mass = self.config.get('init_mass', None)
+        env_size = float(self.config.get('env_size', 30))
         d_address = f'{transport}:EcoliWCM'
 
         from viva_munk.processes.multibody import make_rng, build_microbe
@@ -315,8 +319,15 @@ class EcoliWCM(Process):
         daughters = {}
         for i, (ox, oy) in enumerate([(dx, dy), (-dx, -dy)]):
             d_id = f'{agent_id}_{i}'
+            # Pass agent_id=d_id so the daughter's `id` field MATCHES its key in
+            # the colony cells map. Without this, build_microbe assigns a random
+            # id, so when the daughter later divides its _remove=[random-id]
+            # never matches its key -> the mother is never removed -> the colony
+            # over-counts (2 -> 6 instead of 2 -> 4) and stale mothers clutter
+            # the layout. Place daughters near the mother within the colony's
+            # actual env_size (not a hard-coded 40).
             _, d_body = build_microbe(
-                rng, env_size=40,
+                rng, env_size=env_size, agent_id=d_id,
                 x=mx + ox, y=my + oy, angle=mother_angle + rng.uniform(-0.3, 0.3),
                 length=2.0, radius=0.5, density=0.02,
             )
@@ -331,6 +342,7 @@ class EcoliWCM(Process):
                     'seed': seed + i + 1,
                     'transport': transport,
                     'init_mass': init_mass,
+                    'env_size': env_size,
                 },
                 'interval': interval,
                 'inputs': {

@@ -103,6 +103,7 @@ def make_colony_document(
                 'seed': seed + i,
                 'transport': transport,
                 'init_mass': init_mass,
+                'env_size': env_size,
             },
             'interval': ecoli_interval,
             'inputs': {

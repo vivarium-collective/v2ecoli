@@ -38,6 +38,7 @@ def make_colony_document(
     damping_per_second=0.5,
     init_mass=None,
     transport='local',
+    emit_cells=True,
 ):
     """Build a colony document with n whole-cell E. coli agents.
 
@@ -146,10 +147,19 @@ def make_colony_document(
             },
         },
 
-        'emitter': emitter_from_wires({
-            'agents': ['cells'],
-            'time': ['global_time'],
-        }),
+        # Outer colony emitter. The full cells-map capture (emit_cells=True)
+        # appends every cell's state to an in-RAM history EVERY tick — an
+        # unbounded leak that scales with cell count (~1 MB/tick/cell; OOMs a
+        # growing colony around gen 3). It's only needed by callers that read
+        # the emitted cell trajectory (e.g. the gif/animation), so it defaults
+        # on for back-compat but perf/long runs pass emit_cells=False to emit
+        # only global_time. (The inner per-cell emitters are bounded separately
+        # in bridge.py via set_null_emitter_override.)
+        'emitter': emitter_from_wires(
+            {'agents': ['cells'], 'time': ['global_time']}
+            if emit_cells else
+            {'time': ['global_time']}
+        ),
     }
 
     return document
@@ -165,6 +175,7 @@ def make_colony(
     init_mass=None,
     transport='local',
     parallel_processes=None,
+    emit_cells=True,
 ):
     """Create a colony Composite ready to run.
 
@@ -204,6 +215,7 @@ def make_colony(
         damping_per_second=damping_per_second,
         init_mass=init_mass,
         transport=transport,
+        emit_cells=emit_cells,
     )
 
     return Composite(

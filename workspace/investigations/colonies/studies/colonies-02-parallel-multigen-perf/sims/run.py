@@ -207,6 +207,9 @@ def main(argv: list[str] | None = None) -> int:
             n_cells=n_cells, env_size=args.env_size, cache_dir="out/cache",
             seed=seed, transport=transport, parallel_processes=parallel,
             jitter_per_second=jitter, init_mass=init_mass,
+            emit_cells=False,   # perf run: don't accumulate the cells-map
+            # history in RAM (outer-emitter leak ~1 MB/tick/cell). The harness
+            # reads composite.state directly + samples RSS itself.
         )
         print(f"  built in {time.perf_counter() - t_build:.1f}s")
 

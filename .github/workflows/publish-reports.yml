@@ -17,6 +17,9 @@ on:
     paths:
       # Only republish when something that changes a report changed.
       - 'workspace/**'
+      # Root workspace.yaml is NOT under workspace/** — list it explicitly so
+      # layout/registry changes republish the reports too.
+      - 'workspace.yaml'
       - 'reports/figures/**'
       - 'scripts/publish_investigation_reports.py'
       - '.github/workflows/publish-reports.yml'

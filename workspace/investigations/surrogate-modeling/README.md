@@ -55,24 +55,39 @@ generic surrogate machinery:
 
 ## Studies
 
-- **sm-00-data-collection** — build the baseline transition-dataset ensemble.
-- **sm-01-nn-surrogate** — train, evaluate fidelity per category, and profile
-  the speedup.
+- **sm-00-data-collection** — build the broad ~11.5k-observable transition-dataset
+  ensemble (8 seeds).
+- **sm-01-nn-surrogate** — the honest test: under 8-fold cross-validation, does
+  the neural net beat trivial baselines (persistence, mean-delta, linear)?
+- **sm-02-utility-and-limits** — what the cheap **linear** emulator (the one that
+  works) is worth: amortized break-even vs. the simulator, and the limits.
+- **sm-03-improving-the-surrogate** — follow-up: does multi-step rollout-loss
+  training close the gap?
 
-## Scope and honesty
+## What we found (the honest arc)
 
-This is a **demonstration-grade** build trained on a modest *local* ensemble.
-The low-dimensional, slowly-varying observables (mass, growth, exchange) are
-captured well one-step; the very high-dimensional flux and abundance vectors are
-harder on modest data and are reported honestly. The headline robust result is
-the **inference speedup** (~10³×), which holds regardless of fidelity.
+A first pass looked like a triumph — one-step **R²≈1.0** on growth/mass. Rigor
+overturned it:
 
-Two documented paths to production quality (left as follow-ups):
-- **More data on the Mac mini** — many more seeds / multi-generation rollouts
-  via Ray, which the pipeline already supports (just more `--seeds`).
-- **A latent encode–decode surrogate** for the high-dimensional groups
-  (autoencoder + latent dynamics), a natural `pbg-torch` extension beyond the
-  current direct residual-MLP.
+- **One-step R²≈1.0 was a persistence artifact.** Under 8-fold CV, persistence,
+  mean-delta, linear, and the neural net *all* score ~1.000 one-step, because
+  cell mass per second is smooth. One-step fidelity measured nothing.
+- **In multi-step rollout, a LINEAR model wins** (median nRMSE 0.019, 0/8
+  unstable). The neural net is no better and **destabilizes on 2/8 folds**. The
+  NN is not justified for this target.
+- **The broad 11.5k-observable panel is unlearnable from the observable view** —
+  0% of observables beat persistence; they depend on the cell's hidden state.
+- **The cheap linear emulator is genuinely useful** (sm-02): it pays back its 8
+  training sims after ~8 evaluations and sweeps 5,000 trajectories in 0.02 s
+  (vs ~24 h on the WCM).
+- **Rollout-loss training helps but doesn't overturn this** (sm-03): it removes
+  the instability (0/8) and improves the net (0.053 vs 0.069), yet linear still
+  wins — rollout-loss is the technique to carry to genuinely nonlinear targets.
+
+The convincing result is a **scoping** one, not a capability claim. Documented
+next steps: rollout to/through **division** (test the cell-cycle limit); a
+**latent encode–decode** model and **more data on the Mac mini** for the
+high-dimensional groups.
 
 ## Reproduce
 

@@ -1,7 +1,7 @@
 schema_version: 4
 name: sm-01-nn-surrogate
 investigation: surrogate-modeling
-title: "NN surrogate — emulating baseline growth/mass, and profiling the speedup"
+title: "NN surrogate — does it beat trivial baselines?"
 created: '2026-06-16'
 status: evaluated
 
@@ -9,66 +9,75 @@ design_status: complete
 implementation_status: complete
 simulation_status: complete
 evaluation_status: evaluated
-gate_status: passed
+gate_status: failed
 expert_review_status: pending
 
 claim: |
-  A pbg-torch residual-MLP surrogate trained on baseline transitions emulates
-  the cell's growth/mass dynamics with near-perfect fidelity (one-step R^2 ~ 1.0;
-  60-step autoregressive rollout tracks baseline cell_mass at correlation 1.000,
-  ~0.01% error) and runs ~10^3x faster than the simulator. The full
-  high-dimensional panel (~11.5k observables) is NOT yet emulated well by a
-  single monolithic delta-MLP on modest data — its autoregressive rollout
-  diverges — marking the open frontier.
+  Tested honestly against trivial baselines under cross-validation, the neural
+  surrogate does NOT beat them: one-step R²≈1.0 is a persistence artifact (the
+  signal is smooth), and in multi-step rollout a LINEAR model is the best and
+  most stable emulator of coarse growth/mass while the neural net matches it at
+  best and destabilizes on 2/8 folds. The broad ~11.5k-observable panel is not
+  learnable from the observable view alone (0% of observables beat persistence).
+  A neural surrogate is not justified for these targets on this evidence.
 confidence: Accepted
 
 question: |
-  How faithfully can a neural-network surrogate emulate the baseline per-step
-  dynamics — for a compact physiological panel vs. the full broad panel — and
-  what inference speedup does it deliver?
+  Does the neural-network surrogate beat trivial baselines (persistence,
+  mean-delta, linear) on the baseline's per-step dynamics — and are the
+  high-dimensional observables learnable from the observable view at all?
 
 report:
-  title: sm-01-nn-surrogate — surrogate fidelity and speed
-  verdict: pass
+  title: sm-01-nn-surrogate — surrogate fidelity vs. trivial baselines
+  verdict: informational
   confidence: high
-  evidence_quality: held-out trajectory (250 transitions); compact + broad surrogates; speed profiled
+  evidence_quality: 8-fold leave-one-trajectory-out CV vs. baselines; per-observable skill on the broad panel
   objective: |
-    Train pbg-torch surrogates on the sm-00 dataset, hold out one whole
-    trajectory, and measure (a) one-step prediction fidelity per observable
-    group, (b) autoregressive rollout fidelity for interpretable scalars, and
-    (c) inference speed vs. the full simulator.
+    Honestly test whether the neural surrogate is worth its complexity: does it
+    beat TRIVIAL baselines (persistence = next equals current; mean-delta =
+    constant drift; linear = ridge regression on the per-step delta)? Measured by
+    cross-validated one-step fidelity AND multi-step autoregressive rollout —
+    the rollout being the discriminating test, since one-step is dominated by how
+    smooth the signal is.
   setup: |
-    code/train_surrogate.py fits a residual-MLP predicting normalized per-step
-    deltas; code/evaluate_surrogate.py reports per-column R^2 (median across a
-    group, since pooled R^2 across incommensurate columns is misleading),
-    autoregressive rollouts, and a speed benchmark. Two surrogates: a COMPACT
-    panel (mass + chromosome, 8 dims) and the BROAD panel (11569 dims).
+    code/rigor_eval.py runs 8-fold leave-one-trajectory-out CV over the sm-00
+    ensemble, training the surrogate and fitting each baseline on 7 trajectories
+    and evaluating on the held-out one. code/baselines.py defines the baselines.
+    code/rigor_eval.py --mode skill computes per-observable skill vs persistence
+    on the broad panel. An earlier single-split eval (compact_surrogate.html /
+    broad_panel_coverage.html) is retained for the per-group / parity / histogram
+    views; the cross-validated baseline comparison below supersedes its headline.
   result: |
-    COMPACT surrogate (mass + chromosome, 8 dims), held-out trajectory:
-      - mass: median per-column R^2 = 1.000 (7/7 columns R^2 > 0.5)
-      - 60-step autoregressive rollout: cell_mass correlation 1.000, mean
-        relative error 0.0001 (0.01%); instantaneous_growth_rate correlation 1.000
-      - inference: 39,000 steps/s vs simulator 14.3 steps/s -> ~2,700x
-    BROAD surrogate (11569 dims), held-out trajectory:
-      - one-step per-column fidelity is poor for the high-dimensional groups
-        (overall ~2% of columns reach R^2 > 0.5); exchange/base_flux/mrna are
-        not emulated well on this modest local ensemble
-      - the full-vector autoregressive rollout diverges (NaN within ~60 steps):
-        a single monolithic delta-MLP over thousands of coupled observables is
-        unstable, and one NaN poisons the shared vector
-      - inference: ~3,800 steps/s vs 14.4 steps/s -> ~265x (speedup holds at full breadth)
+    COMPACT panel (mass + chromosome), 8-fold CV — one-step median per-column R²
+    is 1.000 for EVERY model including persistence: one-step "fidelity" is a
+    persistence artifact (mass-per-second is smooth), not evidence the net learned
+    dynamics. The discriminating multi-step rollout (cell_mass, median nRMSE):
+      - linear      : 0.019   (0/8 folds unstable)   <- best, most stable
+      - mean-delta  : 0.124   (0/8 unstable)
+      - surrogate   : 0.032   (2/8 folds EXPLODE)    <- no better, less robust
+      - persistence : 1.850   (8/8 drift badly)
+    BROAD panel (11569 dims), held-out: 0% of 4058 varying observables beat
+    persistence (negative skill everywhere); the full-vector autoregressive
+    rollout diverges to NaN by ~step 9.
   interpretation: |
-    Surrogates are immediately useful for the smooth, low-dimensional physiology
-    (growth/mass): near-perfect emulation and ~10^3x speedup. The broad
-    high-dimensional panel is the honest open challenge: a single delta-MLP
-    neither predicts most columns one-step nor rolls out stably. Two documented
-    paths forward: (1) more training data (many more seeds / multi-generation
-    rollouts on the Mac mini, already supported by the pipeline), and (2) a
-    latent encode-decode surrogate (autoencoder + latent dynamics) for the
-    high-dimensional groups, a natural pbg-torch extension.
+    The headline from the first pass ("near-perfect emulation, R²≈1.0") did not
+    survive scrutiny — it was measuring signal smoothness, not learned dynamics.
+    Under cross-validation against baselines:
+      1. For coarse growth/mass, a LINEAR model is the best and most stable
+         emulator; the neural net matches it at best and is the only model that
+         destabilizes in rollout. The NN is not justified for this target.
+      2. The broad high-dimensional panel is NOT learnable from the observable
+         view alone (0% beat persistence) — these observables depend on the
+         cell's hidden state that the panel omits. This is a property of the
+         information available, not just of model capacity/data.
+    This is a scoping result, not a capability claim: a cheap emulator of a
+    smooth observable is worth building (see sm-02 utility/break-even); a neural
+    surrogate of the broad cell state is not supported by this evidence.
   decision: |
-    PASS — the surrogate demonstrably emulates baseline growth/mass and profiles
-    a large speedup. The broad-panel limitation is characterized, not hidden.
+    INFORMATIONAL — the rigorous, cross-validated finding is that the neural
+    surrogate does not beat trivial baselines on this target, and the high-dim
+    panel is unlearnable from itself. sm-03 attempts to improve on this; sm-02
+    quantifies the value of the cheap emulator that does work.
 
 conditions:
   baseline:
@@ -86,96 +95,102 @@ conditions:
     measured_contrast: "~2% of columns R^2>0.5; rollout diverges (NaN); ~265x speedup."
 
 tests:
-- name: surrogate-emulates-growth-and-profiles-speedup
+- name: surrogate-beats-trivial-baselines
   classification: primary
-  status: passed
+  status: failed
   question: |
-    Does the surrogate emulate baseline cell_mass over a 60-step autoregressive
-    rollout with correlation > 0.95 on a held-out trajectory?
+    In cross-validated multi-step rollout, does the neural surrogate beat a
+    linear baseline at emulating cell_mass (ratio of surrogate to linear rollout
+    nRMSE < 1, i.e. lower error)?
   measure:
     kind: authored
     detail: |
-      Compact-panel surrogate; 60-step autoregressive rollout of cell_mass on
-      held-out trajectory 7; Pearson correlation to baseline.
-    measured_value: 1.0
+      8-fold leave-one-trajectory-out CV (compact panel). Median rollout nRMSE:
+      surrogate 0.032 vs linear 0.019 -> ratio 1.68 (surrogate WORSE). The
+      surrogate also destabilizes on 2/8 folds; linear on 0/8.
+    measured_value: 1.68
   pass_if:
-    op: gt
-    low: 0.95
-  cites_note: "Methodological fidelity threshold; not literature-derived."
-- name: surrogate-delivers-speedup
-  classification: supporting
-  status: passed
+    op: lt
+    low: 1.0
+  cites_note: "Methodological: surrogate must beat the linear baseline to justify itself."
+- name: high-dim-observables-learnable-from-panel
+  classification: primary
+  status: failed
   question: |
-    Is surrogate inference at least 100x faster than the simulator?
+    On the broad panel, does a meaningful fraction (>5%) of observables beat
+    persistence one-step (i.e. are they predictable from the observable view)?
   measure:
     kind: authored
-    detail: "Compact surrogate steps/s (39,009) / simulator steps/s (14.25)."
-    measured_value: 2737.0
+    detail: "Fraction of 4058 varying broad observables with positive skill vs persistence."
+    measured_value: 0.0
   pass_if:
     op: gt
-    low: 100.0
+    low: 0.05
 
 runs:
-- name: train-eval-compact
+- name: kfold-baselines-compact
   status: completed
-  kind: surrogate_training
+  kind: cross_validation
   canonical: true
   description: |
-    Train residual-MLP (64,64) on mass+chromosome panel (400 epochs); evaluate
-    one-step R^2 + 60-step rollout + speed on held-out trajectory 7.
+    8-fold leave-one-trajectory-out CV (code/rigor_eval.py --mode kfold) comparing
+    the surrogate against persistence / mean-delta / linear on one-step median R²
+    and multi-step cell_mass rollout nRMSE.
   dispatch: serial
   emitter: null
-  result: PASS
+  result: FAIL
   outcomes:
-    surrogate-emulates-growth-and-profiles-speedup:
-      result: PASS
-      detail: "cell_mass 60-step rollout correlation 1.000 (mean rel err 0.01%); mass one-step median R^2 1.000."
-    surrogate-delivers-speedup:
-      result: PASS
-      detail: "39,009 surrogate steps/s vs 14.25 simulator steps/s -> 2737x."
+    surrogate-beats-trivial-baselines:
+      result: FAIL
+      detail: "Rollout nRMSE median: linear 0.019 (0/8 unstable) < surrogate 0.032 (2/8 explode); one-step R²=1.000 for ALL incl. persistence (artifact)."
   computed_outcomes:
     _status: store_unresolved
-- name: train-eval-broad
+- name: skill-vs-persistence-broad
   status: completed
-  kind: surrogate_training
-  canonical: false
+  kind: cross_validation
+  canonical: true
   description: |
-    Train residual-MLP (256,256) on the full 11569-observable panel (200 epochs);
-    characterize one-step per-column coverage, rollout stability, and speed.
+    Per-observable skill vs persistence on the broad held-out trajectory
+    (code/rigor_eval.py --mode skill).
   dispatch: serial
   emitter: null
-  result: PARTIAL
+  result: FAIL
   outcomes:
-    surrogate-emulates-growth-and-profiles-speedup:
-      result: PARTIAL
-      detail: "Broad panel: ~2% of columns reach R^2>0.5; full-vector rollout diverges (NaN). Speedup ~265x holds. Open challenge."
+    high-dim-observables-learnable-from-panel:
+      result: FAIL
+      detail: "0% of 4058 varying observables beat persistence (negative skill everywhere)."
   computed_outcomes:
     _status: store_unresolved
 
 embed_visualizations:
-- name: "Compact surrogate (growth/mass) — fidelity, parity, rollout, speed (interactive)"
+- name: "Surrogate vs. trivial baselines — the honest test (interactive)"
+  url: /reports/figures/sm-01-nn-surrogate/surrogate_vs_baselines.html
+  description: "THE headline. 8-fold CV rollout error per model (log scale): linear wins (0.019, 0 unstable), the neural net is no better and explodes on 2/8 folds; persistence drifts. Plus error-vs-horizon (the surrogate diverging vs linear staying flat) and the broad-panel learnability bar (0% of observables beat persistence)."
+- name: "Compact surrogate — per-group coverage, parity, rollout (single split, interactive)"
   url: /reports/figures/sm-01-nn-surrogate/compact_surrogate.html
-  description: "Speedup banner (~2,700×) + per-group median per-column R² bar + one-step parity scatter (predicted vs actual mass, on the y=x line) + per-column R² histogram (100% of mass columns R²>0.5) + cell_mass and growth-rate autoregressive rollout overlays that track baseline at correlation 1.000. The working surrogate."
-- name: "Broad 11.5k-observable surrogate — coverage, divergence, speed (interactive)"
+  description: "Single-split views retained for detail: per-group coverage bar, one-step parity scatter, per-column R² histogram, and a (single, lucky) cell_mass rollout. The cross-validated baseline comparison above supersedes this panel's optimistic headline."
+- name: "Broad 11.5k-observable surrogate — coverage & divergence (interactive)"
   url: /reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
-  description: "Speedup banner (~265×) + per-group median R² bar + one-step parity scatter + per-column R² histogram (only ~2.5% of 4,058 varying columns reach R²>0.5) + an autoregressive rollout that DIVERGES to NaN at ~step 9 — directly visualizing the high-dimensional instability and the open frontier."
+  description: "Per-group coverage + per-column R² histogram (~2.5% of columns R²>0.5) + an autoregressive rollout that diverges to NaN at ~step 9 — the high-dimensional instability."
 
 pipeline_gate:
   prerequisites:
   - sm-00-data-collection
-  enables: []
-  gate_status: passed
+  enables:
+  - sm-02-utility-and-limits
+  - sm-03-improving-the-surrogate
+  gate_status: failed
 
 conclusion_verdicts:
-- claim: "A surrogate emulates baseline growth/mass with near-perfect fidelity."
-  verdict: supported
-  basis: "Compact-panel cell_mass rollout correlation 1.000; one-step mass R^2 1.000."
-- claim: "Surrogate inference is orders of magnitude faster than the simulator."
-  verdict: supported
-  basis: "~2700x (compact) and ~265x (broad) over baseline steps/s."
-- claim: "A single monolithic delta-MLP emulates the full high-dimensional panel."
+- claim: "The neural surrogate beats trivial baselines at emulating coarse growth."
   verdict: refuted
-  basis: "Broad-panel rollout diverges (NaN); ~2% of columns reach R^2>0.5 one-step."
+  basis: "8-fold CV: linear rollout nRMSE 0.019 (0/8 unstable) < surrogate 0.032 (2/8 explode); one-step R²=1.000 even for persistence."
+- claim: "The broad high-dimensional panel is learnable from the observable view."
+  verdict: refuted
+  basis: "0% of 4058 varying observables beat persistence; full-vector rollout diverges to NaN."
+- claim: "A cheap linear emulator is the right tool for the smooth observable, not a neural net."
+  verdict: supported
+  basis: "Linear is the most accurate AND most stable emulator; see sm-02 for its amortized value."
 
 robustness:
   n_replicates: 1

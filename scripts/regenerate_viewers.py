@@ -14,6 +14,7 @@ import json
 import shutil
 import sys
 from dataclasses import dataclass
+from html import escape as _esc
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -37,6 +38,7 @@ def load_manifest(path: Path) -> list[Entry]:
 def write_state(state: dict, slug: str, data_dir: Path) -> Path:
     data_dir.mkdir(parents=True, exist_ok=True)
     out = data_dir / f"{slug}.state.json"
+    # loom's ?stateUrl= reader expects the {"state": <bigraph-state>} wrapper.
     out.write_text(json.dumps({"state": state}, indent=2), encoding="utf-8")
     return out
 
@@ -47,11 +49,6 @@ def loom_url(entry: Entry, *, has_view: bool) -> str:
     if has_view:
         url += f"&viewUrl=../data/{entry.slug}.view.json"
     return url
-
-
-def _esc(s: str) -> str:
-    return (s.replace("&", "&amp;").replace("<", "&lt;")
-             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
 def hub_html(rows: list[dict]) -> str:
@@ -104,6 +101,7 @@ def resolve_state_via_dashboard(spec_id: str) -> dict | None:
     """Resolve a composite to its loom state dict by reusing the dashboard's
     pure resolver. Returns None on any failure (logged by caller)."""
     import vivarium_dashboard.server as srv
+    # This script is always run standalone; point the dashboard's pure resolver at this workspace.
     srv.WORKSPACE = REPO_ROOT
     data = srv._composite_resolve_data(spec_id)
     if not data or not isinstance(data.get("state"), dict):
@@ -139,10 +137,10 @@ def render_viz2_html(state: dict, slug: str, viz2_dir: Path) -> Path | None:
         return None
 
 
-def build_rows(entries, *, VIEWERS_DIR, resolve, render_svg, render_viz2):
-    data_dir = VIEWERS_DIR / "data"
-    img_dir = VIEWERS_DIR / "img"
-    viz2_dir = VIEWERS_DIR / "viz2"
+def build_rows(entries, *, viewers_dir, resolve, render_svg, render_viz2):
+    data_dir = viewers_dir / "data"
+    img_dir = viewers_dir / "img"
+    viz2_dir = viewers_dir / "viz2"
     rows = []
     for e in entries:
         print(f"- {e.slug} ({e.id})")
@@ -178,7 +176,7 @@ def copy_loom_bundle(dest: Path, *, src: Path | None = None) -> None:
 def main() -> int:
     entries = load_manifest(VIEWERS_DIR / "viewers.json")
     print(f"Regenerating {len(entries)} composite viewers into {VIEWERS_DIR}")
-    rows = build_rows(entries, VIEWERS_DIR=VIEWERS_DIR,
+    rows = build_rows(entries, viewers_dir=VIEWERS_DIR,
                       resolve=resolve_state_via_dashboard,
                       render_svg=render_viz_svg, render_viz2=render_viz2_html)
     copy_loom_bundle(VIEWERS_DIR / "loom")

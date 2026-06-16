@@ -10,6 +10,7 @@ def _load_mod():
     spec.loader.exec_module(mod)
     return mod
 
+
 def test_load_manifest_returns_curated_entries(tmp_path):
     mod = _load_mod()
     mf = tmp_path / "viewers.json"
@@ -43,6 +44,7 @@ def test_loom_url_includes_id_and_relative_state(tmp_path):
         "&viewUrl=../data/baseline.view.json")
     assert "viewUrl" not in mod.loom_url(e, has_view=False)
 
+
 def test_hub_html_lists_only_resolved_and_has_three_viewer_links():
     mod = _load_mod()
     e = mod.Entry(slug="baseline", id="v2ecoli.composites.baseline.baseline",
@@ -54,6 +56,7 @@ def test_hub_html_lists_only_resolved_and_has_three_viewer_links():
     assert "loom/index.html?static=1&id=v2ecoli.composites.baseline.baseline" in html
     assert 'href="viz2/baseline.html"' in html
     assert 'href="img/baseline.svg"' in html
+
 
 def test_hub_html_omits_links_for_missing_artifacts():
     mod = _load_mod()
@@ -79,7 +82,7 @@ def test_build_rows_skips_unresolvable_and_records_artifacts(tmp_path):
     def fake_svg(state, slug, out): return (out / f"{slug}.svg") if slug == "baseline" else None
     def fake_viz2(state, slug, out): return (out / f"{slug}.html") if slug == "baseline" else None
 
-    rows = mod.build_rows(entries, VIEWERS_DIR=tmp_path,
+    rows = mod.build_rows(entries, viewers_dir=tmp_path,
                           resolve=fake_resolve, render_svg=fake_svg, render_viz2=fake_viz2)
     slugs = [r["entry"].slug for r in rows]
     assert slugs == ["baseline"]

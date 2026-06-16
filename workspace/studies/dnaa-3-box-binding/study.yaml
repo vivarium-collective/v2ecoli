@@ -34,7 +34,7 @@ question: |
 
 report:
   title: dnaa-3 — DnaA box binding (chromosomal + oriC + dnaA-promoter)
-  verdict: partial   # 2026-06-10: ADOPTED Rashmi's ACTIVE box-binding mechanism (PR #162, verified) — over-binding RESOLVED (oriC-low occupancy 0.46 vs read-only ~0.8) + box-doubling fixed (315↔630); cell cycle clean (8/8); DnaA pool in [300,800]. The read-only observer is superseded. Chart dnaa3_active_binding_adopted. PARTIAL (not a clean pass): the inherited DnaA-ATP-fraction acceptance band [0.2,0.5] is NOT met on the adopted run — evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound), both < 0.2. This is the V-tension (V tuned down to hold the pool in band + active binding sequesters DnaA-ATP onto boxes); NO constitutive V satisfies both bands, so it is honestly deferred to dnaa-4 (negative autoregulation), the seeded diagnostic. Not forced to PASS. || RE-RUN UNDER AUTOREGULATION (Rashmi 2026-06-15, rpt-20260615171945 — "rerun the binding study with the negative autoregulation in place; re-render all the plots"): re-ran the box binding on the s=0.7 negative-autoregulation run (dnaa4_s07_seed1, box-binding composite WITH autoregulation active) and re-rendered all run-specific plots. The deferred tension RESOLVES — under autoregulation oriC-low over-binding drops FURTHER to 0.10-0.15 (vs 0.46 adopted at fixed V, ~0.8 read-only), high-affinity stays 0.96-0.98, and the DnaA-ATP fraction returns to band (~0.33 in [0.2,0.5]) because feedback holds free DnaA-ATP at ~13 nM mean (<< 100 nM oriC-low K_d). Charts dnaa3_box_occupancy / dnaa3_binding_analysis / dnaa3_readouts / dnaa3_chromosome_state now show the autoregulated binding (the CURRENT view); the earlier fixed-V plots (active_binding_adopted, occupancy_haochen, box_occupancy_trend, fullhist_pergen) and the dnaa3_v_sweep_* charts are kept as labeled pre-autoregulation historical context — the binding journey read-only -> fixed-V adopted -> autoregulated. CONCLUSION: box binding UNDER autoregulation meets BOTH bands — the partial is resolved by the dnaa-4 mechanism, exactly as deferred.
+  verdict: pass   # 2026-06-10: ADOPTED Rashmi's ACTIVE box-binding mechanism (PR #162, verified) — over-binding RESOLVED (oriC-low occupancy 0.46 vs read-only ~0.8) + box-doubling fixed (315↔630); cell cycle clean (8/8); DnaA pool in [300,800]. The read-only observer is superseded. Chart dnaa3_active_binding_adopted. PARTIAL (not a clean pass): the inherited DnaA-ATP-fraction acceptance band [0.2,0.5] is NOT met on the adopted run — evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound), both < 0.2. This is the V-tension (V tuned down to hold the pool in band + active binding sequesters DnaA-ATP onto boxes); NO constitutive V satisfies both bands, so it is honestly deferred to dnaa-4 (negative autoregulation), the seeded diagnostic. Not forced to PASS. || RE-RUN UNDER AUTOREGULATION (Rashmi 2026-06-15, rpt-20260615171945 — "rerun the binding study with the negative autoregulation in place; re-render all the plots"): re-ran the box binding on the s=0.7 negative-autoregulation run (dnaa4_s07_seed1, box-binding composite WITH autoregulation active) and re-rendered all run-specific plots. The deferred tension RESOLVES — under autoregulation oriC-low over-binding drops FURTHER to 0.10-0.15 (vs 0.46 adopted at fixed V, ~0.8 read-only), high-affinity stays 0.96-0.98, and the DnaA-ATP fraction returns to band (~0.33 in [0.2,0.5]) because feedback holds free DnaA-ATP at ~13 nM mean (<< 100 nM oriC-low K_d). Charts dnaa3_box_occupancy / dnaa3_binding_analysis / dnaa3_readouts / dnaa3_chromosome_state now show the autoregulated binding (the CURRENT view); the earlier fixed-V plots (active_binding_adopted, occupancy_haochen, box_occupancy_trend, fullhist_pergen) and the dnaa3_v_sweep_* charts are kept as labeled pre-autoregulation historical context — the binding journey read-only -> fixed-V adopted -> autoregulated. CONCLUSION: box binding UNDER autoregulation meets BOTH bands — the partial is resolved by the dnaa-4 mechanism, exactly as deferred. || CURRENT-CONFIG RE-RUN + TESTS (Rashmi 2026-06-16, rpt-20260616165411 — "rerun that study with the current configuration and run the tests"): re-ran box binding under the CURRENT dnaa-4 reference (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025/min; run dnaa3_currentcfg_seed0_8gen, seed 0, 8 gens, RIDA/DARS off) and EVALUATED all dnaa-3 tests — ALL PASS: cycles-divided 8/8, oriC 1<->2, re-inits 0, DnaA-ATP fraction 0.284 in [0.2,0.5], DnaA pool every gen in [300,800] (clean band pass), oriC-low gradual fill (0.06->0.17). Chromosome binding: over-binding resolved (oriC-low 0.04-0.17, high-aff 0.93-0.97, free DnaA-ATP ~5-11 nM << 100 nM K_d). So under the current configuration dnaa-3 is a CLEAN PASS — verdict upgraded partial->pass. All charts re-rendered on this run (now canonical); the fixed-V adopted run demoted to non-canonical.
   confidence: high
   evidence_quality: empirical
 
@@ -584,6 +584,29 @@ readouts:
 
 # ── Validation (spec table): dnaa-3 must preserve dnaa-2 behaviour ─────────────
 runs:
+- name: dnaa3_currentcfg_seed0_8gen
+  status: completed
+  kind: single-seed-multigen-lineage
+  canonical: true   # CURRENT canonical (Rashmi 2026-06-16: re-run dnaa-3 with the current config + run tests)
+  run_dir: out/dnaa3_currentcfg_seed0_8gen
+  emitter: {kind: parquet, store: out/dnaa3_currentcfg_seed0_8gen/dnaa3_currentcfg_seed0_8gen}
+  cache_dir: out/cache_dnaa4_s06_F05
+  seed: 0
+  description: |
+    Box-binding re-run under the CURRENT dnaa-4 reference configuration (linear autoregulation
+    s=0.6 + F-05 kinetic apo+ATP charging, V=1.5e-3, k_h=0.025/min, K_d 3/100 nM; RIDA/DDAH/DARS
+    OFF), succinate, seed 0, 8 generations (8/8 divided) — answers Rashmi 2026-06-16 ("rerun that
+    study with the current configuration and run the tests"). All charts re-rendered on this run
+    (dnaa3_box_occupancy / dnaa3_binding_analysis / dnaa3_readouts / dnaa3_chromosome_state).
+    Chromosome binding: oriC-low over-binding resolved (occupancy ~0.04-0.17, gradual fill;
+    high-affinity ~0.93-0.97), free DnaA-ATP ~5-11 nM (<< 100 nM low-aff K_d).
+  outcomes:
+    cycles-divided-8-of-8: {result: PASS, measured_value: 8, detail: '8/8 generations divided'}
+    oric-pattern-1-or-2: {result: PASS, measured_value: 2, detail: 'oriC range 1-2 (one initiation/gen)'}
+    re-init-events-zero: {result: PASS, measured_value: 0, detail: '0 ticks with oriC>2'}
+    dnaa-atp-fraction-in-band-gen3: {result: PASS, measured_value: 0.284, detail: 'gen3+ mean 0.284 in [0.2,0.5]'}
+    dnaa-pool-within-band: {result: PASS, measured_value: {3: 457, 4: 389, 5: 392, 6: 404, 7: 358, 8: 413}, detail: 'every gen mean in [300,800] — clean band pass under the current config'}
+    oric-low-gradual-filling: {result: PASS, measured_value: 0.17, detail: 'oriC-low occ rises 0.06 (birth) -> 0.17 (mid-cycle)'}
 - name: dnaa3_binding_under_autoregulation
   status: completed
   kind: single-seed-multigen-lineage
@@ -891,7 +914,7 @@ runs:
 - name: dnaa3_adopt_v0p8e3_seed0
   status: completed
   kind: single-seed-multigen-lineage
-  canonical: true   # CURRENT canonical run (latest); the pill strip reads this run's outcomes
+  canonical: false  # SUPERSEDED 2026-06-16 by dnaa3_currentcfg_seed0_8gen (re-run under the current linear-s=0.6+F-05 config); kept as the prior fixed-V adopted run
   run_dir: out/dnaa3_adopt_v0p8e3_seed0
   emitter: {kind: parquet, store: out/dnaa3_adopt_v0p8e3_seed0/dnaa3_adopt_v0p8e3_seed0}   # RunReader-openable level (has history/); the spine evaluator reads this
   cache_dir: out/cache_dnaa3_adopt_v0p8e3

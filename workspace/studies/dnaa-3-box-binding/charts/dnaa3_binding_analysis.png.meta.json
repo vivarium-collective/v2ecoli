@@ -1,8 +1,8 @@
 {
-  "run_id": "dnaa4_s07_seed1_16gen_fixed",
-  "source_run_id": "dnaa4_s07_seed1_16gen_fixed",
+  "run_id": "dnaa3_currentcfg_seed0_8gen",
+  "source_run_id": "dnaa3_currentcfg_seed0_8gen",
   "generation_id": null,
-  "rendered_at": 1781569012.8731232,
-  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa4_s07_seed1_16gen_fixed --out out/dnaa3_autoreg_charts/dnaa3_binding_analysis",
-  "content_hash": "sha256:ca5d9f0ae32d039e9b0d3cd2bc9e5eea8a50c60cd11bd86353b74aa4af4f4c99"
+  "rendered_at": 1781646306.184993,
+  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa3_currentcfg_seed0_8gen --out out/dnaa3_currentcfg_charts/dnaa3_binding_analysis",
+  "content_hash": "sha256:8436cce359aeda3fc255063031c98803b5252b50a2983e373664b9ee5eb8cf06"
 }

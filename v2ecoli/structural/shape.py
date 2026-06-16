@@ -74,16 +74,34 @@ class ShapeStep(Step):
     }
 
     def inputs(self):
-        return {"mass_fg": "float"}
+        # Wire the whole listeners.mass sub-store (schema realization needs a
+        # nested dict schema with a dict-form leaf — a bare "float" string can't
+        # be annotated onto the cell_mass store). We only read cell_mass.
+        return {"mass": {"cell_mass": {"_type": "quantity[float,fg]",
+                                       "_default": 0.0}}}
 
     def outputs(self):
-        return {"shape": "any"}
+        # map[float] (a container type) resolves to a dict schema; a bare "any"
+        # resolves to a string that schema realization can't annotate with a
+        # link path in the full baseline composite. The shape dict is all floats.
+        return {"shape": "map[float]"}
 
     def update(self, state, interval=None):
-        # cell_mass may arrive as a plain float (npz snapshots) or a pint
-        # Quantity (live baseline listeners); unwrap .magnitude if present.
-        raw = state.get("mass_fg")
+        # cell_mass arrives as a pint Quantity (live baseline listeners) nested
+        # under the mass sub-store, or as a plain float / {"mass_fg": ...} in
+        # tests and npz snapshots — accept both shapes.
+        m = state.get("mass")
+        if isinstance(m, dict):
+            raw = m.get("cell_mass")
+        elif m is not None:
+            raw = m
+        else:
+            raw = state.get("mass_fg")
         mass = float(getattr(raw, "magnitude", raw) or 0.0)
-        return {"shape": shape_from_mass(
+        shape = shape_from_mass(
             mass, self.config["width_um"], self.config["density_g_per_ml"],
-            self.config["periplasm_fraction"])}
+            self.config["periplasm_fraction"])
+        # Drop the Capsule object so the emitted shape stays serializable; the
+        # capsule's numbers are retained as radius_A / half_len_A.
+        shape.pop("capsule", None)
+        return {"shape": shape}

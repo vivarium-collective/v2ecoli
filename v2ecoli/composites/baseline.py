@@ -906,14 +906,18 @@ def baseline(
     if core is not None:
         from v2ecoli.structural.shape import ShapeStep
         core.register_link("ShapeStep", ShapeStep)
-        cell_state['listeners'].setdefault('shape', {})
+        # Top-level 'shape' output store (same pattern as the structural step's
+        # 'pack'). Wire the whole listeners.mass sub-store as the input; the step
+        # reads cell_mass from it (wiring a sub-store, not a scalar leaf, is what
+        # schema realization supports — see ShapeStep.inputs).
+        cell_state.setdefault('shape', {})
         cell_state['shape_step'] = {
             '_type': 'step',
             'address': 'local:ShapeStep',
             'config': {'width_um': 1.0, 'density_g_per_ml': 1.1,
                        'periplasm_fraction': 0.2},
-            'inputs': {'mass_fg': ['listeners', 'mass', 'cell_mass']},
-            'outputs': {'shape': ['listeners', 'shape']},
+            'inputs': {'mass': ['listeners', 'mass']},
+            'outputs': {'shape': ['shape']},
         }
         flow_order.append('shape_step')
 

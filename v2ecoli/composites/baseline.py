@@ -81,33 +81,16 @@ BASE_EXECUTION_LAYERS = [
     ['exchange_data'], FLUSH,
 
     # Layer 2: standalone (no partitioning needed)
-    # dnaa_box_binding_listener (dnaa-3) is placed here, next to
-    # ecoli-equilibrium, so its `listeners.mass` read resolves to the PRIOR
-    # tick (an earlier layer than the mass listener that writes it) — the
-    # documented fix for the layer-7 no-fire scheduling blocker. It is a
-    # read-only occupancy observer (does not mutate bulk / DnaA_box flags),
-    # so the validated dnaa-2 cell cycle is preserved exactly.
-    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
-     'dnaa_box_binding_listener'], FLUSH,
+    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
 
-    # Layer 2b: DnaA-box equilibrium binding (dnaa-3 Phase 2).
-    # Must run AFTER ecoli-equilibrium so DnaA-ATP / DnaA-ADP form swap
-    # is applied to the bulk pool before box occupancy equilibrates.
-    ['dnaa-box-binding'], FLUSH,
+    # NOTE: the dnaA-investigation mechanism steps — dnaa-3 (dnaa-box-binding +
+    # dnaa_box_binding_listener), dnaa-4 (autoregulation in transcript_initiation),
+    # and dnaa-5 (rida / ddah / dars + library/locus_copy_number) — remain in the
+    # tree as DORMANT infrastructure but are NOT wired into the default baseline.
+    # Main's default model is the pre-investigation WCM; these are activated only
+    # by the dnaa-replication investigation (draft PR), which re-adds the layers.
 
-    # Layer 2c: RIDA (dnaa-5) — replisome-coupled DnaA-ATP inactivation.
-    # Reads the active-replisome count (prior tick) and converts free
-    # DnaA-ATP → DnaA-ADP, scaling the extrinsic inactivation with fork number.
-    ['rida'], FLUSH,
-
-    # Layer 2d: DDAH (dnaa-5) — datA-locus-copy-number-coupled DnaA-ATP
-    # hydrolysis. Sequential after RIDA so each conversion caps against the
-    # current free DnaA-ATP pool (no joint over-draw of the small free pool).
-    ['ddah'], FLUSH,
-
-    # Layer 2e: DARS1/DARS2 (dnaa-5) — locus-copy-number-coupled reactivation
-    # (DnaA-ADP → DnaA-ATP), the recovery arm opposing RIDA/DDAH.
-    ['dars'], FLUSH,
+    # Layer 3: TF binding
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,

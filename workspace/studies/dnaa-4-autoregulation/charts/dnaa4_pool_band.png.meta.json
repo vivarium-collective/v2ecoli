@@ -1,2 +1,0 @@
-{"source_run_id":"dnaa4_autoreg_hill_s06_v15e3 vs dnaa4_control_v15e3 (V=1.5e-3)",
- "caption":"DnaA pool, autoregulation (Hill s=0.6) vs no-autoreg control. The autoregulated pool oscillates WITHIN [300,800] across the lineage while the control runs away to 1567. Setpoint lifted into band by WEAKENING the feedback (s 0.8->0.6) at a stable V — NOT by raising V (homeostasis cancels that). Brief cell-cycle-extreme excursions remain (division-troughs ~250, pre-division peaks ~850). Minutes axis, dotted lineage boundaries."}

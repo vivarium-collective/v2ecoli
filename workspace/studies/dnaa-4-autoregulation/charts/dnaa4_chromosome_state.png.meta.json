@@ -1,7 +1,0 @@
-{
-  "title": "Chromosome state across the cell cycle: DnaA-box occupancy + replication (dnaa-4, gen 6)",
-  "caption": "The E. coli chromosome drawn as a ring (oriC at top, terC at bottom) at four points in one cell cycle. Each of the 315 DnaA boxes sits at its genomic coordinate, colored by what it is bound to: free (gray), DnaA-ATP (green), DnaA-ADP (amber); the dnaA-promoter sensor boxes are purple-edged squares. Red diamonds are replication forks; the blue band is the replicated region (2 copies). Across birth -> pre-initiation -> post-initiation -> max-replication you see the replication bubble grow from oriC outward as the forks march toward terC, with the DnaA-box occupancy state at each phase. Reproducible: scripts/render_chromosome_state.py <run> <gen> <out.png>.",
-  "interpretation": "A spatial, chromosome-level view of DnaA binding that complements the timeseries: the boxes stay predominantly DnaA-ATP-bound through the cycle in the autoregulation-only model (no extrinsic RIDA inactivation), and the theta replication structure is explicit.",
-  "source_runs": ["dnaa4_s07_seed1_16gen_fixed"],
-  "script": "scripts/render_chromosome_state.py"
-}

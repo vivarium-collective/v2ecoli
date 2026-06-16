@@ -157,5 +157,7 @@ ui:
   # ecoli_3d whole-cell pack is served from Cloudflare R2 (free egress, no
   # GitHub Pages 429 rate-limiting on the heavy pack + meshes); the dashboard
   # card links + embeds this instead of the bundled gh-pages viewer.
+  # ?models= loads a manifest so a single card switches between states in-viewer
+  # (birth — 1.8 µm rod; pre-division — 3.06 µm, 2 chromosomes + septum).
   viz_viewer_urls:
-    ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?file=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/ecoli_3d.pack.json"
+    ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json"

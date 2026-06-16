@@ -188,7 +188,7 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
     fig, axes = plt.subplots(6, 1, figsize=(14, 18), sharex=True)
     fig.suptitle(
         f"{title_extra}\n"
-        "DnaA-ATP intrinsic hydrolysis wired into equilibrium (k = 0.046/min)\n"
+        "DnaA-ATP intrinsic hydrolysis wired into equilibrium (k_h = 0.025/min)\n"
         "K_d(ATP) = 29 nM (SS),  K_d(ADP) = 100 nM (kinetic)",
         fontsize=11, y=0.995,
     )

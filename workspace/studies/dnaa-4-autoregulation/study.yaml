@@ -151,48 +151,32 @@ simulation_set:
   pass_fail_tests: [dnaa-pool-self-stabilizes-in-band-no-V, cell-cycle-preserved]
 
 visualizations:
-- name: dnaa4_box_dynamics
-  address: charts/dnaa4_box_dynamics.png
+- name: dnaa4_linear_s06_F05_trajectory
+  address: charts/dnaa4_linear_s06_F05_trajectory.png
   status: rendered
   config:
     title: >-
-      DnaA-box occupancy under the s=0.7 autoregulated expression (seed2, per-pool over the
-      lineage). The high-affinity boxes (chromosomal_high / oriC_high / dnaA-promoter_high,
-      K_d 3 nM) stay well-filled; the low-affinity oriC boxes (K_d 100 nM) stay MOSTLY EMPTY
-      (steady occupancy 0.10–0.28 across seeds) — the over-binding seen in dnaa-3 (read-only
-      ~0.8, adopted ~0.46) is further resolved because autoregulation lowers DnaA and depletes
-      the free DnaA-ATP that drove low-affinity over-occupancy. Answers Rashmi 2026-06-14
-      (box-binding dynamics on top of the achieved autoreg expression).
-- name: dnaa4_pool_band
-  address: charts/dnaa4_pool_band.png
+      CANONICAL reference (F-07): multi-generation trajectory of linear autoregulation s=0.6 + F-05
+      (kinetic apo+ATP charging) at V=1.5e-3, k_h=0.025/min, seed 1 — reproduces Rashmi/Haochen's
+      reference PDF. Clean cell cycle (mass sawtooth, oriC 1<->2, 12/12 divided); DnaA total in
+      [300,800] every steady generation (clean band pass); DnaA-ATP fraction ~0.26 in [0.2,0.5].
+- name: dnaa4_linear_s06_F05_regions
+  address: charts/dnaa4_linear_s06_F05_regions.png
   status: rendered
   config:
     title: >-
-      DnaA pool, autoregulation vs no-autoreg control, with the [300,800] band. Source run:
-      dnaa4_autoreg_hill_s06_v15e3 vs dnaa4_control_v15e3 (the s=0.6 band-centering calibration,
-      V=1.5e-3; the canonical 3-seed result is s=0.7). The autoregulated pool oscillates within
-      [300,800] across the lineage while the no-autoreg control runs away to ~1567 — the setpoint
-      is lifted into band by WEAKENING the feedback at a stable V (homeostasis cancels raising V),
-      not by raising V. Brief cell-cycle-extreme excursions remain (division-troughs ~250,
-      pre-division peaks ~850).
-- name: dnaa4_promoter_swing
-  address: charts/dnaa4_promoter_swing.png
+      Per-chromosome DnaA-box occupancy by region across gen 7 of the linear-s=0.6 + F-05 reference
+      (k_h=0.025/min): oriC low-affinity stays low (2-3/8 — over-binding resolved), high-affinity
+      full, clean fork passage to two daughter chromosomes. Reproduces page 2 of Rashmi's PDF.
+- name: dnaa4_effect_thermostat
+  address: charts/dnaa4_effect_thermostat.png
   status: rendered
   config:
     title: >-
-      The autoregulation loop itself. Source run: dnaa4_autoreg_hill_v15e3 (V=1.5e-3). dnaA-promoter
-      occupancy f swings 0->1 across the cell cycle and the synthesis scaling rides inversely — full
-      transcription when the promoter is unbound (low DnaA), repressed once it saturates (high DnaA).
-      This is the negative feedback that caps the peak.
-- name: dnaa4_lineage_stability
-  address: charts/dnaa4_lineage_stability.png
-  status: rendered
-  config:
-    title: >-
-      Lineage stability under autoregulation (Rashmi's request). Source run:
-      dnaa4_autoreg_hill_s06_v15e3 (V=1.5e-3, Hill s=0.6, k_h=0.025, K_d=3nM, 16 gens). oriC 1<->2,
-      periodic mass-doubling (sawtooth), DnaA concentration (nM), and DnaA-ATP/ADP fractions vs the
-      [0.2,0.5] band — the lineage is stable across 16 generations.
+      The homeostasis result (form-independent): steady DnaA setpoint vs constitutive expression
+      rate V. With autoregulation OFF the pool tracks V and runs out of band; with it ON the
+      setpoint is held flat in [300,800] — DnaA is insensitive to V (a molecular thermostat), tuned
+      by the feedback strength rather than by V.
 - name: dnaa4_autoreg_feedback_planned
   address: planned
   status: planned
@@ -862,7 +846,9 @@ findings:
     active-mechanism adopted ~0.46) is FURTHER RESOLVED under autoregulation — feedback lowers
     DnaA, depleting the free DnaA-ATP that drove low-affinity over-occupancy, so the low-aff
     sites fill only transiently. Bound pools are predominantly DnaA-ADP (~20-32% ATP at the
-    high-aff boxes) from intrinsic hydrolysis. Chart: dnaa4_box_dynamics. (Rashmi 2026-06-14:
+    high-aff boxes) from intrinsic hydrolysis. (The box-dynamics chart was retired in the
+    chart cleanup — Rashmi 2026-06-16; the binding-under-the-reference view now lives in dnaa-3,
+    which is re-run on the current linear-s=0.6+F-05 configuration.) (Rashmi 2026-06-14:
     box-binding dynamics on top of the achieved expression dynamics — answered via the existing
     autoreg runs rather than a fresh study, since dnaa-4 already runs box-binding under autoreg.)
   status: draft

@@ -29,7 +29,11 @@ from v2ecoli.composites.baseline import baseline as _baseline_builder
 from v2ecoli.steps.population_aggregator import (
     DEFAULT_CELLS_PER_AGENT,
     DEFAULT_OD_TO_GDW,
+    DEFAULT_POPULATION_GROWTH_MODE,
     DEFAULT_REACTOR_VOLUME_L,
+    LINEAGE_DOUBLINGS_KEY,
+    LINEAGE_GENERATION_KEY,
+    LINEAGE_STORE_NAME,
     PopulationAggregator,
 )
 
@@ -48,6 +52,21 @@ def _empty_population_store() -> dict[str, float]:
     }
 
 
+def _initial_lineage_store() -> dict[str, float]:
+    """Top-level lineage store: generation count + represented doublings.
+
+    Seeded at generation 1 / 0 doublings (factor 2^0 = 1, so the first
+    generation never scales). The multigen runner advances ``doublings`` as it
+    follows the lineage past divisions (#225 item #1); the aggregator reads it
+    in ``representative_doubling`` mode. In the default ``fixed`` mode the store
+    is harmless (the aggregator ignores it).
+    """
+    return {
+        LINEAGE_GENERATION_KEY: 1.0,
+        LINEAGE_DOUBLINGS_KEY:  0.0,
+    }
+
+
 def add_population_aggregator(
     document: dict,
     core: Any = None,
@@ -55,6 +74,7 @@ def add_population_aggregator(
     cells_per_agent: float = DEFAULT_CELLS_PER_AGENT,
     od_to_gdw: float = DEFAULT_OD_TO_GDW,
     reactor_volume_L: float = DEFAULT_REACTOR_VOLUME_L,
+    population_growth_mode: str = DEFAULT_POPULATION_GROWTH_MODE,
 ) -> dict:
     """Add the top-level ``population`` store + ``PopulationAggregator`` Step.
 
@@ -74,11 +94,16 @@ def add_population_aggregator(
     # Top-level data store. The aggregator owns the write path; pre-seed
     # with zeros so the document is structurally complete before the first tick.
     state.setdefault("population", _empty_population_store())
+    # Top-level lineage store (doubling count for representative-growing mode,
+    # #225 item #1). Always present so the aggregator's lineage input wire
+    # resolves; harmless in the default fixed mode.
+    state.setdefault(LINEAGE_STORE_NAME, _initial_lineage_store())
 
     aggregator_config = {
-        "cells_per_agent":  cells_per_agent,
-        "od_to_gdw":        od_to_gdw,
-        "reactor_volume_L": reactor_volume_L,
+        "cells_per_agent":         cells_per_agent,
+        "od_to_gdw":               od_to_gdw,
+        "reactor_volume_L":        reactor_volume_L,
+        "population_growth_mode":  population_growth_mode,
     }
     aggregator = _make_instance(PopulationAggregator, aggregator_config, core)
     state[POPULATION_AGGREGATOR_STEP_NAME] = make_edge(
@@ -111,6 +136,10 @@ def add_population_aggregator(
         "cells_per_agent":   {"type": "number", "default": DEFAULT_CELLS_PER_AGENT},
         "od_to_gdw":         {"type": "number", "default": DEFAULT_OD_TO_GDW},
         "reactor_volume_L":  {"type": "number", "default": DEFAULT_REACTOR_VOLUME_L},
+        # "fixed" (default) | "representative_doubling" (#225 item #1). In
+        # doubling mode the multigen runner advances lineage.doublings so the
+        # represented population grows 2x per generation (breaks the plateau).
+        "population_growth_mode": {"type": "string", "default": DEFAULT_POPULATION_GROWTH_MODE},
     },
 )
 def baseline_population(
@@ -121,6 +150,7 @@ def baseline_population(
     cells_per_agent: float = DEFAULT_CELLS_PER_AGENT,
     od_to_gdw: float = DEFAULT_OD_TO_GDW,
     reactor_volume_L: float = DEFAULT_REACTOR_VOLUME_L,
+    population_growth_mode: str = DEFAULT_POPULATION_GROWTH_MODE,
 ) -> dict:
     """Build the baseline_population document.
 
@@ -137,4 +167,5 @@ def baseline_population(
         cells_per_agent=cells_per_agent,
         od_to_gdw=od_to_gdw,
         reactor_volume_L=reactor_volume_L,
+        population_growth_mode=population_growth_mode,
     )

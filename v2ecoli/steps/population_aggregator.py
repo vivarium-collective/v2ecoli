@@ -16,6 +16,20 @@ sums, applies the ``cells_per_agent`` scaling factor, and writes:
   population.OD600 =
       biomass_concentration_gL / od_to_gdw   # COSMETIC
 
+Representative-growing-population mode (#225 item #1)
+----------------------------------------------------
+When ``population_growth_mode='representative_doubling'`` the represented
+``cell_count`` / biomass are additionally multiplied by ``2**doublings`` where
+``doublings`` is read from a top-level ``lineage`` store (``lineage.doublings``,
+set by the multigen runner = ``generation - 1``). This breaks the single-lineage
+biomass PLATEAU: the followed lineage stands in for a population that doubles
+each generation, so population biomass ACCUMULATES exponentially across
+generations instead of just oscillating with one cell's mass. Because a daughter
+halves its mass at division while the represented count doubles, total biomass
+is CONTINUOUS across the division (no artificial jump). The default mode
+(``'fixed'``, factor 1.0) is byte-identical to mbp-02's cells_per_agent
+aggregation, so existing studies/tests are unaffected.
+
 NO mutation of agent state (regression-guarded by
 ``per-cell-observables-unchanged-vs-baseline`` +
 ``per-cell-observables-invariant-under-scaling`` tests). The
@@ -43,6 +57,35 @@ DEFAULT_OD_TO_GDW: float = 0.34                # Beulig 2025; was textbook 0.33
 DEFAULT_REACTOR_VOLUME_L: float = 1.0
 FG_PER_GRAM: float = 1.0e-15                   # cell_mass listener is in fg
 
+# --- Representative-growing-population mode (#225 item #1) -------------------
+# The single-lineage runner (single_daughters=True) follows ONE cell, so the
+# represented population PLATEAUS — biomass just oscillates with one cell's mass
+# (grows, halves at division) and never accumulates toward a batch density. The
+# `representative_doubling` mode makes the REPRESENTED population grow 2x per
+# generation: at generation g, the represented cell_count is
+#   N0 x cells_per_agent x 2^(g-1)
+# i.e. one followed lineage stands in for a population that DOUBLES each division
+# (the sibling we drop is represented by the doubling factor instead). This is
+# the same 0D well-mixed representative-sampling assumption that licenses
+# cells_per_agent (mbp-02): one representative lineage stands in for N0 x 2^g
+# cells. The runner injects the doubling count (`lineage.doublings` = g-1) into
+# a top-level `lineage` store each generation; the aggregator reads it and
+# applies the 2^doublings factor.
+#
+# Continuity across division (the load-bearing invariant): at a division a
+# daughter HALVES its mass while the represented count DOUBLES, so total
+# represented biomass is CONTINUOUS across the division (no artificial jump);
+# the daughter then grows the next generation's mass back up, so the population
+# biomass grows ~2x per generation instead of plateauing. See the unit test
+# `test_representative_doubling_continuous_then_grows`.
+GROWTH_MODE_FIXED: str = "fixed"
+GROWTH_MODE_DOUBLING: str = "representative_doubling"
+DEFAULT_POPULATION_GROWTH_MODE: str = GROWTH_MODE_FIXED
+# Store + key the runner writes / the aggregator reads.
+LINEAGE_STORE_NAME: str = "lineage"
+LINEAGE_DOUBLINGS_KEY: str = "doublings"
+LINEAGE_GENERATION_KEY: str = "generation"
+
 
 class PopulationAggregator(Step):
     """Aggregate per-cell mass + agent count into reactor-scale observables.
@@ -58,14 +101,19 @@ class PopulationAggregator(Step):
     # ("float", "integer") so user overrides actually take effect. See
     # `_make_instance` in composites/_helpers.py for the v2ecoli init path.
     config_schema = {
-        "cells_per_agent":   "float",
-        "od_to_gdw":         "float",
-        "reactor_volume_L":  "float",
-        "time_step":         "float",
+        "cells_per_agent":         "float",
+        "od_to_gdw":               "float",
+        "reactor_volume_L":        "float",
+        "time_step":               "float",
+        # "fixed" (default) | "representative_doubling" (#225 item #1).
+        "population_growth_mode":  "string",
     }
     topology = {
         "agents":     ("agents",),
         "population": ("population",),
+        # Read-only doubling-count store written by the multigen runner; absent
+        # for single-generation / non-runner builds (defensively defaulted to 0).
+        "lineage":    ("lineage",),
     }
 
     def initialize(self, config: dict | None = None) -> None:
@@ -73,9 +121,12 @@ class PopulationAggregator(Step):
         self.cells_per_agent = float(cfg.get("cells_per_agent") or DEFAULT_CELLS_PER_AGENT)
         self.od_to_gdw = float(cfg.get("od_to_gdw") or DEFAULT_OD_TO_GDW)
         self.reactor_volume_L = float(cfg.get("reactor_volume_L") or DEFAULT_REACTOR_VOLUME_L)
+        self.population_growth_mode = (
+            cfg.get("population_growth_mode") or DEFAULT_POPULATION_GROWTH_MODE
+        )
 
     def inputs(self) -> dict[str, Any]:
-        return {"agents": InPlaceDict()}
+        return {"agents": InPlaceDict(), "lineage": InPlaceDict()}
 
     def outputs(self) -> dict[str, Any]:
         return {"population": InPlaceDict()}
@@ -101,8 +152,21 @@ class PopulationAggregator(Step):
             if cell_mass is not None:
                 sum_cell_mass_fg += cell_mass
 
-        total_biomass_gDW = sum_cell_mass_fg * self.cells_per_agent * FG_PER_GRAM
-        cell_count = float(n_simulated) * self.cells_per_agent
+        # Representative-growing-population factor (#225 item #1). In the default
+        # "fixed" mode this is 1.0 and behavior is identical to mbp-02's
+        # cells_per_agent aggregation. In "representative_doubling" mode the
+        # followed lineage stands in for a population that doubles each
+        # generation, so apply 2^doublings (doublings = generation - 1, injected
+        # by the multigen runner into the `lineage` store). The daughter's mass
+        # halving at division cancels this doubling, so total biomass is
+        # continuous across the division and then grows with the next
+        # generation — see module docstring + the unit test.
+        growth_factor = self._growth_factor(states)
+
+        total_biomass_gDW = (
+            sum_cell_mass_fg * self.cells_per_agent * growth_factor * FG_PER_GRAM
+        )
+        cell_count = float(n_simulated) * self.cells_per_agent * growth_factor
         biomass_concentration_gL = total_biomass_gDW / self.reactor_volume_L
         # OD600 is COSMETIC (per chris_feedback_2026_05_26 §4) — derive from
         # biomass_concentration_gL strictly for plotting / OD-only comparisons.
@@ -117,6 +181,28 @@ class PopulationAggregator(Step):
 
     def update(self, state, interval=None):
         return self.next_update(state.get("timestep", 1.0), state)
+
+    # --- representative-growing-population factor ---------------------------
+
+    def _growth_factor(self, states) -> float:
+        """Population-growth multiplier from the current doubling count.
+
+        Returns 1.0 in the default "fixed" mode (mbp-02 behavior). In
+        "representative_doubling" mode, reads ``lineage.doublings`` (set by the
+        multigen runner = generation - 1) and returns ``2 ** doublings``.
+        Defensive: a missing/empty ``lineage`` store -> 0 doublings -> 1.0, so
+        the first generation never scales and non-runner builds are unaffected.
+        """
+        if self.population_growth_mode != GROWTH_MODE_DOUBLING:
+            return 1.0
+        lineage = (states or {}).get(LINEAGE_STORE_NAME) or {}
+        try:
+            doublings = float(lineage.get(LINEAGE_DOUBLINGS_KEY, 0) or 0)
+        except (AttributeError, TypeError):
+            doublings = 0.0
+        if doublings < 0:
+            doublings = 0.0
+        return 2.0 ** doublings
 
 
 # --- helpers ----------------------------------------------------------------

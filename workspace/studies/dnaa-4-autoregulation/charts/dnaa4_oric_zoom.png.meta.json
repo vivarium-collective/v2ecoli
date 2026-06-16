@@ -1,0 +1,7 @@
+{
+  "title": "oriC charging with DnaA-ATP toward initiation (dnaa-4, gen 6)",
+  "caption": "Zoom on the origin of replication. LEFT: stacked occupancy of the 11 oriC boxes (3 high-affinity R-boxes + 8 low-affinity I/tau-sites) by bound form (free / DnaA-ATP / DnaA-ADP) across one cell cycle; the red dashed line is initiation (oriC doubles 1->2), the dotted line is the pre-initiation snapshot. RIGHT: the origin-box array at the pre-initiation moment, each box colored by what it is bound to. Reproducible: scripts/render_oric_zoom.py <run> <gen> <out.png>.",
+  "interpretation": "An origin-level view of DnaA binding. NOTE the honest readout: in the dnaa-3/4 model the oriC boxes are only ~5/11 DnaA-ATP-loaded at initiation and ATP-occupancy keeps growing AFTER initiation (the origin box count doubles), i.e. oriC ATP-loading does not yet sharply GATE initiation — box binding is bookkeeping (per dnaa-3) and initiation is driven by the existing mass/replication logic. Tightening this into an occupancy-gated trigger is the dnaa-04-mechanistic-initiation study.",
+  "source_runs": ["dnaa4_s07_seed1_16gen_fixed"],
+  "script": "scripts/render_oric_zoom.py"
+}

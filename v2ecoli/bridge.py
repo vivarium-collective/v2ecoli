@@ -33,6 +33,20 @@ import numpy as np
 from process_bigraph import Process, Composite
 
 
+def _mag(value, default=0.0):
+    """Coerce a possibly unit-carrying mass/volume reading to a plain float.
+
+    Depending on the ParCa cache, the WCM ``listeners.mass`` fields come back
+    as pint ``Quantity`` objects (e.g. femtograms) rather than bare floats, and
+    ``float(Quantity)`` raises. The numeric magnitude is already in the unit the
+    bridge has always assumed (fg for mass, fL for volume — it used bare
+    ``float()`` before units were added), so take ``.magnitude`` when present.
+    """
+    if value is None:
+        return float(default)
+    return float(getattr(value, 'magnitude', value))
+
+
 class EcoliWCM(Process):
     """Whole-cell E. coli as a single Process with bridge to internals.
 
@@ -45,6 +59,12 @@ class EcoliWCM(Process):
         'cache_dir':      {'_type': 'string', '_default': ''},
         'seed':           {'_type': 'integer', '_default': 0},
         'molecule_map':   {'_default': {}},
+        # Transport for daughters spawned at division — 'local' or 'ray'.
+        # Threaded through so a Ray colony's daughters are also Ray actors.
+        'transport':      {'_type': 'string', '_default': 'local'},
+        # Optional realistic starting body mass (fg) for daughters, mirroring
+        # the colony's init_mass so units stay coherent across generations.
+        'init_mass':      {'_default': None},
     }
 
     def initialize(self, config):
@@ -73,19 +93,35 @@ class EcoliWCM(Process):
 
         internal_core = build_core()
 
-        document = baseline(core=internal_core, seed=seed, cache_dir=cache_dir)
+        # Embedded inner WCM: its in-RAM emitter history is NEVER read — the
+        # bridge reads composite.state directly (see _read_outputs /
+        # _read_chromosome_state). So build the inner composite with the minimal
+        # global_time-only RAMEmitter instead of the default full-state capture
+        # (bulk ~25k molecules + four unique-molecule node arrays appended every
+        # tick into an unbounded, never-read history). That full capture is a
+        # ~7.7 MB/sim-s per-cell RSS leak that OOM-kills a growing colony — found
+        # in the colonies investigation and localized to this inner emitter.
+        # Save/restore the flag so it never leaks into a non-embedded caller that
+        # builds a composite later in the same process.
+        from v2ecoli.composites import _helpers as _helpers_mod
+        _prev_null_emitter = _helpers_mod._NULL_EMITTER_OVERRIDE
+        _helpers_mod.set_null_emitter_override(True)
+        try:
+            document = baseline(core=internal_core, seed=seed, cache_dir=cache_dir)
 
-        # Use the full document directly — preserves agents wrapper.
-        # The division step's '..' wire to parent agents will resolve to
-        # the empty agents dict when there's no outer container, which is
-        # safe because division won't trigger until t=~2500s.
-        self._composite = Composite(document, core=internal_core)
+            # Use the full document directly — preserves agents wrapper.
+            # The division step's '..' wire to parent agents will resolve to
+            # the empty agents dict when there's no outer container, which is
+            # safe because division won't trigger until t=~2500s.
+            self._composite = Composite(document, core=internal_core)
+        finally:
+            _helpers_mod.set_null_emitter_override(_prev_null_emitter)
 
         # Seed previous values for delta computation
         cell_state = self._composite.state.get('agents', {}).get('0', {})
         mass_data = cell_state.get('listeners', {}).get('mass', {})
-        self._prev_mass = float(mass_data.get('dry_mass', 0.0))
-        self._prev_volume = float(mass_data.get('volume', 0.0))
+        self._prev_mass = _mag(mass_data.get('dry_mass'), 0.0)
+        self._prev_volume = _mag(mass_data.get('volume'), 0.0)
 
     def _read_chromosome_state(self):
         """Extract chromosome state snapshot for visualization."""
@@ -127,21 +163,21 @@ class EcoliWCM(Process):
             'fork_coords': fork_coords,
             'n_rnap': n_rnap,
             'rnap_coords': rnap_coords,
-            'dry_mass': float(mass_data.get('dry_mass', 0)),
-            'protein_mass': float(mass_data.get('protein_mass', 0)),
-            'rna_mass': float(mass_data.get('rRna_mass', 0)) +
-                        float(mass_data.get('tRna_mass', 0)) +
-                        float(mass_data.get('mRna_mass', 0)),
-            'dna_mass': float(mass_data.get('dna_mass', 0)),
+            'dry_mass': _mag(mass_data.get('dry_mass'), 0),
+            'protein_mass': _mag(mass_data.get('protein_mass'), 0),
+            'rna_mass': _mag(mass_data.get('rRna_mass'), 0) +
+                        _mag(mass_data.get('tRna_mass'), 0) +
+                        _mag(mass_data.get('mRna_mass'), 0),
+            'dna_mass': _mag(mass_data.get('dna_mass'), 0),
         }
 
     def _read_outputs(self):
         """Read mass/volume from internal composite, compute length."""
         cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         mass_data = cell.get('listeners', {}).get('mass', {})
-        cur_mass = float(mass_data.get('dry_mass', 0.0))
-        cur_volume = float(mass_data.get('volume', 0.0))
-        growth = float(mass_data.get('growth', 0.0))
+        cur_mass = _mag(mass_data.get('dry_mass'), 0.0)
+        cur_volume = _mag(mass_data.get('volume'), 0.0)
+        growth = _mag(mass_data.get('growth'), 0.0)
 
         d_mass = cur_mass - self._prev_mass
         d_volume = cur_volume - self._prev_volume
@@ -248,7 +284,7 @@ class EcoliWCM(Process):
         ``interval`` — it lives on the wire, not in process config.)"""
         cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         mass_data = cell.get('listeners', {}).get('mass', {})
-        mother_mass = float(mass_data.get('dry_mass', 380.0))
+        mother_mass = _mag(mass_data.get('dry_mass'), 380.0)
         half_mass = mother_mass / 2
 
         # Get mother cell's physical state from the colony
@@ -257,6 +293,9 @@ class EcoliWCM(Process):
         # Build two daughter EcoliWCM specs
         cache_dir = self.config.get('cache_dir', 'out/cache')
         seed = int(self.config.get('seed', 0))
+        transport = self.config.get('transport', 'local')
+        init_mass = self.config.get('init_mass', None)
+        d_address = f'{transport}:EcoliWCM'
 
         from viva_munk.processes.multibody import make_rng, build_microbe
         rng = make_rng(seed + hash(agent_id) % 10000)
@@ -281,14 +320,17 @@ class EcoliWCM(Process):
                 x=mx + ox, y=my + oy, angle=mother_angle + rng.uniform(-0.3, 0.3),
                 length=2.0, radius=0.5, density=0.02,
             )
-            d_body['mass'] = half_mass
-            # Each daughter gets its own EcoliWCM
+            d_body['mass'] = float(init_mass) if init_mass is not None else half_mass
+            # Each daughter gets its own EcoliWCM, inheriting the mother's
+            # transport (local vs ray) so a Ray colony stays all-Ray.
             d_body['ecoli'] = {
                 '_type': 'process',
-                'address': 'local:EcoliWCM',
+                'address': d_address,
                 'config': {
                     'cache_dir': cache_dir,
                     'seed': seed + i + 1,
+                    'transport': transport,
+                    'init_mass': init_mass,
                 },
                 'interval': interval,
                 'inputs': {

@@ -1,0 +1,49 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260605021509"
+  generated_at: "2026-06-05T04:20:43.090Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-05-3.html"
+annotations:
+  "study-dnaa-3-box-binding-charts":
+  - ts: "2026-06-05T04:19:06.011Z"
+    author: "Rashmi"
+    text: "dnaA promoter and oriC label are overlapping."
+  "study-dnaa-3-box-binding-readouts":
+  - ts: "2026-06-05T04:18:30.777Z"
+    author: "Rashmi"
+    text: "run this study. make all the plots in the what we will measure section."
+  - ts: "2026-06-05T04:19:42.252Z"
+    author: "Rashmi"
+    text: "total concentration is count/cell mass not volume"
+actions:
+  fb-2392ee63c660ab51:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Run done; readouts/occupancy/binding-analysis rendered on the adopted run.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: Run done; readouts/occupancy/binding-analysis rendered on the adopted run.
+  fb-708dd9e3461024b5:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: Readouts use count/cell mass.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'
+    applied_note: Readouts use count/cell mass.
+  fb-f1f2b726e46f877f:
+    kind: design-edit
+    target_study: dnaa-3-box-binding
+    proposed_text: dnaA-promoter/oriC labels separated with leader lines.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:44:32Z'
+    applied_note: dnaA-promoter/oriC labels separated with leader lines.

@@ -1,0 +1,147 @@
+{
+  "run": "dnaa3-fullhist",
+  "source": "out/dnaa3_fullhist (canonical all-zeros lineage, >100-tick partitions)",
+  "Kd_low_nM": 100.0,
+  "generations": [
+    {
+      "gen": 1,
+      "ticks": 3563,
+      "free_DnaA_ATP_nM": {
+        "min": 106.2,
+        "mean": 425.9,
+        "max": 599.6
+      },
+      "frac_cycle_ATP_above_Kd_low": 1.0,
+      "oriC_low_occupancy_mean": 0.785,
+      "oriC_high_occupancy_mean": 0.998,
+      "chromosome_occupancy_mean": 0.998,
+      "dnaA_ATP_fraction_mean": 0.657,
+      "oriC_min": 1,
+      "oriC_max": 2,
+      "cell_mass_fg": {
+        "min": 593.0,
+        "max": 1356.0
+      }
+    },
+    {
+      "gen": 2,
+      "ticks": 2847,
+      "free_DnaA_ATP_nM": {
+        "min": 240.5,
+        "mean": 381.8,
+        "max": 501.2
+      },
+      "frac_cycle_ATP_above_Kd_low": 1.0,
+      "oriC_low_occupancy_mean": 0.786,
+      "oriC_high_occupancy_mean": 0.999,
+      "chromosome_occupancy_mean": 0.999,
+      "dnaA_ATP_fraction_mean": 0.316,
+      "oriC_min": 1,
+      "oriC_max": 2,
+      "cell_mass_fg": {
+        "min": 677.0,
+        "max": 1250.0
+      }
+    },
+    {
+      "gen": 3,
+      "ticks": 3212,
+      "free_DnaA_ATP_nM": {
+        "min": 257.4,
+        "mean": 436.1,
+        "max": 630.3
+      },
+      "frac_cycle_ATP_above_Kd_low": 1.0,
+      "oriC_low_occupancy_mean": 0.805,
+      "oriC_high_occupancy_mean": 0.999,
+      "chromosome_occupancy_mean": 0.999,
+      "dnaA_ATP_fraction_mean": 0.305,
+      "oriC_min": 1,
+      "oriC_max": 2,
+      "cell_mass_fg": {
+        "min": 624.0,
+        "max": 1309.0
+      }
+    },
+    {
+      "gen": 4,
+      "ticks": 2958,
+      "free_DnaA_ATP_nM": {
+        "min": 485.2,
+        "mean": 553.9,
+        "max": 654.7
+      },
+      "frac_cycle_ATP_above_Kd_low": 1.0,
+      "oriC_low_occupancy_mean": 0.846,
+      "oriC_high_occupancy_mean": 0.999,
+      "chromosome_occupancy_mean": 0.999,
+      "dnaA_ATP_fraction_mean": 0.315,
+      "oriC_min": 1,
+      "oriC_max": 2,
+      "cell_mass_fg": {
+        "min": 654.0,
+        "max": 1270.0
+      }
+    },
+    {
+      "gen": 5,
+      "ticks": 3161,
+      "free_DnaA_ATP_nM": {
+        "min": 315.8,
+        "mean": 391.7,
+        "max": 475.5
+      },
+      "frac_cycle_ATP_above_Kd_low": 1.0,
+      "oriC_low_occupancy_mean": 0.795,
+      "oriC_high_occupancy_mean": 0.999,
+      "chromosome_occupancy_mean": 0.999,
+      "dnaA_ATP_fraction_mean": 0.229,
+      "oriC_min": 1,
+      "oriC_max": 2,
+      "cell_mass_fg": {
+        "min": 634.0,
+        "max": 1225.0
+      }
+    },
+    {
+      "gen": 6,
+      "ticks": 3191,
+      "free_DnaA_ATP_nM": {
+        "min": 354.3,
+        "mean": 477.5,
+        "max": 644.9
+      },
+      "frac_cycle_ATP_above_Kd_low": 1.0,
+      "oriC_low_occupancy_mean": 0.823,
+      "oriC_high_occupancy_mean": 0.999,
+      "chromosome_occupancy_mean": 0.999,
+      "dnaA_ATP_fraction_mean": 0.276,
+      "oriC_min": 1,
+      "oriC_max": 2,
+      "cell_mass_fg": {
+        "min": 613.0,
+        "max": 1329.0
+      }
+    },
+    {
+      "gen": 7,
+      "ticks": 2939,
+      "free_DnaA_ATP_nM": {
+        "min": 270.2,
+        "mean": 415.0,
+        "max": 508.7
+      },
+      "frac_cycle_ATP_above_Kd_low": 1.0,
+      "oriC_low_occupancy_mean": 0.802,
+      "oriC_high_occupancy_mean": 0.999,
+      "chromosome_occupancy_mean": 0.999,
+      "dnaA_ATP_fraction_mean": 0.253,
+      "oriC_min": 1,
+      "oriC_max": 2,
+      "cell_mass_fg": {
+        "min": 663.0,
+        "max": 1238.0
+      }
+    }
+  ]
+}

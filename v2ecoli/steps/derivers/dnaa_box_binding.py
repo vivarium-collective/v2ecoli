@@ -1,0 +1,177 @@
+"""
+=========================
+DnaA-box Binding Listener  (dnaa-3)
+=========================
+
+In-sim, READ-ONLY observable of DnaA-box occupancy — the PROVIDED dnaa-3 model
+(Haochen's spec: 4 affinity pools, fast equilibrium on the timestep). Each tick
+it reads the free DnaA-ATP / DnaA-ADP bulk counts + cell mass (→ volume →
+concentration) and computes the fast-equilibrium occupancy P = C/(C+K_d) for
+each pool, emitting the ``dnaA_binding`` listener (the interface the box-occupancy
+viz expects).
+
+It is strictly read-only: it does NOT mutate bulk counts or the DnaA_box flags,
+so the validated dnaa-2 cell cycle is preserved exactly.
+
+Provided pools: chromosomal_high (consensus, K_d≈1 nM, ATP+ADP), oriC_high
+(3 R1/R2/R4, K_d≈1 nM, ATP+ADP), oriC_low (8, K_d≈100 nM, ATP only),
+promoter_high (2, K_d≈1 nM, ATP+ADP). Consensus boxes are classified live from
+the DnaA_box unique store by region; the 8 oriC-low are a fixed design pool.
+
+In-sim wiring fixes that make the provided model run (kept): the ``bulk`` port
+uses the registered ``bulk_array`` type (so the bulk store keeps its
+BulkNumpyUpdate apply); the step writes ONLY to ``listeners`` (no bulk delta);
+the emitted ``dnaA_binding`` leaves use ``overwrite[...]`` (not accumulate).
+
+NOTE (2026-06-08, per Rashmi): an earlier pass added a chromosomal box-capacity
+cap (justified by outside Smith-2024 ChIP-seq) and an opt-in DnaA "sink", plus
+abundance/datA literature — none of which were provided. All of that has been
+REMOVED. Strictly only the provided mechanisms are modeled. Per Rashmi, with the
+correct DnaA-ATP fraction (0.2-0.5, from the provided dnaa-2 nucleotide-balance
+mechanism) the low-affinity sites do not all saturate, so no cap or sink is
+warranted.
+"""
+import numpy as np
+from v2ecoli.library.schema import bulk_name_to_idx, counts, attrs
+from v2ecoli.library.schema_types import DNAA_BOX_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
+
+NAME = "dnaa_box_binding_listener"
+TOPOLOGY = {
+    "bulk": ("bulk",),
+    "DnaA_boxes": ("unique", "DnaA_box"),
+    "mass_listener": ("listeners", "mass"),   # READ port (separate from the write port)
+    "listeners": ("listeners",),               # WRITE port (dnaA_binding output)
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+}
+
+CHROM_LEN = 4_641_652  # bp; DnaA_box coords are oriC-relative signed
+# DnaA bulk species (apo / DnaA-ATP / DnaA-ADP) — same IDs dnaa-2 uses.
+APO, ATP, ADP = "PD03831[c]", "MONOMER0-160[c]", "MONOMER0-4565[c]"
+
+
+def _region(signed):
+    if abs(int(signed)) <= 5_000:
+        return "oriC"
+    if -50_000 < int(signed) < -30_000:
+        return "dnaA_promoter"
+    return "chromosomal"
+
+
+class DnaaBoxBinding(Step):
+    """Read-only DnaA-box occupancy listener (provided fast-equilibrium model)."""
+
+    name = NAME
+    topology = TOPOLOGY
+
+    config_schema = {
+        "time_step": "float{1.0}",
+        "cell_density": "float{1100.0}",   # g/L (≈1.1 g/mL)
+        "n_avogadro": "float{6.02214076e23}",
+        # per-pool K_d (nM) + sizes; the 8 oriC-low boxes are a fixed design pool
+        "kd_high_nM": "float{1.0}",
+        "kd_low_nM": "float{100.0}",
+        "n_oric_low": "integer{8}",
+    }
+
+    def initialize(self, config):
+        # EcoliStep calls initialize() after building self.parameters (NOT __init__).
+        self.cell_density = self.parameters["cell_density"]
+        self.n_avogadro = self.parameters["n_avogadro"]
+        self.kd_high = self.parameters["kd_high_nM"]
+        self.kd_low = self.parameters["kd_low_nM"]
+        self.n_oric_low = self.parameters["n_oric_low"]
+        self.molecule_idx = None
+
+    def inputs(self):
+        return {
+            # Use the registered ``bulk_array`` type (NOT numpy_schema("bulk"))
+            # so the bulk store keeps its BulkNumpyUpdate apply. numpy_schema
+            # returns a typeless dict whose _updater function is dropped on
+            # schema merge — the store then falls back to the generic Array
+            # apply (state[idx] += delta), which crashes when the NEXT step
+            # (Equilibrium) returns a [(idx, delta)] bulk delta against the
+            # structured bulk dtype. Same convention counts_deriver/mass_deriver
+            # use for their read-only bulk port.
+            "bulk": {"_type": "bulk_array", "_default": []},
+            "DnaA_boxes": {"_type": DNAA_BOX_ARRAY, "_default": []},
+            "mass_listener": {"cell_mass": {"_type": "quantity[float,fg]", "_default": 0}},
+            "global_time": {"_type": "float", "_default": 0.0},
+            "timestep": {"_type": "float", "_default": 1},
+        }
+
+    def outputs(self):
+        # Read-only: the ONLY output is the listeners.dnaA_binding observable.
+        # bulk is absent from outputs(), so no bulk delta is ever produced.
+        return {
+            "listeners": {
+                "dnaA_binding": {
+                    "free_DnaA_ATP_nM": {"_type": "overwrite[float]", "_default": []},
+                    "free_DnaA_ADP_nM": {"_type": "overwrite[float]", "_default": []},
+                    "oric": {
+                        "high_affinity_occupied": {"_type": "overwrite[float]", "_default": []},
+                        "low_affinity_occupied": {"_type": "overwrite[float]", "_default": []},
+                        "n_bound": {"_type": "overwrite[integer]", "_default": []},
+                        "n_total": {"_type": "overwrite[integer]", "_default": []},
+                    },
+                    "dnaap": {
+                        "occupied": {"_type": "overwrite[float]", "_default": []},
+                        "n_bound": {"_type": "overwrite[integer]", "_default": []},
+                        "n_total": {"_type": "overwrite[integer]", "_default": []},
+                    },
+                    "chromosome": {
+                        "occupied": {"_type": "overwrite[float]", "_default": []},
+                        "occupied_count": {"_type": "overwrite[integer]", "_default": []},
+                        "n_total": {"_type": "overwrite[integer]", "_default": []},
+                    },
+                    "total_DnaA_bound": {"_type": "overwrite[integer]", "_default": []},
+                }
+            }
+        }
+
+    def update_condition(self, timestep, states):
+        return (states["global_time"] % states["timestep"]) == 0
+
+    def update(self, states, interval=None):
+        if self.molecule_idx is None:
+            self.molecule_idx = bulk_name_to_idx([APO, ATP, ADP], states["bulk"]["id"])
+        apo, atp, adp = counts(states["bulk"], self.molecule_idx)
+
+        cell_mass_g = as_quantity(states["mass_listener"]["cell_mass"], units.fg).to(units.g).magnitude
+        cell_volume_L = cell_mass_g / self.cell_density if cell_mass_g > 0 else None
+
+        def nM(n):
+            if not cell_volume_L:
+                return 0.0
+            return float(n) / (cell_volume_L * self.n_avogadro) * 1e9
+
+        atp_nM, adp_nM = nM(atp), nM(adp)
+        c_high = atp_nM + adp_nM            # high-aff pools bind ATP or ADP
+        c_low = atp_nM                       # oriC-low binds ATP only
+        p_high = c_high / (c_high + self.kd_high) if c_high else 0.0
+        p_low = c_low / (c_low + self.kd_low) if c_low else 0.0
+
+        # classify the live consensus boxes by region (full provided box set)
+        (coords,) = attrs(states["DnaA_boxes"], ["coordinates"])
+        n = {"oriC": 0, "dnaA_promoter": 0, "chromosomal": 0}
+        for c in coords:
+            n[_region(c)] += 1
+        oric_high_n, dnaap_n, chrom_n = n["oriC"], n["dnaA_promoter"], n["chromosomal"]
+        oric_low_n = self.n_oric_low
+
+        oric_bound = int(round(oric_high_n * p_high + oric_low_n * p_low))
+        dnaap_bound = int(round(dnaap_n * p_high))
+        chrom_bound = int(round(chrom_n * p_high))
+        total_bound = oric_bound + dnaap_bound + chrom_bound
+
+        return {"listeners": {"dnaA_binding": {
+            "free_DnaA_ATP_nM": atp_nM, "free_DnaA_ADP_nM": adp_nM,
+            "oric": {"high_affinity_occupied": p_high, "low_affinity_occupied": p_low,
+                     "n_bound": oric_bound, "n_total": oric_high_n + oric_low_n},
+            "dnaap": {"occupied": p_high, "n_bound": dnaap_bound, "n_total": dnaap_n},
+            "chromosome": {"occupied": p_high, "occupied_count": chrom_bound, "n_total": chrom_n},
+            "total_DnaA_bound": total_bound,
+        }}}

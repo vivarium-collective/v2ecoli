@@ -71,6 +71,8 @@ from v2ecoli.steps.population_aggregator import (
         # Population-aggregator knobs.
         "cells_per_agent": {"type": "number", "default": DEFAULT_CELLS_PER_AGENT},
         "od_to_gdw":       {"type": "number", "default": DEFAULT_OD_TO_GDW},
+        # "fixed" (default) | "representative_doubling" (#225 item #1).
+        "population_growth_mode": {"type": "string", "default": "fixed"},
     },
     core_extensions=[_register_millard_pdmp_links],
 )
@@ -84,6 +86,7 @@ def reactor_bird_coupled_millard(
     bird_reactor_config: dict | None = None,
     cells_per_agent: float = DEFAULT_CELLS_PER_AGENT,
     od_to_gdw: float = DEFAULT_OD_TO_GDW,
+    population_growth_mode: str = "fixed",
 ) -> dict:
     """Build the reactor_bird_coupled_millard document.
 
@@ -110,10 +113,48 @@ def reactor_bird_coupled_millard(
         cells_per_agent=cells_per_agent,
         od_to_gdw=od_to_gdw,
         reactor_volume_L=float(bird_config.get("volume_L", 1.0)),
+        population_growth_mode=population_growth_mode,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled) ---
-    return add_reactor_coupling(
+    document = add_reactor_coupling(
         document, core,
         bird_config=bird_config, cells_per_agent=cells_per_agent,
     )
+
+    # --- reactor->Millard O2 feedback bridge (#225 item #4) ---------------
+    # The shared EnvironmentMirror routes the reactor's dissolved O2 to each
+    # agent's boundary.external (the WCM metabolism's port). The Millard cell's
+    # metabolism reads its OWN environment.external_concentrations store instead,
+    # which nothing populates — so add the Millard analogue of the mirror: copy
+    # the top-level reactor-derived boundary concentrations into every agent's
+    # environment.external_concentrations. The Millard step aliases O2 to its
+    # SBML id and overwrites the fixed O2 boundary, so CYTBO respiration
+    # throttles as the reactor's dissolved O2 falls (closes the reverse leg of
+    # the reactor<->cell O2 loop). Run right after environment_mirror so the
+    # value is visible to millard-pdmp-metabolism within the same tick.
+    _add_reactor_millard_env_bridge(document, core)
+    return document
+
+
+def _add_reactor_millard_env_bridge(document: dict, core: Any) -> dict:
+    """Insert ReactorMillardEnvBridge after environment_mirror in the flow."""
+    from v2ecoli.composites._helpers import _make_instance, make_edge
+    from v2ecoli.steps.reactor_millard_env_bridge import ReactorMillardEnvBridge
+
+    state = document["state"]
+    flow_order = document.setdefault("flow_order", [])
+
+    bridge = _make_instance(ReactorMillardEnvBridge, {}, core)
+    state["reactor_millard_env_bridge"] = make_edge(
+        bridge, ReactorMillardEnvBridge.topology, edge_type="step", config={},
+    )
+
+    if "environment_mirror" in flow_order:
+        flow_order.insert(
+            flow_order.index("environment_mirror") + 1,
+            "reactor_millard_env_bridge",
+        )
+    else:
+        flow_order.append("reactor_millard_env_bridge")
+    return document

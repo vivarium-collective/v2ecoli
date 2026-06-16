@@ -2,7 +2,7 @@
 
 > **Explore in your browser — no install:**
 > &nbsp;🖥️ **[Interactive dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/)** (browse the whole workspace)
-> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://vivarium-collective.github.io/v2ecoli/dashboard/#visualizations)** (interactive structural model — dashboard → Analyses)
+> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?file=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/ecoli_3d.pack.json)** (interactive whole-cell structural model — opens directly; **"View in VR"** on a Meta Quest)
 > &nbsp;·&nbsp; 📊 **[Baseline Showcase report](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)** ⭐ (best starting point)
 > &nbsp;·&nbsp; 🗂️ **[Report gallery](https://vivarium-collective.github.io/v2ecoli/)**
 > — see **[Explore v2ecoli](#explore-v2ecoli)** for what each one is.

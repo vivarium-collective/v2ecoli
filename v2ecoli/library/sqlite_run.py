@@ -161,6 +161,35 @@ def prune_to_followed_lineage(composite: Any, followed_id: str) -> int:
     return len(to_drop)
 
 
+def set_lineage_doublings(composite: Any, doublings: float) -> bool:
+    """Write the represented-population doubling count into the ``lineage`` store.
+
+    The representative-growing-population mode (#225 item #1) makes the followed
+    single lineage stand in for a population that doubles each generation. The
+    ``PopulationAggregator`` (in ``population_growth_mode='representative_doubling'``)
+    reads ``lineage.doublings`` and multiplies the represented ``cell_count`` /
+    biomass by ``2**doublings``, so the coupled reactor sees an ACCUMULATING
+    biomass (and O2 demand) across generations instead of the single-lineage
+    plateau. ``doublings`` is ``generation - 1`` so generation 1 -> factor 1.
+
+    Direct mutation of ``composite.state['lineage']`` (an InPlaceDict map of
+    floats) is seen by the aggregator's lineage input wire on the next tick.
+    No-op (returns False) when the composite has no ``lineage`` store — so this
+    is safe to call unconditionally regardless of the aggregator's mode (in the
+    default ``fixed`` mode the aggregator ignores the value anyway).
+    """
+    state = composite.state or {}
+    lineage = state.get("lineage")
+    if not isinstance(lineage, dict):
+        return False
+    d = float(doublings)
+    if d < 0:
+        d = 0.0
+    lineage["doublings"] = d
+    lineage["generation"] = d + 1.0
+    return True
+
+
 def _normalize_root_paths(root_paths: list[str]) -> list[tuple[str, ...]]:
     """Like :func:`_normalize_emit_paths` but does NOT strip an
     ``agents/<id>/`` prefix — these paths are rooted at the composite
@@ -348,47 +377,90 @@ def run_multigen_sqlite(
     done = 0
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
+    # Seed the represented-population doubling count (#225 item #1). generation 1
+    # -> 0 doublings -> factor 2^0 = 1 (no scaling for the founder generation).
+    # No-op for composites without a lineage store (single-cell baseline runs).
+    set_lineage_doublings(composite, gen - 1)
 
-    while done < max_steps:
-        n = min(chunk, max_steps - done)
-        try:
-            composite.run(n)
-        except Exception as e:
-            print(f"[multigen_sqlite] composite stopped at tick {done}: "
-                  f"{type(e).__name__}: {str(e)[:120]}")
-            break
-        done += n
-        agents = (composite.state or {}).get("agents") or {}
-        curr_ids = set(agents.keys())
-
-        if followed in agents:
-            payload = _filter_agent_state(agents[followed], leaves)
-            update_state = {
-                "time": float(done),
-                "global_time": float(done),
-                "agents": {followed: payload},
-            }
-            if root_leaves:
-                _merge_into(
-                    update_state,
-                    _filter_root_state(composite.state or {}, root_leaves),
-                )
+    # Force the in-document emitter of any RUNTIME-built daughter cell to the
+    # minimal null sink for the duration of this run. This runner emits the
+    # followed lineage out-of-band via the external SQLite emitter (``em``
+    # above), so a daughter's own internal emitter must not persist anything.
+    #
+    # Without this, the division Step rebuilds each daughter via
+    # ``baseline()`` whose default is ``emitter="parquet"`` (the
+    # ``set_null_emitter_override(True)`` a caller set BEFORE the initial build
+    # has already been restored to False by the time division fires at
+    # runtime). Every daughter then constructs a ParquetEmitter that writes to
+    # the SAME fixed hive partition (``generation=1/agent_id=1`` — the
+    # parquet_vecoli preset defaults, never re-pointed per daughter). On
+    # construction each new daughter's ``_write_configuration`` deletes that
+    # partition directory recursively, racing the previous daughter's threaded
+    # batch write and crashing it with
+    # ``FileNotFoundError: .../<N>.pq.tmp`` (surfaced at the next flush's
+    # ``last_batch_future.result()``) — truncating coupled multigen runs at the
+    # gen-2->3 boundary. Daughter persistence here belongs to the external
+    # SQLite emitter, so null is both correct and crash-free.
+    import v2ecoli.composites._helpers as _emit_h  # noqa: PLC0415
+    _prev_null_override = _emit_h._NULL_EMITTER_OVERRIDE
+    _emit_h.set_null_emitter_override(True)
+    try:
+        while done < max_steps:
+            n = min(chunk, max_steps - done)
             try:
-                em.update(update_state)
+                composite.run(n)
             except Exception as e:
-                print(f"[multigen_sqlite] emit failed at tick {done}: "
+                print(f"[multigen_sqlite] composite stopped at tick {done}: "
                       f"{type(e).__name__}: {str(e)[:120]}")
-        else:
-            # The followed agent disappeared — division. Pick daughter
-            # if we have generations left; else stop.
+                break
+            done += n
+            agents = (composite.state or {}).get("agents") or {}
+            curr_ids = set(agents.keys())
+
+            # Division detection (#225 item #2 fix, ported from
+            # run_multigen_parquet): a new agent id surfacing this chunk = an
+            # ``_add`` = a division. This is robust to the inner Division step
+            # REUSING the followed id for a daughter ("00" -> "00"/"01"), which
+            # the old ``followed not in agents`` test missed for gen>=2 — folding
+            # later generations into one and freezing the doubling count.
+            new_ids = curr_ids - prev_ids
+            divided = bool(new_ids) or (followed not in agents)
+
+            if not divided:
+                payload = _filter_agent_state(agents[followed], leaves)
+                update_state = {
+                    "time": float(done),
+                    "global_time": float(done),
+                    "agents": {followed: payload},
+                }
+                if root_leaves:
+                    _merge_into(
+                        update_state,
+                        _filter_root_state(composite.state or {}, root_leaves),
+                    )
+                try:
+                    em.update(update_state)
+                except Exception as e:
+                    print(f"[multigen_sqlite] emit failed at tick {done}: "
+                          f"{type(e).__name__}: {str(e)[:120]}")
+                prev_ids = curr_ids
+                if single_daughters and n >= 50:
+                    gc.collect()
+                continue
+
+            # --- DIVISION this chunk: advance the generation. -----------------
             if gen >= max_generations:
                 break
-            divided, daughter = division_detector(prev_ids, curr_ids)
-            if not divided or daughter is None:
-                remaining = sorted(curr_ids)
-                if not remaining:
-                    break
-                daughter = remaining[0]
+            # Choose the inner survivor to follow: prefer a daughter whose id
+            # ends in "0" (vEcoli single-daughter convention), else any agent.
+            survivors = sorted(curr_ids)
+            daughter = next((i for i in survivors if i.endswith("0")), None)
+            if daughter is None:
+                _div, daughter = division_detector(prev_ids, curr_ids)
+                if not _div or daughter is None:
+                    daughter = survivors[0] if survivors else None
+            if daughter is None:
+                break
             followed = daughter
             gen += 1
             gens_seen.append(gen)
@@ -405,7 +477,14 @@ def run_multigen_sqlite(
             else:
                 print(f"[multigen_sqlite] gen {gen} → following agent "
                       f"{followed!r} at tick {done}")
+            # Advance the represented-population doubling count so the aggregator
+            # (in representative_doubling mode) grows the coupled biomass 2x for
+            # this new generation. doublings = gen - 1; the daughter's mass
+            # halving cancels the count doubling -> biomass continuous across the
+            # division (#225 item #1). No-op in fixed mode / no lineage store.
+            set_lineage_doublings(composite, gen - 1)
             # Emit immediately so the gen handoff has a marker row.
+            agents = (composite.state or {}).get("agents") or {}
             if followed in agents:
                 payload = _filter_agent_state(agents[followed], leaves)
                 update_state = {
@@ -422,11 +501,13 @@ def run_multigen_sqlite(
                     em.update(update_state)
                 except Exception:
                     pass
-        prev_ids = curr_ids
-        # Light gc per chunk only when single_daughters is on — that's
-        # the mode with memory pressure to fight. Cheap insurance
-        # against cyclic refs in composite scheduler queues.
-        if single_daughters and n >= 50:
-            gc.collect()
+            prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
+            # Light gc per chunk only when single_daughters is on — that's
+            # the mode with memory pressure to fight. Cheap insurance
+            # against cyclic refs in composite scheduler queues.
+            if single_daughters and n >= 50:
+                gc.collect()
+    finally:
+        _emit_h.set_null_emitter_override(_prev_null_override)
 
     return {"steps": done, "generations": gens_seen}

@@ -147,3 +147,16 @@ def test_trim_state_for_view_caps_long_arrays_keeps_structure():
     assert a0["unique"]["ribosome"][0] == {"i": 0}    # dict structure preserved
     assert a0["process"]["_type"] == "process"        # process node untouched
     assert a0["process"]["inputs"]["x"] == ["agents", "0", "bulk"]  # short wiring path intact
+
+
+def test_baseline_viewer_redirects_into_hub():
+    """The legacy /baseline-viewer/ URL (and its QR) must redirect into the hub's
+    baseline loom view. stateUrl is relative to the loom page (viewers/loom/),
+    matching how the hub itself links baseline."""
+    p = Path(__file__).parent.parent / "docs" / "baseline-viewer" / "index.html"
+    html = p.read_text(encoding="utf-8")
+    assert "location.replace" in html
+    assert "../viewers/loom/index.html?static=1" in html
+    assert "id=v2ecoli.composites.baseline.baseline" in html
+    assert "stateUrl=../data/baseline.state.json" in html
+    assert "viewUrl=../data/baseline.view.json" in html

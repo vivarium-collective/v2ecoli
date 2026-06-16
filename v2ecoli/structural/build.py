@@ -58,6 +58,36 @@ def chromosome_state(state_source="snapshot"):
         return default
 
 
+def division_progress(state_source="snapshot"):
+    """Fraction through the D-period (replication termination → division), 0..1.
+
+    The cell's progress toward cytokinesis, read from the state npz key
+    ``division_progress`` (computed from the source run: a newborn cell ≈ 0; the
+    last frame before division ≈ 1). Drives the septum constriction depth.
+    """
+    npz = (DATA / "v2ecoli_state_division.npz") if state_source == "division" \
+        else (DATA / "v2ecoli_state.npz")
+    default = 1.0 if state_source == "division" else 0.0
+    try:
+        st = np.load(npz)
+        return float(st["division_progress"]) if "division_progress" in st else default
+    except Exception:
+        return default
+
+
+def septum_from_progress(progress, onset=0.4, max_depth=0.7):
+    """Septum constriction depth (0..max_depth) from division progress.
+
+    The FtsZ-ring constriction begins partway through the D-period (``onset``)
+    and deepens to ``max_depth`` at division — capped below 1.0 so the envelope
+    keeps a visible neck rather than fully pinching into two cells.
+    """
+    p = max(0.0, min(1.0, float(progress)))
+    if p <= onset:
+        return 0.0
+    return max_depth * (p - onset) / (1.0 - onset)
+
+
 # Category → display colour (RGB 0–1).
 CATEGORY_COLOR = {
     "Translation": (0.95, 0.55, 0.25), "Transcription": (0.35, 0.6, 0.95),
@@ -670,9 +700,9 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # The replisome and oriC are genuine unique molecules in the cell state (their
     # counts = active_replisome / oriC counts); terC is the terminus locus.
     ingredients.append(Ingredient(
-        id="replisome", count=0, sphere_radius=90.0,
-        color=(1.0, 0.35, 0.1), category="Replication",
-        display_name="Replisome (active_replisome, at fork)"))
+        id="replisome", count=0, structure=StructureRef("pdb", "2HPI"),
+        color=(1.0, 0.35, 0.1), category="Replication", proxy_voxel_size=14.0,
+        display_name="Replisome — DNA polymerase III (active_replisome, at fork)"))
     ingredients.append(Ingredient(
         id="oriC", count=0, sphere_radius=70.0,
         color=(0.2, 0.9, 0.4), category="Replication",
@@ -701,11 +731,12 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200},
         n_chromosomes=n_chrom, fork_fraction=fork_fraction,
         fork_marker="replisome", oric_marker="oriC", ter_marker="terminus")
-    # Septum: a pre-division cell (≥2 chromosomes) is constricting at midcell, so
-    # give it a pinched-capsule envelope (the membrane + interior follow it). 0 =
-    # smooth rod. Auto: 0.45 for a pre-division cell, else 0.
+    # Septum: a constricting pre-division cell gets a pinched-capsule envelope
+    # (the membrane + interior follow it). Depth is state-driven — it tracks the
+    # cell's division progress (D-period) rather than a fixed value, so a newborn
+    # is a smooth rod and a near-division cell has a deep waist.
     if septum_fraction is None:
-        septum_fraction = 0.5 if n_chrom >= 2 else 0.0
+        septum_fraction = septum_from_progress(division_progress(state_source))
     cell_mesh = (_constricted_capsule_mesh(capsule.half_len, capsule.radius,
                                            depth=septum_fraction)
                  if septum_fraction > 0.0 else None)

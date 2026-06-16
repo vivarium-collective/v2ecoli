@@ -68,6 +68,23 @@
         "composite_view": {
           "enum": ["loom-explore", "bigraph-viz"],
           "description": "Which renderer the dashboard uses for composite wiring. Default 'loom-explore' (interactive React Flow). Set to 'bigraph-viz' to fall back to the legacy static SVG render."
+        },
+        "ptools_server_url": {
+          "type": "string",
+          "description": "Base URL of the ptools server backing composite viewers."
+        },
+        "dashboard_public_base_url": {
+          "type": "string",
+          "description": "Public base URL the dashboard advertises for viewer links."
+        },
+        "ptools_data_dir": {
+          "type": "string",
+          "description": "Container path to the ptools data directory."
+        },
+        "viz_viewer_urls": {
+          "type": "object",
+          "description": "Map of viewer key -> hosted viewer URL (e.g. ecoli_3d).",
+          "additionalProperties": { "type": "string" }
         }
       }
     }

@@ -153,18 +153,18 @@ runs:
     _status: store_unresolved
 
 visualizations:
-- name: Compact surrogate — fidelity, rollout, speed
+- name: Compact surrogate — fidelity, parity, rollout, speed
   address: "image:../../reports/figures/sm-01-nn-surrogate/compact_surrogate.html"
   config:
-    title: "Compact surrogate (growth/mass): per-group R^2, 60-step rollout vs baseline, speedup"
+    title: "Compact surrogate (growth/mass): per-group R^2, one-step parity, per-column R^2 distribution, 60-step rollout vs baseline, speedup"
   chart: interactive
-  render: "Per-group R^2 bar + cell_mass/growth rollout overlays + speedup banner."
-- name: Broad panel — coverage and speedup
+  render: "Speedup banner + per-group median R^2 bar + one-step parity scatter (predicted vs actual mass, on the y=x line) + per-column R^2 histogram (100% of mass cols R^2>0.5) + cell_mass/growth autoregressive rollout overlays (tracks baseline, correlation 1.000)."
+- name: Broad panel — coverage, divergence, speed
   address: "image:../../reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html"
   config:
-    title: "Broad 11.5k-observable panel: per-group one-step coverage + speedup"
+    title: "Broad 11.5k-observable panel: per-group coverage, per-column R^2 distribution, divergent rollout, speedup"
   chart: interactive
-  render: "Per-group median R^2 bar (high-dim groups poor) + speedup banner."
+  render: "Speedup banner + per-group median R^2 bar + one-step parity scatter + per-column R^2 histogram (~2.5% of 4058 varying cols R^2>0.5) + autoregressive rollout that DIVERGES to NaN at ~step 9 — directly showing the high-dimensional instability."
 
 pipeline_gate:
   prerequisites:

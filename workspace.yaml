@@ -104,6 +104,15 @@ imports:
       gated by upstream Python 2.7 / qMINOS install; non-strict mode lets
       the wrapper be browsed in the dashboard without the solver. Live
       demo report: https://vivarium-collective.github.io/pbg-oxidizeme/
+  pbg_torch:
+    source: https://github.com/vivarium-collective/pbg-torch
+    ref: main
+    mode: reference
+    description: |
+      Neural-network surrogate Processes for process-bigraph. Provides
+      NeuralProcess — a drop-in learned surrogate of the baseline used by
+      investigations/surrogate-modeling. Registered into build_core() so it
+      appears in the dashboard Registry.
 server:
   enabled: true
 dashboard:
@@ -113,7 +122,7 @@ dashboard:
   # allow-list by top-level package (dashes/underscores normalized); discovery
   # is unchanged. Keep in sync with the pbg-* deps in pyproject.toml.
   registry:
-    include: [v2ecoli, pbg_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters]
+    include: [v2ecoli, pbg_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
   # Sources page: surface the ecoli-sources bundle (the ParCa/reconstruction
   # input files) with links — inherited files link to the pinned ecoli-sources
   # GitHub commit, local overrides to this repo. See v2ecoli/dashboard_sources.py.

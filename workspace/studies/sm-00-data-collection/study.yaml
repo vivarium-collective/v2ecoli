@@ -102,7 +102,13 @@ runs:
   computed_outcomes:
     _status: store_unresolved
 
-visualizations: []
+visualizations:
+- name: Training dataset overview
+  address: "image:../../reports/figures/sm-00-data-collection/dataset_overview.html"
+  config:
+    title: "Broad observable-panel composition + cell_mass/growth trajectories across 8 seeds"
+  chart: interactive
+  render: "Log-scale group-dimensionality bar (11569 obs across 6 groups) + per-seed cell_mass and growth-rate trajectories showing ensemble coverage and finiteness."
 
 pipeline_gate:
   prerequisites: []

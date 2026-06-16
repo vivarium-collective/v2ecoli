@@ -293,6 +293,23 @@ def main() -> None:
     study_names: list[str] = []
     study_statuses: list[str] = []
     study_warnings: list[str] = []
+    studies_missing_viz: list[str] = []
+
+    # A study "has a visualization" if it declares one in study.yaml OR ships a
+    # chart/viz artifact on disk (charts/, viz/, or reports/figures/<slug>/).
+    figures_root = _dir("studies").parent / "reports" / "figures"
+
+    def _has_visualization(study_dir_path, study_data) -> bool:
+        if study_data.get("visualizations"):
+            return True
+        if any(study_dir_path.glob("charts/*")):
+            return True
+        if any(study_dir_path.glob("viz/*")):
+            return True
+        slug_figs = figures_root / study_dir_path.name
+        if slug_figs.is_dir() and any(slug_figs.iterdir()):
+            return True
+        return False
 
     for study_yaml_path in sorted((_dir("studies")).glob("*/study.yaml")):
         study_dir = study_yaml_path.parent.name
@@ -302,6 +319,11 @@ def main() -> None:
             s_status = study_data.get("status", "unknown")
             study_names.append(s_name)
             study_statuses.append(s_status)
+
+            # Every study must demonstrate its claims with at least one
+            # visualization (declared in study.yaml or a chart/viz artifact).
+            if not _has_visualization(study_yaml_path.parent, study_data):
+                studies_missing_viz.append(s_name)
 
             # Validate against schema if available
             if study_schema is not None:
@@ -322,6 +344,14 @@ def main() -> None:
                     study_warnings.append(f"  WARN study {s_name}: {ve}")
         except Exception as exc:
             study_warnings.append(f"  WARN could not parse {study_yaml_path}: {exc}")
+
+    if studies_missing_viz:
+        _fail(
+            "every study must have at least one visualization "
+            "(study.yaml visualizations[], or a charts/ / viz/ / "
+            "reports/figures/<slug>/ artifact); missing in: "
+            + ", ".join(sorted(studies_missing_viz))
+        )
 
     n_studies = len(study_names)
     status_counts = Counter(study_statuses)

@@ -75,14 +75,21 @@ Two documented paths to production quality (left as follow-ups):
 ## Reproduce
 
 ```bash
-# one-time: install the surrogate library into the v2ecoli venv
-uv pip install --python .venv/bin/python torch
-uv pip install --python .venv/bin/python "pbg-torch @ git+https://github.com/vivarium-collective/pbg-torch"
+# pbg-torch is a declared v2ecoli dependency (pyproject.toml), so `uv sync`
+# installs it; NeuralProcess then appears in the dashboard Registry.
 
 cd code
 PY=../../../../.venv/bin/python   # the shared v2ecoli venv (has torch + pbg-torch)
+# 1. sample the broad-panel ensemble (sm-00)
 $PY sample_baseline.py --seeds 0 1 2 3 4 5 6 7 --n-steps 250 --out ../run
+# 2. broad surrogate (sm-01): train, evaluate, figure
 $PY train_surrogate.py --data ../run --hidden 256 256 --epochs 200
 $PY evaluate_surrogate.py --data ../run
-$PY make_figures.py --data ../run --out ../run/report.html
+$PY report_figures.py --kind dataset   --data ../run --out ../../../reports/figures/sm-00-data-collection/dataset_overview.html
+$PY report_figures.py --kind surrogate --data ../run --out ../../../reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
+# 3. compact surrogate (sm-01): slice growth/mass, retrain, figure
+$PY slice_compact.py --src ../run --dst ../run_compact --groups mass chromosome
+$PY train_surrogate.py --data ../run_compact --hidden 64 64 --epochs 400 --lr 5e-3
+$PY evaluate_surrogate.py --data ../run_compact
+$PY report_figures.py --kind surrogate --data ../run_compact --out ../../../reports/figures/sm-01-nn-surrogate/compact_surrogate.html
 ```

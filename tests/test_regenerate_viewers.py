@@ -127,3 +127,23 @@ def test_build_rows_isolates_a_failing_composite(tmp_path):
                           resolve=res, render_svg=boom_svg, render_viz2=ok_viz2)
     # "a" dropped (its render raised); the run continued and produced "b".
     assert [r["entry"].slug for r in rows] == ["b"]
+
+
+def test_trim_state_for_view_caps_long_arrays_keeps_structure():
+    import numpy as np
+    mod = _load_mod()
+    state = {
+        "agents": {"0": {
+            "bulk": np.arange(16321),                       # huge numpy array
+            "unique": {"ribosome": [{"i": n} for n in range(12507)]},  # huge list of dicts
+            "process": {"_type": "process", "address": "local:Foo",
+                        "inputs": {"x": ["agents", "0", "bulk"]}},  # short path list kept
+        }},
+    }
+    trimmed = mod.trim_state_for_view(state, max_list=8)
+    a0 = trimmed["agents"]["0"]
+    assert len(a0["bulk"]) == 8                       # numpy array capped
+    assert len(a0["unique"]["ribosome"]) == 8         # list of dicts capped
+    assert a0["unique"]["ribosome"][0] == {"i": 0}    # dict structure preserved
+    assert a0["process"]["_type"] == "process"        # process node untouched
+    assert a0["process"]["inputs"]["x"] == ["agents", "0", "bulk"]  # short wiring path intact

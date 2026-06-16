@@ -35,6 +35,30 @@ def load_manifest(path: Path) -> list[Entry]:
                   blurb=e.get("blurb", "")) for e in raw]
 
 
+def trim_state_for_view(obj, *, max_list: int = 8):
+    """Shrink a resolved composite state for VIEWING.
+
+    The bigraph STRUCTURE the viewers draw (stores, processes, wiring, schemas,
+    describe() docs) lives in dicts and short path lists. The bulk weight is
+    long molecule-data arrays — bulk counts (~16k), unique-molecule instance
+    lists (active_ribosome ~12k, promoter ~5k, …) — which loom/viz2/viz never
+    render. Capping every long list (numpy arrays included) keeps the cached
+    state small (5.5 MB -> a few hundred KB) without touching structure.
+    """
+    if isinstance(obj, dict):
+        return {k: trim_state_for_view(v, max_list=max_list) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [trim_state_for_view(v, max_list=max_list) for v in obj[:max_list]]
+    # numpy (and other 1-D array-likes): cap then recurse on the python list.
+    tolist = getattr(obj, "tolist", None)
+    if callable(tolist) and getattr(obj, "ndim", 0) >= 1:
+        try:
+            return trim_state_for_view(obj[:max_list].tolist(), max_list=max_list)
+        except Exception:  # noqa: BLE001 — fall through to leave the value as-is
+            pass
+    return obj
+
+
 def write_state(state: dict, slug: str, data_dir: Path) -> Path:
     data_dir.mkdir(parents=True, exist_ok=True)
     out = data_dir / f"{slug}.state.json"
@@ -183,6 +207,7 @@ def build_rows(entries, *, viewers_dir, resolve, render_svg, render_viz2):
             state = resolve(e.id)
             if state is None:
                 continue  # resolve() already logged why
+            state = trim_state_for_view(state)  # drop bulk data arrays the viewers don't draw
             write_state(state, e.slug, data_dir)
             svg = render_svg(state, e.slug, img_dir)
             viz2 = render_viz2(state, e.slug, viz2_dir)
@@ -210,6 +235,10 @@ def copy_loom_bundle(dest: Path, *, src: Path | None = None) -> None:
     if dest.exists():
         shutil.rmtree(dest)
     shutil.copytree(src, dest)
+    # A read-only viewer never needs JS source maps (~8 MB, half the bundle) —
+    # strip them, matching scripts/publish_dashboard.sh.
+    for m in dest.rglob("*.map"):
+        m.unlink()
 
 
 def main() -> int:

@@ -22,7 +22,7 @@ design_status: complete
 implementation_status: complete       # leak localized (inner RAMEmitter) + fix landed
 simulation_status: ran                # bridge-path profiler verified bounded RSS
 evaluation_status: evaluated          # leak bounded; multi-cell no-OOM = confirmatory follow-up
-gate_status: passed                   # per-cell RSS bounded -> colonies-04-hpc-deployment unblocked
+gate_status: blocked                  # F-04: dominant colony leak is C-level/native + unresolved -> colonies-04 stays blocked (single-cell emitter fix was not the multi-cell leak)
 
 baseline:
 - name: single-ecoliwcm-long
@@ -187,7 +187,36 @@ findings:
     colony re-run (first division still tick 2338) is the empirical
     re-confirmation, deferred with the no-OOM run above.
 
-# Verification stopped after the bridge-path RSS verdict was conclusive: the
-# committed tracemalloc profiler was crippled by tracemalloc(25) overhead
-# (>1 h for 1500 ticks). The leak-bounded result was unambiguous, so the slow
-# profiler + 70-min colony run were wrapped as a follow-up rather than blocking.
+- id: F-04-dominant-colony-leak-is-c-level
+  kind: computational
+  status: refutes        # refutes the earlier "leak fixed / gate passed" claim at colony scale
+  verdict: 'OPEN — colony multi-gen RAM-blocked'
+  statement: |
+    The inner-RAMEmitter fix (F-01/F-02) is real and bounds a SINGLE bare WCM,
+    but it is NOT the dominant leak for a multi-CELL colony. Re-running
+    colonies-02 on current main with all three contributory fixes live
+    (#239 inner emitter, emit_cells=False outer emitter, viva-munk #11 pymunk
+    shape churn) STILL leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
+    5.1 -> 22.3 GB at a CONSTANT 6 cells and OOMs ~gen 3, unchanged from before
+    the fixes.
+  evidence: |
+    tracemalloc(4) over 150 ticks at 2 forced-division cells: RSS climbed
+    1396 -> 1586 MB (+1.3 MB/tick) — leak reproduced — yet tracemalloc
+    accounted for only ~1-2 MB of retained Python allocations (largest single
+    site +0.08 MB; all transient WCM compute: counts_deriver/translation_deriver
+    np.bincount, scipy-sparse .dot). So the dominant allocator is C-LEVEL /
+    native (numpy/scipy array buffers or a C-extension retaining or fragmenting
+    memory), INVISIBLE to tracemalloc (it tracks only CPython's allocator, not
+    numpy's). gc object-COUNT scans likewise found only small symptoms
+    (pymunk Segments -> #11), not the megabytes.
+  next_action: |
+    Needs a NATIVE heap profiler (macOS `leaks`/`malloc_history` with
+    MALLOC_STACK_LOGGING, or jemalloc/tcmalloc heap profiling), not Python
+    tooling. Until then the colony is RAM-blocked for multi-generation runs and
+    colonies-04-hpc-deployment stays blocked. The 3 Python-level fixes remain
+    valid wins (merged).
+
+# HISTORY: F-01/F-02/F-03 (inner-emitter fix) were verified for a single bare
+# WCM and originally flipped gate_status to passed. The colonies-02 multi-cell
+# re-run on main (F-04) overturned that at colony scale — the dominant leak is
+# native/C, still open — so the gate is BLOCKED again pending a native profiler.

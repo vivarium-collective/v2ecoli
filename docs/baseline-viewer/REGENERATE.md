@@ -1,63 +1,56 @@
-# baseline-viewer — static bigraph-loom deployment
+# Composite viewers hub — regenerate & publish
 
-A serverless, view-only build of
-[bigraph-loom](https://github.com/vivarium-collective/bigraph-loom) that opens
-the v2ecoli **baseline** whole-cell composite on GitHub Pages, with a preset
-default arrangement. Linked from the repo README.
+The public composite viewers live in `docs/viewers/` (served at
+`https://vivarium-collective.github.io/v2ecoli/viewers/`). Each curated
+composite is viewable in three tools — **bigraph-loom** (interactive),
+**bigraph-viz2** (interactive, light), and **bigraph-viz** (static SVG) — all
+fed from one cached state per composite.
 
-Live: `https://vivarium-collective.github.io/v2ecoli/docs/baseline-viewer/?static=1&stateUrl=data/baseline.state.json&viewUrl=data/baseline_default.view.json`
+This `baseline-viewer/` directory is now a thin redirect into that hub
+(preserving the old `/baseline-viewer/` URL + its QR).
 
-`?static=1` shows only the View tab (no Configure/Run/Results/Visualizations —
-those need the dashboard server). `?stateUrl=` + `?viewUrl=` load the committed
-snapshots below instead of any `/api/*`.
+## Prerequisites (run locally)
 
-## Files
+- The ParCa cache must be on disk so the composites resolve. If resolution
+  fails with a config `KeyError` (e.g. `tf_ids`), the cache is stale — rebuild:
+  ```bash
+  PYTHONPATH=. .venv/bin/python scripts/build_cache.py
+  ```
+- `bigraph-viz2` must be importable. It is not always installed in the workspace
+  venv; the easiest path is to add its `py/` dir to `PYTHONPATH` for the run
+  (the regen command below does this). bigraph-loom and bigraph-viz are normal
+  workspace deps.
 
-- `index.html` + `assets/` — the bigraph-loom static bundle (`npm run build`).
-- `data/baseline.state.json` — point-in-time snapshot of the baseline composite
-  state **with per-process `describe()` docs attached** (the dashboard's
-  `/api/composite-state?ref=v2ecoli.composites.baseline.baseline` response).
-- `data/baseline_default.view.json` — the default view (node positions +
-  collapsed groups + hidden nodes), exported from the viewer's `Views ▾` menu.
-
-## Regenerate
+## Regenerate (one command)
 
 ```bash
-# 1. Rebuild the viewer bundle (from the bigraph-loom repo) and copy it here,
-#    excluding sourcemaps:
-( cd /path/to/bigraph-loom && npm run build )
-find /path/to/bigraph-loom/bigraph_loom/_dist -type f ! -name '*.map' \
-  | while read f; do install -D "$f" "docs/baseline-viewer/${f#*/_dist/}"; done
-
-# 2. Re-snapshot the composite state from a running dashboard:
-curl -s "http://localhost:<port>/api/composite-state?ref=v2ecoli.composites.baseline.baseline" \
-  -o docs/baseline-viewer/data/baseline.state.json
-
-# 3. Update the default view: arrange it in the viewer -> Views ▾ -> Export
-#    view file -> save as docs/baseline-viewer/data/baseline_default.view.json
+PYTHONPATH=.:/path/to/bigraph-viz2/py .venv/bin/python scripts/regenerate_viewers.py
 ```
 
-The snapshot is point-in-time: regenerate `baseline.state.json` if the baseline
-composite's structure changes.
+This rewrites `docs/viewers/{data/*.state.json, img/*.svg, viz2/*.html,
+loom/**, index.html}` from `docs/viewers/viewers.json`. It:
+- resolves each composite to a cached state (reusing the dashboard's
+  `_composite_resolve_data`), trimmed of bulk molecule-data arrays the viewers
+  don't draw,
+- renders a bigraph-viz SVG and a self-contained bigraph-viz2 snippet,
+- copies the shared bigraph-loom bundle (source maps stripped),
+- regenerates the hub `index.html`.
 
-## Short URL redirect (re-apply after a rebuild)
+A composite that fails to resolve is skipped with a logged reason (and a
+build_cache hint) — it never aborts the run. Saved loom arrangements
+(`docs/viewers/data/<slug>.view.json`) are NOT overwritten: export one from the
+loom `Views ▾` menu and commit it to give a composite a default arrangement.
 
-`index.html` carries a small inline `<script>` (before the module script) that
-redirects a bare visit to the full query string, so
-`…github.io/v2ecoli/baseline-viewer/` (and the QR built from it) loads the
-featured composite + saved view for **every** visitor. Step 1's `npm run build`
-overwrites `index.html`, so re-add the block:
+## Add a composite to the showcase
 
-```html
-<script>
-  if (!location.search) {
-    location.replace(location.pathname +
-      '?static=1&id=v2ecoli.composites.baseline.baseline' +
-      '&stateUrl=data/baseline.state.json&viewUrl=data/baseline_default.view.json');
-  }
-</script>
+Add one line to `docs/viewers/viewers.json` (`slug`, `id`, `title`, `blurb`) and
+re-run the regen command.
+
+## Publish to GitHub Pages
+
+```bash
+bash scripts/publish_viewers.sh
 ```
 
-The default view (`data/baseline_default.view.json`) is committed here, NOT read
-from any visitor's localStorage — so the online viewer shows the saved
-arrangement to everyone.
+Surgically replaces only `viewers/` and `baseline-viewer/` on the `gh-pages`
+branch (leaving `dashboard/`, `investigations/`, and the docs mirror untouched).

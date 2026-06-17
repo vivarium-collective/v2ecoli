@@ -564,3 +564,10 @@ visualizations:
   chart: scatter
   source_run: showcase4-variant-sweep
   render: proteome_delta (multivariant) over the sweep
+
+# Units Atlas — folded in from the retired units-atlas investigation so the
+# unit-bearing readouts are visible in every baseline-showcase study.
+embed_visualizations:
+- name: Units Atlas (interactive)
+  url: /reports/figures/showcase-4-variant-comparison/units_atlas.html
+  description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range.

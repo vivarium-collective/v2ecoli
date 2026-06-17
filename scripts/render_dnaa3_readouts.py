@@ -93,8 +93,8 @@ def main():
     total_bound = high_bound + low_bound
 
     fig, ax = plt.subplots(3, 2, figsize=(13, 10))
-    fig.suptitle("dnaa-3 — DnaA-box binding readouts on the succinate lineage "
-                 "(fast-equilibrium model on the dnaa-2 baseline)", fontsize=13)
+    fig.suptitle("dnaa-3 — DnaA-box binding readouts on the dnaa-4 reference config "
+                 "(linear autoregulation s=0.6 + F-05, V=1.5e-3, k_h=0.025/min)", fontsize=13)
 
     a = ax[0, 0]; a.plot(t, total / mass, color="#0f172a"); a.set_title("Total DnaA concentration (count / cell mass)")
     a.set_ylabel("count / fg"); a.grid(alpha=0.25)

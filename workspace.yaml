@@ -113,6 +113,50 @@ imports:
       NeuralProcess — a drop-in learned surrogate of the baseline used by
       investigations/surrogate-modeling. Registered into build_core() so it
       appears in the dashboard Registry.
+  # Packages v2ecoli actually imports + uses in its composites. Declaring them
+  # here classifies their registry classes as `in_workspace` so they render in
+  # the PRIMARY registry list (Processes/Steps tabs) rather than the collapsed
+  # "Also available in environment" fold. (They were already in the
+  # dashboard.registry.include allow-list — that controls inclusion in the data;
+  # `imports` controls the in_workspace classification / visibility.)
+  pbg_ketchup:
+    source: https://github.com/vivarium-collective/pbg-ketchup
+    ref: main
+    mode: reference
+    description: |
+      KETCHUP/IPOPT kinetic-parameter estimators (KetchupEstimator,
+      KetchupDynamicEstimator) + the ketchup_baseline / ketchup_dynamic /
+      ketchup_multistart composites used by the ketchup-baseline-comparison
+      investigation.
+  pbg_copasi:
+    source: https://github.com/vivarium-collective/pbg-copasi
+    ref: main
+    mode: reference
+    description: |
+      COPASI ODE / steady-state Steps + composites (utc-process, utc-step,
+      steady-state) used for kinetic-model comparison.
+  pbg_parsimony:
+    source: https://github.com/vivarium-collective/pbg-parsimony
+    ref: main
+    mode: reference
+    description: |
+      Parsimony structural-composite tooling (parsimony-ecoli) used by the
+      v2ecoli structural composite views.
+  pbg_bioreactordesign:
+    source: https://github.com/vivarium-collective/pbg-bioreactordesign
+    ref: main
+    mode: reference
+    description: |
+      BiRD reactor transport process (BiRDTransportProcess) coupled to the cell
+      engine in the reactor_bird_coupled composites (mbp-03).
+  viva_munk:
+    source: https://github.com/vivarium-collective/Viva-munk
+    ref: main
+    mode: reference
+    description: |
+      Colony physics base (PymunkProcess, GrowDivide, Chemotaxis,
+      DiffusionAdvection, CellFieldExchange, …) used by the colony composite
+      and the colonies investigation.
 server:
   enabled: true
 dashboard:

@@ -29,22 +29,25 @@ def run_v2_parca(*, out_dir: Path, cache_dir: Path, mode: str,
 
 
 def run_vecoli_parca(*, config_path: str, out_dir: Path,
-                     token: str | None = None) -> Path:
+                     token: str | None = None,
+                     vecoli_repo: str = VECOLI_REPO) -> Path:
     out_dir = Path(out_dir)
     if not is_stale(out_dir, token):
         return out_dir
-    _run([VECOLI_PYTHON, "runscripts/parca.py",
+    vecoli_python = f"{vecoli_repo}/.venv/bin/python"
+    _run([vecoli_python, "runscripts/parca.py",
           "--config", config_path,
           "--outdir", str(out_dir),
           "--save-intermediates",
           "--intermediates-directory", str(out_dir)],
-         cwd=VECOLI_REPO)
+         cwd=vecoli_repo)
     mark_done(out_dir, token or "ok")
     return out_dir
 
 
 def run_vecoli_sim(*, config_path: str, out_dir: Path,
-                   token: str | None = None) -> Path:
+                   token: str | None = None,
+                   vecoli_repo: str = VECOLI_REPO) -> Path:
     """Run vEcoli's Nextflow workflow for the 2-gen lineage.
 
     The config is expected to set ``sim_data_path`` (so the workflow copies
@@ -54,8 +57,9 @@ def run_vecoli_sim(*, config_path: str, out_dir: Path,
     out_dir = Path(out_dir)
     if not is_stale(out_dir, token):
         return out_dir
-    _run([VECOLI_PYTHON, "-m", "runscripts.workflow", "--config", config_path],
-         cwd=VECOLI_REPO)
+    vecoli_python = f"{vecoli_repo}/.venv/bin/python"
+    _run([vecoli_python, "-m", "runscripts.workflow", "--config", config_path],
+         cwd=vecoli_repo)
     mark_done(out_dir, token or "ok")
     return out_dir
 

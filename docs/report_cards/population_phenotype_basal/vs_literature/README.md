@@ -11,24 +11,50 @@ existing two:
 
 The grader is reference-agnostic, so this mode reuses the same typed-criteria
 machinery pointed at curated reference claims from the **ecoli-sources
-validation-data bundle** (`VALIDATION_BUNDLE_PATH`) rather than a pinned run.
+validation-data bundle** (`ecoli_sources.VALIDATION_BUNDLE_PATH`) rather than a
+pinned run.
 
-## First axis: basal biomass yield
+## Physiology axes (this card)
 
-`Yxs = μ / (q_glc · M_glc)` — derived from the μ and glucose-exchange flux the
-basal ensemble already extracts. Graded against the `basal__biomass_yield`
-slot, which distinguishes reference `kind`:
+Three scalar physiology axes, graded by the **`literature`** criterion (measured
+band + an optional first-principles `theoretical_max` ceiling):
 
-- **`measured`** — an experimental yield; deviation is a soft mismatch (a
-  tracked gap, not necessarily a defect).
-- **`theoretical_max`** — a first-principles ceiling (e.g. Varma 1993,
-  0.538 gDW/g glucose). A model output **above** the ceiling is a *harder,
-  differentiated failure* — it exceeds the network's stoichiometric limit, no
-  adequacy judgment required.
+| axis | model derivation | verdict |
+|---|---|---|
+| **Growth rate (μ)** | ensemble of per-cell `ln 2 / doubling_time` | within_tol — μ ≈ 0.83/h sits in the measured 0.68–0.81 band |
+| **Biomass yield (Yxs)** | `μ / (q_glc · M_glc)`, the ensemble ratio | **mismatch — first-principles violation** (0.89 > the 0.538 stoichiometric ceiling) |
+| **Glucose uptake (q_glc)** | ensemble-mean `\|GLC[p]\| exchange flux` | mismatch — 5.1 vs measured 8.5–10.6 (model under-consumes) |
 
-## Status
+Read together: **the model grows at the right rate but takes up too little
+glucose, producing a yield above the thermodynamic limit.**
 
-Work in progress. This document seeds the mode; the yield axis, the
-`pin_literature_reference.py` script, and the rendered card follow. Depends on
-the ecoli-sources validation-data subsystem (companion PR
-vivarium-collective/ecoli-sources#3). Sibling perturbation-response work: #235.
+### The plot
+
+Each axis carries a `literature` plot: **green** = sim (per-cell violin + mean
+diamond), **black** = experimental measurements (one marker per source, ±
+uncertainty), **red dashed** = the theoretical-max ceiling (cited). Sources are
+labelled on the plot, so each reference traces to its origin.
+
+## Reference data
+
+Curated in **ecoli-sources** (`validation_data/`, draft PR
+vivarium-collective/ecoli-sources#3): measured basal physiology from Varma &
+Palsson 1994, LaCroix 2015, Long 2017, Kavvas 2022 (3 of 4 strain-matched
+MG1655) and the Varma 1993 theoretical-max ceiling. v2ecoli pins ecoli-sources
+by git SHA in `pyproject.toml`.
+
+## Regenerate
+
+```bash
+python scripts/render_basal_vs_literature.py
+```
+
+Reads the blessed self-pin baseline fixture (model μ, q_glc) + the validation
+bundle (references); writes `report_card.html`, `literature_reference.json`, and
+`report_card_verdict.json` here. No new simulation run required.
+
+## Follow-ups (not in this card)
+
+- Exchange-flux and proteome/fluxome axes vs literature (the reference data
+  already supports them; the 13C fluxome is staged in ecoli-sources).
+- A per-cell *yield* spread (currently a single ratio-of-means point).

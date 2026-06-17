@@ -495,6 +495,16 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 label=axis.get("label", ""), units=axis.get("units", ""),
                 scale=axis.get("scale", 1.0), y_from_zero=axis.get("y_from_zero", False),
                 ref_label=ref_label, meas_label=meas_label)
+        if kind == "literature" and isinstance(measured, dict):
+            return card_plots.literature_strip(
+                measured.get("values"), measured.get("mean"),
+                crit.get("measured") or [],
+                measured_unc=crit.get("measured_unc"),
+                labels=crit.get("sources"),
+                theoretical=crit.get("theoretical_max"),
+                theoretical_label=crit.get("theoretical_source"),
+                units=axis.get("units", ""), label=axis.get("label", ""),
+                scale=axis.get("scale", 1.0))
         if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
             svg = card_plots.loglog_scatter(
                 measured["vector"], crit.get("ref_vector"),

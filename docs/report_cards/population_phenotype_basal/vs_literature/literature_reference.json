@@ -1,0 +1,110 @@
+{
+  "title": "Basal-condition physiology — v2ecoli vs experimental literature",
+  "status": "populated",
+  "stimulus": {
+    "reference_model": "experimental literature (ecoli-sources validation_data)",
+    "measured_model": "v2ecoli baseline",
+    "ensemble": "4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided"
+  },
+  "findings": [
+    "vs_literature reference mode: the v2ecoli baseline graded against curated experimental + theoretical values, not a pinned run.",
+    "Biomass yield carries a theoretical_max ceiling — exceeding it is a differentiated first-principles failure, not merely a deviation.",
+    "Model μ, q_glc, Yxs read from the blessed self-pin baseline fixture; references from ecoli_sources.VALIDATION_BUNDLE_PATH."
+  ],
+  "footer": "Behavioral report card (PR #134 grader) · vs_literature mode · physiology (μ, q_glc, Yxs).",
+  "axes": {
+    "physiology.growth_rate": {
+      "group": "Physiology",
+      "label": "Growth rate (μ)",
+      "units": "1/h",
+      "how": "Model: ensemble growth rate from per-cell doubling times (μ = ln 2 / doubling_time) of the blessed baseline ensemble (post-burn-in cells). Graded against curated experimental measurements (band 0.677–0.81 1/h; sources shown in the plot).",
+      "plot": "literature",
+      "criterion": {
+        "type": "literature",
+        "measured": [
+          0.68,
+          0.69,
+          0.677,
+          0.81
+        ],
+        "measured_unc": [
+          null,
+          0.02,
+          0.002,
+          0.03
+        ],
+        "theoretical_max": null,
+        "theoretical_source": null,
+        "tol_rel": 0.1,
+        "sources": [
+          "varma_1994",
+          "lacroix_2015",
+          "long_2017",
+          "kavvas_2022"
+        ]
+      }
+    },
+    "physiology.biomass_yield": {
+      "group": "Physiology",
+      "label": "Biomass yield (Yxs)",
+      "units": "gDW/g glucose",
+      "how": "Model: Yxs = μ / (q_glc · M_glc), M_glc = 0.180156 g/mmol — the ensemble ratio of growth rate to specific glucose uptake (a ratio of means, so no per-cell spread). Graded against curated experimental measurements (band 0.355–0.444 gDW/g glucose; sources shown in the plot). The red dashed line is the theoretical-max stoichiometric ceiling (0.538 gDW/g glucose) — a model value above it is a first-principles violation.",
+      "plot": "literature",
+      "criterion": {
+        "type": "literature",
+        "measured": [
+          0.355,
+          0.44,
+          0.444,
+          0.42
+        ],
+        "measured_unc": [
+          null,
+          0.07,
+          0.022,
+          0.02
+        ],
+        "theoretical_max": 0.538,
+        "theoretical_source": "varma_1993",
+        "tol_rel": 0.1,
+        "sources": [
+          "varma_1994",
+          "lacroix_2015",
+          "long_2017",
+          "kavvas_2022"
+        ]
+      }
+    },
+    "physiology.glucose_uptake": {
+      "group": "Physiology",
+      "label": "Glucose uptake (q_glc)",
+      "units": "mmol/gDW/h",
+      "how": "Model: ensemble-mean specific glucose uptake = |GLC[p] exchange flux| over the post-burn-in cells. Graded against curated experimental measurements (band 8.46–10.6 mmol/gDW/h; sources shown in the plot).",
+      "plot": "literature",
+      "criterion": {
+        "type": "literature",
+        "measured": [
+          10.5,
+          8.59,
+          8.46,
+          10.58
+        ],
+        "measured_unc": [
+          null,
+          1.42,
+          0.42,
+          null
+        ],
+        "theoretical_max": null,
+        "theoretical_source": null,
+        "tol_rel": 0.1,
+        "sources": [
+          "varma_1994",
+          "lacroix_2015",
+          "long_2017",
+          "kavvas_2022"
+        ]
+      }
+    }
+  }
+}

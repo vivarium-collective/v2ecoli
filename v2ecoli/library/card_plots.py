@@ -78,6 +78,77 @@ def violin_strip(values, ref_values=None, *, label="", units="", scale=1.0,
     return _svg(fig)
 
 
+def _cite(sid: str) -> str:
+    """``firstauthor_year`` source_id -> 'Firstauthor Year' for display."""
+    parts = str(sid).split("_")
+    if len(parts) >= 2 and parts[-1].isdigit():
+        return f"{parts[0].capitalize()} {parts[-1]}"
+    return str(sid)
+
+
+def literature_strip(sim_values, sim_mean, measured, *, measured_unc=None,
+                     labels=None, theoretical=None, theoretical_label=None,
+                     units="", label="", scale=1.0, width=4.8, height=2.9) -> str:
+    """vs_literature axis: the simulated population vs curated experiment.
+
+    Colour scheme: **green = sim** (a violin + jittered strip of the per-cell
+    population when given, plus a diamond at the graded mean), **black =
+    experimental measurements** (one marker per source, with ± error bars where
+    an uncertainty is given), **red dashed line = theoretical limit** (a ceiling
+    the model should not cross). Each experimental source sits at its own x
+    position so the spread across studies is visible."""
+    plt = _setup()
+    import numpy as np
+    GREEN, BLACK, RED = "#1a7f37", "#1a1d21", "#c62828"
+    fig, ax = plt.subplots(figsize=(width, height))
+    measured = list(measured or [])
+    unc = list(measured_unc) if measured_unc else [None] * len(measured)
+    labels = list(labels) if labels else [f"src{i+1}" for i in range(len(measured))]
+
+    # theoretical limit — a red dashed horizontal ceiling spanning the axis,
+    # labelled with its source citation
+    if theoretical is not None:
+        cite = f"{_cite(theoretical_label)} · " if theoretical_label else ""
+        ax.axhline(theoretical * scale, color=RED, lw=1.5, ls="--", zorder=1,
+                   label=f"theoretical limit — {cite}{theoretical * scale:.3g}")
+
+    # sim (green): violin + strip of the per-cell population, then a mean diamond
+    if sim_values and len(sim_values) > 1:
+        data = np.asarray(sim_values, float) * scale
+        vp = ax.violinplot([data], positions=[0], widths=0.7, showextrema=False)
+        for b in vp["bodies"]:
+            b.set_facecolor(GREEN); b.set_alpha(0.28); b.set_edgecolor(GREEN)
+        jit = np.random.default_rng(0).normal(0, 0.05, size=len(data))
+        ax.scatter(jit, data, s=14, color=GREEN, alpha=0.65, edgecolor="white",
+                   linewidth=0.4, zorder=3)
+    if sim_mean is not None:
+        ax.scatter([0], [sim_mean * scale], s=95, marker="D", color=GREEN,
+                   edgecolor="white", linewidth=0.8, zorder=5, label="sim (v2ecoli)")
+
+    # experimental (black): one marker per source, ± uncertainty where present
+    xs = list(range(1, len(measured) + 1))
+    for xi, m, u in zip(xs, measured, unc):
+        if u:
+            ax.errorbar([xi], [m * scale], yerr=[u * scale], fmt="o", color=BLACK,
+                        ms=5, capsize=3, elinewidth=1, zorder=4)
+        else:
+            ax.scatter([xi], [m * scale], s=34, color=BLACK, zorder=4)
+    if measured:
+        ax.scatter([], [], s=34, color=BLACK, label="experimental")  # legend proxy
+
+    ax.set_xticks([0] + xs)
+    ax.set_xticklabels(["sim"] + [_cite(l) for l in labels], fontsize=7,
+                       rotation=30, ha="right")
+    ax.set_xlim(-0.7, len(measured) + 0.7)
+    ax.set_ylabel(units or label, fontsize=9)
+    ax.tick_params(labelsize=8)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    ax.margins(y=0.15)
+    ax.legend(fontsize=6.5, loc="best", frameon=False)
+    return _svg(fig)
+
+
 def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
                  qual_eps=1e-3, ref_std=None, cand_std=None, label="", width=3.8,
                  height=3.4, ref_label="reference", meas_label="candidate") -> str:

@@ -10,6 +10,13 @@ organism-behavior card and the v1<->v2 equivalence card share one grader:
                    difference is drift/mismatch. (Cell-level n, never timepoints.)
   - ``r2``       — vector (transcriptome/proteome): R^2 of candidate vs
                    reference ensemble-mean vector.
+  - ``literature`` — scalar vs an EXPERIMENTAL reference: a band of measured
+                   values (multiple sources) plus an optional first-principles
+                   ``theoretical_max`` ceiling. Deviation from the measured band
+                   grades within_tol/drift/mismatch; crossing the ceiling is a
+                   mismatch *flagged as a first-principles violation* (the model
+                   exceeds a stoichiometric/thermodynamic limit — wrong, not just
+                   off).
   - ``boolean``  — a behavioral assertion that must hold.
 
 Verdicts use a 4-state band (adopted from the vEcoli<->v2ecoli report):
@@ -199,6 +206,46 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
                 "detail": {"r2": r2, "appeared": appeared,
                            "disappeared": disappeared, "sub_floor": sub_floor,
                            "n_matched": len(matched), "qual_eps": qual_eps}}
+
+    if ctype == "literature":
+        # Grade a scalar model value against an EXPERIMENTAL reference: a band of
+        # measured values (multiple curated sources) plus an optional
+        # first-principles ceiling. Two deliberately differentiated regimes:
+        #   - deviation from the measured band -> within_tol / drift / mismatch
+        #     (a tracked gap; adequacy is a judgment call).
+        #   - crossing a ``theoretical_max`` -> mismatch, flagged as a
+        #     first-principles violation (the model exceeds a stoichiometric /
+        #     thermodynamic limit — wrong, no judgment required).
+        got = measured.get("mean") if isinstance(measured, dict) else measured
+        meas = criterion.get("measured") or []
+        tmax = criterion.get("theoretical_max")
+        tol = criterion.get("tol_rel", 0.10)
+        if got is None or not meas:
+            return _ungraded("vs measured literature")
+        lo, hi = min(meas), max(meas)
+        mid = sum(meas) / len(meas)
+        if lo * (1 - tol) <= got <= hi * (1 + tol):
+            band = "within_tol"
+        elif lo * (1 - 2 * tol) <= got <= hi * (1 + 2 * tol):
+            band = "drift"
+        else:
+            band = "mismatch"
+        violates = tmax is not None and got > tmax
+        detail = {"measured_lo": lo, "measured_hi": hi, "measured_mid": mid,
+                  "n_sources": len(meas), "theoretical_max": tmax,
+                  "first_principles_violation": bool(violates),
+                  "rel_to_mid": (got - mid) / mid if mid else None}
+        if violates:
+            return {"verdict": "mismatch", "value": got,
+                    "criterion_str": f"≤ theoretical max {tmax:.3g}; within measured {lo:.3g}–{hi:.3g}",
+                    "meter": f"{got:.3g} > theoretical max {tmax:.3g} — first-principles violation",
+                    "detail": detail}
+        return {"verdict": band, "value": got,
+                "criterion_str": (f"within measured {lo:.3g}–{hi:.3g} (±{tol:.0%})"
+                                  + (f"; ≤ max {tmax:.3g}" if tmax is not None else "")),
+                "meter": (f"{got:.4g} vs measured {lo:.3g}–{hi:.3g} "
+                          f"(Δmid {((got - mid) / mid if mid else 0):+.0%})"),
+                "detail": detail}
 
     if ctype == "boolean":
         ok = bool(measured) if measured is not None else None

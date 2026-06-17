@@ -59,3 +59,40 @@ def test_resolve_rejects_sim_data_config():
            "time_step": 1.0}
     with pytest.raises(inject.InjectionError, match="sim_data"):
         inject.resolve_injections(FORK, cfg)
+
+def test_resolve_rejects_unknown_name():
+    cfg = {"add_processes": ["no-such-process"], "time_step": 1.0}
+    with pytest.raises(inject.InjectionError, match="not in fork registry"):
+        inject.resolve_injections(FORK, cfg)
+
+
+# ---------------------------------------------------------------------------
+# Task 3: apply_injected_processes
+# ---------------------------------------------------------------------------
+def test_apply_injects_edge_and_flow_order():
+    from v2ecoli.core import build_core
+    core = build_core()
+    cfg = {"add_processes": ["example-secretion"],
+           "process_configs": {"example-secretion": {"rate": 2.0}},
+           "topology": {"example-secretion": {"counts": ["bulk"]}},
+           "time_step": 1.0}
+    specs = inject.resolve_injections(FORK, cfg)
+    cell_state = {"bulk": {}}      # a 'bulk' store exists
+    flow_order = ["ecoli-metabolism"]
+    added = inject.apply_injected_processes(cell_state, flow_order, core, specs)
+    assert added == ["example-secretion"]
+    assert "example-secretion" in cell_state
+    edge = cell_state["example-secretion"]
+    assert edge["_type"] in ("process", "step")
+    assert edge["inputs"]["counts"] == ["bulk"]
+    assert flow_order[-1] == "example-secretion"
+
+def test_apply_rejects_missing_store_path():
+    from v2ecoli.core import build_core
+    core = build_core()
+    cfg = {"add_processes": ["example-secretion"],
+           "topology": {"example-secretion": {"counts": ["nonexistent_store"]}},
+           "time_step": 1.0}
+    specs = inject.resolve_injections(FORK, cfg)
+    with pytest.raises(inject.InjectionError, match="nonexistent_store"):
+        inject.apply_injected_processes({"bulk": {}}, [], core, specs)

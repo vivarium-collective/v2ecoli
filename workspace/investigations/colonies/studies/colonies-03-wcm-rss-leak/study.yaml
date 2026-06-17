@@ -216,6 +216,33 @@ findings:
     colonies-04-hpc-deployment stays blocked. The 3 Python-level fixes remain
     valid wins (merged).
 
+- id: F-05-native-leak-localized-to-llvm-numba
+  kind: computational
+  status: confirms
+  verdict: 'OPEN — root cause localized to the Numba/LLVM JIT layer (tracked: #253)'
+  statement: |
+    The dominant per-tick growth is NATIVE and localized to the LLVM/Numba JIT
+    layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
+    numpy-object bytes FLAT within each cell-count plateau while native memory
+    climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
+    the true unreachable leak with stacks in llvmlite's LLVM pass pipeline
+    (LLVMPY_buildFunctionSimplificationPipeline). So the WCM's JIT compilation
+    is the source — not the emitters (#239), the outer emitter (emit_cells), the
+    pymunk shapes (viva-munk #11), or a retained numpy array.
+  evidence: |
+    leaks @2cells/400ticks: ~846 MB live, ~13 MB true leak, top stacks all
+    LLVM PassBuilder (GVN/JumpThreading/LoopUnswitch/LICM). numpy-bytes delta
+    ~0 within plateaus; tracemalloc <2 MB of a +151 MB/300-tick growth.
+    Figures: colonies-02 charts/03_memory_decomposition.svg (native vs numpy),
+    charts/01_rss_vs_tick_by_ncells.svg (per-tick slope by N).
+  next_action: |
+    Tracked as engineering issue #253: find where the WCM (re)compiles @njit
+    functions per tick/cell and make them module-level + cache=True so they
+    compile once and are shared; confirm with NUMBA_DISABLE_JIT=1 flattening the
+    growth. SEPARATELY, the per-cell footprint (each cell = an independent
+    baseline composite loading its OWN sim_data, ~1+ GB/cell — colonies-02
+    charts/02) is a distinct, bounded RAM limiter worth a shared-sim_data design.
+
 # HISTORY: F-01/F-02/F-03 (inner-emitter fix) were verified for a single bare
 # WCM and originally flipped gate_status to passed. The colonies-02 multi-cell
 # re-run on main (F-04) overturned that at colony scale — the dominant leak is

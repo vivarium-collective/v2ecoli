@@ -816,12 +816,19 @@ git commit -m "refactor(compare): share sparkline/multiline SVG helpers via char
 - Test: `tests/test_report_card_section.py`
 
 **Interfaces:**
-- Consumes: `v2ecoli.library.card_criteria.grade_axis`, `v2ecoli.library.report_card.{grade_card, verdict_json, render_html}`.
-- Produces: `build_report_card(left_by_cell, right_by_cell, *, model_ref="", reference_model="vEcoli (fork)") -> tuple[dict, str]` — returns `(verdict_json_dict, html_section)`. `left_by_cell`/`right_by_cell` map observable-name → list of per-cell scalar values (e.g. final-generation cell mass across cells). Axis/group mapping defined by the module-level `CARD_AXES`.
+- Consumes: `v2ecoli.library.report_card.{grade_card, verdict_json, render_html, _stat_node}`.
+- Produces: `build_report_card(left_by_cell, right_by_cell, *, model_ref="", reference_model="vEcoli (fork)", measured_model="v2ecoli", extra_axes=None) -> tuple[dict, str]` — returns `(verdict_json_dict, html_section)`. `left_by_cell` = vEcoli per-cell scalar lists (the REFERENCE), `right_by_cell` = v2ecoli per-cell scalar lists (the MEASURED card). Axis/group mapping defined by module-level `CARD_AXES`.
 
-- [ ] **Step 1: Inspect the card API surface to mirror it exactly**
+**Real card-library API (verified — do NOT use the old `kind:"scalar"`/`{values,reference}` shape):**
+- `grade_card(card, reference)` digs each `reference["axes"][path]` from `card` via dotted-path `dig()`, grades it, returns `{overall, axes}`.
+- A `reference` axis = `{label, group, criterion}`. For a ttest axis the criterion is `{"type": "ttest", "within_pct": 0.05, "mismatch_pct": 0.10, "p_min": 0.05, "ref_values": <vEcoli per-cell list>}`. The REFERENCE (vEcoli) values live in the criterion's `ref_values`.
+- The `card` holds the MEASURED (v2ecoli) data at the same dotted paths. For a ttest axis the node is a `_stat_node(values)` → `{values, mean, std, cv, n}`. Set it at the dotted path (`card["physiology"]["cell_mass"] = _stat_node([...])`).
+- `reference` also needs `title` and `stimulus: {reference_model, measured_model}` for `render_html`.
+- `grade_axis` ttest verdict bands on `|delta_rel|` (within→within_tol, within–mismatch→drift, >mismatch_pct→mismatch IFF Welch `p < p_min` else drift). **Constant-variance arrays give `p=nan` → grades as drift, not mismatch** — divergent test data must carry real variance.
 
-Read `v2ecoli/library/card_criteria.py:grade_axis` (~line 75) and `v2ecoli/library/report_card.py:{grade_card (~121), verdict_json (~140), render_html (~536)}` to confirm the `measured`/`criterion` dict shapes `grade_axis` expects and the `card`/`reference` shapes `grade_card`/`render_html` expect. Record the exact keys in a comment at the top of `report_card_section.py`. (This step prevents shape drift; no code yet.)
+- [ ] **Step 1: (already scoped) confirm the API in code**
+
+The shapes above were read from `v2ecoli/library/card_criteria.py:grade_axis` (~75), `v2ecoli/library/report_card.py:{grade_card ~121, verdict_json ~140, render_html ~536, _stat_node ~65, dig ~40}`, and the working generator `scripts/pin_vecoli_equivalence_reference.py` (sets `ax["criterion"]["ref_values"]`). Skim those to confirm before coding; no code yet.
 
 - [ ] **Step 2: Write failing test**
 
@@ -830,20 +837,21 @@ Read `v2ecoli/library/card_criteria.py:grade_axis` (~line 75) and `v2ecoli/libra
 from scripts._compare.report_card_section import build_report_card
 
 def test_build_report_card_equivalent_data():
-    # Near-identical distributions -> within_tol overall.
+    # Near-identical distributions (with variance) -> within_tol overall.
     left = {"cell_mass": [1500.0 + i for i in range(30)],
             "growth_rate": [0.0003 + i*1e-7 for i in range(30)]}
     right = {"cell_mass": [1502.0 + i for i in range(30)],
-             "growth_rate": [0.0003 + i*1e-7 for i in range(30)]}
+             "growth_rate": [0.00030 + i*1e-7 for i in range(30)]}
     verdict, html = build_report_card(left, right)
     assert verdict["schema"] == "report_card_verdict/v1"
-    assert verdict["overall"] in ("within_tol", "drift", "mismatch")
-    assert "groups" in verdict
+    assert verdict["overall"] in ("within_tol", "drift")
+    assert "physiology" in verdict["groups"]
     assert html.startswith("<") and "verdict" in html.lower()
 
 def test_build_report_card_divergent_data_flags_mismatch():
-    left = {"cell_mass": [1500.0]*30}
-    right = {"cell_mass": [3000.0]*30}      # 2x divergence
+    # ~2x shift WITH variance (constant arrays give p=nan -> drift, not mismatch).
+    left = {"cell_mass": [1500.0 + i for i in range(30)]}
+    right = {"cell_mass": [3000.0 + i for i in range(30)]}
     verdict, _ = build_report_card(left, right)
     masses = verdict["groups"]["physiology"]["axes"]
     assert any(a["verdict"] == "mismatch" for a in masses)
@@ -860,58 +868,68 @@ Expected: FAIL (`ModuleNotFoundError`).
 # scripts/_compare/report_card_section.py
 """Statistical-equivalence report card from paired per-cell observables.
 
-Reuses the workspace card library:
-  card_criteria.grade_axis(measured, criterion) -> {verdict, value, meter, detail}
-  report_card.grade_card(card, reference) / verdict_json(...) / render_html(...)
-See Task 8 Step 1 for the exact dict shapes these expect.
+Reuses the workspace card library exactly as the existing equivalence
+generators do (see scripts/pin_vecoli_equivalence_reference.py):
+  - a `reference` dict declares axes {path: {label, group, criterion}}; for a
+    ttest axis the criterion carries `ref_values` (the vEcoli per-cell list).
+  - a `card` dict holds the MEASURED (v2ecoli) data at the same dotted paths;
+    grade_card digs each. For a ttest axis the node is a _stat_node
+    {values, mean, std, cv, n}.
+  - grade_card(card, reference) -> {overall, axes}; verdict_json(...) -> v1 JSON;
+    render_html(card, reference, ...) -> HTML.
 """
 from __future__ import annotations
 
 from typing import Any
 
-from v2ecoli.library.card_criteria import grade_axis
-from v2ecoli.library.report_card import grade_card, verdict_json, render_html
+from v2ecoli.library.report_card import (
+    grade_card, verdict_json, render_html, _stat_node)
 
-# (group, axis-id, label, observable-key, criterion). 'scalar' axes grade by
-# relative-mean shift + Welch p (within 5% pass, 5-10% drift, >10% & p<0.05
-# mismatch), matching the existing vEcoli equivalence cards.
+# (group, dotted path, label, observable-key). ttest criterion: within 5% pass,
+# 5-10% drift, >10% & p<0.05 mismatch — matches the vEcoli equivalence cards.
 CARD_AXES: list[dict[str, Any]] = [
-    {"group": "physiology", "id": "physiology.cell_mass", "label": "Cell mass",
-     "key": "cell_mass",
-     "criterion": {"kind": "scalar", "within_pct": 0.05, "mismatch_pct": 0.10,
-                   "p_min": 0.05}},
-    {"group": "physiology", "id": "physiology.growth_rate",
-     "label": "Growth rate", "key": "growth_rate",
-     "criterion": {"kind": "scalar", "within_pct": 0.05, "mismatch_pct": 0.10,
-                   "p_min": 0.05}},
+    {"group": "Physiology", "path": "physiology.cell_mass",
+     "label": "Cell mass", "key": "cell_mass"},
+    {"group": "Physiology", "path": "physiology.growth_rate",
+     "label": "Growth rate", "key": "growth_rate"},
 ]
+
+_TTEST = {"type": "ttest", "within_pct": 0.05, "mismatch_pct": 0.10, "p_min": 0.05}
 
 
 def build_report_card(left_by_cell: dict[str, list[float]],
                       right_by_cell: dict[str, list[float]], *,
                       model_ref: str = "",
                       reference_model: str = "vEcoli (fork)",
+                      measured_model: str = "v2ecoli",
                       extra_axes: list[dict] | None = None
                       ) -> tuple[dict, str]:
-    """Grade each configured axis and return (verdict_json, html)."""
+    """Grade each axis (vEcoli=ref_values, v2ecoli=measured) -> (verdict_json, html)."""
     axes_defs = CARD_AXES + list(extra_axes or [])
-    card_axes = []
+    reference_axes: dict[str, Any] = {}
+    card: dict[str, Any] = {}
     for spec in axes_defs:
-        key = spec["key"]
-        meas = right_by_cell.get(key) or []
-        ref = left_by_cell.get(key) or []
-        if not meas or not ref:
-            graded = {"verdict": "ungraded", "value": None,
-                      "meter": "no data", "detail": {}}
-        else:
-            measured = {"kind": spec["criterion"]["kind"],
-                        "values": meas, "reference": ref}
-            graded = grade_axis(measured, spec["criterion"])
-        card_axes.append({"id": spec["id"], "label": spec["label"],
-                          "group": spec["group"], **graded})
+        path, key = spec["path"], spec["key"]
+        ref_vals = list(left_by_cell.get(key) or [])
+        meas_vals = list(right_by_cell.get(key) or [])
+        reference_axes[path] = {
+            "label": spec["label"], "group": spec["group"],
+            "criterion": {**_TTEST, "ref_values": ref_vals},
+        }
+        # set the measured stat node at the dotted path in `card`
+        node = _stat_node(meas_vals)  # safe for [] (n=0 -> ungraded downstream)
+        cur = card
+        parts = path.split(".")
+        for p in parts[:-1]:
+            cur = cur.setdefault(p, {})
+        cur[parts[-1]] = node
 
-    card = {"axes": card_axes}
-    reference = {"label": reference_model}
+    reference = {
+        "title": "vEcoli ↔ v2ecoli statistical equivalence",
+        "stimulus": {"reference_model": reference_model,
+                     "measured_model": measured_model},
+        "axes": reference_axes,
+    }
     report = grade_card(card, reference)
     vjson = verdict_json(report, model_ref=model_ref,
                          reference_model=reference_model)
@@ -919,18 +937,10 @@ def build_report_card(left_by_cell: dict[str, list[float]],
     return vjson, html
 ```
 
-NOTE for the implementer: the `measured`/`criterion`/`card` dict shapes above are
-the *intended* contract. If Step 1 reveals `grade_axis`/`grade_card`/`render_html`
-expect different keys (e.g. a `measured` dict keyed `cand`/`ref` instead of
-`values`/`reference`, or `grade_card` wanting groups pre-nested), **adjust this
-function to match the real signatures** — do not change the library. Re-run the
-test until the real shapes pass; the test only asserts the public output
-contract (`schema`, `overall`, `groups`, per-axis `verdict`), which is stable.
-
-- [ ] **Step 5: Run tests; reconcile shapes against the real library**
+- [ ] **Step 5: Run tests; reconcile any residual shape mismatch against the real library**
 
 Run: `.venv/bin/python -m pytest tests/test_report_card_section.py -v`
-Expected: PASS. If `grade_axis`/`grade_card` raise `KeyError`, fix the dict shapes per Step 1's findings and re-run.
+Expected: PASS (2 tests). If `render_html`/`grade_card` raise on a missing key (e.g. `stimulus`/`title`/a `_stat_node` field), adjust the `reference`/`card` construction to satisfy the REAL signatures (do not change the library); the tests assert only the stable public output (`schema`, `overall`, `groups`, per-axis `verdict`).
 
 - [ ] **Step 6: Commit**
 

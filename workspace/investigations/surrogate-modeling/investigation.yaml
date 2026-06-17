@@ -2,7 +2,7 @@ schema_version: 2
 name: surrogate-modeling
 title: "Surrogate Modeling — can a neural net emulate the v2ecoli baseline?"
 created: '2026-06-16'
-status: running
+status: complete
 
 question: |
   Can a neural-network surrogate, trained on v2ecoli baseline rollouts, emulate

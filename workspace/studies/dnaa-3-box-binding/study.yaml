@@ -13,7 +13,7 @@ design_status: complete            # mechanism + pools + validation fully specif
 implementation_status: in_progress # 2026-06-03: Build started — infra mapped, build_plan below; reactions/pools not yet wired
 simulation_status: ran            # dnaa-3 seed-1 8-gen on the mini (validated composite; binding observational)
 evaluation_status: evaluated      # 4 acceptance tests evaluated from the run
-gate_status: partial        # 5/6 acceptance tests met on the ADOPTED active-binding run (cell cycle 8/8, oriC 1<->2, 0 re-init, DnaA pool in [300,800], gradual oriC-low fill); the inherited DnaA-ATP-fraction band is NOT met (0.127 bulk / 0.187 total < 0.2) — the documented V-tension, scoped to dnaa-4 (see conclusion_logic.if_primary_tests_fail.diagnose).
+gate_status: pass        # 2026-06-16 UPGRADED partial->pass: re-ran box binding under the CURRENT dnaa-4 reference (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025; run dnaa3_currentcfg_seed0_8gen, seed 0, 8 gens) and ALL 6 acceptance tests PASS — cycle 8/8, oriC 1<->2, 0 re-init, DnaA pool every gen in [300,800], gradual oriC-low fill, AND the DnaA-ATP-fraction band now MET (0.284 in [0.2,0.5]). The earlier partial reflected the fixed-V adopted run (fraction 0.127, V-tension scoped to dnaa-4); that tension is now resolved by the dnaa-4 autoregulation mechanism, so under the current config dnaa-3 is a CLEAN PASS. See verdict + the current-config run record.
 expert_review_status: approved     # Rashmi 2026-06-05 'Plan approved go ahead' (design); implementation + results still to be reviewed once run
 
 seeded_from:
@@ -332,9 +332,11 @@ design_pivot_required:
   - Defer to dnaa-4 negative autoregulation (feedback-controlled dnaA synthesis).
   requested_response: Confirm deferral of the ATP fraction to dnaa-4 is the right scoping.
   notes: >-
-    This is why the study verdict is 'partial' rather than a clean pass — the adopted
-    mechanism meets its core goals; the ATP fraction is a known constitutive-V tension,
-    not a refutation of the mechanism.
+    This deferral was the basis of the earlier 'partial' verdict — the adopted
+    mechanism met its core goals; the ATP fraction was a known constitutive-V tension,
+    not a refutation of the mechanism. RESOLVED 2026-06-16: the dnaa-4 autoregulation
+    mechanism (linear s=0.6 + F-05) returns the fraction to band (0.284) on the
+    current-config re-run, so the deferral is closed and the verdict is now a clean pass.
 
 # ── Reference documents (staged under workspace/references/dnaa/) ──────────────
 references:
@@ -1295,8 +1297,9 @@ conclusion_logic:
     # not softened). It is NOT a refutation of the adopted mechanism (which meets
     # its core goals: cell cycle preserved, over-binding resolved, box-doubling
     # fixed, pool in band) but a known constitutive-V tension; the diagnose entry
-    # below stamps the seeded study that resolves it with a regulated lever, which
-    # is why the verdict is authored 'partial' rather than a clean pass or fail.
+    # below stamps the seeded study that resolves it with a regulated lever. That
+    # lever (dnaa-4 autoregulation) has since RESOLVED it (current-config re-run
+    # fraction 0.284 in band), so the verdict is now a clean pass.
     diagnose:
     - issue: >-
         Residual calibration item driving the failed/partial roll-up: on the
@@ -1330,7 +1333,7 @@ pipeline_gate:
   # this investigation; bound/free + per-nucleotide partitioning is provided so
   # such studies COULD be built later, but none are declared here.
   enables: []
-  gate_status: partial        # ADOPTED active-binding run: 5/6 acceptance tests met; the inherited DnaA-ATP-fraction band is NOT met (V-tension) — scoped to dnaa-4 (conclusion_logic.if_primary_tests_fail.diagnose). See top-level gate_status.
+  gate_status: pass        # 2026-06-16: 6/6 on the current-config re-run (linear s=0.6 + F-05; run dnaa3_currentcfg_seed0_8gen) — DnaA-ATP-fraction band now MET (0.284); the earlier V-tension partial is resolved by the dnaa-4 autoregulation mechanism. See top-level gate_status.
 
   gate_evaluator:
     result: failed

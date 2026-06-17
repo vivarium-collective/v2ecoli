@@ -1162,65 +1162,87 @@ Replace `resolve_vecoli_config(args.config)` with
 
 - [ ] **Step 5: Wire the new sections + report-card json into `main()`**
 
-After the existing sim-dynamics section, before rendering, add:
+DATA SHAPES (verified): `read_observables(out, exp, keys)` returns
+`dict[key -> numpy.ndarray]` — a **flat 1-D array** of all emitted values for that
+observable (no time/per-cell structure). `keys` is the list of OBSERVABLE keys
+(includes `cell_mass`, `growth_rate`, `dry_mass`, ...). `left`/`right` are those
+dicts. They only exist **inside the Stage-4 sim try block** (after
+`compare_observables`), so build the new behavior + card sections THERE.
+`multiline_svg(series)` takes a **list-of-engines**, each a list of `(x, y)`
+points, and returns `(svg_str, (y0, y1))` — NOT a dict, and it returns a tuple.
+
+(a) Initialize `embedded: list[str] = []` near the top of `main()` (right after
+`sections = [...]`), and add the loaded-config panel immediately (it never depends
+on the sim):
 
 ```python
-    # Loaded-config + converted-processes panels.
     from scripts._compare.report import (
         config_panel_section, converted_processes_section)
     sections.insert(0, config_panel_section(vecoli_cfg))
-    embedded = []
+    embedded: list[str] = []
+
+    # Converted-processes panel — resolve specs via the inject CLI (v2 venv +
+    # fork on sys.path), independent of whether the sim later succeeds.
     inj = v2_cfg.get("injected_processes")
+    specs = []
     if inj and inj.get("add_processes"):
         import subprocess as _sp
-        spec_json = _sp.check_output(
-            [".venv/bin/python", "-m", "scripts._compare.inject",
-             args.vecoli_repo, str(v2_cfg_path)], text=True)
-        specs = json.loads(spec_json)
-        # ran_in_both: best-effort — names present in both engines' observables.
-        ran = {s["name"]: True for s in specs}   # refined when probes exist
-        sections.append(converted_processes_section(specs, ran))
+        try:
+            spec_json = _sp.check_output(
+                [".venv/bin/python", "-m", "scripts._compare.inject",
+                 args.vecoli_repo, str(v2_cfg_path)], text=True)
+            specs = json.loads(spec_json)
+        except Exception as e:
+            sections.append(_error_section("Converted processes", e))
+```
 
-    # Behavior detail — per-observable overlay (vEcoli vs v2ecoli) via the
-    # shared chart helper. `left`/`right` are observable-keyed series already
-    # read for the sim-dynamics section above.
-    from scripts._compare.charts import multiline_svg
-    cards = []
-    for key in keys:
-        l, r = left.get(key) or [], right.get(key) or []
-        if not l and not r:
-            continue
-        svg = multiline_svg({"vEcoli": list(l), "v2ecoli": list(r)})
-        cards.append(f"<figure style='display:inline-block;margin:6px'>"
-                     f"<figcaption>{key}</figcaption>{svg}</figure>")
-    if cards:
-        embedded.append("<section><h2>Behavior detail</h2>"
-                        + "".join(cards) + "</section>")
+(b) INSIDE the Stage-4 sim `try` block, AFTER the existing
+`compare_observables(...)` append, add the behavior overlays + report card using
+the flat observable arrays `left`/`right`:
 
-    # Statistical-equivalence report card from paired per-cell observables.
-    try:
+```python
+        # Behavior detail — shared-axis overlay per observable (x = sample index).
+        from scripts._compare.charts import multiline_svg
+        figs = []
+        for key in keys:
+            l = list(left.get(key, []))
+            r = list(right.get(key, []))
+            if len(l) < 2 and len(r) < 2:
+                continue
+            series = [list(enumerate(l)), list(enumerate(r))]
+            svg, _rng = multiline_svg(series)
+            figs.append(f"<figure style='display:inline-block;margin:6px;"
+                        f"width:320px'><figcaption>{key}</figcaption>{svg}</figure>")
+        if figs:
+            embedded.append("<section><h2>Behavior detail — vEcoli (blue) vs "
+                            "v2ecoli (amber)</h2>" + "".join(figs) + "</section>")
+
+        # Converted-processes "did it run in both" gate (best-effort: the sim
+        # completed and the process was injected -> True). Append after specs known.
+        if specs:
+            ran = {s["name"]: True for s in specs}
+            sections.append(converted_processes_section(specs, ran))
+
+        # Statistical-equivalence report card. The flat per-observable arrays are
+        # treated as the two value distributions for the Welch ttest axes
+        # (cell_mass, growth_rate). Not strictly per-cell — a behavioral
+        # equivalence proxy (no bit-parity required); labeled as such.
         from scripts._compare.report_card_section import build_report_card
-        # left/right per-cell observables are gathered by sim_section; reuse the
-        # `left`/`right` observable dicts already read above (keyed per cell).
+        left_dist = {k: list(left.get(k, [])) for k in ("cell_mass", "growth_rate")}
+        right_dist = {k: list(right.get(k, [])) for k in ("cell_mass", "growth_rate")}
         verdict_json_dict, card_html = build_report_card(
-            left_by_cell, right_by_cell,
-            reference_model="vEcoli (fork)")
+            left_dist, right_dist, reference_model="vEcoli (fork)",
+            measured_model="v2ecoli")
         card_path = Path(args.out).with_name("report_card_verdict.json")
         card_path.write_text(json.dumps(verdict_json_dict, indent=2))
         embedded.append(card_html)
-    except Exception as e:  # surface, don't abort
-        embedded.append(f"<section><h2>Report card</h2>"
-                        f"<p>card build failed: {type(e).__name__}: {e}</p></section>")
 ```
 
-(`left_by_cell`/`right_by_cell` are the per-cell observable dicts; if
-`sim_section.read_observables` currently returns per-timestep series rather than
-per-cell scalars, add a thin `per_cell_finals(series)` reducer in
-`scripts/_compare/sim_section.py` — final-generation value per cell — and use it
-here. Cover that reducer with a one-assertion unit test in
-`tests/test_compare_report_panels.py`.)
+If `specs` is non-empty but the sim failed (Stage 4 raised before this block),
+append a `converted_processes_section(specs, {})` in the `except` so the panel
+still shows the converted processes (with `not_compared` gates). 
 
-Then pass `embedded_html=embedded` to `render_report(...)`.
+(c) Pass `embedded_html=embedded` to the final `render_report(...)` call.
 
 - [ ] **Step 6: Run the unit/integration test, verify it passes**
 
@@ -1240,10 +1262,21 @@ Expected: writes `out/compare/report.html` + `out/compare/report_card_verdict.js
 Run: `.venv/bin/python -m pytest tests/ -k "compare or inject or baseline_injected or lineage_injected or report_card or charts" -q`
 Expected: all PASS.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 9: Two trivial carried-over cleanups (from Task 9 review)**
+
+While in the report code, make these two one-line fixes:
+1. `scripts/_compare/report.py`: drop the redundant string quotes on the new
+   param annotation → `embedded_html: list[str] | None = None` (the file already
+   has `from __future__ import annotations`).
+2. `tests/test_compare_report_panels.py`: tighten `test_converted_panel_marks_ran_in_both`
+   — replace the membership assertion with the exact mapping:
+   `assert row["verdict"] == "within_tol"` (ran=True → within_tol).
+Run `.venv/bin/python -m pytest tests/test_compare_report_panels.py -q` to confirm still green.
+
+- [ ] **Step 10: Commit**
 
 ```bash
-git add scripts/compare_harness.py scripts/_compare/sim_section.py tests/fixtures/fork_example/configs tests/test_compare_harness_injected_e2e.py
+git add scripts/compare_harness.py scripts/_compare/report.py tests/fixtures/fork_example/configs tests/test_compare_harness_injected_e2e.py tests/test_compare_report_panels.py
 git commit -m "feat(compare): config-driven fork injection CLI + 4-panel report + verdict json"
 ```
 

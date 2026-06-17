@@ -1,0 +1,2089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study: colonies-02-parallel-multigen-perf</title>
+<link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
+</head>
+<body>
+<main class="study-page">
+<header class="study-header">
+  <h1 class="study-title">
+    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">colonies-02</span><span class="study-name" id="study-name" data-slug="colonies-02-parallel-multigen-perf" title="colonies-02-parallel-multigen-perf">Parallel multi-generation colony — natural-division perf &amp; Ray scaling</span>
+    
+    <span class="phase-pill phase-evaluate" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Evaluate</span>
+    
+    
+    
+    <span class="status-pill gate-status gate-status-blocked" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: blocked</span>
+    
+    
+    
+    
+  </h1>
+</header>
+
+
+
+
+
+<div id="readiness-panel" data-slug="colonies-02-parallel-multigen-perf"></div>
+
+
+
+
+
+
+<style>
+.status-detail-panel{margin:8px 0 14px 0;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+.status-detail-panel h2{margin:0 0 6px 0;font-size:0.82em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:600}
+.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
+.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
+/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
+.gate-status-blocked          { background:#e5e7eb; color:#374151 }
+.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
+.gate-status-passed           { background:#d1fae5; color:#065f46 }
+.gate-status-failed           { background:#fee2e2; color:#991b1b }
+.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
+.status-pill.gate-status{font-weight:500}
+</style>
+<details class="status-detail-panel" aria-label="Multi-axis status detail" open>
+  <summary class="study-fold-summary">Status detail (Pass A multi-axis)</summary>
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Design</span>
+    <span class="status-chip ">complete</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Implementation</span>
+    <span class="status-chip ">complete</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Simulation</span>
+    <span class="status-chip ">ran</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Evaluation</span>
+    <span class="status-chip ">evaluated</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Gate</span>
+    <span class="status-chip gate-status-blocked">blocked</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Expert review</span>
+    <span class="status-chip ">not_requested</span>
+  </div>
+  
+  
+</details>
+
+
+
+
+
+
+<style>
+.spine-summary{margin:6px 0 14px 0;border:1px solid #cbd5e1;border-left-width:5px;border-radius:6px;background:#f8fafc;font-size:0.9em}
+.spine-summary:empty{display:none}
+.spine-summary-head{padding:7px 14px 4px 14px;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700}
+.spine-row{display:flex;align-items:baseline;gap:10px;padding:4px 14px;border-top:1px solid #eef2f6}
+.spine-key{min-width:92px;color:#475569;font-weight:600;font-size:0.85em;text-transform:uppercase;letter-spacing:0.03em}
+.spine-val{flex:1;color:#1e293b}
+.spine-jump{white-space:nowrap}
+.spine-jump a,.spine-val a{color:#3b82f6;text-decoration:none}
+.spine-jump a:hover,.spine-val a:hover{text-decoration:underline}
+.spine-label{font-size:0.8em;color:#64748b;font-weight:500}
+.spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
+.spine-div{font-weight:600;color:#92400e}
+</style>
+<div id="spine-summary" class="spine-summary" data-slug="colonies-02-parallel-multigen-perf"></div>
+
+<nav class="study-tabs" aria-label="Study sections">
+  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
+  
+  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
+  
+  
+  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
+  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
+  
+  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
+  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
+  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+</nav>
+<style>
+.phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
+.phase-design   { background:#e0e7ff; color:#3730a3 }
+.phase-build    { background:#fef3c7; color:#92400e }
+.phase-simulate { background:#dbeafe; color:#1e40af }
+.phase-evaluate { background:#fce7f3; color:#9d174d }
+.phase-decide   { background:#d1fae5; color:#065f46 }
+.classification-pill{display:inline-block;font-size:0.7em;padding:1px 8px;border-radius:9999px;margin-right:4px;font-weight:500}
+.classification-primary    { background:#fee2e2; color:#991b1b }
+.classification-supporting { background:#dbeafe; color:#1e40af }
+.classification-diagnostic { background:#fef3c7; color:#92400e }
+.classification-regression { background:#e5e7eb; color:#374151 }
+.sim-status-pill{display:inline-block;font-size:0.72em;padding:1px 8px;border-radius:9999px;margin-left:4px}
+.sim-status-ready  { background:#d1fae5; color:#065f46 }
+.sim-status-gated  { background:#fef3c7; color:#92400e }
+.sim-status-running{ background:#dbeafe; color:#1e40af }
+.sim-status-ran    { background:#d1fae5; color:#065f46 }
+.purpose-callout{margin-bottom:10px;padding:10px 14px;border-radius:4px;line-height:1.55}
+.purpose-callout strong{margin-right:6px}
+.followup-list{display:flex;flex-direction:column;gap:10px}
+.followup-card{padding:10px 14px;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.93em}
+.followup-card.followup-kind-existing{border-left-color:#3b82f6;background:#eff6ff}
+.followup-card.followup-kind-infrastructure_fix{border-left-color:#dc2626;background:#fef2f2}
+.followup-card.followup-kind-calibration_task{border-left-color:#f59e0b;background:#fefce8}
+.followup-card.followup-kind-expert_question{border-left-color:#a855f7;background:#faf5ff}
+.followup-card.followup-kind-new{border-left-color:#10b981;background:#f0fdf4}
+.followup-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.followup-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-effort{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-family:ui-monospace,monospace}
+.followup-status{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-status.status-blocked{background:#fef3c7;color:#92400e}
+.followup-status.status-done{background:#d1fae5;color:#065f46}
+.followup-title{flex:1;font-size:1em}
+.followup-why,.followup-unblocks,.followup-acceptance,.followup-hypothesis{margin:4px 0 0 0;font-size:0.92em;line-height:1.45}
+.followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
+.btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
+.btn-seed-followup:hover{background:#3b82f6;color:#fff}
+.charts-panel{margin-top:18px;display:flex;flex-direction:column;gap:18px}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px 12px 12px}
+/* SVGs scale to fit their card; preserves aspect ratio so a 1400×484
+   chart shrinks instead of overflowing horizontally + clipping. */
+.chart-card svg,.chart-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+.chart-caption{font-size:0.83em;color:#475569;margin-top:4px;line-height:1.4}
+/* findings */
+.findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
+.finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
+.finding-card.finding-status-confirms{border-left-color:#10b981}
+.finding-card.finding-status-partial{border-left-color:#f59e0b}
+.finding-card.finding-status-contradicts{border-left-color:#dc2626}
+.finding-card.finding-status-novel{border-left-color:#8b5cf6}
+.finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
+.finding-status-confirms .finding-status-glyph{color:#10b981}
+.finding-status-partial .finding-status-glyph{color:#f59e0b}
+.finding-status-contradicts .finding-status-glyph{color:#dc2626}
+.finding-status-novel .finding-status-glyph{color:#8b5cf6}
+.finding-id{font-family:ui-monospace,monospace;font-size:0.78em;color:#475569;background:#f1f5f9;padding:1px 6px;border-radius:3px}
+.finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
+.finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
+.finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
+.finding-explanation em{color:#475569;font-style:normal;font-weight:600}
+.finding-expert{margin:6px 0;padding:6px 10px;background:#fafafa;border:1px solid #e2e8f0;border-radius:4px}
+.finding-expert summary{cursor:pointer;font-size:0.85em;color:#475569;font-weight:500}
+.finding-expert-quote{border-left:3px solid #6366f1;margin:6px 0 4px 0;padding:6px 10px;background:#fafbff;font-style:italic;color:#1e1b4b;font-size:0.92em;line-height:1.5}
+.finding-expert-note{font-size:0.88em;color:#475569;margin-top:4px;font-style:italic}
+.finding-next{padding:6px 10px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:3px;font-size:0.9em;margin-top:8px;line-height:1.5}
+.finding-next strong{color:#065f46}
+/* discovery implications */
+.di-group{margin:14px 0}
+.di-group h3{margin:0 0 6px 0;font-size:0.95em}
+.di-uncertainties{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}
+.di-unc{flex:1;min-width:220px}
+.di-unc h4{margin:0 0 4px 0;font-size:0.88em}
+.di-unc-resolved h4{color:#065f46}
+.di-unc-remaining h4{color:#92400e}
+.di-unc ul{margin:0 0 0 18px;padding:0;font-size:0.9em;line-height:1.45}
+.di-card{padding:10px 14px;margin:8px 0;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.92em}
+.di-card-stmt{font-size:0.98em;line-height:1.5}
+.di-card-why{margin:4px 0 0 0;color:#475569;line-height:1.45}
+.di-card-line{margin:4px 0 0 0;font-size:0.88em;color:#475569;line-height:1.4}
+.di-lbl{color:#475569;font-weight:600;font-size:0.85em}
+.di-mech-card{border-left-color:#a855f7;background:#faf5ff}
+.di-mech-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.di-update-chip{font-size:0.7em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3}
+.di-conf-change{font-size:0.78em;color:#475569;font-family:ui-monospace,monospace}
+.di-approval-badge{font-size:0.68em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e}
+.di-fup-card{border-left-color:#10b981;background:#f0fdf4}
+.di-gain-high{background:#d1fae5;color:#065f46}
+.di-gain-medium{background:#fef3c7;color:#92400e}
+.di-gain-low{background:#e5e7eb;color:#374151}
+.di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+</style>
+
+<section class="study-tab-panel active" data-kind="overview" id="panel-overview">
+  <div class="study-overview">
+
+    
+    
+    
+    <div class="overview-section narrative-card" data-narrative-card="report">
+      <h2 class="overview-label">📋 Report — executive summary
+        <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+        Verdict + main insight are <strong>computed</strong> from canonical
+        fields (gate evaluator · findings) and shown read-only; the report
+        also derives <code>title</code>, <code>objective</code>, and
+        <code>key_metrics</code> from canonical content. Author only the
+        reviewer-facing notes below (confidence · evidence quality · caveat).
+      </p>
+      <div class="narrative-grid">
+        
+        <label class="narrative-row">
+          <span class="narrative-label">Verdict</span>
+          <span class="narrative-input verdict-badge-computed"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">not_started</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Confidence</span>
+          <select class="narrative-input" data-narrative-path="report.confidence">
+            <option value="">(unset)</option>
+            <option value="high" >high</option>
+            <option value="medium" >medium</option>
+            <option value="low" >low</option>
+          </select>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Evidence quality</span>
+          <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
+                 value=""
+                 placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
+        </label>
+        <div class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Main insight</span>
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">One whole-cell agent divides NATURALLY (no forced same-tick division)
+through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
+(7 division events) in the sequential run, with all cells advancing on
+subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
+validated FORCED division only). Daughter EcoliWCMs hydrate natively
+via the bridge _remove/_add structural update.
+
+            <span class="muted small">— computed from findings</span></span>
+        </div>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Caveat</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="report.caveat"
+                    placeholder="One sentence: the headline limitation a reviewer needs to know."></textarea>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Conclusion</span>
+          <textarea class="narrative-input narrative-textarea" rows="3"
+                    data-narrative-path="report.conclusion"
+                    placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
+        </label>
+      </div>
+      
+      <div style="margin-top:10px">
+        <button type="button" class="btn-view-skeptic action-btn"
+                style="font-size:0.85em" data-study="colonies-02-parallel-multigen-perf">🕵 View as skeptic</button>
+        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
+      </div>
+    </div>
+
+    
+    
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="biology-glance">
+      
+      <div class="biology-summary-callout">
+        <h2 class="biology-glance-label">Biology — what this study is about
+          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+        </h2>
+        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                  data-narrative-path="biological_summary"
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+        
+        <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+          <em>Derived from findings (shown in the report when no override is set):</em>
+          <p style="margin:4px 0 0">One whole-cell agent divides NATURALLY (no forced same-tick division)
+through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
+(7 division events) in the sequential run, with all cells advancing on
+subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
+validated FORCED division only). Daughter EcoliWCMs hydrate natively
+via the bridge _remove/_add structural update.
+</p><p style="margin:4px 0 0">Per-cell EcoliWCM wall does NOT drift across generations. Cleanest
+comparison (low-RSS static N-sweep, 60-tick windows): per-cell wall is
+flat at 54-59 ms across N in {1,2,4,8,16} (65-&gt;54 ms, a slight DECREASE
+as overhead amortizes). In the growing sequential run the 1-cell gen
+(55.3 ms) vs 2-cell gen (56.3 ms/cell) differ by only +1.8%. Apparent
+inflation to ~80 ms/cell at 14 cells is swap pressure (F-03) + O(N)
+pymunk collision cost, NOT WCM-internal accumulation. Resolves F-06
+for wall time: no per-cell wall drift.
+</p><p style="margin:4px 0 0">Per-cell RSS is an UNBOUNDED leak, NOT amortized warmup. A SINGLE cell
+climbs ~7.7 MB/sim-s (999 MB -&gt; ~19 GB over the 2338 ticks before its
+first division); the sequential colony peaked at 27.5 GB and was
+OOM-killed at tick 8161 (~136/180 sim-min). Confirmed EMITTER-INDEPENDENT
+(a no-emitter control run leaks the same ~7.06 MB/tick), so the leak is
+inside the EcoliWCM step itself (most likely inner vEcoli listener /
+history-array accumulation), not the RAMEmitter and not division. RSS
+sawtooths DOWN at each division (the mother&#39;s accumulated state is freed
+on _remove), so each lineage re-accumulates from scratch and the binding
+figure is ~18 GB per cell at end-of-generation. This is the F-06
+resolution for RAM: it is a real leak, and it makes the cells-per-node
+budget a function of generation age, not a constant.
+</p><p style="margin:4px 0 0">The process-bigraph Ray protocol (ray:EcoliWCM, parallel_processes=True)
+lifts the single-process GIL ceiling. Static N-sweep median wall (realtime
+ratio): local scales LINEARLY 65/118/237/466/865 ms (ratio 0.07-&gt;0.87)
+for N=1/2/4/8/16, crossing realtime near N~18 (the colonies-01 ceiling).
+Ray scales SUB-LINEARLY 54/59/81/115/245 ms (ratio 0.05-&gt;0.25): per-cell
+wall drops 54-&gt;15 ms as cells solve concurrently across cores. At N=16
+Ray is 3.5x faster and only 0.25 realtime -&gt; headroom to ~50-60 cells
+before realtime. Confirmed in the growing colony too: 2 cells cost the
+same total wall (~59 ms) as 1 cell.
+</p><p style="margin:4px 0 0">Under Ray the binding constraint flips from CPU/GIL to aggregate RAM,
+and RAM is WORSE than sequential. The ~7.7 MB/sim-s per-cell leak (F-03)
+is transport-independent: it moves into the actor PROCESS (one actor
+reached ~19 GB by tick 2338, mirroring sequential). The Ray protocol also
+pre-spawns a ~13-actor pool, each carrying a ~590 MB WCM baseline (~7.6 GB
+fixed overhead). At just 2 live cells the two daughter actors were each
+~10 GB and climbing (~34 GB distinct actor RSS) -&gt; a growing colony OOMs
+the machine even faster than sequential. The main process stays flat
+~0.7 GB (WCM offloaded). RSS sawtooths at division (mother actor returns
+to pool).
+</p><p style="margin:4px 0 0">Ray and sequential produce the SAME colony trajectory. First division
+occurs at tick 2338 under BOTH transports (exact, not just modulo RNG):
+the EcoliWCM is deterministic given its seed and the transport does not
+alter seeding, so division timing and per-cell mass are transport-
+invariant. Per-cell wall under Ray at 2 cells is 29.7 ms (vs 59.8 ms at
+1 cell) — the two cells solve concurrently.
+</p><p style="margin:4px 0 0">The colonies-01 excessive-cell-movement artifact has two coupled causes,
+both confirmed by a 12-tick 2-cell diagnostic sweep over
+(jitter_per_second, init_mass): (1) jitter_per_second=0.5 is ~5000x
+viva-munk&#39;s 1e-4 default; (2) build_microbe&#39;s density(0.02)-seeded body
+mass is ~0.04 (tiny), so jitter impulse/mass flings the cell. Legacy
+(0.5, None): mean move 9-10 um/tick. Either fix alone tames it to
+~0.13 um/tick; the chosen (1e-4, 200) fixes both motion and fg-unit
+coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
+</p>
+        </div>
+        
+      </div>
+
+      
+      
+      
+      
+      
+      
+      
+      
+      <div class="study-card">
+        <h2 class="biology-glance-label">Study card
+          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
+        </h2>
+        <table class="study-card-table">
+          <tr><th>Goal</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.goal"
+                   value=""
+                   placeholder="One sentence — the single most important thing this study does.">
+          </td></tr>
+          <tr><th>Mechanism</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.mechanism"
+                   value=""
+                   placeholder="One whole-cell agent divides NATURALLY (no forced same-tick division)
+through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
+(7 division events) in the sequential run, with all cells advancing on
+subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
+validated FORCED division only). Daughter EcoliWCMs hydrate natively
+via the bridge _remove/_add structural update.
+">
+          </td></tr>
+          <tr><th>Why before next</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.why_before_next"
+                   value=""
+                   placeholder="colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
+per_cell_ms / per_cell_rss recorded as projection inputs.
+">
+          </td></tr>
+          <tr><th>Expected result</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.expected_result"
+                   value=""
+                   placeholder="Literature-stated success criterion.">
+          </td></tr>
+          <tr><th>Main expert question</th><td>
+            <input type="text" class="narrative-input narrative-card-input"
+                   data-narrative-path="study_card.main_expert_question"
+                   value=""
+                   placeholder="The one question this study most wants an expert to answer.">
+          </td></tr>
+        </table>
+      </div>
+
+      
+
+      
+    </div>
+
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Each card states a finding, links the evidence (run + test + value), shows the literature/expert comparison, and marks whether v2ecoli's behavior <em>confirms</em>, <em>contradicts</em>, <em>partially</em> agrees with, or is <em>novel</em> vs the reference.
+      </p>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">F-01-natural-multigen-division</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">One whole-cell agent divides NATURALLY (no forced same-tick division)
+through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
+(7 division events) in the sequential run, with all cells advancing on
+subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
+validated FORCED division only). Daughter EcoliWCMs hydrate natively
+via the bridge _remove/_add structural update.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> {&#39;division_ticks&#39;: [2338, 4706, 4707, 6975, 6976, 7075, 7101], &#39;cells_final&#39;: 14} tick (1 tick = 1 sim-s) · 
+          via test <a href="#bt-natural-division-2-generations"><code>natural-division-2-generations</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-seq-1cell-4div"><code>seq-1cell-4div</code></a>
+        </div>
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> one cell divides to 2 then both daughters to 4, all advancing.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Natural multi-gen division is a usable substrate; the blocker is RAM (F-03).</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">F-02-per-cell-wall-flat</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">Per-cell EcoliWCM wall does NOT drift across generations. Cleanest
+comparison (low-RSS static N-sweep, 60-tick windows): per-cell wall is
+flat at 54-59 ms across N in {1,2,4,8,16} (65-&gt;54 ms, a slight DECREASE
+as overhead amortizes). In the growing sequential run the 1-cell gen
+(55.3 ms) vs 2-cell gen (56.3 ms/cell) differ by only +1.8%. Apparent
+inflation to ~80 ms/cell at 14 cells is swap pressure (F-03) + O(N)
+pymunk collision cost, NOT WCM-internal accumulation. Resolves F-06
+for wall time: no per-cell wall drift.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> {&#39;seq_gen0_ms&#39;: 55.3, &#39;seq_gen1_per_cell_ms&#39;: 56.3, &#39;drift_pct&#39;: 1.8, &#39;nsweep_local_per_cell_ms&#39;: {&#39;n1&#39;: 65, &#39;n2&#39;: 59, &#39;n4&#39;: 59, &#39;n8&#39;: 58, &#39;n16&#39;: 54}} ms/tick/cell · 
+          via test <a href="#bt-per-cell-wall-drift-within-20pct"><code>per-cell-wall-drift-within-20pct</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-seq-1cell-4div"><code>seq-1cell-4div</code></a>, <a href="#run-nsweep:local"><code>nsweep:local</code></a>
+        </div>
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> per-cell wall drifts &lt;=20% across generations 0-3.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Use ~55-60 ms/tick/cell (sequential) as the per-cell wall projection input.</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-refutes">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">F-03-per-cell-rss-unbounded-leak</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">refutes literature</span>
+        </div>
+        <div class="finding-statement">Per-cell RSS is an UNBOUNDED leak, NOT amortized warmup. A SINGLE cell
+climbs ~7.7 MB/sim-s (999 MB -&gt; ~19 GB over the 2338 ticks before its
+first division); the sequential colony peaked at 27.5 GB and was
+OOM-killed at tick 8161 (~136/180 sim-min). Confirmed EMITTER-INDEPENDENT
+(a no-emitter control run leaks the same ~7.06 MB/tick), so the leak is
+inside the EcoliWCM step itself (most likely inner vEcoli listener /
+history-array accumulation), not the RAMEmitter and not division. RSS
+sawtooths DOWN at each division (the mother&#39;s accumulated state is freed
+on _remove), so each lineage re-accumulates from scratch and the binding
+figure is ~18 GB per cell at end-of-generation. This is the F-06
+resolution for RAM: it is a real leak, and it makes the cells-per-node
+budget a function of generation age, not a constant.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> {&#39;single_cell_leak_mb_per_s&#39;: 7.7, &#39;single_cell_rss_at_first_division_gb&#39;: 19, &#39;peak_rss_gb&#39;: 27.5, &#39;oom_tick&#39;: 8161, &#39;no_emitter_control_mb_per_tick&#39;: 7.06} MB · 
+          via test <a href="#bt-per-cell-rss-drift-bounded"><code>per-cell-rss-drift-bounded</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-seq-1cell-4div"><code>seq-1cell-4div</code></a>
+        </div>
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> per-cell RSS stabilizes after startup (the ~5 MB/sim-s climb is warmup).</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> BLOCKS colonies-03-hpc-deployment. Fix the inner EcoliWCM/vEcoli
+per-timestep memory leak (cap/stream listener history) before HPC, or
+budget RAM as ~18 GB/cell at end-of-generation (NOT a flat per-cell RSS).
+</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">F-04-ray-lifts-gil-ceiling</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">The process-bigraph Ray protocol (ray:EcoliWCM, parallel_processes=True)
+lifts the single-process GIL ceiling. Static N-sweep median wall (realtime
+ratio): local scales LINEARLY 65/118/237/466/865 ms (ratio 0.07-&gt;0.87)
+for N=1/2/4/8/16, crossing realtime near N~18 (the colonies-01 ceiling).
+Ray scales SUB-LINEARLY 54/59/81/115/245 ms (ratio 0.05-&gt;0.25): per-cell
+wall drops 54-&gt;15 ms as cells solve concurrently across cores. At N=16
+Ray is 3.5x faster and only 0.25 realtime -&gt; headroom to ~50-60 cells
+before realtime. Confirmed in the growing colony too: 2 cells cost the
+same total wall (~59 ms) as 1 cell.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> {&#39;local_wall_ms&#39;: {&#39;n1&#39;: 65, &#39;n2&#39;: 118, &#39;n4&#39;: 237, &#39;n8&#39;: 466, &#39;n16&#39;: 865}, &#39;ray_wall_ms&#39;: {&#39;n1&#39;: 54, &#39;n2&#39;: 59, &#39;n4&#39;: 81, &#39;n8&#39;: 115, &#39;n16&#39;: 245}, &#39;local_realtime_cross_n&#39;: 18, &#39;ray_realtime_cross_n_est&#39;: 55} ms/tick (realtime budget = 1000 ms) · 
+          via test <a href="#bt-ray-lifts-gil-ceiling"><code>ray-lifts-gil-ceiling</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-nsweep:local"><code>nsweep:local</code></a>, <a href="#run-nsweep:ray"><code>nsweep:ray</code></a>, <a href="#run-ray-1cell-4div"><code>ray-1cell-4div</code></a>
+        </div>
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> Ray total wall stays sub-realtime past the sequential ~13-cell ceiling.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> CPU/GIL is no longer the ceiling under Ray; RAM is (F-03, F-05). Ray
+cells-per-core ~3.5x sequential, but Ray&#39;s RAM footprint is WORSE.
+</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">F-05-ray-ram-is-binding-constraint</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">Under Ray the binding constraint flips from CPU/GIL to aggregate RAM,
+and RAM is WORSE than sequential. The ~7.7 MB/sim-s per-cell leak (F-03)
+is transport-independent: it moves into the actor PROCESS (one actor
+reached ~19 GB by tick 2338, mirroring sequential). The Ray protocol also
+pre-spawns a ~13-actor pool, each carrying a ~590 MB WCM baseline (~7.6 GB
+fixed overhead). At just 2 live cells the two daughter actors were each
+~10 GB and climbing (~34 GB distinct actor RSS) -&gt; a growing colony OOMs
+the machine even faster than sequential. The main process stays flat
+~0.7 GB (WCM offloaded). RSS sawtooths at division (mother actor returns
+to pool).
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> {&#39;single_actor_rss_at_first_division_gb&#39;: 19, &#39;actor_pool_size&#39;: 13, &#39;per_actor_baseline_mb&#39;: 590, &#39;two_cell_distinct_actor_rss_gb&#39;: 34, &#39;main_proc_rss_gb&#39;: 0.7} GB · 
+          via test <a href="#bt-ray-biology-consistency"><code>ray-biology-consistency</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-ray-1cell-4div"><code>ray-1cell-4div</code></a>, <a href="#run-nsweep:ray"><code>nsweep:ray</code></a>
+        </div>
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> per-cell RSS bounded so Ray scales out across cores.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> colonies-03 cells-per-node is RAM-bound: budget ~18 GB/cell-generation +
+~590 MB/idle-pool-actor. Fix the leak (F-03) to make Ray scale-out viable.
+</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">F-06-ray-biology-consistency-exact</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">Ray and sequential produce the SAME colony trajectory. First division
+occurs at tick 2338 under BOTH transports (exact, not just modulo RNG):
+the EcoliWCM is deterministic given its seed and the transport does not
+alter seeding, so division timing and per-cell mass are transport-
+invariant. Per-cell wall under Ray at 2 cells is 29.7 ms (vs 59.8 ms at
+1 cell) — the two cells solve concurrently.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> {&#39;seq_first_division_tick&#39;: 2338, &#39;ray_first_division_tick&#39;: 2338, &#39;ray_per_cell_ms_n1&#39;: 59.8, &#39;ray_per_cell_ms_n2&#39;: 29.7} tick · 
+          via test <a href="#bt-ray-biology-consistency"><code>ray-biology-consistency</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-seq-1cell-4div"><code>seq-1cell-4div</code></a>, <a href="#run-ray-1cell-4div"><code>ray-1cell-4div</code></a>
+        </div>
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> Ray and sequential agree on cell count over time + mass at division.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Ray is a faithful drop-in for the biology; only its RAM profile differs (F-05).</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">F-07-physics-jitter-mass-fix</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">The colonies-01 excessive-cell-movement artifact has two coupled causes,
+both confirmed by a 12-tick 2-cell diagnostic sweep over
+(jitter_per_second, init_mass): (1) jitter_per_second=0.5 is ~5000x
+viva-munk&#39;s 1e-4 default; (2) build_microbe&#39;s density(0.02)-seeded body
+mass is ~0.04 (tiny), so jitter impulse/mass flings the cell. Legacy
+(0.5, None): mean move 9-10 um/tick. Either fix alone tames it to
+~0.13 um/tick; the chosen (1e-4, 200) fixes both motion and fg-unit
+coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> {&#39;legacy_0p5_None_move_um&#39;: 9.0, &#39;fix_1e-4_200_move_um&#39;: 0.13, &#39;fix_body_mass_fg&#39;: 200} um/tick · 
+          via test <a href="#bt-(build_task)"><code>(build_task) jitter-mass-diagnostic</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-physics-diagnostic"><code>physics-diagnostic</code></a>
+        </div>
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> lowering jitter and/or seeding a realistic fg mass collapses cell movement.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Defaults (jitter=1e-4, init_mass=200) adopted in run.py and simulation_set.</div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Purpose</h2>
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Starting from ONE whole-cell E. coli agent and letting it divide
+naturally through 3-4 generations (1 → 2 → 4 → 8), does per-cell
+compute cost (wall + RSS) stay flat, or does it drift as daughter
+EcoliWCM internal composites accumulate history? And does running
+the growing colony under the process-bigraph Ray protocol (one OS
+process per cell / sharded actor pool) lift the single-process
+GIL ceiling colonies-01 measured (~13 cells/process at realtime)?
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> The `colony` composite (v2ecoli/composites/colony.py) wires N copies
+of EcoliWCM (v2ecoli/bridge.py) into one pymunk 2D environment from
+viva-munk. At division the bridge emits a structural update (_remove
+mother, _add two daughter EcoliWCMs) hydrated natively by the engine
+(the colonies-01 daughter-hydration fix). Sequential runs walk all
+inner 55-process WCM steps on one GIL-bound thread. The updated
+process-bigraph Ray protocol (process_bigraph/protocols/ray.py —
+RayProtocol sharded actor pool via `ray:EcoliWCM` + Composite
+parallel_processes=True) runs each cell&#39;s update in its own OS
+process, so independent cells solve concurrently across cores.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Expected outcome.</strong> (H1, drift) Per-cell wall drifts &lt;=20% across gens 0-3 of a natural-
+division colony; if &gt;20%, the inner composite is accumulating dead
+nodes / growing allocations (resolves F-06). (H2, RSS) Per-cell RSS
+stays bounded once startup is amortized; the ~5 MB/sim-s climb is
+pre-division warmup, not an unbounded leak. (H3, Ray) Under Ray,
+total wall for the growing colony stays sub-realtime well past the
+~13-cell single-process ceiling, with biology (masses, division
+timing) consistent vs the sequential run modulo RNG.
+
+      </div>
+      
+    </div>
+    
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Pipeline gate</summary>
+      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+      </p>
+      
+      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+        <code>colonies-01-hpc-readiness</code>
+      </div>
+      
+      
+      <div style="margin-bottom:6px"><strong>Enables:</strong>
+        <code>colonies-03-hpc-deployment</code>
+      </div>
+      
+      
+      <div><strong>Proceed when:</strong> <span class="muted">colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
+per_cell_ms / per_cell_rss recorded as projection inputs.
+</span></div>
+      
+    </details>
+    
+
+    
+
+    
+    
+    <div class="overview-section">
+      <h2 class="overview-label">Behavioral tests</h2>
+      
+      
+      
+      
+      
+      <p style="margin:0">
+        <strong>5</strong> tests defined —
+          <span class="classification-pill classification-primary">4 primary</span>
+        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+      </p>
+    </div>
+    
+
+    
+
+    
+
+    
+    
+
+    <div class="overview-section">
+      <h2 class="overview-label">Status</h2>
+      <select id="status-select" data-field="status" class="overview-status-select">
+        <option value="planned"     >planned</option>
+        <option value="running"     >running</option>
+        <option value="ran"         >ran</option>
+        <option value="complete"    >complete</option>
+        <option value="failed"      >failed</option>
+      </select>
+      
+      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+      
+    </div>
+
+    <div class="study-counts-strip">
+      <div class="count-cell">
+        <strong>3</strong>
+        <span class="count-label">simulations</span>
+      </div>
+      <div class="count-cell">
+        <strong>0</strong>
+        <span class="count-label">readouts</span>
+      </div>
+      <div class="count-cell">
+        <strong>0</strong>
+        <span class="count-label">requirements</span>
+      </div>
+      <div class="count-cell">
+        <strong>0</strong>
+        <span class="count-label">runs</span>
+      </div>
+    </div>
+
+    
+    <div id="feedback-tracked-panel"></div>
+
+  </div>
+</section>
+
+
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+
+  
+  
+  <div class="overview-section" id="model-section">
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study runs</span></h3>
+    <p class="muted" style="font-size:0.88em">Every study runs at least one composite. Click a composite to open a static view in the bigraph-loom explorer.</p>
+    
+    <div class="cond-block">
+      <div class="cond-block-title">
+        colony-1cell-natural
+        
+        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
+                onclick="_openCompositeLoom('v2ecoli.composites.colony.colony')">🧬 colony.colony — explore in bigraph-loom ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>1</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">physics_interval</span>=<code>1.0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">ecoli_interval</span>=<code>1.0</code></span>
+        
+      </div>
+      
+    </div>
+    
+  </div>
+  
+
+  
+  
+
+  
+
+  
+</section>
+
+
+
+
+
+<section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
+
+  
+  
+  <div class="overview-section" id="ran-section">
+    <h3>What we ran <span class="muted" style="font-size:0.85em;font-weight:normal">(composite + parameters)</span></h3>
+    <p class="muted" style="font-size:0.88em">The composite(s) this study simulated, their parameters, replication, and run status. Click a composite to open a static view in bigraph-loom.</p>
+    
+    <table class="cond-table" style="width:100%;border-collapse:collapse">
+      <thead><tr><th style="text-align:left">Run</th><th style="text-align:left">Composite</th><th style="text-align:left">Parameters</th><th style="text-align:left">Replication</th><th style="text-align:left">Status</th></tr></thead>
+      <tbody>
+      
+        <tr>
+          <td style="vertical-align:top"><strong>colony-1cell-natural</strong></td>
+          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.colony.colony')">🧬 colony.colony ↗</button></td>
+          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span> <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span> <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>1</code></span> <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span> <span class="cond-pill"><span class="cond-pill-k">physics_interval</span>=<code>1.0</code></span> <span class="cond-pill"><span class="cond-pill-k">ecoli_interval</span>=<code>1.0</code></span> </td>
+          <td style="vertical-align:top" class="muted small">—</td>
+          <td style="vertical-align:top"><span class="muted">not run</span></td>
+        </tr>
+      
+      </tbody>
+    </table>
+    
+    
+  </div>
+  
+
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(3 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">seq-1cell-4div</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code></code>
+    </div>
+    
+    <details style="margin:4px 0">
+      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
+      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
+  "init_mass": 200.0,
+  "jitter_per_second": 0.0001,
+  "n_cells": 1,
+  "parallel_processes": false
+}</pre>
+    </details>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> 180 min
+      · <strong>Seeds:</strong> <code>0</code>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      <strong>Tests applied:</strong> 4 · 
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">ray-1cell-4div</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code></code>
+    </div>
+    
+    <details style="margin:4px 0">
+      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
+      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
+  "init_mass": 200.0,
+  "jitter_per_second": 0.0001,
+  "n_cells": 1,
+  "parallel_processes": true
+}</pre>
+    </details>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> 180 min
+      · <strong>Seeds:</strong> <code>0</code>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      <strong>Tests applied:</strong> 4 · 
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">ray-nsweep-static</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code></code>
+    </div>
+    
+    <details style="margin:4px 0">
+      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
+      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
+  "n_cells_sweep": [
+    2,
+    4,
+    8,
+    16
+  ],
+  "parallel_processes": true
+}</pre>
+    </details>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> 5 min
+      · <strong>Seeds:</strong> <code>0</code>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      <strong>Tests applied:</strong> 4 · 
+      
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+</section>
+
+
+<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
+  <div class="baseline-list">
+    
+    <article class="baseline-entry" data-baseline-name="colony-1cell-natural">
+      <header class="baseline-entry-header">
+        <h3 class="baseline-entry-name">colony-1cell-natural</h3>
+        <code class="baseline-entry-fqn">v2ecoli.composites.colony.colony</code>
+      </header>
+      
+      <table class="baseline-params">
+        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+        <tbody>
+          
+          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
+          
+          <tr><td><code>cache_dir</code></td><td><code>out/cache</code></td></tr>
+          
+          <tr><td><code>n_cells</code></td><td><code>1</code></td></tr>
+          
+          <tr><td><code>env_size</code></td><td><code>30</code></td></tr>
+          
+          <tr><td><code>physics_interval</code></td><td><code>1.0</code></td></tr>
+          
+          <tr><td><code>ecoli_interval</code></td><td><code>1.0</code></td></tr>
+          
+        </tbody>
+      </table>
+      
+      <div class="baseline-entry-actions">
+        <button class="btn-run-baseline" data-baseline-name="colony-1cell-natural">Run</button>
+        <button class="btn-baseline-remove" data-baseline-name="colony-1cell-natural">Remove</button>
+      </div>
+    </article>
+    
+  </div>
+
+  <details class="baseline-add-form">
+    <summary class="btn-baseline-add">+ Add composite</summary>
+    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
+      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
+      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
+  <div class="observables-section">
+    <h3 class="section-title">Observables</h3>
+    <p class="muted">Experimental measurements selected from the composite's bigraph state. Each observable resolves to a `store_path` (and optional `index_by` when the underlying store is indexed by ID).</p>
+    
+    
+    
+    <div id="auto-readouts" data-composite="v2ecoli.composites.colony.colony">
+      <p class="empty-message">No readouts declared — deriving the available stores from the composite…</p>
+    </div>
+    
+
+    <details class="observables-add-form" style="margin-top: 1.2em;" id="bigraph-picker-details">
+      <summary class="btn-baseline-add">+ Add observable from bigraph state</summary>
+      <div class="bigraph-picker" style="display: grid; grid-template-columns: minmax(360px, 2fr) 1fr; gap: 16px; margin-top: 10px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+            <input type="search" id="bigraph-filter" placeholder="Filter paths (regex)…"
+                   style="flex:1; padding:4px 6px; font-size:0.9em;">
+            <button class="btn-mini" onclick="_reloadBigraphPaths()">Reload</button>
+          </div>
+          <div id="bigraph-tree" style="border:1px solid #e2e8f0; border-radius:4px; padding:8px; max-height:520px; overflow:auto; font-family: ui-monospace, monospace; font-size:0.82em; background:#fafafa;">
+            <span class="muted">Click "Reload" or expand this panel to load the path tree.</span>
+          </div>
+          <div id="bigraph-source-info" class="muted" style="font-size:0.75em; margin-top:4px;"></div>
+        </div>
+        <aside style="border:1px solid #e2e8f0; border-radius:4px; padding:10px; background:#fff;">
+          <h4 style="margin:0 0 6px 0; font-size:0.9em;">Selected path</h4>
+          <div id="bigraph-selected" class="muted" style="font-size:0.85em;">Pick a leaf on the left.</div>
+          <h4 style="margin:12px 0 6px 0; font-size:0.9em;">Observable spec</h4>
+          <p class="muted" style="margin:0 0 6px 0; font-size:0.78em;">Copy into <code>studies/colonies-02-parallel-multigen-perf/study.yaml</code> under <code>observables:</code>.</p>
+          <textarea id="bigraph-spec" readonly rows="8"
+                    style="width:100%; font-family: ui-monospace, monospace; font-size:0.78em; box-sizing: border-box;"></textarea>
+          <button class="btn-mini" onclick="_copyBigraphSpec()" style="margin-top:6px;">Copy</button>
+        </aside>
+      </div>
+    </details>
+    <script>
+      // Lazy load the bigraph tree the first time the observables panel
+      // becomes visible OR the details element opens.
+      (function() {
+        var loaded = false;
+        function load() {
+          if (loaded) return; loaded = true; _reloadBigraphPaths();
+        }
+        document.getElementById('bigraph-picker-details')
+                .addEventListener('toggle', function() {
+                  if (this.open) load();
+                });
+        // Also load on tab activation if the panel is already visible.
+        document.querySelector('[data-kind="observables"].study-tab')
+                .addEventListener('click', function() { setTimeout(load, 50); });
+      })();
+
+      function _reloadBigraphPaths() {
+        var tree = document.getElementById('bigraph-tree');
+        var info = document.getElementById('bigraph-source-info');
+        tree.innerHTML = '<span class="muted">Loading…</span>';
+        info.textContent = '';
+        fetch('/api/study-bigraph-paths?study=colonies-02-parallel-multigen-perf', {headers: {Accept: 'application/json'}})
+          .then(function(r) { return r.json().then(function(j) { return {ok: r.ok, body: j}; }); })
+          .then(function(res) {
+            if (!res.ok) {
+              tree.innerHTML = '<span style="color:#b91c1c;">' + (res.body.error || 'failed to load') + '</span>';
+              if (res.body.looked_in) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">looked in: ' + res.body.looked_in.join(', ') + '</span>';
+              }
+              if (res.body.hint) {
+                tree.innerHTML += '<br><span class="muted" style="font-size:0.78em;">hint: ' + res.body.hint + '</span>';
+              }
+              return;
+            }
+            window._bigraphNodes = res.body.nodes || [];
+            info.textContent = res.body.composite + '  ·  ' + res.body.source_file + '  ·  ' + res.body.node_count + ' leaves (max_depth=' + res.body.max_depth + ')';
+            _renderBigraphTree(window._bigraphNodes, '');
+          });
+      }
+
+      // Render the flat list as a nested <ul>. Group nodes by path[0..n] so
+      // siblings collapse under shared parents.
+      function _renderBigraphTree(nodes, filter) {
+        var tree = document.getElementById('bigraph-tree');
+        tree.innerHTML = '';
+        var rx = null;
+        if (filter) { try { rx = new RegExp(filter, 'i'); } catch (e) {} }
+        // Build a nested object: tree[seg] = {__leaf?:node, __children?:tree}
+        var root = {};
+        nodes.forEach(function(n) {
+          var p = n.path;
+          if (rx && !rx.test(p.join('.'))) return;
+          var cursor = root;
+          for (var i = 0; i < p.length - 1; i++) {
+            var seg = p[i];
+            if (!cursor[seg]) cursor[seg] = {__children: {}};
+            cursor = cursor[seg].__children;
+          }
+          var last = p[p.length - 1];
+          if (!cursor[last]) cursor[last] = {};
+          cursor[last].__leaf = n;
+        });
+
+        function render(level, container, prefix) {
+          Object.keys(level).sort().forEach(function(seg) {
+            var entry = level[seg];
+            var li = document.createElement('li');
+            li.style.listStyle = 'none';
+            li.style.margin = '1px 0';
+
+            var fullPath = prefix.concat([seg]);
+            var leaf = entry.__leaf;
+            var children = entry.__children;
+
+            if (leaf && !children) {
+              // Pure leaf — clickable.
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'bigraph-leaf-btn';
+              btn.style.cssText = 'background:none; border:none; padding:2px 4px; cursor:pointer; text-align:left; font-family:inherit; font-size:inherit; color:#1d4ed8; width:100%;';
+              btn.innerHTML = '<span style="color:#9ca3af;">·</span> ' + seg
+                + ' <span class="muted" style="font-size:0.85em;">(' + leaf.kind
+                + (leaf.fields ? ': ' + leaf.fields.join(', ') : '')
+                + (leaf.length !== undefined ? ', n=' + leaf.length : '')
+                + ')</span>';
+              btn.onclick = function() { _selectBigraphLeaf(leaf); };
+              li.appendChild(btn);
+            } else {
+              // Has children — make collapsible.
+              var det = document.createElement('details');
+              det.open = (prefix.length < 2);  // expand top-2 levels by default
+              var sum = document.createElement('summary');
+              sum.style.cursor = 'pointer';
+              sum.innerHTML = '<strong>' + seg + '</strong>';
+              det.appendChild(sum);
+              var ul = document.createElement('ul');
+              ul.style.cssText = 'margin:0 0 0 14px; padding:0;';
+              render(children, ul, fullPath);
+              det.appendChild(ul);
+              li.appendChild(det);
+              if (leaf) {  // both a leaf and has children — rare
+                var hint = document.createElement('span');
+                hint.className = 'muted';
+                hint.style.fontSize = '0.78em';
+                hint.textContent = ' (' + leaf.kind + ')';
+                sum.appendChild(hint);
+              }
+            }
+            container.appendChild(li);
+          });
+        }
+
+        var ul = document.createElement('ul');
+        ul.style.cssText = 'margin:0; padding:0;';
+        render(root, ul, []);
+        tree.appendChild(ul);
+      }
+
+      function _selectBigraphLeaf(leaf) {
+        var sel = document.getElementById('bigraph-selected');
+        sel.innerHTML = '<code style="font-size:0.85em;">' + leaf.path.join('.') + '</code>'
+          + '<br><span class="muted" style="font-size:0.78em;">kind: ' + leaf.kind
+          + (leaf.fields ? ', fields: [' + leaf.fields.join(', ') + ']' : '')
+          + (leaf.length !== undefined ? ', length: ' + leaf.length : '')
+          + (leaf.preview !== undefined ? ', value: ' + leaf.preview : '')
+          + '</span>';
+        // Suggest a slug from the last segment, with -<parent> for disambiguation if generic.
+        var last = leaf.path[leaf.path.length - 1] || 'obs';
+        var second = leaf.path[leaf.path.length - 2] || '';
+        var slug = (last === 'count' || last === 'id' || second.length > 0 && /listeners?$/.test(second))
+          ? (second + '_' + last).replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase()
+          : last.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+        var pathStr = leaf.path.join('.');
+        var spec;
+        if (leaf.kind === 'structured_array') {
+          spec = '- name: ' + slug + '_by_id\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Bulk count by molecule id. Replace EXAMPLE_ID with the actual id\n'
+            + '    (e.g. "MONOMER0-160[c]" for DnaA).\n'
+            + '  store_path: ' + pathStr + '\n'
+            + '  index_by: {type: bulk_id, value: "EXAMPLE_ID"}\n';
+        } else if (leaf.kind === 'array') {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: |\n'
+            + '    Array listener at ' + pathStr + ' (length=' + leaf.length + ' at snapshot time).\n'
+            + '    If this is indexed by id (e.g. tu_id, tf_id), add index_by:.\n'
+            + '  store_path: ' + pathStr + '\n';
+        } else {
+          spec = '- name: ' + slug + '\n'
+            + '  status: available\n'
+            + '  description: "Scalar observable at ' + pathStr + '"\n'
+            + '  store_path: ' + pathStr + '\n';
+        }
+        document.getElementById('bigraph-spec').value = spec;
+      }
+
+      function _copyBigraphSpec() {
+        var ta = document.getElementById('bigraph-spec');
+        if (!ta.value) return;
+        ta.select();
+        document.execCommand('copy');
+      }
+
+      document.getElementById('bigraph-filter').addEventListener('input', function(e) {
+        if (window._bigraphNodes) _renderBigraphTree(window._bigraphNodes, e.target.value);
+      });
+    </script>
+
+    
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="variants" id="panel-variants">
+  <div class="variants-list">
+    
+    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
+    
+  </div>
+
+  <details class="variant-add-form-wrapper">
+    <summary class="btn-variant-new">+ New variant</summary>
+    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Base composite:
+        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
+          <option value="">— pick a baseline composite —</option>
+          
+          <option value="colony-1cell-natural" data-composite-id="v2ecoli.composites.colony.colony">colony-1cell-natural (v2ecoli.composites.colony.colony)</option>
+          
+        </select>
+      </label>
+      <div id="variant-new-params" class="param-form">
+        <p class="muted">Pick a base composite to see its parameters.</p>
+      </div>
+      <button type="submit">Save variant</button>
+    </form>
+  </details>
+
+  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
+  <dialog id="variant-edit-dialog">
+    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
+      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
+      <div id="variant-edit-params" class="param-form"></div>
+      <menu>
+        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
+        <button type="submit">Save</button>
+      </menu>
+    </form>
+  </dialog>
+</section>
+
+<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
+  <div class="interventions-list">
+    
+    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
+    
+  </div>
+
+  <details class="intervention-add-form-wrapper">
+    <summary class="btn-intervention-new">+ New intervention</summary>
+    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
+      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
+      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
+      <button type="submit">Add</button>
+    </form>
+  </details>
+</section>
+
+<section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <div class="runs-section">
+    <h3 class="section-title">Runs</h3>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Per-run record of what was executed. Visualizations live in the
+      <a href="#" onclick="_setStudyTab('visualizations');return false">Visualizations</a> tab.
+    </p>
+    <table id="runs-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Variant / Baseline</th>
+          <th>Composite</th>
+          <th>Steps</th>
+          <th>Started (UTC)</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Test results</th>
+          <th>Model changes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        
+      </tbody>
+    </table>
+    <div class="runs-actions">
+      <button class="btn-compare-selected">Compare selected</button>
+      <button class="btn-clear-runs danger">Clear all runs</button>
+    </div>
+  </div>
+
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <div class="tests-header">
+    <h3>Behavioral Tests</h3>
+    <p class="muted" style="margin: 0 0 8px 0;">
+      Each prediction below is paired with a precise <code>given / measure / expect</code>
+      rule so one English sentence auto-generates one pytest assertion. The
+      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
+      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
+      against the latest simulation run.
+    </p>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="run-tests-btn" class="btn-primary">Run tests</button>
+      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+    </div>
+    <div class="tests-config" style="margin-top: 6px;">
+      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-natural-division-2-generations"
+        data-pytest-node="natural-division-2-generations"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">natural-division-2-generations</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">One cell divides NATURALLY (no --force-divide) to 2, then both
+daughters divide to 4 — all cells advancing on subsequent ticks.
+Resolves colonies-01&#39;s PASS-narrow (forced-division-only) caveat.
+</div>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-per-cell-wall-drift-within-20pct"
+        data-pytest-node="per-cell-wall-drift-within-20pct"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">per-cell-wall-drift-within-20pct</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Per-cell wall (ms/tick/cell) drifts &lt;=20% across generations 0-3 of
+the natural-division colony. Directly resolves F-06 for wall time.
+</div>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-per-cell-rss-drift-bounded"
+        data-pytest-node="per-cell-rss-drift-bounded"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">per-cell-rss-drift-bounded</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Per-cell RSS stabilizes after startup rather than climbing
+unbounded; the colonies-01 ~5 MB/sim-s climb is amortized warmup,
+not a leak that OOMs a growing colony. Resolves F-06 for RAM.
+</div>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-ray-lifts-gil-ceiling"
+        data-pytest-node="ray-lifts-gil-ceiling"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">ray-lifts-gil-ceiling</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Under the Ray protocol, total wall for the growing colony stays
+sub-realtime past the sequential ~13-cell ceiling (target: scales
+with cores), with division timing + masses consistent vs sequential.
+</div>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-ray-biology-consistency"
+        data-pytest-node="ray-biology-consistency"
+        data-classification="secondary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-secondary">secondary</span>
+        <strong style="font-size: 0.9em;">ray-biology-consistency</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Ray and sequential runs produce the same colony trajectory (cell
+count over time, per-cell mass at division) modulo RNG ordering.
+</div>
+      
+      
+      
+      
+    </li>
+    
+  </ul>
+  
+</section>
+
+<section class="study-tab-panel" data-kind="visualizations" id="panel-visualizations" hidden>
+  <div class="viz-section">
+
+    
+    
+
+    <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
+    <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+      These charts re-render each time the page loads, against the most recent simulation in the study's <code>runs.db</code>.
+      They are also embedded into the downloadable investigation HTML report.
+    </p>
+    <div id="viz-charts-panel" class="charts-panel"></div>
+    <h3 class="section-title" style="margin-top:24px">Registered visualization modules</h3>
+    <div id="viz-list">
+      
+      <div class="viz-config">colony-animation <code class="muted">gif:colony.gif</code>
+        <div class="muted small" style="margin-top:2px">A colony growing from ONE whole-cell agent by NATURAL division (no forcing):
+each cell elongates as its dry mass accumulates toward the division threshold
+(~one cell cycle ≈ 2400 ticks), then splits into two daughters that reset and
+regrow — 1 -&gt; 2 -&gt; 4 -&gt; 6 cells over ~5300 ticks (subsampled 1 frame/40 ticks).
+Fixed physics: jitter_per_second=1e-4 (the old 0.5 flung cells around the
+frame) + coherent fg body mass + the viva-munk in-place shape update. Capsules
+are cells; daughters are hue-shifted variants of their mother (phylogeny
+coloring). Capped at gen 2 to stay under the F-04 native RAM ceiling.
+Regenerate via
+`python .../colonies-02-parallel-multigen-perf/sims/make_gif.py`.
+</div>
+      </div>
+      
+    </div>
+    <button class="btn-add-viz" style="margin-top:8px">+ Add visualization</button>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
+
+  
+  
+  
+  
+  
+  
+  
+  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
+      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+    </h2>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Each track is independent. <em>Regression</em> answers "does the code
+      still build and run cleanly?", <em>biological</em> answers "does the
+      model match the literature?", <em>explanatory</em> answers "did we
+      learn something new?". Each <strong>result is computed</strong> from
+      canonical fields (gate evaluator, run status, finding tiers) — author
+      only the <em>basis</em> (the rationale) for each track.
+    </p>
+    <div class="narrative-grid">
+      <label class="narrative-row">
+        <span class="narrative-label">Regression compatibility</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+              title="Computed from run status (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from run status</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Regression basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Biological validation</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+              title="Computed from the gate evaluator (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Biological basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+      </label>
+      <label class="narrative-row">
+        <span class="narrative-label">Explanatory gain</span>
+        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+              title="Computed from interpretation-tier findings (read-only)"
+              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+      </label>
+      <label class="narrative-row narrative-row-wide">
+        <span class="narrative-label">Explanatory basis</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+      </label>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
+    Synthesised read-only from canonical fields — edit <code>findings</code>,
+    <code>limitations</code>, and <code>discovery_implications</code> to change
+    this (and the generated report) together.
+  </p>
+  <div class="conclusions-grid conclusions-synthesis">
+    <div class="conclusion-field">
+      <h3>Claims <span class="muted small">(from findings)</span></h3>
+      
+      <ul class="synthesis-list">
+        
+        <li>One whole-cell agent divides NATURALLY (no forced same-tick division)
+through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
+(7 division events) in the sequential run, with all cells advancing on
+subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
+validated FORCED division only). Daughter EcoliWCMs hydrate natively
+via the bridge _remove/_add structural update.
+</li>
+        
+        <li>Per-cell EcoliWCM wall does NOT drift across generations. Cleanest
+comparison (low-RSS static N-sweep, 60-tick windows): per-cell wall is
+flat at 54-59 ms across N in {1,2,4,8,16} (65-&gt;54 ms, a slight DECREASE
+as overhead amortizes). In the growing sequential run the 1-cell gen
+(55.3 ms) vs 2-cell gen (56.3 ms/cell) differ by only +1.8%. Apparent
+inflation to ~80 ms/cell at 14 cells is swap pressure (F-03) + O(N)
+pymunk collision cost, NOT WCM-internal accumulation. Resolves F-06
+for wall time: no per-cell wall drift.
+</li>
+        
+        <li>Per-cell RSS is an UNBOUNDED leak, NOT amortized warmup. A SINGLE cell
+climbs ~7.7 MB/sim-s (999 MB -&gt; ~19 GB over the 2338 ticks before its
+first division); the sequential colony peaked at 27.5 GB and was
+OOM-killed at tick 8161 (~136/180 sim-min). Confirmed EMITTER-INDEPENDENT
+(a no-emitter control run leaks the same ~7.06 MB/tick), so the leak is
+inside the EcoliWCM step itself (most likely inner vEcoli listener /
+history-array accumulation), not the RAMEmitter and not division. RSS
+sawtooths DOWN at each division (the mother&#39;s accumulated state is freed
+on _remove), so each lineage re-accumulates from scratch and the binding
+figure is ~18 GB per cell at end-of-generation. This is the F-06
+resolution for RAM: it is a real leak, and it makes the cells-per-node
+budget a function of generation age, not a constant.
+</li>
+        
+        <li>The process-bigraph Ray protocol (ray:EcoliWCM, parallel_processes=True)
+lifts the single-process GIL ceiling. Static N-sweep median wall (realtime
+ratio): local scales LINEARLY 65/118/237/466/865 ms (ratio 0.07-&gt;0.87)
+for N=1/2/4/8/16, crossing realtime near N~18 (the colonies-01 ceiling).
+Ray scales SUB-LINEARLY 54/59/81/115/245 ms (ratio 0.05-&gt;0.25): per-cell
+wall drops 54-&gt;15 ms as cells solve concurrently across cores. At N=16
+Ray is 3.5x faster and only 0.25 realtime -&gt; headroom to ~50-60 cells
+before realtime. Confirmed in the growing colony too: 2 cells cost the
+same total wall (~59 ms) as 1 cell.
+</li>
+        
+        <li>Under Ray the binding constraint flips from CPU/GIL to aggregate RAM,
+and RAM is WORSE than sequential. The ~7.7 MB/sim-s per-cell leak (F-03)
+is transport-independent: it moves into the actor PROCESS (one actor
+reached ~19 GB by tick 2338, mirroring sequential). The Ray protocol also
+pre-spawns a ~13-actor pool, each carrying a ~590 MB WCM baseline (~7.6 GB
+fixed overhead). At just 2 live cells the two daughter actors were each
+~10 GB and climbing (~34 GB distinct actor RSS) -&gt; a growing colony OOMs
+the machine even faster than sequential. The main process stays flat
+~0.7 GB (WCM offloaded). RSS sawtooths at division (mother actor returns
+to pool).
+</li>
+        
+        <li>Ray and sequential produce the SAME colony trajectory. First division
+occurs at tick 2338 under BOTH transports (exact, not just modulo RNG):
+the EcoliWCM is deterministic given its seed and the transport does not
+alter seeding, so division timing and per-cell mass are transport-
+invariant. Per-cell wall under Ray at 2 cells is 29.7 ms (vs 59.8 ms at
+1 cell) — the two cells solve concurrently.
+</li>
+        
+        <li>The colonies-01 excessive-cell-movement artifact has two coupled causes,
+both confirmed by a 12-tick 2-cell diagnostic sweep over
+(jitter_per_second, init_mass): (1) jitter_per_second=0.5 is ~5000x
+viva-munk&#39;s 1e-4 default; (2) build_microbe&#39;s density(0.02)-seeded body
+mass is ~0.04 (tiny), so jitter impulse/mass flings the cell. Legacy
+(0.5, None): mean move 9-10 um/tick. Either fix alone tames it to
+~0.13 um/tick; the chosen (1e-4, 200) fixes both motion and fg-unit
+coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
+</li>
+        
+      </ul>
+      
+    </div>
+    <div class="conclusion-field">
+      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+      
+      
+      <ul class="synthesis-list">
+        
+        <li>from_runs: [&#39;seq-1cell-4div&#39;]; from_test: natural-division-2-generations; observed: {&#39;division_ticks&#39;: [2338, 4706, 4707, 6975, 6976, 7075, 7101], &#39;cells_final&#39;: 14}; units: tick (1 tick = 1 sim-s)</li>
+        
+        <li>from_runs: [&#39;seq-1cell-4div&#39;, &#39;nsweep-local&#39;]; from_test: per-cell-wall-drift-within-20pct; observed: {&#39;seq_gen0_ms&#39;: 55.3, &#39;seq_gen1_per_cell_ms&#39;: 56.3, &#39;drift_pct&#39;: 1.8, &#39;nsweep_local_per_cell_ms&#39;: {&#39;n1&#39;: 65, &#39;n2&#39;: 59, &#39;n4&#39;: 59, &#39;n8&#39;: 58, &#39;n16&#39;: 54}}; units: ms/tick/cell</li>
+        
+        <li>from_runs: [&#39;seq-1cell-4div&#39;]; from_test: per-cell-rss-drift-bounded; observed: {&#39;single_cell_leak_mb_per_s&#39;: 7.7, &#39;single_cell_rss_at_first_division_gb&#39;: 19, &#39;peak_rss_gb&#39;: 27.5, &#39;oom_tick&#39;: 8161, &#39;no_emitter_control_mb_per_tick&#39;: 7.06}; units: MB</li>
+        
+        <li>from_runs: [&#39;nsweep:local&#39;, &#39;nsweep:ray&#39;, &#39;ray-1cell-4div&#39;]; from_test: ray-lifts-gil-ceiling; observed: {&#39;local_wall_ms&#39;: {&#39;n1&#39;: 65, &#39;n2&#39;: 118, &#39;n4&#39;: 237, &#39;n8&#39;: 466, &#39;n16&#39;: 865}, &#39;ray_wall_ms&#39;: {&#39;n1&#39;: 54, &#39;n2&#39;: 59, &#39;n4&#39;: 81, &#39;n8&#39;: 115, &#39;n16&#39;: 245}, &#39;local_realtime_cross_n&#39;: 18, &#39;ray_realtime_cross_n_est&#39;: 55}; units: ms/tick (realtime budget = 1000 ms)</li>
+        
+        <li>from_runs: [&#39;ray-1cell-4div&#39;, &#39;nsweep:ray&#39;]; from_test: ray-biology-consistency; observed: {&#39;single_actor_rss_at_first_division_gb&#39;: 19, &#39;actor_pool_size&#39;: 13, &#39;per_actor_baseline_mb&#39;: 590, &#39;two_cell_distinct_actor_rss_gb&#39;: 34, &#39;main_proc_rss_gb&#39;: 0.7}; units: GB</li>
+        
+        <li>from_runs: [&#39;seq-1cell-4div&#39;, &#39;ray-1cell-4div&#39;]; from_test: ray-biology-consistency; observed: {&#39;seq_first_division_tick&#39;: 2338, &#39;ray_first_division_tick&#39;: 2338, &#39;ray_per_cell_ms_n1&#39;: 59.8, &#39;ray_per_cell_ms_n2&#39;: 29.7}; units: tick</li>
+        
+        <li>from_runs: [&#39;physics-diagnostic&#39;]; from_test: (build_task) jitter-mass-diagnostic; observed: {&#39;legacy_0p5_None_move_um&#39;: 9.0, &#39;fix_1e-4_200_move_um&#39;: 0.13, &#39;fix_body_mass_fg&#39;: 200}; units: um/tick</li>
+        
+      </ul>
+      
+    </div>
+    <div class="conclusion-field">
+      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
+      <p class="muted">None recorded.</p>
+    </div>
+    <div class="conclusion-field">
+      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
+      <p class="muted">No follow-up proposals recorded yet.</p>
+    </div>
+  </div>
+  
+
+</section>
+
+</main>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard" };</script>
+<script src="/v2ecoli/dashboard/assets/data-source.js"></script>
+<script>
+window._studyName = "colonies-02-parallel-multigen-perf";
+window._study = null;  // populated by _bootstrapStudy() in study-detail.js
+
+// Save handler for the Conditions → Model settings editable rows.
+// POSTs to /api/study-expert-input-set (route kept for back-compat)
+// which patches study.yaml in place.
+// On success: flashes "saved" + updates the row's data-current attribute.
+// On failure: flashes the error (HTTP body) for ~5s.
+function _saveExpertInput(studyName, eiName, btn) {
+  var row = btn.closest('tr');
+  var input = row && row.querySelector('.cond-ei-input');
+  var flash = row && row.querySelector('.cond-ei-flash');
+  if (!input || !flash) return;
+  var raw = (input.value || '').trim();
+  // Coerce numeric inputs so yaml carries the right type
+  var val = raw;
+  if (input.type === 'number' && raw !== '') {
+    var n = Number(raw);
+    if (!isNaN(n)) val = n;
+  } else if (raw === '') {
+    val = null;
+  }
+  btn.disabled = true;
+  flash.className = 'cond-ei-flash';
+  flash.style.display = '';
+  flash.textContent = 'saving…';
+  fetch('/api/study-expert-input-set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({study: studyName, name: eiName, current: val}),
+  }).then(function(r) {
+    return r.text().then(function(t) { return {ok: r.ok, status: r.status, body: t}; });
+  }).then(function(res) {
+    if (res.ok) {
+      flash.className = 'cond-ei-flash saved';
+      flash.textContent = '✓ saved';
+      setTimeout(function() { flash.style.display = 'none'; }, 2500);
+    } else {
+      flash.className = 'cond-ei-flash error';
+      flash.textContent = '✗ ' + (res.body || ('HTTP ' + res.status));
+    }
+  }).catch(function(err) {
+    flash.className = 'cond-ei-flash error';
+    flash.textContent = '✗ ' + String(err);
+  }).finally(function() {
+    btn.disabled = false;
+  });
+}
+
+// ── Seed a child study from this study's discovery_implications /
+//    follow_up_studies and make it appear in the investigation graph ──────
+// Both POST /api/study-seed-followup. On success they flash an inline
+// confirmation on the clicked button, then refresh the surface the user is
+// in: when embedded inside the investigation iframe, ask the parent to
+// re-render the investigation detail (and reload as a fallback); standalone,
+// reload the page so the seeded child is reflected.
+//
+// NOTE: these are defined AFTER /study-detail.js loads (see the script order
+// below) so they take precedence over the legacy _seedFollowupStudy there,
+// which navigates away instead of refreshing the embedded investigation.
+function _flashSeedBtn(btn, text, ok) {
+  if (!btn) return;
+  btn.textContent = text;
+  btn.style.borderColor = ok ? '#10b981' : '#dc2626';
+  btn.style.color = ok ? '#065f46' : '#991b1b';
+}
+function _afterSeedRefresh() {
+  // Embedded inside the investigation iframe → refresh the parent's graph.
+  if (window.parent && window.parent !== window) {
+    try {
+      if (window.parent._refreshInvestigationDetail) {
+        window.parent._refreshInvestigationDetail();
+        return;
+      }
+    } catch (e) { /* cross-origin or missing — fall through to reload */ }
+    try { window.parent.location.reload(); return; } catch (e) { /* fall through */ }
+  }
+  location.reload();
+}
+function _seedFollowup(payload, btn) {
+  var orig = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; _flashSeedBtn(btn, '… seeding', true); }
+  fetch('/api/study-seed-followup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(function(r) {
+    return r.json().then(function(d) { return {ok: r.ok, status: r.status, body: d}; })
+      .catch(function() { return {ok: r.ok, status: r.status, body: {}}; });
+  }).then(function(res) {
+    if (!res.ok || (res.body && res.body.error)) {
+      _flashSeedBtn(btn, '✗ ' + ((res.body && res.body.error) || ('HTTP ' + res.status)), false);
+      if (btn) btn.disabled = false;
+      return;
+    }
+    _flashSeedBtn(btn, '✓ added', true);
+    setTimeout(_afterSeedRefresh, 600);
+  }).catch(function(err) {
+    _flashSeedBtn(btn, '✗ ' + String(err), false);
+    if (btn) btn.disabled = false;
+  });
+}
+function _seedFollowupStudy(parent, idx) {
+  _seedFollowup({parent: parent, followup_idx: idx}, window.event && window.event.target);
+}
+function _seedFollowupProposal(parent, proposalId) {
+  _seedFollowup({parent: parent, proposal_id: proposalId}, window.event && window.event.target);
+}
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script src="/v2ecoli/dashboard/assets/study-detail.js"></script>
+<script>
+// Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
+// defines its own navigate-away _seedFollowupStudy). The embedded
+// investigation view prefers staying in place over a full navigation.
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+</body>
+</html>

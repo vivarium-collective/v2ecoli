@@ -246,8 +246,14 @@ report:
     exploration: Hill s=0.7 brought 2/3 seeds in-band (band PARTIAL — seed0 dip + truncated g17), and
     Hill s=0.65 (F-06) band-centered but slowed division → 2/3 seeds stalled. So the band test is now a
     clean PASS on the linear-s=0.6+F-05 reference. (Homeostasis itself — DnaA setpoint insensitive to V
-    — holds across both forms.) Robustness note: the linear-s=0.6+F-05 reference is confirmed on seed 1
-    (Rashmi's seed); a seeds-0/2 confirmation is the open follow-up.
+    — holds across both forms.) MULTI-SEED CONFIRMATION (seeds 0/2, 2026-06-16, 12-gen each, identical
+    config): the HOMEOSTASIS is ROBUST across all 3 seeds — clean cell cycle (12/12 divided, oriC 1<->2,
+    0 re-inits) AND total-DnaA pool in [300,800] every steady gen g4-11 on seeds 0/1/2. BUT the
+    DnaA-ATP-FRACTION band is SEED-SENSITIVE: in band only on seed 1 (0.261); seed 0 0.156 and seed 2
+    0.085 fall below 0.2 (seed 0 ramps 0.02->0.25 over gens — slow ATP charging, near band by g8-12;
+    seed 2 stays erratic ~0.02-0.12). So the headline result — autoregulated DnaA homeostasis + clean
+    cycle — replicates robustly, but the fraction band does NOT; dnaa-4 stays PARTIAL on the fraction
+    (mirrors the Hill s=0.7 2/3-in-band pattern). Runs dnaa4_s06_F05_seed{0,1,2}_12gen.
   confidence: demonstrated-mechanism
   evidence_quality: 6 completed 16-gen runs — control/linear/Hill/Hill-s06 (seed 0, V=1.5e-3) + s=0.7 Hill 3-seed robustness (seeds 0/1/2; seed1 via the #209 allocator/proton fix)
   objective: |
@@ -526,9 +532,57 @@ runs:
       evaluated_by: agent
       reason: missing measure block
       reconcile: no_authored
+- name: dnaa4_s06_F05_seed1_12gen
+  status: completed
+  canonical: true   # CURRENT REFERENCE (F-07): linear s=0.6 + F-05, V=1.5e-3, k_h=0.025; matches Rashmi's PDF. The cleanest seed (all bands met).
+  seeds: [1]
+  emitter:
+    kind: parquet
+    store: out/dnaa4_s06_F05_seed1_12gen/dnaa4_s06_F05_seed1_12gen   # lives on mini; metrics computed there
+  note: 'F-07 reference. 12/12 divided, oriC 1<->2, 0 re-inits; total-DnaA per-gen mean 326-435 in [300,800] (g4-11); DnaA-ATP fraction 0.261 in [0.2,0.5]. Both pages of Rashmi''s reference PDF reproduce.'
+  generations: 12
+  outcomes:   # reviewer-strip results (keyed by test name; UPPERCASE)
+    cell-cycle-preserved:
+      result: PASS
+      detail: 12/12 divided, oriC 1<->2 every gen, 0 re-inits.
+    dnaa-pool-self-stabilizes-in-band-no-V:
+      result: PASS
+      detail: total-DnaA per-gen mean in [300,800] every steady gen g4-11 (326-435); DnaA-ATP fraction 0.261 in [0.2,0.5].
+- name: dnaa4_s06_F05_seed0_12gen
+  status: completed
+  canonical: false   # F-07 multi-seed confirmation (seed 0) — see F-08
+  seeds: [0]
+  emitter:
+    kind: parquet
+    store: out/dnaa4_s06_F05_seed0_12gen/dnaa4_s06_F05_seed0_12gen
+  note: 'Seed-0 confirmation. 12/12 divided, oriC 1<->2, 0 re-inits; total-DnaA per-gen mean 315-392 in [300,800] (g4-11) — homeostasis holds. DnaA-ATP fraction steady-mean 0.156 BELOW band (ramps 0.02->0.25 over the lineage; slow ATP charging, near band by g8-12).'
+  generations: 12
+  outcomes:
+    cell-cycle-preserved:
+      result: PASS
+      detail: 12/12 divided, oriC 1<->2, 0 re-inits.
+    dnaa-pool-self-stabilizes-in-band-no-V:
+      result: PARTIAL
+      detail: total-DnaA pool in band g4-11 (PASS); DnaA-ATP fraction 0.156 BELOW [0.2,0.5] (seed-sensitive; ramps toward band in late gens).
+- name: dnaa4_s06_F05_seed2_12gen
+  status: completed
+  canonical: false   # F-07 multi-seed confirmation (seed 2) — see F-08
+  seeds: [2]
+  emitter:
+    kind: parquet
+    store: out/dnaa4_s06_F05_seed2_12gen/dnaa4_s06_F05_seed2_12gen
+  note: 'Seed-2 confirmation. 12/12 divided, oriC 1<->2, 0 re-inits; total-DnaA per-gen mean 382-539 in [300,800] (g4-11) — homeostasis holds. DnaA-ATP fraction steady-mean 0.085 BELOW band, low + erratic (0.02-0.12, never settles).'
+  generations: 12
+  outcomes:
+    cell-cycle-preserved:
+      result: PASS
+      detail: 12/12 divided, oriC 1<->2, 0 re-inits.
+    dnaa-pool-self-stabilizes-in-band-no-V:
+      result: PARTIAL
+      detail: total-DnaA pool in band g4-11 (PASS); DnaA-ATP fraction 0.085 BELOW [0.2,0.5] (seed-sensitive, erratic).
 - name: dnaa4_s07_seed1
   status: completed
-  canonical: true   # the authoritative run for the reviewer strip: cleanest s=0.7 seed (g3-16 all in-band), #209-fixed
+  canonical: false   # PRIOR Hill s=0.7 exploration (superseded by the linear s=0.6 + F-05 reference above, F-07); kept for the journey
   seeds: [1]
   emitter:
     kind: parquet
@@ -947,6 +1001,26 @@ findings:
     ParCa, F-05 is applied as a cache patch for the reference run. DECISION: adopt linear s=0.6 +
     F-05 as canonical (enforced_params updated); the DnaA-pool-in-band test is now a clean PASS on
     this reference. Next: confirm across seeds 0/2 (this is seed 1, matching Rashmi's reference).
-  status: draft
+    [SEEDS 0/2 CONFIRMED — see F-08: homeostasis robust 3/3, ATP-fraction band seed-sensitive (1/3).]
+  status: evaluated
   provenance:
     run_ids: [dnaa4_s06_F05_seed1_12gen]
+- id: F-08
+  statement: >-
+    MULTI-SEED CONFIRMATION of the F-07 linear-s=0.6+F-05 reference (seeds 0 and 2, 2026-06-16,
+    12 generations each, byte-identical config: cache out/cache_dnaa4_s06_F05, V=1.5e-3,
+    DNAA_AUTOREG_FORM=linear, DNAA_AUTOREG_STRENGTH=0.6, k_h=0.025, K_d 3/100 nM, RIDA/DDAH/DARS off).
+    RESULT — the HOMEOSTASIS is ROBUST across all three seeds: every seed divides 12/12 with oriC 1<->2
+    and 0 re-inits, and the TOTAL-DnaA pool sits in [300,800] on every steady generation g4-11 (seed 0
+    per-gen total-mean 315-392; seed 1 326-435; seed 2 382-539). So the autoregulated DnaA homeostasis +
+    clean cell cycle — the dnaa-4 headline — replicates cleanly. HOWEVER the DnaA-ATP-FRACTION band
+    [0.2,0.5] is SEED-SENSITIVE and does NOT replicate: in band only on seed 1 (steady-gen mean 0.261);
+    seed 0 is 0.156 and seed 2 is 0.085, both below 0.2. The per-gen detail explains it: seed 0's
+    fraction RAMPS UP over the lineage (0.02 g4 -> 0.20 g7 -> 0.25 g12 — slow ATP-pool charging, in/near
+    band by the late gens), while seed 2 stays low and erratic (0.02-0.12, never settles). This mirrors
+    the Hill s=0.7 round (2/3 seeds in band). CONCLUSION: the mechanism result (homeostasis) is robust;
+    the fraction band is seed-1-specific, so dnaa-4 remains PARTIAL on the fraction — not promoted to a
+    clean pass. Honest negative result from the multi-seed confirmation, exactly what it was run to test.
+  status: evaluated
+  provenance:
+    run_ids: [dnaa4_s06_F05_seed0_12gen, dnaa4_s06_F05_seed1_12gen, dnaa4_s06_F05_seed2_12gen]

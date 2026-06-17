@@ -82,9 +82,13 @@ executive:
     Feedback holding free DnaA-ATP low is also what lets dnaa-3 pass its fraction band — so
     autoregulation dissolves the dnaa-1/2/3 V-tension at the root, exactly as deferred.
 
-    OPEN: the linear-s=0.6+F-05 reference is confirmed on seed 1 (Rashmi's seed); a seeds-0/2
-    confirmation is the standing robustness follow-up. The downstream mechanistic roadmap
-    (RIDA/DDAH/DARS, seqA, cooperativity, validation) is scaffolded but not yet worked.
+    MULTI-SEED (seeds 0/1/2, 12-gen): the autoregulated HOMEOSTASIS is ROBUST — clean cell cycle
+    (12/12, oriC 1↔2, 0 re-inits) and total-DnaA pool in [300,800] (steady g4-11) on all three
+    seeds. The DnaA-ATP-FRACTION band, however, is SEED-SENSITIVE — in band only on seed 1 (0.261);
+    seed 0 (0.156, ramping toward band late) and seed 2 (0.085, erratic) fall below 0.2 — so dnaa-4
+    stays PARTIAL on the fraction (homeostasis confirmed, fraction band seed-1-specific). The
+    downstream mechanistic roadmap (RIDA/DDAH/DARS, seqA, cooperativity, validation) is scaffolded
+    but not yet worked.
   verdict_status: in-progress
   verdict_detail: |-
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate
@@ -155,16 +159,21 @@ executive:
 
     dnaa-3 (2026-06-07/08): the in-sim DnaA-box binding fires correctly inside the simulation as the PROVIDED read-only occupancy listener (4 affinity pools, fast equilibrium, full box set; three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). It reports free DnaA-ATP and per-pool occupancy with the dnaa-2 cell cycle preserved exactly. CORRECTION (Rashmi 2026-06-08): an earlier pass had added a box-capacity cap=32 justified by outside ChIP-seq (Smith 2024) plus a DnaA sink and abundance/datA literature — none of which were provided. These have been WITHDRAWN; only the provided mechanisms are modeled. The multi-generation read-only run (7 gens, full per-gen history) and the full plot set Rashmi requested are now DONE (oriC, cell mass, all DnaA forms bound+free, concentrations, ATP/ADP fraction across generations; box occupancy at a steady-state generation). HONEST FINDING: the over-binding PERSISTS within the provided model. The DnaA-ATP fraction is in band (0.23), but free DnaA-ATP stays ~380-550 nM — ≈4× the 100 nM oriC-low K_d — for 100% of every cycle across all 7 generations, so oriC-low occupancy holds ~0.8 throughout (high-affinity pools saturate). So contrary to the 2026-06-08 expectation, the correct DnaA-ATP fraction does NOT by itself leave the low-affinity sites modestly occupied; the over-binding is a real open question within the provided mechanisms (nothing in the provided read-only model lowers free DnaA-ATP), and we are NOT re-introducing a cap/sink to force it down. The withdrawn ideas (Smith ChIP-seq, abundance, datA) are recorded as proposed_inputs for Rashmi to Accept or Decline in the report.
   decisions_needed:
-  - question: "dnaa-4 — confirm the linear-s=0.6+F-05 reference on seeds 0 and 2 (only seed 1 / Rashmi's seed is confirmed so far). Standing robustness follow-up; non-blocking for the mechanism verdict. Also: advance into the downstream mechanistic roadmap (dnaa-05 RIDA/DDAH/DARS next)?"
+  - question: "dnaa-4 — the seed-sensitive DnaA-ATP fraction: is it acceptable, or does it warrant a follow-up? (seeds 0/2 confirmation DONE — homeostasis robust 3/3, but the fraction band holds only on seed 1.) Also: advance into the downstream mechanistic roadmap (dnaa-05 RIDA/DDAH/DARS next)?"
     status: |
-      OPEN 2026-06-16. dnaa-0..4 PASS; the only open item on the worked studies is the
-      multi-seed (0/2) confirmation of the dnaa-4 canonical reference. The roadmap studies
-      (RIDA/DDAH/DARS, seqA, cooperativity, validation) are scaffolded but not yet started —
-      awaiting a go-ahead on sequencing them.
+      SEEDS 0/2 CONFIRMED 2026-06-16 (F-08): the homeostasis (clean cell cycle + total-DnaA pool
+      in [300,800]) is ROBUST across seeds 0/1/2; the DnaA-ATP fraction band [0.2,0.5] is NOT —
+      in band only on seed 1 (0.261), with seed 0 (0.156, ramping toward band by late gens) and
+      seed 2 (0.085, erratic) below. dnaa-4 stays PARTIAL on the fraction. OPEN: whether this
+      seed-sensitivity is acceptable for the mechanism verdict or warrants a follow-up (longer
+      runs to test if seed 0's slow ATP charging settles in band; or a k_h / charging-kinetics
+      recalibration). Separately, the roadmap studies (RIDA/DDAH/DARS, seqA, cooperativity,
+      validation) are scaffolded but not yet started — awaiting a go-ahead on sequencing them.
     context: |
-      The dnaa-4 reference (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025) is verified on seed 1
-      and matches Rashmi's reference PDF; seeds 0/2 would close the coincidence-vs-robust
-      question the same way dnaa-1/2 were multi-seeded.
+      The dnaa-4 reference (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025) was verified on seed 1
+      (matches Rashmi's PDF); the seeds 0/2 confirmation closed the coincidence-vs-robust question
+      the same way dnaa-1/2 were multi-seeded — and found the homeostasis robust but the fraction
+      band seed-1-specific.
   - question: "dnaa-2 — RESOLVED + PASS (was the mechanism + clean-reproduction question)."
     status: |
       RESOLVED 2026-06-04 — dnaa-2 PASSES. MECHANISM: Haochen's bf8b82e (DnaA-ADP

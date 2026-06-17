@@ -397,6 +397,14 @@ colonies-02 on current main with all three contributory fixes live
 shape churn) STILL leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
 5.1 -&gt; 22.3 GB at a CONSTANT 6 cells and OOMs ~gen 3, unchanged from before
 the fixes.
+</p><p style="margin:4px 0 0">The dominant per-tick growth is NATIVE and localized to the LLVM/Numba JIT
+layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
+numpy-object bytes FLAT within each cell-count plateau while native memory
+climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
+the true unreachable leak with stacks in llvmlite&#39;s LLVM pass pipeline
+(LLVMPY_buildFunctionSimplificationPipeline). So the WCM&#39;s JIT compilation
+is the source — not the emitters (#239), the outer emitter (emit_cells), the
+pymunk shapes (viva-munk #11), or a retained numpy array.
 </p>
         </div>
         
@@ -612,6 +620,52 @@ MALLOC_STACK_LOGGING, or jemalloc/tcmalloc heap profiling), not Python
 tooling. Until then the colony is RAM-blocked for multi-generation runs and
 colonies-04-hpc-deployment stays blocked. The 3 Python-level fixes remain
 valid wins (merged).
+</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">F-05-native-leak-localized-to-llvm-numba</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">The dominant per-tick growth is NATIVE and localized to the LLVM/Numba JIT
+layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
+numpy-object bytes FLAT within each cell-count plateau while native memory
+climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
+the true unreachable leak with stacks in llvmlite&#39;s LLVM pass pipeline
+(LLVMPY_buildFunctionSimplificationPipeline). So the WCM&#39;s JIT compilation
+is the source — not the emitters (#239), the outer emitter (emit_cells), the
+pymunk shapes (viva-munk #11), or a retained numpy array.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          
+          
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Tracked as engineering issue #253: find where the WCM (re)compiles @njit
+functions per tick/cell and make them module-level + cache=True so they
+compile once and are shared; confirm with NUMBA_DISABLE_JIT=1 flattening the
+growth. SEPARATELY, the per-cell footprint (each cell = an independent
+baseline composite loading its OWN sim_data, ~1+ GB/cell — colonies-02
+charts/02) is a distinct, bounded RAM limiter worth a shared-sim_data design.
 </div>
       </div>
       
@@ -1497,6 +1551,16 @@ shape churn) STILL leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
 the fixes.
 </li>
         
+        <li>The dominant per-tick growth is NATIVE and localized to the LLVM/Numba JIT
+layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
+numpy-object bytes FLAT within each cell-count plateau while native memory
+climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
+the true unreachable leak with stacks in llvmlite&#39;s LLVM pass pipeline
+(LLVMPY_buildFunctionSimplificationPipeline). So the WCM&#39;s JIT compilation
+is the source — not the emitters (#239), the outer emitter (emit_cells), the
+pymunk shapes (viva-munk #11), or a retained numpy array.
+</li>
+        
       </ul>
       
     </div>
@@ -1527,6 +1591,13 @@ native (numpy/scipy array buffers or a C-extension retaining or fragmenting
 memory), INVISIBLE to tracemalloc (it tracks only CPython&#39;s allocator, not
 numpy&#39;s). gc object-COUNT scans likewise found only small symptoms
 (pymunk Segments -&gt; #11), not the megabytes.
+</li>
+        
+        <li>leaks @2cells/400ticks: ~846 MB live, ~13 MB true leak, top stacks all
+LLVM PassBuilder (GVN/JumpThreading/LoopUnswitch/LICM). numpy-bytes delta
+~0 within plateaus; tracemalloc &lt;2 MB of a +151 MB/300-tick growth.
+Figures: colonies-02 charts/03_memory_decomposition.svg (native vs numpy),
+charts/01_rss_vs_tick_by_ncells.svg (per-tick slope by N).
 </li>
         
       </ul>

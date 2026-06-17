@@ -1765,6 +1765,33 @@ Regenerate via
 </div>
       </div>
       
+      <div class="viz-config">rss-vs-tick-by-ncells <code class="muted">image:charts/01_rss_vs_tick_by_ncells.svg</code>
+        <div class="muted small" style="margin-top:2px">Process RSS vs tick from a controlled staged run (N=1→2→4, force-divided for
+timing; sims/mem_measure.py → runs/mem_measure.csv). The two memory factors
+are visible in one figure: the STEP-UP at each division = the per-cell
+footprint, and the upward SLOPE within each constant-N plateau = the leak
+(annotated MB/tick, scaling with cell count).
+</div>
+      </div>
+      
+      <div class="viz-config">footprint-and-leak-by-ncells <code class="muted">image:charts/02_footprint_and_leak_by_ncells.svg</code>
+        <div class="muted small" style="margin-top:2px">Left: per-cell footprint (GB/cell) — each colony cell is an INDEPENDENT full
+baseline whole-cell composite that loads its OWN sim_data, so RAM scales ~1+
+GB per cell (bounded, but the dominant cells-per-node limiter). Right: the
+per-tick leak rate (within-plateau RSS slope, MB/tick) — the unbounded factor,
+scaling with cell count.
+</div>
+      </div>
+      
+      <div class="viz-config">memory-decomposition <code class="muted">image:charts/03_memory_decomposition.svg</code>
+        <div class="muted small" style="margin-top:2px">RSS split into numpy-object bytes (gc-visible) vs native/C. numpy stays flat
+within each plateau while native grows — so the leak is NOT a retained
+Python/numpy object. tracemalloc saw &lt;2 MB of the growth; macOS `leaks` found
+~13 MB of true unreachable leak in the LLVM/Numba JIT layer (llvmlite). See
+colonies-03 F-05 + issue #253.
+</div>
+      </div>
+      
     </div>
     <button class="btn-add-viz" style="margin-top:8px">+ Add visualization</button>
   </div>

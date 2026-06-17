@@ -151,6 +151,16 @@ simulation_set:
   pass_fail_tests: [dnaa-pool-self-stabilizes-in-band-no-V, cell-cycle-preserved]
 
 visualizations:
+- name: dnaa4_s06_F05_3seed_comparison
+  address: charts/dnaa4_s06_F05_3seed_comparison.png
+  status: rendered
+  config:
+    title: >-
+      MULTI-SEED CONFIRMATION (F-08): per-generation means for the linear-s=0.6 + F-05 reference
+      across seeds 0/1/2 (12 gens each). Top — total DnaA pool: all three seeds hold in [300,800]
+      every steady gen g4-11 (homeostasis robust 3/3). Bottom — DnaA-ATP fraction: in [0.2,0.5]
+      only on seed 1 (0.261); seed 0 ramps toward band (0.156), seed 2 low/erratic (0.085) — the
+      fraction band is seed-sensitive, so dnaa-4 stays PARTIAL on the fraction.
 - name: dnaa4_linear_s06_F05_trajectory
   address: charts/dnaa4_linear_s06_F05_trajectory.png
   status: rendered

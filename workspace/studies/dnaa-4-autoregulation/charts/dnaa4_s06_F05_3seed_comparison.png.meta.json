@@ -1,0 +1,7 @@
+{
+  "title": "dnaa-4 3-seed confirmation — homeostasis robust, DnaA-ATP fraction seed-sensitive",
+  "caption": "Per-generation means for the linear-s=0.6 + F-05 reference (V=1.5e-3, k_h=0.025/min, K_d 3/100 nM, RIDA/DDAH/DARS off) across seeds 0/1/2, 12 generations each. TOP — total DnaA pool: every seed holds in the [300,800] acceptance band (grey) on every steady generation g4-11 (seed 0 315-392, seed 1 326-435, seed 2 382-539), so the autoregulated homeostasis is robust across seeds. BOTTOM — DnaA-ATP fraction: in the [0.2,0.5] band only on seed 1 (g4-11 mean 0.261); seed 0 ramps up over the lineage (0.02 -> 0.25, near band by g8-12; g4-11 mean 0.156) and seed 2 stays low and erratic (0.02-0.12; mean 0.085). All three seeds divide 12/12 with oriC 1<->2 and 0 re-initiations.",
+  "interpretation": "The multi-seed confirmation separates what replicates from what does not. The dnaa-4 headline — autoregulated DnaA homeostasis with a clean cell cycle — is robust: the total pool self-stabilizes in band on all three seeds. The DnaA-ATP fraction band, however, is seed-1-specific: seed 0's slow ATP-pool charging only reaches band in the late generations, and seed 2 never settles. So dnaa-4 stays PARTIAL on the fraction (mirroring the earlier Hill s=0.7 2/3-in-band pattern); whether this seed-sensitivity is acceptable or warrants a follow-up (longer runs / k_h recalibration) is the open decision for Rashmi.",
+  "source_runs": ["dnaa4_s06_F05_seed0_12gen", "dnaa4_s06_F05_seed1_12gen", "dnaa4_s06_F05_seed2_12gen"],
+  "script": "scripts/plot_dnaa4_3seed.py"
+}

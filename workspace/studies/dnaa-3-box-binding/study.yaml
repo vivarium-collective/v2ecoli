@@ -203,15 +203,26 @@ study_card:
     the pool in [300,800] pushes the fraction to 0.127, below the band.
 
 enforced_params:
-  # The values this study REQUIRES of the composite. K_d's are the spec/box-catalog
-  # values; V=0.8e-3 is the dnaA-expression knob tuned down (from 1e-3) on the
-  # canonical run dnaa3_adopt_v0p8e3_seed0 to hold the DnaA pool in [300,800].
+  # The values this study REQUIRES of the composite. RECONFIGURED 2026-06-17 to the
+  # dnaa-4 REFERENCE config (Rashmi/Haochen handoff, commit eb4ea39): box binding is now
+  # observed on the autoregulation-stabilized lineage, NOT the old fixed-V baseline. The
+  # earlier fixed-V values (V=0.8e-3, K_d_high=1 nM, fast-eq apo+ATP, k_h=0.046) are the
+  # pre-autoregulation history — see the verdict's "binding journey" notes. (Why this
+  # reconfigure: the fixed-V config had the V-tension pool drift that autoregulation, the
+  # dnaa-4 mechanism, was scoped to resolve — so dnaa-3 must be evaluated on the dnaa-4
+  # reference, not a config that predates the fix. See
+  # docs/conventions/staged-investigation-config-propagation.md.)
   params:
-    kd_high_nM: 1            # chromosomal-high / oriC-high / promoter-high pools
-    kd_low_nM: 100           # oriC low-affinity pool (Haochen first-step)
     growth_condition: succinate
-    dnaA_expression_V: 0.8e-3
-  source: dnaa-abundance-jb-1991   # the [300,800] DnaA-abundance band the V tuning targets
+    code_commit: eb4ea39          # feat/aim2-dnaa-oric-box-binding (dnaa-4 reference)
+    dnaA_expression_V: 1.5e-3     # Mechanism A perturbation TU00259[c] (was 0.8e-3)
+    autoreg_form: linear          # dnaA self-autoregulation (1 - s*f)
+    autoreg_strength_s: 0.6
+    F05_kinetic_apo_ATP: true     # integrate_dt_mask[24]=True (cache patch)
+    hydrolysis_rate_per_min: 0.025  # k_h (was 0.046)
+    kd_high_nM: 3             # chromosomal-high / oriC-high / promoter-high (loosened 1->3 in dnaa-4)
+    kd_low_nM: 100           # oriC low-affinity pool
+  source: dnaa-4-reference-eb4ea39   # the canonical dnaa-4 autoregulation config (supersedes the fixed-V baseline)
 
 biological_summary: |
   DnaA is the master initiator of chromosomal replication in *E. coli*. It binds
@@ -717,7 +728,7 @@ runs:
 - name: dnaa3-readonly-artifact
   status: completed
   kind: single-gen-full-cycle-observer-artifact
-  canonical: true
+  canonical: false   # 2026-06-17: demoted — read-only-era historical artifact, NOT the canonical run (that is dnaa3_currentcfg_seed0_8gen, the dnaa-4-reference re-run). Only one canonical run per study.
   run_dir: parquet-runs/dnaa3-readonly-artifact
   cache_dir: out/cache_dnaa3
   resume_dill: out/dnaa3_insim_readonly/gen_dills/gen5.dill
@@ -807,7 +818,7 @@ runs:
 - name: dnaa3-fullhist
   status: completed
   kind: single-seed-multigen-lineage
-  canonical: true
+  canonical: false   # 2026-06-17: demoted — pre-autoregulation fixed-V lineage (superseded by dnaa3_currentcfg_seed0_8gen on the dnaa-4 reference). Only one canonical run per study.
   run_dir: out/dnaa3_fullhist        # gitignored; only the summary jsons are tracked
   cache_dir: out/cache_dnaa3
   resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill

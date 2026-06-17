@@ -66,17 +66,18 @@ VECOLI_REPO = "/Users/eranagmon/code/vEcoli"
 VECOLI_PYTHON = f"{VECOLI_REPO}/.venv/bin/python"
 
 
-def resolve_vecoli_config(config_path: str) -> dict[str, Any]:
-    """Resolve a vEcoli config (honoring ``inherit_from``) using vEcoli's
+def resolve_vecoli_config(config_path: str,
+                          vecoli_repo: str = VECOLI_REPO) -> dict[str, Any]:
+    """Resolve a vEcoli config (honoring ``inherit_from``) using the fork's
     own loader, returning the fully-merged dict."""
+    vecoli_python = f"{vecoli_repo}/.venv/bin/python"
     snippet = (
         "import json,sys;"
         "from runscripts.workflow import load_config_with_inheritance;"
         "json.dump(load_config_with_inheritance(sys.argv[1]), sys.stdout)"
     )
     out = subprocess.check_output(
-        [VECOLI_PYTHON, "-c", snippet, config_path],
-        cwd=VECOLI_REPO,
-        text=True,
+        [vecoli_python, "-c", snippet, config_path],
+        cwd=vecoli_repo, text=True,
     )
     return json.loads(out)

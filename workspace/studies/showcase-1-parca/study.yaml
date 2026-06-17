@@ -310,3 +310,12 @@ visualizations:
   chart: table
   source_run: showcase1-parca-full-2026-06-09
   render: .venv/bin/python studies/showcase-1-parca/sims/fig3_cache_bundle.py --cache out/cache-showcase --out studies/showcase-1-parca/charts
+
+# Interactive Plotly companions (scripts/make_showcase_interactive_figures.py).
+embed_visualizations:
+- name: ParCa reconstruction summary (interactive)
+  url: /reports/figures/showcase-1-parca/simdata_summary_interactive.html
+  description: Molecule and reaction counts in the fitted sim_data bundle, as an interactive bar chart.
+- name: Units Atlas (interactive)
+  url: /reports/figures/showcase-1-parca/units_atlas.html
+  description: Every declared unit-bearing baseline readout grouped by physical dimension. Folds in the former units-atlas investigation.

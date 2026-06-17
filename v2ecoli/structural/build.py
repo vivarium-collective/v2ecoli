@@ -22,6 +22,72 @@ from pbg_parsimony.structures import fetch
 
 DATA = Path(__file__).parent / "data"
 
+# ── Chromosome geometry constants (E. coli K-12 MG1655) ──────────────────────
+# Genome length and the per-replichore length the replication forks travel
+# (oriC→terC), from v2ecoli's replication reconstruction.
+GENOME_BP = 4_641_652
+REPLICHORE_BP = GENOME_BP // 2  # 2,320,826
+# Coarse-grained bead count representing one full (unreplicated) genome. The
+# theta builder adds ~fork_fraction×GENOME_BEADS more via the sister strand, so
+# total DNA contour scales as n_chromosomes×(1+fork_fraction) — i.e. with the
+# real total bp / dna_mass of the state.
+GENOME_BEADS = 34_000
+
+
+def chromosome_state(state_source="snapshot"):
+    """Return ``(n_chromosomes, fork_fraction)`` for the given state.
+
+    ``n_chromosomes`` is the ``full_chromosome`` count; ``fork_fraction`` is the
+    mean replication-fork position as a fraction of the replichore length
+    (0 = unreplicated, 0.5 = forks halfway to terC). Read from the saved state
+    npz (keys ``n_chromosomes`` / ``fork_fraction``), with sane defaults when a
+    state predates the chromosome fields.
+    """
+    if state_source == "division":
+        npz = DATA / "v2ecoli_state_division.npz"
+        default = (2, 728_151 / REPLICHORE_BP)
+    else:
+        npz = DATA / "v2ecoli_state.npz"
+        default = (1, 1_040_161 / REPLICHORE_BP)
+    try:
+        st = np.load(npz)
+        n = int(st["n_chromosomes"]) if "n_chromosomes" in st else default[0]
+        f = float(st["fork_fraction"]) if "fork_fraction" in st else default[1]
+        return n, f
+    except Exception:
+        return default
+
+
+def division_progress(state_source="snapshot"):
+    """Fraction through the D-period (replication termination → division), 0..1.
+
+    The cell's progress toward cytokinesis, read from the state npz key
+    ``division_progress`` (computed from the source run: a newborn cell ≈ 0; the
+    last frame before division ≈ 1). Drives the septum constriction depth.
+    """
+    npz = (DATA / "v2ecoli_state_division.npz") if state_source == "division" \
+        else (DATA / "v2ecoli_state.npz")
+    default = 1.0 if state_source == "division" else 0.0
+    try:
+        st = np.load(npz)
+        return float(st["division_progress"]) if "division_progress" in st else default
+    except Exception:
+        return default
+
+
+def septum_from_progress(progress, onset=0.4, max_depth=0.7):
+    """Septum constriction depth (0..max_depth) from division progress.
+
+    The FtsZ-ring constriction begins partway through the D-period (``onset``)
+    and deepens to ``max_depth`` at division — capped below 1.0 so the envelope
+    keeps a visible neck rather than fully pinching into two cells.
+    """
+    p = max(0.0, min(1.0, float(progress)))
+    if p <= onset:
+        return 0.0
+    return max_depth * (p - onset) / (1.0 - onset)
+
+
 # Category → display colour (RGB 0–1).
 CATEGORY_COLOR = {
     "Translation": (0.95, 0.55, 0.25), "Transcription": (0.35, 0.6, 0.95),
@@ -242,7 +308,11 @@ def load_state(state_source="snapshot", advance_s=2.0, seed=0):
         ids = [str(x) for x in bulk["id"]]
         cnts = list(bulk["count"])
     else:
-        st = np.load(DATA / "v2ecoli_state.npz")
+        # "division" = pre-division (max-mass) state extracted from a cached
+        # two-generation run (end of generation 1); "snapshot" = birth state.
+        fname = ("v2ecoli_state_division.npz" if state_source == "division"
+                 else "v2ecoli_state.npz")
+        st = np.load(DATA / fname)
         ids = [str(x) for x in st["ids"]]
         cnts = list(st["counts"])
         volume_fl = float(st["volume"])
@@ -535,8 +605,86 @@ def _cluster_complex_at_pole(pack_path, mesh_dir, name, mesh_stem, cone_deg=55.0
     return {"placed": n, "offset": A}
 
 
+def _constricted_capsule_mesh(half_len, radius, depth, width=None,
+                              n_axial=160, n_theta=56):
+    """Triangle mesh (verts, faces) for a spherocylinder (``half_len`` cyl
+    half-length, ``radius``, axis = x) with a Gaussian radius dip of fractional
+    ``depth`` at midcell — a dividing cell's septum constriction. ``depth`` 0 =
+    smooth rod, ~0.5 = a deep waist. Used as the cell compartment so the membrane
+    pinches and the interior leaves a midcell gap for the division site."""
+    L, R = float(half_len), float(radius)
+    w = float(width) if width is not None else 0.5 * R
+    # Drop the exact tips (radius 0) — add explicit apex points + fans instead,
+    # so there are no degenerate rings.
+    xs = np.linspace(-(L + R), (L + R), n_axial)[1:-1]
+    thetas = np.linspace(0.0, 2.0 * np.pi, n_theta, endpoint=False)
+
+    def rad(x):
+        ax = abs(x)
+        if ax <= L:
+            return R * (1.0 - depth * np.exp(-((x / w) ** 2)))
+        dx = ax - L
+        return float(np.sqrt(max(0.0, R * R - dx * dx)))
+
+    verts = []
+    for x in xs:
+        r = rad(float(x))
+        for th in thetas:
+            verts.append((float(x), float(r * np.cos(th)), float(r * np.sin(th))))
+    faces = []
+    n_rings = len(xs)
+    for i in range(n_rings - 1):
+        for j in range(n_theta):
+            a = i * n_theta + j
+            b = i * n_theta + (j + 1) % n_theta
+            c = (i + 1) * n_theta + (j + 1) % n_theta
+            d = (i + 1) * n_theta + j
+            faces.append((a, b, c))
+            faces.append((a, c, d))
+    # Cap the two ends with apex points fanned to the first / last rings.
+    apex_lo = len(verts); verts.append((float(-(L + R)), 0.0, 0.0))
+    apex_hi = len(verts); verts.append((float(L + R), 0.0, 0.0))
+    base = (n_rings - 1) * n_theta
+    for j in range(n_theta):
+        faces.append((apex_lo, j, (j + 1) % n_theta))
+        faces.append((apex_hi, base + (j + 1) % n_theta, base + j))
+    return verts, faces
+
+
+def compact_to_array8(pack_path):
+    """Rewrite an object-format pack in place as compact ``array8`` placements.
+
+    Each placement becomes ``[ingredient_id, x, y, z (int Å), w, qx, qy, qz
+    (3 dp)]`` and ``placement_format`` is set to ``"array8"`` — the format the
+    R2-hosted viewer loads (smaller files, faster load). Idempotent.
+    """
+    p = Path(pack_path)
+    d = json.loads(p.read_text())
+    if d.get("placement_format") == "array8":
+        return d
+    # Pack-relative mesh URLs (meshes/X.lodN.obj) so they resolve next to the
+    # pack wherever it's hosted (R2), not at an absolute local path.
+    for ing in d.get("ingredients", []):
+        for lod in ing.get("shape", {}).get("lods", []):
+            if "url" in lod:
+                lod["url"] = "meshes/" + os.path.basename(lod["url"])
+    out = []
+    for pl in d["placements"]:
+        x, y, z = pl["position"]
+        w, qx, qy, qz = pl["rotation"]
+        out.append([pl["ingredient"],
+                    round(float(x)), round(float(y)), round(float(z)),
+                    round(float(w), 3), round(float(qx), 3),
+                    round(float(qy), 3), round(float(qz), 3)])
+    d["placements"] = out
+    d["placement_format"] = "array8"
+    p.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
+    return d
+
+
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
-                state_source="snapshot", proxy_lod=2, top_complexes=150) -> dict:
+                state_source="snapshot", proxy_lod=2, top_complexes=150,
+                width_um=1.0, density_g_per_ml=1.1, septum_fraction=None) -> dict:
     """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result.
 
     ``scale`` defaults to 1.0 (true abundance from the state — every molecule is
@@ -547,15 +695,77 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     struct_cache = Path(out_dir) / "structures"
     ingredients = select_ingredients(counts, top_n=top_n, struct_cache=struct_cache,
                                      top_complexes=top_complexes)
-    capsule = Capsule.from_volume_fl(volume_fl)
+    # Chromosome landmark molecules, seated by the chromosome stage at their real
+    # loci (count=0 → not placed randomly, only at the forks/origins/terminus).
+    # The replisome and oriC are genuine unique molecules in the cell state (their
+    # counts = active_replisome / oriC counts); terC is the terminus locus.
+    ingredients.append(Ingredient(
+        id="replisome", count=0, structure=StructureRef("pdb", "2HPI"),
+        color=(1.0, 0.35, 0.1), category="Replication", proxy_voxel_size=14.0,
+        display_name="Replisome — DNA polymerase III (active_replisome, at fork)"))
+    ingredients.append(Ingredient(
+        id="oriC", count=0, sphere_radius=70.0,
+        color=(0.2, 0.9, 0.4), category="Replication",
+        display_name="oriC (origin of replication)"))
+    ingredients.append(Ingredient(
+        id="terminus", count=0, sphere_radius=70.0,
+        color=(0.35, 0.5, 1.0), category="Replication",
+        display_name="terC (replication terminus)"))
+    # Cell envelope from the Shape step (Skalnik et al. 2023): fixed width +
+    # density, length derived from volume — so a pre-division state yields the
+    # elongated, about-to-divide capsule.
+    from v2ecoli.structural.shape import shape_from_mass
+    mass_fg = volume_fl * density_g_per_ml * 1000.0
+    capsule = shape_from_mass(mass_fg, width_um=width_um,
+                              density_g_per_ml=density_g_per_ml)["capsule"]
+    # Chromosome state from the model: number of chromosomes + how far the
+    # replication forks have travelled. Each chromosome is laid out as a theta
+    # structure with a replication bubble pinched at two forks; DNA contour (and
+    # so size/mass) scales as n_chromosomes×(1+fork_fraction) — matching the
+    # state's real total DNA bp.
+    n_chrom, fork_fraction = chromosome_state(state_source)
     chromosome = Chromosome(
-        beads=34000, spacing=135.0, bead_radius=12.0,
+        beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
         segment=StructureRef("pdb", "1BNA"),
-        supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200})
+        supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200},
+        n_chromosomes=n_chrom, fork_fraction=fork_fraction,
+        fork_marker="replisome", oric_marker="oriC", ter_marker="terminus")
+    # Septum: a constricting pre-division cell gets a pinched-capsule envelope
+    # (the membrane + interior follow it). Depth is state-driven — it tracks the
+    # cell's division progress (D-period) rather than a fixed value, so a newborn
+    # is a smooth rod and a near-division cell has a deep waist.
+    if septum_fraction is None:
+        septum_fraction = septum_from_progress(division_progress(state_source))
+    cell_mesh = (_constricted_capsule_mesh(capsule.half_len, capsule.radius,
+                                           depth=septum_fraction)
+                 if septum_fraction > 0.0 else None)
     res = build_pack(ingredients, capsule, chromosome,
-                     out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
+                     out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod,
+                     cell_mesh=cell_mesh)
+    # The landmark markers (replisome/oriC/terC) are seated by the packer at the
+    # forks/origins/terminus, so build_pack recorded count=0 for them in the
+    # sidecar. Backfill the real counts from the finished pack so the viewer's
+    # legend shows e.g. "replisome ×4".
+    _backfill_marker_counts(res["pack_path"], res["sidecar_path"],
+                            ("replisome", "oriC", "terminus"))
     return res
+
+
+def _backfill_marker_counts(pack_path, sidecar_path, marker_ids):
+    """Set each marker ingredient's sidecar count to its placement count."""
+    pack = json.loads(Path(pack_path).read_text())
+    arr8 = pack.get("placement_format") == "array8"
+    id_by_name = {ing["name"]: ing["id"] for ing in pack["ingredients"]}
+    from collections import Counter
+    counts = Counter(p[0] if arr8 else p["ingredient"] for p in pack["placements"])
+    side = json.loads(Path(sidecar_path).read_text())
+    ings = side.get("ingredients", side)
+    for name in marker_ids:
+        iid = id_by_name.get(name)
+        if iid is not None and name in ings:
+            ings[name]["count"] = int(counts.get(iid, 0))
+    Path(sidecar_path).write_text(json.dumps(side, indent=1))
 
 
 if __name__ == "__main__":

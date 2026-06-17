@@ -74,8 +74,10 @@ class MillardWithLQR(Process):
         # run_time_course produces a time-vector. Mixing the two causes a
         # type mismatch when the composite attempts to add updates.
         return {
-            "species_concentrations": InPlaceDict(),
-            "fluxes": InPlaceDict(),
+            # mM concentrations / mM/s fluxes — inplace_dict[<unit>] keeps the
+            # in-place apply while declaring the unit (see millard_pdmp_metabolism).
+            "species_concentrations": "inplace_dict[float[mM]]",
+            "fluxes": "inplace_dict[float[mM/s]]",
             "control_applied": InPlaceDict(),
         }
 

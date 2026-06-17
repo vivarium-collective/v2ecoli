@@ -170,7 +170,9 @@ class MillardPDMPMetabolismJAX(Process):
 
     def outputs(self):
         return {
-            "species_concentrations": InPlaceDict(),
+            # mM concentrations — inplace_dict[<unit>] keeps the in-place apply
+            # while declaring the unit (see millard_pdmp_metabolism).
+            "species_concentrations": "inplace_dict[float[mM]]",
             "control_applied": InPlaceDict(),
             "bulk": "bulk_array",
         }

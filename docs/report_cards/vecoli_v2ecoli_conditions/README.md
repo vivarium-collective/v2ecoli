@@ -67,6 +67,36 @@ differences with a sim_data-provenance / condition-entry artifact.** A clean
 apples-to-apples comparison needs **one shared ParCa fit consumed by both
 engines** (a scoped interop follow-up).
 
+### ROOT CAUSE (traced 2026-06-18): numpy/scipy version mismatch
+
+The non-basal divergence was traced end-to-end to a **numerical-reproducibility
+artifact, not a model or port logic bug**:
+
+1. report-card mismatch (with_aa active-RNAP +168%) → present at **step 1**
+   (initialization), with ppGpp and rRNA:mRNA split identical → not regulation.
+2. → upstream in the ParCa fit: `exp_free`/`exp_ppgpp` (ppGpp-dependent
+   expression) differ (~2.6% of the distribution).
+3. → their fitting code (`set_ppgpp_expression`, `fit_rna_expression`,
+   `adjust_*`) is **byte-identical** between vEcoli and v2ecoli's port; the
+   inputs (`ppgpp_fold_changes`, `ppgpp_regulated_genes`, doubling times,
+   `ppgpp_km`) are **identical**.
+4. → the one diverging input is `fit_cistron_expression` (an **NNLS** output):
+   differs broadly but tinily (4109/4538 elements, max 6.5e-5).
+5. → `fast_nnls` code is identical, but the two environments run
+   **numpy 2.2.6 / scipy 1.15.3 (vEcoli)** vs **numpy 2.4.5 / scipy 1.17.1
+   (v2ecoli)**. The least-squares/NNLS solvers produce version-dependent
+   floating-point results, which cascade through the ppGpp decomposition and are
+   **amplified by growth-rate scaling** — basal agrees, fast/anaerobic diverge.
+
+Confirmed reproducible & deterministic on both sides (fresh-vEcoli == stale
+test_installation exactly; v2 fresh == v2 fixture to ~0.004%), so it is a stable
+numerical-version effect, not run-to-run noise.
+
+**Fix:** run both engines from **one shared ParCa fit** (eliminates the issue
+entirely), or pin matching numpy/scipy so independent fits agree. Definitive
+confirmation = re-run v2's ParCa under vEcoli's numpy/scipy and check
+`fit_cistron_expression` converges.
+
 ### ParCa-output comparison (what differs upstream)
 
 Diffing the two ParCa outputs as full `SimulationDataEcoli` objects (now shown in

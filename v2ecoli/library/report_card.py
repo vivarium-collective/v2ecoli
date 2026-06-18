@@ -27,7 +27,7 @@ _DEFAULT_FOOTER = ("Behavioral report card — see docs/report_cards/README.md "
 # Canonical group order for the population phenotype card. Independent of the
 # axis insertion order in any given reference (self-pin vs equivalence pin may
 # differ); groups not listed here fall to the end in first-appearance order.
-_GROUP_ORDER = ["Physiology", "Composition", "Ribosomes",
+_GROUP_ORDER = ["Physiology", "Metabolism", "Proteome", "Composition", "Ribosomes",
                 "Exchange fluxes", "Gene expression"]
 
 
@@ -182,6 +182,10 @@ def _fmt_value(a: dict) -> str:
         return ""  # the verdict badge + meter (pass/FAIL) carry it
     if ctype in ("r2", "flux_scatter"):
         return f"R² {val:.4g}"
+    if ctype == "pearson":
+        return f"r {val:.3g}"
+    if ctype == "composition":
+        return f"TV {val:.3g}"
     if isinstance(val, float):
         return f"{val * a.get('scale', 1.0):.4g} {a.get('units', '')}".strip()
     return str(val)
@@ -505,10 +509,19 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 theoretical_label=crit.get("theoretical_source"),
                 units=axis.get("units", ""), label=axis.get("label", ""),
                 scale=axis.get("scale", 1.0))
+        if kind == "ternary" and isinstance(measured, dict) and measured.get("branches"):
+            return card_plots.ternary_plot(
+                measured["branches"], measured.get("influx"),
+                ref_fractions=crit.get("ref_fractions"),
+                ref_label=crit.get("ref_label", ref_label),
+                extra_refs=crit.get("extra_refs"),
+                residual_max=crit.get("residual_max", 0.05),
+                label=axis.get("label", ""), meas_label=meas_label)
         if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
+            stat_label = "r" if crit.get("type") == "pearson" else "R²"
             svg = card_plots.loglog_scatter(
                 measured["vector"], crit.get("ref_vector"),
-                r2=axis.get("value"), label=axis.get("label", ""),
+                r2=axis.get("value"), stat_label=stat_label, label=axis.get("label", ""),
                 ref_label=ref_label, meas_label=meas_label)
             tbl = _omics_table(measured, crit, ref_label, meas_label)
             return f"<div class='omicswrap'>{svg}{tbl}</div>" if tbl else svg

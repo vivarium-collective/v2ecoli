@@ -120,3 +120,39 @@ def test_model_carbon_conserves(graded):
     # carbon creation.
     _, model = graded
     assert 0.40 < model["implied_biomass_C_gC_per_gDW"] < 0.55
+
+
+# ---------------------------------------------------------------------------
+# 3. Metabolism + Proteome sections (present when the baked fixtures exist)
+# ---------------------------------------------------------------------------
+
+def test_card_glycolysis_routing_is_correct(graded):
+    # The differentiated finding: the model routes central carbon CORRECTLY —
+    # its EMP/oxPPP/ED split matches Crown's 13C-MFA composition (low TV).
+    report, _ = graded
+    ax = report["axes"].get("metabolism.glycolysis_split")
+    assert ax is not None and ax["verdict"] == "within_tol"
+    assert ax["detail"]["tv"] < 0.05
+
+
+def test_card_under_respires(graded):
+    # ...while respiration FAILS: O2 and CO2 far below the measured bands.
+    report, _ = graded
+    assert report["axes"]["metabolism.o2_uptake"]["verdict"] == "mismatch"
+    assert report["axes"]["metabolism.co2_evolution"]["verdict"] == "mismatch"
+
+
+def test_card_no_overflow(graded):
+    # No acetate overflow (model ~0 vs measured 3.9–7).
+    report, _ = graded
+    assert report["axes"]["metabolism.acetate_secretion"]["verdict"] == "mismatch"
+
+
+def test_card_proteome_concordant_but_not_tight(graded):
+    # Proteome correlates with Schmidt (r ~ 0.75, matching Eran's showcase) but
+    # is not within the tight 0.9 band -> drift; graded by Pearson r, not
+    # identity-R².
+    report, _ = graded
+    ax = report["axes"].get("proteome.abundance")
+    assert ax is not None and ax["verdict"] in ("within_tol", "drift")
+    assert ax["value"] > 0.7

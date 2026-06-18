@@ -50,7 +50,18 @@ M_C = 12.011      # g/mol carbon
 
 OUT = REPO / "docs/report_cards/population_phenotype_basal/vs_literature"
 _MODEL_JSON = OUT / "model_physiology.json"        # baked per-cell model values (committed)
+_MET_JSON = OUT / "model_metabolism.json"          # baked by scripts/bake_model_metabolism.py
+_PRO_JSON = OUT / "model_proteome.json"
 _SWEEP = REPO / "out/population_phenotype_basal"   # blessed ensemble (gitignored; --from-sweep)
+
+# Metabolism exchange axes (scalar, graded like physiology against measured bands).
+_EXCH_AXES = [
+    ("metabolism.o2_uptake", "o2_uptake", "O₂ uptake (OUR)", "mmol/gDW/h"),
+    ("metabolism.co2_evolution", "co2_evolution", "CO₂ evolution (CER)", "mmol/gDW/h"),
+    ("metabolism.acetate_secretion", "acetate_secretion", "Acetate secretion", "mmol/gDW/h"),
+]
+# Crown 2015 G6P-fate branches -> their flux ids in metabolic_fluxes.tsv.
+_G6P_CROWN = {"EMP": "crown_f2", "oxPPP": "crown_f10", "ED": "crown_f18"}
 
 # (card path, bundle observable key, label, units, has-theoretical-max, model derivation)
 _AXES = [
@@ -220,6 +231,117 @@ def build_card(model: dict) -> dict:
     }}
 
 
+def _bundle_path(bundle_path: Path | None) -> Path:
+    if bundle_path is None:
+        from ecoli_sources import VALIDATION_BUNDLE_PATH
+        bundle_path = VALIDATION_BUNDLE_PATH
+    return Path(bundle_path)
+
+
+def crown_g6p_composition(bundle_path: Path | None = None) -> dict:
+    """Crown 2015 G6P-fate composition (fractions of glucose uptake) from the
+    metabolic_fluxes bundle — the reference for the glycolysis-split ternary."""
+    root = _bundle_path(bundle_path).parent
+    df = pd.read_csv(root / "data/basal/metabolic_fluxes.tsv", sep="\t", comment="#")
+    cr = df[df["source_id"] == "crown_2015"].set_index("reaction_id")
+    return {k: float(cr.loc[fid, "value_relative_pct"]) for k, fid in _G6P_CROWN.items()}
+
+
+def proteome_reference(bundle_path: Path | None = None) -> dict:
+    """Schmidt MG1655 proteome as ``{gene: copies/cell}`` (the basal__proteome slot)."""
+    root = _bundle_path(bundle_path).parent
+    df = pd.read_csv(root / "data/basal/proteome.tsv", sep="\t", comment="#")
+    return {str(r.gene): float(r.value) for r in df.itertuples()}
+
+
+def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> tuple[dict, dict]:
+    """(axes, card_node) for the Metabolism section: the G6P-split composition
+    (ternary) + the O₂/CO₂/acetate exchange axes (absolute, with C-mol context)."""
+    g6p = met["nodes"]["g6p"]
+    exch = met["exchanges"]
+    cmol = exch["cmol_pct"]
+    axes: dict[str, dict] = {}
+    card: dict[str, dict] = {}
+
+    # Glycolysis-split composition (graded by total-variation distance vs Crown).
+    crown = crown_g6p_composition(bundle_path)
+    axes["metabolism.glycolysis_split"] = {
+        "group": "Metabolism",
+        "label": "Glycolysis split (EMP / oxPPP / ED)", "units": "",
+        "how": ("Model: G6P-fate composition from the ensemble base-reaction fluxes "
+                "(EMP=phosphoglucose isomerase, oxPPP=6-phosphogluconate dehydrogenase, "
+                "ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-"
+                "variation distance vs the Crown 2015 ¹³C-MFA composition (the routing "
+                "of carbon through central metabolism, independent of uptake rate); the "
+                "companion bar is the closure residual (G6P unaccounted by the three "
+                "branches — a small biomass drain, expected < 5%)."),
+        "plot": "ternary",
+        "criterion": {
+            "type": "composition", "ref_fractions": crown, "ref_label": "Crown 2015",
+            "tv_good": 0.05, "tv_warn": 0.15, "residual_max": 0.05, "residual_warn": 0.10,
+        },
+    }
+    card["glycolysis_split"] = {"branches": g6p["model_flux"], "influx": g6p["influx"]}
+
+    # Exchange axes (absolute rates vs measured bands; C-mol context in `how`).
+    cmol_note = {
+        "o2_uptake": f"Per glucose-C the model oxidizes only ~{cmol['co2']:.0f}% to CO₂.",
+        "co2_evolution": (f"C-mol balance: {cmol['biomass']:.0f}% of glucose carbon → biomass, "
+                          f"{cmol['co2']:.0f}% → CO₂, {cmol['acetate']:.0f}% → acetate "
+                          f"(a real cell on glucose ~50% biomass). RQ = CER/OUR = "
+                          f"{(exch['rq'] or 0):.2f} (full oxidation ≈ 1)."),
+        "acetate_secretion": "The overflow axis — measured rates are direct (HPLC), not GUR-derived.",
+    }
+    for path, obs, label, units in _EXCH_AXES:
+        spec = lit.get(obs)
+        if not spec or not spec["measured"]:
+            continue
+        lo, hi = min(spec["measured"]), max(spec["measured"])
+        axes[path] = {
+            "group": "Metabolism", "label": label, "units": units, "plot": "literature",
+            "how": (f"Model: ensemble-mean specific {label.split('(')[0].strip().lower()} "
+                    f"over post-burn-in cells. Graded vs curated measurements "
+                    f"(band {lo:.3g}–{hi:.3g} {units}). " + cmol_note.get(obs, "")),
+            "criterion": {
+                "type": "literature",
+                "measured": [round(v, 6) for v in spec["measured"]],
+                "measured_unc": spec.get("measured_unc"),
+                "theoretical_max": None, "tol_rel": 0.10,
+                "sources": spec["sources"],
+            },
+        }
+        key = obs  # card path tail
+        card[key] = {"mean": exch["absolute"][{"o2_uptake": "o2", "co2_evolution": "co2",
+                                               "acetate_secretion": "acetate"}[obs]],
+                     "values": exch["per_cell"][{"o2_uptake": "o2", "co2_evolution": "co2",
+                                                 "acetate_secretion": "acetate"}[obs]]}
+    return axes, card
+
+
+def build_proteome(pro: dict, bundle_path: Path | None = None) -> tuple[dict, dict]:
+    """(axes, card_node) for the Proteome section: model copies/cell vs Schmidt
+    MG1655, graded by log-log Pearson r (concordance, scale-offset-robust)."""
+    ref = proteome_reference(bundle_path)
+    model = pro["by_symbol"]
+    genes = sorted(g for g in ref if g in model)
+    cand_vec = [model[g] for g in genes]
+    ref_vec = [ref[g] for g in genes]
+    axes = {"proteome.abundance": {
+        "group": "Proteome",
+        "label": "Protein abundance (copies/cell)", "units": "copies/cell",
+        "how": ("Model: ensemble-mean protein copies/cell per gene (time-mean within "
+                "cell, then across post-burn-in cells). Graded vs Schmidt 2016 MG1655 "
+                "glucose-minimal proteome by log-log Pearson r over shared genes — the "
+                "literature convention, robust to a systematic scale offset (unlike "
+                "identity-R²)."),
+        "plot": "loglog",
+        "criterion": {"type": "pearson", "ref_vector": ref_vec,
+                      "r_min": 0.9, "r_drift": 0.7},
+    }}
+    card = {"abundance": {"vector": cand_vec}}
+    return axes, card
+
+
 def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tuple[dict, dict, dict]:
     """Return (card, reference, model) — the gradeable inputs (importable for tests)."""
     model = model_physiology(model_json)
@@ -248,10 +370,32 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
             "first-principles violation.",
         ],
         "footer": "Behavioral report card (PR #134 grader) · vs_literature mode · "
-                  "physiology (μ, q_glc, Yxs).",
+                  "physiology · metabolism · proteome.",
         "axes": build_reference(lit, model),
     }
-    return build_card(model), reference, model
+    card = build_card(model)
+
+    # Metabolism + Proteome sections (present only if their fixtures are baked).
+    if _MET_JSON.exists():
+        met = json.load(open(_MET_JSON, encoding="utf-8"))
+        ax, cnode = build_metabolism(lit, met, bundle_path)
+        reference["axes"].update(ax)
+        card["metabolism"] = cnode
+        e = met["exchanges"]
+        reference["findings"].append(
+            "Metabolism splits into two independent reads: the model routes central "
+            f"carbon CORRECTLY (G6P split ≈ Crown's EMP/oxPPP/ED) but UNDER-RESPIRES "
+            f"(O₂ {e['absolute']['o2']:.2g} vs ~11–15, RQ {(e['rq'] or 0):.1f} vs ≈1.1) "
+            f"with no overflow — {e['cmol_pct']['biomass']:.0f}% of glucose carbon is "
+            "retained as biomass (vs ~50% in a real aerobic cell), the C-mol root of the "
+            "inflated yield. The defect is energetic (respiration), not carbon routing.")
+    if _PRO_JSON.exists():
+        pro = json.load(open(_PRO_JSON, encoding="utf-8"))
+        ax, cnode = build_proteome(pro, bundle_path)
+        reference["axes"].update(ax)
+        card["proteome"] = cnode
+
+    return card, reference, model
 
 
 def main(from_sweep: str | None = None) -> dict:

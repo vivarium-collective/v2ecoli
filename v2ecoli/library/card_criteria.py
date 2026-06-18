@@ -17,6 +17,9 @@ organism-behavior card and the v1<->v2 equivalence card share one grader:
                    mismatch *flagged as a first-principles violation* (the model
                    exceeds a stoichiometric/thermodynamic limit — wrong, not just
                    off).
+  - ``pearson`` — vector concordance by log-log Pearson r (proteome/abundance
+                   vs experiment); robust to a systematic scale offset, unlike
+                   the identity-based ``r2``.
   - ``composition`` — a branch-point flux split (a composition on a simplex,
                    e.g. the G6P fate EMP/oxPPP/ED) vs a reference composition:
                    total-variation distance grades the routing, paired with a
@@ -251,6 +254,35 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
                 "meter": (f"{got:.4g} vs measured {lo:.3g}–{hi:.3g} "
                           f"(Δmid {((got - mid) / mid if mid else 0):+.0%})"),
                 "detail": detail}
+
+    if ctype == "pearson":
+        # Concordance of a candidate vector vs a reference vector by log-log
+        # Pearson r — the literature convention for proteome/abundance
+        # comparisons. Unlike identity-R² (the ``r2`` criterion, right for
+        # same-lineage v1↔v2 omics), Pearson r is robust to a systematic scale
+        # offset between model and experiment, which is expected for absolute
+        # protein copy numbers.
+        ref_vec = criterion.get("ref_vector")
+        r_min = criterion.get("r_min", 0.9)
+        r_drift = criterion.get("r_drift", 0.7)
+        cand_vec = measured.get("vector") if isinstance(measured, dict) else None
+        if not ref_vec or not cand_vec:
+            return _ungraded(f"log-log Pearson r ≥ {r_min}")
+        pairs = [(c, r) for c, r in zip(cand_vec, ref_vec) if c > 0 and r > 0]
+        if len(pairs) < 3:
+            return _ungraded(f"log-log Pearson r ≥ {r_min}")
+        xs = [math.log10(r) for _, r in pairs]
+        ys = [math.log10(c) for c, _ in pairs]
+        n = len(xs)
+        mx, my = sum(xs) / n, sum(ys) / n
+        sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+        sxx = sum((x - mx) ** 2 for x in xs)
+        syy = sum((y - my) ** 2 for y in ys)
+        r = sxy / math.sqrt(sxx * syy) if sxx > 0 and syy > 0 else 0.0
+        verdict = _band(r, r_min, r_drift, higher_is_better=True)
+        return {"verdict": verdict, "value": r,
+                "criterion_str": f"log-log Pearson r ≥ {r_min} (drift ≥ {r_drift}; {n} genes)",
+                "meter": f"r = {r:.3f}", "detail": {"r": r, "n": n}}
 
     if ctype == "composition":
         # Grade a branch-point flux split — a COMPOSITION on a simplex (e.g. the

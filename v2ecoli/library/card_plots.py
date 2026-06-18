@@ -274,7 +274,7 @@ def generation_trend(by_cell, ref_by_cell=None, *, scale=1.0, units="", label=""
     return _svg(fig)
 
 
-def loglog_scatter(cand_vec, ref_vec, *, r2=None, label="",
+def loglog_scatter(cand_vec, ref_vec, *, r2=None, stat_label="R²", label="",
                    width=3.4, height=3.2,
                    ref_label="reference", meas_label="candidate") -> str:
     """Candidate vs reference ensemble-mean vector on log-log axes with the
@@ -295,7 +295,82 @@ def loglog_scatter(cand_vec, ref_vec, *, r2=None, label="",
     ax.set_xlabel(ref_label, fontsize=9); ax.set_ylabel(meas_label, fontsize=9)
     ax.tick_params(labelsize=8)
     if r2 is not None:
-        ax.text(0.04, 0.95, f"R² = {r2:.4f}", transform=ax.transAxes,
+        ax.text(0.04, 0.95, f"{stat_label} = {r2:.4f}", transform=ax.transAxes,
                 fontsize=10, va="top", fontweight="bold", color="#1a1d21")
     ax.set_aspect("equal", adjustable="box")
+    return _svg(fig)
+
+
+def ternary_plot(branches: dict, influx=None, *, ref_fractions=None,
+                 ref_label="reference", extra_refs=None, residual_max=0.05,
+                 label="", meas_label="measured", width=4.0, height=3.6) -> str:
+    """A 2-simplex (ternary) plot of a 3-branch flux composition.
+
+    ``branches`` is the measured ``{name: flux}`` (3 keys); the model point is
+    its renormalized composition. ``ref_fractions`` is the reference composition
+    (same keys); ``extra_refs`` an optional list of ``(label, {name: frac})`` for
+    additional reference points. A companion bar shows the closure residual
+    (= 1 − Σbranch/influx, the node influx unaccounted by the three branches —
+    expected small, a biomass drain) against ``residual_max``."""
+    plt = _setup()
+    import numpy as np
+    names = list(branches.keys())[:3]
+    if len(names) != 3:
+        return ""
+    # 2-simplex corners: top = names[0], bottom-left = names[1], bottom-right = names[2]
+    corners = {0: np.array([0.5, 1.0]), 1: np.array([0.0, 0.0]), 2: np.array([1.0, 0.0])}
+
+    def _xy(frac):  # barycentric (3 fractions summing to 1) -> xy
+        f = [frac.get(n, 0.0) for n in names]
+        s = sum(f) or 1.0
+        f = [x / s for x in f]
+        return f[0] * corners[0] + f[1] * corners[1] + f[2] * corners[2]
+
+    fig, (ax, axr) = plt.subplots(
+        1, 2, figsize=(width, height), gridspec_kw={"width_ratios": [3.2, 1]})
+    # triangle
+    tri = np.array([corners[0], corners[1], corners[2], corners[0]])
+    ax.plot(tri[:, 0], tri[:, 1], color="#9aa3af", lw=1)
+    for k, n in enumerate(names):
+        c = corners[k]
+        ax.annotate(n, c, fontsize=9, ha="center",
+                    va="bottom" if k == 0 else "top",
+                    xytext=(0, 6 if k == 0 else -6), textcoords="offset points")
+    # reference point(s)
+    refs = []
+    if ref_fractions:
+        refs.append((ref_label, ref_fractions, "#111827", "o"))
+    for lbl, fr in (extra_refs or []):
+        refs.append((lbl, fr, "#9aa3af", "s"))
+    for lbl, fr, col, mk in refs:
+        p = _xy(fr)
+        ax.scatter(*p, s=60, color=col, marker=mk, zorder=4, edgecolor="white",
+                   linewidth=0.6, label=lbl)
+    # model point
+    mp = _xy(branches)
+    ax.scatter(*mp, s=80, color="#1a7f37", marker="*", zorder=5,
+               edgecolor="white", linewidth=0.6, label=meas_label)
+    ax.set_xlim(-0.12, 1.12); ax.set_ylim(-0.12, 1.12)
+    ax.set_aspect("equal"); ax.axis("off")
+    ax.legend(fontsize=7, loc="upper right", frameon=False)
+
+    # closure-residual companion bar
+    resid = None
+    if influx:
+        resid = 1.0 - sum(branches.get(n, 0.0) for n in names) / influx
+    axr.axhspan(0, 100 * residual_max, color="#1a7f37", alpha=0.12)
+    if resid is not None:
+        col = "#1a7f37" if abs(resid) <= residual_max else (
+            "#ef6c00" if abs(resid) <= 2 * residual_max else "#c62828")
+        axr.bar([0], [100 * resid], width=0.6, color=col)
+        axr.annotate(f"{100 * resid:+.1f}%", (0, 100 * resid), ha="center",
+                     va="bottom" if resid >= 0 else "top", fontsize=8,
+                     xytext=(0, 3 if resid >= 0 else -3), textcoords="offset points")
+    axr.axhline(0, color="#6b7280", lw=0.8)
+    axr.set_xlim(-0.6, 0.6); axr.set_xticks([])
+    axr.set_title("closure\nresidual", fontsize=8)
+    axr.set_ylabel("% of influx", fontsize=8)
+    axr.tick_params(labelsize=7)
+    for s in ("top", "right"):
+        axr.spines[s].set_visible(False)
     return _svg(fig)

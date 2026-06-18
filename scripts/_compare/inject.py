@@ -54,6 +54,14 @@ def _fork_registry(fork_repo: str):
     - The fork's ecoli.processes is loaded fresh (for registry access).
     - The installed vEcoli's ecoli.* modules are restored afterwards, preventing
       duplicate class-object registrations in vivarium singleton registries.
+
+    Known limitation (validate at manual Step 7, real fork, >=2 generations):
+    for a REAL vEcoli fork whose ``ecoli/__init__.py`` registers emitters into
+    vivarium's global singleton registry, importing the fork here may raise a
+    duplicate-registration Exception (e.g. "registry already contains an entry
+    for parquet") because that singleton is NOT cleared by the sys.modules
+    save/restore above. The fixture fork has no emitters, so this path cannot be
+    exercised in unit tests; intentionally NOT guarded with untested try/except.
     """
     fork_abs = os.path.abspath(fork_repo)
     if fork_repo not in sys.path:

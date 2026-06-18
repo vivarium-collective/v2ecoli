@@ -100,9 +100,27 @@ code-logic or input-data difference, NOT a numerical-library effect. It lives in
 the **mRNA cistron distribution** (rRNA/tRNA agree), which flows through
 protein-counts → `mRNADistributionFromProtein` → cistron→TU mapping.
 
-**Next step to pinpoint:** static diff of that refactored fit chain
-(`fitting.py` vs `fit_sim_data_1.py`) + check its inputs (RNA_counts, protein
-counts, translation efficiencies).
+**Static-diff narrowing (2026-06-18).** Code-level + AST comparison of the
+shared expression-fit functions (`fitting.py` vs `fit_sim_data_1.py`):
+- `fitExpression` (where `fit_cistron_expression` is computed): **executable-
+  identical** → the difference is in its INPUTS (the bulkContainer protein/RNA
+  counts), built upstream.
+- Of 19 shared functions, only **3 differ at the AST level**:
+  `setRNAPCountsConstrainedByPhysiology` (verified **behaviorally equivalent** —
+  v2 only stripped dead `VERBOSE` diagnostics), and **`setRibosomeCountsConstrainedByPhysiology`** + **`rescaleMassForSolubleMetabolites`**
+  (heavier refactors — `VERBOSE` removal + helper extraction — **equivalence not
+  yet verified**).
+- Raw flat-file inputs are identical except `modified_proteins.tsv` (a few TCS
+  phospho-protein compartment tags), in a `reconstruction` copy v2's parca does
+  not load → not the cause.
+
+**Narrowed root-cause candidates:** the protein/ribosome-count constraining step
+(`setRibosomeCountsConstrainedByPhysiology` and/or `rescaleMassForSolubleMetabolites`)
+feeds the bulkContainer protein counts → `mRNADistributionFromProtein` → the mRNA
+cistron distribution. A subtle non-equivalence in one of those two refactors is
+the leading suspect. **Next step to fully pin it:** verify those two refactors
+are behaviorally equivalent (read both + their extracted helpers, or instrument
+the fit to compare bulkContainer protein counts at the same step).
 
 **Fix (robust to either cause):** run both engines from **one shared ParCa
 fit** — this eliminates the divergence regardless of which mechanism it is.

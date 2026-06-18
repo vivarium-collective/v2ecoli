@@ -40,6 +40,30 @@ distributions, p-values indicative only):
 
 The two implementations agree in **basal** but **diverge in richer (with_aa)
 and anaerobic (no_oxygen)** media — v2ecoli grows ~21% faster than vEcoli with
-amino acids, and both mass and growth diverge ~12–14% anaerobically. Whether
-this is a genuine implementation difference or a per-condition calibration
-nuance is a concrete follow-up.
+amino acids, and both mass and growth diverge ~12–14% anaerobically.
+
+## ⚠ Provenance caveat (why the non-basal verdicts are NOT pure model divergence)
+
+A diagnosis of the with_aa divergence (active-RNAP +168%) traced it to an
+**initialization difference, not a regulatory one**:
+
+- The active-RNAP gap is present at **step 1** (with_aa: vEcoli 1171 vs v2 3237,
+  2.76×; basal: 713 vs 728, 1.02×) — it is baked into the initial state, not a
+  dynamic drift.
+- **ppGpp is equal** (within ~10%) and the **rRNA:mRNA initiation split is
+  identical** (0.149 vs 0.150) — so it is not ppGpp regulation nor preferential
+  rRNA allocation. v2 simply enters with_aa with ~2.7× more engaged RNAP.
+
+Root cause: the two engines use **different ParCa fits and build the condition's
+initial state by different paths** — vEcoli applies the condition at runtime from
+its `test_installation` simData; v2ecoli bakes it into a per-condition cache
+built from `models/parca/parca_state.pkl.gz`. The two simData objects cannot
+currently be shared (vEcoli's venv can't unpickle v2's process-bigraph-tied
+`SimulationDataEcoli`; v2's generator rejects vEcoli's older simData on a
+`pool_label` schema field). basal agrees because both initialize it equivalently.
+
+**Therefore the with_aa / no_oxygen `mismatch` verdicts conflate genuine model
+differences with a sim_data-provenance / condition-entry artifact.** A clean
+apples-to-apples comparison needs **one shared ParCa fit consumed by both
+engines** (a scoped interop follow-up) — until then, read the non-basal cards as
+"diverges, cause not yet isolated" rather than "v2 is wrong."

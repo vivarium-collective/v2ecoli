@@ -29,7 +29,8 @@ def test_run_v2_parca_invokes_cli_when_stale(tmp_path, monkeypatch):
     monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
     orchestrator.run_v2_parca(out_dir=out, cache_dir=tmp_path / "c",
                               mode="full")
-    assert "v2ecoli-parca" in captured["cmd"]
+    # Invoked by absolute path inside the v2 venv (no reliance on PATH).
+    assert captured["cmd"][0].endswith("/v2ecoli-parca")
     assert "--mode" in captured["cmd"] and "full" in captured["cmd"]
 
 

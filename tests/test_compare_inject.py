@@ -89,6 +89,28 @@ def test_resolve_rejects_unknown_name():
         inject.resolve_injections(FORK, cfg)
 
 
+def test_resolve_injections_memoized(monkeypatch):
+    """resolve_injections must import the fork only once per unique config."""
+    cfg = {"add_processes": ["example-secretion"], "swap_processes": {},
+           "process_configs": {"example-secretion": {"rate": 3.0}},
+           "topology": {"example-secretion": {"counts": ["bulk"]}},
+           "time_step": 1.0}
+    inject._RESOLVE_CACHE.clear()
+
+    specs1 = inject.resolve_injections(FORK, cfg)
+    specs2 = inject.resolve_injections(FORK, cfg)
+    assert specs1 == specs2
+
+    # Prove the cache is in use: _fork_registry must NOT be called on a
+    # repeated call with an already-cached key.
+    def _should_not_be_called(repo):
+        raise RuntimeError("cache miss — _fork_registry called unexpectedly")
+
+    monkeypatch.setattr(inject, "_fork_registry", _should_not_be_called)
+    specs3 = inject.resolve_injections(FORK, cfg)
+    assert specs3 == specs1
+
+
 # ---------------------------------------------------------------------------
 # Task 3: apply_injected_processes
 # ---------------------------------------------------------------------------

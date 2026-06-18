@@ -28,7 +28,6 @@ from scripts._compare.sim_section import (
 
 # sim_data diffs should be tight; dynamics looser (two engines).
 PARCA_REL_TOL = 1e-6
-SIM_REL_TOL = 0.05
 
 
 def _config_section(vecoli_cfg, v2_cfg):
@@ -100,8 +99,10 @@ def main(argv=None):
                         "report is stamped NOT SCIENTIFICALLY VALID.")
     p.add_argument("--vecoli-repo", default="/Users/eranagmon/code/vEcoli",
                    help="Path to the vEcoli fork checkout.")
-    p.add_argument("--tol-rel", type=float, default=0.10,
-                   help="Relative tolerance for behavioral/equivalence badges.")
+    p.add_argument("--tol-rel", type=float, default=0.05,
+                   help="Relative tolerance shared by sim-dynamics badges "
+                        "(within_tol / mismatch) and report-card bands "
+                        "(mismatch band = 2 × tol-rel).  Defaults to 0.05.")
     p.add_argument("--force", action="store_true",
                    help="Bypass the run cache and re-run both engines.")
     args = p.parse_args(argv)
@@ -235,7 +236,11 @@ def main(argv=None):
             measured_model="v2ecoli", tol_rel=args.tol_rel)
         card_path = Path(args.out).with_name("report_card_verdict.json")
         card_path.write_text(json.dumps(verdict_json_dict, indent=2))
-        embedded.append(card_html)
+        embedded.append(
+            "<p style='font-size:0.85em;color:#64748b;margin:4px 0'>"
+            "Note: distributions are per-timestep trajectory samples (not "
+            "per-cell); relative-mean bands are meaningful, p-values indicative "
+            "only.</p>" + card_html)
     except Exception as e:
         sections.append(_error_section("2-generation sim dynamics", e))
         # Still surface the converted processes (gates unknown -> not_compared).

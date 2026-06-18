@@ -26,6 +26,13 @@ class InjectionError(RuntimeError):
 # ecoli.* modules to remain in sys.modules during apply_injected_processes.
 _fork_class_cache: dict[tuple[str, str], type] = {}
 
+# Memoization cache for resolve_injections: stable key -> list of spec dicts.
+# Prevents re-importing the fork's ecoli.* package on every generation call
+# (baseline() invokes resolve_injections once per generation; without this
+# cache a real fork whose ecoli/__init__.py registers vivarium singleton
+# entries would fail on duplicate registration at generation 2).
+_RESOLVE_CACHE: dict[str, list] = {}
+
 
 def classify_process(cls) -> str:
     """Return 'partitioned' | 'pbg_native' | 'vivarium_1' for a process class."""
@@ -96,7 +103,23 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
 
     Raises InjectionError on partitioned processes, sim_data process_configs,
     unknown names, or fork import failure.
+
+    Results are memoized by (fork_repo, relevant config subset) so the fork's
+    ecoli.* package is imported only ONCE per subprocess lifetime.  Callers
+    receive a shallow copy of each cached spec dict; fail-fast InjectionErrors
+    still raise normally on a cache miss (only successful results are cached).
     """
+    key = json.dumps({
+        "fork_repo": fork_repo,
+        "add_processes": config.get("add_processes") or [],
+        "swap_processes": config.get("swap_processes") or {},
+        "process_configs": config.get("process_configs") or {},
+        "topology": config.get("topology") or {},
+        "time_step": config.get("time_step", 1.0),
+    }, sort_keys=True)
+    if key in _RESOLVE_CACHE:
+        return [dict(s) for s in _RESOLVE_CACHE[key]]
+
     registry = _fork_registry(fork_repo)
     interval = float(config.get("time_step", 1.0))
     process_configs = config.get("process_configs") or {}
@@ -143,7 +166,8 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             "topology": topo,
             "interval": interval,
         })
-    return specs
+    _RESOLVE_CACHE[key] = specs
+    return [dict(s) for s in specs]
 
 
 def _import_class(module: str, qualname: str):

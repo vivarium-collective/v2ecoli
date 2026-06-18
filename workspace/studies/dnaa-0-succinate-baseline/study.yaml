@@ -255,8 +255,12 @@ conditions:
       n_steps: 49200    # 10 generations × 82 min/cycle × 60 s/min
       single_daughters: true
       max_generations: 10
-  variants: []
-  # Required by v4 schema even when empty.
+  variants:
+  # dnaa-0 is a baseline CHARACTERIZATION (no perturbations) — the "variant" axis is
+  # the random seed: periodic steady state was confirmed seed-robust across seeds 0-3.
+  - name: seed-robustness
+    diff_from_baseline: "seed in {0,1,2,3}"
+    note: "oriC 1<->2 periodic from gen 3 + sawtooth cell mass hold on every seed (reviewer-confirmed)."
   model_settings: []
 
 visualizations:

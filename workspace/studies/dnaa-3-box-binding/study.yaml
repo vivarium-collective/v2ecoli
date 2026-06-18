@@ -1124,11 +1124,11 @@ runs:
     (PR #162) at V=0.8e-3 — tuned DOWN from the overshooting 1e-3 to dnaa-1's in-band
     value. Succinate, seed 0, 8 generations (8/8 divided). The DnaA steady-gen MEAN
     drops to 630 (from 837 at 1e-3) — comfortably in-band; transient pre-division peaks
-    fall to ~1035 (from 1450). Full clear figure set restored on this run:
-    dnaa3_box_occupancy (gradual oriC-low fill), dnaa3_active_binding_adopted,
-    dnaa3_readouts (6 per-gen readouts), dnaa3_binding_analysis (free-vs-K_d +
-    bound-by-pool + per-pool occupancy) — all time-in-minutes,
-    division lines, no gridlines. (dnaa3_fullhist_pergen retired 2026-06-16 — superseded by dnaa3_readouts.)
+    fall to ~1035 (from 1450). Current canonical figure set (all on the dnaa-4 reference
+    run, time-in-minutes, division lines, no gridlines): dnaa3_box_occupancy (gradual
+    oriC-low fill), dnaa3_readouts (6 per-gen readouts), dnaa3_binding_analysis (free-vs-K_d
+    + bound-by-pool + per-pool occupancy), dnaa3_chromosome_state. (The pre-autoregulation
+    historical figures were retired 2026-06-17; see the visualizations note.)
   outcomes:   # keys MUST match the tests[].name above for the pill strip to render them
     cycles-divided-8-of-8:
       result: PASS
@@ -1261,16 +1261,6 @@ visualizations:
       (V2ECOLI_EMIT_UNIQUE) via the _draw_replication_bubbles renderer.
   render: cd ../.. && python scripts/render_chromosome_gif.py --run out/dnaa_gifdata --seed 1 --every 30 --out studies/dnaa-3-box-binding/charts/chromosome_replication.gif
 # ── Adopted active-binding result charts (PR #162; current, on the canonical runs) ──
-- name: dnaa3_active_binding_adopted
-  address: image:charts/dnaa3_active_binding_adopted.png
-  chart: charts/dnaa3_active_binding_adopted.png
-  source_run: dnaa3_adopt_v1e3_seed0 (active binding, V=1e-3)
-  config:
-    title: >-
-      Adopted active box-binding (PR #162): (1) oriC-low occupancy dynamic/resolved
-      (not pinned ~0.8); (2) total DnaA boxes ALL double 315↔630 every cycle (low-aff
-      8→16 via fork-passage); (3) DnaA bound by pool. 8/8 clean divisions.
-  # Produced on the mini from out/dnaa3_adopt_v1e3_seed0 (no in-repo render script).
 - name: dnaa3_box_occupancy
   address: image:charts/dnaa3_box_occupancy.png
   chart: charts/dnaa3_box_occupancy.png
@@ -1286,13 +1276,14 @@ visualizations:
 - name: dnaa3_binding_analysis
   address: image:charts/dnaa3_binding_analysis.png
   chart: charts/dnaa3_binding_analysis.png
-  source_run: dnaa3_adopt_v0p8e3_seed0 (active binding, V=0.8e-3)
+  source_run: dnaa4_s06_F05_seed1_12gen (dnaa-4 reference config — linear s=0.6 + F-05, V=1.5e-3)
   config:
     title: >-
-      Binding analysis (4 panels, time in MINUTES, division lines): free DnaA-ATP/ADP
-      (nM, via cell volume) vs the 100 nM oriC-low K_d; bound DnaA by pool; per-pool
-      oriC occupancy fraction; oriC-low occupancy zoom (gradual fill, not pinned).
-  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa3_adopt_v0p8e3_seed0 --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
+      Binding analysis (4 panels, time in MINUTES, division lines) on the dnaa-4 REFERENCE
+      config: free DnaA-ATP/ADP (nM, via cell volume) vs the 100 nM oriC-low K_d (mean ~18 nM,
+      << K_d); bound DnaA by pool; per-pool oriC occupancy; oriC-low occupancy (mean 0.12,
+      gradual fill to a mid-cycle peak ~0.8, not pinned). High-affinity pools ~0.95.
+  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa4_s06_F05_seed1_12gen --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
 - name: dnaa3_readouts
   address: image:charts/dnaa3_readouts.png
   chart: charts/dnaa3_readouts.png
@@ -1305,26 +1296,13 @@ visualizations:
       autoregulation the pool self-stabilizes (no fixed-V drift) — replaces the stale
       fixed-V readouts and the retired dnaa3_fullhist_pergen.
   render: cd ../.. && python scripts/render_dnaa3_readouts.py --run out/dnaa4_s06_F05_seed1_12gen --gens all --out studies/dnaa-3-box-binding/charts/dnaa3_readouts
-- name: dnaa3_occupancy_haochen
-  address: image:charts/dnaa3_occupancy_haochen.png
-  chart: charts/dnaa3_occupancy_haochen.png
-  source_run: dnaa2_reverify_v1e3_seed1 (CORRECTED full-per-gen-history emitter, oriC 1<->2, box-binding listener active)
-  config:
-    title: >-
-      Addresses Haochen's 2026-06-06 asks on a run that ACTUALLY replicates (oriC
-      1↔2): oriC low-aff occupancy ~0.6-0.9 vs high-aff ~1.0; free DnaA-ATP in nM
-      (via cell volume) vs the 100 nM low-aff K_d; oriC box-count doubling. Read-only
-      listener era — kept as the figure that motivated adopting the active mechanism.
-  # Produced on the mini from the dnaa2_reverify_v1e3_seed1 re-verify run.
-  # RETIRED 2026-06-10 (superseded by the adopted active mechanism): the read-only
-  # result charts dnaa3_box_occupancy / dnaa3_binding_analysis / dnaa3_readouts
-  # showed the OVER-BINDING (oriC-low ~0.8, free DnaA-ATP >> K_d) "not resolved"
-  # within the read-only observer. That observation drove the adoption of Rashmi's
-  # ACTIVE binding mechanism (PR #162), which RESOLVES it — see
-  # dnaa3_active_binding_adopted. The historical problem is documented by the
-  # dnaa3_occupancy_haochen + dnaa3_v_sweep_overbinding charts (kept) and the
-  # result narrative above; the raw read-only readouts are removed to avoid showing
-  # a superseded "over-binding persists" picture next to the resolved verdict.
+# The pre-autoregulation historical charts (read-only-era occupancy_haochen, the
+# fixed-V active_binding_adopted / box_occupancy_trend, and the V-sweep panels) were
+# RETIRED 2026-06-17 in the beautify/cleanup pass — the binding journey (read-only ->
+# fixed-V adopted -> autoregulated) is described in the verdict prose; the current
+# canonical figures (box_occupancy / binding_analysis / readouts / chromosome_state,
+# all on the dnaa-4 reference run) carry the result. Git history preserves the removed
+# figures.
 planned_visualizations:
 - name: dnaa-atp-partition-across-cell
   units: concentration (count / cell_mass)

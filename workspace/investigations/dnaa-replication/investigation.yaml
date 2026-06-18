@@ -146,7 +146,7 @@ executive:
     total DnaA in [300,800] on the generation average (avg 535; within-cycle peaks
     >800 pre-division are the expected accumulate-then-divide behaviour); DnaA-ATP
     fraction in [0.2,0.5] on the generation average (all-gen avg 0.26, steady-gen avg
-    0.222). Canonical figure charts/dnaa2_seed1_8gen_canonical.png. SECONDARY (not a
+    0.222). Canonical figure charts/dnaa2_reverify_multiseed.png. SECONDARY (not a
     blocker): per-gen averages trend to the low edge of the band in later gens — a
     total-DnaA dependence (diagnosis figure), with k_r the future-tuning lever for Haochen.
 

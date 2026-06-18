@@ -106,8 +106,17 @@ def test_card_biomass_yield_is_first_principles_violation(graded):
     assert ax["detail"]["first_principles_violation"] is True
 
 
-def test_card_yield_identity_holds(graded):
-    # Yxs == μ / (q_glc · M_glc) — the three model values are mutually consistent.
+def test_card_yield_is_direct_with_percell_spread(graded):
+    # The direct mass-balance method gives yield a per-cell distribution (the
+    # ratio-of-means did not) — so the yield axis can carry a sim violin.
+    report, model = graded
+    assert len(model.get("biomass_yield_cells", [])) >= 3
+    assert report["axes"]["physiology.biomass_yield"]["measured"].get("values")
+
+
+def test_model_carbon_conserves(graded):
+    # The implied biomass carbon content is physically plausible -> mass IS
+    # conserved; the yield violation is energetic (under-respiration), not
+    # carbon creation.
     _, model = graded
-    derived = model["growth_rate"] / (model["glucose_uptake"] * rvl.M_GLC)
-    assert abs(derived - model["biomass_yield"]) < 1e-6
+    assert 0.40 < model["implied_biomass_C_gC_per_gDW"] < 0.55

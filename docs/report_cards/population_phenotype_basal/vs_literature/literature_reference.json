@@ -4,12 +4,12 @@
   "stimulus": {
     "reference_model": "experimental literature (ecoli-sources validation_data)",
     "measured_model": "v2ecoli baseline",
-    "ensemble": "4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided"
+    "ensemble": "blessed baseline, gen≥3"
   },
   "findings": [
     "vs_literature reference mode: the v2ecoli baseline graded against curated experimental + theoretical values, not a pinned run.",
-    "Biomass yield carries a theoretical_max ceiling — exceeding it is a differentiated first-principles failure, not merely a deviation.",
-    "Model μ, q_glc, Yxs read from the blessed self-pin baseline fixture; references from ecoli_sources.VALIDATION_BUNDLE_PATH."
+    "Biomass yield is computed by DIRECT mass balance (ΔDW / ∫q_glc·DW dt) per cell — a true g-DW-made / g-glucose-eaten ratio, robust to the steady-state assumption (the μ/(q·M) shortcut ran ~7% higher).",
+    "The yield exceeds the theoretical_max stoichiometric ceiling: an ENERGETIC first-principles violation (the model gets ATP without respiring — implied biomass carbon ≈ 0.46 gC/gDW is physically plausible, so carbon IS conserved; the model under-respires rather than creating mass)."
   ],
   "footer": "Behavioral report card (PR #134 grader) · vs_literature mode · physiology (μ, q_glc, Yxs).",
   "axes": {
@@ -48,7 +48,7 @@
       "group": "Physiology",
       "label": "Biomass yield (Yxs)",
       "units": "gDW/g glucose",
-      "how": "Model: Yxs = μ / (q_glc · M_glc), M_glc = 0.180156 g/mmol — the ensemble ratio of growth rate to specific glucose uptake (a ratio of means, so no per-cell spread). Graded against curated experimental measurements (band 0.355–0.444 gDW/g glucose; sources shown in the plot). The red dashed line is the theoretical-max stoichiometric ceiling (0.538 gDW/g glucose) — a model value above it is a first-principles violation.",
+      "how": "Model: DIRECT mass-balance yield per cell = ΔDW / ∫(q_glc·DW)dt — grams dry weight made per gram glucose consumed (a mass ratio, robust to the steady-state assumption; the μ/(q_glc·M_glc) shortcut agrees at balanced growth but runs ~7% higher and noisier). Graded against curated experimental measurements (band 0.355–0.444 gDW/g glucose; sources shown in the plot). The red dashed line is the theoretical-max stoichiometric ceiling (0.538 gDW/g glucose) — a model value above it is a first-principles violation.",
       "plot": "literature",
       "criterion": {
         "type": "literature",

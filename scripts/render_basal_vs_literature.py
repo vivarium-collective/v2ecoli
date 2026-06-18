@@ -8,25 +8,30 @@ ecoli-sources ``validation_data`` bundle — the same reference-agnostic grader
 
 Physiology-first scope (μ, q_glc, Yxs):
 
-  * ``physiology.biomass_yield``  — Yxs = μ / (q_glc · M_glc). Graded against the
-    measured band AND the ``theoretical_max`` ceiling: a model value above the
-    stoichiometric ceiling is a *differentiated first-principles failure*.
+  * ``physiology.biomass_yield``  — the DIRECT mass-balance yield
+    Yxs = ΔDW / ∫(q_glc·DW)dt (g dry weight made / g glucose consumed), per cell.
+    Graded against the measured band AND the ``theoretical_max`` ceiling: a model
+    value above the stoichiometric ceiling is a *differentiated first-principles
+    failure*.
   * ``physiology.growth_rate``    — μ (1/h) vs the measured band.
   * ``physiology.glucose_uptake`` — q_glc (mmol/gDW/h) vs the measured band.
 
-The model (measured-side) values come from the blessed self-pin reference
-fixture — the same baseline ensemble graded by the #134 cards — so this mode
-needs no new run. The literature (reference-side) values come from
-``ecoli_sources.VALIDATION_BUNDLE_PATH`` via the ``validate=False`` path (the
-validation bundle has none of the ParCa required keys; a missing slot ->
-``ungraded``).
+The model (measured-side) per-cell values are computed by DIRECT mass balance
+from the blessed-baseline sweep parquet (``--from-sweep``) and **baked into a
+committed ``model_physiology.json``** so the card + tests stay independent of the
+(gitignored) sweep. The literature (reference-side) values come from
+``ecoli_sources.VALIDATION_BUNDLE_PATH`` read directly (the validation bundle has
+none of the ParCa required keys, so the ParCa ``SourceBundle`` contract is bypassed).
 
 Run:
-    python scripts/render_basal_vs_literature.py
+    python scripts/render_basal_vs_literature.py                 # re-render from baked json
+    python scripts/render_basal_vs_literature.py --from-sweep out/population_phenotype_basal
     # -> docs/report_cards/population_phenotype_basal/vs_literature/
 """
 from __future__ import annotations
 
+import argparse
+import glob
 import json
 import math
 import os
@@ -41,9 +46,11 @@ sys.path.insert(0, str(REPO))
 from v2ecoli.library.report_card import grade_card, render_html, verdict_json  # noqa: E402
 
 M_GLC = 0.180156  # g/mmol glucose
+M_C = 12.011      # g/mol carbon
 
-_FIXTURE = REPO / "tests/fixtures/population_phenotype_basal_reference.json"
 OUT = REPO / "docs/report_cards/population_phenotype_basal/vs_literature"
+_MODEL_JSON = OUT / "model_physiology.json"        # baked per-cell model values (committed)
+_SWEEP = REPO / "out/population_phenotype_basal"   # blessed ensemble (gitignored; --from-sweep)
 
 # (card path, bundle observable key, label, units, has-theoretical-max, model derivation)
 _AXES = [
@@ -51,43 +58,88 @@ _AXES = [
      "Model: ensemble growth rate from per-cell doubling times (μ = ln 2 / doubling_time) "
      "of the blessed baseline ensemble (post-burn-in cells)."),
     ("physiology.biomass_yield", "biomass_yield", "Biomass yield (Yxs)", "gDW/g glucose", True,
-     "Model: Yxs = μ / (q_glc · M_glc), M_glc = 0.180156 g/mmol — the ensemble ratio of "
-     "growth rate to specific glucose uptake (a ratio of means, so no per-cell spread)."),
+     "Model: DIRECT mass-balance yield per cell = ΔDW / ∫(q_glc·DW)dt — grams dry weight "
+     "made per gram glucose consumed (a mass ratio, robust to the steady-state assumption; "
+     "the μ/(q_glc·M_glc) shortcut agrees at balanced growth but runs ~7% higher and noisier)."),
     ("physiology.glucose_uptake", "glucose_uptake", "Glucose uptake (q_glc)", "mmol/gDW/h", False,
      "Model: ensemble-mean specific glucose uptake = |GLC[p] exchange flux| over the "
      "post-burn-in cells."),
 ]
 
 
-def model_physiology(fixture_path: Path = _FIXTURE) -> dict:
-    """Blessed-baseline μ, q_glc, Yxs from the self-pin reference fixture.
+_GLC_IDX, _CO2_IDX, _ACET_IDX = 37, 11, 3  # 1-indexed positions in the 87-flux array
 
-    μ from the doubling-time per-cell reference values (seconds); q_glc from the
-    pinned exchange-flux vector at GLC[p] (uptake is negative -> magnitude).
-    Yxs = μ / (q_glc · M_glc) — the ensemble ratio, matching how the references
-    are defined and how the finding was derived."""
-    fx = json.load(open(fixture_path, encoding="utf-8"))
-    ax = fx["axes"]
-    # per-cell growth rate from per-cell doubling times (seconds)
-    dt = ax["physiology.doubling_time"]["criterion"]["ref_values"]
-    mu_cells = [math.log(2) / (t / 3600.0) for t in dt]
-    mu = sum(mu_cells) / len(mu_cells)
-    # per-cell glucose uptake magnitude (the KPI axis carries per-cell flux;
-    # fall back to the ensemble exchange vector if absent)
-    gcrit = ax.get("fluxes.glucose", {}).get("criterion", {})
-    if gcrit.get("ref_values"):
-        q_cells = [abs(v) for v in gcrit["ref_values"]]
-    else:
-        fc = ax["fluxes.exchange"]["criterion"]
-        q_cells = [abs(fc["ref_vector"][fc["flux_ids"].index("GLC[p]")])]
-    q_glc = sum(q_cells) / len(q_cells)
-    yxs = mu / (q_glc * M_GLC)
+
+def physiology_from_sweep(sweep_dir: Path = _SWEEP, gen_lb: int = 3) -> dict:
+    """Per-cell physiology by DIRECT mass balance from the sweep parquet.
+
+    For each post-burn-in cell, integrated over its cycle from the per-timestep
+    dry mass + specific exchange fluxes:
+      * growth rate    μ      = ln 2 / cell-cycle time
+      * glucose uptake q_glc  = time-mean |GLC[p] exchange|
+      * biomass yield  Yxs    = ΔDW / (∫ q_glc·DW dt · M_glc)  — a direct mass
+        ratio (g DW made / g glucose eaten), NOT the steady-state μ/(q·M) shortcut.
+    Also reports the carbon implied into biomass per gDW
+    (= (glucose-C − CO₂-C − acetate-C) / ΔDW) — a conservation sanity check;
+    a physically plausible ~0.45–0.50 gC/gDW means carbon is conserved."""
+    import duckdb
+    files = glob.glob(os.path.join(str(sweep_dir), "**", "history", "**", "*.pq"),
+                      recursive=True)
+    if not files:
+        raise SystemExit(f"no parquet under {sweep_dir} (need a blessed-baseline sweep)")
+    flist = "[" + ",".join("'" + f + "'" for f in files) + "]"
+    rows = duckdb.sql(f"""
+      SELECT variant, lineage_seed, generation, agent_id, global_time,
+        listeners__mass__dry_mass AS dw,
+        list_extract(listeners__fba_results__external_exchange_fluxes, {_GLC_IDX})  AS glc,
+        list_extract(listeners__fba_results__external_exchange_fluxes, {_CO2_IDX})  AS co2,
+        list_extract(listeners__fba_results__external_exchange_fluxes, {_ACET_IDX}) AS acet
+      FROM read_parquet({flist}, hive_partitioning=true)
+      WHERE generation >= {gen_lb}
+      ORDER BY variant, lineage_seed, generation, agent_id, global_time""").fetchall()
+    cells: dict = {}
+    for r in rows:
+        cells.setdefault(r[:4], []).append(r[4:])
+
+    mu_c, q_c, y_c, impliedC = [], [], [], []
+    for rs in cells.values():
+        if len(rs) < 3:
+            continue
+        t = [x[0] / 3600.0 for x in rs]            # h
+        dw = [x[1] * 1e-15 for x in rs]            # g (dry_mass is fg)
+        glc = [abs(float(x[1 + 1] or 0)) for x in rs]   # |GLC| specific (mmol/gDW/h)
+        co2 = [float(x[1 + 2] or 0) for x in rs]
+        acet = [float(x[1 + 3] or 0) for x in rs]
+        dts = [t[i + 1] - t[i] for i in range(len(t) - 1)]
+
+        def integ(spec):  # trapezoid of (specific flux · DW) -> absolute mmol over the cycle
+            rate = [spec[i] * dw[i] for i in range(len(spec))]
+            return sum(0.5 * (rate[i] + rate[i + 1]) * dts[i] for i in range(len(dts)))
+
+        glc_mmol, ddw = integ(glc), dw[-1] - dw[0]
+        if glc_mmol <= 0 or ddw <= 0:
+            continue
+        mu_c.append(math.log(2) / (t[-1] - t[0]))
+        q_c.append(sum(glc) / len(glc))
+        y_c.append(ddw / (glc_mmol * M_GLC))
+        c_into_biomass_mmol = glc_mmol * 6 - integ(co2) - 2 * integ(acet)  # mmol C
+        impliedC.append(c_into_biomass_mmol * M_C / 1000.0 / ddw)          # gC/gDW
+
+    n = len(y_c)
     return {
-        "biomass_yield": yxs, "growth_rate": mu, "glucose_uptake": q_glc,
-        "growth_rate_cells": mu_cells, "glucose_uptake_cells": q_cells,
-        "ensemble": fx.get("stimulus", {}).get("ensemble", ""),
-        "n_cells": len(dt),
+        "biomass_yield": sum(y_c) / n, "growth_rate": sum(mu_c) / n,
+        "glucose_uptake": sum(q_c) / n,
+        "biomass_yield_cells": y_c, "growth_rate_cells": mu_c, "glucose_uptake_cells": q_c,
+        "implied_biomass_C_gC_per_gDW": sum(impliedC) / n,
+        "method": "direct mass balance (ΔDW / ∫q_glc·DW dt)",
+        "ensemble": f"blessed baseline, gen≥{gen_lb}", "n_cells": n,
     }
+
+
+def model_physiology(model_json: Path = _MODEL_JSON) -> dict:
+    """Load the baked per-cell model physiology (committed; regenerate with
+    ``--from-sweep``). Keeps the card + tests independent of the gitignored sweep."""
+    return json.load(open(model_json, encoding="utf-8"))
 
 
 def literature(bundle_path: Path | None = None) -> dict:
@@ -155,11 +207,12 @@ def build_reference(lit: dict, model: dict, *, tol_rel: float = 0.10) -> dict:
 
 
 def build_card(model: dict) -> dict:
-    """Measured (model-side) card: the blessed baseline's physiology — scalar
-    means for grading + per-cell value lists for the sim violin (yield is a
-    ratio of ensemble means, so it has no per-cell distribution)."""
+    """Measured (model-side) card: scalar means for grading + per-cell value lists
+    for the sim violin. The direct mass-balance method gives yield a per-cell
+    distribution too (the ratio-of-means did not)."""
     return {"physiology": {
-        "biomass_yield": {"mean": model["biomass_yield"]},
+        "biomass_yield": {"mean": model["biomass_yield"],
+                          "values": model.get("biomass_yield_cells")},
         "growth_rate": {"mean": model["growth_rate"],
                         "values": model.get("growth_rate_cells")},
         "glucose_uptake": {"mean": model["glucose_uptake"],
@@ -167,10 +220,11 @@ def build_card(model: dict) -> dict:
     }}
 
 
-def build(fixture_path: Path = _FIXTURE, bundle_path: Path | None = None) -> tuple[dict, dict, dict]:
+def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tuple[dict, dict, dict]:
     """Return (card, reference, model) — the gradeable inputs (importable for tests)."""
-    model = model_physiology(fixture_path)
+    model = model_physiology(model_json)
     lit = literature(bundle_path)
+    iC = model.get("implied_biomass_C_gC_per_gDW")
     reference = {
         "title": "Basal-condition physiology — v2ecoli vs experimental literature",
         "status": "populated",
@@ -182,10 +236,16 @@ def build(fixture_path: Path = _FIXTURE, bundle_path: Path | None = None) -> tup
         "findings": [
             "vs_literature reference mode: the v2ecoli baseline graded against "
             "curated experimental + theoretical values, not a pinned run.",
-            "Biomass yield carries a theoretical_max ceiling — exceeding it is a "
-            "differentiated first-principles failure, not merely a deviation.",
-            "Model μ, q_glc, Yxs read from the blessed self-pin baseline fixture; "
-            "references from ecoli_sources.VALIDATION_BUNDLE_PATH.",
+            "Biomass yield is computed by DIRECT mass balance (ΔDW / ∫q_glc·DW dt) "
+            "per cell — a true g-DW-made / g-glucose-eaten ratio, robust to the "
+            "steady-state assumption (the μ/(q·M) shortcut ran ~7% higher).",
+            "The yield exceeds the theoretical_max stoichiometric ceiling: an "
+            "ENERGETIC first-principles violation (the model gets ATP without "
+            f"respiring — implied biomass carbon ≈ {iC:.2f} gC/gDW is physically "
+            "plausible, so carbon IS conserved; the model under-respires rather "
+            "than creating mass)." if iC is not None else
+            "The yield exceeds the theoretical_max stoichiometric ceiling — a "
+            "first-principles violation.",
         ],
         "footer": "Behavioral report card (PR #134 grader) · vs_literature mode · "
                   "physiology (μ, q_glc, Yxs).",
@@ -194,8 +254,16 @@ def build(fixture_path: Path = _FIXTURE, bundle_path: Path | None = None) -> tup
     return build_card(model), reference, model
 
 
-def main() -> dict:
+def main(from_sweep: str | None = None) -> dict:
     OUT.mkdir(parents=True, exist_ok=True)
+    if from_sweep:
+        model = physiology_from_sweep(Path(from_sweep))
+        with open(_MODEL_JSON, "w", encoding="utf-8") as f:
+            json.dump(model, f, indent=2)
+        print(f"baked {_MODEL_JSON.name}: {model['n_cells']} cells · "
+              f"Yxs {model['biomass_yield']:.3f} · μ {model['growth_rate']:.3f} · "
+              f"q_glc {model['glucose_uptake']:.3f} · implied biomass C "
+              f"{model['implied_biomass_C_gC_per_gDW']:.3f} gC/gDW")
     card, reference, model = build()
     generated = time.strftime("%Y-%m-%d %H:%M")
     model_ref = f"v2ecoli baseline ({model['ensemble']})"
@@ -221,4 +289,9 @@ def main() -> dict:
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--from-sweep", metavar="DIR", default=None,
+                    help="recompute the baked model_physiology.json from a sweep parquet dir")
+    a = ap.parse_args()
+    main(from_sweep=a.from_sweep)

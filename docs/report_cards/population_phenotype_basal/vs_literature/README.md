@@ -21,12 +21,21 @@ band + an optional first-principles `theoretical_max` ceiling):
 
 | axis | model derivation | verdict |
 |---|---|---|
-| **Growth rate (μ)** | ensemble of per-cell `ln 2 / doubling_time` | within_tol — μ ≈ 0.83/h sits in the measured 0.68–0.81 band |
-| **Biomass yield (Yxs)** | `μ / (q_glc · M_glc)`, the ensemble ratio | **mismatch — first-principles violation** (0.89 > the 0.538 stoichiometric ceiling) |
+| **Growth rate (μ)** | ensemble of per-cell `ln 2 / cell-cycle time` | within_tol — μ ≈ 0.81/h sits in the measured 0.68–0.81 band |
+| **Biomass yield (Yxs)** | **direct mass balance** per cell: `ΔDW / ∫(q_glc·DW)dt` | **mismatch — first-principles violation** (0.83 > the 0.538 stoichiometric ceiling) |
 | **Glucose uptake (q_glc)** | ensemble-mean `\|GLC[p]\| exchange flux` | mismatch — 5.1 vs measured 8.5–10.6 (model under-consumes) |
 
 Read together: **the model grows at the right rate but takes up too little
 glucose, producing a yield above the thermodynamic limit.**
+
+**Yield is the *direct* mass-balance ratio** (g dry weight made / g glucose
+consumed), integrated per cell — not the steady-state `μ/(q·M)` shortcut (which
+ran ~7% higher and noisier). A carbon check falls out of the same integration:
+the **implied biomass carbon ≈ 0.46 gC/gDW is physically plausible, so carbon is
+conserved** — the violation is *energetic* (the model under-respires, routing
+~99% of glucose carbon into biomass), not mass creation. A formal `=1`
+carbon-closure axis is deferred (it needs the model's exact biomass C-content,
+which isn't a single sim_data field).
 
 ### The plot
 
@@ -46,12 +55,17 @@ by git SHA in `pyproject.toml`.
 ## Regenerate
 
 ```bash
+# re-render from the baked model values + current bundle (no sweep needed):
 python scripts/render_basal_vs_literature.py
+
+# recompute the model values by direct mass balance from a blessed sweep:
+python scripts/render_basal_vs_literature.py --from-sweep out/population_phenotype_basal
 ```
 
-Reads the blessed self-pin baseline fixture (model μ, q_glc) + the validation
-bundle (references); writes `report_card.html`, `literature_reference.json`, and
-`report_card_verdict.json` here. No new simulation run required.
+The per-cell model physiology is baked into `model_physiology.json` (committed)
+so the card + tests stay independent of the gitignored sweep; `--from-sweep`
+regenerates it. References come from `ecoli_sources.VALIDATION_BUNDLE_PATH`. No
+new simulation run required.
 
 ## Follow-ups (not in this card)
 

@@ -1,8 +1,8 @@
 {
   "schema": "report_card_verdict/v1",
-  "model_ref": "v2ecoli baseline (4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided)",
+  "model_ref": "v2ecoli baseline (blessed baseline, gen≥3)",
   "reference_model": "experimental literature (ecoli-sources validation_data)",
-  "generated": "2026-06-17 17:11",
+  "generated": "2026-06-17 20:11",
   "overall": "mismatch",
   "groups": {
     "physiology": {
@@ -12,8 +12,8 @@
           "id": "physiology.growth_rate",
           "label": "Growth rate (μ)",
           "verdict": "within_tol",
-          "value": 0.8350735393786652,
-          "meter": "0.8351 vs measured 0.677–0.81 (Δmid +17%)",
+          "value": 0.8137845855558572,
+          "meter": "0.8138 vs measured 0.677–0.81 (Δmid +14%)",
           "detail": {
             "measured_lo": 0.677,
             "measured_hi": 0.81,
@@ -21,15 +21,15 @@
             "n_sources": 4,
             "theoretical_max": null,
             "first_principles_violation": false,
-            "rel_to_mid": 0.16916141320079128
+            "rel_to_mid": 0.13935538754757737
           }
         },
         {
           "id": "physiology.biomass_yield",
           "label": "Biomass yield (Yxs)",
           "verdict": "mismatch",
-          "value": 0.9009888120587101,
-          "meter": "0.901 > theoretical max 0.538 — first-principles violation",
+          "value": 0.825746175353658,
+          "meter": "0.826 > theoretical max 0.538 — first-principles violation",
           "detail": {
             "measured_lo": 0.355,
             "measured_hi": 0.444,
@@ -37,15 +37,15 @@
             "n_sources": 4,
             "theoretical_max": 0.538,
             "first_principles_violation": true,
-            "rel_to_mid": 1.172366032691284
+            "rel_to_mid": 0.9909491871094829
           }
         },
         {
           "id": "physiology.glucose_uptake",
           "label": "Glucose uptake (q_glc)",
           "verdict": "mismatch",
-          "value": 5.144658997,
-          "meter": "5.145 vs measured 8.46–10.6 (Δmid -46%)",
+          "value": 5.14296869449459,
+          "meter": "5.143 vs measured 8.46–10.6 (Δmid -46%)",
           "detail": {
             "measured_lo": 8.46,
             "measured_hi": 10.58,
@@ -53,7 +53,7 @@
             "n_sources": 4,
             "theoretical_max": null,
             "first_principles_violation": false,
-            "rel_to_mid": -0.46030327857330194
+            "rel_to_mid": -0.46048059853190776
           }
         }
       ]

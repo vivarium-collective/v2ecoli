@@ -67,35 +67,43 @@ differences with a sim_data-provenance / condition-entry artifact.** A clean
 apples-to-apples comparison needs **one shared ParCa fit consumed by both
 engines** (a scoped interop follow-up).
 
-### ROOT CAUSE (traced 2026-06-18): numpy/scipy version mismatch
+### ROOT CAUSE (traced 2026-06-18): a real ParCa-fit difference, localized to
+### the cistron/mRNA-expression fit (specific mechanism still being isolated)
 
-The non-basal divergence was traced end-to-end to a **numerical-reproducibility
-artifact, not a model or port logic bug**:
+The non-basal divergence was traced end-to-end:
 
 1. report-card mismatch (with_aa active-RNAP +168%) → present at **step 1**
-   (initialization), with ppGpp and rRNA:mRNA split identical → not regulation.
-2. → upstream in the ParCa fit: `exp_free`/`exp_ppgpp` (ppGpp-dependent
-   expression) differ (~2.6% of the distribution).
+   (initialization), ppGpp + rRNA:mRNA split identical → **not regulation**.
+2. → ParCa `exp_free`/`exp_ppgpp` (ppGpp-dependent expression) differ
+   (~2.6% of the distribution), and they amplify under growth-rate scaling
+   (basal agrees, fast/anaerobic diverge).
 3. → their fitting code (`set_ppgpp_expression`, `fit_rna_expression`,
-   `adjust_*`) is **byte-identical** between vEcoli and v2ecoli's port; the
-   inputs (`ppgpp_fold_changes`, `ppgpp_regulated_genes`, doubling times,
-   `ppgpp_km`) are **identical**.
-4. → the one diverging input is `fit_cistron_expression` (an **NNLS** output):
-   differs broadly but tinily (4109/4538 elements, max 6.5e-5).
-5. → `fast_nnls` code is identical, but the two environments run
-   **numpy 2.2.6 / scipy 1.15.3 (vEcoli)** vs **numpy 2.4.5 / scipy 1.17.1
-   (v2ecoli)**. The least-squares/NNLS solvers produce version-dependent
-   floating-point results, which cascade through the ppGpp decomposition and are
-   **amplified by growth-rate scaling** — basal agrees, fast/anaerobic diverge.
+   `adjust_*`) is **byte-identical**, and the inputs `ppgpp_fold_changes`,
+   `ppgpp_regulated_genes`, doubling times, `ppgpp_km` are **identical**.
+4. → the diverging input is `fit_cistron_expression['basal']` — broad but tiny
+   (4109/4538 elements, max 6.5e-5), specifically the **mRNA cistron
+   distribution** (rRNA/tRNA agree; r-protein operons + one dominant mRNA shift).
 
-Confirmed reproducible & deterministic on both sides (fresh-vEcoli == stale
-test_installation exactly; v2 fresh == v2 fixture to ~0.004%), so it is a stable
-numerical-version effect, not run-to-run noise.
+**What's ruled out:** `fast_nnls` is bit-identical across the two numpy/scipy
+versions on the same input; both ParCas are deterministic and reproduce
+themselves (fresh-vEcoli == stale test_installation exactly; v2 fresh == v2
+fixture to ~0.004%) — so it is **not run-to-run noise**.
 
-**Fix:** run both engines from **one shared ParCa fit** (eliminates the issue
-entirely), or pin matching numpy/scipy so independent fits agree. Definitive
-confirmation = re-run v2's ParCa under vEcoli's numpy/scipy and check
-`fit_cistron_expression` converges.
+**Still being isolated:** v2's ParCa is a **refactor** of vEcoli's
+`fit_sim_data_1.py` (into `fitting.py` + `steps/`), and the mRNA part of
+`fit_cistron_expression` flows through a deep iterative chain (protein counts →
+`mRNADistributionFromProtein` → lstsq / ODE solves). The remaining candidates
+are (a) a logic difference in that refactored chain, or (b) numpy/scipy drift in
+its iterative solvers (odeint/lstsq — only `fast_nnls` has been excluded).
+The two environments do differ: **numpy 2.2.6 / scipy 1.15.3 (vEcoli)** vs
+**numpy 2.4.5 / scipy 1.17.1 (v2ecoli)**.
+
+**Fix (robust to either cause):** run both engines from **one shared ParCa
+fit** — this eliminates the divergence regardless of which mechanism it is.
+Now unblocked: vEcoli's *freshly* re-run simData uses the current schema, so v2
+can build a per-condition cache from it (the older `test_installation` simData
+failed v2's generator on `pool_label`). Definitive check = both sims from one
+shared fit → the with_aa card should flip to within_tol.
 
 ### ParCa-output comparison (what differs upstream)
 

@@ -65,5 +65,24 @@ currently be shared (vEcoli's venv can't unpickle v2's process-bigraph-tied
 **Therefore the with_aa / no_oxygen `mismatch` verdicts conflate genuine model
 differences with a sim_data-provenance / condition-entry artifact.** A clean
 apples-to-apples comparison needs **one shared ParCa fit consumed by both
-engines** (a scoped interop follow-up) — until then, read the non-basal cards as
-"diverges, cause not yet isolated" rather than "v2 is wrong."
+engines** (a scoped interop follow-up).
+
+### ParCa-output comparison (what differs upstream)
+
+Diffing the two ParCa outputs as full `SimulationDataEcoli` objects (now shown in
+the report's "ParCa / sim_data" section): **mass, degradation rates, and
+translation efficiencies agree exactly; RNA expression + synthesis-probability
+drift ~3–4%.** That transcription-calibration drift is the upstream source of the
+with_aa RNAP divergence (a few-percent expression difference amplifies in fast
+growth).
+
+**This drift is NOT ParCa nondeterminism.** A controlled re-run shows v2ecoli's
+ParCa is **deterministic**: fresh-vs-fixture is 13/13 within_tol, and the
+RNA-expression/synth-prob arrays reproduce to ~0.004% (e.g. basal expression
+8.81955846e-07 vs 8.81991107e-07). So the ~3–4% vEcoli↔v2 difference is a
+**real, reproducible discrepancy** between the two ParCa fits — not run-to-run
+noise. (Open attribution: whether it is a port difference, a vEcoli-side
+nondeterminism, or a raw-input/version difference still needs vEcoli's own
+determinism check — run vEcoli's ParCa twice.) Until both sims run from one
+shared fit, read the non-basal cards as "diverges, traced to a real ParCa
+expression-calibration difference" rather than "v2 is wrong."

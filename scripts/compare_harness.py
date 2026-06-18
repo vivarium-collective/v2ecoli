@@ -1,11 +1,16 @@
 #!/usr/bin/env python
 """vEcoli <-> v2ecoli comparison harness.
 
-Runs both engines from a single vEcoli config and emits a two-column HTML
-report: config/schema diff, ParCa sim_data comparison, 2-gen sim dynamics.
+Runs both engines from one or more vEcoli configs (no ParCa is re-run — each
+engine uses a prebuilt, cached sim_data) and emits a grouped two-column HTML
+report. Each config becomes its own run-group with sections in the order:
+loaded config, converted processes, ParCa/sim_data diff, 2-gen sim dynamics
+(plus embedded behavior overlay + statistical report card).
 
     .venv/bin/python scripts/compare_harness.py \
         --config /Users/eranagmon/code/vEcoli/configs/two_generations.json \
+        --vecoli-simdata /Users/eranagmon/code/vEcoli/out/kb/simData.cPickle \
+        --v2-cache out/cache \
         -o out/compare/report.html
 """
 from __future__ import annotations
@@ -19,10 +24,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts._compare import orchestrator
-from scripts._compare.config_adapter import (
-    resolve_vecoli_config, schema_diff)
+from scripts._compare.config_adapter import resolve_vecoli_config
 from scripts._compare.parca_section import final_sim_data_diff
-from scripts._compare.report import render_report
+from scripts._compare.report import (
+    config_panel_section, converted_processes_section, render_grouped_report)
 from scripts._compare.sim_section import (
     OBSERVABLES, compare_observables, read_observables)
 
@@ -30,31 +35,8 @@ from scripts._compare.sim_section import (
 PARCA_REL_TOL = 1e-6
 
 
-def _config_section(vecoli_cfg, v2_cfg):
-    # Hide internal adapter bookkeeping keys (e.g. _dropped_vecoli_keys) from
-    # the user-facing schema diff.
-    v2_cfg = {k: v for k, v in v2_cfg.items() if not k.startswith("_")}
-    d = schema_diff(vecoli_cfg, v2_cfg)
-    rows = []
-    # only_in_* are expected config-SHAPE differences (a key exists in one
-    # config schema but not the other), NOT value divergences — e.g. vEcoli
-    # reads `emitter` from JSON while v2ecoli selects its emitter internally.
-    # Mark them not_compared (informational), reserving drift for shared keys
-    # whose VALUES differ.
-    for k in d["only_in_vecoli"]:
-        rows.append({"label": k, "left": json.dumps(vecoli_cfg[k]),
-                     "right": "—", "verdict": "not_compared",
-                     "reason": "vEcoli-only config key; v2ecoli has no such "
-                               "field (it configures this internally)"})
-    for k in d["only_in_v2"]:
-        rows.append({"label": k, "left": "—",
-                     "right": json.dumps(v2_cfg[k]), "verdict": "not_compared",
-                     "reason": "v2ecoli-only config key (adapter default)"})
-    for k, (lv, rv) in d["different"].items():
-        rows.append({"label": k, "left": json.dumps(lv),
-                     "right": json.dumps(rv), "verdict": "drift",
-                     "reason": "shared key, differing value"})
-    return {"title": "Config & schema diff", "rows": rows}
+def _slug(s: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in str(s).lower())
 
 
 def _error_section(title: str, exc: Exception) -> dict:
@@ -68,6 +50,12 @@ def _error_section(title: str, exc: Exception) -> dict:
 def _load_pickle(path):
     with open(path, "rb") as f:
         return pickle.load(f)
+
+
+def _load_dill(path):
+    import dill
+    with open(path, "rb") as f:
+        return dill.load(f)
 
 
 def _resolve_exp_id(base, exp_id: str) -> str:
@@ -103,51 +91,36 @@ def build_injected_v2_config(vecoli_cfg: dict, *, fork_repo: str) -> dict:
     return v2
 
 
-def main(argv=None):
-    p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--config", required=True,
-                   help="Path to a vEcoli JSON config (source of truth).")
-    p.add_argument("-o", "--out", default="out/compare/report.html")
-    p.add_argument("--workdir", default="out/compare_harness")
-    p.add_argument("--mode", default="full", choices=["full", "fast"])
-    p.add_argument("--fast-plumbing", action="store_true",
-                   help="ParCa --mode fast for wiring iteration ONLY; the "
-                        "report is stamped NOT SCIENTIFICALLY VALID.")
-    p.add_argument("--vecoli-repo", default="/Users/eranagmon/code/vEcoli",
-                   help="Path to the vEcoli fork checkout.")
-    p.add_argument("--tol-rel", type=float, default=0.05,
-                   help="Relative tolerance shared by sim-dynamics badges "
-                        "(within_tol / mismatch) and report-card bands "
-                        "(mismatch band = 2 × tol-rel).  Defaults to 0.05.")
-    p.add_argument("--force", action="store_true",
-                   help="Bypass the run cache and re-run both engines.")
-    args = p.parse_args(argv)
-    mode = "fast" if args.fast_plumbing else args.mode
+def _run_one_config(cfg_path: str, work_root: Path, args) -> dict:
+    """Run both engines for a single vEcoli config and return a report group.
 
-    # Resolve to an absolute path: vEcoli subprocesses run with cwd=vEcoli, so
-    # a relative workdir would make them write under the vEcoli tree while the
-    # harness reads under v2ecoli. Absolute keeps both sides in agreement.
-    work = Path(args.workdir).resolve()
-    work.mkdir(parents=True, exist_ok=True)
-
-    # Stage 1 — config (essential; if this raises, nothing downstream is meaningful)
-    vecoli_cfg = resolve_vecoli_config(args.config, vecoli_repo=args.vecoli_repo)
+    Returns a group dict for ``render_grouped_report``:
+    ``{"config","config_id","subtitle","sections":[...],"embedded_html":[...]}``.
+    Each engine stage keeps its own try/except so one failed stage degrades to
+    an ``_error_section`` rather than aborting the whole config.
+    """
+    # Stage 1 — config (essential; if this raises, the config is skipped above).
+    vecoli_cfg = resolve_vecoli_config(cfg_path, vecoli_repo=args.vecoli_repo)
     v2_cfg = build_injected_v2_config(vecoli_cfg, fork_repo=args.vecoli_repo)
+
+    v2_cache = Path(args.v2_cache).resolve()
+    v2_cfg["cache_dir"] = str(v2_cache)
+
+    exp_id = vecoli_cfg.get("experiment_id") or Path(cfg_path).stem
+    slug = _slug(exp_id)
+
+    work = work_root / slug
+    work.mkdir(parents=True, exist_ok=True)
     v2_cfg_path = work / "v2_config.json"
     v2_cfg_path.write_text(json.dumps(
         {k: v for k, v in v2_cfg.items() if not k.startswith("_")}))
-    sections = [_config_section(vecoli_cfg, v2_cfg)]
 
-    # Loaded-config panel (never depends on the sim) + behavior/card overlays.
-    from scripts._compare.report import (
-        config_panel_section, converted_processes_section)
-    sections.insert(0, config_panel_section(vecoli_cfg))
-    embedded: list[str] = []
+    config_sec = config_panel_section(vecoli_cfg)
 
-    # Converted-processes panel — resolve specs via the inject CLI (v2 venv +
-    # fork on sys.path), independent of whether the sim later succeeds.
+    # Converted-processes specs — resolve via the inject CLI (v2 venv + fork on
+    # sys.path), independent of whether the sim later succeeds.
     inj = v2_cfg.get("injected_processes")
-    specs = []
+    specs: list = []
     if inj and inj.get("add_processes"):
         import subprocess as _sp
         try:
@@ -155,47 +128,39 @@ def main(argv=None):
                 [".venv/bin/python", "-m", "scripts._compare.inject",
                  args.vecoli_repo, str(v2_cfg_path)], text=True)
             specs = json.loads(spec_json)
-        except Exception as e:
-            sections.append(_error_section("Converted processes", e))
+        except Exception:
+            specs = []
 
-    # Compute a cache token from config + mode so re-runs with different
-    # settings invalidate stale outputs.
+    # Cache token from config (no longer includes ParCa mode — no ParCa is run).
     from scripts._compare.cache import cache_key
-    run_token = cache_key(vecoli_cfg, commit="", mode=mode)
+    run_token = cache_key(vecoli_cfg, commit="", mode="")
     if args.force:
         import time as _time
         run_token = f"{run_token}-force-{_time.time_ns()}"
 
-    # Stages 2+3 — ParCa (both engines) + sim_data comparison.
-    # These form one fault unit: Stage 3 needs Stage 2's outputs.
-    parca_ok = False
-    v_parca = None
+    # ParCa / sim_data diff — both sides are CACHED (no re-fit). Left = vEcoli's
+    # prebuilt simData.cPickle (pickle); right = v2ecoli's sim_data_cache.dill.
     try:
-        v_parca = orchestrator.run_vecoli_parca(
-            config_path=args.config, out_dir=work / "vecoli_parca",
-            token=run_token, vecoli_repo=args.vecoli_repo)
-        v2_parca = orchestrator.run_v2_parca(
-            out_dir=work / "v2_parca", cache_dir=work / "parca_cache",
-            mode=mode, token=run_token)
-        v_sim_data = _load_pickle(v_parca / "kb" / "simData.cPickle")
-        v2_sim_data = _load_pickle(v2_parca / "checkpoint_step_9.pkl")
-        sections.append({"title": "ParCa / sim_data",
-                         "rows": final_sim_data_diff(v_sim_data, v2_sim_data,
-                                                     rel_tol=PARCA_REL_TOL)})
-        parca_ok = True
+        v_sim_data = _load_pickle(args.vecoli_simdata)
+        v2_sim_data = _load_dill(v2_cache / "sim_data_cache.dill")
+        parca_sec = {
+            "title": "ParCa / sim_data (cached)",
+            "desc": "Calibrated parameters (sim_data) each engine uses — "
+                    "loaded from cached ParCa outputs, not re-fit.",
+            "rows": final_sim_data_diff(v_sim_data, v2_sim_data,
+                                        rel_tol=PARCA_REL_TOL),
+        }
     except Exception as e:
-        sections.append(_error_section("ParCa / sim_data", e))
+        parca_sec = _error_section("ParCa / sim_data (cached)", e)
 
-    # Stage 4 — sim (both engines) + dynamics comparison.
-    # Depends on ParCa outputs; if ParCa failed, record a dependency error.
+    # Sim (both engines) + dynamics comparison. Drives the behavior overlay,
+    # report card, and the converted-processes "ran in both" gate.
+    embedded: list[str] = []
+    ran: dict = {}
     try:
-        if not parca_ok:
-            raise RuntimeError(
-                "ParCa stage failed — vEcoli sim_data path unavailable")
-        exp_id = vecoli_cfg.get("experiment_id", "default")
         vecoli_sim_out = work / "vecoli_sim"
         vecoli_sim_cfg = dict(vecoli_cfg)
-        vecoli_sim_cfg["sim_data_path"] = str((v_parca / "kb" / "simData.cPickle").resolve())
+        vecoli_sim_cfg["sim_data_path"] = str(Path(args.vecoli_simdata).resolve())
         vecoli_sim_cfg["out_dir"] = str(vecoli_sim_out)
         _ea = dict(vecoli_sim_cfg.get("emitter_arg") or {})
         _ea["out_dir"] = str(vecoli_sim_out)
@@ -218,9 +183,13 @@ def main(argv=None):
         v2_exp = _resolve_exp_id(v2_sim / "parquet", exp_id)
         left = read_observables(str(v_sim), v_exp, keys)
         right = read_observables(str(v2_sim / "parquet"), v2_exp, keys)
-        sections.append({"title": "2-generation sim dynamics",
-                         "rows": compare_observables(left, right, keys=keys,
-                                                     rel_tol=args.tol_rel)})
+        sim_sec = {
+            "title": "2-generation sim dynamics",
+            "desc": "Per-observable agreement of the simulated trajectories "
+                    "(mean/min/max summary), within the relative tolerance.",
+            "rows": compare_observables(left, right, keys=keys,
+                                        rel_tol=args.tol_rel),
+        }
 
         # Behavior detail — per-observable overlay plotted against the real time
         # axis (rows ordered by sim time), vEcoli vs v2ecoli on a shared scale.
@@ -245,11 +214,8 @@ def main(argv=None):
                 "</h2><div style='display:flex;flex-wrap:wrap;gap:4px'>"
                 + "".join(figs) + "</div></section>")
 
-        # Converted-processes "did it run in both" gate (best-effort: the sim
-        # completed and the process was injected -> True).
-        if specs:
-            ran = {s["name"]: True for s in specs}
-            sections.append(converted_processes_section(specs, ran))
+        # The sim completed and each process was injected -> ran in both.
+        ran = {s["name"]: True for s in specs}
 
         # Statistical-equivalence report card. The flat per-observable arrays
         # are treated as the two value distributions for the Welch ttest axes
@@ -261,7 +227,7 @@ def main(argv=None):
         verdict_json_dict, card_html = build_report_card(
             left_dist, right_dist, reference_model="vEcoli (fork)",
             measured_model="v2ecoli", tol_rel=args.tol_rel)
-        card_path = Path(args.out).with_name("report_card_verdict.json")
+        card_path = Path(args.out).with_name(f"report_card_verdict_{slug}.json")
         card_path.write_text(json.dumps(verdict_json_dict, indent=2))
         embedded.append(
             "<p style='font-size:0.85em;color:#64748b;margin:4px 0'>"
@@ -269,17 +235,77 @@ def main(argv=None):
             "per-cell); relative-mean bands are meaningful, p-values indicative "
             "only.</p>" + card_html)
     except Exception as e:
-        sections.append(_error_section("2-generation sim dynamics", e))
-        # Still surface the converted processes (gates unknown -> not_compared).
-        if specs:
-            sections.append(converted_processes_section(specs, {}))
+        sim_sec = _error_section("2-generation sim dynamics", e)
+        ran = {}
 
-    title = "vEcoli vs v2ecoli"
-    if mode == "fast":
-        title += "  —  ⚠ NOT SCIENTIFICALLY VALID (fast ParCa) ⚠"
+    # Converted-processes panel sits RIGHT AFTER the config, but its "ran in
+    # both" status is only known once the sim has run (above).
+    converted_sec = converted_processes_section(specs, ran)
+
+    sections = [config_sec, converted_sec, parca_sec, sim_sec]
+    embedded = [h for h in embedded if h]
+    return {
+        "config": exp_id,
+        "config_id": slug,
+        "subtitle": cfg_path,
+        "sections": sections,
+        "embedded_html": embedded,
+    }
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--config", required=True, nargs="+",
+                   help="One or more vEcoli JSON configs (source of truth). "
+                        "Each becomes its own run-group in the report.")
+    p.add_argument("-o", "--out", default="out/compare/report.html")
+    p.add_argument("--workdir", default="out/compare_harness")
+    p.add_argument("--vecoli-repo", default="/Users/eranagmon/code/vEcoli",
+                   help="Path to the vEcoli fork checkout.")
+    p.add_argument("--vecoli-simdata", default=None,
+                   help="Prebuilt vEcoli simData.cPickle. Used as the vEcoli "
+                        "sim's sim_data_path AND the left side of the ParCa "
+                        "diff. Default: <vecoli-repo>/out/kb/simData.cPickle.")
+    p.add_argument("--v2-cache", default="out/cache",
+                   help="Prebuilt v2ecoli ParCa cache dir. Used as the v2 sim's "
+                        "cache_dir AND the right side of the ParCa diff "
+                        "(<v2-cache>/sim_data_cache.dill). Default out/cache.")
+    p.add_argument("--tol-rel", type=float, default=0.05,
+                   help="Relative tolerance shared by sim-dynamics badges "
+                        "(within_tol / mismatch) and report-card bands "
+                        "(mismatch band = 2 × tol-rel).  Defaults to 0.05.")
+    p.add_argument("--force", action="store_true",
+                   help="Bypass the run cache and re-run both engines.")
+    args = p.parse_args(argv)
+
+    if args.vecoli_simdata is None:
+        args.vecoli_simdata = str(
+            Path(args.vecoli_repo) / "out" / "kb" / "simData.cPickle")
+
+    # Resolve to an absolute path: vEcoli subprocesses run with cwd=vEcoli, so
+    # a relative workdir would make them write under the vEcoli tree while the
+    # harness reads under v2ecoli. Absolute keeps both sides in agreement.
+    work_root = Path(args.workdir).resolve()
+    work_root.mkdir(parents=True, exist_ok=True)
+
+    groups = []
+    for cfg_path in args.config:
+        try:
+            groups.append(_run_one_config(cfg_path, work_root, args))
+        except Exception as e:
+            # Config resolution itself failed — surface as a degenerate group.
+            slug = _slug(Path(cfg_path).stem)
+            groups.append({
+                "config": Path(cfg_path).stem,
+                "config_id": slug,
+                "subtitle": cfg_path,
+                "sections": [_error_section("Loaded config", e)],
+                "embedded_html": [],
+            })
+
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(
-        render_report(sections, title=title, embedded_html=embedded),
+        render_grouped_report(groups, title="vEcoli vs v2ecoli"),
         encoding="utf-8")
     print(f"wrote {args.out}")
 

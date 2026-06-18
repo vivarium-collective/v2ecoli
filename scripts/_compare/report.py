@@ -89,6 +89,43 @@ tbody tr:hover { background:#fbfcfe; }
 .metersmall { font-size:11px; color:var(--muted); margin-top:2px; }
 footer { color:var(--muted); font-size:12px; padding:0 28px 40px;
   max-width:1180px; margin:0 auto; }
+/* section descriptions */
+.sectiondesc { margin:0; padding:12px 18px 0; color:var(--muted); font-size:12.5px; }
+.card.content .body { padding:14px 18px 18px; }
+/* config as navigable JSON */
+.cfgjson { margin:12px 0 0; padding:14px 16px; background:#0f172a; color:#e2e8f0;
+  border-radius:10px; font-family:"SF Mono",ui-monospace,Menlo,monospace;
+  font-size:12px; line-height:1.5; overflow:auto; max-height:520px;
+  white-space:pre; }
+details.cfgdrop { margin-top:10px; }
+details.cfgdrop > summary { cursor:pointer; font-size:12px; color:var(--muted);
+  padding:4px 0; }
+/* converted-process cards */
+.convgrid { display:flex; flex-direction:column; gap:12px; padding:14px 18px 18px; }
+.convcard { border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.convcard .ch { display:flex; align-items:center; gap:10px; padding:11px 14px;
+  background:#f0fdf4; border-bottom:1px solid #dcfce7; flex-wrap:wrap; }
+.convcard .ch .nm { font-weight:650; font-size:14px; }
+.convcard .flow { font-family:"SF Mono",ui-monospace,Menlo,monospace;
+  font-size:12px; color:#374151; }
+.convcard .arrow { color:#16a34a; font-weight:700; }
+.convbody { display:grid; grid-template-columns:120px 1fr; gap:2px 14px;
+  padding:12px 14px; font-size:12.5px; }
+.convbody .k { color:var(--muted); font-weight:600; text-transform:uppercase;
+  font-size:10.5px; letter-spacing:.5px; padding-top:3px; }
+.convbody .v { font-family:"SF Mono",ui-monospace,Menlo,monospace; font-size:12px;
+  color:#374151; white-space:pre-wrap; word-break:break-word; }
+.port { display:inline-block; background:#eef2ff; color:#3730a3; border-radius:6px;
+  padding:1px 7px; margin:2px 4px 2px 0; font-size:11.5px; }
+.port b { color:#1e1b4b; } .port .pp { color:#6366f1; }
+/* per-config run groups */
+.configgroup { margin:0 0 30px; }
+.cfghead { display:flex; align-items:center; justify-content:space-between;
+  gap:12px; flex-wrap:wrap; margin:0 0 14px; padding:14px 18px;
+  background:linear-gradient(135deg,#1e293b,#0f172a); color:#fff;
+  border-radius:12px; }
+.cfghead h2 { margin:0; font-size:17px; font-weight:650; }
+.cfghead .sub { color:#cbd5e1; font-size:12px; margin-top:2px; }
 """
 
 
@@ -171,13 +208,26 @@ def _rows_block(rows: list[dict[str, Any]]) -> str:
 
 def _section_html(section: dict[str, Any]) -> str:
     title = section["title"]
+    desc = section.get("desc", "")
+    desc_html = f'<p class="sectiondesc">{_e(desc)}</p>' if desc else ""
+
+    # Content sections (loaded config, converted processes) carry their own HTML
+    # and are NOT comparison tables — no metric/verdict columns or chips.
+    if section.get("kind") == "content":
+        html = section.get("html", "")
+        return (
+            f'<section class="card content" id="{_slug(title)}">'
+            f'<div class="head"><h2>{_e(title)}</h2></div>'
+            f'{desc_html}<div class="body">{html}</div></section>'
+        )
+
     rows = section.get("rows", [])
     extra = section.get("html", "")  # embedded plots (data: URIs)
     body = _rows_block(rows)
     return (
         f'<section class="card" id="{_slug(title)}">'
         f'<div class="head"><h2>{_e(title)}</h2>{_chips(_counts(rows))}</div>'
-        f'<table><thead><tr>'
+        f'{desc_html}<table><thead><tr>'
         f'<th>metric</th>'
         f'<th class="col-left">vEcoli</th>'
         f'<th class="col-right">v2ecoli</th>'
@@ -207,40 +257,90 @@ def _nav(sections: list[dict[str, Any]]) -> str:
 
 
 def config_panel_section(resolved_config: dict) -> dict:
-    """Render the loaded fork config: run knobs + added/swapped/topology +
-    dropped vEcoli-only keys."""
-    rows = []
-    for k in ("experiment_id", "generations", "n_init_sims", "lineage_seed",
-              "time_step", "add_processes", "swap_processes",
-              "exclude_processes", "process_configs", "topology"):
-        if k in resolved_config:
-            rows.append({"label": k, "left": _json.dumps(resolved_config[k]),
-                         "right": "—", "verdict": "not_compared",
-                         "reason": "loaded config value"})
-    for k, v in (resolved_config.get("_dropped_vecoli_keys") or {}).items():
-        rows.append({"label": f"dropped: {k}", "left": _json.dumps(v),
-                     "right": "—", "verdict": "not_compared",
-                     "reason": "vEcoli-only key (v2ecoli configures internally)"})
-    return {"title": "Loaded config", "rows": rows}
+    """Render the fully-resolved run configuration as navigable JSON.
+
+    This is reference content, not a comparison — the config is shown verbatim
+    (pretty-printed) so a reader can see exactly what drove the run, with the
+    vEcoli-only keys that v2ecoli configures internally tucked into a details.
+    """
+    shown = {k: v for k, v in resolved_config.items() if not k.startswith("_")}
+    dropped = resolved_config.get("_dropped_vecoli_keys") or {}
+    pretty = _e(_json.dumps(shown, indent=2, sort_keys=True))
+    html = f'<pre class="cfgjson">{pretty}</pre>'
+    if dropped:
+        dp = _e(_json.dumps(dropped, indent=2, sort_keys=True))
+        html += (
+            '<details class="cfgdrop"><summary>vEcoli-only keys not consumed by '
+            'v2ecoli (it configures these internally)</summary>'
+            f'<pre class="cfgjson">{dp}</pre></details>')
+    return {
+        "title": "Loaded config", "kind": "content",
+        "desc": "The fully-resolved configuration that drove this run. Processes "
+                "added to both models appear under add_processes, with their "
+                "wiring in topology and parameters in process_configs.",
+        "html": html,
+    }
+
+
+def _port_chips(topology: dict) -> str:
+    """Render each port -> store-path wire as a chip."""
+    chips = []
+    for port, path in (topology or {}).items():
+        p = "/".join(str(x) for x in (path if isinstance(path, list) else [path]))
+        chips.append(f'<span class="port"><b>{_e(port)}</b> '
+                     f'<span class="pp">&rarr; {_e(p)}</span></span>')
+    return "".join(chips) or "<span class='pp'>—</span>"
 
 
 def converted_processes_section(specs: list, ran_in_both: dict) -> dict:
-    """One row per injected process: source, kind, topology, did-it-run gate."""
-    rows = []
+    """Rich card per injected process: source class, kind, config, the converted
+    input/output ports (topology), and whether it ran in both engines.
+
+    Placed right after the loaded config: it shows HOW each Vivarium-1.0 process
+    declared in the config was translated into a process-bigraph process and
+    wired into both models.
+    """
+    cards = []
     for s in specs:
         ran = ran_in_both.get(s["name"])
-        verdict = ("within_tol" if ran else
-                   "mismatch" if ran is False else "not_compared")
-        rows.append({
-            "label": s["name"],
-            "left": f"{s['module']}.{s['qualname']}",
-            "right": f"kind={s['kind']} · topology={_json.dumps(s['topology'])}",
-            "verdict": verdict,
-            "reason": ("produced updates in both engines" if ran else
-                       "did NOT update in both engines" if ran is False else
-                       "run-probe not available"),
-        })
-    return {"title": "Converted processes", "rows": rows}
+        status = ("&#10003; ran in both engines" if ran else
+                  "&#10007; did NOT run in both" if ran is False else
+                  "&#9679; run-probe unavailable")
+        kind_label = {"vivarium_1": "Vivarium&nbsp;1.0", "pbg_native": "PBG-native",
+                      }.get(s.get("kind"), _e(s.get("kind", "")))
+        cfg = s.get("config")
+        cfg_html = _e(_json.dumps(cfg)) if cfg else "default"
+        ports = _port_chips(s.get("topology", {}))
+        cards.append(
+            f'<div class="convcard">'
+            f'<div class="ch"><span class="nm">{_e(s["name"])}</span>'
+            f'<span class="badge" style="background:var(--green)">{status}</span>'
+            f'</div>'
+            f'<div class="convbody">'
+            f'<div class="k">Source</div>'
+            f'<div class="v">{kind_label} &nbsp;<span class="arrow">&rarr;</span>'
+            f'&nbsp;process-bigraph<br><span style="color:#6b7280">'
+            f'{_e(s["module"])}.{_e(s["qualname"])}</span></div>'
+            f'<div class="k">Config</div><div class="v">{cfg_html}</div>'
+            f'<div class="k">Ports (in/out)</div><div class="v">{ports}</div>'
+            f'<div class="k">Interval</div><div class="v">{_e(s.get("interval"))}'
+            f' s</div>'
+            f'</div></div>')
+    if cards:
+        body = f'<div class="convgrid">{"".join(cards)}</div>'
+    else:
+        body = ('<div class="convgrid"><p style="margin:0;color:#6b7280">No '
+                'processes were added by this config.</p></div>')
+    n = len(cards)
+    return {
+        "title": "Converted processes", "kind": "content",
+        "desc": f"{n} Vivarium-1.0 process(es) declared in the config, "
+                "auto-translated into process-bigraph and injected into the "
+                "v2ecoli composite. Each card shows the source class, its "
+                "parameters, and the input/output ports (wiring) that were "
+                "converted, plus whether it produced updates in both engines.",
+        "html": body,
+    }
 
 
 def render_report(sections: list[dict[str, Any]], *, title: str,
@@ -265,6 +365,63 @@ def render_report(sections: list[dict[str, Any]], *, title: str,
         f'{_chips(total)}{_legend()}</header>'
         f'{_nav(sections)}'
         f'<main>{body}{extra}</main>'
+        f'<footer>Generated by the vEcoli&#8596;v2ecoli comparison harness '
+        f'(scripts/compare_harness.py). Self-contained; no external assets.'
+        f'</footer></body></html>'
+    )
+
+
+def _group_rows(group: dict) -> list[dict]:
+    return [r for s in group.get("sections", []) for r in s.get("rows", [])]
+
+
+def render_grouped_report(groups: list[dict[str, Any]], *, title: str) -> str:
+    """Render one or more config run-groups into a single report.
+
+    Each group is ``{"config": label, "config_id"?: slug, "sections": [...],
+    "embedded_html"?: [...]}`` — a self-contained run for one loaded config.
+    Groups render as separate, individually-navigable blocks so each config is
+    visibly its own set of runs.
+    """
+    total = _counts([r for g in groups for r in _group_rows(g)])
+
+    # Top nav: one pill per config run-group.
+    navlinks = []
+    for g in groups:
+        gid = g.get("config_id") or _slug(g.get("config") or "run")
+        c = _counts(_group_rows(g))
+        n = sum(c.values())
+        off = c.get("mismatch", 0) + c.get("drift", 0)
+        mini = f'<span class="minicount">{n - off}/{n} ok</span>' if n else ""
+        navlinks.append(
+            f'<a href="#cfg-{gid}">{_e(g.get("config") or "run")} {mini}</a>')
+    nav = f'<nav class="sticky">{"".join(navlinks)}</nav>'
+
+    blocks = []
+    for g in groups:
+        gid = g.get("config_id") or _slug(g.get("config") or "run")
+        label = g.get("config") or "run"
+        sec_html = "".join(_section_html(s) for s in g.get("sections", []))
+        emb = "".join(g.get("embedded_html") or [])
+        gc = _counts(_group_rows(g))
+        sub = g.get("subtitle", "")
+        sub_html = f'<div class="sub">{_e(sub)}</div>' if sub else ""
+        blocks.append(
+            f'<section class="configgroup" id="cfg-{gid}">'
+            f'<div class="cfghead"><div><h2>Run: {_e(label)}</h2>{sub_html}</div>'
+            f'{_chips(gc)}</div>{sec_html}{emb}</section>')
+    body = "".join(blocks)
+    n_cfg = len(groups)
+    return (
+        f'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        f'<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<title>{_e(title)}</title><style>{_CSS}</style></head><body>'
+        f'<header class="top"><h1>{_e(title)}</h1>'
+        f'<div class="sub">vEcoli (left) vs v2ecoli (right) &middot; '
+        f'{n_cfg} config{"s" if n_cfg != 1 else ""} &middot; '
+        f'{sum(total.values())} metrics compared</div>'
+        f'{_chips(total)}{_legend()}</header>'
+        f'{nav}<main>{body}</main>'
         f'<footer>Generated by the vEcoli&#8596;v2ecoli comparison harness '
         f'(scripts/compare_harness.py). Self-contained; no external assets.'
         f'</footer></body></html>'

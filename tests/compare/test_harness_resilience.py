@@ -5,7 +5,8 @@ import scripts.compare_harness as h
 def test_harness_writes_report_when_parca_stage_fails(tmp_path, monkeypatch):
     # Config stage: avoid the real vEcoli subprocess.
     monkeypatch.setattr(h, "resolve_vecoli_config",
-                        lambda p: {"experiment_id": "x", "generations": 2})
+                        lambda p, vecoli_repo=None: {"experiment_id": "x",
+                                                     "generations": 2})
     # ParCa stage blows up.
     def boom(**kwargs):
         raise RuntimeError("parca exploded")

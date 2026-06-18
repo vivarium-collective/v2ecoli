@@ -19,7 +19,7 @@ def test_converted_panel_marks_ran_in_both():
     sec = converted_processes_section(specs, {"example-secretion": True})
     row = sec["rows"][0]
     assert row["label"] == "example-secretion"
-    assert row["verdict"] in ("within_tol", "drift", "mismatch", "not_compared")
+    assert row["verdict"] == "within_tol"
 
 
 def test_render_report_appends_embedded_html():

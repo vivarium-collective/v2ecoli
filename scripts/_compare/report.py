@@ -244,7 +244,7 @@ def converted_processes_section(specs: list, ran_in_both: dict) -> dict:
 
 
 def render_report(sections: list[dict[str, Any]], *, title: str,
-                  embedded_html: "list[str] | None" = None) -> str:
+                  embedded_html: list[str] | None = None) -> str:
     """Render sections to a single self-contained, organized HTML string.
 
     Each section is ``{"title": str, "rows": [...], "html"?: str}``; each row

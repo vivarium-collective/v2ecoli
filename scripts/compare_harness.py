@@ -206,17 +206,29 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
             rpts = read_observable_xy(str(v2_sim / "parquet"), v2_exp, key)
             if len(lpts) < 2 and len(rpts) < 2:
                 continue
-            svg, _rng = multiline_svg([lpts, rpts])
+            # axes=True draws numbered x (time) / y (value) ticks.
+            svg, _rng = multiline_svg([lpts, rpts], w=300, h=160, axes=True)
             figs.append(
                 f"<figure style='display:inline-block;margin:6px 14px;"
                 f"width:300px;vertical-align:top'>"
-                f"<figcaption style='font:12px system-ui;color:#374151'>{key}"
-                f" <span style='color:#9ca3af'>(vs time)</span></figcaption>"
-                f"{svg}</figure>")
+                f"<figcaption style='font:12px system-ui;color:#374151;"
+                f"margin-bottom:2px'>{key}</figcaption>{svg}</figure>")
         if figs:
+            # PALETTE[0]=vEcoli (indigo), PALETTE[1]=v2ecoli (amber) — match the
+            # per-series stroke order in multiline_svg.
+            legend = (
+                "<div style='display:flex;gap:18px;margin:2px 0 10px;"
+                "font:12px system-ui;color:#374151'>"
+                "<span><span style='display:inline-block;width:14px;height:3px;"
+                "background:#3730a3;vertical-align:middle;margin-right:5px'>"
+                "</span>vEcoli</span>"
+                "<span><span style='display:inline-block;width:14px;height:3px;"
+                "background:#b45309;vertical-align:middle;margin-right:5px'>"
+                "</span>v2ecoli</span>"
+                "<span style='color:#9ca3af'>x = time (s) · y = value</span></div>")
             embedded.append(
-                "<section><h2>Behavior detail — vEcoli (blue) vs v2ecoli (amber)"
-                "</h2><div style='display:flex;flex-wrap:wrap;gap:4px'>"
+                "<section><h2>Behavior detail</h2>" + legend
+                + "<div style='display:flex;flex-wrap:wrap;gap:4px'>"
                 + "".join(figs) + "</div></section>")
 
         # The sim completed and each process was injected -> ran in both.

@@ -89,14 +89,20 @@ versions on the same input; both ParCas are deterministic and reproduce
 themselves (fresh-vEcoli == stale test_installation exactly; v2 fresh == v2
 fixture to ~0.004%) — so it is **not run-to-run noise**.
 
-**Still being isolated:** v2's ParCa is a **refactor** of vEcoli's
-`fit_sim_data_1.py` (into `fitting.py` + `steps/`), and the mRNA part of
-`fit_cistron_expression` flows through a deep iterative chain (protein counts →
-`mRNADistributionFromProtein` → lstsq / ODE solves). The remaining candidates
-are (a) a logic difference in that refactored chain, or (b) numpy/scipy drift in
-its iterative solvers (odeint/lstsq — only `fast_nnls` has been excluded).
-The two environments do differ: **numpy 2.2.6 / scipy 1.15.3 (vEcoli)** vs
-**numpy 2.4.5 / scipy 1.17.1 (v2ecoli)**.
+**numpy/scipy RULED OUT (decisive, 2026-06-18).** Re-ran v2's ParCa under
+vEcoli's numpy 2.2.6 / scipy 1.15.3 (vs its own 2.4.5 / 1.17.1):
+`fit_cistron_expression['basal']` was **bit-identical across versions
+(total|Δ| = 0.00000)**, and the v2-vs-vEcoli difference (total|Δ| = 0.00211,
+max 6.5e-5) was **unchanged by the version swap**. So the divergence is a
+**real, deterministic difference in v2's *refactored* cistron/mRNA-expression
+fit** (`fitting.py` + `steps/` vs vEcoli's `fit_sim_data_1.py`) — i.e. a
+code-logic or input-data difference, NOT a numerical-library effect. It lives in
+the **mRNA cistron distribution** (rRNA/tRNA agree), which flows through
+protein-counts → `mRNADistributionFromProtein` → cistron→TU mapping.
+
+**Next step to pinpoint:** static diff of that refactored fit chain
+(`fitting.py` vs `fit_sim_data_1.py`) + check its inputs (RNA_counts, protein
+counts, translation efficiencies).
 
 **Fix (robust to either cause):** run both engines from **one shared ParCa
 fit** — this eliminates the divergence regardless of which mechanism it is.

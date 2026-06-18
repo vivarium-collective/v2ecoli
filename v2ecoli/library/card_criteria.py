@@ -17,6 +17,11 @@ organism-behavior card and the v1<->v2 equivalence card share one grader:
                    mismatch *flagged as a first-principles violation* (the model
                    exceeds a stoichiometric/thermodynamic limit — wrong, not just
                    off).
+  - ``composition`` — a branch-point flux split (a composition on a simplex,
+                   e.g. the G6P fate EMP/oxPPP/ED) vs a reference composition:
+                   total-variation distance grades the routing, paired with a
+                   closure residual (unaccounted node influx, expected small)
+                   that guards against carbon leaving by an unmodeled route.
   - ``boolean``  — a behavioral assertion that must hold.
 
 Verdicts use a 4-state band (adopted from the vEcoli<->v2ecoli report):
@@ -246,6 +251,60 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
                 "meter": (f"{got:.4g} vs measured {lo:.3g}–{hi:.3g} "
                           f"(Δmid {((got - mid) / mid if mid else 0):+.0%})"),
                 "detail": detail}
+
+    if ctype == "composition":
+        # Grade a branch-point flux split — a COMPOSITION on a simplex (e.g. the
+        # glucose-6-P fate: EMP / oxidative-PPP / ED) — against a reference
+        # composition, paired with a closure residual. Two readouts, worst-of
+        # (mirrors flux_scatter's qualitative+quantitative gate):
+        #   (1) ROUTING — total-variation distance TV = ½·Σ|p−q| between the
+        #       model and reference compositions (each renormalized over the
+        #       known branches). TV ∈ [0,1] reads directly as "fraction of flux
+        #       misrouted"; zero-safe (an absent branch, e.g. ED≈0, is fine).
+        #   (2) CLOSURE residual — the fraction of node influx NOT accounted by
+        #       the known branches. Expected small and positive (a biomass
+        #       drain). A residual past its band means carbon leaves the node by
+        #       an unmodeled/unexpected route (or the branch set over-draws), and
+        #       caps the verdict regardless of how well the known branches match
+        #       — the spurious-route guard.
+        #   measured:  {"branches": {name: flux}, "influx": flux_in}
+        #   criterion: {"type":"composition", "ref_fractions": {name: frac},
+        #               "tv_good","tv_warn","residual_max","residual_warn"}
+        branches = measured.get("branches") if isinstance(measured, dict) else None
+        influx = measured.get("influx") if isinstance(measured, dict) else None
+        ref_fr = criterion.get("ref_fractions")
+        if not branches or not ref_fr or not influx:
+            return _ungraded("flux composition vs reference")
+        names = list(ref_fr)
+        ref_sum = sum(ref_fr.values()) or 1.0
+        ref_norm = {n: ref_fr[n] / ref_sum for n in names}
+        of_in = {n: branches.get(n, 0.0) / influx for n in names}
+        catab = sum(of_in.values())
+        residual = 1.0 - catab
+        mod_norm = ({n: of_in[n] / catab for n in names} if catab > 0
+                    else {n: 0.0 for n in names})
+        tv = 0.5 * sum(abs(mod_norm[n] - ref_norm[n]) for n in names)
+        tv_good = criterion.get("tv_good", 0.05)
+        tv_warn = criterion.get("tv_warn", 0.15)
+        routing = _band(tv, tv_good, tv_warn, higher_is_better=False)
+        res_max = criterion.get("residual_max", 0.05)
+        res_warn = criterion.get("residual_warn", 0.10)
+        resid_v = _band(abs(residual), res_max, res_warn, higher_is_better=False)
+        rank = {"within_tol": 0, "drift": 1, "mismatch": 2, "ungraded": 3}
+        verdict = max(routing, resid_v, key=lambda v: rank[v])
+
+        def _pct(d):
+            return ", ".join(f"{n} {100 * d[n]:.0f}%" for n in names)
+
+        return {"verdict": verdict, "value": tv,
+                "criterion_str": (f"routing TV ≤ {tv_good:.2f} (drift ≤ {tv_warn:.2f}); "
+                                  f"closure residual ≤ {res_max:.0%}"),
+                "meter": (f"TV = {tv:.3f} · model [{_pct(mod_norm)}] vs "
+                          f"ref [{_pct(ref_norm)}] · residual {residual:+.0%}"),
+                "detail": {"tv": tv, "residual": residual,
+                           "model_fractions": mod_norm, "ref_fractions": ref_norm,
+                           "routing_verdict": routing, "residual_verdict": resid_v,
+                           "branch_names": names}}
 
     if ctype == "boolean":
         ok = bool(measured) if measured is not None else None

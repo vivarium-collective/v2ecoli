@@ -162,6 +162,7 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
     # report card, and the converted-processes "ran in both" gate.
     embedded: list[str] = []
     ran: dict = {}
+    card_verdict: dict | None = None
     try:
         vecoli_sim_out = work / "vecoli_sim"
         vecoli_sim_cfg = dict(vecoli_cfg)
@@ -244,6 +245,7 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
         verdict_json_dict, card_html = build_report_card(
             left_dist, right_dist, reference_model="vEcoli (fork)",
             measured_model="v2ecoli", tol_rel=args.tol_rel)
+        card_verdict = verdict_json_dict
         card_path = Path(args.out).with_name(f"report_card_verdict_{slug}.json")
         card_path.write_text(json.dumps(verdict_json_dict, indent=2))
         embedded.append(
@@ -267,6 +269,9 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
         "subtitle": cfg_path,
         "sections": sections,
         "embedded_html": embedded,
+        "card_verdict": card_verdict,
+        "context": {"condition": vecoli_cfg.get("condition"),
+                    "media": vecoli_cfg.get("fixed_media")},
     }
 
 

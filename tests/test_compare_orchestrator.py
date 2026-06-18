@@ -5,8 +5,8 @@ import scripts._compare.orchestrator as orch
 def test_vecoli_sim_uses_passed_repo(monkeypatch):
     captured = {}
 
-    def fake_run(cmd, cwd=None):
-        captured["cmd"], captured["cwd"] = cmd, cwd
+    def fake_run(cmd, cwd=None, env=None):
+        captured["cmd"], captured["cwd"], captured["env"] = cmd, cwd, env
 
     monkeypatch.setattr(orch, "_run", fake_run)
     monkeypatch.setattr(orch, "is_stale", lambda *a, **k: True)
@@ -15,3 +15,5 @@ def test_vecoli_sim_uses_passed_repo(monkeypatch):
                        token="t", vecoli_repo="/tmp/fork")
     assert captured["cwd"] == "/tmp/fork"
     assert captured["cmd"][0] == "/tmp/fork/.venv/bin/python"
+    # vEcoli's venv must be first on PATH so Nextflow tasks use its python.
+    assert captured["env"]["PATH"].startswith("/tmp/fork/.venv/bin:")

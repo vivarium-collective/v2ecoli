@@ -91,8 +91,38 @@ def build_injected_v2_config(vecoli_cfg: dict, *, fork_repo: str) -> dict:
     return v2
 
 
+def _build_parca_section(args) -> dict:
+    """Compare the two ParCa OUTPUTS as full SimulationDataEcoli objects.
+
+    Left = vEcoli's prebuilt ``simData.cPickle`` (the fit its sim uses); right =
+    v2ecoli's fit, hydrated from its ParCa-state fixture (``--v2-parca-state``)
+    — the same fit the per-condition v2 caches are built from. (Feeding the v2
+    *cache dict* here instead would read as ``not_compared``; the hydrated
+    object exposes the calibrated arrays ``final_sim_data_diff`` walks.)
+    Condition-independent, so computed once and shown in every config group.
+    """
+    try:
+        from v2ecoli.processes.parca.data_loader import (
+            hydrate_sim_data_from_state, load_parca_state)
+        v_sim_data = _load_pickle(args.vecoli_simdata)
+        v2_sim_data = hydrate_sim_data_from_state(
+            load_parca_state(args.v2_parca_state))
+        return {
+            "title": "ParCa / sim_data",
+            "desc": "Calibrated parameters each engine's ParCa produced "
+                    "(vEcoli simData vs v2ecoli's fit). Both sims run from these "
+                    "cached fits — drift here is an upstream source of any "
+                    "sim-dynamics divergence.",
+            "rows": final_sim_data_diff(v_sim_data, v2_sim_data,
+                                        rel_tol=PARCA_REL_TOL),
+        }
+    except Exception as e:  # noqa: BLE001
+        return _error_section("ParCa / sim_data", e)
+
+
 def _run_one_config(cfg_path: str, work_root: Path, args,
-                    v2_cache: str | None = None) -> dict:
+                    v2_cache: str | None = None,
+                    parca_section: dict | None = None) -> dict:
     """Run both engines for a single vEcoli config and return a report group.
 
     ``v2_cache`` is this config's v2ecoli ParCa cache dir (defaults to
@@ -143,20 +173,10 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
         import time as _time
         run_token = f"{run_token}-force-{_time.time_ns()}"
 
-    # ParCa / sim_data diff — both sides are CACHED (no re-fit). Left = vEcoli's
-    # prebuilt simData.cPickle (pickle); right = v2ecoli's sim_data_cache.dill.
-    try:
-        v_sim_data = _load_pickle(args.vecoli_simdata)
-        v2_sim_data = _load_dill(v2_cache / "sim_data_cache.dill")
-        parca_sec = {
-            "title": "ParCa / sim_data (cached)",
-            "desc": "Calibrated parameters (sim_data) each engine uses — "
-                    "loaded from cached ParCa outputs, not re-fit.",
-            "rows": final_sim_data_diff(v_sim_data, v2_sim_data,
-                                        rel_tol=PARCA_REL_TOL),
-        }
-    except Exception as e:
-        parca_sec = _error_section("ParCa / sim_data (cached)", e)
+    # ParCa / sim_data diff is computed ONCE in main() (the calibrated fit is
+    # condition-independent) and passed in; reuse it for every config group.
+    parca_sec = dict(parca_section) if parca_section else _error_section(
+        "ParCa / sim_data", RuntimeError("ParCa comparison unavailable"))
 
     # Sim (both engines) + dynamics comparison. Drives the behavior overlay,
     # report card, and the converted-processes "ran in both" gate.
@@ -295,6 +315,10 @@ def main(argv=None):
                         "every config) or ONE PER --config, matched by position "
                         "(e.g. a per-condition cache for each config). Default "
                         "out/cache.")
+    p.add_argument("--v2-parca-state", default="models/parca/parca_state.pkl.gz",
+                   help="v2ecoli ParCa-state fixture, hydrated to a full "
+                        "SimulationDataEcoli for the ParCa-output comparison. "
+                        "Default models/parca/parca_state.pkl.gz.")
     p.add_argument("--tol-rel", type=float, default=0.05,
                    help="Relative tolerance shared by sim-dynamics badges "
                         "(within_tol / mismatch) and report-card bands "
@@ -322,11 +346,15 @@ def main(argv=None):
         p.error(f"--v2-cache: pass 1 cache or one per --config "
                 f"({len(args.config)} configs, got {len(caches)} caches)")
 
+    # ParCa-output comparison is condition-independent — compute once, reuse.
+    parca_section = _build_parca_section(args)
+
     groups = []
     for cfg_path, v2_cache in zip(args.config, caches):
         try:
             groups.append(_run_one_config(cfg_path, work_root, args,
-                                          v2_cache=v2_cache))
+                                          v2_cache=v2_cache,
+                                          parca_section=parca_section))
         except Exception as e:
             # Config resolution itself failed — surface as a degenerate group.
             slug = _slug(Path(cfg_path).stem)

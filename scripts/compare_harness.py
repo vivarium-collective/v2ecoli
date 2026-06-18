@@ -214,28 +214,36 @@ def main(argv=None):
         # `parquet/` subdir (<v2_sim>/parquet/<exp_id>/history). vEcoli may
         # suffix the experiment dir with a timestamp (suffix_time, default on),
         # so resolve the actual dir name rather than assuming the bare exp_id.
-        left = read_observables(str(v_sim), _resolve_exp_id(v_sim, exp_id), keys)
-        right = read_observables(str(v2_sim / "parquet"),
-                                 _resolve_exp_id(v2_sim / "parquet", exp_id), keys)
+        v_exp = _resolve_exp_id(v_sim, exp_id)
+        v2_exp = _resolve_exp_id(v2_sim / "parquet", exp_id)
+        left = read_observables(str(v_sim), v_exp, keys)
+        right = read_observables(str(v2_sim / "parquet"), v2_exp, keys)
         sections.append({"title": "2-generation sim dynamics",
                          "rows": compare_observables(left, right, keys=keys,
                                                      rel_tol=args.tol_rel)})
 
-        # Behavior detail — shared-axis overlay per observable (x = sample index).
+        # Behavior detail — per-observable overlay plotted against the real time
+        # axis (rows ordered by sim time), vEcoli vs v2ecoli on a shared scale.
         from scripts._compare.charts import multiline_svg
+        from scripts._compare.sim_section import read_observable_xy
         figs = []
         for key in keys:
-            l = list(left.get(key, []))
-            r = list(right.get(key, []))
-            if len(l) < 2 and len(r) < 2:
+            lpts = read_observable_xy(str(v_sim), v_exp, key)
+            rpts = read_observable_xy(str(v2_sim / "parquet"), v2_exp, key)
+            if len(lpts) < 2 and len(rpts) < 2:
                 continue
-            series = [list(enumerate(l)), list(enumerate(r))]
-            svg, _rng = multiline_svg(series)
-            figs.append(f"<figure style='display:inline-block;margin:6px;"
-                        f"width:320px'><figcaption>{key}</figcaption>{svg}</figure>")
+            svg, _rng = multiline_svg([lpts, rpts])
+            figs.append(
+                f"<figure style='display:inline-block;margin:6px 14px;"
+                f"width:300px;vertical-align:top'>"
+                f"<figcaption style='font:12px system-ui;color:#374151'>{key}"
+                f" <span style='color:#9ca3af'>(vs time)</span></figcaption>"
+                f"{svg}</figure>")
         if figs:
-            embedded.append("<section><h2>Behavior detail — vEcoli (blue) vs "
-                            "v2ecoli (amber)</h2>" + "".join(figs) + "</section>")
+            embedded.append(
+                "<section><h2>Behavior detail — vEcoli (blue) vs v2ecoli (amber)"
+                "</h2><div style='display:flex;flex-wrap:wrap;gap:4px'>"
+                + "".join(figs) + "</div></section>")
 
         # Converted-processes "did it run in both" gate (best-effort: the sim
         # completed and the process was injected -> True).

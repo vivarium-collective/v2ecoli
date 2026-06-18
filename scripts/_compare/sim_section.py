@@ -88,6 +88,54 @@ def read_observables(out_dir: str, experiment_id: str,
     return out
 
 
+# Time columns to try, in order: vEcoli emits ``time``, v2ecoli ``global_time``.
+_TIME_EXPRS = ("time", "global_time")
+
+
+def read_observable_xy(out_dir: str, experiment_id: str, key: str,
+                       max_points: int = 600) -> list[tuple[float, float]]:
+    """Return time-ordered ``[(t, v), ...]`` for one observable, for plotting.
+
+    Unlike :func:`read_observables` (which returns an unordered flat array for
+    summary stats), this orders rows by the simulation time column so the
+    trajectory plots against a real time axis instead of an arbitrary row index.
+    Tries each time column in ``_TIME_EXPRS`` and each candidate value
+    expression; downsamples to ~``max_points`` points for a compact SVG.
+    """
+    import glob
+    import os
+
+    import duckdb
+    import numpy as np
+
+    by_key = {o["key"]: o for o in OBSERVABLES}
+    if key not in by_key:
+        return []
+    files = glob.glob(
+        os.path.join(out_dir, experiment_id, "history", "**", "*.pq"),
+        recursive=True)
+    if not files:
+        return []
+    con = duckdb.connect()
+    for texpr in _TIME_EXPRS:
+        for vexpr in by_key[key]["exprs"]:
+            try:
+                res = con.execute(
+                    f"SELECT {texpr} AS t, {vexpr} AS v "
+                    "FROM read_parquet(?, union_by_name=true) ORDER BY t",
+                    [files]).fetchnumpy()
+            except Exception:  # this (time, value) pair did not bind; try next
+                continue
+            t = np.asarray(res["t"], dtype=float).ravel()
+            v = np.asarray(res["v"], dtype=float).ravel()
+            pts = [(float(a), float(b)) for a, b in zip(t, v) if b == b]
+            if len(pts) > max_points:
+                step = max(1, len(pts) // max_points)
+                pts = pts[::step]
+            return pts
+    return []
+
+
 def _summary(a: "np.ndarray") -> "np.ndarray":
     """Order/length-independent fingerprint of a trajectory: mean, min, max.
 

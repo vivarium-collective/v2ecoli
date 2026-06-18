@@ -70,6 +70,22 @@ def _load_pickle(path):
         return pickle.load(f)
 
 
+def _resolve_exp_id(base, exp_id: str) -> str:
+    """Return the actual experiment-dir name under ``base`` matching ``exp_id``.
+
+    vEcoli timestamps its output dir when ``suffix_time`` is set (the default),
+    so the emitted history lives under ``<exp_id>_<timestamp>/history`` rather
+    than ``<exp_id>/history``. Prefer an exact match; otherwise pick the most
+    recent ``<exp_id>*`` dir that actually contains a ``history`` subdir.
+    """
+    base = Path(base)
+    if (base / exp_id / "history").exists():
+        return exp_id
+    cands = sorted(p.name for p in base.glob(f"{exp_id}*")
+                   if (p / "history").exists())
+    return cands[-1] if cands else exp_id
+
+
 def build_injected_v2_config(vecoli_cfg: dict, *, fork_repo: str) -> dict:
     """Translate a fork's vEcoli config to a v2 config carrying an
     injected_processes block (no-op block when no add_processes)."""
@@ -195,9 +211,12 @@ def main(argv=None):
             token=run_token)
         keys = [o["key"] for o in OBSERVABLES]
         # vEcoli emits at <v_sim>/<exp_id>/history; v2ecoli nests under a
-        # `parquet/` subdir (<v2_sim>/parquet/<exp_id>/history).
-        left = read_observables(str(v_sim), exp_id, keys)
-        right = read_observables(str(v2_sim / "parquet"), exp_id, keys)
+        # `parquet/` subdir (<v2_sim>/parquet/<exp_id>/history). vEcoli may
+        # suffix the experiment dir with a timestamp (suffix_time, default on),
+        # so resolve the actual dir name rather than assuming the bare exp_id.
+        left = read_observables(str(v_sim), _resolve_exp_id(v_sim, exp_id), keys)
+        right = read_observables(str(v2_sim / "parquet"),
+                                 _resolve_exp_id(v2_sim / "parquet", exp_id), keys)
         sections.append({"title": "2-generation sim dynamics",
                          "rows": compare_observables(left, right, keys=keys,
                                                      rel_tol=args.tol_rel)})

@@ -35,6 +35,10 @@ _VECOLI_ONLY = (
     "fail_at_max_duration",
     "suffix_time",
     "sim_data_path",
+    # resolve_vecoli_config already returns the fully-merged config, so the
+    # generated v2 config must NOT re-inherit (v2ecoli's loader would look for
+    # the vEcoli base files relative to the v2 workdir and fail).
+    "inherit_from",
 )
 
 # v2ecoli keys with defaults applied when the vEcoli config omits them.

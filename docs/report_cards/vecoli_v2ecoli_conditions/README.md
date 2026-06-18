@@ -114,13 +114,21 @@ shared expression-fit functions (`fitting.py` vs `fit_sim_data_1.py`):
   phospho-protein compartment tags), in a `reconstruction` copy v2's parca does
   not load → not the cause.
 
-**Narrowed root-cause candidates:** the protein/ribosome-count constraining step
-(`setRibosomeCountsConstrainedByPhysiology` and/or `rescaleMassForSolubleMetabolites`)
-feeds the bulkContainer protein counts → `mRNADistributionFromProtein` → the mRNA
-cistron distribution. A subtle non-equivalence in one of those two refactors is
-the leading suspect. **Next step to fully pin it:** verify those two refactors
-are behaviorally equivalent (read both + their extracted helpers, or instrument
-the fit to compare bulkContainer protein counts at the same step).
+**✅ ROOT CAUSE FOUND & FIXED (2026-06-18).** The constraint functions turned
+out to be behaviorally equivalent (just VERBOSE-stripping). The real difference
+was in a sim_data INPUT: `translation_efficiencies_by_monomer` differed for
+**27 ribosomal-protein monomers** (max Δ 0.24). The bug:
+`balance_translation_efficiencies` in `parca/steps/step_02_input_adjustments.py`
+matched the **compartment-tagged** monomer IDs (`'EG10866-MONOMER[c]'`) against
+the **bare** group IDs (`'EG10866-MONOMER'`) → no group ever matched → the 4
+ribosomal-protein groups were never balanced, leaving raw per-gene efficiencies.
+vEcoli strips the tag (`monomer["id"][:-3]`); v2 didn't.
+
+**Fix:** strip the 3-char compartment tag before matching (one-liner). Verified:
+- `translation_efficiencies_by_monomer` vs vEcoli: max|Δ| 0.24 → **1.1e-16** (exact).
+- `fit_cistron_expression['basal']`: total|Δ| **0.00211 → 0.00001**.
+- **with_aa report card: mismatch → `within_tol`** (cell_mass −1.6%, growth_rate
+  −4.9% p=0.396; active-RNAP gap +168% → +15.9%).
 
 **Fix (robust to either cause):** run both engines from **one shared ParCa
 fit** — this eliminates the divergence regardless of which mechanism it is.

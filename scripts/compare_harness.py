@@ -91,8 +91,13 @@ def build_injected_v2_config(vecoli_cfg: dict, *, fork_repo: str) -> dict:
     return v2
 
 
-def _run_one_config(cfg_path: str, work_root: Path, args) -> dict:
+def _run_one_config(cfg_path: str, work_root: Path, args,
+                    v2_cache: str | None = None) -> dict:
     """Run both engines for a single vEcoli config and return a report group.
+
+    ``v2_cache`` is this config's v2ecoli ParCa cache dir (defaults to
+    ``args.v2_cache``); pass a per-condition cache to compare different growth
+    contexts (the condition is baked into the cache's initial state).
 
     Returns a group dict for ``render_grouped_report``:
     ``{"config","config_id","subtitle","sections":[...],"embedded_html":[...]}``.
@@ -103,7 +108,7 @@ def _run_one_config(cfg_path: str, work_root: Path, args) -> dict:
     vecoli_cfg = resolve_vecoli_config(cfg_path, vecoli_repo=args.vecoli_repo)
     v2_cfg = build_injected_v2_config(vecoli_cfg, fork_repo=args.vecoli_repo)
 
-    v2_cache = Path(args.v2_cache).resolve()
+    v2_cache = Path(v2_cache or args.v2_cache).resolve()
     v2_cfg["cache_dir"] = str(v2_cache)
 
     exp_id = vecoli_cfg.get("experiment_id") or Path(cfg_path).stem
@@ -266,10 +271,13 @@ def main(argv=None):
                    help="Prebuilt vEcoli simData.cPickle. Used as the vEcoli "
                         "sim's sim_data_path AND the left side of the ParCa "
                         "diff. Default: <vecoli-repo>/out/kb/simData.cPickle.")
-    p.add_argument("--v2-cache", default="out/cache",
-                   help="Prebuilt v2ecoli ParCa cache dir. Used as the v2 sim's "
-                        "cache_dir AND the right side of the ParCa diff "
-                        "(<v2-cache>/sim_data_cache.dill). Default out/cache.")
+    p.add_argument("--v2-cache", default=["out/cache"], nargs="+",
+                   help="Prebuilt v2ecoli ParCa cache dir(s). Used as the v2 "
+                        "sim's cache_dir AND the right side of the ParCa diff "
+                        "(<v2-cache>/sim_data_cache.dill). Pass ONE (applied to "
+                        "every config) or ONE PER --config, matched by position "
+                        "(e.g. a per-condition cache for each config). Default "
+                        "out/cache.")
     p.add_argument("--tol-rel", type=float, default=0.05,
                    help="Relative tolerance shared by sim-dynamics badges "
                         "(within_tol / mismatch) and report-card bands "
@@ -288,10 +296,20 @@ def main(argv=None):
     work_root = Path(args.workdir).resolve()
     work_root.mkdir(parents=True, exist_ok=True)
 
+    # Map each config to a v2 cache: one cache broadcasts to all configs, else
+    # one cache per config matched by position (e.g. a per-condition cache).
+    caches = args.v2_cache
+    if len(caches) == 1:
+        caches = caches * len(args.config)
+    elif len(caches) != len(args.config):
+        p.error(f"--v2-cache: pass 1 cache or one per --config "
+                f"({len(args.config)} configs, got {len(caches)} caches)")
+
     groups = []
-    for cfg_path in args.config:
+    for cfg_path, v2_cache in zip(args.config, caches):
         try:
-            groups.append(_run_one_config(cfg_path, work_root, args))
+            groups.append(_run_one_config(cfg_path, work_root, args,
+                                          v2_cache=v2_cache))
         except Exception as e:
             # Config resolution itself failed — surface as a degenerate group.
             slug = _slug(Path(cfg_path).stem)

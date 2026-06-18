@@ -1,5 +1,28 @@
 """Regression tests for config-adapter process-set key carry-through."""
+import sys
+import pytest
 from scripts._compare.config_adapter import translate_vecoli_config
+
+
+@pytest.fixture(autouse=True)
+def _isolate_ecoli_modules():
+    """Save and remove ecoli entries from sys.modules before each test, restore after.
+
+    Prevents earlier tests that import the real ``ecoli`` package from polluting
+    sys.modules when this file's tests do ``sys.path.insert(0, FORK)`` and
+    re-import ``ecoli.processes`` — the cached real package would otherwise be
+    returned, hiding the fixture fork's ExampleSecretion / BadPartitioned.
+    """
+    saved = {k: v for k, v in sys.modules.items()
+             if k == "ecoli" or k.startswith("ecoli.")}
+    for k in saved:
+        sys.modules.pop(k)
+    yield
+    # Remove anything the test added, then restore the pre-test state.
+    for k in list(sys.modules.keys()):
+        if k == "ecoli" or k.startswith("ecoli."):
+            sys.modules.pop(k)
+    sys.modules.update(saved)
 
 
 def test_translate_preserves_process_set_keys():

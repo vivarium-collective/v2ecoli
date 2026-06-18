@@ -34,13 +34,26 @@ def build_report_card(left_by_cell: dict[str, list[float]],
                       model_ref: str = "",
                       reference_model: str = "vEcoli (fork)",
                       measured_model: str = "v2ecoli",
-                      extra_axes: list[dict] | None = None
+                      extra_axes: list[dict] | None = None,
+                      tol_rel: float | None = None,
                       ) -> tuple[dict, str]:
     """Grade each axis (vEcoli=ref_values, v2ecoli=measured) -> (verdict_json, html).
 
     ``left_by_cell`` carries the REFERENCE (vEcoli) per-cell scalar lists and
     ``right_by_cell`` the MEASURED (v2ecoli) ones, keyed by observable name.
+
+    When ``tol_rel`` is provided, the ttest criterion bands are derived from it:
+    ``within_pct = tol_rel``, ``mismatch_pct = 2 * tol_rel`` (``p_min`` and
+    ``type`` stay fixed).  When ``None``, the hardcoded ``_TTEST`` defaults
+    (0.05 / 0.10) are used unchanged.
     """
+    if tol_rel is not None:
+        criterion_base = {**_TTEST,
+                          "within_pct": tol_rel,
+                          "mismatch_pct": 2 * tol_rel}
+    else:
+        criterion_base = _TTEST
+
     axes_defs = CARD_AXES + list(extra_axes or [])
     reference_axes: dict[str, Any] = {}
     card: dict[str, Any] = {}
@@ -50,7 +63,7 @@ def build_report_card(left_by_cell: dict[str, list[float]],
         meas_vals = list(right_by_cell.get(key) or [])
         reference_axes[path] = {
             "label": spec["label"], "group": spec["group"],
-            "criterion": {**_TTEST, "ref_values": ref_vals},
+            "criterion": {**criterion_base, "ref_values": ref_vals},
         }
         # set the measured stat node at the dotted path in `card`
         node = _stat_node(meas_vals)  # safe for [] (n=0 -> ungraded downstream)

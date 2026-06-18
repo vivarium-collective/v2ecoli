@@ -199,7 +199,7 @@ def main(argv=None):
         right = read_observables(str(v2_sim / "parquet"), exp_id, keys)
         sections.append({"title": "2-generation sim dynamics",
                          "rows": compare_observables(left, right, keys=keys,
-                                                     rel_tol=SIM_REL_TOL)})
+                                                     rel_tol=args.tol_rel)})
 
         # Behavior detail — shared-axis overlay per observable (x = sample index).
         from scripts._compare.charts import multiline_svg
@@ -232,7 +232,7 @@ def main(argv=None):
         right_dist = {k: list(right.get(k, [])) for k in ("cell_mass", "growth_rate")}
         verdict_json_dict, card_html = build_report_card(
             left_dist, right_dist, reference_model="vEcoli (fork)",
-            measured_model="v2ecoli")
+            measured_model="v2ecoli", tol_rel=args.tol_rel)
         card_path = Path(args.out).with_name("report_card_verdict.json")
         card_path.write_text(json.dumps(verdict_json_dict, indent=2))
         embedded.append(card_html)

@@ -3,40 +3,69 @@ name: v2ecoli
 created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
-
-# Directory layout: the pbg research dirs are grouped under workspace/ to keep
-# the repo root tidy. Unset keys (e.g. reports, .pbg) default to their flat
-# top-level name. Resolved via the shared WorkspacePaths resolver.
 layout:
   studies: workspace/studies
   investigations: workspace/investigations
   references: workspace/references
   experiments: workspace/experiments
-
-# ─── RUNTIME ──────────────────────────────────────────────────────────
-# Workspace-level emitter preference. The dashboard and v2ecoli scaffolds
-# read this to decide which emitter to construct for new study runs.
-# Allowed values: 'parquet' | 'sqlite' | 'xarray'.
-#
-# Current preference: **parquet** — column-oriented, hive-partitioned,
-# typically 3–5× smaller on disk than the equivalent sqlite run for
-# v2ecoli-shaped sims. Use v2ecoli.composites._helpers.parquet_emitter()
-# and v2ecoli.library.parquet_run.run_multigen_parquet for the runtime
-# wiring; tests live at tests/test_parquet_emitter_ported.py.
-#
-# Dashboard support note: vivarium-dashboard currently auto-injects sqlite
-# for any value it does not recognise; the parquet auto-inject + Registry-
-# tab "default" badge land in a follow-up vivarium-dashboard PR. Until then
-# the dashboard's Simulations-DB tab continues to read sqlite-shaped runs;
-# parquet runs are queried via DuckDB/Polars directly off the hive dir.
 runtime:
-  default_emitter: parquet  # 'parquet' | 'sqlite' | 'xarray'
+  # PDMP investigation runs on the XArrayEmitter (zarr-partitioned,
+  # multi-generation native): its validation pipeline aligns every phase on a
+  # single time-series format (see investigation.yaml guidelines.emitter).
+  # parquet stays available as a fallback — pass an explicit ParquetEmitter or
+  # use the parquet runners in v2ecoli.library.parquet_run.
+  default_emitter: xarray   # 'parquet' | 'sqlite' | 'xarray'
   max_generations: 8        # multi-gen cap (xarray + parquet runs) — bumped for PDMP validation ensembles
+  # Multiseed parallelism: 'ray' runs one worker process per seed (parity with
+  # vEcoli — see docs/perf/). Unset/None = sequential. Needs `v2ecoli[ray]`.
+  # Runners use v2ecoli.library.parallel_seeds.run_seeds_parallel(mode=<this>).
+  parallel: ray             # 'ray' | null
 observables: []
 visualizations: []
 simulations: []
 datasets: []
 expert_docs:
+  - name: multiscale_bioprocess_roadmap
+    title: Multiscale bioprocess upstream roadmap
+    path: workspace/references/expert/multiscale_bioprocess_roadmap.md
+    description: |
+      Pointer to the upstream vivarium-collective/multiscale-bioprocess
+      roadmap (chris/initial-scaffolding) that inspired (but is diverged
+      from by) the v2ecoli-workspace multiscale-bioprocess investigation.
+  - name: cell_side_interface_contract
+    title: Cell-side interface contract (substitutability)
+    path: workspace/references/expert/cell_side_interface_contract.md
+    description: |
+      The substitutability story made concrete: what an engine wired to
+      the reactor MUST provide (inputs / outputs / lifecycle hooks /
+      identifier scheme). Load-bearing for mbp-03 (Monod → v2ecoli swap)
+      and for future engine comparator studies (dFBA, surrogate, WCM
+      variants). Inherits the upstream multiscale-bioprocess roadmap's
+      "engine substitution as a phase boundary" open question.
+  - name: palsson_2025_fed_batch
+    title: Beulig et al. 2025 — high-cell-density fed-batch E. coli (mSystems)
+    path: workspace/references/expert/palsson_2025_fed_batch.md
+    description: |
+      Beulig F, ..., Palsson B. "Trade-off between resistance and persistence
+      in high cell density cultures." mSystems 10(7), 2025.
+      doi:10.1128/msystems.00323-25. Open access; PDF at
+      workspace/references/papers/Beulig_2025_mSystems_high_cell_density.pdf.
+      The quantitative benchmark targeted by study mbp-05. Bib key
+      `Beulig2025mSystems` in workspace/references/papers.bib.
+  - name: chris_feedback_2026_05_26
+    title: Chris Long — multiscale-bioprocess review (2026-05-26)
+    path: workspace/references/expert/chris_feedback_2026_05_26.md
+    description: |
+      Structured digest of Chris Long's inline-feedback review on the
+      multiscale-bioprocess investigation (rpt-20260523011545, exported
+      2026-05-26). Drives the next-round spec revisions: mbp-01 plumbing/
+      biology split, mbp-02 cells_per_agent scaling, mbp-03 Option-B
+      BiRDTransportProcess fork, mbp-04 explicit C/N auditor requirements,
+      mbp-05 reframe as evaluation phase with generic comparison_overlays,
+      mbp-06 carried-forward priors + resolution_type schema. Raw YAML
+      preserved at workspace/references/expert/raw/chris_feedback_2026_05_26.yaml.
+      MUST be read before drafting any further mbp-* spec edits or
+      advancing a study to Build phase.
   - name: duf-final-report
     path: workspace/references/expert/duf_final_report_2026.pdf
     sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
@@ -63,5 +92,119 @@ references_pdfs:
   - bib_key: millard2017
     path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
     sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
+imports:
+  pbg_oxidizeme:
+    source: https://github.com/vivarium-collective/pbg-oxidizeme
+    ref: '0.1.0'
+    mode: reference
+    description: |
+      OxidizeME ME-model wrapper (Yang et al. 2019 PNAS / Palsson lab).
+      Conforms to the cell-side interface contract — drop-in candidate
+      engine for mbp-03 / mbp-06 comparator studies. Real-solver path is
+      gated by upstream Python 2.7 / qMINOS install; non-strict mode lets
+      the wrapper be browsed in the dashboard without the solver. Live
+      demo report: https://vivarium-collective.github.io/pbg-oxidizeme/
+  pbg_torch:
+    source: https://github.com/vivarium-collective/pbg-torch
+    ref: main
+    mode: reference
+    description: |
+      Neural-network surrogate Processes for process-bigraph. Provides
+      NeuralProcess — a drop-in learned surrogate of the baseline used by
+      investigations/surrogate-modeling. Registered into build_core() so it
+      appears in the dashboard Registry.
+  # Packages v2ecoli actually imports + uses in its composites. Declaring them
+  # here classifies their registry classes as `in_workspace` so they render in
+  # the PRIMARY registry list (Processes/Steps tabs) rather than the collapsed
+  # "Also available in environment" fold. (They were already in the
+  # dashboard.registry.include allow-list — that controls inclusion in the data;
+  # `imports` controls the in_workspace classification / visibility.)
+  pbg_ketchup:
+    source: https://github.com/vivarium-collective/pbg-ketchup
+    ref: main
+    mode: reference
+    description: |
+      KETCHUP/IPOPT kinetic-parameter estimators (KetchupEstimator,
+      KetchupDynamicEstimator) + the ketchup_baseline / ketchup_dynamic /
+      ketchup_multistart composites used by the ketchup-baseline-comparison
+      investigation.
+  pbg_copasi:
+    source: https://github.com/vivarium-collective/pbg-copasi
+    ref: main
+    mode: reference
+    description: |
+      COPASI ODE / steady-state Steps + composites (utc-process, utc-step,
+      steady-state) used for kinetic-model comparison.
+  pbg_parsimony:
+    source: https://github.com/vivarium-collective/pbg-parsimony
+    ref: main
+    mode: reference
+    description: |
+      Parsimony structural-composite tooling (parsimony-ecoli) used by the
+      v2ecoli structural composite views.
+  pbg_bioreactordesign:
+    source: https://github.com/vivarium-collective/pbg-bioreactordesign
+    ref: main
+    mode: reference
+    description: |
+      BiRD reactor transport process (BiRDTransportProcess) coupled to the cell
+      engine in the reactor_bird_coupled composites (mbp-03).
+  viva_munk:
+    source: https://github.com/vivarium-collective/Viva-munk
+    ref: main
+    mode: reference
+    description: |
+      Colony physics base (PymunkProcess, GrowDivide, Chemotaxis,
+      DiffusionAdvection, CellFieldExchange, …) used by the colony composite
+      and the colonies investigation.
 server:
   enabled: true
+dashboard:
+  # Registry tab: show v2ecoli's own classes PLUS the packages it actually
+  # imports and uses, while still hiding merely-installed-but-unused pbg-* repos
+  # (e.g. pbg-cellpack) that allocate_core() auto-registers. Display-only
+  # allow-list by top-level package (dashes/underscores normalized); discovery
+  # is unchanged. Keep in sync with the deps in pyproject.toml.
+  # viva_munk is the colony-physics base (PymunkProcess, GrowDivide, Chemotaxis,
+  # DiffusionAdvection, CellFieldExchange, …) used by the colony composites —
+  # first-class v2ecoli content, so it belongs in the registry alongside v2ecoli.
+  registry:
+    include: [v2ecoli, viva_munk, pbg_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
+  # Sources page: surface the ecoli-sources bundle (the ParCa/reconstruction
+  # input files) with links — inherited files link to the pinned ecoli-sources
+  # GitHub commit, local overrides to this repo. See v2ecoli/dashboard_sources.py.
+  data_sources:
+    provider: "v2ecoli.dashboard_sources:enumerate_sources"
+    label: "ecoli-sources"
+
+# Pathway Tools Omics Viewer launcher (Analyses tab → "PTools" card).
+# Points at the local sms-ptools container
+# (ghcr.io/vivarium-collective/sms-ptools, Cellular Overview on :1555). The
+# dashboard's default Omics-Viewer URL template targets this exact build, so no
+# template override is needed. Run the container, then the card launches the
+# Omics Viewer with a study's ptools TSVs overlaid on the E. coli metabolic map.
+ui:
+  ptools_server_url: "http://localhost:1555"
+  # When launching with data, the PTools container fetches the TSV from this
+  # dashboard over HTTP, so it must point at a host the *container* can reach —
+  # e.g. http://host.docker.internal:<dashboard-port>. Unset = inferred from the
+  # browser's Host header, which the container can't resolve. Uncomment + set
+  # your dashboard port once a study emits ptools TSVs (studies/<n>/**/ptools/*.tsv).
+  # The PTools container fetches study TSVs from this dashboard over HTTP;
+  # host.docker.internal lets the container reach the dashboard on the host.
+  # Adjust the port to match how you serve the dashboard.
+  dashboard_public_base_url: "http://host.docker.internal:8771"
+  # sms-ptools 0.8.2 reads the omics file from its OWN filesystem (it does not
+  # fetch the URL over HTTP). Mount the workspace into the container and set the
+  # container-side path of the dashboard's --workspace root here; the launcher
+  # then passes <ptools_data_dir>/<rel> as the data file. Run the container with:
+  #   -v <host>/v2ecoli/workspace:/ptools-data/workspace:ro
+  ptools_data_dir: "/ptools-data"
+  # External viewer URLs for Analyses-tab 3D cards, keyed by pack name. The
+  # ecoli_3d whole-cell pack is served from Cloudflare R2 (free egress, no
+  # GitHub Pages 429 rate-limiting on the heavy pack + meshes); the dashboard
+  # card links + embeds this instead of the bundled gh-pages viewer.
+  # ?models= loads a manifest so a single card switches between states in-viewer
+  # (birth — 1.8 µm rod; pre-division — 3.06 µm, 2 chromosomes + septum).
+  viz_viewer_urls:
+    ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json"

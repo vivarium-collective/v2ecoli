@@ -1,0 +1,92 @@
+{
+  "generated": "2026-06-12 22:49",
+  "v2ecoli": {
+    "GLC[p]": -100.0,
+    "OXYGEN-MOLECULE[p]": -9.349,
+    "CARBON-DIOXIDE[p]": 33.193,
+    "ACET[p]": 0.0,
+    "AMMONIUM[c]": -136.385,
+    "SULFATE[p]": -0.0
+  },
+  "candidates": {
+    "k-ecoli74": {
+      "GLC[p]": -100.0,
+      "OXYGEN-MOLECULE[p]": -135.091,
+      "CARBON-DIOXIDE[p]": 144.268,
+      "ACET[p]": 70.519,
+      "AMMONIUM[c]": -54.322,
+      "SULFATE[p]": -1.592
+    },
+    "k-ecoli307": {
+      "GLC[p]": -100.0,
+      "OXYGEN-MOLECULE[p]": -135.816,
+      "CARBON-DIOXIDE[p]": 145.86,
+      "ACET[p]": 71.305,
+      "AMMONIUM[c]": -80.639,
+      "SULFATE[p]": -1.794
+    },
+    "millard2017": {
+      "GLC[p]": -100.0,
+      "OXYGEN-MOLECULE[p]": null,
+      "CARBON-DIOXIDE[p]": null,
+      "ACET[p]": 0.0,
+      "AMMONIUM[c]": null,
+      "SULFATE[p]": null
+    },
+    "fba-bridge": {
+      "GLC[p]": -100.0,
+      "OXYGEN-MOLECULE[p]": -25.711,
+      "CARBON-DIOXIDE[p]": 0.0,
+      "ACET[p]": 0.0,
+      "AMMONIUM[c]": -188.276,
+      "SULFATE[p]": -1.422
+    }
+  },
+  "graded": {
+    "k-ecoli74": {
+      "overall": "mismatch",
+      "r2": -0.8859135816782688,
+      "meter": "R\u00b2 = -0.8859 \u00b7 4 matched \u00b7 0 appeared \u00b7 2 lost",
+      "n_matched": 6,
+      "axes": {
+        "fluxes.exchange": "mismatch",
+        "metab.OXYGEN-MOLECULE[p]": "mismatch",
+        "metab.CARBON-DIOXIDE[p]": "mismatch",
+        "metab.AMMONIUM[c]": "mismatch"
+      }
+    },
+    "k-ecoli307": {
+      "overall": "mismatch",
+      "r2": -0.7189820389930877,
+      "meter": "R\u00b2 = -0.7190 \u00b7 4 matched \u00b7 0 appeared \u00b7 2 lost",
+      "n_matched": 6,
+      "axes": {
+        "fluxes.exchange": "mismatch",
+        "metab.OXYGEN-MOLECULE[p]": "mismatch",
+        "metab.CARBON-DIOXIDE[p]": "mismatch",
+        "metab.AMMONIUM[c]": "mismatch"
+      }
+    },
+    "millard2017": {
+      "overall": "within_tol",
+      "r2": 1.0,
+      "meter": "R\u00b2 = 1.0000 \u00b7 1 matched \u00b7 0 appeared \u00b7 0 lost",
+      "n_matched": 2,
+      "axes": {
+        "fluxes.exchange": "within_tol"
+      }
+    },
+    "fba-bridge": {
+      "overall": "mismatch",
+      "r2": 0.6541547849550151,
+      "meter": "R\u00b2 = 0.6542 \u00b7 3 matched \u00b7 1 appeared \u00b7 1 lost",
+      "n_matched": 6,
+      "axes": {
+        "fluxes.exchange": "mismatch",
+        "metab.OXYGEN-MOLECULE[p]": "mismatch",
+        "metab.CARBON-DIOXIDE[p]": "mismatch",
+        "metab.AMMONIUM[c]": "within_tol"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "title": "Doubling time vs generation (per seed)",
+  "caption": "Gen-1 doubling ~43 min in band; gen-2 inflated by the emit-window cap.",
+  "interpretation": "Per-generation doubling time from the emitted global_time span: gen-1 ~43 min (in band for the glucose condition), gen-2 ~63 min. The gen-2 inflation is an emit-window-cap artifact (gen-2 cells keep emitting after division), not a biological slowdown; the true division-event doubling time is ~44 min.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
+}

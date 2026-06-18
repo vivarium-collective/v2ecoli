@@ -1,5 +1,12 @@
 # v2ecoli
 
+> **Explore in your browser — no install:**
+> &nbsp;🖥️ **[Interactive dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/)** (browse the whole workspace)
+> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?file=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/ecoli_3d.pack.json)** (interactive whole-cell structural model — opens directly; **"View in VR"** on a Meta Quest)
+> &nbsp;·&nbsp; 📊 **[Baseline Showcase report](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)** ⭐ (best starting point)
+> &nbsp;·&nbsp; 🗂️ **[Report gallery](https://vivarium-collective.github.io/v2ecoli/)**
+> — see **[Explore v2ecoli](#explore-v2ecoli)** for what each one is.
+
 **vEcoli, reimagined as a composable [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
 model and a research workspace.** v2ecoli takes the Covert lab's whole-cell
 *E. coli* simulation ([vEcoli](https://github.com/CovertLab/vEcoli)) and rebuilds
@@ -15,52 +22,76 @@ Two things follow from that:
   input/output ports, so building a model is wiring, not patching. A whole cell
   is one `build_composite("baseline")` call; a colony embeds many cells through a
   single bridge process; a kinetic-metabolism variant is a *different wiring of
-  the same parts*. Swapping a subsystem is a one-line change, not a fork.
+  the same parts* ([Architectures](#architectures)). Swapping a subsystem is a
+  one-line change, not a fork.
 - **The repository is a pbg research workspace.** Alongside the model code live
   **investigations** (a research question) and **studies** (the simulations that
   answer it) — browsable and runnable in the
   [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard).
-  The current tree carries the `colonies` and `v2ecoli-pdmp` investigations
-  across seven studies (`workspace/`). New science is added as a study, not a
-  patch to a monolith.
+  Investigations live under `workspace/investigations/` (baseline showcase,
+  PDMP, colonies, and more), each publishing a self-contained
+  [investigation report](#explore-v2ecoli).
+  New science is added as a study, not a patch to a monolith.
 
-The biology stays faithful to upstream. v2ecoli reproduces vEcoli's cell-cycle
-trajectories from birth to division — across dry mass, mass composition
-(protein / RNA / DNA / water), bulk-molecule counts, and replication dynamics —
-not just a single endpoint. The
-[composite comparison](https://vivarium-collective.github.io/v2ecoli/composite_comparison.html)
-and [vEcoli-vs-v2ecoli](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html)
-reports lay the two engines side by side metric-by-metric. Through the full cell
-cycle the dry-mass trajectories track to within a fraction of a percent
-(707.2 fg vs 705.3 fg at division), with division timing of ~42 min in both.
+The biology stays faithful to upstream: v2ecoli reproduces vEcoli's cell-cycle
+trajectories from birth to division — dry mass, mass composition, bulk-molecule
+counts, and replication dynamics, not just a single endpoint — tracking dry mass
+to within a fraction of a percent through the full cell cycle, with ~42 min
+division timing in both ([Performance & validation](#performance--validation)).
+The ParCa is shipped **pre-computed**, so a fresh clone simulates end-to-end
+without the ~70 min knowledge-base rebuild.
 
-**Explore the model interactively:**
-[**🔬 the baseline whole-cell composite**](https://vivarium-collective.github.io/v2ecoli/baseline-viewer/)
-opens the full process/store wiring in an interactive
-[bigraph-loom](https://github.com/vivarium-collective/bigraph-loom) viewer — pan
-the bigraph, expand stores, and click any process for its formal `describe()`
-description (the mathematics it computes). Runs entirely in-browser from a static
-snapshot; no install.
+**New here?** Browse the published [dashboard and reports](#explore-v2ecoli)
+first, then read [What v2ecoli is](#what-v2ecoli-is) → [Install](#install) →
+[Quick start](#quick-start) →
+[the framework](#the-process-bigraph-framework) →
+[Architectures](#architectures) →
+[pipelines](#running-pipelines-multiseed--multigen--multivariant).
 
-Under the hood, the biology is **17 biological process modules** plus 8
-listener/deriver steps (`v2ecoli/processes/`, `v2ecoli/steps/derivers/`); the
-partitioned baseline composite schedules these — after splitting some processes
-into requester/evolver halves and adding infrastructure steps — into ~45 steps
-per simulation tick. The Parameter Calculator (ParCa) is decomposed into nine
-process-bigraph Steps and ships pre-computed, so a fresh clone simulates
-end-to-end without the ~70 min knowledge-base rebuild.
+---
 
-**New here?** Read in this order: [What v2ecoli is](#what-v2ecoli-is) →
-[Install](#install) → [Quick start](#quick-start) →
-[The process-bigraph framework](#the-process-bigraph-framework) →
-[Architectures](#architectures). Then dive into
-[running pipelines](#running-pipelines-multiseed--multigen--multivariant) and
-[the reports](#reports--interactive-viewers).
+## Explore v2ecoli
+
+Everything is published to GitHub Pages and runs in the browser — no install.
+There are **three** kinds of output, each from a different pipeline.
+
+### 🖥️ Interactive dashboard — *browse the whole workspace*
+
+**[→ vivarium-collective.github.io/v2ecoli/dashboard/](https://vivarium-collective.github.io/v2ecoli/dashboard/)**
+
+A read-only snapshot of the v2ecoli workspace in the
+[vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard):
+investigations & studies, the process/type **registry**, navigable **composite**
+wiring graphs (`baseline`, `parca`), and the **sources** bundle. Auto-rebuilt
+from `main` on every push. For the full interactive version (authoring, running
+studies), clone and run `vivarium-dashboard serve` locally.
+
+### 📊 Investigation reports — *one self-contained report per research question*
+
+Each investigation under `workspace/investigations/` auto-publishes a single,
+self-contained HTML report — overview → studies → figures → reviewer decisions —
+rebuilt from `main` on every push. **Start with the
+[Baseline Showcase ⭐](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)**,
+then browse the rest from the
+[report gallery](https://vivarium-collective.github.io/v2ecoli/) or interactively
+in the [dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/). Full
+list with research questions: **[docs/reports.md](docs/reports.md#2-investigation-reports-auto-generated)**.
+
+### 🔬 Model viewers & technical reports — *standalone HTML*
+
+Generated on demand by `reports/*.py` / `scripts/*.py` (committed under `docs/`):
+interactive [model-wiring viewers](https://vivarium-collective.github.io/v2ecoli/baseline-viewer/),
+[simulation-result reports](https://vivarium-collective.github.io/v2ecoli/workflow_report.html),
+[vEcoli comparisons](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html), and the
+[mathematical structure](https://vivarium-collective.github.io/v2ecoli/math_structure.html).
+Browse them from the **[report gallery](https://vivarium-collective.github.io/v2ecoli/)** —
+full list + how to regenerate each in **[docs/reports.md](docs/reports.md#3-standalone-html-reports)**.
 
 ---
 
 ## Contents
 
+- [Explore v2ecoli](#explore-v2ecoli) — dashboard, investigation reports, HTML reports
 - [What v2ecoli is](#what-v2ecoli-is)
 - [Install](#install)
 - [Quick start](#quick-start)
@@ -68,7 +99,6 @@ end-to-end without the ~70 min knowledge-base rebuild.
 - [Architectures](#architectures)
 - [Running pipelines: multiseed / multigen / multivariant](#running-pipelines-multiseed--multigen--multivariant)
 - [Emitters: how output is written (Parquet & Xarray)](#emitters-how-output-is-written-parquet--xarray)
-- [Reports & interactive viewers](#reports--interactive-viewers)
 - [ParCa](#parca)
 - [What changed since vEcoli](#what-changed-since-vecoli)
 - [Performance & validation](#performance--validation)
@@ -101,9 +131,9 @@ What you get over upstream vEcoli:
   bigraph-schema JSON (no pickle in the save path).
 - **A research workspace.** The repo is a pbg workspace (`workspace.yaml`):
   biology sits next to **investigations** (a shared research question) and
-  **studies** (the runs that answer it), all browsable and runnable in the
-  vivarium-dashboard. The `colonies` and `v2ecoli-pdmp` investigations live in
-  `workspace/`. Manage them with the `pbg-investigation` / `pbg-study` skills.
+  **studies** (the runs that answer it) under `workspace/`, all browsable and
+  runnable in the vivarium-dashboard. Manage them with the `pbg-investigation` /
+  `pbg-study` skills.
 - **A decomposed ParCa.** The monolithic `fitSimData_1()` is broken into nine
   inspectable Steps, and the fitted `sim_data` is shipped pre-computed.
 - **Workflow pipelines.** Multiseed / multigeneration / multivariant sweeps are
@@ -350,52 +380,6 @@ Choosing an emitter:
 
 ---
 
-## Reports & interactive viewers
-
-Every report is generated by a script and (for the published set) committed under
-`docs/`, served at
-**[vivarium-collective.github.io/v2ecoli](https://vivarium-collective.github.io/v2ecoli/)**.
-They fall into four groups.
-
-### Interactive model viewers — *explore the model in your browser*
-
-| Report | Published | Generate locally |
-|---|---|---|
-| **[Baseline composite](https://vivarium-collective.github.io/v2ecoli/bigraph_baseline.html)** — processes, stores, wiring, port schemas (with units), and a formal equation for each process. Pan/zoom, expand store chips, toggle nodes. | `bigraph_baseline.html` | `scripts/viz_baseline_interactive.py` |
-| **[ParCa pipeline](https://vivarium-collective.github.io/v2ecoli/bigraph_parca.html)** — the nine-Step parameter calculator, same interactive viewer. | `bigraph_parca.html` | `scripts/viz_parca_interactive.py` |
-| **[ParCa network](https://vivarium-collective.github.io/v2ecoli/parca_network.html)** / **[Baseline network](https://vivarium-collective.github.io/v2ecoli/network_baseline.html)** — Cytoscape topology; click a process for ports, schema, docstring, math. | `parca_network.html`, `network_baseline.html` | `scripts/parca_network.py` |
-
-### Simulation result reports — *what the cell actually did*
-
-| Report | Published | Generate locally |
-|---|---|---|
-| **[Cell lifecycle](https://vivarium-collective.github.io/v2ecoli/workflow_report.html)** — one cell, mother → division → both daughters. | `workflow_report.html` | `reports/workflow_report.py` |
-| **[Multigeneration lineage](https://vivarium-collective.github.io/v2ecoli/multigeneration_report.html)** — N-generation single lineage, mass trajectories & fold-change. | `multigeneration_report.html` | `reports/multigeneration_report.py --generations 3` |
-| **[Colony](https://vivarium-collective.github.io/v2ecoli/colony_report.html)** — mixed colony with pymunk physics, growth & division, synced animations. | `colony_report.html` | `reports/colony_report.py --n-adder 9` |
-
-### Comparison & benchmark — *v2ecoli vs vEcoli*
-
-| Report | Published | Generate locally |
-|---|---|---|
-| **[v1 vs v2](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html)** — vEcoli 1.0 vs v2ecoli baseline: wall/sim time, dry mass, growth. | `v1_v2_comparison.html` | `reports/v1_v2_report.py` |
-| **[Composite comparison](https://vivarium-collective.github.io/v2ecoli/composite_comparison.html)** — any set of engines side-by-side (load/wall/sim, composition, sparklines). | `composite_comparison.html` | `reports/composite_comparison.py --engines baseline millard_pdmp_baseline` |
-| Benchmark — v2ecoli vs the vEcoli composite (local-only). | — | `reports/benchmark_report.py` |
-
-### Model structure & ParCa — *the math and the parameters*
-
-| Report | Published | Generate locally |
-|---|---|---|
-| **[Mathematical structure](https://vivarium-collective.github.io/v2ecoli/math_structure.html)** — every process's governing equations grouped by subsystem, the per-tick execution flow, and the partition→allocate→evolve contract. | `math_structure.html` | `reports/math_structure_report.py` |
-| **[ParCa workflow](https://vivarium-collective.github.io/v2ecoli/parca_workflow_report.html)** — the nine-Step run with per-step runtimes, port manifests, and raw-data stats. | `parca_workflow_report.html` | (ParCa pipeline) |
-
-> **Provenance banners.** PR-evidence reports (`scripts/pr_session_report.py`,
-> `scripts/sweep_report.py`) embed a self-describing header — ISO timestamp, git
-> SHA/branch, dirty-tree badge, last commit, host/OS/Python — so an HTML file
-> stays meaningful months later. Attach these to PRs that change biology; see
-> [AGENTS.md → Reports](AGENTS.md).
-
----
-
 ## ParCa
 
 ParCa (the Parameter Calculator) fits ~130 EcoCyc-derived knowledge-base TSVs
@@ -420,19 +404,16 @@ Full path: `docs/generate_full_parca.md`.
 
 ## What changed since vEcoli
 
-**Engine & architecture**
+Beyond the headline changes in [What v2ecoli is](#what-v2ecoli-is) (no
+`vivarium-core`, composition over configuration, typed/serializable state, a
+decomposed pre-computed ParCa), the architecture-level specifics are:
 
-- **No `vivarium-core`.** The model is a process-bigraph state document run by
-  the process-bigraph engine.
 - **Partitioned scheduling** (`v2ecoli/steps/partition.py`, `allocator.py`):
   contended processes split into a *requester* (declares demand) and an
   *evolver* (acts on the allocation), coordinated by an allocator — the
   vEcoli-parity execution order, made explicit in the composite.
 - **`EcoliWCM` bridge** (`v2ecoli/bridge.py`) wraps a whole cell as a single
-  process so many cells compose into a colony.
-- **ParCa decomposed** into nine inspectable Steps and shipped pre-computed.
-- **Typed, serializable state** — bigraph-schema types with units; save states
-  round-trip through JSON (no pickle outside the ParCa cache).
+  process so many cells compose into a colony ([Architectures](#architectures)).
 
 **Biology — process inventory (ground truth)**
 
@@ -458,11 +439,8 @@ restructuring: polypeptide elongation's old strategy-pattern variants
   (DnaA-box catalog at `v2ecoli/data/dnaa_box_catalog.py`), on an investigation
   branch, not yet on `main`.
 
-**Parity.** At 60 s, v2ecoli's dry mass is 384.6 fg vs vEcoli's 384.5 fg
-(0.0 % drift), and time-to-division matches at ~42 min — see the
-[v1 vs v2](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html)
-and [composite comparison](https://vivarium-collective.github.io/v2ecoli/composite_comparison.html)
-reports.
+**Parity.** v2ecoli matches vEcoli observable-by-observable through the full
+cell cycle — see [Performance & validation](#performance--validation).
 
 ---
 

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import binascii
 import copy
+import os
 from typing import Any
 
 import numpy as np
@@ -54,6 +55,9 @@ from v2ecoli.composites._helpers import (
     _get_special_step,
     _expand_flushes,
     set_default_emitter_decl,
+    set_emitter_override,
+    set_null_emitter_override,
+    _find_workspace_root,
     CachedConfigLoader,
     FLUSH,
     PARTITIONED_PROCESSES,
@@ -78,6 +82,15 @@ BASE_EXECUTION_LAYERS = [
 
     # Layer 2: standalone (no partitioning needed)
     ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
+
+    # NOTE: the dnaA-investigation mechanism steps — dnaa-3 (dnaa-box-binding +
+    # dnaa_box_binding_listener), dnaa-4 (autoregulation in transcript_initiation),
+    # and dnaa-5 (rida / ddah / dars + library/locus_copy_number) — remain in the
+    # tree as DORMANT infrastructure but are NOT wired into the default baseline.
+    # Main's default model is the pre-investigation WCM; these are activated only
+    # by the dnaa-replication investigation (draft PR), which re-adds the layers.
+
+    # Layer 3: TF binding
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
@@ -186,6 +199,11 @@ def build_execution_layers(features=None):
                     if listener not in layer:
                         layer.append(listener)
                     break
+        # Replace an existing step name with another in-place (same layer/order).
+        for old_name, new_name in (feat.get('replace') or {}).items():
+            for layer in layers:
+                if isinstance(layer, list):
+                    layer[:] = [new_name if s == old_name else s for s in layer]
     return _expand_flushes(layers)
 
 
@@ -197,17 +215,35 @@ FLOW_ORDER = [step for layer in build_execution_layers(DEFAULT_FEATURES) for ste
 # Step instantiation (partitioned / baseline architecture)
 # ---------------------------------------------------------------------------
 
-def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0):
+def _get_step_config(
+    loader,
+    step_name,
+    core,
+    process_cache=None,
+    master_seed=0,
+    transcript_initiation_mode: str | None = None,
+    polypeptide_initiation_mode: str | None = None,
+):
     """Get (instance, topology, edge_type[, in_topo, out_topo]) for a step.
 
     master_seed: investigation-level seed; per-process seeds are derived via
     _derive_process_seed(master_seed, base_name) so each stochastic process
     gets a distinct, reproducible seed across an ensemble.
+
+    transcript_initiation_mode / polypeptide_initiation_mode: Phase-2 opt-in
+    for the respective Process's jump-process kinetics. ``"discrete"``
+    (default) → legacy multinomial sampling; ``"poisson"`` → per-target
+    Poisson tau-leap. See the respective ``pdmp_initiation_mode`` config
+    on each Process.
     """
     from v2ecoli.processes.equilibrium import Equilibrium
     from v2ecoli.processes.two_component_system import TwoComponentSystem
     from v2ecoli.processes.rna_maturation import RnaMaturation
     from v2ecoli.processes.complexation import Complexation
+    from v2ecoli.steps.dnaa_box_binding import DnaABoxBinding
+    from v2ecoli.steps.rida import Rida
+    from v2ecoli.steps.ddah import Ddah
+    from v2ecoli.steps.dars import Dars
     from v2ecoli.processes.protein_degradation import ProteinDegradation
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
@@ -268,6 +304,76 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             topology = topology()
         return instance, topology, 'step'
 
+    # dnaa-3 Phase 2: DnaA-box binding step. No ParCa-generated config — built
+    # from class defaults + cell_density / n_avogadro from the equilibrium
+    # config + bulk_mass_data / submass_indices from tf_binding (used to
+    # update DnaA_box.massDiff_* when DnaA moves bulk → bound).
+    if step_name == 'dnaa-box-binding':
+        try:
+            eq_cfg = loader.get_config_by_name('ecoli-equilibrium') or {}
+        except (KeyError, AttributeError):
+            eq_cfg = {}
+        try:
+            tf_cfg = loader.get_config_by_name('ecoli-tf-binding') or {}
+        except (KeyError, AttributeError):
+            tf_cfg = {}
+        dnaa_cfg = {
+            'cell_density': eq_cfg.get('cell_density', 1100.0),
+            'n_avogadro': eq_cfg.get('n_avogadro', 6.02214076e23),
+            'seed': _derive_process_seed(master_seed, 'dnaa-box-binding'),
+            'time_step': 1,
+            'bulk_mass_data': tf_cfg.get('bulk_mass_data'),
+            'bulk_molecule_ids': tf_cfg.get('bulk_molecule_ids'),
+            'submass_indices': tf_cfg.get('submass_indices'),
+        }
+        instance = _make_instance(DnaABoxBinding, dnaa_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: RIDA — replisome-coupled DnaA-ATP inactivation. No ParCa config;
+    # built from class defaults. rate_multiplier=0.0 gives the rida-knockout
+    # variant (set via env RIDA_RATE_MULTIPLIER for the knockout sweep).
+    if step_name == 'rida':
+        rida_cfg = {
+            'rate_multiplier': float(os.environ.get('RIDA_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'rida'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Rida, rida_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DDAH — datA-locus-coupled DnaA-ATP hydrolysis.
+    if step_name == 'ddah':
+        ddah_cfg = {
+            'rate_multiplier': float(os.environ.get('DDAH_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'ddah'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Ddah, ddah_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DARS1/DARS2 — locus-copy-number-coupled DnaA reactivation.
+    if step_name == 'dars':
+        dars_cfg = {
+            'dars1_multiplier': float(os.environ.get('DARS1_RATE_MULTIPLIER', '1.0')),
+            'dars2_multiplier': float(os.environ.get('DARS2_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'dars'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Dars, dars_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
     try:
         config = loader.get_config_by_name(base_name)
     except (KeyError, AttributeError):
@@ -312,6 +418,22 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
 
     if isinstance(config, dict) and "seed" in config:
         config["seed"] = _derive_process_seed(master_seed, base_name)
+
+    # Phase-2: thread {transcript,polypeptide}_initiation_mode overrides
+    # into the ParCa-generated config so each Process's initialize()
+    # picks up the jump-process mode.
+    if (
+        transcript_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-transcript-initiation'
+    ):
+        config["pdmp_initiation_mode"] = transcript_initiation_mode
+    if (
+        polypeptide_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-polypeptide-initiation'
+    ):
+        config["pdmp_initiation_mode"] = polypeptide_initiation_mode
 
     # Partitioned processes: wrap with generic Requester/Evolver
     if base_name in PARTITIONED_PROCESSES:
@@ -413,12 +535,75 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             "default": "out/cache",
             "description": "Path to ParCa cache directory",
         },
+        "transcript_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for transcription initiation. "
+                "'discrete' (default, legacy): multinomial event distribution "
+                "with exact Σ N_i = n_target. 'poisson': per-promoter "
+                "Poisson(n_target · p_i) tau-leap."
+            ),
+        },
+        "polypeptide_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for translation initiation. "
+                "Same dispatch as transcript_initiation_mode but for "
+                "PolypeptideInitiation; ribosome activation per protein "
+                "becomes per-protein Poisson(n_target · p_i) tau-leap "
+                "instead of one global multinomial draw."
+            ),
+        },
         "config_overrides": {
             "type": "map",
             "default": {},
             "description": "Declarative '<process>.<key>': value config overrides (variants)",
         },
+        "features": {
+            "type": "list",
+            "default": [],
+            "description": "Opt-in feature-module names to insert in addition to "
+                           "the boolean toggles (e.g. ['mass_conservation']). "
+                           "Each must be a key in FEATURE_MODULES.",
+        },
+        # --- Biological feature toggles (insert/remove feature-module steps) ---
+        "ppgpp_regulation": {
+            "type": "bool",
+            "default": True,
+            "description": "Enable ppGpp-mediated regulation of transcription "
+                           "initiation (ppgpp-initiation step). On by default.",
+        },
+        "trna_attenuation": {
+            "type": "bool",
+            "default": False,
+            "description": "Enable tRNA transcriptional attenuation "
+                           "(trna-attenuation-config step). Off by default.",
+        },
+        "supercoiling": {
+            "type": "bool",
+            "default": False,
+            "description": "Enable DNA supercoiling dynamics (dna-supercoiling-step "
+                           "+ dna_supercoiling_listener). Off by default.",
+        },
+        "mass_conservation": {
+            "type": "bool",
+            "default": False,
+            "description": "Enable the opt-in runtime mass-conservation check "
+                           "(ecoli-mass-conservation step). Off by default — the "
+                           "residual is not yet calibrated, so it warns each tick.",
+        },
+        # --- Observation sink selection ---
+        "emitter": {
+            "type": "string",
+            "choices": ["parquet", "sqlite", "xarray", "null"],
+            "default": "parquet",
+            "description": "Observation sink for the internal 'emitter' step: "
+                           "parquet (hive-partitioned column store, default), "
+                           "sqlite (persistent time-series db), xarray "
+                           "(in-memory labelled arrays), or null (global_time only).",
+        },
     },
+    default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     emitters=[
         {
@@ -434,23 +619,48 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
         },
     ],
 )
-def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
-             config_overrides: dict | None = None,
-             bundle: dict | None = None) -> dict:
+def baseline(
+    core: Any = None,
+    *,
+    seed: int = 0,
+    cache_dir: str = "out/cache",
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
+    config_overrides: dict | None = None,
+    features: list | None = None,
+    ppgpp_regulation: bool = True,
+    trna_attenuation: bool = False,
+    supercoiling: bool = False,
+    mass_conservation: bool = False,
+    emitter: str = "parquet",
+    bundle: dict | None = None,
+) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
     Migrated from ``v2ecoli/generate.py:build_document`` +
     ``v2ecoli/composite.py:_build_from_cache``.  Returns a plain dict
     suitable for ``Composite(doc, core=core)``; does NOT wrap in Composite.
 
-    Note: ``features`` is fixed to ``DEFAULT_FEATURES`` and is not a caller-
-    visible parameter.
+    The biological feature set is assembled from the boolean toggles
+    (``ppgpp_regulation`` on by default; the rest off) plus any opt-in
+    modules a caller registered via :func:`enable_features` (back-compat).
 
     Args:
         core: bigraph-schema core.  If None, one is created via build_core().
         seed: Random seed for stochastic initialisation.
         cache_dir: Path to the ParCa cache directory (must contain
             ``initial_state.json`` and ``sim_data_cache.dill``).
+        transcript_initiation_mode: Phase-2 opt-in for the PDMP transcript
+            initiation dispatch — ``discrete`` (default) or the piecewise-
+            deterministic mode.
+        polypeptide_initiation_mode: same dispatch as
+            ``transcript_initiation_mode`` but for polypeptide initiation.
+        ppgpp_regulation: insert the ppGpp-regulation feature module (default on).
+        trna_attenuation: insert the tRNA-attenuation feature module (default off).
+        supercoiling: insert the DNA-supercoiling feature module (default off).
+        mass_conservation: insert the mass-conservation check (default off).
+        emitter: observation sink for the internal 'emitter' step — one of
+            ``parquet`` (default), ``sqlite``, ``xarray``, ``null``.
         bundle: optional pre-loaded cache bundle (as returned by
             ``load_cache_bundle``). When given, the cache is not re-read from
             ``cache_dir`` — lets callers building many composites from the same
@@ -465,7 +675,15 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
 
     if bundle is None:
         bundle = load_cache_bundle(cache_dir)
-    initial_state = bundle["initial_state"]
+    # Deep-copy initial_state: a reused bundle (e.g. one load_cache_bundle()
+    # shared across many baseline() calls, as in parameter sweeps / UQ ensembles)
+    # otherwise hands every composite the SAME initial_state arrays. v2ecoli's
+    # in-place bulk arrays then mutate that shared state during run(), so each
+    # subsequent build resumes from the previous run's advanced state (mass
+    # accumulates across samples, eventually triggering a spurious mid-run
+    # division). configs is already deep-copied below for the same reason —
+    # initial_state needs the same isolation.
+    initial_state = copy.deepcopy(bundle["initial_state"])
     configs = bundle["configs"]
     if config_overrides:
         # Deep-copy before patching: load_cache_bundle returns the cache dict
@@ -485,8 +703,26 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 
-    features = list(DEFAULT_FEATURES) + [
-        f for f in _EXTRA_FEATURES if f not in DEFAULT_FEATURES]
+    # Assemble the feature set from the explicit boolean toggles. Order follows
+    # FEATURE_MODULES so insertions are deterministic. The legacy
+    # _EXTRA_FEATURES / enable_features() global is still honoured (back-compat
+    # for callers like scripts/pr_session_report.py and the mass-conservation
+    # behavior test) and unions in any modules it requested.
+    _toggle_features = {
+        'ppgpp_regulation': ppgpp_regulation,
+        'trna_attenuation': trna_attenuation,
+        'supercoiling': supercoiling,
+        'mass_conservation': mass_conservation,
+    }
+    _requested_features = list(features or [])
+    features = [name for name, on in _toggle_features.items() if on]
+    for f in _EXTRA_FEATURES:
+        if f not in features:
+            features.append(f)
+    # Explicit per-call opt-in feature modules (e.g. mass_conservation).
+    for f in _requested_features:
+        if f not in features:
+            features.append(f)
 
     cell_state = {}
     cell_state.update(initial_state)
@@ -549,18 +785,75 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     execution_layers = build_execution_layers(features)
     flow_order = [step for layer in execution_layers for step in layer]
 
-    # Publish this generator's declared default emitter (parquet — see the
-    # @composite_generator(emitters=[...]) below) so the 'emitter' step picks
-    # it up when no external override is set. Cleared in finally so it never
-    # leaks into a later composite built in the same process. External
-    # parquet/sqlite/null overrides still win — see set_default_emitter_decl.
+    # Resolve the 'emitter' param to the right override / declared-default so
+    # the internal 'emitter' step materialises the chosen sink. The selection
+    # only adjusts this generator's OWN scoped knobs (the declared default decl
+    # + the sqlite/null overrides it sets here); it is restored in the finally
+    # so nothing leaks into a later composite built in the same process. Any
+    # EXTERNAL override a caller set before this build (set_parquet_emitter_override
+    # / set_emitter_override / set_null_emitter_override) still wins, because
+    # _get_special_step checks those external overrides before the declared
+    # default and we only set our own override when none is already active.
+    import v2ecoli.composites._helpers as _h  # noqa: PLC0415
+
+    if emitter not in ("parquet", "sqlite", "xarray", "null"):
+        raise ValueError(
+            f"emitter={emitter!r} not recognised; expected one of "
+            "parquet, sqlite, xarray, null.")
+
     _emitter_decls = emitter_defaults(baseline)
-    set_default_emitter_decl(_emitter_decls[0] if _emitter_decls else None)
+    _default_decl = _emitter_decls[0] if _emitter_decls else None
+
+    # Snapshot external overrides so we can detect 'caller already pinned one'
+    # and restore them exactly on exit.
+    _ext_parquet = _h._PARQUET_EMITTER_OVERRIDE
+    _ext_sqlite = _h._EMITTER_OVERRIDE
+    _ext_null = _h._NULL_EMITTER_OVERRIDE
+    _any_external = (_ext_parquet is not None or _ext_sqlite is not None
+                     or _ext_null)
+
+    set_default_emitter_decl(_default_decl)
+
+    if emitter == "xarray" and not _any_external:
+        # XArray is emitted OUT OF BAND by the workflow/lineage runner: its
+        # transducer + view describe per-composite variable shapes that are only
+        # knowable lazily on the first populated emit tick (see
+        # workflow/lineage.py:_emit_xarray), so there is no self-contained
+        # in-document XArrayEmitter step. We therefore mirror the canonical
+        # xarray contract here: minimise the INTERNAL 'emitter' step to
+        # global_time only (set_null_emitter_override) and let the external
+        # XArray sink own persistence. Selecting 'xarray' in a plain
+        # build_composite/dashboard run thus behaves like 'null' internally;
+        # the real XArray output appears when run under the lineage workflow.
+        import warnings
+        warnings.warn(
+            "emitter='xarray': the internal emitter is minimised to global_time "
+            "only; real XArray persistence is produced out-of-band by the "
+            "lineage workflow runner (v2ecoli.workflow.lineage), not by this "
+            "in-document emitter step.")
+        set_null_emitter_override(True)
+    elif emitter == "sqlite" and not _any_external:
+        # Minimal persistent SQLite sink. Resolve the workspace-shared DB (the
+        # dashboard's Simulations-DB tab aggregates from it); fall back to out/.
+        _ws_root = _find_workspace_root()
+        _sqlite_dir = (str(_ws_root / ".pbg") if _ws_root is not None
+                       else "out")
+        set_emitter_override({
+            "file_path": _sqlite_dir,
+            "db_file": "composite-runs.db",
+        })
+    elif emitter == "null" and not _any_external:
+        set_null_emitter_override(True)
+    # emitter == "parquet": the declared parquet default (set above) is used.
+
     _process_cache = {}
     try:
         for step_name in flow_order:
             config = _get_step_config(
-                loader, step_name, core, _process_cache, master_seed=seed)
+                loader, step_name, core, _process_cache, master_seed=seed,
+                transcript_initiation_mode=transcript_initiation_mode,
+                polypeptide_initiation_mode=polypeptide_initiation_mode,
+            )
             if config is not None:
                 if len(config) == 5:
                     instance, topology, edge_type, in_topo, out_topo = config
@@ -573,6 +866,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
                         instance, topology, edge_type=edge_type)
     finally:
         set_default_emitter_decl(None)
+        # Restore external overrides to exactly their pre-build values (we only
+        # ever changed them when none was active, so this clears ours).
+        set_emitter_override(_ext_sqlite)
+        set_null_emitter_override(_ext_null)
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():
@@ -583,6 +880,30 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
 
     inject_flow_dependencies(
         cell_state, flow_order, layers=execution_layers)
+
+    # Shape step (Skalnik et al. 2023): derive the capsule cell geometry from
+    # mass each tick — length from volume = mass/density, fixed width. A passive
+    # listener (reads listeners.mass.cell_mass, writes listeners.shape), added
+    # after dependency injection so it imposes no ordering constraints; it just
+    # reports the current geometry, so the envelope tracks growth over the sim.
+    if core is not None:
+        from v2ecoli.structural.shape import ShapeStep, zero_shape
+        core.register_link("ShapeStep", ShapeStep)
+        # Top-level 'shape' output store (same pattern as the structural step's
+        # 'pack'). Wire the whole listeners.mass sub-store as the input; the step
+        # reads cell_mass from it (wiring a sub-store, not a scalar leaf, is what
+        # schema realization supports — see ShapeStep.inputs). Seed the store with
+        # all shape keys: a map[float] store only merges onto existing keys.
+        cell_state['shape'] = zero_shape()
+        cell_state['shape_step'] = {
+            '_type': 'step',
+            'address': 'local:ShapeStep',
+            'config': {'width_um': 1.0, 'density_g_per_ml': 1.1,
+                       'periplasm_fraction': 0.2},
+            'inputs': {'mass': ['listeners', 'mass']},
+            'outputs': {'shape': ['shape']},
+        }
+        flow_order.append('shape_step')
 
     state = {
         'agents': {'0': cell_state},

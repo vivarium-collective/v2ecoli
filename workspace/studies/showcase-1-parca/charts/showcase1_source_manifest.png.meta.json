@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase1-parca-full-2026-06-09",
+  "rendered_at": 1781063835.685262,
+  "title": "ecoli-sources flat-file manifest",
+  "command": ".venv/bin/python studies/showcase-1-parca/sims/fig1_source_manifest.py --flat v2ecoli/processes/parca/reconstruction/ecoli/flat --out studies/showcase-1-parca/charts",
+  "interpretation": "The 133 raw ecoli-sources flat files (TSV/CSV/FASTA, 13.5 MB) grouped by domain (genes/RNAs/proteins, complexation, metabolic reactions, biomass, tf_*, growth params, other). These from-sources inputs are what the full ParCa reads to build sim_data."
+}

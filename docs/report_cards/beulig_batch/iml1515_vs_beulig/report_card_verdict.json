@@ -1,0 +1,84 @@
+{
+  "schema": "report_card_verdict/v1",
+  "model_ref": "iML1515 (Palsson genome-scale FBA, cobra)",
+  "reference_model": "Beulig 2025 WT batch prefix",
+  "generated": "2026-06-15 00:44Z",
+  "overall": "mismatch",
+  "groups": {
+    "growth": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "growth.mu_predicted_vs_measured",
+          "label": "Growth rate \u03bc \u2014 predicted (iML1515 @ matched uptake) vs measured",
+          "verdict": "mismatch",
+          "value": -8.543148633068252,
+          "meter": "R\u00b2 = -8.5431",
+          "detail": {
+            "r2": -8.543148633068252,
+            "n": 26
+          }
+        }
+      ]
+    },
+    "summary": {
+      "verdict": "within_tol",
+      "axes": [
+        {
+          "id": "summary.iml1515_ran",
+          "label": "iML1515 ran + predicted \u03bc for 49 Beulig samples (26 optimal solves)",
+          "verdict": "within_tol",
+          "value": true,
+          "meter": "pass",
+          "detail": {}
+        }
+      ]
+    },
+    "byproducts": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "byproducts.acetate",
+          "label": "Acetate flux \u2014 predicted (no measured acetate in Beulig batch samples)",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "substrate": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "substrate.glucose_uptake_input",
+          "label": "Glucose uptake (INPUT: FBA bound set from Beulig, not predicted)",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "gas_transfer": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "gas_transfer.o2_uptake_input",
+          "label": "O2 uptake (INPUT: FBA bound set from Beulig, not predicted)",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    }
+  },
+  "scope": "iML1515 genome-scale FBA over 49 Beulig batch-phase samples (26 optimal solves). NOT apples-to-apples with the wcm/millard arms: iML1515's glucose + O2 uptake LOWER BOUNDS ARE SET FROM the measured Beulig rates, so the only genuine PREDICTIONS graded are growth \u03bc (predicted-vs-measured, r2 vs identity y=x). substrate/gas_transfer are INPUTS -> honestly ungraded; acetate is ungraded (no measured acetate in the Beulig batch samples). The wcm/millard arms predict the whole batch trajectory from first principles; iML1515 predicts \u03bc from MEASURED uptake (a different, arguably easier test). Order-of-magnitude parity, not calibrated overlap.",
+  "n_samples": 49,
+  "n_optimal": 26,
+  "wall_s": 5.32,
+  "charts": [
+    "overlay_growth.png"
+  ]
+}

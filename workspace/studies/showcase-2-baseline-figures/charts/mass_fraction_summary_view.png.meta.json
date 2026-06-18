@@ -1,0 +1,7 @@
+{
+  "title": "Biomass composition over the cell cycle (mass fractions)",
+  "caption": "Submass trajectories stay at physiological E. coli proportions throughout the cycle.",
+  "interpretation": "Sub-mass trajectories (protein, RNA, DNA, small molecules) hold steady physiological proportions: average dry-mass fractions protein 0.447, rRNA 0.103, tRNA 0.019, DNA 0.019, small molecules 0.406. Biomass composition is wild-type-like.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
+}

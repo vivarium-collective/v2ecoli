@@ -1,0 +1,7 @@
+{
+  "title": "Central-carbon FBA fluxes vs Toya 2010 (Pearson R = 0.728)",
+  "caption": "Simulated central-carbon FBA fluxes correlate with Toya 2010 C13-MFA at R=0.728.",
+  "interpretation": "Mean simulated central-carbon reaction fluxes vs Toya 2010 13C-MFA measurements correlate at Pearson R = 0.728 (p = 8.3e-5, 23 reactions). The baseline reproduces measured central-carbon flux distribution.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
+}

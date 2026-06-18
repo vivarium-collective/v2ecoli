@@ -34,6 +34,11 @@ def make_colony_document(
     ecoli_interval=1.0,
     cache_dir='out/cache',
     seed=0,
+    jitter_per_second=1e-4,
+    damping_per_second=0.5,
+    init_mass=None,
+    transport='local',
+    emit_cells=True,
 ):
     """Build a colony document with n whole-cell E. coli agents.
 
@@ -49,11 +54,26 @@ def make_colony_document(
         ecoli_interval: Seconds between whole-cell model updates.
         cache_dir: Path to v2ecoli sim_data cache.
         seed: Random seed.
+        jitter_per_second: Brownian impulse std applied by pymunk each substep.
+            Defaults to viva-munk's 1e-4. (Was hard-coded to 0.5 — ~5000x that —
+            which, with the tiny density-seeded body mass, flung cells around in
+            the colony.gif. See ``init_mass``.)
+        damping_per_second: pymunk velocity damping factor per second.
+        init_mass: If set, seed each body's mass to this value (fg) instead of
+            build_microbe's density(0.02)-derived mass (~0.04 pymunk units). The
+            EcoliWCM ``mass`` output is a fg DELTA that accumulates onto the body
+            mass; seeding a realistic dry mass (~200 fg) keeps units coherent
+            rather than summing pymunk-density units with femtograms.
+        transport: Per-cell EcoliWCM transport — ``'local'`` (single-threaded,
+            GIL-bound) or ``'ray'`` (one OS process per cell via the
+            process-bigraph Ray protocol). Daughters inherit this through the
+            cell config so dynamically-added cells use the same transport.
 
     Returns:
         Document dict for Composite().
     """
     rng = make_rng(seed)
+    address = f'{transport}:EcoliWCM'
 
     cells = {}
     for i in range(n_cells):
@@ -66,18 +86,24 @@ def make_colony_document(
             x=x, y=y, angle=angle,
             length=2.0, radius=0.5, density=0.02,
         )
+        if init_mass is not None:
+            cell_body['mass'] = float(init_mass)
 
         # Embed EcoliWCM process inside each cell. Wiring matches what
         # _handle_division produces for daughters (v2ecoli/bridge.py) so
         # initial cells can themselves divide cleanly: agent_id/location/
         # angle drive daughter placement, and `agents` is the wire the
-        # division update writes `{_remove, _add}` to.
+        # division update writes `{_remove, _add}` to. ``transport`` is
+        # threaded into config so daughters inherit local-vs-ray.
         cell_body['ecoli'] = {
             '_type': 'process',
-            'address': 'local:EcoliWCM',
+            'address': address,
             'config': {
                 'cache_dir': cache_dir,
                 'seed': seed + i,
+                'transport': transport,
+                'init_mass': init_mass,
+                'env_size': env_size,
             },
             'interval': ecoli_interval,
             'inputs': {
@@ -110,8 +136,8 @@ def make_colony_document(
             'address': 'local:PymunkProcess',
             'config': {
                 'env_size': env_size,
-                'jitter_per_second': 0.5,
-                'damping_per_second': 0.5,
+                'jitter_per_second': jitter_per_second,
+                'damping_per_second': damping_per_second,
             },
             'interval': physics_interval,
             'inputs': {
@@ -122,34 +148,81 @@ def make_colony_document(
             },
         },
 
-        'emitter': emitter_from_wires({
-            'agents': ['cells'],
-            'time': ['global_time'],
-        }),
+        # Outer colony emitter. The full cells-map capture (emit_cells=True)
+        # appends every cell's state to an in-RAM history EVERY tick — an
+        # unbounded leak that scales with cell count (~1 MB/tick/cell; OOMs a
+        # growing colony around gen 3). It's only needed by callers that read
+        # the emitted cell trajectory (e.g. the gif/animation), so it defaults
+        # on for back-compat but perf/long runs pass emit_cells=False to emit
+        # only global_time. (The inner per-cell emitters are bounded separately
+        # in bridge.py via set_null_emitter_override.)
+        'emitter': emitter_from_wires(
+            {'agents': ['cells'], 'time': ['global_time']}
+            if emit_cells else
+            {'time': ['global_time']}
+        ),
     }
 
     return document
 
 
-def make_colony(n_cells=1, env_size=30, cache_dir='out/cache', seed=0):
+def make_colony(
+    n_cells=1,
+    env_size=30,
+    cache_dir='out/cache',
+    seed=0,
+    jitter_per_second=1e-4,
+    damping_per_second=0.5,
+    init_mass=None,
+    transport='local',
+    parallel_processes=None,
+    emit_cells=True,
+):
     """Create a colony Composite ready to run.
+
+    Args:
+        transport: ``'local'`` (default, single-threaded) or ``'ray'`` (one OS
+            process per cell via the process-bigraph Ray protocol).
+        parallel_processes: Whether the engine dispatches per-tick process
+            updates concurrently. Defaults to True when ``transport='ray'``,
+            False otherwise.
+        jitter_per_second / damping_per_second / init_mass: physics-fidelity
+            knobs — see make_colony_document.
 
     Returns:
         process_bigraph.Composite instance.
     """
     core = core_import()
     core.register_types(ECOLI_TYPES)
-    # Register EcoliWCM so Composite can resolve 'local:EcoliWCM'
+    # Register EcoliWCM so Composite can resolve 'local:EcoliWCM' AND so the
+    # Ray protocol's _resolve_target can find it in core.link_registry.
     core.register_link('EcoliWCM', EcoliWCM)
+
+    if transport == 'ray':
+        from process_bigraph.protocols import ray as ray_protocol
+        ray_protocol.register_types(core)          # register the 'ray:' address
+        ray_protocol.register_process_class('EcoliWCM', EcoliWCM)
+        if parallel_processes is None:
+            parallel_processes = True
+    elif parallel_processes is None:
+        parallel_processes = False
 
     doc = make_colony_document(
         n_cells=n_cells,
         env_size=env_size,
         cache_dir=cache_dir,
         seed=seed,
+        jitter_per_second=jitter_per_second,
+        damping_per_second=damping_per_second,
+        init_mass=init_mass,
+        transport=transport,
+        emit_cells=emit_cells,
     )
 
-    return Composite({'state': doc}, core=core)
+    return Composite(
+        {'state': doc, 'parallel_processes': bool(parallel_processes)},
+        core=core,
+    )
 
 
 if __name__ == '__main__':

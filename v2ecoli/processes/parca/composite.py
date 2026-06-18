@@ -171,13 +171,44 @@ def _build_step_slots(raw_data, debug, cpus, cache_dir, _elong):
     }
 
 
-def build_parca_document(debug=False, cpus=1, cache_dir=''):
+def _store_skeleton():
+    """Empty store nodes for every wire target in ``STORE_PATH``.
+
+    The 9 steps wire their ports to nested store paths (e.g.
+    ``['process','transcription']``, ``['mass']``, ``tick_0..tick_9``), but
+    those stores are normally only materialized when the pipeline runs. For a
+    STRUCTURAL document (serialization / the dashboard's composite explorer)
+    the stores are absent, so the viewer (bigraph-loom) sees zero store nodes
+    and skips process layout entirely — collapsing all 9 steps onto the origin
+    as one unreadable blob. Materializing the store skeleton as empty nodes
+    gives the layout anchors, so the steps render as a connected pipeline.
+    """
+    skeleton: dict = {}
+    for path in STORE_PATH.values():
+        cursor = skeleton
+        for seg in path[:-1]:
+            nxt = cursor.get(seg)
+            if not isinstance(nxt, dict):
+                nxt = cursor[seg] = {}
+            cursor = nxt
+        cursor.setdefault(path[-1], {})
+    return skeleton
+
+
+def build_parca_document(debug=False, cpus=1, cache_dir='',
+                         include_store_skeleton=False):
     """Return the parca composite spec state dict (steps + wiring, unfired).
 
     Use with ``v2ecoli.pbg.save_pbg_doc(...)`` to serialize the parca
     pipeline structure to a ``.pbg`` JSON document without running. The
     configs that vary per-run (raw_data, cache directories) are
     placeholders here — ``save_pbg_doc`` strips them out anyway.
+
+    ``include_store_skeleton``: when True, prepend the empty store skeleton
+    (see ``_store_skeleton``) so the document renders as a navigable 9-step
+    graph in the dashboard explorer rather than collapsing to a single node.
+    Default False keeps the committed ``models/parca.pbg`` (and any other
+    steps-only consumer) unchanged.
     """
     _elong = dict(
         variable_elongation_transcription=True,
@@ -189,7 +220,13 @@ def build_parca_document(debug=False, cpus=1, cache_dir=''):
         raw_data=None, debug=debug, cpus=cpus,
         cache_dir=cache_dir, _elong=_elong,
     )
-    return {name: slots[name] for name in STEP_ORDER}
+    steps = {name: slots[name] for name in STEP_ORDER}
+    if include_store_skeleton:
+        # Store skeleton first (layout anchors), then the 9 step nodes. No key
+        # collisions: store roots ('process','mass','tick_*',…) are disjoint
+        # from step names ('initialize','final_adjustments',…).
+        return {**_store_skeleton(), **steps}
+    return steps
 
 
 def build_parca_composite(raw_data, debug=False, cpus=1,

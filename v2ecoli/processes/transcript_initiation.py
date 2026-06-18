@@ -43,6 +43,8 @@ TODO:
   - match sigma factors to promoters
 """
 
+import os
+
 import numpy as np
 import scipy.sparse
 import matplotlib.pyplot as plt
@@ -65,7 +67,7 @@ from wholecell.utils.random import stochasticRound
 from wholecell.utils.unit_struct_array import UnitStructArray
 
 from v2ecoli.library.data_predicates import monotonically_decreasing, all_nonnegative
-from scipy.stats import chisquare
+from scipy.stats import chisquare, poisson
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema_types import (
@@ -74,6 +76,36 @@ from v2ecoli.library.schema_types import (
     ACTIVE_RNAP_ARRAY,
     PROMOTER_ARRAY,
 )
+
+
+# dnaA autoregulation constants (dnaa-4 / Rashmi mechanism)
+DNAA_TU_IDX = 2778        # TU00259[c] — verified against cache_dnaa4_autoreg
+# s; 0 disables, 1 fully silences at f=1. Env-overridable so the no-autoreg
+# control run (DNAA_AUTOREG_STRENGTH=0) shares one code path with the experiment.
+AUTOREG_STRENGTH = float(os.environ.get("DNAA_AUTOREG_STRENGTH", "0.8"))
+# Repression curve: "linear" = (1 - s*f); "hill" = (1 - s * f^n/(K^n+f^n)).
+# Hill gives a sharper switch — LESS repression at low promoter occupancy (lifts
+# the cell-cycle trough), MORE once f crosses K (caps the peak). Per Rashmi's
+# handoff open question + the linear run's over-repression of the trough.
+AUTOREG_FORM = os.environ.get("DNAA_AUTOREG_FORM", "linear")
+AUTOREG_HILL_N = float(os.environ.get("DNAA_AUTOREG_HILL_N", "4"))
+AUTOREG_HILL_K = float(os.environ.get("DNAA_AUTOREG_HILL_K", "0.5"))
+
+
+def _autoreg_factor(promoter_fraction: float, strength: float,
+                    form: str | None = None, n: float | None = None,
+                    K: float | None = None) -> float:
+    """Transcription-scaling factor from promoter occupancy f in [0,1].
+
+    linear: ``1 - s*f``. hill: ``1 - s * f^n / (K^n + f^n)`` — sharper switch.
+    """
+    form = form if form is not None else AUTOREG_FORM
+    if form == "hill":
+        n = n if n is not None else AUTOREG_HILL_N
+        K = K if K is not None else AUTOREG_HILL_K
+        f = promoter_fraction
+        return 1.0 - strength * (f ** n) / (K ** n + f ** n)
+    return 1.0 - strength * promoter_fraction
 
 
 # Register default topology for this process, associating it with process name
@@ -88,6 +120,7 @@ TOPOLOGY = {
     "listeners": ("listeners",),
     "timestep": ("timestep",),
     "ppgpp_state": ("ppgpp_state",),
+    "dnaa_hydrolysis": ("process_state", "dnaa_hydrolysis"),
 }
 
 
@@ -218,6 +251,20 @@ class TranscriptInitiation(Step):
         'rnaSynthProbRnaPolymerase': {'_type': 'map[float]', '_default': {}},
         'rna_data': {'_type': 'units_array', '_default': {}},
         'seed': {'_type': 'integer', '_default': 0},
+        # PDMP / Phase 2 — switch between the legacy discrete-time
+        # multinomial event-distribution (``"discrete"``, default) and
+        # per-promoter Poisson tau-leap (``"poisson"``). Both produce the
+        # same expected number of initiations per tick; the Poisson
+        # branch treats each promoter as an independent jump process,
+        # which is what Phase 3's likelihood machinery integrates over.
+        'pdmp_initiation_mode': {'_type': 'string', '_default': 'discrete'},
+        # Phase-3 sprint-7 ABC-SMC knob. In poisson mode, multiplies
+        # the per-promoter initiation rate by this scalar BEFORE
+        # drawing Poisson samples. Default 1.0 reproduces the
+        # unperturbed sampler; sweeping {0.7, 0.85, 1.0, 1.15, 1.3}
+        # generates ensembles at distinguishable parameter values
+        # for the ABC-SMC stub script.
+        'transcript_init_prob_scale': {'_type': 'float', '_default': 1.0},
         'synth_prob': {'_type': 'array[float]', '_default': None},
         'transcription_direction': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'trna_attenuation': {'_type': 'boolean', '_default': False},
@@ -298,6 +345,20 @@ class TranscriptInitiation(Step):
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
 
+        self.pdmp_initiation_mode = str(
+            self.parameters.get("pdmp_initiation_mode", "discrete"))
+        self.transcript_init_prob_scale = float(
+            self.parameters.get("transcript_init_prob_scale", 1.0))
+        if self.transcript_init_prob_scale <= 0:
+            raise ValueError(
+                f"transcript_init_prob_scale must be > 0; got "
+                f"{self.transcript_init_prob_scale!r}")
+        if self.pdmp_initiation_mode not in ("discrete", "poisson"):
+            raise ValueError(
+                f"pdmp_initiation_mode must be 'discrete' or 'poisson'; "
+                f"got {self.pdmp_initiation_mode!r}"
+            )
+
         # Helper indices for Numpy indexing
         self.ppgpp_idx = None
 
@@ -320,6 +381,9 @@ class TranscriptInitiation(Step):
             'ppgpp_state': {
                 'basal_prob': {'_type': 'array[float]', '_default': []},
                 'frac_active_rnap': {'_type': 'float', '_default': 0.0},
+            },
+            'dnaa_hydrolysis': {
+                'promoter_fraction': {'_type': 'float', '_default': 0.0},
             },
         }
 
@@ -345,6 +409,7 @@ class TranscriptInitiation(Step):
                     'rnap_data':                     {
                         'did_initialize': {'_type': 'overwrite[integer]', '_default': 0},
                         'rna_init_event': {'_type': 'overwrite[array[integer]]', '_default': []},
+                        'log_likelihood': {'_type': 'overwrite[float]', '_default': 0.0},
                     },
                 },
             }
@@ -442,6 +507,22 @@ class TranscriptInitiation(Step):
                     1.0 - self.promoter_init_probs[is_fixed].sum()
                 ) / self.promoter_init_probs[~is_fixed].sum()
                 self.promoter_init_probs[~is_fixed] *= scaleTheRestBy
+
+            # dnaA autoregulation (dnaa-4 / Rashmi mechanism):
+            # scale dnaA promoter init-probs by (1 - s*f) where f = bound fraction
+            # of dnaA-box sites from the dnaa_hydrolysis port.
+            promoter_fraction = float(
+                states.get("dnaa_hydrolysis", {}).get("promoter_fraction", 0.0))
+            if promoter_fraction > 0.0 and AUTOREG_STRENGTH > 0.0:
+                dnaa_promoters = (TU_index == DNAA_TU_IDX)
+                if dnaa_promoters.any():
+                    self.promoter_init_probs[dnaa_promoters] *= _autoreg_factor(
+                        promoter_fraction, AUTOREG_STRENGTH)
+                    # Renormalize: promoter_init_probs is a distribution consumed by
+                    # multinomial (which forces the last element to the remainder), so
+                    # the repressed dnaA mass must redistribute proportionally, not pile
+                    # onto the last promoter. Repression of dnaA is preserved (p is tiny).
+                    self.promoter_init_probs /= self.promoter_init_probs.sum()
 
         # If there are no chromosomes in the cell, set all probs to zero
         else:
@@ -552,11 +633,69 @@ class TranscriptInitiation(Step):
         )
         update["listeners"]["rna_synth_prob"]["tu_is_overcrowded"] = tu_is_overcrowded
 
-        # Sample a multinomial distribution of initiation probabilities to
-        # determine what promoters are initialized
-        n_initiations = self.random_state.multinomial(
-            n_RNAPs_to_activate, self.promoter_init_probs
-        )
+        # Sample per-promoter initiation counts. Two modes:
+        #
+        # - ``"discrete"`` (legacy): one multinomial(n_RNAPs_to_activate,
+        #   promoter_init_probs) draw — enforces the exact sum constraint
+        #   Σ N_i = n_RNAPs_to_activate but couples promoters through that
+        #   constraint.
+        # - ``"poisson"`` (Phase 2 PDMP semantics): per-promoter
+        #   Poisson(n_RNAPs_to_activate · p_i) — each promoter is an
+        #   independent jump process with rate n·p_i; Σ N_i fluctuates
+        #   around n_RNAPs_to_activate but each promoter's per-tick count
+        #   has the correct marginal distribution for a continuous-time
+        #   inhomogeneous Poisson process tau-leaped over the tick.
+        #
+        #   We then truncate Σ N_i down to ``n_RNAPs_to_activate`` if the
+        #   Poisson sum exceeded the available RNAP pool (rejection
+        #   resampling weighted by N_i / Σ N_i) — preserves the resource
+        #   constraint without breaking marginal distributions on tau-leap
+        #   timescales where p_i × n is small.
+        if self.pdmp_initiation_mode == "poisson":
+            # Per-promoter Poisson tau-leap. Rates: each promoter i is an
+            # independent jump process with rate
+            #     λ_i = activationProb · n_inactive_RNAPs · p_i / dt
+            # so in window dt the per-promoter event count has expectation
+            #     λ_i · dt = n_RNAPs_to_activate · p_i
+            # which is the same expected count as the multinomial mode but
+            # with Poisson (independent) marginals.
+            poisson_means = (self.transcript_init_prob_scale
+                             * n_RNAPs_to_activate
+                             * self.promoter_init_probs)
+            n_initiations = self.random_state.poisson(poisson_means).astype(np.int64)
+            # Hard cap: total activations cannot exceed the *actual*
+            # inactive-RNAP pool (the resource constraint). Capping at
+            # ``n_RNAPs_to_activate`` instead would introduce an
+            # asymmetric truncation that systematically undercounts —
+            # Poisson variance pushes some ticks above the target and
+            # some below, but the cap only kills the highs.
+            n_inactive_RNAPs = int(counts(states["bulk"], self.inactive_RNAP_idx))
+            total_drawn = int(n_initiations.sum())
+            if total_drawn > n_inactive_RNAPs:
+                # Resource cap: subsample n_inactive_RNAPs events from
+                # the inflated draw pool, weighted by per-promoter counts.
+                event_promoters = np.repeat(
+                    np.arange(n_initiations.size), n_initiations,
+                )
+                keep_idx = self.random_state.choice(
+                    event_promoters.size,
+                    size=n_inactive_RNAPs,
+                    replace=False,
+                )
+                n_initiations = np.bincount(
+                    event_promoters[keep_idx], minlength=n_initiations.size,
+                ).astype(np.int64)
+        else:
+            n_initiations = self.random_state.multinomial(
+                n_RNAPs_to_activate, self.promoter_init_probs
+            )
+
+        # After sampling, the actual count of events may differ from
+        # n_RNAPs_to_activate (Poisson tau-leap fluctuates around the target;
+        # the multinomial path always equals the target). Rebind to the
+        # observed sum so downstream array allocations + the unique-RNAP-id
+        # range match the events we'll actually emit.
+        n_RNAPs_to_activate = int(n_initiations.sum())
 
         # Build array of transcription unit indexes for partially transcribed
         # RNAs and domain indexes for RNAPs
@@ -610,9 +749,23 @@ class TranscriptInitiation(Step):
             "total_rna_init": n_RNAPs_to_activate,
         }
 
+        # Phase-3 sprint-1: per-tick log-likelihood of the observed
+        # n_initiations under the Poisson rates that drove the sampler.
+        # When the resource cap fired (rare), this is the likelihood of
+        # the post-cap counts under the uncapped rates — an
+        # approximation that's exact in the cap-doesn't-fire limit.
+        # In discrete (multinomial) mode, emit 0.0 as a sentinel until
+        # the multinomial-log-likelihood is wired (Phase 3 sprint 2).
+        if self.pdmp_initiation_mode == "poisson":
+            log_lik = float(poisson.logpmf(
+                n_initiations, poisson_means).sum())
+        else:
+            log_lik = 0.0
+
         update["listeners"]["rnap_data"] = {
             "did_initialize": n_RNAPs_to_activate,
             "rna_init_event": rna_init_event.astype(np.int64),
+            "log_likelihood": log_lik,
         }
 
         update["listeners"]["rna_synth_prob"]["total_rna_init"] = n_RNAPs_to_activate

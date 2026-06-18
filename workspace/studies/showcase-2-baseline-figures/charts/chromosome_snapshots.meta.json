@@ -1,0 +1,7 @@
+{
+  "title": "Chromosome replication state across the cell cycle",
+  "caption": "oriC count (1->2->4) and replication-fork positions vs time, both seeds.",
+  "interpretation": "The red step trace shows the number of replication origins rising 1->2->4 at initiation events while blue points show replication-fork positions sweeping from oriC toward terC; division resets the state. The regular oriC-doubling and fork sweeps in both seeds confirm coordinated, once-per-cell-cycle replication initiation.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
+}

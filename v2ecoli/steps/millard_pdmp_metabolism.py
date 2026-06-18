@@ -44,6 +44,134 @@ DEFAULT_CELL_DENSITY_G_PER_L = 1100.0
 AVOGADRO = 6.02214076e23
 FG_PER_G = 1.0e-15
 
+# --- Medium-exchange (boundary) accounting ---------------------------------
+# Maps a Millard boundary REACTION -> (bare v2ecoli env name, stoichiometric
+# coefficient of the exchanged species in that reaction, sign). Used to emit
+# ``environment.exchange`` — the per-cell, per-tick molecule-count exchanged
+# with the medium — matching the WCM convention in
+# ``v2ecoli/processes/metabolism.py`` (BARE names, NEGATIVE = uptake / removed
+# from medium, POSITIVE = secretion / added to medium).
+#
+# Why flux-based (NOT concentration-delta): in the Millard SBML, O2 is a
+# ``fixed`` species (its mM is held constant -> a per-tick conc-delta is always
+# 0), and external glucose ``GLCx`` is replenished by an artificial chemostat
+# feed ``_GLC_FEED`` (flux ~10x uptake) so its mM RISES even as the cell
+# consumes it -> a conc-delta would report the WRONG sign (apparent secretion).
+# The physically correct medium exchange is the boundary-reaction flux (mM/s)
+# integrated over the tick. The flux is read from the same per-tick
+# ``central_fluxes`` map this Process already computes.
+#
+# CO2 / H2O: the Millard SBML has no free-CO2 species and holds HCO3 + H2O as
+# FIXED buffer species, so their efflux is accounted separately from the
+# reaction stoichiometry — see BYPRODUCT_EFFLUX_REACTIONS below.
+# --- Energy/redox currency homeostasis ------------------------------------
+# Millard-governed metabolites that whole-cell processes OUTSIDE the Millard
+# reaction network (translation, transcription, charging, ...) consume
+# cell-wide. The FBA Metabolism this Process replaces regenerates them every
+# tick to balance that demand, so in the FBA arm ATP[c] stays ~steady. Millard
+# 2017's reduced central-carbon network does NOT carry the whole-cell ATP/redox
+# turnover, and in delta_mode it only nudges the bulk by its own tiny per-tick
+# ΔmM. With nothing replenishing them, these pools drain monotonically to zero
+# (ATP[c] ~tick 130) and then negative, which makes the ATP-dependent
+# TF-phosphorylation reactions in the Equilibrium process unsolvable
+# ("Negative values at equilibrium steady state"). The homeostatic floor in
+# update() tops these — and only these — pools back up to the concentration
+# Millard's kinetics sustain (current_mM x V), so Millard acts as the cell's
+# metabolic engine for the energy currency exactly as the FBA arm does.
+HOMEOSTATIC_COFACTOR_MILLARD_IDS = frozenset({
+    "ATP", "ADP", "AMP", "NAD", "NADH", "NADP", "NADPH",
+})
+
+
+MEDIUM_EXCHANGE_REACTIONS: dict[str, tuple[str, float, float]] = {
+    # reaction:   (bare_name,          species_coeff, sign)
+    "CYTBO":      ("OXYGEN-MOLECULE",  1.0,           -1.0),  # O2 consumed (uptake)
+    "XCH_GLC":    ("GLC",              1.0,           -1.0),  # GLCx -> GLCp (uptake)
+    "_ACE_OUT":   ("ACET",            1.0,           +1.0),  # ACEx -> medium (secretion)
+}
+
+
+# --- Byproduct efflux (CO2 / H2O) -----------------------------------------
+# Decarboxylation CO2 and respiratory H2O cross the cell boundary as efflux,
+# but in the Millard SBML their carriers (HCO3, H2O) are FIXED species — the
+# kinetic network produces them into an infinite buffer, so they never appear
+# as a tracked pool and (before this) their mass left the boundary accounting
+# entirely. That made O2 + glucose UPTAKE look like phantom mass IMPORT (the
+# substrate carbon actually leaves as CO2, the consumed O2 leaves as H2O),
+# inflating the Millard-cell mass-conservation residual ~40x (measured: net
+# boundary mass-in +2.46 fg / 40 ticks vs an actual Δcell_mass of ~+0.06 fg).
+# Accounting the NET byproduct production as medium SECRETION (positive count,
+# WCM convention) closes the boundary: for a respiring cell, glucose-C in =
+# CO2-C out and O2 in = H2O out, so net boundary mass ≈ retained biomass.
+#
+# CO2 is modeled in Millard as bicarbonate (HCO3) produced by the
+# decarboxylating reactions (GND/PDH/ICD/LPD/MAE/PCK); PPC (anaplerotic) re-
+# fixes it, so the NET CO2 efflux is producers − PPC. Mass is accounted as CO2
+# (44 g/mol — the carbon physically leaving the organic pool, the respiratory-
+# quotient convention), NOT bicarbonate: the extra O/H of HCO3 come from the
+# fixed H2O buffer, not the dynamic cell pools. H2O efflux is the 2 H2O per
+# CYTBO turnover. Maps a BARE v2ecoli env name -> {reaction: stoich_coeff of
+# the byproduct in that reaction} (positive coeff = produced/secreted).
+BYPRODUCT_EFFLUX_REACTIONS: dict[str, dict[str, float]] = {
+    "CARBON-DIOXIDE": {
+        "GND": 1.0, "PDH": 1.0, "ICD": 1.0, "LPD": 1.0,
+        "MAE": 1.0, "PCK": 1.0, "PPC": -1.0,
+    },
+    "WATER": {"CYTBO": 2.0},
+}
+
+
+# --- Reactor->Millard O2 feedback (#225 item #4) ---------------------------
+# The reactor's dissolved O2 (and external glucose) reach this Process through
+# the ``external_concentrations`` input, but the bioreactor coupler / environment
+# mirror write them under v2ecoli molecule names (bare or [p]/[c]-suffixed),
+# whereas COPASI species are keyed by their SBML id. This alias table maps the
+# v2ecoli names onto the Millard SBML ids so the overwritten boundary value
+# actually drives the rate law. Raw SBML ids (e.g. "O2") still pass straight
+# through via ``self.sbml_to_name``; this only rescues the aliased names.
+#
+# O2 is a ``fixed`` species in the SBML, but its CYTBO rate law reads [O2]
+# linearly (Vmax/(...)*(QH2^2*O2 - Q^2/Keq)); overwriting the fixed value each
+# tick therefore THROTTLES respiration as the reactor's dissolved O2 falls — the
+# reverse leg of the reactor<->cell O2 loop. Driving the fixed-species value
+# (rather than un-fixing O2) keeps the ODE stable: O2 is never integrated, so it
+# can never be drawn negative / stiff, and the standalone cell (no external
+# drive) keeps the model's calibrated air-saturated 0.21 mM.
+EXTERNAL_NAME_TO_SBML: dict[str, str] = {
+    "OXYGEN-MOLECULE":    "O2",
+    "OXYGEN-MOLECULE[p]": "O2",
+    "OXYGEN-MOLECULE[c]": "O2",
+    "GLC":                "GLCx",
+    "GLC[p]":             "GLCx",
+    "GLC[c]":             "GLCx",
+}
+
+
+def _set_initial_concentrations(changes, dm) -> None:
+    """Overwrite the initial concentration of named species on a COPASI model.
+
+    Mirrors pbg_copasi.processes._set_initial_concentrations: set each
+    species' InitialConcentration then commit via updateInitialValues so the
+    next time course starts the overwritten species at the new value while
+    every other (internal) species carries over from the model's current
+    state.
+
+    changes: iterable of (copasi_species_name, value) pairs
+    dm: COPASI DataModel as returned by basico.load_model
+    """
+    import COPASI
+
+    model = dm.getModel()
+    references = COPASI.ObjectStdVector()
+    for name, value in changes:
+        species = model.getMetabolite(name)
+        if species is None:
+            continue
+        species.setInitialConcentration(float(value))
+        references.append(species.getInitialConcentrationReference())
+    if len(references) > 0:
+        model.updateInitialValues(references)
+
 
 def _load_millard_to_v2ecoli(mapping_file: str) -> dict[str, str]:
     path = Path(mapping_file)
@@ -96,7 +224,18 @@ class MillardPDMPMetabolism(Process):
         self.parameters = config or {}
         import basico
         self._basico = basico
-        basico.load_model(self.parameters["model_source"])
+        # Keep an explicit handle to THIS process's COPASI model so per-tick
+        # flux reads (basico.get_reactions(model=self._model)) are guaranteed
+        # to read the same model this process advances, regardless of any
+        # other basico model that may have become the global "current" model.
+        self._model = basico.load_model(self.parameters["model_source"])
+        # SBML-species-id -> COPASI display name, so external_concentrations
+        # (keyed by SBML id) can be applied via getMetabolite(name). Mirrors
+        # pbg_copasi.processes.BaseCopasi.sbml_to_name.
+        spec_df = basico.get_species(model=self._model)
+        self.sbml_to_name = {
+            spec_df.loc[name, "sbml_id"]: name for name in spec_df.index
+        }
         self.tick_s = float(self.parameters.get("tick_s", 1.0))
         self.intervals = int(self.parameters.get("intervals", 10))
         self.control_reaction = self.parameters.get("control_reaction", "PTS_4")
@@ -126,11 +265,16 @@ class MillardPDMPMetabolism(Process):
         # Resolved lazily on first update (need bulk['id'] from state).
         self._mids: list[str] | None = None
         self._bulk_idx: np.ndarray | None = None
+        self._cofactor_mask: np.ndarray | None = None
         self._tick = 0
 
     def __init__(self, config=None, core=None):
         super().__init__(config or {}, core)
-        self.initialize(config or {})
+        # Re-run initialize against the schema-filled config (self.config) so
+        # config_schema defaults (e.g. model_source) are present even when the
+        # caller passes an empty/partial config. The raw `config or {}` used
+        # previously raised KeyError('model_source') on config={}.
+        self.initialize(self.config)
 
     def inputs(self):
         return {
@@ -140,14 +284,50 @@ class MillardPDMPMetabolism(Process):
                 "_type": "node",
                 "_default": {"cell_mass": 0.0, "dry_mass": 0.0},
             },
+            # Optional bioreactor-environment drive: {sbml_species_id: conc_mM}.
+            # When non-empty, these species' initial concentrations are
+            # overwritten on the COPASI model before integrating each tick so
+            # the Millard kinetics respond to external nutrient levels (e.g.
+            # GLCx glucose, O2). Internal metabolites are untouched and carry
+            # over from the previous tick.
+            "external_concentrations": {"_type": "node", "_default": {}},
         }
 
     def outputs(self):
         return {
-            "species_concentrations": InPlaceDict(),
+            # mM concentrations / mM/s fluxes (see module docstring + the medium-
+            # exchange notes above). inplace_dict[<unit>] keeps the in-place merge
+            # apply these shared stores require while declaring the value unit so
+            # units_resolver labels them like the tFBA Metabolism's fba_results.
+            "species_concentrations": "inplace_dict[float[mM]]",
+            "central_fluxes": "inplace_dict[float[mM/s]]",
             "control_applied": InPlaceDict(),
             "bulk": "bulk_array",
+            # Per-tick signed molecule-count exchange with the medium, keyed by
+            # BARE v2ecoli name (WCM convention: NEGATIVE = uptake, POSITIVE =
+            # secretion). map[float] accumulates per-tick deltas in the store,
+            # exactly like the WCM metabolism's environment.exchange write, so
+            # the mass-conservation deriver's per-tick diff is valid.
+            "environment": {"exchange": "map[float]"},
         }
+
+    def _conc_to_count(self, state) -> float:
+        """mM -> per-cell molecule count factor for this tick.
+
+        Uses the live cell volume (listeners.mass.cell_mass / density) when
+        ``use_live_volume`` is set, else the static config volume. Identical to
+        the factor the bulk-delta path uses, so exchange counts share the bulk's
+        reference frame.
+        """
+        conc_to_count = self._conc_to_count_static
+        if self.use_live_volume:
+            mass_in = state.get("listeners_mass") or {}
+            cell_mass_fg = fg_magnitude(mass_in.get("cell_mass", 0.0))
+            if cell_mass_fg > 0.0:
+                live_volume_L = (cell_mass_fg * FG_PER_G
+                                 / self.cell_density_g_per_L)
+                conc_to_count = 1e-3 * live_volume_L * AVOGADRO
+        return conc_to_count
 
     def _apply_control(self, ctrl: dict) -> tuple[float, dict]:
         """Read lqr_control, set basico parameters, return (tick_value, applied).
@@ -200,13 +380,48 @@ class MillardPDMPMetabolism(Process):
         ctrl = state.get("lqr_control") or {}
         tick_value, applied = self._apply_control(ctrl)
 
-        # Advance the Millard ODE by one WCM tick.
+        # Drive the kinetics from the bioreactor environment: overwrite ONLY
+        # the named external species' initial concentrations before integrating
+        # (internal metabolites carry over). Mirrors
+        # CopasiUTCProcess._set_initial_concentrations.
+        external = state.get("external_concentrations") or {}
+        if external:
+            # Skip unmapped species and non-finite values: a diverging reactor can
+            # feed NaN/inf into external_concentrations, and float()/COPASI must not
+            # crash the WCM update on it (overwrite only clean, mapped boundaries).
+            changes = []
+            for raw_id, conc_mM in external.items():
+                # Accept raw SBML ids directly; otherwise map a v2ecoli molecule
+                # name (e.g. the coupler's "OXYGEN-MOLECULE[p]") to its SBML id.
+                sbml_id = (raw_id if raw_id in self.sbml_to_name
+                           else EXTERNAL_NAME_TO_SBML.get(raw_id))
+                if sbml_id is None or sbml_id not in self.sbml_to_name:
+                    continue
+                try:
+                    val = float(conc_mM)
+                except (TypeError, ValueError):
+                    continue
+                # Clamp negatives to 0 (a diverging reactor must not feed a
+                # negative boundary concentration into the rate law) and skip
+                # non-finite values entirely.
+                if not math.isfinite(val):
+                    continue
+                if val < 0.0:
+                    val = 0.0
+                changes.append((self.sbml_to_name[sbml_id], val))
+            if changes:
+                _set_initial_concentrations(changes, self._model)
+
+        # Advance the Millard ODE by one WCM tick. Pass model=self._model so the
+        # integration acts on the same model the external overwrite (and flux
+        # read below) target, regardless of basico's global "current" model.
         try:
             ts = basico.run_time_course(
                 duration=self.tick_s,
                 intervals=self.intervals,
                 update_model=True,
                 use_sbml_id=True,
+                model=self._model,
             )
         except Exception as e:
             self._tick += 1
@@ -221,8 +436,25 @@ class MillardPDMPMetabolism(Process):
         species = {sid: float(ts[sid].iloc[-1]) for sid in ts.columns}
         self._tick += 1
 
+        # Read per-reaction fluxes (mM/s) from the SAME model the ODE just
+        # advanced. basico.get_reactions() returns a DataFrame indexed by
+        # reaction name with a `flux` column; pass model=self._model so we
+        # never read a different model that happens to be basico-current.
+        central_fluxes: dict[str, float] = {}
+        try:
+            fl = basico.get_reactions(model=self._model)
+            if fl is not None and "flux" in getattr(fl, "columns", []):
+                for rxn in fl.index:
+                    val = fl.loc[rxn, "flux"]
+                    if val is not None and not (isinstance(val, float)
+                                                and math.isnan(val)):
+                        central_fluxes[str(rxn)] = float(val)
+        except Exception:
+            central_fluxes = {}
+
         update: dict[str, Any] = {
             "species_concentrations": species,
+            "central_fluxes": central_fluxes,
             "control_applied": {
                 "tick": self._tick,
                 "tick_value": tick_value,
@@ -230,6 +462,47 @@ class MillardPDMPMetabolism(Process):
                 "baseline_value": self.baseline_value,
             },
         }
+
+        # mM -> per-cell count factor (shared by exchange + bulk paths below).
+        conc_to_count = self._conc_to_count(state)
+
+        # Medium-exchange accounting: emit the per-tick signed molecule-count
+        # exchanged with the medium for each boundary species (O2, glucose,
+        # acetate). Flux-based, NOT concentration-delta — see
+        # MEDIUM_EXCHANGE_REACTIONS for why. This is the MEDIUM side; the bulk
+        # path below carries the intracellular metabolite deltas, so there is no
+        # double-counting (different stores, disjoint molecule sets).
+        exchange: dict[str, float] = {}
+        for rxn, (bare, coeff, sign) in MEDIUM_EXCHANGE_REACTIONS.items():
+            flux = central_fluxes.get(rxn)
+            if flux is None or not math.isfinite(flux):
+                continue
+            # mM exchanged this tick = flux[mM/s] * tick_s * stoich.
+            mM = flux * self.tick_s * coeff
+            count = round(sign * mM * conc_to_count)
+            if count != 0.0:
+                exchange[bare] = exchange.get(bare, 0.0) + count
+
+        # Byproduct efflux (CO2 from decarboxylation, H2O from respiration): the
+        # NET production summed over its source reactions -> medium SECRETION
+        # (positive count). Closes the boundary mass accounting the O2/glucose
+        # uptake otherwise leaves open. See BYPRODUCT_EFFLUX_REACTIONS.
+        for bare, rxn_coeffs in BYPRODUCT_EFFLUX_REACTIONS.items():
+            net_mM = 0.0
+            seen = False
+            for rxn, coeff in rxn_coeffs.items():
+                flux = central_fluxes.get(rxn)
+                if flux is None or not math.isfinite(flux):
+                    continue
+                net_mM += coeff * flux * self.tick_s
+                seen = True
+            if not seen:
+                continue
+            count = round(net_mM * conc_to_count)  # +secretion (WCM convention)
+            if count != 0.0:
+                exchange[bare] = exchange.get(bare, 0.0) + count
+        if exchange:
+            update["environment"] = {"exchange": exchange}
 
         # Translate mM → count deltas and emit to bulk.
         bulk = state.get("bulk")
@@ -248,18 +521,15 @@ class MillardPDMPMetabolism(Process):
                     resolved_idx.append(int(idx))
                 self._mids = resolved_mids
                 self._bulk_idx = np.asarray(resolved_idx, dtype=np.int64)
+                # Mask (aligned with _mids / _bulk_idx) marking the energy/redox
+                # currency cofactors that get the homeostatic floor.
+                self._cofactor_mask = np.fromiter(
+                    (mid in HOMEOSTATIC_COFACTOR_MILLARD_IDS
+                     for mid in resolved_mids),
+                    dtype=bool, count=len(resolved_mids))
 
             if self._bulk_idx is not None and self._bulk_idx.size > 0:
-                # Compute the mM→count conversion factor from the live cell
-                # volume when use_live_volume is set.
-                conc_to_count = self._conc_to_count_static
-                if self.use_live_volume:
-                    mass_in = state.get("listeners_mass") or {}
-                    cell_mass_fg = fg_magnitude(mass_in.get("cell_mass", 0.0))
-                    if cell_mass_fg > 0.0:
-                        live_volume_L = (cell_mass_fg * FG_PER_G
-                                         / self.cell_density_g_per_L)
-                        conc_to_count = 1e-3 * live_volume_L * AVOGADRO
+                # Same live-volume mM→count factor used for medium exchange.
                 current_mM = np.fromiter(
                     (species.get(mid, 0.0) for mid in self._mids),
                     dtype=np.float64, count=len(self._mids))
@@ -285,13 +555,34 @@ class MillardPDMPMetabolism(Process):
                     # path open; see config "delta_mode": False).
                     targets = current_mM * conc_to_count
                     delta = np.rint(targets - current).astype(np.int64)
-                # Floor at min_count: don't push counts below zero.
+                # Per-metabolite lower bound for the resulting bulk count.
+                # Default = min_count (≥0). For the energy/redox currency
+                # cofactors, raise the bound to the homeostatic level Millard's
+                # kinetics sustain (current_mM × V): these pools are drained
+                # cell-wide by processes outside the Millard network (which the
+                # FBA Metabolism this Process replaces used to balance), so
+                # without this floor they drain to zero and crash the
+                # ATP-dependent Equilibrium reactions. The floor only ever tops
+                # a pool back UP when a consumer drew it below the sustained
+                # concentration; a pool already above it (e.g. v2ecoli's larger
+                # initial inventory) is left untouched — no t=0 collapse, no
+                # pinning-down — exactly mirroring how the FBA arm holds ATP
+                # steady. See HOMEOSTATIC_COFACTOR_MILLARD_IDS.
+                floor = np.full_like(current, float(self.min_count),
+                                     dtype=np.float64)
+                if self._cofactor_mask.any():
+                    homeostatic = np.rint(current_mM * conc_to_count)
+                    floor = np.where(
+                        self._cofactor_mask,
+                        np.maximum(homeostatic, float(self.min_count)),
+                        floor,
+                    )
                 new_counts = current + delta
-                below = new_counts < self.min_count
+                below = new_counts < floor
                 if below.any():
                     delta = np.where(
                         below,
-                        np.int64(self.min_count) - current.astype(np.int64),
+                        (floor - current).astype(np.int64),
                         delta,
                     )
                 if delta.any():

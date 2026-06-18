@@ -34,15 +34,24 @@ whose output is live on this page.</p>
       port schemas (with units) and formal mathematical description.</li>
   <li><a href="bigraph_parca.html"><strong>ParCa pipeline</strong></a>
       &mdash; the nine-Step parameter-calculator composite, same interactive view.</li>
+  <li><a href="math_structure.html">Mathematical structure</a>
+      &mdash; the formal mathematical structure of each process (state variables
+      and update rules), e.g. chromosome replication initiate/elongate/terminate.</li>
 </ul>
 
 <h2>Engine comparison</h2>
 <ul>
-  <li><a href="v1_v2_comparison.html">vEcoli vs v2ecoli</a>
-      &mdash; runtime and growth-behavior comparison of vEcoli (the established
-      vivarium-based whole-cell model) and the current v2ecoli baseline
-      (process-bigraph). Wall-time benchmarks and mass/growth trajectories over
-      a matched simulation duration.</li>
+  <li><a href="composite_comparison.html"><strong>Composite comparison</strong></a>
+      &mdash; <strong>the default engine comparison.</strong> Thorough multi-engine
+      run of vEcoli, the v2ecoli baseline, and the millard_fba_bridge_harness over
+      a full division cycle: per-step runtime (mean/median/p95 + peak RSS),
+      divergence-verdict badges and shared-axis behavioral overlays for every
+      observable, FBA-bridge flux-pin diagnostics, and a per-reaction flux
+      divergence deep-dive (which metabolic pathways carry different flux between
+      engines).</li>
+  <li><a href="v1_v2_comparison.html">vEcoli vs v2ecoli (legacy 2-way)</a>
+      &mdash; the older fixed two-engine report: wall-time benchmarks and
+      mass/growth trajectories. Superseded by the Composite comparison above.</li>
 </ul>
 
 <h2>ParCa</h2>
@@ -52,6 +61,10 @@ whose output is live on this page.</p>
       runtimes, port manifests, raw-data (flat TSV) stats, and
       distribution overlays vs vEcoli reference where intermediates
       are available.</li>
+  <li><a href="ecoli_sources_report.html">ecoli-sources bundle</a>
+      &mdash; ParCa input data sources pulled from the
+      <code>ecoli-sources</code> package (reconstruction flat files);
+      real ParCa output plus a multi-ParCa demo (operons on/off).</li>
 </ul>
 
 <h2>Cell lifecycle</h2>

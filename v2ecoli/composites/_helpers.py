@@ -26,6 +26,16 @@ import warnings
 
 import numpy as np
 
+# Framework-generic per-agent emitter-lifecycle registry (register / get /
+# unregister + finalize) now lives in pbg-emitters. v2ecoli re-exports the
+# parquet-named wrappers below so existing call sites keep working.
+from pbg_emitters.lifecycle import (
+    register_emitter as register_parquet_emitter,
+    get_emitter as get_parquet_emitter,
+    unregister_emitter as _unregister_emitter,
+    finalize_emitter_for_agent,
+)
+
 # ---------------------------------------------------------------------------
 # Process imports (needed for PARTITIONED_PROCESSES and _instantiate_step)
 # ---------------------------------------------------------------------------
@@ -211,6 +221,19 @@ _NULL_EMITTER_OVERRIDE: bool = False
 # from its own ``@composite_generator(emitters=[...])`` entry around the build.
 _DEFAULT_EMITTER_DECL: dict | None = None
 
+# Per-agent registry of live ParquetEmitter step instances (framework-generic
+# registry imported at module top from ``pbg_emitters.lifecycle``). Populated
+# when ``_get_special_step('emitter')`` constructs an emitter under a parquet
+# override; consulted by ``Division.next_update`` so the parent's trailing
+# partial batch can be ``close(success=True)``-d before the agent is
+# ``_remove``-d (mirrors vEcoli's pre-divide ``self.emitter.finalize()`` hook
+# in ``ecoli/experiments/ecoli_master_sim.py`` / ``engine_process.py``).
+
+
+def unregister_parquet_emitter(agent_id: str) -> None:
+    """Drop the registered emitter for ``agent_id`` (thin pbg-emitters wrapper)."""
+    _unregister_emitter(agent_id)
+
 
 def set_emitter_override(config: dict | None) -> None:
     """Set the module-level SQLite emitter override. Pass None to clear."""
@@ -299,7 +322,11 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
             out_dir = (str(ws_root / ".pbg" / "parquet-runs")
                        if ws_root is not None else "out/parquet")
         preset = parquet_vecoli(out_dir=out_dir,
-                                experiment_id=cfg_in.pop("experiment_id", "default"))
+                                experiment_id=cfg_in.pop(
+                                    "experiment_id",
+                                    os.environ.get(
+                                        "V2ECOLI_EMITTER_EXPERIMENT_ID",
+                                        "default")))
         emit_schema = {
             "global_time": "float",
             "bulk": "array[integer]",
@@ -312,6 +339,26 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
         }
         cfg = {"emit": emit_schema, **preset, **cfg_in}
         return ParquetEmitter(cfg, core), topo
+
+    if address == "XArrayEmitter":
+        from pbg_emitters import XArrayEmitter
+        # Mirror the ParquetEmitter wiring (global_time + bulk + listeners).
+        # The xarray_vecoli preset's ``transducer`` / ``view`` are
+        # per-composite (not preset-able), so a generator declaring an
+        # XArrayEmitter default supplies them via ``decl['config']``; those
+        # flow through ``cfg_in`` here.
+        emit_schema = {
+            "global_time": "float",
+            "bulk": "array[integer]",
+            "listeners": listeners_schema,
+        }
+        topo = {
+            "global_time": ("global_time",),
+            "bulk": ("bulk",),
+            "listeners": ("listeners",),
+        }
+        cfg = {"emit": emit_schema, **cfg_in}
+        return XArrayEmitter(cfg, core), topo
 
     if address == "SQLiteEmitter":
         emit_schema = {"global_time": "float", "listeners": listeners_schema}
@@ -327,7 +374,8 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
 
     raise ValueError(
         f"declared default emitter address {decl.get('address')!r} is not "
-        "recognised (expected one of ParquetEmitter, SQLiteEmitter, RAMEmitter)"
+        "recognised (expected one of ParquetEmitter, XArrayEmitter, "
+        "SQLiteEmitter, RAMEmitter)"
     )
 
 
@@ -601,7 +649,8 @@ def parquet_emitter(*, out_dir: str | None = None,
         out_dir = str(ws_root / ".pbg" / "parquet-runs")
 
     if experiment_id is None:
-        experiment_id = "default-" + uuid.uuid4().hex[:8]
+        experiment_id = (os.environ.get("V2ECOLI_EMITTER_EXPERIMENT_ID")
+                         or ("default-" + uuid.uuid4().hex[:8]))
 
     # Build the emitter config dict via the vEcoli-shaped preset so the
     # hive layout + dtype overrides match upstream conventions exactly.
@@ -1081,11 +1130,63 @@ def _get_special_step(loader, step_name, core):
                 'rnap_data': {
                     'rna_init_event': 'array[integer]',
                     'did_initialize': 'integer',
+                    # Phase-3 sprint-1 per-tick log-likelihood; needed
+                    # alongside rna_init_event so post-hoc inference
+                    # can compare observation to model.
+                    'log_likelihood': 'float',
+                },
+                'ribosome_data': {
+                    # Phase-3 sprint-2 per-tick log-likelihood from
+                    # PolypeptideInitiation.
+                    'log_likelihood': 'float',
                 },
                 'replication_data': {
                     'number_of_oric': 'integer',
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
+                },
+                # dnaa-3 in-sim DnaA-box occupancy observer (dnaa_box_binding
+                # listener). Mirrors DnaaBoxBinding.outputs() leaf-for-leaf so
+                # the parquet emitter captures the occupancy columns.
+                #
+                # CRITICAL: these MUST be overwrite[...] (not plain float/integer).
+                # The dnaA_binding store leaves do NOT exist in the resume dill
+                # (unlike replication_data, whose leaves the parent emits), so
+                # the leaf type is established by this emit-schema declaration.
+                # A plain `float` apply ACCUMULATES (state += delta) — the listener
+                # would report a running SUM over every tick (free DnaA-ATP grew
+                # 27k->57k nM, occupancy >1) instead of the per-tick value. The
+                # `overwrite[...]` apply replaces, matching the step's outputs().
+                'dnaA_binding': {
+                    'free_DnaA_ATP_nM': 'overwrite[float]',
+                    'free_DnaA_ADP_nM': 'overwrite[float]',
+                    'oric': {
+                        'high_affinity_occupied': 'overwrite[float]',
+                        'low_affinity_occupied': 'overwrite[float]',
+                        'n_bound': 'overwrite[integer]',
+                        'n_total': 'overwrite[integer]',
+                    },
+                    'dnaap': {
+                        'occupied': 'overwrite[float]',
+                        'n_bound': 'overwrite[integer]',
+                        'n_total': 'overwrite[integer]',
+                    },
+                    'chromosome': {
+                        'occupied': 'overwrite[float]',
+                        'occupied_count': 'overwrite[integer]',
+                        'n_total': 'overwrite[integer]',
+                    },
+                    'total_DnaA_bound': 'overwrite[integer]',
+                },
+                # Phase-3 sprint-3: aggregate likelihood listener
+                # written by LikelihoodCollector. Single-scalar per-tick
+                # observable for downstream inference tools (ABC-SMC,
+                # SBC) — read directly from the emitter store without
+                # re-aggregating per-process fields.
+                'likelihood': {
+                    'transcript_init': 'float',
+                    'polypeptide_init': 'float',
+                    'total': 'float',
                 },
             })
 
@@ -1114,6 +1215,13 @@ def _get_special_step(loader, step_name, core):
             }
             cfg = {'emit': emit_schema, **parquet_override}
             instance = ParquetEmitter(cfg, core)
+            # Register under the override's metadata.agent_id (the runner's
+            # per-generation identity: "0", "00", ...) so Division can flush
+            # this emitter's trailing partial batch + write the success
+            # sentinel before the agent subtree is torn down at _remove.
+            _agent_id = (parquet_override.get('metadata') or {}).get('agent_id')
+            if _agent_id is not None:
+                register_parquet_emitter(str(_agent_id), instance)
         elif override is not None:
             # Persistent SQLite path (default-baseline + per-study run
             # scripts). Capture ONLY global_time + listeners. The raw
@@ -1233,6 +1341,38 @@ def _get_special_step(loader, step_name, core):
         instance = ReplicationData(config=config, core=core)
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
+
+    if step_name == 'dnaa_box_binding_listener':
+        # dnaa-3 read-only DnaA-box occupancy observer (the PROVIDED model).
+        # Config defaults (K_d / pool sizes) live in the step's config_schema;
+        # an empty config uses them. Placed in an early layer (see baseline.py)
+        # so its listeners.mass read resolves to the prior tick.
+        #
+        # CRITICAL: this is a READ-ONLY listener. The step reads ``bulk`` (a
+        # structured-array store), the ``DnaA_box`` unique store, and
+        # ``listeners.mass`` — but writes ONLY ``listeners.dnaA_binding``. If we
+        # returned a 3-tuple, make_edge() would mirror the FULL topology onto
+        # both the input AND output wires, wiring ``bulk`` as an updatable
+        # output. The engine then tries to apply an (absent) delta onto the
+        # bulk structured array → ``ufunc 'add' did not contain a loop`` crash.
+        # So we split the topology: ALL ports are inputs; the ONLY output wire
+        # is ``listeners`` (where dnaA_binding lives). Mirrors the partitioned-
+        # step pattern above (in_topo/out_topo split).
+        from v2ecoli.steps.derivers.dnaa_box_binding import DnaaBoxBinding
+        instance = _make_instance(
+            DnaaBoxBinding, {'time_step': 1}, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        # Wire exactly the ports the schema declares: in_topo from inputs()
+        # keys, out_topo from outputs() keys. This keeps ``bulk`` /
+        # ``mass_listener`` / ``DnaA_boxes`` as pure reads and ``listeners`` as
+        # the sole write target.
+        in_keys = set(instance.inputs().keys())
+        out_keys = set(instance.outputs().keys())
+        in_topo = {k: v for k, v in topology.items() if k in in_keys}
+        out_topo = {k: v for k, v in topology.items() if k in out_keys}
+        return instance, topology, 'step', in_topo, out_topo
 
     if step_name == 'mark_d_period':
         from v2ecoli.steps.division import MarkDPeriod

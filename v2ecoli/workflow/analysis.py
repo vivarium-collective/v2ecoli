@@ -38,6 +38,54 @@ ANALYSIS_SCALES: dict[str, str] = {
 ANALYSIS_REGISTRY: dict[str, type] = {}
 
 
+class Analysis(V2Step):
+    """Visualization-like analysis: reads sim output via a DuckDB connection +
+    the ParCa ``sim_data``, and emits a rendered ``view`` (HTML) plus optional
+    ``data`` (map). Faithful native ports of vEcoli's ``plot()`` analyses build
+    on this base (cf. the record-based ``AnalysisStep`` for emitted-observable
+    analyses). Subclasses set ``scale`` + ``name`` and implement ``analyze``.
+
+    Live, non-serializable handles (``conn``, ``sim_data``) are injected by the
+    runner into the state dict passed to ``update``; ``inputs()`` declares them
+    for discoverability with a permissive ("any") type.
+    """
+
+    scale: str = "single"
+    config_schema = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.scale not in ANALYSIS_SCALES:
+            raise ValueError(
+                f"{cls.__name__}.scale={cls.scale!r} not in {sorted(ANALYSIS_SCALES)}")
+        if "name" in cls.__dict__:
+            ANALYSIS_REGISTRY[cls.name] = cls
+
+    def inputs(self):
+        return {
+            "conn": "any", "history_sql": "string",
+            "config_sql": "string", "success_sql": "string",
+            "sim_data": "any", "validation_data": "any",
+            "variant_metadata": "any",
+        }
+
+    def outputs(self):
+        return {"view": "string", "data": "map"}
+
+    def analyze(self, *, conn, history_sql, sim_data, **ctx) -> dict:
+        """Return {"view": <html str>, "data": <map>} (either key optional)."""
+        raise NotImplementedError
+
+    def invoke(self, state, interval=None):
+        # Fail loudly (like AnalysisStep): a broken analyze() must surface.
+        return SyncUpdate(self.update(state))
+
+    def update(self, state, interval=None):
+        kwargs = {k: state.get(k) for k in self.inputs()}
+        out = self.analyze(**kwargs) or {}
+        return {"view": out.get("view", ""), "data": out.get("data", {})}
+
+
 class AnalysisStep(V2Step):
     """Base for result-consuming analysis Steps.
 
@@ -202,3 +250,166 @@ class MetricAcrossVariants(AnalysisStep):
                 "mean_final_dry_mass": statistics.mean(fms) if fms else 0.0,
             })
         return {"per_variant": per_variant}
+
+
+def _mean_std_cv(values: list[float]) -> dict[str, float]:
+    """Population stats over a list of **per-cell** scalars (one value per cell).
+
+    Carries the raw per-cell ``values`` so the renderer can draw a violin/strip
+    and a Welch t-test can compare two ensembles directly from their value
+    lists. ``cv`` is the coefficient of variation (std / mean) — the
+    dimensionless cell-to-cell spread. ``std`` is the population standard
+    deviation (descriptive); inferential comparisons use ``values`` directly.
+    """
+    n = len(values)
+    if n == 0:
+        return {"n": 0, "mean": 0.0, "std": 0.0, "cv": 0.0, "values": []}
+    mean = statistics.mean(values)
+    std = statistics.pstdev(values) if n > 1 else 0.0
+    return {"n": n, "mean": mean, "std": std,
+            "cv": (std / mean) if mean else 0.0,
+            "values": [float(v) for v in values]}
+
+
+def _variance_decomposition(labeled: list[tuple]) -> dict:
+    """Two-way (seed × generation) decomposition of the cell-to-cell variance.
+
+    ``labeled`` is ``[(seed, generation, value), ...]``. Returns the fraction of
+    total variance structured by seed (``eta_seed``) and by generation
+    (``eta_gen``) — group-mean sums-of-squares over the grand total — plus a
+    Spearman rank correlation of value vs generation (``rho_gen``). A high
+    ``eta_gen`` that is also *monotonic* (|rho_gen| large) is the signature of a
+    non-stationary lineage (the ensemble is still drifting across generations,
+    not fluctuating around a steady state). Descriptive, not a formal ANOVA:
+    the design is small + unbalanced, so eta's are marginal and need not sum to
+    1. Returns ``{}`` when there's too little data or no variance."""
+    n = len(labeled)
+    if n < 6:
+        return {}
+    seeds = [s for s, _, _ in labeled]
+    gens = [g for _, g, _ in labeled]
+    xs = [v for _, _, v in labeled]
+    mu = sum(xs) / n
+    ss_tot = sum((x - mu) ** 2 for x in xs)
+    if ss_tot == 0:
+        return {}
+
+    def _group_ss(keys):
+        ss = 0.0
+        for k in set(keys):
+            idx = [i for i, kk in enumerate(keys) if kk == k]
+            gm = sum(xs[i] for i in idx) / len(idx)
+            ss += len(idx) * (gm - mu) ** 2
+        return ss
+
+    out = {"eta_seed": _group_ss(seeds) / ss_tot,
+           "eta_gen": _group_ss(gens) / ss_tot,
+           "n_seeds": len(set(seeds)), "n_gens": len(set(gens)),
+           # raw labeled points so a flagged axis can plot metric-vs-generation
+           "by_cell": [[int(s), int(g), float(v)] for s, g, v in labeled]}
+    if len(set(gens)) > 1:
+        from scipy import stats
+        rho, p = stats.spearmanr(gens, xs)
+        if rho == rho:  # not nan (constant values give nan)
+            out["rho_gen"] = float(rho)
+            out["p_gen"] = float(p)
+    return out
+
+
+def _stat(labeled: list[tuple]) -> dict:
+    """Per-cell stat node ({n,mean,std,cv,values}) + a ``variance`` sub-dict
+    decomposing the cell-to-cell variance across seeds vs generations.
+    ``labeled`` is ``[(seed, generation, value), ...]``."""
+    node = _mean_std_cv([v for _, _, v in labeled])
+    dec = _variance_decomposition(labeled)
+    if dec:
+        node["variance"] = dec
+    return node
+
+
+class PopulationPhenotypeBasalCard(AnalysisStep):
+    """Multiseed: the v1 *meta-tier report card* measurement.
+
+    Grades the two universally-applicable basal-condition axes over an
+    ensemble of cells (seeds x generations of one variant), reporting each
+    as a cell-to-cell mean / std / CV:
+
+      - **Growth**: doubling time over confirmed divisions.
+      - **Composition**: protein / RNA / DNA mass fractions of dry weight.
+
+    This is the *measurement* half of the report card. The *grade* (pass/fail
+    vs. a pinned reference within tolerance) lives in
+    ``tests/test_population_phenotype_basal.py`` so the reference and tolerances are
+    reviewable artifacts, not buried analysis constants.
+
+    Design notes:
+      - ``generation_lower_bound`` drops early generations as burn-in, so the
+        ensemble reflects steady balanced growth rather than the inoculation
+        transient. The canonical convention is to discard the first few
+        generations of a multi-gen lineage.
+      - The per-cell records this consumes already carry time-averaged
+        ``protein_fraction_mean`` / ``rna_fraction_mean`` / ``dna_fraction_mean``
+        (see ``analysis_runner.build_cell_records``), so composition is an
+        ensemble reduction over those, not a re-derivation from timeseries.
+      - **RNA = total RNA** (``rna_mass`` = rRna+tRna+mRna), per cell.
+      - Each axis carries the raw per-cell ``values`` (one per cell) so the
+        report can draw violin/strip plots and grade with a Welch t-test.
+    """
+
+    name = "population_phenotype_basal"
+    scale = "multiseed"
+    config_schema = {
+        "generation_lower_bound": {"_type": "integer", "_default": 0},
+    }
+
+    def analyze(self, rows):
+        burn_in = int(self.config.get("generation_lower_bound", 0))
+        kept = [r for r in rows if int(r.get("generation", 0)) >= burn_in]
+
+        # Per-cell values carry their (seed, generation) labels so each axis can
+        # decompose its cell-to-cell variance across seeds vs generations.
+        def _lab(key, keep):
+            out = []
+            for r in kept:
+                v = r.get(key)
+                if v is None or not keep(r, float(v)):
+                    continue
+                out.append((int(r["lineage_seed"]), int(r["generation"]), float(v)))
+            return out
+
+        # doubling: confirmed divisions only (non-divided cells' time is the cap)
+        _divided = lambda r, v: r.get("divided") is True and v > 0
+        _pos = lambda r, v: v > 0          # fractions / levels: skip zero/absent
+        _any = lambda r, v: True           # event times: already non-None
+
+        # Simulation health: how the sims themselves went (divided vs hit the
+        # per-generation duration cap), over ALL cells (pre-burn-in) — a
+        # run-quality readout distinct from the graded phenotype axes. A
+        # cell whose `divided` is False ran to the cap without dividing.
+        n_div = sum(1 for r in rows if r.get("divided") is True)
+        n_fail = sum(1 for r in rows if r.get("divided") is False)
+        return {
+            "n_cells": len(kept),
+            "generation_lower_bound": burn_in,
+            "sim_health": {"n_total": len(rows), "n_divided": n_div,
+                           "n_failed": n_fail},
+            "physiology": {
+                "doubling_time": _stat(_lab("division_time", _divided)),
+                "cell_mass": _stat(_lab("cell_mass_mean", _pos)),
+                "cell_volume": _stat(_lab("volume_mean", _pos)),
+                "oric": _stat(_lab("oric_mean", _pos)),
+                "replication_initiation": _stat(_lab("replication_initiation_time", _any)),
+                "replication_completion": _stat(_lab("replication_completion_time", _any)),
+            },
+            "composition": {
+                "protein_fraction": _stat(_lab("protein_fraction_mean", _pos)),
+                "rna_fraction": _stat(_lab("rna_fraction_mean", _pos)),
+                "dna_fraction": _stat(_lab("dna_fraction_mean", _pos)),
+            },
+            "ribosomes": {
+                "total": _stat(_lab("ribosome_total_mean", _pos)),
+                "active_fraction": _stat(_lab("ribosome_active_fraction_mean", _pos)),
+                "elongation_rate": _stat(_lab("ribosome_elongation_mean", _pos)),
+                "production": _stat(_lab("ribosome_production_mean", _pos)),
+            },
+        }

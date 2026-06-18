@@ -10,6 +10,7 @@ repo (the harness invokes one ``--vecoli-repo`` per run).
 """
 from __future__ import annotations
 
+import contextlib
 import importlib
 import json
 import os
@@ -19,6 +20,38 @@ from typing import Any
 
 class InjectionError(RuntimeError):
     """A fork process cannot be injected (unsupported / unresolved)."""
+
+
+@contextlib.contextmanager
+def _idempotent_registration():
+    """Make vivarium's ``Registry.register`` idempotent during a fork import.
+
+    A real vEcoli fork's ``ecoli/__init__.py`` re-registers emitters/processes
+    into vivarium's global singleton registries (already populated by the
+    installed ``ecoli``); the stock ``register`` raises on a duplicate key whose
+    value differs (a re-imported module yields new class objects). Within this
+    context we skip keys that already exist and add only new ones, restoring the
+    original method afterwards. If vivarium is not importable (the duck-typed
+    fixture fork), this is a no-op.
+    """
+    try:
+        from vivarium.core import registry as _vreg
+    except Exception:  # noqa: BLE001 — fixture fork has no vivarium registries
+        yield
+        return
+    orig = _vreg.Registry.register
+
+    def _idempotent(self, key, item, alternate_keys=tuple()):
+        for rk in [key, *alternate_keys]:
+            if rk not in self.registry:
+                self.registry[rk] = item
+        self.main_keys.append(key)
+
+    _vreg.Registry.register = _idempotent
+    try:
+        yield
+    finally:
+        _vreg.Registry.register = orig
 
 
 # Cache populated by resolve_injections: (module, qualname) -> class.
@@ -55,13 +88,17 @@ def _fork_registry(fork_repo: str):
     - The installed vEcoli's ecoli.* modules are restored afterwards, preventing
       duplicate class-object registrations in vivarium singleton registries.
 
-    Known limitation (validate at manual Step 7, real fork, >=2 generations):
-    for a REAL vEcoli fork whose ``ecoli/__init__.py`` registers emitters into
-    vivarium's global singleton registry, importing the fork here may raise a
-    duplicate-registration Exception (e.g. "registry already contains an entry
-    for parquet") because that singleton is NOT cleared by the sys.modules
-    save/restore above. The fixture fork has no emitters, so this path cannot be
-    exercised in unit tests; intentionally NOT guarded with untested try/except.
+    Real-fork duplicate registrations: a REAL vEcoli fork's ``ecoli/__init__.py``
+    re-registers emitters/processes into vivarium's GLOBAL singleton registries
+    (already populated by the installed ``ecoli``), so re-importing the fork
+    would raise "registry already contains an entry for ...". We make vivarium's
+    ``Registry.register`` idempotent (skip keys that already exist, add new ones)
+    for the duration of the fork import only, then restore it — see
+    :func:`_idempotent_registration`. The fork's NEW process names (those in
+    ``add_processes``) still register; names shared with the installed ecoli keep
+    the installed class, which is irrelevant since we only resolve the
+    added/swapped classes. The duck-typed fixture fork has no vivarium registries,
+    so the context manager is a no-op there.
     """
     fork_abs = os.path.abspath(fork_repo)
     if fork_repo not in sys.path:
@@ -76,7 +113,8 @@ def _fork_registry(fork_repo: str):
             saved_real[k] = mod  # keep for restore
 
     try:
-        fork_mod = importlib.import_module("ecoli.processes")
+        with _idempotent_registration():
+            fork_mod = importlib.import_module("ecoli.processes")
     except Exception as exc:  # noqa: BLE001
         _restore_ecoli(saved_real, fork_repo)
         raise InjectionError(

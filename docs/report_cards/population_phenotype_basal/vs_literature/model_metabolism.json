@@ -235,30 +235,215 @@
     "rq": 3.550258162543505
   },
   "central_carbon": {
-    "normalized_to_glucose_100": {
-      "Pgi": 71.18383469647823,
-      "Pfk": 25.483326060911278,
-      "Fba": 23.015313993636376,
-      "Tpi": -70.81090332381117,
-      "GAPDH": 145.60490919519782,
-      "Eno": 145.29781344414533,
-      "Pyk": -31.915922746839335,
-      "Zwf": 25.088793761511795,
-      "6PGDH": 24.993380639282975,
-      "ED": 1.909435093241938e-05,
-      "Rpe": 4.441431125633178,
-      "Rpi": -20.21246293210107,
-      "PDH": 9.080110343249192,
-      "CS": 16.447006438241523,
-      "ICDH": 31.333204042915092,
-      "aKGDH": 0.00034334611032013336,
-      "SDH": 9.493988085212859,
-      "Fum": 70.17693777000959,
-      "MDH": -91.65186086045672,
-      "Icl": 1.9249898052272818,
-      "MS": 0.0,
-      "Ppc": -58.00810069526447,
-      "Ack": 4.209345593343779
-    }
+    "normalized_to_glucose_100": true,
+    "reactions": [
+      {
+        "label": "Pgi",
+        "crown_fid": "crown_f2",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 71.18383469647823,
+        "model_std": 25.628372233192234,
+        "model_abs": 3.5956826497507293
+      },
+      {
+        "label": "Pfk",
+        "crown_fid": "crown_f3",
+        "group": "glycolysis",
+        "flag": "aldolase_bypass",
+        "model": 25.483326060911278,
+        "model_std": 5.962224096029436,
+        "model_abs": 1.2889730490208418
+      },
+      {
+        "label": "Fba",
+        "crown_fid": "crown_f4",
+        "group": "glycolysis",
+        "flag": "aldolase_bypass",
+        "model": 23.015313993636376,
+        "model_std": 5.337464367555476,
+        "model_abs": 1.1649774966164932
+      },
+      {
+        "label": "Tpi",
+        "crown_fid": "crown_f5",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 70.81090332381117,
+        "model_std": 8.41681473150754,
+        "model_abs": 3.6179155746399188
+      },
+      {
+        "label": "GAPDH",
+        "crown_fid": "crown_f6",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 145.60490919519782,
+        "model_std": 9.017018310322902,
+        "model_abs": 7.463607805200889
+      },
+      {
+        "label": "Eno",
+        "crown_fid": "crown_f7",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 145.29781344414533,
+        "model_std": 8.942508893546803,
+        "model_abs": 7.4481639047263615
+      },
+      {
+        "label": "Pyk",
+        "crown_fid": "crown_f8",
+        "group": "glycolysis",
+        "flag": "pts_coupled",
+        "model": 31.915922746839335,
+        "model_std": 40.271120963711155,
+        "model_abs": 1.6223297911944026
+      },
+      {
+        "label": "Zwf",
+        "crown_fid": "crown_f9",
+        "group": "oxPPP",
+        "flag": null,
+        "model": 25.088793761511795,
+        "model_std": 25.69391441868385,
+        "model_abs": 1.3562370961903754
+      },
+      {
+        "label": "6PGDH",
+        "crown_fid": "crown_f10",
+        "group": "oxPPP",
+        "flag": null,
+        "model": 24.993380639282975,
+        "model_std": 25.692745180843545,
+        "model_abs": 1.3513261887225316
+      },
+      {
+        "label": "Rpe",
+        "crown_fid": "crown_f11",
+        "group": "PPP",
+        "flag": null,
+        "model": 4.441431125633178,
+        "model_std": 17.282770343636514,
+        "model_abs": 0.27173033118975
+      },
+      {
+        "label": "Rpi",
+        "crown_fid": "crown_f12",
+        "group": "PPP",
+        "flag": null,
+        "model": 20.21246293210107,
+        "model_std": 8.494681922008766,
+        "model_abs": 1.0620421148302812
+      },
+      {
+        "label": "EDD / EDA",
+        "crown_fid": "crown_f18",
+        "group": "ED",
+        "flag": null,
+        "model": 1.909435093241938e-05,
+        "model_std": 4.7535194519548816e-05,
+        "model_abs": 8.993826623381556e-07
+      },
+      {
+        "label": "PDH",
+        "crown_fid": "crown_f20",
+        "group": "TCA",
+        "flag": null,
+        "model": 9.080110343249192,
+        "model_std": 13.56237026628193,
+        "model_abs": 0.45911940717871813
+      },
+      {
+        "label": "CS",
+        "crown_fid": "crown_f21",
+        "group": "TCA",
+        "flag": null,
+        "model": 16.447006438241523,
+        "model_std": 14.774042391884016,
+        "model_abs": 0.8071197841893282
+      },
+      {
+        "label": "ICDH",
+        "crown_fid": "crown_f23",
+        "group": "TCA",
+        "flag": null,
+        "model": 31.333204042915092,
+        "model_std": 54.802941732466614,
+        "model_abs": 1.5439427898512121
+      },
+      {
+        "label": "aKGDH",
+        "crown_fid": "crown_f24",
+        "group": "TCA",
+        "flag": null,
+        "model": 0.00034334611032013336,
+        "model_std": 0.0011640095923129907,
+        "model_abs": 1.4467020514570371e-05
+      },
+      {
+        "label": "SDH",
+        "crown_fid": "crown_f26",
+        "group": "TCA",
+        "flag": null,
+        "model": 9.493988085212859,
+        "model_std": 9.924828597286515,
+        "model_abs": 0.46468871287054403
+      },
+      {
+        "label": "Fum",
+        "crown_fid": "crown_f27",
+        "group": "TCA",
+        "flag": "reductive_reverse",
+        "model": -70.17693777000959,
+        "model_std": 45.0722672941233,
+        "model_abs": -3.5923167354096295
+      },
+      {
+        "label": "MDH",
+        "crown_fid": "crown_f28",
+        "group": "TCA",
+        "flag": "reductive_reverse",
+        "model": -91.65186086045672,
+        "model_std": 54.631211897950244,
+        "model_abs": -4.713601405330353
+      },
+      {
+        "label": "Icl",
+        "crown_fid": "crown_f29",
+        "group": "glyoxylate",
+        "flag": null,
+        "model": 1.9249898052272818,
+        "model_std": 15.001670693624186,
+        "model_abs": 0.06175937368715294
+      },
+      {
+        "label": "MS",
+        "crown_fid": "crown_f30",
+        "group": "glyoxylate",
+        "flag": null,
+        "model": 0.0,
+        "model_std": 0.0,
+        "model_abs": 0.0
+      },
+      {
+        "label": "Ppc",
+        "crown_fid": "crown_f33",
+        "group": "anaplerotic",
+        "flag": null,
+        "model": 58.00810069526447,
+        "model_std": 12.063289147005184,
+        "model_abs": 3.001799331203734
+      },
+      {
+        "label": "Ack",
+        "crown_fid": "crown_f35",
+        "group": "overflow",
+        "flag": null,
+        "model": -4.209345593343779,
+        "model_std": 0.9445315620931,
+        "model_abs": -0.2143626325609859
+      }
+    ]
   }
 }

@@ -62,22 +62,16 @@ _EXCH_AXES = [
 ]
 # Crown 2015 G6P-fate branches -> their flux ids in metabolic_fluxes.tsv.
 _G6P_CROWN = {"EMP": "crown_f2", "oxPPP": "crown_f10", "ED": "crown_f18"}
-# Central-carbon flux scatter (model vs Crown). HELD OFF pending the reaction-set
-# + direction-convention curation (the model lumps/splits/directs base reactions
-# differently from Crown, so a single-id magnitude comparison conflates isozyme
-# under-counts + reverse-direction routing with the real TCA-collapse signal).
-# The bake stores model_metabolism.json["central_carbon"] as raw material; flip
-# this True once the stoichiometric reaction-set matcher lands (see the lab
-# notebook handoff). The _CC_FID map below is the first-pass single-id pairing.
-_INCLUDE_CC_SCATTER = False
-_CC_FID = {
-    "Pgi": "crown_f2", "Pfk": "crown_f3", "Fba": "crown_f4", "Tpi": "crown_f5",
-    "GAPDH": "crown_f6", "Eno": "crown_f7", "Pyk": "crown_f8", "Zwf": "crown_f9",
-    "6PGDH": "crown_f10", "ED": "crown_f18", "Rpe": "crown_f11", "Rpi": "crown_f12",
-    "PDH": "crown_f20", "CS": "crown_f21", "ICDH": "crown_f23", "aKGDH": "crown_f24",
-    "SDH": "crown_f26", "Fum": "crown_f27", "MDH": "crown_f28", "Icl": "crown_f29",
-    "MS": "crown_f30", "Ppc": "crown_f33", "Ack": "crown_f35",
-}
+# Central-carbon flux scatter (model vs Crown 2015). The reaction set, per-reaction
+# direction (signed, aligned to Crown's substrate->product), and annotation flags
+# are resolved in the bake (model_metabolism.json["central_carbon"]["reactions"]),
+# built by the stoichiometric reaction-set matcher; here we just pair each row to
+# its Crown flux by crown_fid. Glucose entry (crown_f1) is intentionally omitted —
+# PTS vs the model's glucokinase+PYK entry is ¹³C-non-identifiable, not a claim.
+_INCLUDE_CC_SCATTER = True
+# Per-flag glyph appended to the point label on the scatter (see the `how` text).
+_CC_FLAG_GLYPH = {"pts_coupled": " †", "aldolase_bypass": " ‡",
+                  "reductive_reverse": " ⤺"}
 
 # (card path, bundle observable key, label, units, has-theoretical-max, model derivation)
 _AXES = [
@@ -279,25 +273,8 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
     axes: dict[str, dict] = {}
     card: dict[str, dict] = {}
 
-    # Glycolysis-split composition (graded by total-variation distance vs Crown).
-    crown = crown_g6p_composition(bundle_path)
-    axes["metabolism.glycolysis_split"] = {
-        "group": "Metabolism",
-        "label": "Glycolysis split (EMP / oxPPP / ED)", "units": "",
-        "how": ("Model: G6P-fate composition from the ensemble base-reaction fluxes "
-                "(EMP=phosphoglucose isomerase, oxPPP=6-phosphogluconate dehydrogenase, "
-                "ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-"
-                "variation distance vs the Crown 2015 ¹³C-MFA composition (the routing "
-                "of carbon through central metabolism, independent of uptake rate); the "
-                "companion bar is the closure residual (G6P unaccounted by the three "
-                "branches — a small biomass drain, expected < 5%)."),
-        "plot": "ternary",
-        "criterion": {
-            "type": "composition", "ref_fractions": crown, "ref_label": "Crown 2015",
-            "tv_good": 0.05, "tv_warn": 0.15, "residual_max": 0.05, "residual_warn": 0.10,
-        },
-    }
-    card["glycolysis_split"] = {"branches": g6p["model_flux"], "influx": g6p["influx"]}
+    # Section order (Chris): exchanges (the headline O₂/CO₂/acetate deficits) →
+    # the full central-carbon scatter → the intracellular branch-point splits.
 
     # Exchange axes (absolute rates vs measured bands; C-mol context in `how`).
     cmol_note = {
@@ -332,36 +309,77 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
                      "values": exch["per_cell"][{"o2_uptake": "o2", "co2_evolution": "co2",
                                                  "acetate_secretion": "acetate"}[obs]]}
 
-    # Central-carbon flux scatter: model vs Crown, normalized to glucose=100,
-    # compared as magnitudes (the model's own reaction directionality differs).
-    cc = met.get("central_carbon", {}).get("normalized_to_glucose_100")
-    if cc and _INCLUDE_CC_SCATTER:
+    # Central-carbon flux scatter: model vs Crown 2015, SIGNED and normalized to
+    # glucose = 100. Each row is a base reaction mapped by the stoichiometric
+    # reaction-set matcher and aligned to Crown's substrate->product direction, so
+    # a genuine reverse-runner plots in the wrong quadrant rather than being hidden
+    # by a magnitude. Crown's fluxes are positive (their written direction).
+    cc = met.get("central_carbon", {})
+    if cc.get("reactions") and _INCLUDE_CC_SCATTER:
         root = _bundle_path(bundle_path).parent
         crdf = pd.read_csv(root / "data/basal/metabolic_fluxes.tsv", sep="\t", comment="#")
-        crv = crdf[crdf["source_id"] == "crown_2015"].set_index("reaction_id")["value_relative_pct"]
-        ids, mvec, rvec = [], [], []
-        for lbl, fid in _CC_FID.items():
-            if lbl in cc and fid in crv.index:
-                ids.append(lbl)
-                mvec.append(abs(float(cc[lbl])))
-                rvec.append(abs(float(crv.loc[fid])))
+        cr = crdf[crdf["source_id"] == "crown_2015"].set_index("reaction_id")
+        crv, cru = cr["value_relative_pct"], cr["uncertainty"]
+        ids, mvec, rvec, mstd, rstd = [], [], [], [], []
+        for r in cc["reactions"]:
+            fid = r["crown_fid"]
+            if fid not in crv.index:
+                continue
+            ids.append(r["label"] + _CC_FLAG_GLYPH.get(r["flag"], ""))
+            mvec.append(float(r["model"]))            # signed
+            mstd.append(float(r.get("model_std", 0.0)))            # cell-to-cell
+            rvec.append(float(crv.loc[fid]))           # Crown, positive
+            rstd.append(float(cru.loc[fid]) if pd.notna(cru.loc[fid]) else 0.0)  # Crown CI stdev
         axes["metabolism.central_carbon_flux"] = {
             "group": "Metabolism",
-            "label": "Central-carbon fluxes (vs Crown)", "units": "% of glucose uptake",
-            "how": ("Model: ensemble central-carbon base-reaction fluxes, normalized to "
-                    "glucose uptake = 100 (magnitudes; the model's reaction directionality "
-                    "differs from the reference). Graded vs Crown 2015 COMPLETE-MFA. "
-                    "Glycolysis/PPP sit near the identity line (routing is right) while "
-                    "the TCA reactions (αKG dehydrogenase, malate synthase) read as 'lost' "
-                    "— the model's oxidative cycle isn't running, the reaction-level face "
-                    "of the under-respiration. NOTE: a few reactions (Pfk, Fba) are "
-                    "under-counted by their single base-reaction id (split isozyme); a "
-                    "reaction-set refinement is pending."),
+            "label": "Central-carbon fluxes (vs Crown 2015)", "units": "% of glucose uptake",
+            "how": ("Model: ensemble central-carbon fluxes (signed, reaction-set-summed, "
+                    "aligned to the reference direction), normalized to glucose uptake = 100. "
+                    "Graded vs Crown 2015 COMPLETE-MFA (MG1655, ¹³C PLE). Glycolysis and "
+                    "oxidative-PPP sit on the identity line — carbon ROUTING into central "
+                    "metabolism is right. The divergences are the finding: PDH, αKG "
+                    "dehydrogenase and malate synthase collapse to ~0 and acetate overflow "
+                    "is absent (the oxidative TCA isn't turning — the reaction-level face of "
+                    "the under-respiration), while the lower TCA runs REDUCTIVELY (Fum, MDH "
+                    "negative — OAC→Mal→Fum) ⤺. Glucose entry (Crown's PTS) is omitted: the "
+                    "model enters glucose mostly via glucokinase + pyruvate kinase, which is "
+                    "¹³C-indistinguishable from PTS — not a gradeable difference. † Pyk: its "
+                    "flux is coupled to that entry choice, shown but not independently "
+                    "resolvable. ‡ Pfk/Fba: the model routes most hexose→triose through "
+                    "fructose-6-P / sedoheptulose-bisP aldolases (an FBA carbon-rearrangement "
+                    "deviation — node balances are unaffected), so these read low."),
             "plot": "flux_scatter",
-            "criterion": {"type": "flux_scatter", "ref_vector": rvec, "flux_ids": ids,
-                          "active_eps": 1e-6, "qual_eps": 1.0, "r2_min": 0.8, "r2_drift": 0.5},
+            # qualitative=False: these are internal fluxes — a reaction at ~0 is a
+            # low value, not a categorical on/off, so drop the appeared/lost
+            # callouts (which read as a missing value and aren't more telling than
+            # the sign flips). Graded on identity-R² over the whole vector.
+            "criterion": {"type": "flux_scatter", "ref_vector": rvec, "ref_std": rstd,
+                          "flux_ids": ids, "active_eps": 1e-6, "qualitative": False,
+                          "r2_min": 0.8, "r2_drift": 0.5},
         }
-        card["central_carbon_flux"] = {"vector": mvec, "n_cells": met.get("n_cells")}
+        card["central_carbon_flux"] = {"vector": mvec, "std": mstd,
+                                       "n_cells": cc.get("n_cells") or met.get("n_cells")}
+
+    # Intracellular branch-point splits (last). Glycolysis-split composition,
+    # graded by total-variation distance vs Crown.
+    crown = crown_g6p_composition(bundle_path)
+    axes["metabolism.glycolysis_split"] = {
+        "group": "Metabolism",
+        "label": "Glycolysis split (EMP / oxPPP / ED)", "units": "",
+        "how": ("Model: G6P-fate composition from the ensemble base-reaction fluxes "
+                "(EMP=phosphoglucose isomerase, oxPPP=6-phosphogluconate dehydrogenase, "
+                "ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-"
+                "variation distance vs the Crown 2015 ¹³C-MFA composition (the routing "
+                "of carbon through central metabolism, independent of uptake rate); the "
+                "companion bar is the closure residual (G6P unaccounted by the three "
+                "branches — a small biomass drain, expected < 5%)."),
+        "plot": "ternary",
+        "criterion": {
+            "type": "composition", "ref_fractions": crown, "ref_label": "Crown 2015",
+            "tv_good": 0.05, "tv_warn": 0.15, "residual_max": 0.05, "residual_warn": 0.10,
+        },
+    }
+    card["glycolysis_split"] = {"branches": g6p["model_flux"], "influx": g6p["influx"]}
     return axes, card
 
 

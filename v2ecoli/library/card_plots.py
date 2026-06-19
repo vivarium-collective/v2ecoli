@@ -88,15 +88,18 @@ def _cite(sid: str) -> str:
 
 def literature_strip(sim_values, sim_mean, measured, *, measured_unc=None,
                      labels=None, theoretical=None, theoretical_label=None,
-                     units="", label="", scale=1.0, width=4.8, height=2.9) -> str:
+                     units="", label="", scale=1.0, width=4.8, height=3.2) -> str:
     """vs_literature axis: the simulated population vs curated experiment.
 
-    Colour scheme: **green = sim** (a violin + jittered strip of the per-cell
-    population when given, plus a diamond at the graded mean), **black =
-    experimental measurements** (one marker per source, with ± error bars where
-    an uncertainty is given), **red dashed line = theoretical limit** (a ceiling
-    the model should not cross). Each experimental source sits at its own x
-    position so the spread across studies is visible."""
+    Two kinds of spread, side by side. **Green = sim** (a violin + jittered strip
+    of the per-cell population + a diamond at the graded mean) is cell-to-cell
+    biological heterogeneity. **Black = measured** is a single strip of one dot per
+    literature source (± its reported uncertainty), read as the spread of point
+    estimates ACROSS studies — collapsed to one x position (not a tick per source)
+    so the axis stays readable as more datapoints accrue; a faint vertical bar marks
+    the measured min–max band the criterion grades against, and the per-source
+    values are listed in the caption for provenance. **Red dashed line = theoretical
+    limit** (a ceiling the model should not cross)."""
     plt = _setup()
     import numpy as np
     GREEN, BLACK, RED = "#1a7f37", "#1a1d21", "#c62828"
@@ -123,42 +126,66 @@ def literature_strip(sim_values, sim_mean, measured, *, measured_unc=None,
                    linewidth=0.4, zorder=3)
     if sim_mean is not None:
         ax.scatter([0], [sim_mean * scale], s=95, marker="D", color=GREEN,
-                   edgecolor="white", linewidth=0.8, zorder=5, label="sim (v2ecoli)")
+                   edgecolor="white", linewidth=0.8, zorder=5,
+                   label="sim (v2ecoli) — cell-to-cell")
 
-    # experimental (black): one marker per source, ± uncertainty where present
-    xs = list(range(1, len(measured) + 1))
-    for xi, m, u in zip(xs, measured, unc):
-        if u:
-            ax.errorbar([xi], [m * scale], yerr=[u * scale], fmt="o", color=BLACK,
-                        ms=5, capsize=3, elinewidth=1, zorder=4)
-        else:
-            ax.scatter([xi], [m * scale], s=34, color=BLACK, zorder=4)
+    # measured (black): ONE strip at x=1, a dot per study (jittered so equal values
+    # separate), ± uncertainty; a faint bar marks the graded min–max band. NOT a
+    # KDE violin — a handful of study point estimates is a dotplot, not a density.
     if measured:
-        ax.scatter([], [], s=34, color=BLACK, label="experimental")  # legend proxy
+        ms = np.asarray(measured, float) * scale
+        lo, hi = float(ms.min()), float(ms.max())
+        if hi > lo:
+            ax.plot([1, 1], [lo, hi], color=BLACK, lw=4, alpha=0.12, zorder=2,
+                    solid_capstyle="round")
+        jit = (np.random.default_rng(1).normal(0, 0.045, size=len(ms))
+               if len(ms) > 1 else np.zeros(len(ms)))
+        for xj, m, u in zip(1 + jit, ms, unc):
+            if u:
+                ax.errorbar([xj], [m], yerr=[u * scale], fmt="o", color=BLACK,
+                            ms=5, capsize=2.5, elinewidth=1, zorder=4)
+            else:
+                ax.scatter([xj], [m], s=34, color=BLACK, zorder=4)
+        n = len(measured)
+        ax.scatter([], [], s=34, color=BLACK,
+                   label=f"measured — {n} stud{'y' if n == 1 else 'ies'}")
 
-    ax.set_xticks([0] + xs)
-    ax.set_xticklabels(["sim"] + [_cite(l) for l in labels], fontsize=7,
-                       rotation=30, ha="right")
-    ax.set_xlim(-0.7, len(measured) + 0.7)
+    ax.set_xticks([0, 1] if measured else [0])
+    ax.set_xticklabels(["sim", "measured"] if measured else ["sim"], fontsize=8)
+    ax.set_xlim(-0.7, 1.7)
     ax.set_ylabel(units or label, fontsize=9)
     ax.tick_params(labelsize=8)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     ax.margins(y=0.15)
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(min(0.0, lo), max(0.0, hi))   # pin the y-axis floor to 0 (match v1↔v2 violins)
     ax.legend(fontsize=6.5, loc="best", frameon=False)
+
+    # provenance caption — keep which study reported what, since the dots no longer
+    # carry per-source x-ticks.
+    if measured:
+        prov = "measured: " + " · ".join(
+            f"{_cite(l)} {m * scale:.3g}" for l, m in zip(labels, measured))
+        fig.subplots_adjust(bottom=0.2)
+        fig.text(0.5, 0.015, prov, ha="center", va="bottom", fontsize=6.2,
+                 color="#555")
     return _svg(fig)
 
 
 def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
-                 qual_eps=1e-3, ref_std=None, cand_std=None, label="", width=3.8,
-                 height=3.4, ref_label="reference", meas_label="candidate") -> str:
-    """Exchange-flux candidate vs reference on **symlog** signed axes (fluxes
-    span orders of magnitude and are signed: negative=uptake, positive=
-    secretion). Pairs that are inactive in both (|both|<eps) are excluded.
-    Matched pairs are blue (with x/y error bars = cell-to-cell std if given);
-    an exchange that *appeared* (ref~0, cand active) is red and one that
-    *disappeared* (active, cand~0) is orange — both labelled, since a
-    qualitative change is the big regression flag."""
+                 qual_eps=1e-3, qualitative=True, ref_std=None, cand_std=None,
+                 label="", width=3.8, height=3.4, ref_label="reference",
+                 meas_label="candidate") -> str:
+    """Flux candidate vs reference on **symlog** signed axes (fluxes span orders
+    of magnitude and are signed). Pairs inactive in both (|both|<eps) are excluded.
+    Matched pairs are blue (with x/y error bars = cell-to-cell std if given). With
+    ``qualitative=True`` (exchange fingerprints) an exchange that *appeared*
+    (ref~0, cand active) is red and one that *disappeared* (active, cand~0) is
+    orange — a metabolite switching on/off is the regression flag. With
+    ``qualitative=False`` (internal fluxes, where a 0 is just a low value, not a
+    categorical on/off) every point is drawn uniformly: only position vs the
+    identity line and sign carry meaning."""
     plt = _setup()
     import numpy as np
     cand = np.asarray(cand_vec, float)
@@ -167,15 +194,20 @@ def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
     cstd = np.asarray(cand_std, float) if cand_std is not None else None
     ids = list(ids) if ids is not None else [str(i) for i in range(len(cand))]
     ca, ra = np.abs(cand) > active_eps, np.abs(ref) > active_eps
-    matched = ca & ra
-    appeared = ca & ~ra
-    disappeared = ~ca & ra
-    # A flip whose active-side magnitude is below qual_eps is near-floor jitter
-    # (shown, not graded as a qualitative change) — draw it muted, not red/orange.
-    sub = ((appeared & (np.abs(cand) < qual_eps)) |
-           (disappeared & (np.abs(ref) < qual_eps)))
-    appeared = appeared & ~sub
-    disappeared = disappeared & ~sub
+    if qualitative:
+        matched = ca & ra
+        appeared = ca & ~ra
+        disappeared = ~ca & ra
+        # A flip whose active-side magnitude is below qual_eps is near-floor jitter
+        # (shown, not graded as a qualitative change) — draw it muted, not red/orange.
+        sub = ((appeared & (np.abs(cand) < qual_eps)) |
+               (disappeared & (np.abs(ref) < qual_eps)))
+        appeared = appeared & ~sub
+        disappeared = disappeared & ~sub
+    else:
+        # No on/off semantics: keep every pair active on either side, all blue.
+        matched = ca | ra
+        appeared = disappeared = sub = np.zeros(len(cand), dtype=bool)
     fig, ax = plt.subplots(figsize=(width, height))
     if rstd is not None and cstd is not None:
         ax.errorbar(ref[matched], cand[matched], xerr=rstd[matched],

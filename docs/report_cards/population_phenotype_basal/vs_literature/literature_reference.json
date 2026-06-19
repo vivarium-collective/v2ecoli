@@ -107,26 +107,6 @@
         ]
       }
     },
-    "metabolism.glycolysis_split": {
-      "group": "Metabolism",
-      "label": "Glycolysis split (EMP / oxPPP / ED)",
-      "units": "",
-      "how": "Model: G6P-fate composition from the ensemble base-reaction fluxes (EMP=phosphoglucose isomerase, oxPPP=6-phosphogluconate dehydrogenase, ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-variation distance vs the Crown 2015 ¹³C-MFA composition (the routing of carbon through central metabolism, independent of uptake rate); the companion bar is the closure residual (G6P unaccounted by the three branches — a small biomass drain, expected < 5%).",
-      "plot": "ternary",
-      "criterion": {
-        "type": "composition",
-        "ref_fractions": {
-          "EMP": 71.6463,
-          "oxPPP": 25.4006,
-          "ED": 1.4106
-        },
-        "ref_label": "Crown 2015",
-        "tv_good": 0.05,
-        "tv_warn": 0.15,
-        "residual_max": 0.05,
-        "residual_warn": 0.1
-      }
-    },
     "metabolism.o2_uptake": {
       "group": "Metabolism",
       "label": "O₂ uptake (OUR)",
@@ -200,6 +180,115 @@
           "lacroix_2015",
           "crown_2015"
         ]
+      }
+    },
+    "metabolism.central_carbon_flux": {
+      "group": "Metabolism",
+      "label": "Central-carbon fluxes (vs Crown 2015)",
+      "units": "% of glucose uptake",
+      "how": "Model: ensemble central-carbon fluxes (signed, reaction-set-summed, aligned to the reference direction), normalized to glucose uptake = 100. Graded vs Crown 2015 COMPLETE-MFA (MG1655, ¹³C PLE). Glycolysis and oxidative-PPP sit on the identity line — carbon ROUTING into central metabolism is right. The divergences are the finding: PDH, αKG dehydrogenase and malate synthase collapse to ~0 and acetate overflow is absent (the oxidative TCA isn't turning — the reaction-level face of the under-respiration), while the lower TCA runs REDUCTIVELY (Fum, MDH negative — OAC→Mal→Fum) ⤺. Glucose entry (Crown's PTS) is omitted: the model enters glucose mostly via glucokinase + pyruvate kinase, which is ¹³C-indistinguishable from PTS — not a gradeable difference. † Pyk: its flux is coupled to that entry choice, shown but not independently resolvable. ‡ Pfk/Fba: the model routes most hexose→triose through fructose-6-P / sedoheptulose-bisP aldolases (an FBA carbon-rearrangement deviation — node balances are unaffected), so these read low.",
+      "plot": "flux_scatter",
+      "criterion": {
+        "type": "flux_scatter",
+        "ref_vector": [
+          71.6463,
+          82.6365,
+          82.6365,
+          82.6365,
+          170.524,
+          157.562,
+          27.0735,
+          26.8112,
+          25.4006,
+          11.5244,
+          13.8762,
+          1.4106,
+          113.986,
+          19.0267,
+          16.552,
+          8.4417,
+          10.9164,
+          13.7076,
+          10.8709,
+          2.4747,
+          2.4747,
+          26.2197,
+          66.7958
+        ],
+        "ref_std": [
+          0.5226,
+          0.2946,
+          0.2946,
+          0.2946,
+          0.7,
+          1.1699,
+          2.1946,
+          0.5382,
+          0.5259,
+          0.4602,
+          0.2202,
+          0.1723,
+          2.9395,
+          0.6573,
+          0.8115,
+          0.6839,
+          0.4503,
+          0.5105,
+          0.7628,
+          0.3508,
+          0.3508,
+          0.9199,
+          4.5168
+        ],
+        "flux_ids": [
+          "Pgi",
+          "Pfk ‡",
+          "Fba ‡",
+          "Tpi",
+          "GAPDH",
+          "Eno",
+          "Pyk †",
+          "Zwf",
+          "6PGDH",
+          "Rpe",
+          "Rpi",
+          "EDD / EDA",
+          "PDH",
+          "CS",
+          "ICDH",
+          "aKGDH",
+          "SDH",
+          "Fum ⤺",
+          "MDH ⤺",
+          "Icl",
+          "MS",
+          "Ppc",
+          "Ack"
+        ],
+        "active_eps": 1e-06,
+        "qualitative": false,
+        "r2_min": 0.8,
+        "r2_drift": 0.5
+      }
+    },
+    "metabolism.glycolysis_split": {
+      "group": "Metabolism",
+      "label": "Glycolysis split (EMP / oxPPP / ED)",
+      "units": "",
+      "how": "Model: G6P-fate composition from the ensemble base-reaction fluxes (EMP=phosphoglucose isomerase, oxPPP=6-phosphogluconate dehydrogenase, ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-variation distance vs the Crown 2015 ¹³C-MFA composition (the routing of carbon through central metabolism, independent of uptake rate); the companion bar is the closure residual (G6P unaccounted by the three branches — a small biomass drain, expected < 5%).",
+      "plot": "ternary",
+      "criterion": {
+        "type": "composition",
+        "ref_fractions": {
+          "EMP": 71.6463,
+          "oxPPP": 25.4006,
+          "ED": 1.4106
+        },
+        "ref_label": "Crown 2015",
+        "tv_good": 0.05,
+        "tv_warn": 0.15,
+        "residual_max": 0.05,
+        "residual_warn": 0.1
       }
     },
     "proteome.abundance": {

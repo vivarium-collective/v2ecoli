@@ -179,13 +179,21 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         qual_eps = criterion.get("qual_eps", 1e-3)
         r2_min = criterion.get("r2_min", 0.99)
         r2_drift = criterion.get("r2_drift", 0.95)
+        # ``qualitative=False`` (internal fluxes): a near-zero flux is a low value,
+        # not a categorical on/off, so the appeared/disappeared gate is dropped —
+        # every pair active on either side counts toward the identity-R², and the
+        # verdict comes from R² alone (no "lost"/"appeared" callouts).
+        qualitative = criterion.get("qualitative", True)
         cand_vec = measured.get("vector") if isinstance(measured, dict) else None
         if not ref_vec or not cand_vec:
             return _ungraded(f"R² ≥ {r2_min}, no appeared/disappeared")
         appeared, disappeared, matched, sub_floor = [], [], [], []
         for i, (c, r) in enumerate(zip(cand_vec, ref_vec)):
             ca, ra = abs(c) > eps, abs(r) > eps
-            if ca and ra:
+            if not qualitative:
+                if ca or ra:
+                    matched.append((c, r))
+            elif ca and ra:
                 matched.append((c, r))
             elif ca and not ra:  # appeared: active side is the candidate
                 (appeared if abs(c) >= qual_eps else sub_floor).append(i)
@@ -206,6 +214,11 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         else:
             verdict = _band(r2, r2_min, r2_drift, higher_is_better=True)
         sub = f" · {len(sub_floor)} sub-floor" if sub_floor else ""
+        if not qualitative:
+            return {"verdict": verdict, "value": r2,
+                    "criterion_str": f"identity R² ≥ {r2_min} (drift ≥ {r2_drift})",
+                    "meter": f"R² = {r2:.4f} · {len(matched)} reactions",
+                    "detail": {"r2": r2, "n_matched": len(matched)}}
         return {"verdict": verdict, "value": r2,
                 "criterion_str": (f"R² ≥ {r2_min} on matched fluxes; "
                                   f"no appeared/disappeared ≥ {qual_eps:g}"),

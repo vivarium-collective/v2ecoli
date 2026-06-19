@@ -37,27 +37,105 @@ _SWEEP = REPO / "out/population_phenotype_basal"
 _PARCA_STATE = REPO / "out/sim_data_full/parca_state.pkl.gz"
 GEN_LB = 3
 
-# Central-carbon reactions: label -> model base-reaction id (EcoCyc). Used for
-# both the G6P/glycolysis composition node and the central-carbon flux scatter
-# vs Crown 2015 (the Crown crown_fN pairing lives card-side in the render).
-CENTRAL_CARBON_RX = {
-    "Pgi": "PGLUCISOM-RXN", "Pfk": "6PFRUCTPHOS-RXN", "Fba": "F16ALDOLASE-RXN",
-    "Tpi": "TRIOSEPISOMERIZATION-RXN", "GAPDH": "GAPOXNPHOSPHN-RXN",
-    "Eno": "2PGADEHYDRAT-RXN", "Pyk": "PEPDEPHOS-RXN",
-    "Zwf": "GLU6PDEHYDROG-RXN", "6PGDH": "RXN-9952", "ED": "KDPGALDOL-RXN",
-    "Rpe": "RIBULP3EPIM-RXN", "Rpi": "RIB5PISOM-RXN",
-    "PDH": "PYRUVDEH-RXN", "CS": "CITSYN-RXN", "ICDH": "ISOCITDEH-RXN",
-    "aKGDH": "2OXOGLUTARATEDEH-RXN", "SDH": "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN",
-    "Fum": "FUMHYDR-RXN", "MDH": "MALATE-DEH-RXN",
-    "Icl": "ISOCIT-CLEAV-RXN", "MS": "MALSYN-RXN", "Ppc": "PEPCARBOX-RXN",
-    "Ack": "ACETATEKIN-RXN",
+# Crown↔model metabolite ids (cytoplasm), for sign-aligning model fluxes to the
+# reference's substrate->product direction. The model carries three G6P synonyms
+# (GLC-6-P / ALPHA-GLC-6-P / D-glucopyranose-6-phosphate) joined by epimerases:
+# glycolytic Pgi acts on ALPHA-GLC-6-P, oxidative-PPP Zwf on D-glucopyranose-6-P.
+CC_MET = {
+    "G6P": "ALPHA-GLC-6-P[c]", "dG6P": "D-glucopyranose-6-phosphate[c]",
+    "F6P": "FRUCTOSE-6P[c]", "FBP": "FRUCTOSE-16-DIPHOSPHATE[c]",
+    "DHAP": "DIHYDROXY-ACETONE-PHOSPHATE[c]", "GAP": "GAP[c]", "DPG": "DPG[c]",
+    "2PG": "2-PG[c]", "PEP": "PHOSPHO-ENOL-PYRUVATE[c]", "Pyr": "PYRUVATE[c]",
+    "6PGL": "D-6-P-GLUCONO-DELTA-LACTONE[c]", "6PG": "CPD-2961[c]",
+    "Ru5P": "RIBULOSE-5P[c]", "X5P": "XYLULOSE-5-PHOSPHATE[c]", "R5P": "RIBOSE-5P[c]",
+    "KDPG": "2-KETO-3-DEOXY-6-P-GLUCONATE[c]", "AcCoA": "ACETYL-COA[c]",
+    "AcP": "ACETYL-P[c]", "Cit": "CIT[c]", "ICit": "THREO-DS-ISO-CITRATE[c]",
+    "AKG": "2-KETOGLUTARATE[c]", "SucCoA": "SUC-COA[c]", "Suc": "SUC[c]",
+    "Fum": "FUM[c]", "Mal": "MAL[c]", "OAC": "OXALACETIC_ACID[c]",
+    "Glyox": "GLYOX[c]", "Ac": "ACET[c]",
 }
-# G6P-fate composition branches -> their label in CENTRAL_CARBON_RX.
-G6P_BRANCH = {"EMP": "Pgi", "oxPPP": "6PGDH", "ED": "ED"}
+# Central-carbon reaction set, paired to Crown 2015 COMPLETE-MFA. Each row:
+# (label, crown_fid, base-reaction id, substrate, product, group, flag). The
+# model's signed flux is aligned to the (substrate->product) direction Crown
+# writes, so a genuine reverse-runner (Fum/MDH) plots negative against Crown's
+# positive. GAPDH/Eno are series-lumped in Crown (through 1,3-BPG / 2-PG) — we
+# take the representative member's flux (equal at steady state). flags:
+#   pts_coupled       — PEP->Pyr partition is non-identifiable vs the model's
+#                       glucokinase-heavy glucose entry (PTS vs GLK+PYK give the
+#                       same ¹³C labeling); not an independent claim.
+#   aldolase_bypass   — the model routes most hexose->triose through fructose-6-P
+#                       aldolase + sedoheptulose-1,7-bisP aldolase + DHA kinase,
+#                       so Pfk/Fba carry only ~⅓ of the throughput. A known FBA
+#                       carbon-rearrangement degeneracy; node balances unaffected.
+#   reductive_reverse — the model runs the lower TCA reductively (OAC->Mal->Fum).
+CC_SPEC = [
+    ("Pgi", "crown_f2", "PGLUCISOM-RXN", "G6P", "F6P", "glycolysis", None),
+    ("Pfk", "crown_f3", "6PFRUCTPHOS-RXN", "F6P", "FBP", "glycolysis", "aldolase_bypass"),
+    ("Fba", "crown_f4", "F16ALDOLASE-RXN", "FBP", "GAP", "glycolysis", "aldolase_bypass"),
+    ("Tpi", "crown_f5", "TRIOSEPISOMERIZATION-RXN", "DHAP", "GAP", "glycolysis", None),
+    ("GAPDH", "crown_f6", "GAPOXNPHOSPHN-RXN", "GAP", "DPG", "glycolysis", None),
+    ("Eno", "crown_f7", "2PGADEHYDRAT-RXN", "2PG", "PEP", "glycolysis", None),
+    ("Pyk", "crown_f8", "PEPDEPHOS-RXN", "PEP", "Pyr", "glycolysis", "pts_coupled"),
+    ("Zwf", "crown_f9", "GLU6PDEHYDROG-RXN", "dG6P", "6PGL", "oxPPP", None),
+    ("6PGDH", "crown_f10", "RXN-9952", "6PG", "Ru5P", "oxPPP", None),
+    ("Rpe", "crown_f11", "RIBULP3EPIM-RXN", "Ru5P", "X5P", "PPP", None),
+    ("Rpi", "crown_f12", "RIB5PISOM-RXN", "Ru5P", "R5P", "PPP", None),
+    ("EDD / EDA", "crown_f18", "PGLUCONDEHYDRAT-RXN", "6PG", "KDPG", "ED", None),
+    ("PDH", "crown_f20", "PYRUVDEH-RXN", "Pyr", "AcCoA", "TCA", None),
+    ("CS", "crown_f21", "CITSYN-RXN", "AcCoA", "Cit", "TCA", None),
+    ("ICDH", "crown_f23", "ISOCITDEH-RXN", "ICit", "AKG", "TCA", None),
+    ("aKGDH", "crown_f24", "2OXOGLUTARATEDEH-RXN", "AKG", "SucCoA", "TCA", None),
+    ("SDH", "crown_f26", "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN", "Suc", "Fum", "TCA", None),
+    ("Fum", "crown_f27", "FUMHYDR-RXN", "Fum", "Mal", "TCA", "reductive_reverse"),
+    ("MDH", "crown_f28", "MALATE-DEH-RXN", "Mal", "OAC", "TCA", "reductive_reverse"),
+    ("Icl", "crown_f29", "ISOCIT-CLEAV-RXN", "ICit", "Glyox", "glyoxylate", None),
+    ("MS", "crown_f30", "MALSYN-RXN", "Glyox", "Mal", "glyoxylate", None),
+    ("Ppc", "crown_f33", "PEPCARBOX-RXN", "PEP", "OAC", "anaplerotic", None),
+    ("Ack", "crown_f35", "ACETATEKIN-RXN", "AcP", "Ac", "overflow", None),
+]
+_LABEL2BASE = {row[0]: row[2] for row in CC_SPEC}
+# G6P-fate composition branches -> their label in CC_SPEC.
+G6P_BRANCH = {"EMP": "Pgi", "oxPPP": "6PGDH", "ED": "EDD / EDA"}
 # external_exchange_fluxes is emitted in sorted(all_external_exchange_molecules)
 # order; 1-indexed positions verified against the sweep.
 EX_IDX = {"glucose": 37, "o2": 66, "co2": 11, "acetate": 3}
 M_C = 12.011  # g/mol carbon
+
+
+def _phys_stoich(metabolism) -> dict:
+    """Net stoichiometry of each base reaction at POSITIVE ``base_reaction_flux``
+    (its physical-forward direction). ``reaction_stoich`` stores some base
+    reactions only as a ``(reverse)`` entry — there the stored 'forward' is the
+    gluconeogenic/reverse convention, so positive flux runs the negated reaction.
+    Negating those is what makes pyruvate kinase / PEP carboxylase / triose-P
+    isomerase read in their true physiological direction rather than flipped."""
+    rs = metabolism.reaction_stoich
+    by_base: dict = {}
+    for d, b in metabolism.reaction_id_to_base_reaction_id.items():
+        by_base.setdefault(b, []).append(d)
+    out = {}
+    for b in metabolism.base_reaction_ids:
+        if b in rs:
+            out[b] = rs[b]
+        elif f"{b} (reverse)" in rs:
+            out[b] = {k: -v for k, v in rs[f"{b} (reverse)"].items()}
+        else:
+            cands = [d for d in by_base.get(b, []) if d in rs]
+            if cands:
+                out[b] = ({k: -v for k, v in rs[cands[0]].items()}
+                          if "(reverse)" in cands[0] else rs[cands[0]])
+    return out
+
+
+def _sign_mult(phys: dict, base: str, sub: str, prod: str) -> float:
+    """+1 if positive base flux carries ``sub``->``prod``, else -1 — aligns the
+    model's signed flux to the reference reaction's substrate->product direction.
+    Falls back to +1 when stoichiometry is unavailable (only the near-zero ED
+    branch, where the sign is immaterial)."""
+    st = phys.get(base)
+    if not st or sub not in st or prod not in st:
+        return 1.0
+    return 1.0 if st[sub] < 0 else -1.0
 
 
 def _load():
@@ -79,16 +157,22 @@ def _parquet_glob(sweep_dir: Path) -> str:
 
 
 def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
-    """Per-cell G6P composition + boundary exchanges from the sweep."""
+    """Per-cell central-carbon fluxes (signed, reference-direction-aligned), the
+    G6P branch-point composition, and boundary exchanges from the sweep."""
     from wholecell.utils import units
-    brids = list(sim_data.process.metabolism.base_reaction_ids)
+    metabolism = sim_data.process.metabolism
+    brids = list(metabolism.base_reaction_ids)
     bidx = {r: i for i, r in enumerate(brids)}
+    phys = _phys_stoich(metabolism)
     dens = sim_data.constants.cell_density.asNumber(units.g / units.L)
+
+    bases = sorted({row[2] for row in CC_SPEC})        # unique base reactions
+    col = {b: f"r{i}" for i, b in enumerate(bases)}    # SQL-safe aliases
     flist = _parquet_glob(sweep_dir)
     con = duckdb.connect()
     selb = ", ".join(
-        f"list_extract(listeners__fba_results__base_reaction_fluxes,{bidx[v] + 1}) \"{k}\""
-        for k, v in CENTRAL_CARBON_RX.items())
+        f"list_extract(listeners__fba_results__base_reaction_fluxes,{bidx[b] + 1}) {col[b]}"
+        for b in bases)
     selx = ", ".join(
         f"list_extract(listeners__fba_results__external_exchange_fluxes,{j}) e_{k}"
         for k, j in EX_IDX.items())
@@ -100,24 +184,30 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
         WHERE generation >= {GEN_LB}
           AND len(listeners__fba_results__base_reaction_fluxes) > 0
     """).df()
-    coef = df.dm / df.cm * dens                       # g/L
-    for k in CENTRAL_CARBON_RX:                        # raw mmol/gDW/s -> mmol/gDW/h
-        df[k] = df[k] / coef * 3600.0
+    coef = df.dm / df.cm * dens                        # g/L
+    for b in bases:                                    # raw mmol/gDW/s -> mmol/gDW/h
+        df[col[b]] = df[col[b]] / coef * 3600.0
     for k in EX_IDX:
         df[f"e_{k}"] = df[f"e_{k}"].abs() if k != "co2" else df[f"e_{k}"]
     pc = df.groupby(["s", "g", "a"]).mean(numeric_only=True)   # per-cell time means
     n = len(pc)
     M = pc.mean()
 
+    def signed(label):
+        """Per-cell signed mmol/gDW/h for a CC_SPEC reaction, aligned to the
+        reference (substrate->product) direction (reverse-runners go negative)."""
+        _, _, base, sub, prod, _, _ = next(r for r in CC_SPEC if r[0] == label)
+        return _sign_mult(phys, base, CC_MET[sub], CC_MET[prod]) * pc[col[base]]
+
     # G6P composition: per-cell ternary fractions + closure residual vs glucose influx.
     bran = list(G6P_BRANCH)                            # [EMP, oxPPP, ED]
-    bcols = {b: G6P_BRANCH[b] for b in bran}           # branch -> CC label
-    bsum = sum(pc[bcols[b]] for b in bran)
-    fr = {b: pc[bcols[b]] / bsum for b in bran}        # ternary (renormalized)
+    bser = {b: signed(G6P_BRANCH[b]) for b in bran}    # branch -> per-cell flux
+    bsum = sum(bser[b] for b in bran)
+    fr = {b: bser[b] / bsum for b in bran}             # ternary (renormalized)
     resid = 1.0 - bsum / pc["e_glucose"]               # unaccounted G6P -> biomass
     g6p = {
         "branches": bran,
-        "model_flux": {b: float(M[bcols[b]]) for b in bran},   # mmol/gDW/h
+        "model_flux": {b: float(bser[b].mean()) for b in bran},   # mmol/gDW/h
         "influx": float(M["e_glucose"]),
         "fractions": {b: float(fr[b].mean()) for b in bran},
         "residual": float(resid.mean()),
@@ -125,12 +215,22 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
                                for i in range(n)],
     }
 
-    # Central-carbon flux vector, normalized to glucose uptake = 100 (per cell,
-    # then ensemble) — for the model-vs-Crown scatter. Signed (the model's own
-    # reaction directionality); the card compares magnitudes.
-    rel = {k: float(((pc[k] / pc["e_glucose"]) * 100.0).mean())
-           for k in CENTRAL_CARBON_RX}
-    central_carbon = {"normalized_to_glucose_100": rel}
+    # Central-carbon flux vector: per reaction, signed and normalized to glucose
+    # uptake = 100 (per cell, then ensemble) — the model-vs-Crown scatter. Each
+    # row carries its annotation flag (pts_coupled / aldolase_bypass /
+    # reductive_reverse); the Crown pairing is resolved card-side via crown_fid.
+    reactions = []
+    for label, fid, base, sub, prod, group, flag in CC_SPEC:
+        sg = signed(label)
+        norm = (sg / pc["e_glucose"]) * 100.0           # per-cell normalized flux
+        reactions.append({
+            "label": label, "crown_fid": fid, "group": group, "flag": flag,
+            "model": float(norm.mean()),
+            "model_std": float(norm.std()),              # cell-to-cell spread
+            "model_abs": float(sg.mean()),
+        })
+    central_carbon = {"normalized_to_glucose_100": True, "reactions": reactions}
+
     # Exchanges: absolute, C-mol balance, per-glucose normalized, RQ.
     glc, o2, co2, ac = (float(M["e_glucose"]), float(M["e_o2"]),
                         float(M["e_co2"]), float(M["e_acetate"]))

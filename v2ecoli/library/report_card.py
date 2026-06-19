@@ -351,12 +351,17 @@ def _flux_table(measured: dict, crit: dict) -> str:
     cs = measured.get("std") or [0.0] * len(cv)
     eps = crit.get("active_eps", 1e-6)
     qual_eps = crit.get("qual_eps", 1e-3)
+    # Internal-flux axes (qualitative=False) carry no on/off semantics — suppress
+    # the appeared/lost flag column to match the scatter.
+    qualitative = crit.get("qualitative", True)
     rows = []
     for i, mol in enumerate(ids):
         r, c = (rv[i] if i < len(rv) else 0.0), (cv[i] if i < len(cv) else 0.0)
         if abs(r) <= eps and abs(c) <= eps:
             continue
-        if abs(r) <= eps:  # appeared (active in candidate only)
+        if not qualitative:
+            flag = ""
+        elif abs(r) <= eps:  # appeared (active in candidate only)
             flag = "appeared" if abs(c) >= qual_eps else "subfloor"
         elif abs(c) <= eps:  # lost (active in reference only)
             flag = "lost" if abs(r) >= qual_eps else "subfloor"
@@ -531,6 +536,7 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 ids=crit.get("flux_ids"), r2=axis.get("value"),
                 active_eps=crit.get("active_eps", 1e-6),
                 qual_eps=crit.get("qual_eps", 1e-3),
+                qualitative=crit.get("qualitative", True),
                 ref_std=crit.get("ref_std"), cand_std=measured.get("std"),
                 label=axis.get("label", ""),
                 ref_label=ref_label, meas_label=meas_label)
@@ -670,7 +676,7 @@ tbody td:first-child{{min-width:420px}}
 .verdict-mismatch td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['mismatch']}}} .verdict-ungraded td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['ungraded']}}}
 details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}} .plotwrap{{margin-top:8px}} .plotwrap svg{{max-width:100%;height:auto}}
 .fluxwrap{{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}} .fluxwrap svg{{flex:0 0 auto;max-width:420px}}
-.ftbl{{flex:1 1 280px;min-width:260px}} .ftbl table{{width:auto}} .ftbl thead th{{padding:5px 10px;font-size:10px}}
+.ftbl{{flex:1 1 100%;overflow-x:auto}} .ftbl table{{width:auto}} .ftbl thead th{{padding:5px 10px;font-size:10px}}
 .ftbl tbody td{{padding:4px 10px;border-bottom:1px solid #f1f3f5;font-size:11.5px}} .ftbl .fid{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px}}
 .ftbl .fnum{{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}}
 .ftbl tr.flux-appeared{{background:#fdecea}} .ftbl tr.flux-appeared .fid{{color:{_COLOR['mismatch']};font-weight:600}}

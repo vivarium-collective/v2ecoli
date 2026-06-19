@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "v2ecoli baseline (blessed baseline, gen≥3)",
   "reference_model": "experimental literature (ecoli-sources validation_data)",
-  "generated": "2026-06-19 09:47",
+  "generated": "2026-06-19 14:38",
   "overall": "mismatch",
   "groups": {
     "physiology": {
@@ -62,34 +62,6 @@
       "verdict": "mismatch",
       "axes": [
         {
-          "id": "metabolism.glycolysis_split",
-          "label": "Glycolysis split (EMP / oxPPP / ED)",
-          "verdict": "within_tol",
-          "value": 0.015174778723523557,
-          "meter": "TV = 0.015 · model [EMP 73%, oxPPP 27%, ED 0%] vs ref [EMP 73%, oxPPP 26%, ED 1%] · residual +4%",
-          "detail": {
-            "tv": 0.015174778723523557,
-            "residual": 0.03841834002872513,
-            "model_fractions": {
-              "EMP": 0.7268396142897283,
-              "oxPPP": 0.27316020390697837,
-              "ED": 1.818032933017746e-07
-            },
-            "ref_fractions": {
-              "EMP": 0.7276875809359368,
-              "oxPPP": 0.2579854251834548,
-              "ED": 0.014326993880608386
-            },
-            "routing_verdict": "within_tol",
-            "residual_verdict": "within_tol",
-            "branch_names": [
-              "EMP",
-              "oxPPP",
-              "ED"
-            ]
-          }
-        },
-        {
           "id": "metabolism.o2_uptake",
           "label": "O₂ uptake (OUR)",
           "verdict": "mismatch",
@@ -135,6 +107,45 @@
             "theoretical_max": null,
             "first_principles_violation": false,
             "rel_to_mid": -1.0
+          }
+        },
+        {
+          "id": "metabolism.central_carbon_flux",
+          "label": "Central-carbon fluxes (vs Crown 2015)",
+          "verdict": "mismatch",
+          "value": 0.30286727043957984,
+          "meter": "R² = 0.3029 · 23 reactions",
+          "detail": {
+            "r2": 0.30286727043957984,
+            "n_matched": 23
+          }
+        },
+        {
+          "id": "metabolism.glycolysis_split",
+          "label": "Glycolysis split (EMP / oxPPP / ED)",
+          "verdict": "within_tol",
+          "value": 0.015174778723523557,
+          "meter": "TV = 0.015 · model [EMP 73%, oxPPP 27%, ED 0%] vs ref [EMP 73%, oxPPP 26%, ED 1%] · residual +4%",
+          "detail": {
+            "tv": 0.015174778723523557,
+            "residual": 0.03841834002872513,
+            "model_fractions": {
+              "EMP": 0.7268396142897283,
+              "oxPPP": 0.27316020390697837,
+              "ED": 1.818032933017746e-07
+            },
+            "ref_fractions": {
+              "EMP": 0.7276875809359368,
+              "oxPPP": 0.2579854251834548,
+              "ED": 0.014326993880608386
+            },
+            "routing_verdict": "within_tol",
+            "residual_verdict": "within_tol",
+            "branch_names": [
+              "EMP",
+              "oxPPP",
+              "ED"
+            ]
           }
         }
       ]

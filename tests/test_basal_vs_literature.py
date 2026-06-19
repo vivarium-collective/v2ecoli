@@ -156,3 +156,70 @@ def test_card_proteome_concordant_but_not_tight(graded):
     ax = report["axes"].get("proteome.abundance")
     assert ax is not None and ax["verdict"] in ("within_tol", "drift")
     assert ax["value"] > 0.7
+
+
+# ---------------------------------------------------------------------------
+# 4. Central-carbon flux scatter (signed reaction-set matcher vs Crown 2015)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def cc_reactions():
+    import json
+    met = json.load(open(rvl._MET_JSON, encoding="utf-8"))
+    cc = met["central_carbon"]
+    assert cc["normalized_to_glucose_100"] is True
+    return {r["label"]: r for r in cc["reactions"]}
+
+
+def test_central_carbon_scatter_graded_mismatch(graded):
+    # The vector grades mismatch: routing matches but the TCA collapse +
+    # reductive lower branch sit far off the identity line.
+    report, _ = graded
+    ax = report["axes"].get("metabolism.central_carbon_flux")
+    assert ax is not None and ax["verdict"] == "mismatch"
+
+
+def test_central_carbon_clean_reactions_on_identity(cc_reactions):
+    # Glycolysis + oxidative-PPP routing matches Crown — these sit on the
+    # identity line (carbon routing into central metabolism is right).
+    for lbl, lo, hi in [("Pgi", 60, 80), ("GAPDH", 130, 160), ("Eno", 130, 160),
+                        ("Zwf", 20, 30), ("6PGDH", 20, 30)]:
+        assert lo < cc_reactions[lbl]["model"] < hi, lbl
+
+
+def test_central_carbon_lower_tca_is_reductive_reverse(cc_reactions):
+    # The model runs the lower TCA backwards (OAC->Mal->Fum): Fum/MDH carry a
+    # NEGATIVE flux vs Crown's positive, and are flagged reductive_reverse. This
+    # is the signed-matcher payoff — a magnitude comparison would hide it.
+    for lbl in ("Fum", "MDH"):
+        r = cc_reactions[lbl]
+        assert r["model"] < 0, lbl
+        assert r["flag"] == "reductive_reverse"
+
+
+def test_central_carbon_oxidative_tca_collapsed(cc_reactions):
+    # PDH well below Crown's ~114, and aKGDH / malate synthase ~0 — the
+    # oxidative cycle isn't turning (the under-respiration at reaction level).
+    assert cc_reactions["PDH"]["model"] < 20
+    assert abs(cc_reactions["aKGDH"]["model"]) < 1
+    assert abs(cc_reactions["MS"]["model"]) < 1
+
+
+def test_central_carbon_flags(cc_reactions):
+    # The annotation flags the matcher carries through to the scatter.
+    assert cc_reactions["Pyk"]["flag"] == "pts_coupled"
+    assert cc_reactions["Pfk"]["flag"] == "aldolase_bypass"
+    assert cc_reactions["Fba"]["flag"] == "aldolase_bypass"
+
+
+def test_central_carbon_glucose_entry_excluded(cc_reactions):
+    # Glucose entry (Crown's PTS, crown_f1) is ¹³C-non-identifiable vs the
+    # model's glucokinase+PYK route -> intentionally omitted from the set.
+    assert all(r["crown_fid"] != "crown_f1" for r in cc_reactions.values())
+
+
+def test_central_carbon_ed_branch_tracked_but_off(cc_reactions):
+    # The Entner-Doudoroff branch is tracked explicitly (EDD/EDA) even though
+    # it's off in the model (~0) — visible-but-negligible, not dropped.
+    r = cc_reactions["EDD / EDA"]
+    assert abs(r["model"]) < 1 and r["group"] == "ED"

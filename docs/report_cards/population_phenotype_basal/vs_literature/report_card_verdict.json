@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "v2ecoli baseline (blessed baseline, gen≥3)",
   "reference_model": "experimental literature (ecoli-sources validation_data)",
-  "generated": "2026-06-18 16:42",
+  "generated": "2026-06-19 09:47",
   "overall": "mismatch",
   "groups": {
     "physiology": {

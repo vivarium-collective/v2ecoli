@@ -663,8 +663,9 @@ tbody td{{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;f
 .axhd{{display:flex;align-items:center;gap:8px;flex-wrap:wrap}} .metric{{font-weight:600}}
 .badge{{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff;white-space:nowrap}}
 .how{{color:var(--muted);font-size:11.5px;margin-top:4px;max-width:560px}} .crit{{font-size:12px;margin-top:4px;color:#374151}}
-.val{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap}} .spread{{color:var(--muted);font-size:11px;margin-top:2px}}
-.meter{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap}}
+.val{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap;width:1%}} .spread{{color:var(--muted);font-size:11px;margin-top:2px}}
+.meter{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap;width:1%}}
+tbody td:first-child{{min-width:420px}}
 .verdict-within_tol td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['within_tol']}}} .verdict-drift td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['drift']}}}
 .verdict-mismatch td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['mismatch']}}} .verdict-ungraded td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['ungraded']}}}
 details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}} .plotwrap{{margin-top:8px}} .plotwrap svg{{max-width:100%;height:auto}}

@@ -37,11 +37,23 @@ _SWEEP = REPO / "out/population_phenotype_basal"
 _PARCA_STATE = REPO / "out/sim_data_full/parca_state.pkl.gz"
 GEN_LB = 3
 
-# Model base-reaction ids (EcoCyc) for the validated G6P/glycolysis node.
-# EMP = phosphoglucose isomerase; oxPPP = 6-phosphogluconate dehydrogenase;
-# ED = KDPG aldolase. (AcCoA/isocitrate nodes are held pending mapping
-# validation — their single-id maps did not reproduce a physical flux ordering.)
-G6P_RX = {"EMP": "PGLUCISOM-RXN", "oxPPP": "RXN-9952", "ED": "KDPGALDOL-RXN"}
+# Central-carbon reactions: label -> model base-reaction id (EcoCyc). Used for
+# both the G6P/glycolysis composition node and the central-carbon flux scatter
+# vs Crown 2015 (the Crown crown_fN pairing lives card-side in the render).
+CENTRAL_CARBON_RX = {
+    "Pgi": "PGLUCISOM-RXN", "Pfk": "6PFRUCTPHOS-RXN", "Fba": "F16ALDOLASE-RXN",
+    "Tpi": "TRIOSEPISOMERIZATION-RXN", "GAPDH": "GAPOXNPHOSPHN-RXN",
+    "Eno": "2PGADEHYDRAT-RXN", "Pyk": "PEPDEPHOS-RXN",
+    "Zwf": "GLU6PDEHYDROG-RXN", "6PGDH": "RXN-9952", "ED": "KDPGALDOL-RXN",
+    "Rpe": "RIBULP3EPIM-RXN", "Rpi": "RIB5PISOM-RXN",
+    "PDH": "PYRUVDEH-RXN", "CS": "CITSYN-RXN", "ICDH": "ISOCITDEH-RXN",
+    "aKGDH": "2OXOGLUTARATEDEH-RXN", "SDH": "SUCCINATE-DEHYDROGENASE-UBIQUINONE-RXN",
+    "Fum": "FUMHYDR-RXN", "MDH": "MALATE-DEH-RXN",
+    "Icl": "ISOCIT-CLEAV-RXN", "MS": "MALSYN-RXN", "Ppc": "PEPCARBOX-RXN",
+    "Ack": "ACETATEKIN-RXN",
+}
+# G6P-fate composition branches -> their label in CENTRAL_CARBON_RX.
+G6P_BRANCH = {"EMP": "Pgi", "oxPPP": "6PGDH", "ED": "ED"}
 # external_exchange_fluxes is emitted in sorted(all_external_exchange_molecules)
 # order; 1-indexed positions verified against the sweep.
 EX_IDX = {"glucose": 37, "o2": 66, "co2": 11, "acetate": 3}
@@ -75,8 +87,8 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
     flist = _parquet_glob(sweep_dir)
     con = duckdb.connect()
     selb = ", ".join(
-        f"list_extract(listeners__fba_results__base_reaction_fluxes,{bidx[v] + 1}) {k}"
-        for k, v in G6P_RX.items())
+        f"list_extract(listeners__fba_results__base_reaction_fluxes,{bidx[v] + 1}) \"{k}\""
+        for k, v in CENTRAL_CARBON_RX.items())
     selx = ", ".join(
         f"list_extract(listeners__fba_results__external_exchange_fluxes,{j}) e_{k}"
         for k, j in EX_IDX.items())
@@ -89,27 +101,36 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
           AND len(listeners__fba_results__base_reaction_fluxes) > 0
     """).df()
     coef = df.dm / df.cm * dens                       # g/L
-    for k in G6P_RX:                                  # raw mmol/gDW/s -> mmol/gDW/h
+    for k in CENTRAL_CARBON_RX:                        # raw mmol/gDW/s -> mmol/gDW/h
         df[k] = df[k] / coef * 3600.0
     for k in EX_IDX:
         df[f"e_{k}"] = df[f"e_{k}"].abs() if k != "co2" else df[f"e_{k}"]
     pc = df.groupby(["s", "g", "a"]).mean(numeric_only=True)   # per-cell time means
     n = len(pc)
+    M = pc.mean()
 
     # G6P composition: per-cell ternary fractions + closure residual vs glucose influx.
-    branches = ["EMP", "oxPPP", "ED"]
-    bsum = pc[branches].sum(axis=1)
-    fr = pc[branches].div(bsum, axis=0)               # ternary (renormalized)
-    resid = 1.0 - bsum / pc["e_glucose"]              # unaccounted G6P -> biomass
-    M = pc.mean()
+    bran = list(G6P_BRANCH)                            # [EMP, oxPPP, ED]
+    bcols = {b: G6P_BRANCH[b] for b in bran}           # branch -> CC label
+    bsum = sum(pc[bcols[b]] for b in bran)
+    fr = {b: pc[bcols[b]] / bsum for b in bran}        # ternary (renormalized)
+    resid = 1.0 - bsum / pc["e_glucose"]               # unaccounted G6P -> biomass
     g6p = {
-        "branches": branches,
-        "model_flux": {k: float(M[k]) for k in branches},      # mmol/gDW/h
+        "branches": bran,
+        "model_flux": {b: float(M[bcols[b]]) for b in bran},   # mmol/gDW/h
         "influx": float(M["e_glucose"]),
-        "fractions": {k: float(fr[k].mean()) for k in branches},
+        "fractions": {b: float(fr[b].mean()) for b in bran},
         "residual": float(resid.mean()),
-        "per_cell_fractions": fr[branches].round(4).values.tolist(),
+        "per_cell_fractions": [[round(float(fr[b].iloc[i]), 4) for b in bran]
+                               for i in range(n)],
     }
+
+    # Central-carbon flux vector, normalized to glucose uptake = 100 (per cell,
+    # then ensemble) — for the model-vs-Crown scatter. Signed (the model's own
+    # reaction directionality); the card compares magnitudes.
+    rel = {k: float(((pc[k] / pc["e_glucose"]) * 100.0).mean())
+           for k in CENTRAL_CARBON_RX}
+    central_carbon = {"normalized_to_glucose_100": rel}
     # Exchanges: absolute, C-mol balance, per-glucose normalized, RQ.
     glc, o2, co2, ac = (float(M["e_glucose"]), float(M["e_o2"]),
                         float(M["e_co2"]), float(M["e_acetate"]))
@@ -125,7 +146,8 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
     }
     return {"n_cells": n, "gen_lb": GEN_LB,
             "method": "blessed baseline sweep; per-cell time-mean, gen>=%d" % GEN_LB,
-            "nodes": {"g6p": g6p}, "exchanges": exch}
+            "nodes": {"g6p": g6p}, "exchanges": exch,
+            "central_carbon": central_carbon}
 
 
 def proteome_from_sweep(sweep_dir: Path, parca_state) -> dict:

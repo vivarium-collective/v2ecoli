@@ -328,14 +328,26 @@ def ternary_plot(branches: dict, influx=None, *, ref_fractions=None,
 
     fig, (ax, axr) = plt.subplots(
         1, 2, figsize=(width, height), gridspec_kw={"width_ratios": [3.2, 1]})
-    # triangle
+    # gridlines: for each component, lines of constant fraction (10% spacing)
+    # run parallel to the opposite edge — the standard ternary grid.
+    for f in [i / 10 for i in range(1, 10)]:
+        for k in range(3):
+            a = f * corners[k] + (1 - f) * corners[(k + 1) % 3]
+            b = f * corners[k] + (1 - f) * corners[(k + 2) % 3]
+            ax.plot([a[0], b[0]], [a[1], b[1]], color="#e9ecef", lw=0.5, zorder=0)
+    # triangle edges
     tri = np.array([corners[0], corners[1], corners[2], corners[0]])
-    ax.plot(tri[:, 0], tri[:, 1], color="#9aa3af", lw=1)
+    ax.plot(tri[:, 0], tri[:, 1], color="#9aa3af", lw=1.2, zorder=1)
     for k, n in enumerate(names):
         c = corners[k]
-        ax.annotate(n, c, fontsize=9, ha="center",
+        ax.annotate(n, c, fontsize=9, fontweight="bold", ha="center",
                     va="bottom" if k == 0 else "top",
-                    xytext=(0, 6 if k == 0 else -6), textcoords="offset points")
+                    xytext=(0, 7 if k == 0 else -7), textcoords="offset points")
+    # scale ticks for the top component (EMP) along the two upper edges
+    for f in [i / 10 for i in range(2, 9, 2)]:
+        pL = f * corners[0] + (1 - f) * corners[1]   # EMP–oxPPP edge
+        ax.annotate(f"{f:.0%}", pL, fontsize=5.5, color="#9aa3af", ha="right",
+                    va="center", xytext=(-2, 0), textcoords="offset points", zorder=1)
     # reference point(s)
     refs = []
     if ref_fractions:
@@ -344,15 +356,22 @@ def ternary_plot(branches: dict, influx=None, *, ref_fractions=None,
         refs.append((lbl, fr, "#9aa3af", "s"))
     for lbl, fr, col, mk in refs:
         p = _xy(fr)
-        ax.scatter(*p, s=60, color=col, marker=mk, zorder=4, edgecolor="white",
+        ax.scatter(*p, s=55, color=col, marker=mk, zorder=4, edgecolor="white",
                    linewidth=0.6, label=lbl)
-    # model point
+    # model point, annotated with its split
     mp = _xy(branches)
-    ax.scatter(*mp, s=80, color="#1a7f37", marker="*", zorder=5,
+    ax.scatter(*mp, s=90, color="#1a7f37", marker="*", zorder=5,
                edgecolor="white", linewidth=0.6, label=meas_label)
-    ax.set_xlim(-0.12, 1.12); ax.set_ylim(-0.12, 1.12)
+    tot = sum(branches.get(n, 0.0) for n in names) or 1.0
+    split = " / ".join(f"{100 * branches.get(n, 0.0) / tot:.0f}" for n in names)
+    ax.annotate(f"{split}%", mp, fontsize=7, color="#1a7f37", ha="left", va="center",
+                xytext=(8, 0), textcoords="offset points", zorder=6)
+    ax.set_xlim(-0.18, 1.18); ax.set_ylim(-0.15, 1.15)
     ax.set_aspect("equal"); ax.axis("off")
-    ax.legend(fontsize=7, loc="upper right", frameon=False)
+    ax.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.02),
+              ncol=2, frameon=False, handletextpad=0.3, columnspacing=1.0)
+    ax.text(0.5, -0.13, "gridlines 10% · toward a corner = more of that branch",
+            transform=ax.transAxes, ha="center", fontsize=6, color="#9aa3af")
 
     # closure-residual companion bar
     resid = None

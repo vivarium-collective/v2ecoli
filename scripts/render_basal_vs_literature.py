@@ -62,6 +62,22 @@ _EXCH_AXES = [
 ]
 # Crown 2015 G6P-fate branches -> their flux ids in metabolic_fluxes.tsv.
 _G6P_CROWN = {"EMP": "crown_f2", "oxPPP": "crown_f10", "ED": "crown_f18"}
+# Central-carbon flux scatter (model vs Crown). HELD OFF pending the reaction-set
+# + direction-convention curation (the model lumps/splits/directs base reactions
+# differently from Crown, so a single-id magnitude comparison conflates isozyme
+# under-counts + reverse-direction routing with the real TCA-collapse signal).
+# The bake stores model_metabolism.json["central_carbon"] as raw material; flip
+# this True once the stoichiometric reaction-set matcher lands (see the lab
+# notebook handoff). The _CC_FID map below is the first-pass single-id pairing.
+_INCLUDE_CC_SCATTER = False
+_CC_FID = {
+    "Pgi": "crown_f2", "Pfk": "crown_f3", "Fba": "crown_f4", "Tpi": "crown_f5",
+    "GAPDH": "crown_f6", "Eno": "crown_f7", "Pyk": "crown_f8", "Zwf": "crown_f9",
+    "6PGDH": "crown_f10", "ED": "crown_f18", "Rpe": "crown_f11", "Rpi": "crown_f12",
+    "PDH": "crown_f20", "CS": "crown_f21", "ICDH": "crown_f23", "aKGDH": "crown_f24",
+    "SDH": "crown_f26", "Fum": "crown_f27", "MDH": "crown_f28", "Icl": "crown_f29",
+    "MS": "crown_f30", "Ppc": "crown_f33", "Ack": "crown_f35",
+}
 
 # (card path, bundle observable key, label, units, has-theoretical-max, model derivation)
 _AXES = [
@@ -315,6 +331,37 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
                                                "acetate_secretion": "acetate"}[obs]],
                      "values": exch["per_cell"][{"o2_uptake": "o2", "co2_evolution": "co2",
                                                  "acetate_secretion": "acetate"}[obs]]}
+
+    # Central-carbon flux scatter: model vs Crown, normalized to glucose=100,
+    # compared as magnitudes (the model's own reaction directionality differs).
+    cc = met.get("central_carbon", {}).get("normalized_to_glucose_100")
+    if cc and _INCLUDE_CC_SCATTER:
+        root = _bundle_path(bundle_path).parent
+        crdf = pd.read_csv(root / "data/basal/metabolic_fluxes.tsv", sep="\t", comment="#")
+        crv = crdf[crdf["source_id"] == "crown_2015"].set_index("reaction_id")["value_relative_pct"]
+        ids, mvec, rvec = [], [], []
+        for lbl, fid in _CC_FID.items():
+            if lbl in cc and fid in crv.index:
+                ids.append(lbl)
+                mvec.append(abs(float(cc[lbl])))
+                rvec.append(abs(float(crv.loc[fid])))
+        axes["metabolism.central_carbon_flux"] = {
+            "group": "Metabolism",
+            "label": "Central-carbon fluxes (vs Crown)", "units": "% of glucose uptake",
+            "how": ("Model: ensemble central-carbon base-reaction fluxes, normalized to "
+                    "glucose uptake = 100 (magnitudes; the model's reaction directionality "
+                    "differs from the reference). Graded vs Crown 2015 COMPLETE-MFA. "
+                    "Glycolysis/PPP sit near the identity line (routing is right) while "
+                    "the TCA reactions (αKG dehydrogenase, malate synthase) read as 'lost' "
+                    "— the model's oxidative cycle isn't running, the reaction-level face "
+                    "of the under-respiration. NOTE: a few reactions (Pfk, Fba) are "
+                    "under-counted by their single base-reaction id (split isozyme); a "
+                    "reaction-set refinement is pending."),
+            "plot": "flux_scatter",
+            "criterion": {"type": "flux_scatter", "ref_vector": rvec, "flux_ids": ids,
+                          "active_eps": 1e-6, "qual_eps": 1.0, "r2_min": 0.8, "r2_drift": 0.5},
+        }
+        card["central_carbon_flux"] = {"vector": mvec, "n_cells": met.get("n_cells")}
     return axes, card
 
 

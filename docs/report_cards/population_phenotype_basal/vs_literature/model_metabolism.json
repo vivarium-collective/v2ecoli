@@ -123,6 +123,39 @@
           0.0
         ]
       ]
+    },
+    "isocitrate": {
+      "branches": [
+        "oxidative_TCA",
+        "glyoxylate"
+      ],
+      "model_flux": {
+        "oxidative_TCA": 1.5439427898512121,
+        "glyoxylate": 0.06175937368715294
+      },
+      "influx": 1.605702163538365,
+      "fractions": {
+        "oxidative_TCA": 0.9615374662315591,
+        "glyoxylate": 0.038462533768440874
+      }
+    },
+    "accoa": {
+      "branches": [
+        "TCA",
+        "acetate",
+        "biosynthesis"
+      ],
+      "model_flux": {
+        "TCA": 0.8071197841893282,
+        "acetate": 0.0,
+        "biosynthesis": 2.942299785516737
+      },
+      "influx": 3.7494195697060655,
+      "fractions": {
+        "TCA": 0.21526526151155767,
+        "acetate": 0.0,
+        "biosynthesis": 0.7847347384884423
+      }
     }
   },
   "exchanges": {

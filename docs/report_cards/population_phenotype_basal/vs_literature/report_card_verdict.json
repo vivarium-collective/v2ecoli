@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "v2ecoli baseline (blessed baseline, gen≥3)",
   "reference_model": "experimental literature (ecoli-sources validation_data)",
-  "generated": "2026-06-19 14:38",
+  "generated": "2026-06-19 17:28",
   "overall": "mismatch",
   "groups": {
     "physiology": {
@@ -145,6 +145,59 @@
               "EMP",
               "oxPPP",
               "ED"
+            ]
+          }
+        },
+        {
+          "id": "metabolism.isocitrate_split",
+          "label": "Isocitrate fate (oxidative TCA / glyoxylate)",
+          "verdict": "drift",
+          "value": 0.09160205967130433,
+          "meter": "TV = 0.092 · model [oxidative_TCA 96%, glyoxylate 4%] vs ref [oxidative_TCA 87%, glyoxylate 13%] · residual +0%",
+          "detail": {
+            "tv": 0.09160205967130433,
+            "residual": 0.0,
+            "model_fractions": {
+              "oxidative_TCA": 0.9615374662315591,
+              "glyoxylate": 0.038462533768440874
+            },
+            "ref_fractions": {
+              "oxidative_TCA": 0.8699354065602548,
+              "glyoxylate": 0.13006459343974522
+            },
+            "routing_verdict": "drift",
+            "residual_verdict": "within_tol",
+            "branch_names": [
+              "oxidative_TCA",
+              "glyoxylate"
+            ]
+          }
+        },
+        {
+          "id": "metabolism.accoa_split",
+          "label": "Acetyl-CoA fate (TCA / acetate / biosynthesis)",
+          "verdict": "mismatch",
+          "value": 0.5860000350920288,
+          "meter": "TV = 0.586 · model [TCA 22%, acetate 0%, biosynthesis 78%] vs ref [TCA 17%, acetate 59%, biosynthesis 25%] · residual +0%",
+          "detail": {
+            "tv": 0.5860000350920288,
+            "residual": 0.0,
+            "model_fractions": {
+              "TCA": 0.21526526151155767,
+              "acetate": 0.0,
+              "biosynthesis": 0.7847347384884423
+            },
+            "ref_fractions": {
+              "TCA": 0.16692137630937134,
+              "acetate": 0.5860000350920288,
+              "biosynthesis": 0.24707858859859982
+            },
+            "routing_verdict": "mismatch",
+            "residual_verdict": "within_tol",
+            "branch_names": [
+              "TCA",
+              "acetate",
+              "biosynthesis"
             ]
           }
         }

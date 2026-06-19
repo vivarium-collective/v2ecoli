@@ -96,6 +96,7 @@ CC_SPEC = [
 _LABEL2BASE = {row[0]: row[2] for row in CC_SPEC}
 # G6P-fate composition branches -> their label in CC_SPEC.
 G6P_BRANCH = {"EMP": "Pgi", "oxPPP": "6PGDH", "ED": "EDD / EDA"}
+ACCOA_MET = "ACETYL-COA[c]"   # acetyl-CoA, the AcCoA-fate node metabolite
 # external_exchange_fluxes is emitted in sorted(all_external_exchange_molecules)
 # order; 1-indexed positions verified against the sweep.
 EX_IDX = {"glucose": 37, "o2": 66, "co2": 11, "acetate": 3}
@@ -166,7 +167,10 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
     phys = _phys_stoich(metabolism)
     dens = sim_data.constants.cell_density.asNumber(units.g / units.L)
 
-    bases = sorted({row[2] for row in CC_SPEC})        # unique base reactions
+    # Extract the CC_SPEC reactions + every base reaction touching acetyl-CoA
+    # (needed for the AcCoA-fate node's total-consumption denominator).
+    accoa_bases = [b for b in brids if ACCOA_MET in (phys.get(b) or {})]
+    bases = sorted({row[2] for row in CC_SPEC} | set(accoa_bases))
     col = {b: f"r{i}" for i, b in enumerate(bases)}    # SQL-safe aliases
     flist = _parquet_glob(sweep_dir)
     con = duckdb.connect()
@@ -231,6 +235,33 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
         })
     central_carbon = {"normalized_to_glucose_100": True, "reactions": reactions}
 
+    # Isocitrate fate: oxidative TCA (ICDH) vs glyoxylate shunt (ICL) — the only
+    # two consumers of isocitrate, so influx = their sum (no residual).
+    icdh, icl = float(signed("ICDH").mean()), float(signed("Icl").mean())
+    iso_in = icdh + icl                                 # ratio-of-means (robust)
+    isocitrate = {
+        "branches": ["oxidative_TCA", "glyoxylate"],
+        "model_flux": {"oxidative_TCA": icdh, "glyoxylate": icl},
+        "influx": iso_in,
+        "fractions": {"oxidative_TCA": icdh / iso_in, "glyoxylate": icl / iso_in},
+    }
+
+    # AcCoA fate: TCA (citrate synthase) / acetate overflow / biosynthesis (the
+    # rest — fatty acids + amino acids). influx = total per-cell AcCoA consumption
+    # (Σ over every consuming reaction); biosynthesis is the balance.
+    cs = float(signed("CS").mean())                     # AcCoA -> citrate
+    consume = float(sum(((-(phys[b][ACCOA_MET])) * pc[col[b]]).clip(lower=0)
+                        for b in accoa_bases).mean())
+    ac_fate = float(pc["e_acetate"].mean())             # acetate carbon leaving (~0)
+    bios = consume - cs - ac_fate
+    accoa = {
+        "branches": ["TCA", "acetate", "biosynthesis"],
+        "model_flux": {"TCA": cs, "acetate": ac_fate, "biosynthesis": bios},
+        "influx": consume,                              # ratio-of-means (robust)
+        "fractions": {"TCA": cs / consume, "acetate": ac_fate / consume,
+                      "biosynthesis": bios / consume},
+    }
+
     # Exchanges: absolute, C-mol balance, per-glucose normalized, RQ.
     glc, o2, co2, ac = (float(M["e_glucose"]), float(M["e_o2"]),
                         float(M["e_co2"]), float(M["e_acetate"]))
@@ -246,8 +277,8 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
     }
     return {"n_cells": n, "gen_lb": GEN_LB,
             "method": "blessed baseline sweep; per-cell time-mean, gen>=%d" % GEN_LB,
-            "nodes": {"g6p": g6p}, "exchanges": exch,
-            "central_carbon": central_carbon}
+            "nodes": {"g6p": g6p, "isocitrate": isocitrate, "accoa": accoa},
+            "exchanges": exch, "central_carbon": central_carbon}
 
 
 def proteome_from_sweep(sweep_dir: Path, parca_state) -> dict:

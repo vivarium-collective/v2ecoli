@@ -522,6 +522,11 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 extra_refs=crit.get("extra_refs"),
                 residual_max=crit.get("residual_max", 0.05),
                 label=axis.get("label", ""), meas_label=meas_label)
+        if kind == "split" and isinstance(measured, dict) and measured.get("branches"):
+            return card_plots.composition_bars(
+                measured["branches"], crit.get("ref_fractions"),
+                influx=measured.get("influx"), label=axis.get("label", ""),
+                ref_label=crit.get("ref_label", ref_label), meas_label=meas_label)
         if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
             stat_label = "r" if crit.get("type") == "pearson" else "R²"
             svg = card_plots.loglog_scatter(

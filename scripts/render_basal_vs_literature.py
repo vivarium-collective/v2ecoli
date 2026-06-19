@@ -250,11 +250,27 @@ def _bundle_path(bundle_path: Path | None) -> Path:
 
 def crown_g6p_composition(bundle_path: Path | None = None) -> dict:
     """Crown 2015 G6P-fate composition (fractions of glucose uptake) from the
-    metabolic_fluxes bundle — the reference for the glycolysis-split ternary."""
+    metabolic_fluxes bundle — the reference for the glycolysis-split bars."""
     root = _bundle_path(bundle_path).parent
     df = pd.read_csv(root / "data/basal/metabolic_fluxes.tsv", sep="\t", comment="#")
     cr = df[df["source_id"] == "crown_2015"].set_index("reaction_id")
     return {k: float(cr.loc[fid, "value_relative_pct"]) for k, fid in _G6P_CROWN.items()}
+
+
+def crown_fate_nodes(bundle_path: Path | None = None) -> dict:
+    """Crown 2015 reference compositions for the isocitrate + AcCoA fate nodes.
+    Isocitrate: ICDH (oxidative, f23) vs ICL (glyoxylate, f29). AcCoA: citrate
+    synthase (TCA, f21) vs acetate overflow (f35) vs biosynthesis (the balance of
+    PDH production f20 not going to TCA or acetate)."""
+    root = _bundle_path(bundle_path).parent
+    df = pd.read_csv(root / "data/basal/metabolic_fluxes.tsv", sep="\t", comment="#")
+    f = df[df["source_id"] == "crown_2015"].set_index("reaction_id")["value_relative_pct"]
+    return {
+        "isocitrate": {"oxidative_TCA": float(f["crown_f23"]),
+                       "glyoxylate": float(f["crown_f29"])},
+        "accoa": {"TCA": float(f["crown_f21"]), "acetate": float(f["crown_f35"]),
+                  "biosynthesis": float(f["crown_f20"] - f["crown_f21"] - f["crown_f35"])},
+    }
 
 
 def proteome_reference(bundle_path: Path | None = None) -> dict:
@@ -265,8 +281,9 @@ def proteome_reference(bundle_path: Path | None = None) -> dict:
 
 
 def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> tuple[dict, dict]:
-    """(axes, card_node) for the Metabolism section: the G6P-split composition
-    (ternary) + the O₂/CO₂/acetate exchange axes (absolute, with C-mol context)."""
+    """(axes, card_node) for the Metabolism section: O₂/CO₂/acetate exchanges, the
+    central-carbon flux scatter, and the branch-point fate splits (glycolysis /
+    isocitrate / acetyl-CoA), all as stacked model-vs-Crown composition bars."""
     g6p = met["nodes"]["g6p"]
     exch = met["exchanges"]
     cmol = exch["cmol_pct"]
@@ -371,15 +388,52 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
                 "ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-"
                 "variation distance vs the Crown 2015 ¹³C-MFA composition (the routing "
                 "of carbon through central metabolism, independent of uptake rate); the "
-                "companion bar is the closure residual (G6P unaccounted by the three "
-                "branches — a small biomass drain, expected < 5%)."),
-        "plot": "ternary",
+                "hatched residual is G6P unaccounted by the three branches — a small "
+                "biomass drain, expected < 5%. The model routes carbon CORRECTLY here "
+                "(low TV) — the defects are downstream (respiration / overflow)."),
+        "plot": "split",
         "criterion": {
             "type": "composition", "ref_fractions": crown, "ref_label": "Crown 2015",
             "tv_good": 0.05, "tv_warn": 0.15, "residual_max": 0.05, "residual_warn": 0.10,
         },
     }
     card["glycolysis_split"] = {"branches": g6p["model_flux"], "influx": g6p["influx"]}
+
+    # TCA branch-point fate nodes (isocitrate, AcCoA), graded as compositions vs
+    # Crown — shown as stacked model-vs-Crown bars (2- and 3-way, not ternary).
+    if "isocitrate" in met.get("nodes", {}) and "accoa" in met["nodes"]:
+        cf = crown_fate_nodes(bundle_path)
+        axes["metabolism.isocitrate_split"] = {
+            "group": "Metabolism",
+            "label": "Isocitrate fate (oxidative TCA / glyoxylate)", "units": "",
+            "how": ("Model: the isocitrate branch point — oxidative decarboxylation "
+                    "(isocitrate dehydrogenase → α-ketoglutarate) vs the glyoxylate "
+                    "shunt (isocitrate lyase). Graded by total-variation distance vs "
+                    "Crown 2015. The model routes ~96% oxidative (ICDH makes α-KG for "
+                    "biosynthesis — note α-KG is NOT dehydrogenated onward, αKGDH ≈ 0)."),
+            "plot": "split",
+            "criterion": {"type": "composition", "ref_fractions": cf["isocitrate"],
+                          "ref_label": "Crown 2015", "tv_good": 0.05, "tv_warn": 0.15,
+                          "residual_max": 0.02, "residual_warn": 0.05},
+        }
+        card["isocitrate_split"] = {"branches": met["nodes"]["isocitrate"]["model_flux"],
+                                    "influx": met["nodes"]["isocitrate"]["influx"]}
+        axes["metabolism.accoa_split"] = {
+            "group": "Metabolism",
+            "label": "Acetyl-CoA fate (TCA / acetate / biosynthesis)", "units": "",
+            "how": ("Model: where acetyl-CoA goes — citrate synthase (TCA), acetate "
+                    "overflow (Pta/AckA), or biosynthesis (fatty acids + amino acids). "
+                    "Graded by total-variation distance vs Crown 2015. The contrast is "
+                    "the overflow defect: the model dumps ~79% of acetyl-CoA into "
+                    "biosynthesis with **no acetate overflow**, where Crown overflows "
+                    "~59% to acetate — the AcCoA-node face of the missing overflow."),
+            "plot": "split",
+            "criterion": {"type": "composition", "ref_fractions": cf["accoa"],
+                          "ref_label": "Crown 2015", "tv_good": 0.05, "tv_warn": 0.15,
+                          "residual_max": 0.05, "residual_warn": 0.10},
+        }
+        card["accoa_split"] = {"branches": met["nodes"]["accoa"]["model_flux"],
+                               "influx": met["nodes"]["accoa"]["influx"]}
     return axes, card
 
 

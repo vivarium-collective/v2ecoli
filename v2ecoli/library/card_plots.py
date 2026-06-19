@@ -425,3 +425,65 @@ def ternary_plot(branches: dict, influx=None, *, ref_fractions=None,
     for s in ("top", "right"):
         axr.spines[s].set_visible(False)
     return _svg(fig)
+
+
+def composition_bars(branches: dict, ref_fractions=None, *, influx=None, label="",
+                     meas_label="model", ref_label="reference", width=4.4,
+                     height=2.2) -> str:
+    """Two stacked horizontal bars — model over reference — of a branch-point
+    flux composition, each renormalized to 1. For 2- to N-way fate splits where a
+    ternary doesn't apply (e.g. isocitrate ICDH/ICL, or AcCoA TCA/acetate/
+    biosynthesis). ``branches`` is the measured ``{name: flux}``; ``ref_fractions``
+    the reference composition (same keys). When ``influx`` is given, the model's
+    branches are taken as fractions of influx and any shortfall shows as a hatched
+    residual tail. Segments ≥ 6% are labelled with their %."""
+    plt = _setup()
+    names = list(ref_fractions or branches)
+    bsum = sum(branches.get(n, 0.0) for n in names)
+    if influx:
+        mfr = [branches.get(n, 0.0) / influx for n in names]
+        resid = max(0.0, 1.0 - sum(mfr))
+    else:
+        mfr = [branches.get(n, 0.0) / (bsum or 1.0) for n in names]
+        resid = 0.0
+    rsum = sum((ref_fractions or {}).values()) or 1.0
+    rfr = [ref_fractions[n] / rsum for n in names] if ref_fractions else None
+    COLORS = ["#1a7f37", "#1f6feb", "#e8893b", "#9b59b6", "#16a2a2", "#b0b6bd"]
+    cmap = {n: COLORS[i % len(COLORS)] for i, n in enumerate(names)}
+    fig, ax = plt.subplots(figsize=(width, height))
+    rows = [(meas_label, mfr, resid)]
+    if rfr is not None:
+        rows.append((ref_label, rfr, 0.0))
+    for yi, (lab, fr, rs) in enumerate(rows):
+        left = 0.0
+        for n, f in zip(names, fr):
+            if f <= 0:
+                continue
+            ax.barh(yi, f, left=left, color=cmap[n], edgecolor="white",
+                    height=0.62, zorder=2)
+            if f >= 0.06:
+                ax.text(left + f / 2, yi, f"{100 * f:.0f}%", ha="center",
+                        va="center", fontsize=7, color="white", fontweight="bold")
+            left += f
+        if rs > 0.01:
+            ax.barh(yi, rs, left=left, color="#d6dade", edgecolor="white",
+                    height=0.62, hatch="///", zorder=2)
+            if rs >= 0.06:
+                ax.text(left + rs / 2, yi, f"{100 * rs:.0f}%", ha="center",
+                        va="center", fontsize=7, color="#555")
+    ax.set_yticks(range(len(rows)))
+    ax.set_yticklabels([r[0] for r in rows], fontsize=8)
+    ax.invert_yaxis()                      # model on top
+    ax.set_xlim(0, 1); ax.set_xlabel("fraction of node flux", fontsize=8)
+    ax.tick_params(labelsize=7)
+    handles = [plt.Rectangle((0, 0), 1, 1, color=cmap[n]) for n in names]
+    leg_names = list(names)
+    if rows[0][2] > 0.01:                   # model residual present
+        handles.append(plt.Rectangle((0, 0), 1, 1, facecolor="#d6dade", hatch="///"))
+        leg_names.append("residual")
+    ax.legend(handles, leg_names, fontsize=6.5, ncol=min(len(leg_names), 4),
+              loc="upper center", bbox_to_anchor=(0.5, -0.32), frameon=False)
+    for s in ("top", "right", "left"):
+        ax.spines[s].set_visible(False)
+    fig.subplots_adjust(bottom=0.34)
+    return _svg(fig)

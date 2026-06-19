@@ -223,3 +223,32 @@ def test_central_carbon_ed_branch_tracked_but_off(cc_reactions):
     # it's off in the model (~0) — visible-but-negligible, not dropped.
     r = cc_reactions["EDD / EDA"]
     assert abs(r["model"]) < 1 and r["group"] == "ED"
+
+
+# ---------------------------------------------------------------------------
+# 5. TCA branch-point fate nodes (isocitrate, acetyl-CoA) — composition bars
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def fate_nodes():
+    import json
+    return json.load(open(rvl._MET_JSON, encoding="utf-8"))["nodes"]
+
+
+def test_isocitrate_node_oxidative_dominant(graded, fate_nodes):
+    # ICit routes ~96% oxidative (ICDH→α-KG) vs Crown 87% — a modest drift.
+    report, _ = graded
+    ax = report["axes"].get("metabolism.isocitrate_split")
+    assert ax is not None and ax["verdict"] in ("within_tol", "drift")
+    assert fate_nodes["isocitrate"]["fractions"]["oxidative_TCA"] > 0.85
+
+
+def test_accoa_node_no_overflow_is_mismatch(graded, fate_nodes):
+    # AcCoA fate: the model sends ~78% to biosynthesis with NO acetate overflow,
+    # vs Crown's 59% acetate — the AcCoA-node face of the overflow defect.
+    report, _ = graded
+    ax = report["axes"].get("metabolism.accoa_split")
+    assert ax is not None and ax["verdict"] == "mismatch"
+    fr = fate_nodes["accoa"]["fractions"]
+    assert fr["acetate"] < 0.02          # no overflow
+    assert fr["biosynthesis"] > 0.6      # carbon dumped into biomass instead

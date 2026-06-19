@@ -275,14 +275,53 @@
       "group": "Metabolism",
       "label": "Glycolysis split (EMP / oxPPP / ED)",
       "units": "",
-      "how": "Model: G6P-fate composition from the ensemble base-reaction fluxes (EMP=phosphoglucose isomerase, oxPPP=6-phosphogluconate dehydrogenase, ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-variation distance vs the Crown 2015 ¹³C-MFA composition (the routing of carbon through central metabolism, independent of uptake rate); the companion bar is the closure residual (G6P unaccounted by the three branches — a small biomass drain, expected < 5%).",
-      "plot": "ternary",
+      "how": "Model: G6P-fate composition from the ensemble base-reaction fluxes (EMP=phosphoglucose isomerase, oxPPP=6-phosphogluconate dehydrogenase, ED=KDPG aldolase), as fractions of glucose uptake. Graded by total-variation distance vs the Crown 2015 ¹³C-MFA composition (the routing of carbon through central metabolism, independent of uptake rate); the hatched residual is G6P unaccounted by the three branches — a small biomass drain, expected < 5%. The model routes carbon CORRECTLY here (low TV) — the defects are downstream (respiration / overflow).",
+      "plot": "split",
       "criterion": {
         "type": "composition",
         "ref_fractions": {
           "EMP": 71.6463,
           "oxPPP": 25.4006,
           "ED": 1.4106
+        },
+        "ref_label": "Crown 2015",
+        "tv_good": 0.05,
+        "tv_warn": 0.15,
+        "residual_max": 0.05,
+        "residual_warn": 0.1
+      }
+    },
+    "metabolism.isocitrate_split": {
+      "group": "Metabolism",
+      "label": "Isocitrate fate (oxidative TCA / glyoxylate)",
+      "units": "",
+      "how": "Model: the isocitrate branch point — oxidative decarboxylation (isocitrate dehydrogenase → α-ketoglutarate) vs the glyoxylate shunt (isocitrate lyase). Graded by total-variation distance vs Crown 2015. The model routes ~96% oxidative (ICDH makes α-KG for biosynthesis — note α-KG is NOT dehydrogenated onward, αKGDH ≈ 0).",
+      "plot": "split",
+      "criterion": {
+        "type": "composition",
+        "ref_fractions": {
+          "oxidative_TCA": 16.552,
+          "glyoxylate": 2.4747
+        },
+        "ref_label": "Crown 2015",
+        "tv_good": 0.05,
+        "tv_warn": 0.15,
+        "residual_max": 0.02,
+        "residual_warn": 0.05
+      }
+    },
+    "metabolism.accoa_split": {
+      "group": "Metabolism",
+      "label": "Acetyl-CoA fate (TCA / acetate / biosynthesis)",
+      "units": "",
+      "how": "Model: where acetyl-CoA goes — citrate synthase (TCA), acetate overflow (Pta/AckA), or biosynthesis (fatty acids + amino acids). Graded by total-variation distance vs Crown 2015. The contrast is the overflow defect: the model dumps ~79% of acetyl-CoA into biosynthesis with **no acetate overflow**, where Crown overflows ~59% to acetate — the AcCoA-node face of the missing overflow.",
+      "plot": "split",
+      "criterion": {
+        "type": "composition",
+        "ref_fractions": {
+          "TCA": 19.0267,
+          "acetate": 66.7958,
+          "biosynthesis": 28.1635
         },
         "ref_label": "Crown 2015",
         "tv_good": 0.05,

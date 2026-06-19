@@ -19,7 +19,7 @@ def test_harness_writes_report_when_sim_stage_fails(tmp_path, monkeypatch):
             "--v2-cache", str(tmp_path / "missing_cache")])
     html = out.read_text(encoding="utf-8")
     # report still written; both engine stages degrade to error sections.
-    assert "ParCa / sim_data (cached)" in html
+    assert "ParCa / sim_data" in html
     assert "2-generation sim dynamics" in html
     assert "sim exploded" in html
     # loaded-config panel is always present

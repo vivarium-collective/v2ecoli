@@ -1,5 +1,14 @@
 """Tests for baseline() injected_processes hook (Task 4)."""
 import os
+
+import pytest
+
+# These build a real baseline document, which needs a ParCa cache
+# (out/cache/initial_state.json). Mark them `sim` so they run in the
+# behavior-tests CI job (which builds out/cache) and are deselected from the
+# cache-less fast-tests job.
+pytestmark = pytest.mark.sim
+
 FORK = os.path.join(os.path.dirname(__file__), "fixtures", "fork_example")
 
 

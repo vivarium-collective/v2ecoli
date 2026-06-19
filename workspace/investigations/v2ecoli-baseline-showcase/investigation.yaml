@@ -70,6 +70,13 @@ executive:
     showcase-4 and showcase-6 are RUN (the 5-variant sweep + 8 figures, and the
     16x16 equivalence ensemble); the two decision studies (3 and 5) stay un-run
     until a reviewer chooses.
+
+    Units are integrated throughout: every study carries interactive Plotly
+    figures (scripts/make_showcase_interactive_figures.py) whose axes and hover
+    reads are labelled with the declared schema unit (fg, uM, 1/s, fL), and an
+    interactive Units Atlas — every unit-bearing baseline readout grouped by
+    physical dimension — is embedded in each study. This folds in and replaces
+    the former standalone units-atlas investigation.
   verdict_status: in-progress
   verdict_detail: |
     The pipeline is exercised end-to-end and the perturbation-response half is

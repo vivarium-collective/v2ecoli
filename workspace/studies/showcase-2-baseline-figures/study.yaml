@@ -516,3 +516,24 @@ visualizations:
   chart: line
   source_run: showcase2-baseline-ensemble
   render: trace from listeners__growth_limits__fraction_trna_charged over the clean sweep parquet (both seeds, 3 gens)
+
+# Interactive Plotly companions (scripts/make_showcase_interactive_figures.py).
+# Self-contained HTML in reports/figures/<study>/; every axis + hover carries
+# the declared schema unit (fg, uM, 1/s, fL) via units_resolver. The units_atlas
+# embed folds in the retired units-atlas investigation.
+embed_visualizations:
+- name: Dry mass over the cell cycle (interactive)
+  url: /reports/figures/showcase-2-baseline-figures/cell_mass_interactive.html
+  description: Per-cell exponential growth and division across the 2-seed × 3-gen baseline ensemble; y-axis in fg, hover unit-tagged.
+- name: Dry-mass composition (interactive)
+  url: /reports/figures/showcase-2-baseline-figures/mass_composition_interactive.html
+  description: Stacked protein / RNA / DNA / small-molecule mass (fg) over one representative cell cycle.
+- name: Instantaneous growth rate (interactive)
+  url: /reports/figures/showcase-2-baseline-figures/growth_rate_interactive.html
+  description: Specific growth rate as d(ln mass)/dt (1/s) per cell across the ensemble.
+- name: ppGpp and tRNA charging (interactive)
+  url: /reports/figures/showcase-2-baseline-figures/regulation_interactive.html
+  description: Stringent-response ppGpp (uM, left axis) against the mean charged-tRNA fraction (right axis) over the cell cycle.
+- name: Units Atlas (interactive)
+  url: /reports/figures/showcase-2-baseline-figures/units_atlas.html
+  description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range. Folds in the former units-atlas investigation.

@@ -116,7 +116,13 @@ embed_visualizations:
 
 pipeline_gate:
   prerequisites:
-  - sm-01-nn-surrogate
+  # Depends on sm-01 having been EVALUATED, NOT on sm-01 passing — sm-01's
+  # behaviour tests intentionally FAIL (the surrogate does not beat baselines),
+  # and this study follows up by trying to improve it. A bare-string
+  # prerequisite defaults to condition `tests-passed`, which would (wrongly)
+  # keep this study blocked.
+  - study: sm-01-nn-surrogate
+    condition: ran
   enables: []
   gate_status: passed
 

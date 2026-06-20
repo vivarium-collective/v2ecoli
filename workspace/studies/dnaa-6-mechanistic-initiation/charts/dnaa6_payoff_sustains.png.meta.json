@@ -1,0 +1,7 @@
+{
+  "title": "dnaa-6 payoff — mechanistic DnaA-ATP initiation sustains the cell cycle with cooperativity",
+  "caption": "8-generation runs, seed 1, dnaa-4 reference config. TOP (cell mass): the mass-trigger control (blue) sawtooths and divides; the first-pass mechanistic trigger (red, oriC-high saturation, no cooperativity) runs away to ~6159 fg and collapses at gen 2; the oriC-LOW cooperative-switch trigger (green, DNAA_INIT_TRIGGER_POOL=low, n=4, K=30) sustains a normal sawtooth — 8/8 divisions (tau 38-77 min). BOTTOM (oriC count): the mass control is clean 1<->2; the cooperative-switch trigger sustains the cycle but OVER-initiates, oriC reaching 4.",
+  "interpretation": "Biology-driven (DnaA-ATP/oriC) replication initiation now sustains the cell cycle once cooperativity makes the oriC-low filament switch-like — the first-pass under-initiation collapse is resolved, and the DnaA-ATP mechanism can drive the cycle in place of the cell-mass heuristic. The remaining issue is over-initiation (oriC->4): there is no post-initiation eclipse, so a just-fired origin re-fires. The next prerequisite is SeqA sequestration (dnaa-7) and/or threshold/K tuning to enforce one-initiation-per-cycle.",
+  "source_runs": ["dnaa6_mech_low_coop_n4_seed1_8gen", "dnaa5_mech_diag_seed1_8gen", "dnaa4_s06_F05_seed1_12gen"],
+  "script": "scripts/render_dnaa6_payoff.py"
+}

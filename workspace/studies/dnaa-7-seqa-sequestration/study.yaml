@@ -1,0 +1,130 @@
+schema_version: 4
+name: dnaa-7-seqa-sequestration
+investigation: dnaa-replication
+title: "dnaa-7 — SeqA sequestration eclipse (one-initiation-per-cycle for the mechanistic trigger)"
+created: "2026-06-20"
+status: in_progress
+design_status: designed
+implementation_status: implemented
+simulation_status: running
+evaluation_status: in_progress
+gate_status: partial
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-6-mechanistic-initiation
+  why: "dnaa-6 made the DnaA-ATP/oriC trigger SUSTAIN the cycle (8/8) with cooperativity, but it OVER-initiates (oriC->4) for lack of a post-initiation eclipse. dnaa-7 adds the SeqA sequestration that blocks a just-fired origin from re-firing."
+
+question: >-
+  Does a post-initiation eclipse (SeqA sequestration) restore one-initiation-per-cycle (clean
+  oriC 1<->2, no over-initiation) under the mechanistic DnaA-ATP/oriC trigger, while keeping the
+  cell cycle sustained and the DnaA / DnaA-ATP levels in band?
+
+background: >-
+  In E. coli, immediately after initiation the newly hemimethylated oriC (and the dnaA promoter)
+  is bound by SeqA, sequestering it for ~1/3 of the cell cycle (the eclipse) so it cannot
+  re-initiate. The wcEcoli cell-mass heuristic implicitly enforces one-init-per-cycle (mass must
+  double again); the mechanistic DnaA-ATP trigger (dnaa-6) lacks this block, so the cooperative
+  switch — which stays ON while free DnaA-ATP is high — re-fires the same origin, driving oriC to 4.
+
+mechanism: >-
+  Phenomenological SeqA eclipse, flag-gated in chromosome_replication.py (commit d883cc61):
+  DNAA_INIT_ECLIPSE_MIN blocks the mechanistic initiation trigger for N minutes after an
+  initiation event (tracks the last-initiation time; gated in _should_initiate). Default 0 =
+  no eclipse (dnaa-6 behavior). A full hemimethylation/SeqA-on-oriC-boxes model is a later
+  refinement; the refractory eclipse captures the one-init-per-cycle phenotype directly.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa4_s06_F05
+      max_generations: 8
+      single_daughters: true
+      perturbations: {"TU00259[c]": 1.5e-3}
+      note: "dnaa-6 payoff config (mechanistic oriC-low trigger + cooperative binding) + the SeqA eclipse."
+  variants:
+  - name: eclipse-sweep
+    diff_from_baseline: "DNAA_INIT_ECLIPSE_MIN in {20, 40} min"
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    initiation_trigger: mechanistic
+    init_trigger_pool: low
+    init_low_threshold: 6
+    oric_cooperativity_n: 4
+    oric_half_sat_nM: 30
+    init_eclipse_min: 40        # SeqA eclipse (sweep 20/40)
+    base_config: dnaa-4-reference (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025)
+  source: dnaa-6-payoff + SeqA-eclipse
+
+readouts:
+- name: number of oriC (one-init-per-cycle)
+  identifier: listeners.replication_data.number_of_oric
+  units: count
+  status: primary
+  note: "Target: clean 1<->2 (the eclipse should remove the dnaa-6 over-init to 4)."
+- name: re-initiation events
+  identifier: ticks with oriC > 2
+  units: count
+  status: primary
+
+tests:
+- name: one-initiation-per-cycle
+  classification: primary
+  description: "oriC oscillates cleanly 1<->2 (no over-initiation) under the mechanistic trigger + eclipse."
+  measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+  pass_if: {op: max_le, value: 2}
+  status: running
+- name: cycle-sustained
+  classification: primary
+  description: "Every generation still divides (the eclipse must not block legitimate next-cycle initiation)."
+  measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
+  pass_if: {op: periodic_doubling_every_generation, tolerance: 0.4}
+  status: running
+- name: dnaa-levels-preserved
+  classification: primary
+  description: "DnaA pool stays in [300,800] (the eclipse changes initiation timing, not DnaA homeostasis)."
+  measure: {kind: generation_average, path: "(MONOMER0-160[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp) + (PD03831[c] + MONOMER0-4565[c])", window: gen_steady_state}
+  pass_if: {op: generation_average_in_range, low: 300, high: 800}
+  status: running
+
+report:
+  title: "dnaa-7 — SeqA sequestration eclipse"
+  verdict: >-
+    in-progress. dnaa-6 showed mechanistic DnaA-ATP/oriC initiation SUSTAINS the cycle with
+    cooperativity but OVER-initiates (oriC->4) for lack of a post-initiation eclipse. dnaa-7 adds
+    a phenomenological SeqA eclipse (DNAA_INIT_ECLIPSE_MIN, refractory block after initiation) and
+    tests whether it restores clean one-initiation-per-cycle (oriC 1<->2) while keeping the cycle
+    sustained and DnaA in band. Eclipse sweep (20, 40 min) + threshold/K tuning runs in progress.
+  confidence: in-progress
+
+next_action: >-
+  Evaluate the eclipse sweep (20/40 min) + the dnaa-6 threshold/K tuning runs: which combination
+  gives clean oriC 1<->2 + sustained division + DnaA in band? Pick the operating point; if the
+  refractory eclipse suffices, the mechanistic initiation is complete (heuristic fully replaced).
+  Later refinement: a hemimethylation-based SeqA-on-oriC model.
+
+runs:
+- name: dnaa7_seqa_eclipse40_seed1_8gen
+  status: running
+  canonical: true
+  seed: 1
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  note: "Mechanistic oriC-low trigger + cooperativity (n=4, K=30) + SeqA eclipse 40 min."
+- name: dnaa7_seqa_eclipse20_seed1_8gen
+  status: running
+  canonical: false
+  seed: 1
+  generations: 8
+  note: "Milder eclipse (20 min)."
+
+biological_summary: >-
+  SeqA binds newly hemimethylated oriC after initiation, sequestering it for the eclipse period
+  (~1/3 of the cell cycle) so the origin cannot re-fire. This is the molecular basis of
+  once-per-cycle initiation, and the missing piece that lets the DnaA-ATP/oriC trigger replace the
+  cell-mass heuristic cleanly.

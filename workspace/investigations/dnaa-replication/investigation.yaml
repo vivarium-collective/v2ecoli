@@ -86,9 +86,20 @@ executive:
     (12/12, oriC 1↔2, 0 re-inits) and total-DnaA pool in [300,800] (steady g4-11) on all three
     seeds. The DnaA-ATP-FRACTION band, however, is SEED-SENSITIVE — in band only on seed 1 (0.261);
     seed 0 (0.156, ramping toward band late) and seed 2 (0.085, erratic) fall below 0.2 — so dnaa-4
-    stays PARTIAL on the fraction (homeostasis confirmed, fraction band seed-1-specific). The
-    downstream mechanistic roadmap (RIDA/DDAH/DARS, seqA, cooperativity, validation) is scaffolded
-    but not yet worked.
+    stays PARTIAL on the fraction (homeostasis confirmed, fraction band seed-1-specific).
+
+    MECHANISTIC INITIATION (dnaa-5/6/7) — the headline extension: replace the inherited cell-mass
+    initiation heuristic with biology-driven DnaA-ATP/oriC initiation, built as a gated chain.
+    dnaa-6 first-pass (trigger on oriC-high saturation, no cooperativity) COLLAPSED — under-
+    initiation, runaway growth — proving the binding must be switch-like first. dnaa-5 added
+    COOPERATIVE DnaA-ATP filament assembly at oriC (a Hill switch on the oriC-low pool): the
+    occupancy now snaps to full (validated; preserves the DnaA/ATP bands + cycle at n=4, K=30).
+    dnaa-6 PAYOFF (trigger re-pointed to the oriC-low cooperative switch + cooperativity) then
+    SUSTAINS the cell cycle — 8/8 generations divide, the collapse resolved: DnaA-ATP/oriC
+    initiation CAN drive the cycle in place of the heuristic. The one remaining issue is OVER-
+    initiation (oriC->4) for lack of a post-initiation eclipse — addressed by dnaa-7 (SeqA
+    sequestration: a refractory re-init block) + oriC-low threshold/K tuning, in progress.
+    The other roadmap mechanisms (RIDA/DDAH/DARS, validation) remain scaffolded.
   verdict_status: in-progress
   verdict_detail: |-
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate
@@ -458,7 +469,8 @@ studies:
 - dnaa-3-box-binding        # added 2026-06-03 (DnaA-box occupancy); 2026-06-10 Rashmi's ACTIVE binding mechanism adopted (PR #162) — over-binding RESOLVED + box-doubling fixed
 - dnaa-4-autoregulation     # added 2026-06-10 — DnaA negative autoregulation: wire DnaA-ATP→dnaA-promoter repression (coupled to the adopted box occupancy) so DnaA self-stabilizes WITHOUT the V override; dissolves the dnaa-1/dnaa-2 V tension + drift at the root. SCOPED + first diagnostic done (promoter-occupancy feedback signal confirmed present).
 - dnaa-5-cooperativity      # added 2026-06-18 (Rashmi ordering) — cooperative DnaA-ATP filament assembly at oriC: turn the gradual, partial oriC occupancy (dnaa-3, correct as-is) into a SHARP switch. Prerequisite for the mechanistic initiation swap. DESIGNED; build pending.
-- dnaa-6-mechanistic-initiation  # added 2026-06-18 (was dnaa-5, renumbered per Rashmi: cooperativity is study 5) — swap the cell-mass initiation heuristic for the DnaA-ATP/oriC trigger. DIAGNOSTIC ran AHEAD of its prerequisite and conclusively showed the swap is PREMATURE without cooperativity (gen-2 under-saturation -> runaway growth). BLOCKED on dnaa-5.
+- dnaa-6-mechanistic-initiation  # added 2026-06-18 (was dnaa-5, renumbered per Rashmi: cooperativity is study 5) — swap the cell-mass initiation heuristic for the DnaA-ATP/oriC trigger. PAYOFF (2026-06-20, after dnaa-5): trigger on the oriC-low cooperative switch SUSTAINS the cycle (8/8 divide) — collapse resolved — but OVER-initiates (oriC->4); needs SeqA (dnaa-7).
+- dnaa-7-seqa-sequestration  # added 2026-06-20 — SeqA post-initiation eclipse (refractory re-init block) to fix dnaa-6's over-initiation and enforce one-initiation-per-cycle (clean oriC 1<->2). In progress.
 
 # Reference materials supporting the DnaA arc. Files staged under
 # workspace/references/dnaa/ and registered in workspace.yaml expert_docs.

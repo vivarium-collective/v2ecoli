@@ -142,6 +142,15 @@ simulation_set:
   metrics: [oriC_high_bound_atp, cell_mass, number_of_oric, division_tau]
   pass_fail_tests: [cell-cycle-preserved, no-over-initiation, divisions-occur]
   note: "Run dnaa5_mech_diag_seed1_8gen — the collapse diagnostic."
+- name: mechanistic-trigger-payoff-multiseed
+  kind: lineage
+  status: completed
+  base_model: v2ecoli baseline + mechanistic oriC-LOW trigger (threshold 6/8) + cooperativity (n=4, K=30), RIDA off
+  duration_steps: "8 generations"
+  seeds: [0, 1, 2]
+  metrics: [cell_mass, number_of_oric, reinit_ticks, division_tau]
+  pass_fail_tests: [divisions-occur, no-over-initiation, cell-cycle-preserved]
+  note: "PAYOFF: trigger re-pointed to the oriC-low cooperative switch. Multi-seed (0/1/2): SUSTAINS 8/8 on all seeds (collapse resolved) but over-initiates to oriC 4 (1400/1591/2304 re-init ticks) — the robust 'viable-but-over-inits' result that motivates dnaa-7 (RIDA)."
 
 visualizations:
 - name: dnaa6_payoff_sustains
@@ -198,8 +207,11 @@ report:
     just-fired origin from re-firing). The failure has flipped from UNDER-init (first-pass) to
     OVER-init (now) — a tuning + next-mechanism issue, not structural. So the mechanistic initiation
     is VIABLE (sustains the cycle) and the next prerequisite is SeqA sequestration (dnaa-7) and/or
-    threshold/K tuning to enforce one-initiation-per-cycle.
-  confidence: viable-with-cooperativity (over-initiates; needs SeqA/tuning)
+    threshold/K tuning to enforce one-initiation-per-cycle. MULTI-SEED ROBUSTNESS (seeds 0/1/2,
+    2026-06-20): the diagnosis is seed-robust — all 3 seeds SUSTAIN (8/8 divide, no runaway) AND
+    over-initiate to oriC 4 (1400/1591/2304 re-init ticks). So "viable-but-over-initiates without a
+    re-init block" is a reproducible property of the mechanism, not a seed-1 artifact — which is
+    exactly why dnaa-7 (RIDA) is the necessary next mechanism.
 
 next_action: >-
   The mechanistic trigger now SUSTAINS the cycle (payoff done) but over-initiates. Next: add SeqA
@@ -226,6 +238,28 @@ runs:
     cell-cycle-preserved:
       result: FAIL
       detail: "oriC not clean 1<->2 (goes to 4); cell divides every gen but over-replicates. Needs SeqA / threshold tuning."
+- name: dnaa6_mech_low_coop_n4_seed0_8gen
+  status: completed
+  canonical: false   # multi-seed robustness confirmation
+  seed: 0
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  note: "Multi-seed confirm (2026-06-20): same payoff recipe, seed 0. The 'sustains-but-over-initiates' result REPRODUCES — 8/8 divide AND over-init to oriC 4 (1591 re-init ticks)."
+  outcomes:
+    divisions-occur: {result: PASS, detail: "8/8 divide — sustains, no runaway (seed 0)."}
+    no-over-initiation: {result: FAIL, detail: "oriC 4 (1591 re-init ticks) — over-initiates, as seed 1."}
+    cell-cycle-preserved: {result: FAIL, detail: "oriC not clean 1<->2 (goes to 4) — needs RIDA, as seed 1."}
+- name: dnaa6_mech_low_coop_n4_seed2_8gen
+  status: completed
+  canonical: false   # multi-seed robustness confirmation
+  seed: 2
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  note: "Multi-seed confirm (2026-06-20): same payoff recipe, seed 2. The 'sustains-but-over-initiates' result REPRODUCES — 8/8 divide AND over-init to oriC 4 (2304 re-init ticks)."
+  outcomes:
+    divisions-occur: {result: PASS, detail: "8/8 divide — sustains, no runaway (seed 2)."}
+    no-over-initiation: {result: FAIL, detail: "oriC 4 (2304 re-init ticks) — over-initiates, as seed 1."}
+    cell-cycle-preserved: {result: FAIL, detail: "oriC not clean 1<->2 (goes to 4) — needs RIDA, as seed 1."}
 - name: dnaa5_mech_diag_seed1_8gen
   status: completed
   canonical: false

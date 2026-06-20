@@ -85,7 +85,7 @@ tests:
   measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
   pass_if: {op: max_le, value: 2}
   status: passed
-  result: "PASS — RIDA restores oriC 1<->2 / 0 re-inits. At the operating point (RIDA 0.5-0.7 + DARS) this holds WITH the DnaA-ATP fraction in band (0.26-0.40). The eclipse + threshold tuning had failed; RIDA is the mechanism."
+  result: "PASS — RIDA restores oriC 1<->2 / 0 re-inits. At the operating point (RIDA 0.5-0.7 + DARS) this holds WITH the DnaA-ATP fraction in band (0.26-0.40). The eclipse + threshold tuning had failed; RIDA is the mechanism. MULTI-SEED (0/1/2): SEED-ROBUST — oriC max 2, 0 re-inits on all 3 seeds at RIDA=0.6."
 - name: cycle-sustained
   classification: primary
   description: "Every generation still divides (the eclipse must not block legitimate next-cycle initiation)."
@@ -99,7 +99,7 @@ tests:
   measure: {kind: generation_average, path: "(MONOMER0-160[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp) + (PD03831[c] + MONOMER0-4565[c])", window: gen_steady_state}
   pass_if: {op: generation_average_in_range, low: 300, high: 800}
   status: passed
-  result: "PASS at the operating point (RIDA 0.5-0.7): DnaA pool in [300,800] AND DnaA-ATP fraction in [0.2,0.5] (0.398 at RIDA=0.6). Full RIDA over-suppressed the fraction (0.03); the calibrated rate holds both."
+  result: "PASS at the operating point (RIDA 0.5-0.7): DnaA pool in [300,800] AND DnaA-ATP fraction in [0.2,0.5] (0.398 at RIDA=0.6). Full RIDA over-suppressed the fraction (0.03); the calibrated rate holds both. MULTI-SEED (0/1/2): pool in [300,800] all 3 seeds (360/484/465); DnaA-ATP fraction in band on seed 1 only (0.398 vs 0.043/0.078) — RIDA=0.6 is seed-1-calibrated for the fraction; a per-seed RIDA rate is the follow-up."
 
 visualizations:
 - name: dnaa7_rida_calibration
@@ -140,6 +140,35 @@ visualizations:
       RIGHT: re-initiation ticks across variants — none reach 0; the eclipse and stricter
       thresholds make it WORSE. Root cause: nothing resets the DnaA-ATP switch post-init (RIDA off).
 
+simulation_set:
+- name: rida-rate-calibration-sweep
+  kind: lineage
+  status: completed
+  base_model: v2ecoli baseline + mechanistic oriC-low trigger + cooperativity + RIDA/DDAH/DARS
+  duration_steps: "8 generations"
+  seeds: [1]
+  metrics: [number_of_oric, reinit_ticks, atp_fraction, total_dnaa]
+  pass_fail_tests: [one-initiation-per-cycle, dnaa-levels-preserved]
+  note: "RIDA_RATE_MULTIPLIER sweep 0.1-1.0 (DARS+DDAH on). Operating window RIDA 0.5-0.7: clean oriC 1<->2, 0 re-inits, DnaA-ATP fraction in band (0.28/0.40/0.26); below 0.5 over-initiates; at 1.0 fraction crashes to 0.03. Canonical RIDA=0.6."
+- name: operating-point-multiseed
+  kind: lineage
+  status: completed
+  base_model: v2ecoli baseline + mechanistic oriC-low trigger + cooperativity + RIDA=0.6 + DARS/DDAH
+  duration_steps: "8 generations"
+  seeds: [0, 1, 2]
+  metrics: [number_of_oric, reinit_ticks, atp_fraction, total_dnaa, division_tau]
+  pass_fail_tests: [one-initiation-per-cycle, cycle-sustained, dnaa-levels-preserved]
+  note: "Operating point RIDA=0.6. Multi-seed (0/1/2): once-per-cycle CONTROL seed-robust — oriC 1<->2, 0 re-inits, 8/8 divide, pool in band all seeds (360/484/465). DnaA-ATP fraction in band on seed 1 only (0.398 vs 0.043/0.078) — needs a per-seed RIDA rate."
+- name: global-eclipse-insufficient
+  kind: lineage
+  status: completed
+  base_model: v2ecoli baseline + mechanistic oriC-low trigger + global SeqA eclipse (RIDA off)
+  duration_steps: "8 generations"
+  seeds: [1]
+  metrics: [number_of_oric, reinit_ticks]
+  pass_fail_tests: [one-initiation-per-cycle]
+  note: "Productive negative result: a global SeqA refractory eclipse (20/40 min) + threshold tuning do NOT restore 1<->2 (oriC still 4) — nothing resets the DnaA-ATP switch. Motivated RIDA."
+
 report:
   title: "dnaa-7 — SeqA sequestration eclipse"
   verdict: >-
@@ -167,8 +196,14 @@ report:
     fraction too high; RIDA=1 clean but fraction crashes to 0.03.) RIDA=0.6 is the canonical
     operating point (fraction 0.398, mid-band). CONCLUSION: the mechanistic DnaA-ATP/oriC initiation
     now FULLY and IN-BAND replaces the cell-mass heuristic — cooperative switch fires it, RIDA
-    enforces once-per-cycle, all bands held. The investigation arc is complete (single seed; the
-    open follow-ups are multi-seed robustness and a per-origin hemimethylation SeqA refinement).
+    enforces once-per-cycle, all bands held. MULTI-SEED ROBUSTNESS (seeds 0/1/2, 2026-06-20): the
+    initiation CONTROL is seed-robust — at RIDA=0.6 all 3 seeds give clean oriC 1<->2, ZERO re-inits,
+    8/8 divisions, and the DnaA pool in [300,800] (360/484/465). The DnaA-ATP fraction band holds on
+    seed 1 only (0.398 vs 0.043/0.078 for seeds 0/2): the fixed RIDA=0.6 over-suppresses the fraction
+    on seeds 0/2, whose ATP charging starts lower — the SAME seed-sensitivity carried from dnaa-4/5.
+    So the once-per-cycle mechanism generalises across seeds; the in-band ATP fraction needs a
+    per-seed RIDA rate (lower for seeds 0/2). The open follow-ups are a per-seed RIDA calibration and
+    a per-origin hemimethylation SeqA refinement.
     || RIDA PROBE (2026-06-20) — HYPOTHESIS CONFIRMED: re-running the mechanistic trigger with RIDA
     ON (RIDA_RATE_MULTIPLIER=1; oriC-low switch + cooperativity, NO eclipse) RESTORES clean
     one-initiation-per-cycle — oriC 1<->2, ZERO re-initiations, 8/8 divide (both RIDA-only and full
@@ -180,7 +215,7 @@ report:
     with DARS reactivation. So initiation CONTROL is solved; the RIDA rate needs CALIBRATION to hold
     the ATP-fraction band — exactly the dnaa-05 RIDA/DDAH/DARS tuning. The global eclipse is retired;
     RIDA is the mechanism.
-  confidence: operating-point-found (loop closed; single-seed)
+  confidence: operating-point-found (loop closed; control seed-robust 3/3, ATP-fraction seed-1-calibrated)
 
 conclusion_logic:
   if_primary_tests_pass: >-
@@ -195,11 +230,13 @@ conclusion_logic:
     below threshold + a per-origin SeqA sequestration model — not a global eclipse.
 
 next_action: >-
-  RIDA confirmed as the one-per-cycle control. Now CALIBRATE the RIDA rate (and DARS reactivation)
-  so DnaA-ATP fraction returns to [0.2,0.5] while keeping oriC 1<->2 — the dnaa-05 RIDA/DDAH/DARS
-  tuning. Sweep RIDA_RATE_MULTIPLIER (e.g. 0.1-0.5) + DARS to find the operating point. Then the
-  DnaA-ATP/oriC mechanistic initiation fully replaces the cell-mass heuristic (sustained, once-per-
-  cycle, in-band). Optional later refinement: a per-origin hemimethylation SeqA model.
+  DONE: RIDA confirmed as the one-per-cycle control AND calibrated — the RIDA_RATE_MULTIPLIER sweep
+  (0.1-1.0) found the operating window 0.5-0.7 (canonical 0.6), where oriC is clean 1<->2, 0 re-inits,
+  and the DnaA-ATP fraction is in [0.2,0.5] on seed 1. Multi-seed (0/1/2) confirms the CONTROL is
+  seed-robust (oriC 1<->2 + 0 re-inits + pool in band on all 3 seeds). REMAINING FOLLOW-UPS:
+  (1) a per-seed RIDA rate — at fixed RIDA=0.6 the ATP-fraction band holds only on seed 1 (seeds 0/2
+  over-suppress to 0.04/0.08), the same seed-sensitivity carried from dnaa-4/5; a lower RIDA rate on
+  seeds 0/2 should recover the band. (2) a per-origin hemimethylation SeqA model (mechanistic eclipse).
 
 runs:
 - name: dnaa7_seqa_eclipse40_seed1_8gen
@@ -242,6 +279,28 @@ runs:
     one-initiation-per-cycle: {result: PASS, detail: "oriC 1<->2, 0 re-inits."}
     cycle-sustained: {result: PASS, detail: "8/8 divide."}
     dnaa-levels-preserved: {result: PASS, detail: "DnaA-ATP fraction 0.398 in [0.2,0.5] + pool in band — RIDA rate 0.6 holds the band."}
+- name: dnaa7_ridacal_r06_seed0_8gen
+  status: completed
+  canonical: false   # multi-seed robustness confirmation
+  seed: 0
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  note: "Multi-seed confirm (2026-06-20): operating-point recipe (RIDA=0.6 + DARS), seed 0. Once-per-cycle control REPRODUCES — oriC 1<->2, 0 re-inits, 8/8 divide, pool 484 in band; DnaA-ATP fraction g3+ mean 0.043 (RIDA=0.6 over-suppresses on this seed — fraction is seed-1-calibrated)."
+  outcomes:
+    one-initiation-per-cycle: {result: PASS, detail: "oriC 1<->2, 0 re-inits (seed 0)."}
+    cycle-sustained: {result: PASS, detail: "8/8 divide (seed 0)."}
+    dnaa-levels-preserved: {result: PARTIAL, detail: "pool 484 in band, but DnaA-ATP fraction 0.043 < 0.2 — RIDA=0.6 over-suppresses on seed 0; this seed needs a lower RIDA rate (fraction is seed-1-calibrated)."}
+- name: dnaa7_ridacal_r06_seed2_8gen
+  status: completed
+  canonical: false   # multi-seed robustness confirmation
+  seed: 2
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  note: "Multi-seed confirm (2026-06-20): operating-point recipe (RIDA=0.6 + DARS), seed 2. Once-per-cycle control REPRODUCES — oriC 1<->2, 0 re-inits, 8/8 divide, pool 465 in band; DnaA-ATP fraction g3+ mean 0.078 (RIDA=0.6 over-suppresses on this seed)."
+  outcomes:
+    one-initiation-per-cycle: {result: PASS, detail: "oriC 1<->2, 0 re-inits (seed 2)."}
+    cycle-sustained: {result: PASS, detail: "8/8 divide (seed 2)."}
+    dnaa-levels-preserved: {result: PARTIAL, detail: "pool 465 in band, but DnaA-ATP fraction 0.078 < 0.2 — RIDA=0.6 over-suppresses on seed 2; needs a lower RIDA rate (fraction is seed-1-calibrated)."}
 - name: dnaa7_rida_full_seed1_8gen
   status: completed
   canonical: false

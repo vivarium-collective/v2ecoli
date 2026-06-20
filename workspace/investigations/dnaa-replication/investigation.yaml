@@ -130,9 +130,18 @@ executive:
     holds clean oriC 1↔2 (0 re-inits), the DnaA-ATP fraction IN [0.2,0.5] (0.28/0.40/0.26), the DnaA
     pool in band, and 8/8 divisions (canonical RIDA=0.6, fraction 0.398). So the full DnaA-ATP/oriC
     mechanistic initiation now works end to end and IN-BAND — cooperative switch fires it, RIDA
-    enforces once-per-cycle — fully replacing the cell-mass heuristic. Open follow-ups (not blockers):
-    multi-seed robustness for dnaa-5/6/7 (these are seed-1), a per-origin hemimethylation SeqA model,
-    code review/merge of the flag-gated mechanisms, and validation (dnaa-08).
+    enforces once-per-cycle — fully replacing the cell-mass heuristic.
+
+    MULTI-SEED ROBUSTNESS of the mechanistic chain (seeds 0/1/2, 2026-06-20): the INITIATION CONTROL
+    is seed-robust — across all three seeds dnaa-5 (cooperative switch), dnaa-6 (mechanistic sustains
+    but over-initiates without RIDA), and dnaa-7 (RIDA=0.6 restores clean once-per-cycle) all
+    REPRODUCE: 8/8 divisions, oriC 1↔2 with 0 re-inits at the operating point, and the DnaA pool in
+    [300,800] on every seed. As with dnaa-4, the DnaA-ATP-FRACTION band is the one seed-sensitive
+    quantity — in band on seed 1 only (dnaa-7: 0.398 vs 0.04/0.08 on seeds 0/2), because the fixed
+    RIDA=0.6 over-suppresses seeds whose ATP charging starts lower. So the MECHANISM generalises
+    across seeds; only the fraction needs a per-seed RIDA rate. Open follow-ups (not blockers):
+    a per-seed RIDA calibration (recover the fraction band on seeds 0/2), a per-origin hemimethylation
+    SeqA model, code review/merge of the flag-gated mechanisms, and validation (dnaa-08).
   verdict_status: in-progress
   verdict_detail: |-
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate

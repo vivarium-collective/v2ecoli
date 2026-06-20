@@ -139,7 +139,10 @@ def run_multigen(features, n_gens, sample, max_dur, seed, cache_dir):
         d1, _d2 = divide_cell(last_cell)
         core = build_core()
         enable_features(*features)
-        doc = baseline(core=core, seed=g, cache_dir=cache_dir)
+        # Derive the daughter RNG seed from the lineage seed so distinct lineages
+        # (multi-seed ensemble) actually diverge in their stochastic draws, not just
+        # in the carried-forward state.
+        doc = baseline(core=core, seed=seed * 1000 + g, cache_dir=cache_dir)
         enable_features()
         agent = doc["state"]["agents"]["0"]
         for k in ("bulk", "unique", "environment", "boundary"):

@@ -50,6 +50,8 @@ subunits are released back to the bulk pool. A D-period timer is set
 on the new full chromosome for cell division scheduling.
 """
 
+import os
+
 import numpy as np
 
 from v2ecoli.library.schema import (
@@ -142,6 +144,16 @@ class ChromosomeReplication(Step):
                 'mass': {
                     'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
+                # dnaa-5 mechanistic-initiation diagnostic: read the oriC DnaA-ATP
+                # occupancy (written last tick by replication_data_listener) so the
+                # initiation trigger can fire on DnaA-ATP filament saturation instead
+                # of the cell-mass heuristic. Only USED when
+                # DNAA_INITIATION_TRIGGER=mechanistic; harmless (read-only) otherwise.
+                'replication_data': {
+                    'oriC_high_bound_atp': {'_type': 'integer', '_default': 0},
+                    'oriC_low_bound_atp': {'_type': 'integer', '_default': 0},
+                    'number_of_oric': {'_type': 'integer', '_default': 0},
+                },
             },
             'environment': {
                 'media_id': {'_type': 'string', '_default': ''},
@@ -175,6 +187,15 @@ class ChromosomeReplication(Step):
         self.get_dna_critical_mass = self.parameters["get_dna_critical_mass"]
         self.criticalInitiationMass = self.parameters["criticalInitiationMass"]
         self.nutrientToDoublingTime = self.parameters["nutrientToDoublingTime"]
+
+        # dnaa-5 mechanistic-initiation diagnostic (default OFF = baseline mass trigger).
+        # DNAA_INITIATION_TRIGGER=mechanistic fires initiation when the oriC high-affinity
+        # DnaA boxes are saturated with DnaA-ATP (>= threshold per origin), instead of the
+        # cell-mass-per-origin heuristic. DNAA_INIT_HIGH_THRESHOLD sets the per-origin
+        # oriC-high ATP count required (default 3 = all 3 high-affinity sites).
+        self.initiation_trigger = os.environ.get("DNAA_INITIATION_TRIGGER", "mass").lower()
+        self.init_high_threshold = int(os.environ.get("DNAA_INIT_HIGH_THRESHOLD", "3"))
+        self._mech_ready = False  # set each tick in _request, read in _evolve
         self.replichore_lengths = self.parameters["replichore_lengths"]
         self.sequences = self.parameters["sequences"]
         self.polymerized_dntp_weights = self.parameters["polymerized_dntp_weights"]
@@ -207,6 +228,14 @@ class ChromosomeReplication(Step):
     def update(self, states, interval=None):
         self._prepare(states)
         return self._evolve(states)
+
+    def _should_initiate(self, n_oriC):
+        """Replication-initiation gate. Default: the cell-mass-per-origin heuristic
+        (criticalMassPerOriC >= 1.0). When DNAA_INITIATION_TRIGGER=mechanistic: fire
+        on oriC high-affinity DnaA-ATP saturation (computed in _prepare as _mech_ready)."""
+        if self.initiation_trigger == "mechanistic":
+            return bool(self._mech_ready)
+        return self.criticalMassPerOriC >= 1.0
 
     def _prepare(self, states):
         timestep = states["timestep"]
@@ -247,11 +276,18 @@ class ChromosomeReplication(Step):
             massPerOrigin / self.criticalInitiationMass
         ).to('dimensionless')
 
+        # dnaa-5 mechanistic-initiation diagnostic: readiness = oriC high-affinity boxes
+        # saturated with DnaA-ATP (>= threshold per origin). Computed here (in _request)
+        # and read again in _evolve via _should_initiate().
+        if self.initiation_trigger == "mechanistic":
+            oh_atp = int(states["listeners"]["replication_data"].get("oriC_high_bound_atp", 0))
+            self._mech_ready = oh_atp >= self.init_high_threshold * n_oriC
+
         # If replication should be initiated, request subunits required for
         # building two replisomes per one origin of replication, and edit
         # access to oriC and chromosome domain attributes
         requests["bulk"] = []
-        if self.criticalMassPerOriC >= 1.0:
+        if self._should_initiate(n_oriC):
             requests["bulk"].append((self.replisome_trimers_idx, 6 * n_oriC))
             requests["bulk"].append((self.replisome_monomers_idx, 2 * n_oriC))
 
@@ -328,7 +364,7 @@ class ChromosomeReplication(Step):
         )
 
         initiate_replication = False
-        if self.criticalMassPerOriC >= 1.0:
+        if self._should_initiate(n_oriC):
             # Get number of available replisome subunits
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
             n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)

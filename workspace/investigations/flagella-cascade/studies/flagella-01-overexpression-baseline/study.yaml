@@ -91,7 +91,13 @@ behavior_tests:
       Across two cell generations, the flagella_regulation lineage carries fewer
       complete flagella (CPLX0-7452) than the unregulated lineage at each generation
       — the cascade reduces overexpression and the gap persists through division.
-    status: passing      # 2-gen run: OFF g1=53,g2=44 vs ON g1=44,g2=34
+    status: contradicted   # holds on fast cache (OFF 53/44 vs ON 44/34) but REVERSES
+                           # on the calibrated full cache (single-seed: ON 61/50 vs
+                           # OFF 46/43). Multi-seed full-cache ensemble running to
+                           # settle the direction; treat the reduction as unconfirmed.
+    caveat: |
+      The 03_reduction_OFF_vs_ON.svg bar uses fast-mode numbers and does not survive
+      full-mode calibration. See the investigation verdict's calibration caveat.
 
 notes: |
   Maya's prelim (Aim 2 rationale): "current expression of flagella is exceedingly

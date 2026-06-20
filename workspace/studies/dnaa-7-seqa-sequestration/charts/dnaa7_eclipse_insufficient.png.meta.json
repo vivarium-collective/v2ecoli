@@ -1,0 +1,7 @@
+{
+  "title": "dnaa-7 — global SeqA eclipse + tuning do not restore one-initiation-per-cycle",
+  "caption": "Mechanistic DnaA-ATP/oriC trigger (oriC-low cooperative switch, n=4) with interventions against the dnaa-6 over-initiation, seed 1, 8 gens. LEFT: oriC count over time — the cell-mass heuristic (blue) is clean 1<->2; the mechanistic trigger + 40-min SeqA eclipse (red) still reaches 4. RIGHT: re-initiation ticks (oriC>2) across variants — MASS 0, payoff(no eclipse) 1400, threshold=8 3511, K=45 6530, eclipse-40 2405, eclipse-20 2578. None reach 0; the global eclipse and stricter thresholds make it worse.",
+  "interpretation": "A global refractory eclipse and threshold/K tuning cannot restore one-init-per-cycle, and worsen it (a global block delays division -> larger cell -> bigger DnaA-ATP burst). The over-initiation is an initiation-control failure (the cycle still divides 8/8, DnaA stays in band). Root cause: nothing turns the DnaA-ATP switch off after initiation (RIDA was off). The fix is RIDA (DnaA-ATP -> DnaA-ADP inactivation post-initiation, the dnaa-05 mechanism) to reset the switch, plus a per-origin SeqA sequestration model — not a global eclipse.",
+  "source_runs": ["dnaa7_seqa_eclipse40_seed1_8gen", "dnaa6_tune_thr8_k30_seed1_8gen", "dnaa6_tune_thr6_k45_seed1_8gen", "dnaa4_s06_F05_seed1_12gen"],
+  "script": "scripts/render_dnaa7.py"
+}

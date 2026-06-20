@@ -3,12 +3,12 @@ name: dnaa-7-seqa-sequestration
 investigation: dnaa-replication
 title: "dnaa-7 — SeqA sequestration eclipse (one-initiation-per-cycle for the mechanistic trigger)"
 created: "2026-06-20"
-status: in_progress
+status: completed
 design_status: designed
 implementation_status: implemented
-simulation_status: running
-evaluation_status: in_progress
-gate_status: partial
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: fail   # the global-refractory eclipse + tuning do NOT restore one-init-per-cycle (and worsen it) — a productive negative result: the fix is RIDA (reset the DnaA-ATP switch post-init) + per-origin SeqA. See verdict.
 expert_review_status: pending
 
 seeded_from:
@@ -78,50 +78,121 @@ tests:
   description: "oriC oscillates cleanly 1<->2 (no over-initiation) under the mechanistic trigger + eclipse."
   measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
   pass_if: {op: max_le, value: 2}
-  status: running
+  status: failed
+  result: "FAIL — oriC reaches 4 (re-init) on every variant; the global eclipse + threshold/K tuning do not restore 1<->2. Needs RIDA (reset DnaA-ATP post-init) + per-origin SeqA."
 - name: cycle-sustained
   classification: primary
   description: "Every generation still divides (the eclipse must not block legitimate next-cycle initiation)."
   measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
   pass_if: {op: periodic_doubling_every_generation, tolerance: 0.4}
-  status: running
+  status: passed
+  result: "PASS — 8/8 generations divide on all variants (the cycle stays sustained; this is an initiation-control failure, not a viability one)."
 - name: dnaa-levels-preserved
   classification: primary
   description: "DnaA pool stays in [300,800] (the eclipse changes initiation timing, not DnaA homeostasis)."
   measure: {kind: generation_average, path: "(MONOMER0-160[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp) + (PD03831[c] + MONOMER0-4565[c])", window: gen_steady_state}
   pass_if: {op: generation_average_in_range, low: 300, high: 800}
-  status: running
+  status: passed
+  result: "PASS — DnaA pool stays in [300,800] on all variants; the over-initiation is not a DnaA-homeostasis failure."
+
+visualizations:
+- name: dnaa7_eclipse_insufficient
+  address: image:charts/dnaa7_eclipse_insufficient.png
+  chart: charts/dnaa7_eclipse_insufficient.png
+  source_run: dnaa7_seqa_eclipse40 / tuning variants vs dnaa4_s06_F05_seed1 (mass control)
+  config:
+    title: >-
+      The global SeqA eclipse does NOT restore one-init-per-cycle. LEFT: oriC over time — the mass
+      heuristic (blue) is clean 1<->2; the mechanistic trigger + eclipse-40 (red) still reaches 4.
+      RIGHT: re-initiation ticks across variants — none reach 0; the eclipse and stricter
+      thresholds make it WORSE. Root cause: nothing resets the DnaA-ATP switch post-init (RIDA off).
 
 report:
   title: "dnaa-7 — SeqA sequestration eclipse"
   verdict: >-
-    in-progress. dnaa-6 showed mechanistic DnaA-ATP/oriC initiation SUSTAINS the cycle with
-    cooperativity but OVER-initiates (oriC->4) for lack of a post-initiation eclipse. dnaa-7 adds
-    a phenomenological SeqA eclipse (DNAA_INIT_ECLIPSE_MIN, refractory block after initiation) and
-    tests whether it restores clean one-initiation-per-cycle (oriC 1<->2) while keeping the cycle
-    sustained and DnaA in band. Eclipse sweep (20, 40 min) + threshold/K tuning runs in progress.
-  confidence: in-progress
+    eclipse-insufficient — RIDA + per-origin SeqA needed (a productive negative result). Tested a
+    phenomenological SeqA eclipse (global refractory block, DNAA_INIT_ECLIPSE_MIN = 20 and 40 min)
+    AND threshold/K tuning (oriC-low threshold 8/8, K=45) against the dnaa-6 over-initiation
+    (oriC->4). RESULT: NONE restore one-initiation-per-cycle — every variant still reaches oriC 4
+    with substantial re-initiation (no-eclipse 1400 ticks; eclipse-40 2405; eclipse-20 2578; thr=8
+    3511; K=45 6530). The global eclipse and stricter thresholds make it WORSE, not better — a
+    global block delays division, so the cell grows larger and bursts harder when the block lifts.
+    The cell cycle stays sustained (8/8 divide) and DnaA pool stays in band throughout, so this is
+    specifically an initiation-CONTROL failure, not a viability failure. ROOT CAUSE: nothing turns
+    the DnaA-ATP switch OFF after initiation. These runs had RIDA OFF; RIDA (Regulatory Inactivation
+    of DnaA — DnaA-ATP -> DnaA-ADP after initiation) is exactly the negative feedback that drops
+    free DnaA-ATP below the switch threshold so it resets, and SeqA must sequester the SPECIFIC new
+    origin (per-origin hemimethylation), not block all initiation globally. CONCLUSION: one-init-
+    per-cycle for the mechanistic trigger needs RIDA (DnaA-ATP inactivation, the dnaa-05 mechanism)
+    + a per-origin SeqA model — not a refractory eclipse. The simple eclipse stays in the codebase
+    (default off) but is not the fix.
+  confidence: conclusive-negative
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    If the eclipse restored clean one-init-per-cycle (oriC 1<->2) with the cycle sustained and DnaA
+    in band, the DnaA-ATP/oriC mechanistic initiation would be complete — the cell-mass heuristic
+    fully replaced by biology, once-per-cycle.
+  if_primary_tests_fail: >-
+    The primary test FAILED (oriC reaches 4 on every variant; the global eclipse + threshold/K
+    tuning do not restore 1<->2, and worsen it). The over-initiation is not a refractory or
+    threshold problem: nothing resets the DnaA-ATP switch after initiation. The fix is RIDA
+    (DnaA-ATP -> DnaA-ADP inactivation post-init, the dnaa-05 mechanism) to drop free DnaA-ATP
+    below threshold + a per-origin SeqA sequestration model — not a global eclipse.
 
 next_action: >-
-  Evaluate the eclipse sweep (20/40 min) + the dnaa-6 threshold/K tuning runs: which combination
-  gives clean oriC 1<->2 + sustained division + DnaA in band? Pick the operating point; if the
-  refractory eclipse suffices, the mechanistic initiation is complete (heuristic fully replaced).
-  Later refinement: a hemimethylation-based SeqA-on-oriC model.
+  Add RIDA (Regulatory Inactivation of DnaA) so DnaA-ATP is hydrolyzed to DnaA-ADP after
+  initiation, resetting the cooperative switch; the dnaa-05 RIDA/DDAH/DARS mechanism (other
+  investigation) is directly relevant. Re-test the mechanistic trigger with RIDA on (a cheap
+  env probe: RIDA_RATE_MULTIPLIER=1). Then build a per-origin SeqA sequestration (hemimethylation)
+  model. The global refractory eclipse is retired as the fix.
 
 runs:
 - name: dnaa7_seqa_eclipse40_seed1_8gen
-  status: running
+  status: completed
   canonical: true
   seed: 1
   generations: 8
   cache_dir: out/cache_dnaa4_s06_F05
-  note: "Mechanistic oriC-low trigger + cooperativity (n=4, K=30) + SeqA eclipse 40 min."
+  note: "Mechanistic oriC-low trigger + cooperativity (n=4, K=30) + SeqA eclipse 40 min. 8/8 divide; oriC still 1-4 (2405 re-init ticks) — eclipse did not restore one-init-per-cycle."
+  outcomes:
+    one-initiation-per-cycle: {result: FAIL, detail: "oriC reaches 4 (2405 re-init ticks) — global eclipse insufficient."}
+    cycle-sustained: {result: PASS, detail: "8/8 generations divide."}
+    dnaa-levels-preserved: {result: PASS, detail: "DnaA pool in [300,800]."}
 - name: dnaa7_seqa_eclipse20_seed1_8gen
-  status: running
+  status: completed
   canonical: false
   seed: 1
   generations: 8
-  note: "Milder eclipse (20 min)."
+  note: "Eclipse 20 min — oriC 1-4, 2578 re-init ticks (also insufficient)."
+- name: dnaa6_tune_thr8_k30_seed1_8gen
+  status: completed
+  canonical: false
+  seed: 1
+  generations: 8
+  note: "Tuning probe (oriC-low threshold 8/8) — oriC 1-4, 3511 re-init (worse). Stricter threshold does not curb over-init."
+- name: dnaa6_tune_thr6_k45_seed1_8gen
+  status: completed
+  canonical: false
+  seed: 1
+  generations: 8
+  note: "Tuning probe (K=45) — oriC 1-4, 6530 re-init (much worse). Higher K does not curb over-init."
+
+findings:
+- id: F-01
+  statement: >-
+    The phenomenological global-refractory SeqA eclipse (DNAA_INIT_ECLIPSE_MIN 20/40 min) and
+    threshold/K tuning (oriC-low threshold 8/8, K=45) do NOT restore one-initiation-per-cycle for
+    the mechanistic DnaA-ATP/oriC trigger. Every variant still reaches oriC 4 with substantial
+    re-initiation (no-eclipse 1400; eclipse-40 2405; eclipse-20 2578; thr=8 3511; K=45 6530 ticks);
+    the global block + stricter thresholds make it WORSE (a global eclipse delays division -> larger
+    cell -> bigger burst). The cell cycle stays sustained (8/8 divide) and the DnaA pool stays in
+    band, so it is an initiation-CONTROL failure, not viability. ROOT CAUSE: nothing turns the
+    DnaA-ATP switch OFF after initiation (these runs had RIDA off). The fix is RIDA (DnaA-ATP ->
+    DnaA-ADP inactivation post-init, dnaa-05) to reset the switch + a per-origin SeqA model.
+  status: evaluated
+  provenance:
+    run_ids: [dnaa7_seqa_eclipse40_seed1_8gen, dnaa7_seqa_eclipse20_seed1_8gen, dnaa6_tune_thr8_k30_seed1_8gen, dnaa6_tune_thr6_k45_seed1_8gen, dnaa6_mech_low_coop_n4_seed1_8gen]
 
 biological_summary: >-
   SeqA binds newly hemimethylated oriC after initiation, sequestering it for the eclipse period

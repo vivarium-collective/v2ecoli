@@ -38,6 +38,14 @@ visualizations:
     (generations shaded; division dashed). The Class II > Class III ordering is
     maintained through the division boundary and re-established in the daughter
     generation — the SUM-gate is stable across the cell cycle.
+- address: image:charts/03_phase_portrait_X_Y.svg
+  chart: charts/03_phase_portrait_X_Y.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
+  description: |
+    Phase portrait of the cascade through SUM-gate input space: X = FlhDC activity
+    [FlhDC]/(K+[FlhDC]) vs Y = free-FliA activity [FliA]/(K+[FliA]), colored by time.
+    Shows how the cell moves through (X, Y) as the gate integrates the two master
+    regulators — the bilinear input the SUM-gate acts on.
 
 baseline:
 - name: wcm-flagella-regulation

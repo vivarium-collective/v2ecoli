@@ -39,6 +39,15 @@ visualizations:
     (generations shaded; division dashed). FlgM is held low by ongoing type-III
     secretion and free FliA stays bounded across the division boundary — the flgM
     negative-feedback loop carries through into the daughter cell.
+- address: image:charts/02_lowIC_gated_cascade.svg
+  chart: charts/02_lowIC_gated_cascade.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-03-flgm-flia-feedback/run_low_flagella_gate.py --seconds 900 --sample 30
+  description: |
+    Low-flagella initial condition (Maya's flagellum_initial_value.json: 4 flagella,
+    500 free FliA, 800 FlgM). With few flagella, FlgM export is slow, FliA stays
+    sequestered, and the Class III override rises only as FlgM is secreted — exposing
+    the assembly-gated Class II -> Class III timing that the default (already-
+    flagellated) cache hides.
 
 baseline:
 - name: wcm-flagella-regulation

@@ -133,6 +133,9 @@ scientific_argument:
       and the gap persists through division (study 01).
     - NFsim assembles complete flagella through ordered intermediates
       (export -> motor -> hook -> flagellum); 9 complete flagella in 2400 s (study 04).
+    - Under a low-flagella initial condition (study 03), the Class III override starts
+      at exactly 0 and rises only as FlgM is secreted (1481 -> 115) — the
+      assembly-gated Class II -> Class III onset, made explicit.
   evidence_against:
     - The reduction within one generation is modest; the full overexpression ->
       biological-count correction is not yet demonstrated (needs more generations
@@ -141,8 +144,9 @@ scientific_argument:
       calibration is outstanding.
     - All lineages are single-seed, daughter-1-carry-forward; robustness across
       seeds/daughters is untested.
-    - The default cache starts already flagellated (~30-35), so the clean
-      assembly-gated Class III temporal LAG is not yet visible from default ICs.
+    - The assembly-gated Class III onset is shown only under a hand-set low-flagella
+      initial condition (study 03); from the default already-flagellated cache the
+      cascade shows the magnitude ordering but not the onset delay.
   key_figures:
     - flagella-01-overexpression-baseline/charts/02_multigen_flagella_and_mass.svg
     - flagella-02-sumgate-cascade/charts/01_sumgate_classII_classIII.svg

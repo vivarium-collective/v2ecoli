@@ -116,6 +116,21 @@ def figure(rec):
     plt.close(fig)
     print("wrote", out)
 
+    # Stacked-area view: cumulative assembly hierarchy over time.
+    fig2, ax = plt.subplots(figsize=(9, 4.8))
+    labels = [c[1] for c in CHAIN]
+    colors = [c[2] for c in CHAIN]
+    series = [rec[c[0]] for c in CHAIN]
+    ax.stackplot(t, *series, labels=labels, colors=colors, alpha=0.85)
+    ax.set_title("NFsim flagellar assembly — cumulative hierarchy (stacked)")
+    ax.set_xlabel("time (min)"); ax.set_ylabel("count (stacked)")
+    ax.legend(loc="upper left", fontsize=8); ax.grid(alpha=0.3)
+    fig2.tight_layout()
+    out2 = f"{STUDY_DIR}/charts/02_nfsim_assembly_stacked.svg"
+    fig2.savefig(out2, format="svg", bbox_inches="tight")
+    plt.close(fig2)
+    print("wrote", out2)
+
 
 def main():
     ap = argparse.ArgumentParser()

@@ -180,6 +180,28 @@ def fig_cascade(on):
     save(fig, "flagella-02-sumgate-cascade", "01_sumgate_classII_classIII")
 
 
+def fig_phase(on, K_flhDC=50.0, K_fliA=600.0):
+    """Phase portrait through SUM-gate input space (X=FlhDC act, Y=free-FliA act)."""
+    plt = _mpl()
+    flhDC = on["flhDC"].astype(float)
+    fliA = on["fliA"].astype(float)
+    X = flhDC / (K_flhDC + flhDC)
+    Y = fliA / (K_fliA + fliA)
+    t = on["t"] / 60.0
+    fig, ax = plt.subplots(figsize=(6.8, 5.2))
+    ax.plot(X, Y, "-", color="#bbbbbb", lw=1, zorder=1)
+    sc = ax.scatter(X, Y, c=t, cmap="viridis", s=36, zorder=2, edgecolor="k", linewidth=0.3)
+    ax.scatter([X[0]], [Y[0]], marker="o", s=120, facecolor="none", edgecolor="#1f77b4", lw=2, label="t=0")
+    ax.scatter([X[-1]], [Y[-1]], marker="*", s=220, color="#d62728", label="end", zorder=3)
+    ax.set_xlabel("X  =  FlhDC activity  [FlhDC]/(K+[FlhDC])")
+    ax.set_ylabel("Y  =  free-FliA activity  [FliA]/(K+[FliA])")
+    ax.set_title("Cascade trajectory through SUM-gate input space")
+    fig.colorbar(sc, ax=ax, label="time (min)")
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    save(fig, "flagella-02-sumgate-cascade", "03_phase_portrait_X_Y")
+
+
 def fig_feedback(on):
     plt = _mpl()
     fig, (a, b) = plt.subplots(1, 2, figsize=(12, 4.6))
@@ -217,6 +239,7 @@ def main():
 
     fig_overexpression(off, on)
     fig_cascade(on)
+    fig_phase(on)
     fig_feedback(on)
 
     print("\nsummary @ t=%d:" % args.seconds)

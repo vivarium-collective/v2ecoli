@@ -33,6 +33,13 @@ visualizations:
     monomer pools (FliF/FlgE/FliC) feeding the assembled complete flagella. 2400 s
     composed production+complexation run; final: export=2, motor=1, hook=12,
     complete flagella=9.
+- address: image:charts/02_nfsim_assembly_stacked.svg
+  chart: charts/02_nfsim_assembly_stacked.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-nfsim-assembly/run_nfsim_assembly.py --seconds 2400 --sample 120
+  description: |
+    Stacked-area view of the cumulative assembly hierarchy over time (export
+    apparatus -> motor/basal body -> hook -> complete flagellum), showing flux
+    through the ordered NFsim rule set rather than each intermediate in isolation.
 
 baseline:
 - name: nfsim-flagella-assembly

@@ -42,6 +42,13 @@ visualizations:
     generation (OFF g1=53, g2=44; ON g1=44, g2=34), so the cascade trims
     overexpression and the ~9-10 flagella gap persists across divisions. Right —
     dry-mass sawtooth (growth then division at the ~700 fg threshold).
+- address: image:charts/03_reduction_OFF_vs_ON.svg
+  chart: charts/03_reduction_OFF_vs_ON.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-01-overexpression-baseline/make_reduction_bar.py
+  description: |
+    Headline grouped bar — complete flagella (CPLX0-7452) per generation, regulation
+    OFF vs ON, from the 2-generation lineages. Makes the per-generation reduction
+    undeniable: -9 at gen 1 (53->44) and -10 at gen 2 (44->34).
 
 baseline:
 - name: wcm-unregulated

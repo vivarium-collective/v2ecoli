@@ -117,6 +117,31 @@ KD_HIGH_M = 3e-9    # 3 nM — chromosomal_high, oriC_high, promoter_high
 # dnaa-4: loosened from 1→3 nM so the dnaA-promoter de-occupies at low [DnaA],
 # enabling the negative-feedback signal to de-repress transcription.
 KD_LOW_M = 100e-9   # 100 nM — oriC_low (ATP only)
+KD_LOW_NM = 100.0   # KD_LOW_M in nM (the half-sat reference for the cooperative switch)
+
+# dnaa-5: cooperative DnaA-ATP filament assembly at oriC. The oriC LOW-affinity pool
+# fills cooperatively (AAA+ oligomerization) once free [DnaA-ATP] crosses threshold —
+# a Hill switch theta = A^n/(K^n + A^n) replacing the one-site Langmuir A/(K_l+A).
+# Defaults n=1 + K=KD_LOW => EXACTLY the current Langmuir (baseline byte-identical).
+ORIC_COOPERATIVITY_N = float(os.environ.get("DNAA_ORIC_COOPERATIVITY_N", "1.0"))
+ORIC_HALF_SAT_NM = float(os.environ.get("DNAA_ORIC_HALF_SAT_nM", str(KD_LOW_NM)))
+
+
+def _oric_low_occupancy(A_free: float, kd_low_molecules: float) -> float:
+    """Fractional occupancy of the oriC low-affinity pool in free DnaA-ATP A_free
+    (molecules). Cooperative Hill switch (dnaa-5): theta = A^n / (K^n + A^n), with
+    K scaled from kd_low by the half-sat ratio (reuses the nM->molecules conversion).
+    With n=1 and K=KD_LOW this is exactly the one-site Langmuir A/(K_l+A)."""
+    if A_free <= 0.0 or kd_low_molecules <= 0.0:
+        return 0.0
+    K = kd_low_molecules * (ORIC_HALF_SAT_NM / KD_LOW_NM)
+    if K <= 0.0:
+        return 0.0
+    if ORIC_COOPERATIVITY_N == 1.0:
+        return A_free / (K + A_free)
+    x = (A_free / K) ** ORIC_COOPERATIVITY_N
+    return x / (1.0 + x)
+
 
 def _promoter_fraction(pool_label: np.ndarray, bound_form: np.ndarray) -> float:
     """Bound fraction of the dnaA-promoter sites — the autoregulation signal.
@@ -461,7 +486,7 @@ class DnaABoxBinding(Step):
                 else:
                     A_h = D_h = 0.0
                 if K_l > 0 and N_l > 0:
-                    A_l = N_l * A_f / (K_l + A_f)
+                    A_l = N_l * _oric_low_occupancy(A_f, K_l)   # dnaa-5: cooperative Hill switch (n=1 => Langmuir)
                 else:
                     A_l = 0.0
                 return [A_T - A_f - A_h - A_l, D_T - D_f - D_h]
@@ -487,7 +512,7 @@ class DnaABoxBinding(Step):
         else:
             high_bound_atp = high_bound_adp = 0.0
         if K_l > 0 and N_l > 0:
-            low_bound_atp = N_l * A_free / (K_l + A_free)
+            low_bound_atp = N_l * _oric_low_occupancy(A_free, K_l)   # dnaa-5: cooperative Hill switch (n=1 => Langmuir)
         else:
             low_bound_atp = 0.0
 

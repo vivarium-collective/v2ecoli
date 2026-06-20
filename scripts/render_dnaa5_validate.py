@@ -3,10 +3,11 @@ import numpy as np
 import polars as pl
 import matplotlib
 matplotlib.use("Agg"); import matplotlib.pyplot as plt
-L="listeners__replication_data__"
-BATP=[L+c for c in ("chromosomal_high_bound_atp","oriC_high_bound_atp","oriC_low_bound_atp","promoter_high_bound_atp")]
-BADP=[L+c for c in ("chromosomal_high_bound_adp","oriC_high_bound_adp","promoter_high_bound_adp")]
-BULK={"apo":"PD03831[c]","atp":"MONOMER0-160[c]","adp":"MONOMER0-4565[c]"}
+import dnaa_observables as dnaa   # canonical DnaA pool columns (single source of truth)
+L=dnaa.L
+BATP=dnaa.BOUND_ATP_COLS
+BADP=dnaa.BOUND_ADP_COLS
+BULK={"apo":dnaa.APO_ID,"atp":dnaa.ATP_ID,"adp":dnaa.ADP_ID}
 RUNS={"Langmuir n=1":("out/dnaa4_s06_F05_seed1_12gen/dnaa4_s06_F05_seed1_12gen","#94a3b8"),
       "cooperative n=4":("out/dnaa5_coop_n4_k30_seed1_8gen/dnaa5_coop_n4_k30_seed1_8gen","#16a34a"),
       "cooperative n=6":("out/dnaa5_coop_n6_k30_seed1_8gen/dnaa5_coop_n6_k30_seed1_8gen","#d62728")}

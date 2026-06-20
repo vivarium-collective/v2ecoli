@@ -1,9 +1,10 @@
 import glob, numpy as np, polars as pl, matplotlib
 matplotlib.use("Agg"); import matplotlib.pyplot as plt
-L="listeners__replication_data__"
-BATP=[L+c for c in ("chromosomal_high_bound_atp","oriC_high_bound_atp","oriC_low_bound_atp","promoter_high_bound_atp")]
-BADP=[L+c for c in ("chromosomal_high_bound_adp","oriC_high_bound_adp","promoter_high_bound_adp")]
-BULK={"apo":"PD03831[c]","atp":"MONOMER0-160[c]","adp":"MONOMER0-4565[c]"}
+import dnaa_observables as dnaa   # canonical DnaA pool columns (single source of truth)
+L=dnaa.L
+BATP=dnaa.BOUND_ATP_COLS
+BADP=dnaa.BOUND_ADP_COLS
+BULK={"apo":dnaa.APO_ID,"atp":dnaa.ATP_ID,"adp":dnaa.ADP_ID}
 def load(run):
     fs=sorted(glob.glob(f"{run}/history/**/*.pq",recursive=True))
     ids=pl.scan_parquet(fs[0]).select("bulk__id").head(1).collect()["bulk__id"][0].to_list()

@@ -18,14 +18,17 @@ import glob
 import numpy as np
 import polars as pl
 
-L = "listeners__replication_data__"
+# canonical DnaA pool decomposition + ATP/ADP fraction — the SINGLE source of truth.
+# These constants and the (free+bound)/total fraction live in one module so dnaa-3/4/7
+# render scripts can never diverge on how they define the fraction (see dnaa_observables).
+import dnaa_observables as dnaa
+
+L = dnaa.L
 M = "listeners__mass__"
-BOUND_ATP = [L + c for c in ("chromosomal_high_bound_atp", "oriC_high_bound_atp",
-                             "oriC_low_bound_atp", "promoter_high_bound_atp")]
-BOUND_ADP = [L + c for c in ("chromosomal_high_bound_adp", "oriC_high_bound_adp",
-                             "promoter_high_bound_adp")]
+BOUND_ATP = dnaa.BOUND_ATP_COLS
+BOUND_ADP = dnaa.BOUND_ADP_COLS
 PROM = [L + "promoter_high_free", L + "promoter_high_bound_atp", L + "promoter_high_bound_adp"]
-BULK = {"apo": "PD03831[c]", "atp": "MONOMER0-160[c]", "adp": "MONOMER0-4565[c]"}
+BULK = {"apo": dnaa.APO_ID, "atp": dnaa.ATP_ID, "adp": dnaa.ADP_ID}
 CELL_DENSITY = 1.1  # fg/fL — volume_fL = cell_mass_fg / density
 NM = 1e9 / 6.022e23 / 1e-15  # molecules/fL -> nM (~1.661)
 
@@ -44,9 +47,10 @@ def _frame(run_dir: str) -> pl.DataFrame:
         + [pl.col("bulk__count").list.get(i).alias(k) for k, i in idx.items()]
     ).collect().sort(["generation", "global_time"])
     a = lambda c: np.asarray(df[c].to_list(), dtype=float)
-    bound_atp = sum(a(c) for c in BOUND_ATP)
-    bound_adp = sum(a(c) for c in BOUND_ADP)
-    total = a("apo") + a("atp") + a("adp") + bound_atp + bound_adp
+    # canonical decomposition (free + bound) — single source of truth
+    dec = dnaa.decompose(a("apo"), a("atp"), a("adp"),
+                         [a(c) for c in BOUND_ATP], [a(c) for c in BOUND_ADP])
+    total = dec["total_dnaa"]
     gen = a("generation").astype(int)
     gtime = a("global_time")
     # stitch global_time (resets each gen) into cumulative minutes
@@ -63,8 +67,8 @@ def _frame(run_dir: str) -> pl.DataFrame:
         "generation": gen,
         "abs_min": abs_min,
         "total_dnaa": total,
-        "atp_fraction": (a("atp") + bound_atp) / np.maximum(total, 1.0),
-        "adp_fraction": (a("adp") + bound_adp) / np.maximum(total, 1.0),
+        "atp_fraction": dec["atp_fraction"],
+        "adp_fraction": dec["adp_fraction"],
         "n_oric": a(L + "number_of_oric"),
         "cell_mass": cell_mass,
         "dnaa_conc_nM": total / np.maximum(volume, 1e-9) * NM,

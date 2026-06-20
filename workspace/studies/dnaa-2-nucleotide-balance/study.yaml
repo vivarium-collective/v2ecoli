@@ -637,7 +637,7 @@ conditions:
   - name: dnaa-atp-binding
     detail: "DnaA + ATP ⇌ DnaA-ATP: fast equilibrium (integrate_dt=false), K_d ≈ 29 nM"
 
-# Re-render the canonical seed-1 8-gen figure (charts/dnaa2_seed1_8gen_canonical.png)
+# Re-render the canonical seed-1 8-gen figure (charts/dnaa2_reverify_multiseed.png)
 # — the single chart of record. Previous-run figures were removed per Rashmi (2026-06-04).
 figure_refresh:
 - "{py} scripts/render_dnaa2_sixpanel.py --run {run} --seed 0 --step 3 --format both"

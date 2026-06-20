@@ -29,9 +29,10 @@ lead: |
   prelim proposal, "Abdalla Prelim Exam Proposal 051326") from the vEcoli `biofilm`
   branch (https://github.com/vivarium-collective/vEcoli/tree/biofilm) onto v2ecoli's
   process-bigraph stack. The cascade is an opt-in `flagella_regulation` feature.
-  This is a living integration branch (draft PR #276), NOT a merge target. Aim 1
-  (spatial / Voronoi compartments) and Aim 2B (NFsim rule-based assembly) are out of
-  scope here — this investigation is Aim 2A: the transcriptional regulatory network.
+  This is a living integration branch (draft PR #276), NOT a merge target. It now
+  covers Aim 2A (the transcriptional regulatory network — studies 01-03) AND brings
+  in Aim 2B (NFsim rule-based assembly — study 04, from vivarium-collective/pbg-nfsim).
+  Aim 1 (spatial / Voronoi compartments) remains out of scope here.
 
 executive:
   what_is_this: |
@@ -79,6 +80,7 @@ studies:
   - flagella-01-overexpression-baseline
   - flagella-02-sumgate-cascade
   - flagella-03-flgm-flia-feedback
+  - flagella-04-nfsim-assembly
 
 acceptance_criteria:
   - id: AC1
@@ -103,3 +105,11 @@ acceptance_criteria:
       Free FliA (EG11355-MONOMER[c]) stays within a biologically plausible band
       rather than running away — the FlgM secretion gate plus the flgM
       negative-feedback loop (flgM is itself a Class III gene) hold it in check.
+  - id: AC4
+    behavior: ordered-hierarchical-assembly
+    study: flagella-04-nfsim-assembly
+    detail: |
+      NFsim rule-based assembly (pbg-nfsim) builds flagella through ordered,
+      conditional steps (export apparatus -> motor/basal body -> hook -> complete
+      flagellum) that the stochastic Gillespie complexation cannot enforce — Maya's
+      Aim 2B.

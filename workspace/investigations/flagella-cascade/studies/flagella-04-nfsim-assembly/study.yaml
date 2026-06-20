@@ -1,0 +1,79 @@
+schema_version: 3
+name: flagella-04-nfsim-assembly
+title: "Aim 2B — rule-based flagellar assembly via NFsim (pbg-nfsim)"
+description: |
+  Maya's Specific Aim 2B: replace the stochastic Gillespie complexation (which fires
+  as soon as substrates are available and cannot enforce ordered, conditional
+  dependencies) with an NFsim rule-based assembly model. Brings in the existing
+  flagella-assembly example from vivarium-collective/pbg-nfsim — a process-bigraph
+  wrapper for BioNetGen/NFsim whose BNGL model encodes hierarchical complexation of
+  ~30 flagellar proteins through 7 sequential reactions (237 rules).
+topic: assembly
+tags: [flagella, assembly, nfsim, bionetgen, rule-based, complexation, aim2b, pbg-nfsim, just-in-time]
+created: '2026-06-20'
+
+status: in_progress
+phase: Simulate
+
+design_status: complete
+implementation_status: complete    # pbg-nfsim installed; driver brings in the example
+simulation_status: ran             # production+complexation run, complete flagella assembled
+evaluation_status: partial
+gate_status: pending
+expert_review_status: not_requested
+
+visualizations:
+- address: image:charts/01_nfsim_assembly.svg
+  chart: charts/01_nfsim_assembly.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-nfsim-assembly/run_nfsim_assembly.py --seconds 2400 --sample 120
+  description: |
+    Left — staged appearance of assembly intermediates in assembly order (export
+    apparatus -> motor/basal body -> hook -> complete flagellum), the ordered
+    hierarchical complexation NFsim enforces and Gillespie cannot. Right — free
+    monomer pools (FliF/FlgE/FliC) feeding the assembled complete flagella. 2400 s
+    composed production+complexation run; final: export=2, motor=1, hook=12,
+    complete flagella=9.
+
+baseline:
+- name: nfsim-flagella-assembly
+  composite: pbg_nfsim.make_production_document
+  params:
+    n_steps: 50
+    complexation_interval: 120.0
+    production_interval: 1.0
+    production_rate_scale: 1.0
+
+purpose:
+  question: |
+    Does NFsim rule-based assembly reproduce ordered, hierarchical flagellar
+    construction (basal body before hook before filament) that the stochastic
+    Gillespie complexation cannot?
+  mechanism: |
+    pbg_nfsim.NFSimProcess wraps BioNetGen/NFsim on flagella_complexation.bngl
+    (237 rules, 7 sequential reactions). MonomerProduction feeds the ~30 free
+    monomers; NFsim assembles them through the ordered reaction rules into the
+    export apparatus, motor, hook, and finally the complete flagellum.
+  expected_outcome: |
+    Intermediates appear in assembly order and complete flagella accumulate, with
+    free monomer pools incorporated into higher-order structures over time.
+
+behavior_tests:
+  - id: nfsim-runs-bionetgen
+    statement: |
+      The pbg-nfsim NFSimProcess runs the flagella BNGL model under BioNetGen and
+      returns observable trajectories.
+    status: passing      # verified: BioNetGen runs; observables returned
+  - id: ordered-hierarchical-assembly
+    statement: |
+      Assembly intermediates appear in order (export apparatus -> motor -> hook)
+      and complete flagella accumulate over the run.
+    status: passing      # 2400 s run: export=2, motor=1, hook=12, complete flagella=9
+
+notes: |
+  Brought in from https://github.com/vivarium-collective/pbg-nfsim (the example
+  already existed there). Installed via `uv pip install -e` into the workspace venv
+  alongside `bionetgen`. bionetgen 0.8.6 imports the removed
+  `pkg_resources.packaging` on Python 3.12 — the driver shims it from the
+  standalone `packaging` package before importing pbg_nfsim. This study runs the
+  NFsim assembly STANDALONE (the example); coupling it into the WCM to replace
+  ecoli-complexation (full Aim 2B) is the next step.

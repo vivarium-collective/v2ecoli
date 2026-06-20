@@ -63,6 +63,20 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     }
     for k, default in _V2_DEFAULTS.items():
         v2.setdefault(k, default)
+    # vEcoli's `max_duration` is its PER-GENERATION sim cap (each generation
+    # runs until division OR max_duration). v2ecoli's lineage uses a SEPARATE
+    # key, `max_duration_per_gen`, which DEFAULTS to 3600 s and is otherwise
+    # never set by this translation. For slow-growth media (acetate, succinate,
+    # anaerobic — doubling time > 60 min, i.e. natural cell cycle > 3600 s) the
+    # 3600 s default force-divided v2 cells before their cell cycle completed:
+    # they divided at low mass, never reached the 2nd round of replication
+    # initiation, and so never got the rRNA gene-dosage boost that drives the
+    # growth ramp — making v2 look 15-30% smaller than vEcoli purely as a cap
+    # artifact. Map vEcoli's per-generation cap onto v2's so both engines
+    # truncate generations identically (fast media are unaffected — they divide
+    # well before either cap).
+    if "max_duration" in vecoli:
+        v2.setdefault("max_duration_per_gen", float(vecoli["max_duration"]))
     return v2
 
 

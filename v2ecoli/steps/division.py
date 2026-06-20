@@ -96,6 +96,12 @@ class Division(V2Step):
         self._unique_names = self.parameters.get('unique_names', [])
         self._seed = self.parameters.get('seed', 0)
         self._cache_dir = self.parameters.get('cache_dir', 'out/cache')
+        # vEcoli's default (`d_period=True`): division fires D_period after
+        # chromosome replication completes (via the flag MarkDPeriod raises at
+        # the chromosome's division_time), and the dry-mass threshold is
+        # IGNORED — see vEcoli ecoli/processes/cell_division.py. When False, the
+        # legacy mass-distribution threshold is used instead.
+        self.d_period = bool(self.parameters.get('d_period', True))
 
         # Division mass multiplier
         seed = self._seed
@@ -115,6 +121,9 @@ class Division(V2Step):
             "global_time": Float(_default=0.0),
             "division_threshold": Overwrite(),
             "media_id": InPlaceDict(),
+            # D-period flag MarkDPeriod raises at the chromosome's division_time
+            # (consulted only when self.d_period is True).
+            "divide": Overwrite(),
         }
 
     def outputs(self):
@@ -124,7 +133,9 @@ class Division(V2Step):
 
     def next_update(self, timestep, states):
         # --- Threshold initialization ---
-        if states.get("division_threshold") == "mass_distribution":
+        # Under d_period (vEcoli default) the dry-mass threshold is never
+        # consulted, so skip its one-shot initialization entirely.
+        if not self.d_period and states.get("division_threshold") == "mass_distribution":
             media_id = states.get("media_id", "minimal")
             dry_mass_inc = self.dry_mass_inc_dict.get(media_id)
             if dry_mass_inc is not None:
@@ -159,7 +170,6 @@ class Division(V2Step):
         # (units-on-ports); a Quantity vs float comparison raises (and is
         # swallowed), which would silently prevent division.
         dry_mass = fg_magnitude(dry_mass)
-        threshold = fg_magnitude(states.get("division_threshold", float('inf')))
 
         full_chrom = states.get('unique', {}).get('full_chromosome')
         n_chromosomes = 0
@@ -167,8 +177,23 @@ class Division(V2Step):
             if '_entryState' in full_chrom.dtype.names:
                 n_chromosomes = full_chrom['_entryState'].sum()
 
-        if dry_mass < threshold or n_chromosomes < 2:
-            return {}
+        # --- Division trigger ---
+        if self.d_period:
+            # vEcoli default: divide once the D-period has elapsed after
+            # replication finished — MarkDPeriod raises `divide` at the
+            # chromosome's division_time (= completion + D_period). The dry-mass
+            # threshold is IGNORED. Without this, v2's mass threshold fired
+            # ~D_period too early, dividing slow-growth cells (acetate,
+            # succinate, anaerobic; cycle > the per-gen window) well below their
+            # proper size, which also cut them off before the 2nd replication
+            # round and suppressed the growth ramp.
+            threshold = float('nan')
+            if not bool(states.get("divide", False)) or n_chromosomes < 2:
+                return {}
+        else:
+            threshold = fg_magnitude(states.get("division_threshold", float('inf')))
+            if dry_mass < threshold or n_chromosomes < 2:
+                return {}
 
         if self.division_detected:
             return {}

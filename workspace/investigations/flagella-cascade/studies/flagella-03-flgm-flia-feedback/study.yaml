@@ -21,6 +21,17 @@ evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
 
+visualizations:
+- address: image:charts/01_flgm_secretion_flia_release.svg
+  chart: charts/01_flgm_secretion_flia_release.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
+  description: |
+    Left — type-III secretion depletes cytoplasmic FlgM (G369-MONOMER, orange:
+    1481 -> 5) as flagella are present, and the FlgM-FliA equilibrium releases free
+    FliA / sigma-28 (green). Right — free FliA relative to its initial pool: it
+    rises but stays bounded (does not run away) thanks to the flgM Class III
+    negative-feedback loop.
+
 baseline:
 - name: wcm-flagella-regulation
   composite: v2ecoli.composites.baseline.baseline
@@ -56,7 +67,7 @@ behavior_tests:
     statement: |
       Free FliA (EG11355-MONOMER[c]) rises as FlgM is secreted but stays within a
       plausible band (does not run away) thanks to the flgM negative-feedback loop.
-    status: planned      # FliA release observed (1777 -> 2603); quantitative band TBD
+    status: passing      # 600 s run: FlgM 1481->5, free FliA 3000->4039 (~1.35x, bounded)
 
 notes: |
   Ported from Maya Abdalla's vEcoli `biofilm` branch. Best demonstrated from a

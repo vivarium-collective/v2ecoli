@@ -22,6 +22,18 @@ evaluation_status: partial
 gate_status: pending
 expert_review_status: not_requested
 
+visualizations:
+- address: image:charts/01_overexpression_and_neutrality.svg
+  chart: charts/01_overexpression_and_neutrality.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
+  description: |
+    Left — unregulated flagellar components (complete flagella CPLX0-7452 + the
+    motor/HBB FLAGELLAR-MOTOR-COMPLEX) over a 600 s run with regulation OFF.
+    Right — complete-flagella count, regulation OFF vs ON. Feature-off
+    init_prob_override stays 0 throughout (seam neutral); the cascade trims
+    flagella modestly within one generation (35 -> 32), the effect compounding
+    across generations.
+
 baseline:
 - name: wcm-unregulated
   composite: v2ecoli.composites.baseline.baseline

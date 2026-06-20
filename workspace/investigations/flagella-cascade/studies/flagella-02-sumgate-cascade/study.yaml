@@ -20,6 +20,17 @@ evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
 
+visualizations:
+- address: image:charts/01_sumgate_classII_classIII.svg
+  chart: charts/01_sumgate_classII_classIII.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
+  description: |
+    Left — mean Class II vs Class III init_prob_override from the Kalir & Alon
+    SUM-gate over 600 s (Class II, FlhDC-weighted, sits above Class III,
+    FliA-weighted). Right — per-gene init_prob_override heatmap (top block: 7
+    Class II TUs incl. flhD/fliA; bottom block: 9 Class III TUs incl. fliC/flgM),
+    showing the gate driving each operon individually.
+
 baseline:
 - name: wcm-flagella-regulation
   composite: v2ecoli.composites.baseline.baseline
@@ -52,7 +63,10 @@ behavior_tests:
     statement: |
       Over a multi-minute run, the mean Class III override rises later than (or
       stays below until FliA is freed) the mean Class II override.
-    status: planned
+    status: passing      # 600 s run: Class II ⟨ov⟩ 3.83e-4 > Class III 3.04e-4 throughout
+    caveat: |
+      Magnitude ordering (Class II > Class III) holds; a clean temporal LAG needs a
+      low-flagella initial condition (the default cache starts flagellated).
 
 evidence:
   - reports/figures/flagella_cascade/cascade_report.html

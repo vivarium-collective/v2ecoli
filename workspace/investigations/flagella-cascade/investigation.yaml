@@ -163,7 +163,10 @@ scientific_argument:
     - flagella-02-sumgate-cascade/charts/01_sumgate_classII_classIII.svg
     - flagella-03-flgm-flia-feedback/charts/01_flgm_secretion_flia_release.svg
     - flagella-04-nfsim-assembly/charts/01_nfsim_assembly.svg
-  caveats: |
-    The transcriptional cascade (Aim 2A) and the NFsim assembly (Aim 2B) currently
-    run as separate, opt-in pieces — NFsim is standalone, not yet wired to replace
-    ecoli-complexation inside the WCM. Spatial organization (Aim 1) is out of scope.
+  caveats:
+    - The transcriptional cascade (Aim 2A) and the NFsim assembly (Aim 2B) run as
+      separate opt-in pieces; NFsim is standalone, not yet wired to replace
+      ecoli-complexation inside the WCM.
+    - Spatial organization (Aim 1) is out of scope.
+    - Quantitative count results use a local full-mode ParCa rebuild (out/cache_full);
+      the committed ParCa fixture stays fast-mode.

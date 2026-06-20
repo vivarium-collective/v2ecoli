@@ -201,6 +201,12 @@ class ChromosomeReplication(Step):
         # correct trigger once cooperativity makes oriC-low switch-like.
         self.init_trigger_pool = os.environ.get("DNAA_INIT_TRIGGER_POOL", "high").lower()
         self.init_low_threshold = int(os.environ.get("DNAA_INIT_LOW_THRESHOLD", "6"))
+        # dnaa-7 SeqA eclipse: minutes after an initiation during which the mechanistic
+        # trigger is blocked (the post-initiation sequestration that prevents re-firing).
+        # Default 0 = no eclipse (baseline / dnaa-6 behavior).
+        self.init_eclipse_min = float(os.environ.get("DNAA_INIT_ECLIPSE_MIN", "0"))
+        self._last_init_time = -1e18  # time of last initiation (s); -inf so the first fires
+        self._cur_time = 0.0          # set each tick in _prepare
         self._mech_ready = False  # set each tick in _request, read in _evolve
         self.replichore_lengths = self.parameters["replichore_lengths"]
         self.sequences = self.parameters["sequences"]
@@ -238,9 +244,17 @@ class ChromosomeReplication(Step):
     def _should_initiate(self, n_oriC):
         """Replication-initiation gate. Default: the cell-mass-per-origin heuristic
         (criticalMassPerOriC >= 1.0). When DNAA_INITIATION_TRIGGER=mechanistic: fire
-        on oriC high-affinity DnaA-ATP saturation (computed in _prepare as _mech_ready)."""
+        on oriC DnaA-ATP saturation (computed in _prepare as _mech_ready), subject to a
+        post-initiation ECLIPSE (dnaa-7 SeqA sequestration): for DNAA_INIT_ECLIPSE_MIN
+        minutes after an initiation, the trigger is blocked so a just-fired origin cannot
+        re-fire (prevents over-initiation). Eclipse=0 (default) disables the block."""
         if self.initiation_trigger == "mechanistic":
-            return bool(self._mech_ready)
+            if not self._mech_ready:
+                return False
+            if self.init_eclipse_min > 0.0:
+                if (self._cur_time - self._last_init_time) < self.init_eclipse_min * 60.0:
+                    return False  # within the SeqA eclipse — re-initiation blocked
+            return True
         return self.criticalMassPerOriC >= 1.0
 
     def _prepare(self, states):
@@ -285,6 +299,7 @@ class ChromosomeReplication(Step):
         # dnaa-5 mechanistic-initiation diagnostic: readiness = oriC high-affinity boxes
         # saturated with DnaA-ATP (>= threshold per origin). Computed here (in _request)
         # and read again in _evolve via _should_initiate().
+        self._cur_time = float(states.get("global_time", 0.0))  # for the dnaa-7 eclipse clock
         if self.initiation_trigger == "mechanistic":
             rd = states["listeners"]["replication_data"]
             if self.init_trigger_pool == "low":
@@ -393,6 +408,7 @@ class ChromosomeReplication(Step):
         # If all conditions are met, initiate a round of replication on every
         # origin of replication
         if initiate_replication:
+            self._last_init_time = self._cur_time  # dnaa-7 eclipse: stamp this initiation
             # Get attributes of existing oriCs and domains
             (domain_index_existing_oric,) = attrs(states["oriCs"], ["domain_index"])
 

@@ -1,0 +1,65 @@
+schema_version: 3
+name: flagella-03-flgm-flia-feedback
+title: "Aim 2A — FlgM secretion gate & FliA negative feedback (bounded sigma-28)"
+description: |
+  The timing/feedback half of Maya's Aim 2A. FliA (sigma-28) activity is held below
+  threshold by the anti-sigma factor FlgM until a hook-basal body completes; the
+  type-III secretion system then exports FlgM, releasing FliA to fire Class III.
+  This study verifies the FlgM secretion gate and the flgM negative-feedback loop
+  keep free FliA within a plausible band rather than running away.
+topic: regulation
+tags: [flagella, flgM, fliA, sigma28, secretion, negative-feedback, anti-sigma, aim2a, ported-from-vecoli-biofilm]
+created: '2026-06-20'
+
+status: in-progress
+phase: Simulate
+
+design_status: complete
+implementation_status: complete    # FlgMSecretion Step + FLGM-FLIA-CPLX equilibrium in cache
+simulation_status: partial         # secretion + FliA-release observed in smoke runs; band check pending
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+
+baseline:
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+    features: ['flagella_regulation']
+
+purpose:
+  question: |
+    Does the FlgM secretion gate (exported ∝ complete flagella) deplete cytoplasmic
+    FlgM (G369-MONOMER[c]), shift the FlgM-FliA equilibrium to release free FliA
+    (EG11355-MONOMER[c]), and keep FliA bounded via the flgM negative-feedback loop?
+  mechanism: |
+    ecoli-flagella-flgm-secretion: exported = min(FlgM, round(n_flagella * 0.1 * dt)).
+    FLGM-FLIA-CPLX equilibrium sequesters FliA; as FlgM falls, FliA is released.
+    flgM is itself driven as a Class III gene (override = Y): as free FliA rises,
+    flgM transcription rises, making more FlgM to re-sequester FliA — the cap that
+    prevents the runaway FliA seen without this loop (Stefan et al. 2015,
+    PLoS Comput Biol 11:e1004028).
+  expected_outcome: |
+    Cytoplasmic FlgM falls when flagella are present; free FliA rises then
+    plateaus within a plausible band relative to its initial pool rather than
+    growing without bound.
+
+behavior_tests:
+  - id: flgm-secreted-when-flagella-present
+    statement: |
+      With complete flagella (CPLX0-7452[j]) > 0, cytoplasmic FlgM (G369-MONOMER[c])
+      decreases over the run.
+    status: passing      # verified: FlgM 1481 -> 39 over 300 s
+  - id: fliA-released-and-bounded
+    statement: |
+      Free FliA (EG11355-MONOMER[c]) rises as FlgM is secreted but stays within a
+      plausible band (does not run away) thanks to the flgM negative-feedback loop.
+    status: planned      # FliA release observed (1777 -> 2603); quantitative band TBD
+
+notes: |
+  Ported from Maya Abdalla's vEcoli `biofilm` branch. Best demonstrated from a
+  low-flagella initial condition (Maya's flagellum_initial_value.json analog: 4
+  flagella, 500 FliA, 800 FlgM) so the assembly-gated release of FliA is visible;
+  the default v2ecoli cache starts already flagellated (~30). Quantitative FliA
+  band requires a --mode full ParCa calibration.

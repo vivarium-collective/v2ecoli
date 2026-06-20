@@ -1,0 +1,64 @@
+schema_version: 3
+name: flagella-02-sumgate-cascade
+title: "Aim 2A — Kalir & Alon SUM-gate: Class II -> Class III temporal ordering"
+description: |
+  Core of Maya's Specific Aim 2A. Runs the baseline composite with the opt-in
+  `flagella_regulation` feature and asks whether the Kalir & Alon (Cell 2004)
+  bilinear SUM-gate produces the experimentally observed Class II -> Class III
+  ordering of flagellar gene expression.
+topic: regulation
+tags: [flagella, transcription-regulation, kalir-alon, sum-gate, classII, classIII, sigma28, flhDC, aim2a, ported-from-vecoli-biofilm]
+created: '2026-06-20'
+
+status: in-progress
+phase: Simulate
+
+design_status: complete
+implementation_status: complete    # both Steps ported, wired as flagella_regulation feature, cache rebuilt
+simulation_status: partial         # smoke runs OK (feature on writes overrides); timing sweep pending
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+
+baseline:
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+    features: ['flagella_regulation']
+
+purpose:
+  question: |
+    Does Class II init_prob_override rise before Class III, with Class III gated
+    until complete flagella (CPLX0-7452) accumulate and FlgM (G369-MONOMER) is
+    secreted, releasing free FliA (EG11355-MONOMER / sigma-28)?
+  mechanism: |
+    Promoter activity p_i = (beta*X + beta'*Y)/(beta+beta') with X=[FlhDC]/(K+[FlhDC]),
+    Y=[free FliA]/(K+[FliA]). Class II beta-weighted (FlhDC), Class III beta'-weighted
+    (FliA). The SUM-gate writes p_i (normalized to basal scale) to
+    promoters.init_prob_override; transcript_initiation substitutes it where > 0.
+  expected_outcome: |
+    Mean Class III override trajectory lags mean Class II override; Class III stays
+    near 0 while FliA is sequestered, rising as free FliA is released.
+
+behavior_tests:
+  - id: gate-writes-overrides
+    statement: |
+      With the feature ON, the SUM-gate writes nonzero init_prob_override onto the
+      flagella Class II/III promoters within the first few ticks.
+    status: passing      # verified: 17 nonzero overrides after 10 s
+  - id: classIII-lags-classII
+    statement: |
+      Over a multi-minute run, the mean Class III override rises later than (or
+      stays below until FliA is freed) the mean Class II override.
+    status: planned
+
+evidence:
+  - reports/figures/flagella_cascade/cascade_report.html
+
+notes: |
+  Generator: make_cascade_report.py (in this study dir). Ported from Maya Abdalla's
+  vEcoli `biofilm` branch. The default cache starts with ~30 flagella + high
+  FliA/FlgM, so the clearest assembly-gated DELAY is best shown from a low-flagella
+  initial condition (see flagella-03). A --mode full ParCa run is the recommended
+  calibration follow-up before quantitative absolute-expression claims.

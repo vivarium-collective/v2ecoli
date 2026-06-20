@@ -1,0 +1,67 @@
+schema_version: 3
+name: flagella-01-overexpression-baseline
+title: "Aim 2 motivation — uncontrolled flagellar overexpression & seam neutrality"
+description: |
+  Establishes Maya's Specific Aim 2 motivation in v2ecoli: with no transcriptional
+  regulation, the whole-cell model overproduces flagellar components relative to
+  biological levels (her prelim reports ~48 flagella). This study characterizes the
+  unregulated baseline AND proves that adding the flagella_regulation infrastructure
+  is a true no-op when the feature is OFF — so any change downstream is attributable
+  to the regulatory cascade, not to the port itself.
+topic: regulation
+tags: [flagella, baseline, overexpression, seam-neutrality, feature-off, aim2, ported-from-vecoli-biofilm]
+created: '2026-06-20'
+
+status: in-progress
+phase: Evaluate
+
+design_status: complete
+implementation_status: complete
+simulation_status: ran             # feature-off neutrality verified during the port
+evaluation_status: partial
+gate_status: pending
+expert_review_status: not_requested
+
+baseline:
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+    features: []                   # regulation OFF — the unregulated baseline
+
+purpose:
+  question: |
+    (a) How over-expressed are flagellar components in the unregulated WCM baseline?
+    (b) Is the flagella_regulation port byte-neutral when the feature is off?
+  mechanism: |
+    With features=[] the two flagella Steps are not wired and the promoter
+    init_prob_override field stays 0.0 everywhere, so transcript_initiation's
+    substitution (guarded on > 0) never fires — identical initiation probabilities
+    to pre-port main. Flagellar component counts (CPLX0-7452, flagellin, motor) are
+    read straight from the unregulated baseline for comparison against the regulated
+    runs in flagella-02 / flagella-03.
+  expected_outcome: |
+    init_prob_override == 0 for every promoter across the run; cell grows/divides
+    normally; flagellar component counts sit at the (over-expressed) unregulated
+    level that the cascade is intended to bring down.
+
+behavior_tests:
+  - id: feature-off-neutral
+    statement: |
+      With flagella_regulation OFF, promoters.init_prob_override is 0 for every
+      promoter across a 30 s run and the cell grows normally.
+    status: passing      # verified during the port (0 nonzero overrides after 30 s)
+  - id: parity-attributable-to-data-not-code
+    statement: |
+      The feature-off signature on the rebuilt cache matches the shipped-fixture
+      signature (control), confirming the ~1% delta vs the committed golden is
+      pre-existing golden drift, not this port.
+    status: passing      # verified via the shipped-fixture control
+
+notes: |
+  Maya's prelim (Aim 2 rationale): "current expression of flagella is exceedingly
+  high compared to biological levels and manual adjustments like multipliers,
+  adjustments to stoichiometry, and overrides are a plausible approach to minimize
+  expression ... however, manual tuning is not a biologically and mechanistically
+  sufficient solution." This study is the no-regulation reference the cascade
+  studies are measured against.

@@ -96,10 +96,15 @@ executive:
     occupancy now snaps to full (validated; preserves the DnaA/ATP bands + cycle at n=4, K=30).
     dnaa-6 PAYOFF (trigger re-pointed to the oriC-low cooperative switch + cooperativity) then
     SUSTAINS the cell cycle — 8/8 generations divide, the collapse resolved: DnaA-ATP/oriC
-    initiation CAN drive the cycle in place of the heuristic. The one remaining issue is OVER-
-    initiation (oriC->4) for lack of a post-initiation eclipse — addressed by dnaa-7 (SeqA
-    sequestration: a refractory re-init block) + oriC-low threshold/K tuning, in progress.
-    The other roadmap mechanisms (RIDA/DDAH/DARS, validation) remain scaffolded.
+    initiation CAN drive the cycle in place of the heuristic. The remaining issue was OVER-
+    initiation (oriC->4); dnaa-7 RESOLVED it — a global SeqA refractory eclipse + threshold/K tuning
+    FAILED (worsened it), but RIDA (Regulatory Inactivation of DnaA, DnaA-ATP->ADP after initiation)
+    RESTORES clean one-initiation-per-cycle (oriC 1<->2, 0 re-inits, 8/8 divide) because it resets
+    the DnaA-ATP switch post-initiation. So the full DnaA-ATP/oriC mechanistic initiation now works
+    end to end (cooperative switch fires it, RIDA enforces once-per-cycle) and replaces the cell-mass
+    heuristic. One open knob: the RIDA RATE over-suppresses DnaA-ATP at full strength (fraction ~0.03
+    << [0.2,0.5]), so RIDA/DARS need calibration (the dnaa-05 mechanism) to hold the ATP band. Other
+    roadmap items (validation, per-origin hemimethylation SeqA) remain.
   verdict_status: in-progress
   verdict_detail: |-
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate

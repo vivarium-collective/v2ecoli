@@ -8,7 +8,7 @@ design_status: designed
 implementation_status: implemented
 simulation_status: ran
 evaluation_status: evaluated
-gate_status: fail   # the global-refractory eclipse + tuning do NOT restore one-init-per-cycle (and worsen it) — a productive negative result: the fix is RIDA (reset the DnaA-ATP switch post-init) + per-origin SeqA. See verdict.
+gate_status: partial   # RIDA RESOLVES the over-init — oriC 1<->2, 0 re-inits (the eclipse failed; RIDA is the right fix, hypothesis confirmed). Remaining: RIDA rate over-suppresses DnaA-ATP (fraction 0.01-0.03 < band) -> rate calibration (dnaa-05). See verdict.
 expert_review_status: pending
 
 seeded_from:
@@ -78,8 +78,8 @@ tests:
   description: "oriC oscillates cleanly 1<->2 (no over-initiation) under the mechanistic trigger + eclipse."
   measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
   pass_if: {op: max_le, value: 2}
-  status: failed
-  result: "FAIL — oriC reaches 4 (re-init) on every variant; the global eclipse + threshold/K tuning do not restore 1<->2. Needs RIDA (reset DnaA-ATP post-init) + per-origin SeqA."
+  status: passed
+  result: "PASS with RIDA (FAIL with the eclipse). The global eclipse + threshold/K tuning did NOT restore 1<->2 (oriC reached 4); RIDA ON does — oriC 1<->2, 0 re-inits, 8/8 divide. Root cause was the un-reset DnaA-ATP switch."
 - name: cycle-sustained
   classification: primary
   description: "Every generation still divides (the eclipse must not block legitimate next-cycle initiation)."
@@ -96,6 +96,17 @@ tests:
   result: "PASS — DnaA pool stays in [300,800] on all variants; the over-initiation is not a DnaA-homeostasis failure."
 
 visualizations:
+- name: dnaa7_rida_fixes_overinit
+  address: image:charts/dnaa7_rida_fixes_overinit.png
+  chart: charts/dnaa7_rida_fixes_overinit.png
+  source_run: dnaa7_rida_full_seed1_8gen vs dnaa6_mech_low_coop_n4_seed1_8gen vs dnaa4_s06_F05_seed1_12gen
+  config:
+    title: >-
+      RIDA restores one-initiation-per-cycle. TOP: oriC over time — the mass heuristic (blue) is
+      1<->2, the mechanistic trigger without RIDA (red) over-initiates to 4, and the mechanistic
+      trigger + RIDA/DDAH/DARS (green) is back to clean 1<->2 (0 re-inits). BOTTOM: DnaA-ATP
+      fraction — RIDA at full rate crashes it to ~0.03 (far below the [0.2,0.5] band), so the RIDA
+      rate needs calibration even though the initiation control is solved.
 - name: dnaa7_eclipse_insufficient
   address: image:charts/dnaa7_eclipse_insufficient.png
   chart: charts/dnaa7_eclipse_insufficient.png
@@ -126,7 +137,18 @@ report:
     per-cycle for the mechanistic trigger needs RIDA (DnaA-ATP inactivation, the dnaa-05 mechanism)
     + a per-origin SeqA model — not a refractory eclipse. The simple eclipse stays in the codebase
     (default off) but is not the fix.
-  confidence: conclusive-negative
+    || RIDA PROBE (2026-06-20) — HYPOTHESIS CONFIRMED: re-running the mechanistic trigger with RIDA
+    ON (RIDA_RATE_MULTIPLIER=1; oriC-low switch + cooperativity, NO eclipse) RESTORES clean
+    one-initiation-per-cycle — oriC 1<->2, ZERO re-initiations, 8/8 divide (both RIDA-only and full
+    RIDA/DDAH/DARS). This confirms the root cause: the over-init was the un-reset DnaA-ATP switch,
+    and RIDA (DnaA-ATP -> DnaA-ADP after initiation) drops free DnaA-ATP below threshold so the
+    switch resets. So the mechanistic DnaA-ATP/oriC initiation now works end to end: cooperative
+    switch (dnaa-5) fires it, RIDA enforces once-per-cycle. CAVEAT: RIDA at full rate OVER-suppresses
+    DnaA-ATP — the fraction crashes to 0.012 (RIDA-only) / 0.031 (full) << the [0.2,0.5] band, even
+    with DARS reactivation. So initiation CONTROL is solved; the RIDA rate needs CALIBRATION to hold
+    the ATP-fraction band — exactly the dnaa-05 RIDA/DDAH/DARS tuning. The global eclipse is retired;
+    RIDA is the mechanism.
+  confidence: rida-resolves-control (rate needs calibration)
 
 conclusion_logic:
   if_primary_tests_pass: >-
@@ -141,11 +163,11 @@ conclusion_logic:
     below threshold + a per-origin SeqA sequestration model — not a global eclipse.
 
 next_action: >-
-  Add RIDA (Regulatory Inactivation of DnaA) so DnaA-ATP is hydrolyzed to DnaA-ADP after
-  initiation, resetting the cooperative switch; the dnaa-05 RIDA/DDAH/DARS mechanism (other
-  investigation) is directly relevant. Re-test the mechanistic trigger with RIDA on (a cheap
-  env probe: RIDA_RATE_MULTIPLIER=1). Then build a per-origin SeqA sequestration (hemimethylation)
-  model. The global refractory eclipse is retired as the fix.
+  RIDA confirmed as the one-per-cycle control. Now CALIBRATE the RIDA rate (and DARS reactivation)
+  so DnaA-ATP fraction returns to [0.2,0.5] while keeping oriC 1<->2 — the dnaa-05 RIDA/DDAH/DARS
+  tuning. Sweep RIDA_RATE_MULTIPLIER (e.g. 0.1-0.5) + DARS to find the operating point. Then the
+  DnaA-ATP/oriC mechanistic initiation fully replaces the cell-mass heuristic (sustained, once-per-
+  cycle, in-band). Optional later refinement: a per-origin hemimethylation SeqA model.
 
 runs:
 - name: dnaa7_seqa_eclipse40_seed1_8gen
@@ -177,6 +199,23 @@ runs:
   seed: 1
   generations: 8
   note: "Tuning probe (K=45) — oriC 1-4, 6530 re-init (much worse). Higher K does not curb over-init."
+- name: dnaa7_rida_full_seed1_8gen
+  status: completed
+  canonical: true
+  seed: 1
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  note: "RIDA PROBE (full RIDA/DDAH/DARS on) — mechanistic oriC-low trigger + cooperativity, NO eclipse. RESOLVES over-init: oriC 1<->2, 0 re-inits, 8/8 divide. BUT DnaA-ATP fraction crashes to 0.031 (<0.2 band) — RIDA rate needs calibration."
+  outcomes:
+    one-initiation-per-cycle: {result: PASS, detail: "oriC 1<->2, 0 re-inits — RIDA resets the switch."}
+    cycle-sustained: {result: PASS, detail: "8/8 generations divide."}
+    dnaa-levels-preserved: {result: PARTIAL, detail: "DnaA pool in band, but DnaA-ATP FRACTION crashes to 0.031 (<0.2) — RIDA over-suppresses; rate calibration needed (dnaa-05)."}
+- name: dnaa7_rida_only_seed1_8gen
+  status: completed
+  canonical: false
+  seed: 1
+  generations: 8
+  note: "RIDA-only (DDAH/DARS off) — also resolves over-init (oriC 1<->2, 0 re-inits) but DnaA-ATP fraction 0.012 (lowest). Isolates RIDA's switch-reset effect."
 
 findings:
 - id: F-01
@@ -193,6 +232,21 @@ findings:
   status: evaluated
   provenance:
     run_ids: [dnaa7_seqa_eclipse40_seed1_8gen, dnaa7_seqa_eclipse20_seed1_8gen, dnaa6_tune_thr8_k30_seed1_8gen, dnaa6_tune_thr6_k45_seed1_8gen, dnaa6_mech_low_coop_n4_seed1_8gen]
+- id: F-02
+  statement: >-
+    RIDA RESOLVES the over-initiation (hypothesis confirmed). Re-running the mechanistic oriC-low
+    trigger + cooperativity with RIDA ON (RIDA_RATE_MULTIPLIER=1; no eclipse) gives clean
+    one-initiation-per-cycle — oriC 1<->2, ZERO re-inits, 8/8 divide — for both RIDA-only and full
+    RIDA/DDAH/DARS. This confirms the F-01 root cause: the over-init was the un-reset DnaA-ATP
+    switch; RIDA (DnaA-ATP -> DnaA-ADP post-initiation) drops free DnaA-ATP below threshold so the
+    switch resets. The mechanistic DnaA-ATP/oriC initiation now works end to end (cooperative switch
+    fires it, RIDA enforces once-per-cycle). CAVEAT: RIDA at full rate over-suppresses DnaA-ATP —
+    the fraction crashes to 0.012 (RIDA-only) / 0.031 (full) << [0.2,0.5], even with DARS. So the
+    RIDA RATE needs calibration (dnaa-05) to hold the ATP-fraction band; the control mechanism
+    itself is solved.
+  status: evaluated
+  provenance:
+    run_ids: [dnaa7_rida_only_seed1_8gen, dnaa7_rida_full_seed1_8gen, dnaa6_mech_low_coop_n4_seed1_8gen]
 
 biological_summary: >-
   SeqA binds newly hemimethylated oriC after initiation, sequestering it for the eclipse period

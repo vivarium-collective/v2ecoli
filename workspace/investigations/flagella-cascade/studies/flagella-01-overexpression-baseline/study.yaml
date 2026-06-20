@@ -12,7 +12,7 @@ topic: regulation
 tags: [flagella, baseline, overexpression, seam-neutrality, feature-off, aim2, ported-from-vecoli-biofilm]
 created: '2026-06-20'
 
-status: in-progress
+status: in_progress
 phase: Evaluate
 
 design_status: complete
@@ -23,6 +23,7 @@ gate_status: pending
 expert_review_status: not_requested
 
 baseline:
+- name: wcm-unregulated
   composite: v2ecoli.composites.baseline.baseline
   params:
     seed: 0

@@ -11,7 +11,7 @@ topic: regulation
 tags: [flagella, flgM, fliA, sigma28, secretion, negative-feedback, anti-sigma, aim2a, ported-from-vecoli-biofilm]
 created: '2026-06-20'
 
-status: in-progress
+status: in_progress
 phase: Simulate
 
 design_status: complete
@@ -22,6 +22,7 @@ gate_status: pending
 expert_review_status: not_requested
 
 baseline:
+- name: wcm-flagella-regulation
   composite: v2ecoli.composites.baseline.baseline
   params:
     seed: 0

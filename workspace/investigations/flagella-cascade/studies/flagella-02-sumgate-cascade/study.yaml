@@ -10,7 +10,7 @@ topic: regulation
 tags: [flagella, transcription-regulation, kalir-alon, sum-gate, classII, classIII, sigma28, flhDC, aim2a, ported-from-vecoli-biofilm]
 created: '2026-06-20'
 
-status: in-progress
+status: in_progress
 phase: Simulate
 
 design_status: complete
@@ -21,6 +21,7 @@ gate_status: pending
 expert_review_status: not_requested
 
 baseline:
+- name: wcm-flagella-regulation
   composite: v2ecoli.composites.baseline.baseline
   params:
     seed: 0

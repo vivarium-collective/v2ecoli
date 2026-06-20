@@ -29,26 +29,30 @@ visualizations:
   description: |
     Left — unregulated flagellar components (complete flagella CPLX0-7452 + the
     motor/HBB FLAGELLAR-MOTOR-COMPLEX) over a 600 s run with regulation OFF.
-    Right — complete-flagella count, regulation OFF vs ON. Feature-off
-    init_prob_override stays 0 throughout (seam neutral); the cascade trims
-    flagella modestly within one generation (35 -> 32), the effect compounding
-    across generations.
+    Right — complete-flagella count, regulation OFF vs ON (fast-mode cache; the
+    OFF-vs-ON direction here is the calibration artifact — see the canonical
+    seed-band figure for the calibrated result). Feature-off init_prob_override
+    stays 0 throughout (seam neutral) — that neutrality result is cache-independent.
 - address: image:charts/02_multigen_flagella_and_mass.svg
   chart: charts/02_multigen_flagella_and_mass.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
   description: |
-    TWO full cell generations (generations shaded; division = dashed line). Left —
-    complete flagella per generation: regulation ON sits below OFF at every
-    generation (OFF g1=53, g2=44; ON g1=44, g2=34), so the cascade trims
-    overexpression and the ~9-10 flagella gap persists across divisions. Right —
-    dry-mass sawtooth (growth then division at the ~700 fg threshold).
-- address: image:charts/03_reduction_OFF_vs_ON.svg
-  chart: charts/03_reduction_OFF_vs_ON.svg
-  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-01-overexpression-baseline/make_reduction_bar.py
+    TWO full cell generations on the CALIBRATED full-mode cache (generations shaded;
+    division = dashed). Left — complete flagella per generation: regulation ON sits
+    ABOVE OFF (OFF g1=46,g2=43; ON g1=61,g2=50) — the calibrated direction (see the
+    canonical seed-band figure). Right — dry-mass sawtooth (division at ~700 fg).
+    NOTE: this chart is regenerated from out/cache_full; on the fast cache the order
+    was reversed (the artifact).
+- address: image:charts/04_ensemble_seed_band.svg
+  chart: charts/04_ensemble_seed_band.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_ensemble.py --seeds 0 1 2 3 --generations 3 --cache-dir out/cache_full
   description: |
-    Headline grouped bar — complete flagella (CPLX0-7452) per generation, regulation
-    OFF vs ON, from the 2-generation lineages. Makes the per-generation reduction
-    undeniable: -9 at gen 1 (53->44) and -10 at gen 2 (44->34).
+    CANONICAL count figure — calibrated full-mode cache, 4 seeds x 3 generations.
+    Mean ± seed range of complete flagella per generation (OFF vs ON) plus per-seed
+    trajectories. The regulated (ON) band sits ABOVE the unregulated (OFF) band at
+    every generation (ON means 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON > OFF in
+    11/12 seed-generations). The cascade as implemented INCREASES flagella — the
+    fast-mode "reduction" was a calibration artifact.
 
 baseline:
 - name: wcm-unregulated
@@ -91,13 +95,15 @@ behavior_tests:
       Across two cell generations, the flagella_regulation lineage carries fewer
       complete flagella (CPLX0-7452) than the unregulated lineage at each generation
       — the cascade reduces overexpression and the gap persists through division.
-    status: contradicted   # holds on fast cache (OFF 53/44 vs ON 44/34) but REVERSES
-                           # on the calibrated full cache (single-seed: ON 61/50 vs
-                           # OFF 46/43). Multi-seed full-cache ensemble running to
-                           # settle the direction; treat the reduction as unconfirmed.
-    caveat: |
-      The 03_reduction_OFF_vs_ON.svg bar uses fast-mode numbers and does not survive
-      full-mode calibration. See the investigation verdict's calibration caveat.
+    status: refuted        # holds ONLY on the fast (mis-calibrated) cache; the
+                           # calibrated 4-seed x 3-gen ensemble reverses it.
+  - id: regulation-increases-flagella-calibrated
+    statement: |
+      On the calibrated full-mode cache, the regulated lineage carries MORE complete
+      flagella than the unregulated one, robustly across seeds — refuting the
+      overexpression-reduction hypothesis for the cascade as implemented.
+    status: passing        # 4-seed x 3-gen calibrated ensemble: ON means
+                           # 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON>OFF in 11/12.
 
 notes: |
   Maya's prelim (Aim 2 rationale): "current expression of flagella is exceedingly

@@ -23,6 +23,7 @@ import numpy as np
 from v2ecoli import build_composite
 from v2ecoli.core import build_core, load_cache_bundle
 from v2ecoli.composites.baseline import baseline, seed_mass_listener, enable_features
+from v2ecoli.composites._helpers import set_null_emitter_override
 from v2ecoli.library.division import divide_cell
 from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.library.schema import bulk_name_to_idx
@@ -122,6 +123,11 @@ def _run_gen(comp, tu_II, tu_III, sample, max_dur, t_cum, gen_idx, rows):
 
 
 def run_multigen(features, n_gens, sample, max_dur, seed, cache_dir):
+    # We read observables straight from composite.state, so no emitter is needed.
+    # The default ParquetEmitter races on its partition .tmp files across repeated
+    # divisions (post-division partition wipe) — the null emitter avoids that and is
+    # faster. See feedback_parquet_post_division_partition_wipe.
+    set_null_emitter_override(True)
     tu_II, tu_III = _tu_indexes(cache_dir)
     rows = []
     t_cum = 0.0

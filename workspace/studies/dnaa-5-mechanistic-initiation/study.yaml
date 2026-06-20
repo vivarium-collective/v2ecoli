@@ -3,12 +3,12 @@ name: dnaa-5-mechanistic-initiation
 investigation: dnaa-replication
 title: "dnaa-5 — mechanistic replication initiation (DnaA-ATP/oriC trigger replaces the cell-mass heuristic)"
 created: "2026-06-18"
-status: in_progress
+status: completed
 design_status: designed
 implementation_status: implemented
-simulation_status: running
-evaluation_status: in_progress
-gate_status: partial
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: fail   # the MECHANISM fails (cycle collapses) — but this is a CONCLUSIVE, intended diagnostic: the first-pass trigger is non-viable without cooperativity. See verdict.
 expert_review_status: pending
 
 seeded_from:
@@ -102,41 +102,90 @@ tests:
   measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
   pass_if: {op: periodic_doubling_every_generation, tolerance: 0.4}
 
+simulation_set:
+- name: mass-trigger-control
+  kind: lineage
+  status: completed
+  base_model: v2ecoli baseline (dnaa-4 reference config)
+  duration_steps: "12 generations"
+  seeds: [1]
+  metrics: [cell_mass_at_initiation, number_of_oric, division_tau]
+  pass_fail_tests: [cell-cycle-preserved, no-over-initiation, divisions-occur]
+  note: "The dnaa-4 reference run dnaa4_s06_F05_seed1_12gen (DNAA_INITIATION_TRIGGER=mass)."
+- name: mechanistic-trigger
+  kind: lineage
+  status: completed
+  base_model: v2ecoli baseline + DNAA_INITIATION_TRIGGER=mechanistic (threshold 3/3)
+  duration_steps: "8 generations requested; 2 completed (lineage collapsed gen 2)"
+  seeds: [1]
+  metrics: [oriC_high_bound_atp, cell_mass, number_of_oric, division_tau]
+  pass_fail_tests: [cell-cycle-preserved, no-over-initiation, divisions-occur]
+  note: "Run dnaa5_mech_diag_seed1_8gen — the collapse diagnostic."
+
+visualizations:
+- name: dnaa5_mechanistic_collapse
+  address: image:charts/dnaa5_mechanistic_collapse.png
+  chart: charts/dnaa5_mechanistic_collapse.png
+  source_run: dnaa5_mech_diag_seed1_8gen (mechanistic) vs dnaa4_s06_F05_seed1_12gen (mass control)
+  config:
+    title: >-
+      The first-pass mechanistic initiation trigger COLLAPSES the cell cycle. Top: cell mass —
+      the mass-trigger control (blue) sawtooths and divides at ~735 fg, while the mechanistic
+      trigger (red) runs away to ~6159 fg in gen 2 without dividing. Bottom: the trigger signal
+      (oriC high-affinity DnaA-ATP bound, green) never reaches the threshold (3 x n_oriC, purple)
+      in gen 2 — stuck at 2/3 — so initiation never fires. Diagnoses the cooperativity gap.
+
 report:
   title: "dnaa-5 — mechanistic replication initiation"
   verdict: >-
-    first-pass-diagnostic. PHASE 1 (readiness gate): the DnaA-ATP/oriC binding is NOT yet a
-    stable enough trigger to cleanly replace the mass heuristic — at the 12 initiation events
-    of the dnaa-4 reference run, cell_mass at initiation is noiseless (CV 0.00) while the oriC
-    signal is noisy (oriC-high occupancy CV 0.16, oriC-low CV 0.62), because the binding is
-    independent-site (no cooperativity), so oriC occupancy rises gradually instead of switching
-    sharply. PHASE 2 (first-pass swap, per the chosen diagnostic): wired initiation onto
-    oriC high-affinity DnaA-ATP saturation (DNAA_INITIATION_TRIGGER=mechanistic). RESULT — the
-    mechanistic trigger is VIABLE: the cell divides, oriC stays 1<->2, 0 re-initiations, and
-    initiation fires near the critical mass (~755 vs 735 fg). BUT cycle timing is DEGRADED:
-    division intervals are irregular (preview tau CV 0.54 vs 0.33 for the mass control; a
-    cycle stretched to ~186 min vs ~60). The degradation traces directly to the Phase-1 gap —
-    without cooperative filament assembly, the saturation timing is noisy, so initiation timing
-    (hence cycle length) wobbles. Next: add cooperativity to sharpen the trigger (the path to
-    a clean swap). [Full 8-generation diagnostic + the mass-vs-mechanistic comparison pending.]
-  confidence: diagnostic-preview
+    conclusive-negative-diagnostic. PHASE 1 (readiness gate): the DnaA-ATP/oriC binding is NOT a
+    stable enough trigger to replace the mass heuristic — at the 12 initiation events of the
+    dnaa-4 reference run the cell-mass trigger is noiseless (CV 0.00) while the oriC signal is
+    noisy (oriC-high occupancy CV 0.16, oriC-low CV 0.62), because the binding is independent-site
+    (no cooperativity), so oriC occupancy rises gradually instead of switching sharply. PHASE 2
+    (first-pass swap, the chosen diagnostic): wired initiation onto oriC high-affinity DnaA-ATP
+    saturation (DNAA_INITIATION_TRIGGER=mechanistic, threshold 3/3). RESULT — the trigger
+    COLLAPSES the cell cycle. Generation 1 initiates and divides normally, but in generation 2
+    the oriC high-affinity boxes never all bind DnaA-ATP (stuck at 2/3 — exactly the Phase-1
+    noise), so the threshold-3 trigger NEVER fires: no initiation, the cell grows unbounded to
+    ~6159 fg (~8x the normal division mass) and fails to divide, collapsing the lineage. The
+    failure mode is UNDER-initiation (a missing trigger), not over-initiation. This is a
+    DEFINITIVE diagnostic: a faithful full-saturation DnaA-ATP trigger is non-viable on the
+    current independent-site binding — it stochastically fails to saturate. CONCLUSION: the
+    binding must be made switch-like (COOPERATIVE DnaA-ATP filament assembly at oriC) before the
+    initiation mechanism can be swapped. The gate the user flagged ("stable before we swap") is
+    confirmed unmet, with the exact missing physics identified. The flag-gated swap stays in the
+    codebase (default OFF) ready for the cooperative-binding follow-up.
+  confidence: conclusive-diagnostic
 
 next_action: >-
-  Complete the 8-generation mechanistic diagnostic (dnaa5_mech_diag_seed1_8gen) + the
-  mass-vs-mechanistic comparison (tau regularity, cell-mass-at-initiation spread, oriC pattern).
-  Then evaluate whether to (a) add cooperative DnaA-ATP filament assembly to sharpen the trigger
-  before adopting it, or (b) keep the mass heuristic and treat the mechanistic trigger as a
-  validated-but-not-yet-adopted alternative.
+  The diagnostic is conclusive: the full-saturation DnaA-ATP trigger collapses the cycle (gen-2
+  under-saturation -> runaway growth). The unblock is COOPERATIVITY — add cooperative DnaA-ATP
+  filament assembly at oriC so occupancy switches sharply to a reproducible threshold, then the
+  mechanistic trigger (which already works via the committed flag) can be re-tested and adopted.
+  A cheap intermediate probe: re-run with a relaxed threshold (DNAA_INIT_HIGH_THRESHOLD=2) to
+  confirm the failure is saturation-noise (a relaxed trigger should sustain but mis-time), vs
+  going straight to the cooperative-binding study. Decision for Rashmi.
 
 runs:
 - name: dnaa5_mech_diag_seed1_8gen
-  status: running
+  status: completed
   canonical: true
   seed: 1
   generations: 8
   cache_dir: out/cache_dnaa4_s06_F05
   emitter: {kind: parquet, store: out/dnaa5_mech_diag_seed1_8gen/dnaa5_mech_diag_seed1_8gen}
-  note: "Mechanistic trigger (DnaA-ATP/oriC saturation), dnaa-4 reference config, seed 1, 8 gens. The mass-trigger control is the dnaa-4 reference run dnaa4_s06_F05_seed1_12gen (identical config)."
+  note: "Mechanistic trigger (DnaA-ATP/oriC saturation, threshold 3/3), dnaa-4 reference config, seed 1. Requested 8 gens; COMPLETED 2 (gen 1 divided; gen 2 ran away to 6159 fg without dividing, lineage stopped). The mass-trigger control is the dnaa-4 reference run dnaa4_s06_F05_seed1_12gen (identical config)."
+  outcomes:
+    cell-cycle-preserved:
+      result: FAIL
+      detail: "gen 2 oriC stuck at 1 (no initiation) — oscillation lost; cell did not divide."
+    no-over-initiation:
+      result: PASS
+      detail: "max oriC = 2 (failure mode is UNDER-initiation, not over)."
+    divisions-occur:
+      result: FAIL
+      detail: "gen 2 did not divide — grew to ~6159 fg (~8x normal); periodic doubling broken."
 - name: dnaa5_mech_smoke
   status: completed
   canonical: false
@@ -161,14 +210,18 @@ findings:
     run_ids: [dnaa4_s06_F05_seed1_12gen]
 - id: F-02
   statement: >-
-    FIRST-PASS SWAP (Phase 2): wiring initiation onto oriC high-affinity DnaA-ATP saturation
-    (DNAA_INITIATION_TRIGGER=mechanistic) produces a VIABLE cell cycle — the cell divides, oriC
-    stays 1<->2, 0 re-initiations, and initiation fires near the critical mass (~755 fg vs 735).
-    But cycle timing is DEGRADED vs the mass heuristic: division intervals are irregular (smoke
-    preview tau CV 0.54 vs 0.33; a cycle stretched to ~186 min vs ~60). The irregularity is the
-    direct consequence of the F-01 gap — without cooperative filament assembly the saturation
-    timing wobbles, so initiation (and cycle length) wobble too. [8-gen diagnostic in progress.]
-  status: in_progress
+    FIRST-PASS SWAP (Phase 2) — CONCLUSIVE NEGATIVE: wiring initiation onto oriC high-affinity
+    DnaA-ATP saturation (DNAA_INITIATION_TRIGGER=mechanistic, threshold 3/3) COLLAPSES the cell
+    cycle. In the 8-gen diagnostic (dnaa5_mech_diag_seed1_8gen), generation 1 initiated (oriC-high
+    reached 5, > threshold) and divided (tau 57 min). But generation 2 the oriC high-affinity
+    boxes never all bound DnaA-ATP — the trigger signal stayed stuck at 2/3 for the entire
+    generation — so initiation NEVER fired: the cell grew unbounded from ~666 to ~6159 fg cell
+    mass (~8x the normal ~735 fg division mass) and did NOT divide; the lineage stopped. The
+    failure is stochastic UNDER-saturation (the 3rd high-affinity site fails to bind), the direct
+    consequence of F-01 (independent-site binding, no cooperativity → no sharp all-or-none
+    switch). A faithful full-saturation DnaA-ATP trigger is therefore non-viable on the current
+    binding. Fix: cooperative DnaA-ATP filament assembly at oriC (the missing physics).
+  status: evaluated
   provenance:
     run_ids: [dnaa5_mech_smoke, dnaa5_mech_diag_seed1_8gen]
 

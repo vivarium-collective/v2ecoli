@@ -1,7 +1,7 @@
 schema_version: 4
-name: dnaa-5-mechanistic-initiation
+name: dnaa-6-mechanistic-initiation
 investigation: dnaa-replication
-title: "dnaa-5 — mechanistic replication initiation (DnaA-ATP/oriC trigger replaces the cell-mass heuristic)"
+title: "dnaa-6 — mechanistic replication initiation (DnaA-ATP/oriC trigger replaces the cell-mass heuristic)"
 created: "2026-06-18"
 status: completed
 design_status: designed
@@ -12,8 +12,8 @@ gate_status: fail   # the MECHANISM fails (cycle collapses) — but this is a CO
 expert_review_status: pending
 
 seeded_from:
-  study: dnaa-4-autoregulation
-  why: "dnaa-3/4 established a stable, autoregulated DnaA-ATP/oriC binding lineage; dnaa-5 uses it to DRIVE initiation, replacing the inherited cell-mass-per-origin heuristic."
+  study: dnaa-5-cooperativity
+  why: "PREREQUISITE ORDER (Rashmi 2026-06-18): the mechanistic initiation trigger requires a SWITCH-LIKE oriC filament, which is dnaa-5-cooperativity. This study (dnaa-6) was run FIRST as a diagnostic and conclusively showed the swap is non-viable until cooperativity lands — so dnaa-5 (cooperativity) gates dnaa-6 (this swap). Built on the dnaa-3/4 binding lineage."
 
 question: >-
   Can chromosome replication initiation be triggered by DnaA-ATP binding to oriC (the
@@ -25,7 +25,7 @@ background: >-
   v2ecoli inherits the wcEcoli initiation heuristic: a round initiates when
   cell_mass / n_oriC >= criticalInitiationMass (~975 fg, tau-scaled) — chromosome_replication.py.
   The DnaA-box binding built in dnaa-3 (and stabilized by dnaa-4 autoregulation) is purely
-  observational ("does NOT gate initiation"). dnaa-5 wires that binding into the initiation
+  observational ("does NOT gate initiation"). dnaa-6 wires that binding into the initiation
   decision so initiation fires on the DnaA-ATP filament at oriC — the real trigger.
 
 mechanism: >-
@@ -59,7 +59,7 @@ enforced_params:
   params:
     growth_condition: succinate
     code_commit: 59e108fb
-    initiation_trigger: mechanistic        # the dnaa-5 swap (baseline = mass)
+    initiation_trigger: mechanistic        # the dnaa-6 swap (baseline = mass)
     init_high_threshold: 3                  # oriC high-affinity DnaA-ATP sites per origin
     dnaA_expression_V: 1.5e-3
     autoreg_form: linear
@@ -137,9 +137,9 @@ simulation_set:
   note: "Run dnaa5_mech_diag_seed1_8gen — the collapse diagnostic."
 
 visualizations:
-- name: dnaa5_mechanistic_collapse
-  address: image:charts/dnaa5_mechanistic_collapse.png
-  chart: charts/dnaa5_mechanistic_collapse.png
+- name: dnaa6_mechanistic_collapse
+  address: image:charts/dnaa6_mechanistic_collapse.png
+  chart: charts/dnaa6_mechanistic_collapse.png
   source_run: dnaa5_mech_diag_seed1_8gen (mechanistic) vs dnaa4_s06_F05_seed1_12gen (mass control)
   config:
     title: >-
@@ -150,36 +150,32 @@ visualizations:
       in gen 2 — stuck at 2/3 — so initiation never fires. Diagnoses the cooperativity gap.
 
 report:
-  title: "dnaa-5 — mechanistic replication initiation"
+  title: "dnaa-6 — mechanistic replication initiation"
   verdict: >-
-    conclusive-negative-diagnostic. PHASE 1 (readiness gate): the DnaA-ATP/oriC binding is NOT a
-    stable enough trigger to replace the mass heuristic — at the 12 initiation events of the
-    dnaa-4 reference run the cell-mass trigger is noiseless (CV 0.00) while the oriC signal is
-    noisy (oriC-high occupancy CV 0.16, oriC-low CV 0.62), because the binding is independent-site
-    (no cooperativity), so oriC occupancy rises gradually instead of switching sharply. PHASE 2
-    (first-pass swap, the chosen diagnostic): wired initiation onto oriC high-affinity DnaA-ATP
-    saturation (DNAA_INITIATION_TRIGGER=mechanistic, threshold 3/3). RESULT — the trigger
-    COLLAPSES the cell cycle. Generation 1 initiates and divides normally, but in generation 2
-    the oriC high-affinity boxes never all bind DnaA-ATP (stuck at 2/3 — exactly the Phase-1
-    noise), so the threshold-3 trigger NEVER fires: no initiation, the cell grows unbounded to
-    ~6159 fg (~8x the normal division mass) and fails to divide, collapsing the lineage. The
-    failure mode is UNDER-initiation (a missing trigger), not over-initiation. This is a
-    DEFINITIVE diagnostic: a faithful full-saturation DnaA-ATP trigger is non-viable on the
-    current independent-site binding — it stochastically fails to saturate. CONCLUSION: the
-    binding must be made switch-like (COOPERATIVE DnaA-ATP filament assembly at oriC) before the
-    initiation mechanism can be swapped. The gate the user flagged ("stable before we swap") is
-    confirmed unmet, with the exact missing physics identified. The flag-gated swap stays in the
-    codebase (default OFF) ready for the cooperative-binding follow-up.
+    swap-is-premature-without-cooperativity (a sequencing diagnostic, NOT a binding failure).
+    IMPORTANT FRAMING (Rashmi 2026-06-18): the partial oriC filling is CORRECT-BY-DESIGN — without
+    cooperativity, independent-site binding gives partial, gradual oriC-low occupancy (the dnaa-3
+    box-binding result, which is right and complete). The collapse below is NOT the binding being
+    broken; it is this study running AHEAD of its prerequisite. The lesson: the DnaA-ATP/oriC
+    trigger cannot be adopted until cooperativity (dnaa-5) makes oriC fill switch-like.
+    EVIDENCE: at the 12 initiation events of the dnaa-4 reference run the cell-mass trigger is
+    noiseless (CV 0.00) while the oriC signal is gradual/noisy (oriC-high CV 0.16, oriC-low CV
+    0.62) — the expected behaviour of independent-site binding. When the initiation trigger is
+    (prematurely) wired onto full oriC-high DnaA-ATP saturation (DNAA_INITIATION_TRIGGER=mechanistic,
+    threshold 3/3), the cell cycle COLLAPSES: generation 1 divides, but in generation 2 the oriC
+    high-affinity boxes never all bind (stuck at 2/3), the threshold-3 trigger never fires, and the
+    cell grows unbounded to ~6159 fg (~8x normal) without dividing — the lineage stops. The failure
+    is UNDER-initiation (a missing switch), exactly because the binding is not yet switch-like.
+    CONCLUSION: dnaa-5 (cooperative DnaA-ATP filament assembly at oriC) is the PREREQUISITE; this
+    study (dnaa-6) is the diagnostic that proves the ordering. The flag-gated swap stays in the
+    codebase (default OFF), ready to re-test once dnaa-5 lands.
   confidence: conclusive-diagnostic
 
 next_action: >-
-  The diagnostic is conclusive: the full-saturation DnaA-ATP trigger collapses the cycle (gen-2
-  under-saturation -> runaway growth). The unblock is COOPERATIVITY — add cooperative DnaA-ATP
-  filament assembly at oriC so occupancy switches sharply to a reproducible threshold, then the
-  mechanistic trigger (which already works via the committed flag) can be re-tested and adopted.
-  A cheap intermediate probe: re-run with a relaxed threshold (DNAA_INIT_HIGH_THRESHOLD=2) to
-  confirm the failure is saturation-noise (a relaxed trigger should sustain but mis-time), vs
-  going straight to the cooperative-binding study. Decision for Rashmi.
+  BLOCKED on dnaa-5 (cooperativity). This study (dnaa-6) is the diagnostic that proves the
+  ordering; the actual swap re-test waits until dnaa-5 makes the oriC filament switch-like.
+  When dnaa-5 lands, re-run the mechanistic trigger (already in the codebase via the committed
+  flag, default OFF) and confirm the cycle now sustains. Do NOT adopt the swap before dnaa-5.
 
 runs:
 - name: dnaa5_mech_diag_seed1_8gen
@@ -243,5 +239,5 @@ biological_summary: >-
   Replication initiation in E. coli is triggered when DnaA-ATP assembles into a filament on the
   oriC DnaA boxes, melting the DUE and loading the replisome — a switch-like, cooperative event.
   The wcEcoli/v2ecoli heuristic instead fires at a fixed mass-per-origin (Donachie initiation
-  mass). dnaa-5 replaces the heuristic with the mechanistic trigger now that dnaa-3/4 have built
+  mass). dnaa-6 replaces the heuristic with the mechanistic trigger now that dnaa-3/4 have built
   and stabilized the DnaA-ATP/oriC binding.

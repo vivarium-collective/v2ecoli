@@ -33,6 +33,15 @@ visualizations:
     init_prob_override stays 0 throughout (seam neutral); the cascade trims
     flagella modestly within one generation (35 -> 32), the effect compounding
     across generations.
+- address: image:charts/02_multigen_flagella_and_mass.svg
+  chart: charts/02_multigen_flagella_and_mass.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
+  description: |
+    TWO full cell generations (generations shaded; division = dashed line). Left —
+    complete flagella per generation: regulation ON sits below OFF at every
+    generation (OFF g1=53, g2=44; ON g1=44, g2=34), so the cascade trims
+    overexpression and the ~9-10 flagella gap persists across divisions. Right —
+    dry-mass sawtooth (growth then division at the ~700 fg threshold).
 
 baseline:
 - name: wcm-unregulated
@@ -70,6 +79,12 @@ behavior_tests:
       signature (control), confirming the ~1% delta vs the committed golden is
       pre-existing golden drift, not this port.
     status: passing      # verified via the shipped-fixture control
+  - id: regulation-reduces-flagella-across-generations
+    statement: |
+      Across two cell generations, the flagella_regulation lineage carries fewer
+      complete flagella (CPLX0-7452) than the unregulated lineage at each generation
+      — the cascade reduces overexpression and the gap persists through division.
+    status: passing      # 2-gen run: OFF g1=53,g2=44 vs ON g1=44,g2=34
 
 notes: |
   Maya's prelim (Aim 2 rationale): "current expression of flagella is exceedingly

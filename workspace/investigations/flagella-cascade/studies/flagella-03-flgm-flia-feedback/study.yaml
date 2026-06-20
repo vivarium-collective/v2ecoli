@@ -31,6 +31,14 @@ visualizations:
     FliA / sigma-28 (green). Right — free FliA relative to its initial pool: it
     rises but stays bounded (does not run away) thanks to the flgM Class III
     negative-feedback loop.
+- address: image:charts/02_multigen_flgm_flia.svg
+  chart: charts/02_multigen_flgm_flia.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
+  description: |
+    FlgM (G369-MONOMER) and free FliA (EG11355-MONOMER) across TWO generations
+    (generations shaded; division dashed). FlgM is held low by ongoing type-III
+    secretion and free FliA stays bounded across the division boundary — the flgM
+    negative-feedback loop carries through into the daughter cell.
 
 baseline:
 - name: wcm-flagella-regulation

@@ -53,9 +53,13 @@ executive:
     protein-protein equilibrium coexists with ParCa biomass fitting.
 
   verdict: |
-    Infrastructure landed and the cascade is functional (feature-on writes
-    init_prob_override; FlgM secreted -> free FliA released -> Class III rises;
-    feature-off seam-neutral). Broken into 3 studies that mirror Maya's Aim 2:
+    Infrastructure landed and the cascade is functional across TWO cell generations
+    (real divisions at the ~700 fg threshold). Feature-off is seam-neutral; with the
+    cascade on, the SUM-gate holds Class II > Class III, FlgM secretion releases
+    bounded free FliA, and — the headline — the regulated lineage carries fewer
+    complete flagella than the unregulated one at every generation (OFF g1=53,g2=44
+    vs ON g1=44,g2=34), i.e. transcriptional control trims overexpression and the
+    gap persists across divisions. Broken into 3 studies mirroring Maya's Aim 2:
     overexpression baseline, the SUM-gate cascade, and FlgM/FliA feedback.
   verdict_status: in-progress
 

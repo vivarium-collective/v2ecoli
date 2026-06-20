@@ -30,6 +30,14 @@ visualizations:
     FliA-weighted). Right — per-gene init_prob_override heatmap (top block: 7
     Class II TUs incl. flhD/fliA; bottom block: 9 Class III TUs incl. fliC/flgM),
     showing the gate driving each operon individually.
+- address: image:charts/02_multigen_classII_classIII.svg
+  chart: charts/02_multigen_classII_classIII.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
+  description: |
+    Mean Class II vs Class III init_prob_override across TWO generations
+    (generations shaded; division dashed). The Class II > Class III ordering is
+    maintained through the division boundary and re-established in the daughter
+    generation — the SUM-gate is stable across the cell cycle.
 
 baseline:
 - name: wcm-flagella-regulation

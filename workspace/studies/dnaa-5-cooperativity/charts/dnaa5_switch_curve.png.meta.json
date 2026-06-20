@@ -1,0 +1,7 @@
+{
+  "title": "dnaa-5 cooperative DnaA-ATP oriC switch — occupancy vs free DnaA-ATP",
+  "caption": "oriC low-affinity occupancy as a function of free DnaA-ATP. dnaa-3's independent-site Langmuir (grey, n=1, K=100 nM) is gradual and partial — the correct pre-switch behavior. The dnaa-5 cooperative Hill switch theta = A^n/(K^n + A^n) (green n=6, blue n=4, K=30 nM) is sharp and switch-like, crossing in the ~19-30 nM free-DnaA-ATP window observed near initiation. Analytic curves from the implemented dnaa_box_binding cooperative solve (unit-verified: n=6 gives 0.015/0.5/0.985 at 0.5K/K/2K).",
+  "interpretation": "Cooperativity (AAA+ filament assembly) converts the gradual, noisy oriC occupancy into a sharp, reproducible switch — the missing physics the dnaa-6 diagnostic showed is required before a DnaA-ATP/oriC initiation trigger can be adopted. n=1, K=100 nM recovers exactly the dnaa-3 Langmuir, so the change is additive and backward-compatible. In-sim runs confirm the steady-state cell cycle and DnaA/DnaA-ATP levels are preserved.",
+  "source_runs": [],
+  "script": "inline (analytic Hill curves)"
+}

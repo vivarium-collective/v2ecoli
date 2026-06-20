@@ -3,12 +3,12 @@ name: dnaa-5-cooperativity
 investigation: dnaa-replication
 title: "dnaa-5 — cooperative DnaA-ATP filament assembly at oriC (the initiation switch)"
 created: "2026-06-18"
-status: designed
+status: in_progress
 design_status: designed
-implementation_status: not_started
-simulation_status: not_run
-evaluation_status: not_evaluated
-gate_status: pending
+implementation_status: implemented
+simulation_status: running
+evaluation_status: in_progress
+gate_status: partial
 expert_review_status: pending
 
 seeded_from:
@@ -94,7 +94,8 @@ tests:
   description: "oriC-low occupancy vs free DnaA-ATP is switch-like (effective Hill >> 1), not gradual."
   measure: {kind: derived, path: "effective Hill coefficient of theta_low(A)"}
   pass_if: {op: ">=", value: 3}
-  status: planned
+  status: passed
+  result: "PASS — the cooperative occupancy is theta = A^n/(K^n+A^n) with n=6 (effective Hill 6 >= 3). Unit-verified: n=6 gives 0.015/0.5/0.985 at 0.5K/K/2K (sharp) vs n=1's 0.33/0.5/0.67 (gradual). See dnaa5_switch_curve."
 - name: trigger-signal-stable
   classification: primary
   description: "oriC occupancy CV at initiation drops far below the dnaa-3 value (toward the mass trigger's ~0)."
@@ -114,11 +115,36 @@ planned_runs:
 - name: dnaa5_coop_seed1_8gen
   description: "Best (n, K) — 8-gen lineage to confirm steady state + correct DnaA/DnaA-ATP levels preserved (the dnaa3-4-preserved test)."
 
-planned_visualizations:
+visualizations:
 - name: dnaa5_switch_curve
-  description: "oriC-low occupancy vs free DnaA-ATP — the cooperative sigmoid (high Hill) overlaid on dnaa-3's gradual Langmuir, showing the switch."
+  address: image:charts/dnaa5_switch_curve.png
+  chart: charts/dnaa5_switch_curve.png
+  config:
+    title: >-
+      The cooperative oriC switch. oriC-low occupancy vs free DnaA-ATP: dnaa-3's independent-site
+      Langmuir (grey, n=1) is gradual and partial; the dnaa-5 cooperative Hill (green, n=6, K=30 nM)
+      is a sharp all-or-none switch crossing in the ~19-30 nM free-DnaA-ATP range seen near
+      initiation. This is the missing physics dnaa-6 showed is required before the DnaA-ATP/oriC
+      initiation trigger can be adopted.
+
+planned_visualizations:
 - name: dnaa5_occupancy_cv_drop
-  description: "oriC occupancy CV at initiation: dnaa-3 (gradual) vs dnaa-5 (cooperative) vs the mass trigger — the readiness-gate metric collapsing toward 0."
+  description: "oriC occupancy CV at initiation: dnaa-3 (gradual) vs dnaa-5 (cooperative) vs the mass trigger — the readiness-gate metric collapsing toward 0. (Pending the in-sim cooperative runs.)"
+
+runs:
+- name: dnaa5_coop_n6_k30_seed1_8gen
+  status: running
+  canonical: true
+  seed: 1
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  note: "Cooperative binding n=6, K=30 nM, MASS trigger (default), dnaa-4 reference config, seed 1. Validates dnaa3-4-preserved (steady cycle + DnaA pool [300,800] + DnaA-ATP fraction [0.2,0.5] unchanged) and that the in-sim oriC occupancy sharpens."
+- name: dnaa5_coop_n4_k30_seed1_8gen
+  status: running
+  canonical: false
+  seed: 1
+  generations: 8
+  note: "Milder cooperativity (n=4) — the other sweep point."
 
 report:
   title: "dnaa-5 — cooperative DnaA-ATP oriC switch"

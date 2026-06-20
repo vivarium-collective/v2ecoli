@@ -228,3 +228,5 @@
 "MONOMER0-562_RXN"	{"MONOMER0-562": 1, "G7546-MONOMER": null, "GLYCOLLATE": null}	"GlcC-glycolate DNA-binding transcriptional dual regulator"
 "MONOMER0-941_RXN"	{"MONOMER0-941": 1, "EG11149-MONOMER": null, "GLY": null}	"GcvR-gly"
 "DNAA-INTRINSIC-HYDROLYSIS-RXN"	{"MONOMER0-4565": 1, "MONOMER0-160": null, "WATER": null, "Pi": 1, "PROTON": 1}	"DnaA-ATP intrinsic hydrolysis"
+# FLGM-FLIA-CPLX_RXN (flagella-cascade investigation, ported from Maya Abdalla's vEcoli `biofilm` branch): FlgM (G369-MONOMER) sequesters free FliA/sigma28 (EG11355-MONOMER) into the FLGM-FLIA-CPLX complex. Biological Kd ~2E-10 M; relaxed to 2E-7 M (see equilibrium_reaction_rates.tsv) to avoid ODE numerical instability in ParCa equilibrium fitting. Drives the Class II -> Class III gate together with ecoli-flagella-flgm-secretion.
+"FLGM-FLIA-CPLX_RXN"	{"FLGM-FLIA-CPLX": 1, "G369-MONOMER": null, "EG11355-MONOMER": null}	"FlgM anti-sigma sequestration of FliA (sigma28)"

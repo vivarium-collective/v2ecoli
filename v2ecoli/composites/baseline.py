@@ -140,6 +140,19 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-initiation',
         'steps': ['ppgpp-initiation'],
     },
+    # flagella-cascade investigation (ported from Maya Abdalla's vEcoli `biofilm`
+    # branch): the Kalir & Alon SUM-gate + FlgM secretion gate. Both run before
+    # transcript-initiation so the gate's init_prob_override is in place when
+    # initiation probabilities are computed. FlgM secretion only depends on the
+    # bulk flagella count, so a one-tick lag behind complexation is acceptable.
+    # OFF by default (opt-in via enable_features('flagella_regulation')).
+    'flagella_regulation': {
+        'insert_before': 'ecoli-transcript-initiation',
+        'steps': [
+            'ecoli-flagella-flgm-secretion',
+            'ecoli-flagella-transcription-regulation',
+        ],
+    },
     'trna_attenuation': {
         'insert_before': 'ecoli-transcript-elongation_requester',
         'steps': ['trna-attenuation-config'],
@@ -252,6 +265,10 @@ def _get_step_config(
     from v2ecoli.processes.chromosome_replication import ChromosomeReplication
     from v2ecoli.processes.tf_binding import TfBinding
     from v2ecoli.processes.tf_unbinding import TfUnbinding
+    from v2ecoli.processes.flagella_transcription_regulation import (
+        FlagellaTranscriptionRegulation,
+    )
+    from v2ecoli.processes.flagella_flgm_secretion import FlagellaFlgMSecretion
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
     from v2ecoli.processes.metabolism import Metabolism
     from v2ecoli.steps.partition import Requester, Evolver
@@ -389,6 +406,8 @@ def _get_step_config(
     STANDALONE_STEPS = {
         'ecoli-tf-binding': TfBinding,
         'ecoli-tf-unbinding': TfUnbinding,
+        'ecoli-flagella-transcription-regulation': FlagellaTranscriptionRegulation,
+        'ecoli-flagella-flgm-secretion': FlagellaFlgMSecretion,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
         'ecoli-protein-degradation': ProteinDegradation,

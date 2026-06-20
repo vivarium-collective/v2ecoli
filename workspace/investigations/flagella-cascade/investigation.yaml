@@ -1,0 +1,76 @@
+schema_version: 2
+name: flagella-cascade
+title: "Flagella transcriptional cascade — the Kalir & Alon SUM-gate in v2ecoli"
+created: '2026-06-20'
+status: active
+
+question: |
+  Can v2ecoli reproduce the timed Class II -> Class III transcriptional cascade
+  of the E. coli flagella regulon? Specifically: does a Kalir & Alon (Cell 2004)
+  bilinear SUM-gate driving promoter initiation, coupled to FlgM/sigma-28
+  sequestration that is relieved by type-III secretion through assembled flagella,
+  produce the experimentally observed ordering — FlhDC/FliA (Class II) rise first,
+  then fliC/motAB/cheAW (Class III) activate only after hook-basal-body assembly?
+
+hypothesis: |
+  With the FlgM-FliA sequestration equilibrium in sim_data and the FlgM secretion
+  gate active, free FliA (sigma-28) stays low until complete flagella (CPLX0-7452)
+  accumulate; secretion then depletes cytoplasmic FlgM (G369-MONOMER), the
+  equilibrium releases FliA, and the SUM-gate raises Class III init_prob_override
+  from ~0 toward its basal scale — yielding a delayed Class III rise relative to
+  Class II, as in Kalir et al. (2001). With the feature off, the model is
+  byte-neutral (init_prob_override stays 0, transcript_initiation unchanged).
+
+lead: |
+  This investigation ports Maya Abdalla's flagella transcription-regulation work
+  from the vEcoli `biofilm` branch
+  (https://github.com/vivarium-collective/vEcoli/tree/biofilm) onto v2ecoli's
+  process-bigraph stack. It is a living integration branch, NOT a merge target:
+  the cascade is an opt-in `flagella_regulation` feature on the baseline composite.
+
+executive:
+  what_is_this: |
+    Two new process-bigraph Steps plus the ParCa data and wiring that drive them:
+
+    1. ecoli-flagella-transcription-regulation — the Kalir & Alon bilinear SUM-gate.
+       Each tick computes X = [FlhDC]/(K+[FlhDC]) and Y = [free FliA]/(K+[FliA]),
+       then writes a per-promoter init_prob_override onto the promoters unique
+       molecule for 7 Class II TUs and 9 Class III TUs (incl. flgM, closing the
+       negative-feedback loop). transcript_initiation substitutes the override
+       where > 0, bypassing the basal_prob + delta_prob*bound_TF path for flagella.
+
+    2. ecoli-flagella-flgm-secretion — depletes cytoplasmic FlgM (G369-MONOMER[c])
+       proportional to complete flagella (CPLX0-7452[j]); this is the Class II ->
+       Class III timing gate.
+
+    Supporting data (ParCa flat overrides, regenerated cache): the FLGM-FLIA-CPLX
+    sequestration equilibrium (Kd relaxed to 2E-7 M for fitting stability), an
+    init_prob_override field on the promoter unique molecule, and a metabolism
+    guard so a protein-protein equilibrium coexists with ParCa biomass fitting.
+
+  verdict: |
+    Infrastructure landed and the cascade is functional: feature-on writes
+    init_prob_override onto flagella promoters and runs end-to-end; feature-off is
+    seam-neutral (overrides stay 0). Quantitative cascade-timing evaluation is the
+    first study (in progress).
+  verdict_status: in-progress
+
+studies:
+  - flagella-01-cascade-timing
+
+acceptance_criteria:
+  - id: AC1
+    behavior: feature-off-seam-neutral
+    detail: |
+      With flagella_regulation off, init_prob_override stays 0 on every promoter
+      across a run and transcript_initiation initiation probabilities are unchanged.
+  - id: AC2
+    behavior: cascade-classII-before-classIII
+    detail: |
+      With the feature on, Class II init_prob_override rises before Class III, and
+      Class III stays near 0 until complete flagella accumulate and FlgM is secreted.
+  - id: AC3
+    behavior: fliA-not-overproduced
+    detail: |
+      Free FliA (EG11355-MONOMER[c]) stays within a biologically plausible band
+      rather than running away — the flgM negative-feedback loop holds it in check.

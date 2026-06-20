@@ -613,6 +613,8 @@ class LoadSimData:
     def get_config_by_name(self, name, time_step=1):
         name_config_mapping = {
             "ecoli-tf-binding": self.get_tf_config,
+            "ecoli-flagella-transcription-regulation": self.get_flagella_transcription_regulation_config,
+            "ecoli-flagella-flgm-secretion": self.get_flagella_flgm_secretion_config,
             "ecoli-transcript-initiation": self.get_transcript_initiation_config,
             "ecoli-transcript-elongation": self.get_transcript_elongation_config,
             "ecoli-rna-degradation": self.get_rna_degradation_config,
@@ -763,6 +765,64 @@ class LoadSimData:
         }
 
         return tf_binding_config
+
+    def get_flagella_transcription_regulation_config(self, time_step=1):
+        """Config for the Kalir & Alon flagella SUM-gate Step.
+
+        Ported from Maya Abdalla's vEcoli `biofilm` branch
+        (sim_data.get_flagella_transcription_regulation_config). Resolves the
+        Class II / Class III flagella cistron IDs to their TU-level RNA IDs (as
+        they appear in rna_data["id"]) so the Step can index promoters by TU.
+        """
+        t = self.sim_data.process.transcription
+        rna_ids = t.rna_data["id"]
+
+        # Class II (FlhDC + FliA driven) — the 7 K&A genes.
+        classII_cistron_ids = [
+            "EG10322_RNA", "EG11346_RNA", "EG11347_RNA",
+            "G358_RNA", "G357_RNA", "G7028_RNA", "EG11355_RNA",
+        ]
+        flg_classII_tu_rna_ids = [
+            rna_ids[t.cistron_id_to_rna_indexes(cid)[0]] for cid in classII_cistron_ids
+        ]
+
+        # Class III (FliA/sigma-28 driven). G369_RNA (flgM) is included here as a
+        # Class III gene to close the negative-feedback loop: as free FliA rises,
+        # flgM transcription rises (override = Y), making more FlgM to re-sequester
+        # FliA — preventing runaway FliA accumulation (Stefan et al. 2015, PLoS
+        # Comput Biol 11:e1004028: the Class II flgM promoter is near background).
+        classIII_cistron_ids = [
+            "EG10321_RNA", "EG10317_RNA", "EG11967_RNA", "EG11545_RNA",
+            "EG10601_RNA", "EG10602_RNA", "EG10146_RNA", "EG10149_RNA",
+            "G369_RNA",
+        ]
+        flg_classIII_tu_rna_ids = [
+            rna_ids[t.cistron_id_to_rna_indexes(cid)[0]] for cid in classIII_cistron_ids
+        ]
+
+        return {
+            "time_step": time_step,
+            "rna_ids": rna_ids,
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "flg_classII_rnaids": flg_classII_tu_rna_ids,
+            "flg_classIII_rnaids": flg_classIII_tu_rna_ids,
+            "basal_prob": self.sim_data.process.transcription_regulation.basal_prob,
+            "K_flhDC": 50.0,
+            "K_fliA": 600.0,
+            "seed": self._seedFromName("FlagellaTranscriptionRegulation"),
+        }
+
+    def get_flagella_flgm_secretion_config(self, time_step=1):
+        """Config for the FlgM type-III secretion Step (Class II -> III timing gate).
+
+        Ported from Maya Abdalla's vEcoli `biofilm` branch.
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "flgM_id": "G369-MONOMER[c]",
+            "hbb_id": "CPLX0-7452[j]",
+            "secretion_rate": 0.1,
+        }
 
     def get_transcript_initiation_config(self, time_step=1):
         transcript_initiation_config = {

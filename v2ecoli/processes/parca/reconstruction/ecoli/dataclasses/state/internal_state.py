@@ -291,6 +291,13 @@ class InternalState(object):
             "coordinates": "i8",
             "domain_index": "i4",
             "bound_TF": ("?", n_tf),
+            # init_prob_override (flagella-cascade investigation, ported from Maya
+            # Abdalla's vEcoli `biofilm` branch): per-promoter transcription-initiation
+            # probability written by the Kalir & Alon SUM-gate
+            # (ecoli-flagella-transcription-regulation). Defaults to 0.0;
+            # transcript_initiation only substitutes it where > 0, so it is a no-op
+            # for every promoter unless the flagella feature writes to it.
+            "init_prob_override": "f8",
         }
 
         self.unique_molecule.add_to_unique_state(

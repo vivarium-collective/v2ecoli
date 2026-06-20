@@ -157,6 +157,10 @@ def load_cache_bundle(cache_dir: str) -> dict[str, Any]:
 _CACHE_CONFIG_NAMES = [
     'post-division-mass-listener', 'ecoli-mass-listener', 'media_update',
     'exchange_data', 'ecoli-tf-unbinding', 'ecoli-tf-binding',
+    # flagella-cascade investigation: configs for the opt-in flagella_regulation
+    # feature. Dumped unconditionally so the cache can serve them when the feature
+    # is enabled (the runtime mock loader cannot regenerate them).
+    'ecoli-flagella-transcription-regulation', 'ecoli-flagella-flgm-secretion',
     'ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
     'ecoli-transcript-initiation', 'ecoli-polypeptide-initiation',
     'ecoli-chromosome-replication', 'ecoli-protein-degradation',

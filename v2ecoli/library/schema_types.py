@@ -35,7 +35,11 @@ BULK_ARRAY = (
 # ---------------------------------------------------------------------------
 # Unique molecule arrays
 # ---------------------------------------------------------------------------
-PROMOTER_ARRAY = f'unique_array[TU_index:integer|coordinates:integer|domain_index:integer|bound_TF:array[23,boolean]|{_UNIQUE_TAIL}]'
+# init_prob_override (flagella-cascade investigation): per-promoter transcription
+# initiation probability written by ecoli-flagella-transcription-regulation (the
+# Kalir & Alon SUM-gate). Defaults to 0.0; transcript_initiation only substitutes
+# it where > 0, so it is a no-op for every promoter when the flagella feature is off.
+PROMOTER_ARRAY = f'unique_array[TU_index:integer|coordinates:integer|domain_index:integer|bound_TF:array[23,boolean]|init_prob_override:float|{_UNIQUE_TAIL}]'
 
 RNA_ARRAY = f'unique_array[TU_index:integer|transcript_length:integer|is_mRNA:boolean|is_full_transcript:boolean|can_translate:boolean|RNAP_index:integer|{_UNIQUE_TAIL}]'
 

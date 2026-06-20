@@ -66,7 +66,8 @@ def run_vecoli_parca(*, config_path: str, out_dir: Path,
 
 def run_vecoli_sim(*, config_path: str, out_dir: Path,
                    token: str | None = None,
-                   vecoli_repo: str = VECOLI_REPO) -> Path:
+                   vecoli_repo: str = VECOLI_REPO,
+                   render_only: bool = False) -> Path:
     """Run vEcoli's Nextflow workflow for the 2-gen lineage.
 
     The config is expected to set ``sim_data_path`` (so the workflow copies
@@ -75,9 +76,13 @@ def run_vecoli_sim(*, config_path: str, out_dir: Path,
 
     Runs with vEcoli's venv on PATH so the Nextflow tasks' bare ``python``
     resolves vEcoli's interpreter (its ``wholecell`` differs from v2ecoli's).
+
+    ``render_only`` re-uses whatever is already on disk WITHOUT running (and
+    without the staleness check) — the report is rebuilt from the existing
+    runs. A current run is skipped automatically via ``is_stale`` regardless.
     """
     out_dir = Path(out_dir)
-    if not is_stale(out_dir, token):
+    if render_only or not is_stale(out_dir, token):
         return out_dir
     vecoli_python = f"{vecoli_repo}/.venv/bin/python"
     _run([vecoli_python, "-m", "runscripts.workflow", "--config", config_path],
@@ -87,9 +92,9 @@ def run_vecoli_sim(*, config_path: str, out_dir: Path,
 
 
 def run_v2_sim(*, config_path: str, out_dir: Path,
-               token: str | None = None) -> Path:
+               token: str | None = None, render_only: bool = False) -> Path:
     out_dir = Path(out_dir)
-    if not is_stale(out_dir, token):
+    if render_only or not is_stale(out_dir, token):
         return out_dir
     _run([V2_PYTHON, "-m", "v2ecoli.workflow.run",
           "--config", config_path, "--out", str(out_dir)])

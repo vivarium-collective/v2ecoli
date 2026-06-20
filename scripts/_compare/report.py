@@ -48,6 +48,12 @@ nav.sticky a { text-decoration:none; color:var(--ink); font-size:13px;
   padding:5px 10px; border-radius:999px; border:1px solid var(--line);
   display:inline-flex; align-items:center; gap:7px; }
 nav.sticky a:hover { background:var(--bg); }
+nav.sticky a.nav-top { background:var(--ink); color:#fff; border-color:var(--ink);
+  font-weight:650; }
+nav.sticky a.nav-top:hover { background:#374151; }
+nav.sticky .navlabel { font-size:11px; text-transform:uppercase;
+  letter-spacing:.6px; color:var(--muted); margin-left:6px; padding-left:10px;
+  border-left:1px solid var(--line); }
 .minicount { font-size:11px; color:var(--muted); }
 main { padding:24px 28px 64px; max-width:1180px; margin:0 auto; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
@@ -429,15 +435,22 @@ def _overview_section(groups: list[dict]) -> str:
         f'<tbody>{"".join(rows)}</tbody></table></section>')
 
 
-def render_grouped_report(groups: list[dict[str, Any]], *, title: str) -> str:
+def render_grouped_report(groups: list[dict[str, Any]], *, title: str,
+                          prelude: dict[str, Any] | None = None,
+                          generated_at: str | None = None) -> str:
     """Render one or more config run-groups into a single report.
 
     Each group is ``{"config": label, "config_id"?: slug, "sections": [...],
     "embedded_html"?: [...]}`` — a self-contained run for one loaded config.
     Groups render as separate, individually-navigable blocks so each config is
     visibly its own set of runs.
+
+    ``prelude`` is an optional condition-INDEPENDENT section (the ParCa /
+    sim_data fit comparison) rendered ONCE at the top, before the per-config
+    groups — rather than repeated identically inside every group.
     """
-    total = _counts([r for g in groups for r in _group_rows(g)])
+    total = _counts([r for g in groups for r in _group_rows(g)]
+                    + (prelude.get("rows", []) if prelude else []))
 
     # Top nav: one pill per config run-group.
     navlinks = []
@@ -449,11 +462,25 @@ def render_grouped_report(groups: list[dict[str, Any]], *, title: str) -> str:
         mini = f'<span class="minicount">{n - off}/{n} ok</span>' if n else ""
         navlinks.append(
             f'<a href="#cfg-{gid}">{_e(g.get("config") or "run")} {mini}</a>')
-    nav_overview = ('<a href="#overview"><b>Overview</b></a>'
+    nav_overview = ('<a class="nav-top" href="#overview">Overview</a>'
                     if len(groups) > 1 else "")
-    nav = f'<nav class="sticky">{nav_overview}{"".join(navlinks)}</nav>'
+    nav_prelude = ('<a class="nav-top" href="#parca-fit">ParCa fit</a>'
+                   if prelude else "")
+    cond_lbl = ('<span class="navlabel">Conditions</span>'
+                if navlinks else "")
+    nav = (f'<nav class="sticky">{nav_overview}{nav_prelude}'
+           f'{cond_lbl}{"".join(navlinks)}</nav>')
 
     overview = _overview_section(groups) if len(groups) > 1 else ""
+    prelude_html = (
+        f'<section class="configgroup" id="parca-fit">'
+        f'<div class="cfghead"><div><h2>ParCa fit (condition-independent)</h2>'
+        f'<div class="sub">The calibrated parameters each engine\'s ParCa '
+        f'produced, compared once for the whole run — both engines\' sims start '
+        f'from these fits, so drift here is an upstream source of any '
+        f'sim-dynamics divergence.</div></div>'
+        f'{_chips(_counts(prelude.get("rows", [])))}</div>'
+        f'{_section_html(prelude)}</section>') if prelude else ""
 
     blocks = []
     for g in groups:
@@ -464,9 +491,15 @@ def render_grouped_report(groups: list[dict[str, Any]], *, title: str) -> str:
         gc = _counts(_group_rows(g))
         sub = g.get("subtitle", "")
         sub_html = f'<div class="sub">{_e(sub)}</div>' if sub else ""
+        # Per-run freshness stamp — when this condition's sims last ran, so a
+        # stale group is visible at a glance.
+        rm = g.get("run_mtime")
+        rm_html = (f'<div class="sub">sims last ran: {_e(rm)}</div>'
+                   if rm else "")
         blocks.append(
             f'<section class="configgroup" id="cfg-{gid}">'
-            f'<div class="cfghead"><div><h2>Run: {_e(label)}</h2>{sub_html}</div>'
+            f'<div class="cfghead"><div><h2>Run: {_e(label)}</h2>{sub_html}'
+            f'{rm_html}</div>'
             f'{_chips(gc)}</div>{sec_html}{emb}</section>')
     body = "".join(blocks)
     n_cfg = len(groups)
@@ -477,9 +510,11 @@ def render_grouped_report(groups: list[dict[str, Any]], *, title: str) -> str:
         f'<header class="top"><h1>{_e(title)}</h1>'
         f'<div class="sub">vEcoli (left) vs v2ecoli (right) &middot; '
         f'{n_cfg} config{"s" if n_cfg != 1 else ""} &middot; '
-        f'{sum(total.values())} metrics compared</div>'
+        f'{sum(total.values())} metrics compared'
+        + (f' &middot; generated {_e(generated_at)}' if generated_at else "")
+        + '</div>'
         f'{_chips(total)}{_legend()}</header>'
-        f'{nav}<main>{overview}{body}</main>'
+        f'{nav}<main>{overview}{prelude_html}{body}</main>'
         f'<footer>Generated by the vEcoli&#8596;v2ecoli comparison harness '
         f'(scripts/compare_harness.py). Self-contained; no external assets.'
         f'</footer></body></html>'

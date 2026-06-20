@@ -173,10 +173,10 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
         import time as _time
         run_token = f"{run_token}-force-{_time.time_ns()}"
 
-    # ParCa / sim_data diff is computed ONCE in main() (the calibrated fit is
-    # condition-independent) and passed in; reuse it for every config group.
-    parca_sec = dict(parca_section) if parca_section else _error_section(
-        "ParCa / sim_data", RuntimeError("ParCa comparison unavailable"))
+    # ParCa / sim_data diff is condition-INDEPENDENT, so it is no longer
+    # repeated inside every config group — it renders once as the report's
+    # top-level "ParCa fit" prelude (see render_grouped_report). ``parca_section``
+    # is computed once in main() and passed straight to the renderer.
 
     # Sim (both engines) + dynamics comparison. Drives the behavior overlay,
     # report card, and the converted-processes "ran in both" gate.
@@ -196,10 +196,11 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
         vecoli_sim_cfg_path.write_text(json.dumps(vecoli_sim_cfg))
         v_sim = orchestrator.run_vecoli_sim(
             config_path=str(vecoli_sim_cfg_path), out_dir=vecoli_sim_out,
-            token=run_token, vecoli_repo=args.vecoli_repo)
+            token=run_token, vecoli_repo=args.vecoli_repo,
+            render_only=getattr(args, "render_only", False))
         v2_sim = orchestrator.run_v2_sim(
             config_path=str(v2_cfg_path), out_dir=work / "v2_sim",
-            token=run_token)
+            token=run_token, render_only=getattr(args, "render_only", False))
         keys = [o["key"] for o in OBSERVABLES]
         # vEcoli emits at <v_sim>/<exp_id>/history; v2ecoli nests under a
         # `parquet/` subdir (<v2_sim>/parquet/<exp_id>/history). vEcoli may
@@ -281,8 +282,17 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
     # both" status is only known once the sim has run (above).
     converted_sec = converted_processes_section(specs, ran)
 
-    sections = [config_sec, converted_sec, parca_sec, sim_sec]
+    sections = [config_sec, converted_sec, sim_sec]
     embedded = [h for h in embedded if h]
+    # Per-run freshness: mtime of this condition's v2 sim output, so the report
+    # shows when each run last executed (a stale group is visible at a glance).
+    run_mtime = None
+    try:
+        import datetime as _dt
+        _mt = (work / "v2_sim").stat().st_mtime
+        run_mtime = _dt.datetime.fromtimestamp(_mt).strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        run_mtime = None
     return {
         "config": exp_id,
         "config_id": slug,
@@ -290,6 +300,7 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
         "sections": sections,
         "embedded_html": embedded,
         "card_verdict": card_verdict,
+        "run_mtime": run_mtime,
         "context": {"condition": vecoli_cfg.get("condition"),
                     "media": vecoli_cfg.get("fixed_media")},
     }
@@ -325,6 +336,13 @@ def main(argv=None):
                         "(mismatch band = 2 × tol-rel).  Defaults to 0.05.")
     p.add_argument("--force", action="store_true",
                    help="Bypass the run cache and re-run both engines.")
+    p.add_argument("--render-only", action="store_true",
+                   help="Rebuild the report from the existing runs in "
+                        "--workdir WITHOUT running any sim — use after a "
+                        "report/render change to refresh without recomputing. "
+                        "(A normal run already skips up-to-date sims and "
+                        "re-renders, so the report always reflects the latest "
+                        "runs; this just guarantees no sim execution.)")
     args = p.parse_args(argv)
 
     if args.vecoli_simdata is None:
@@ -366,9 +384,12 @@ def main(argv=None):
                 "embedded_html": [],
             })
 
+    import datetime
+    generated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(
-        render_grouped_report(groups, title="vEcoli vs v2ecoli"),
+        render_grouped_report(groups, title="vEcoli vs v2ecoli",
+                              prelude=parca_section, generated_at=generated_at),
         encoding="utf-8")
     print(f"wrote {args.out}")
 

@@ -53,7 +53,9 @@ class FBAFluxCoupler(Process):
         self.coefficient = float(self.parameters.get("coefficient", 1.0))
 
     def inputs(self):
-        return {"central_fluxes": InPlaceDict()}
+        # central_fluxes: Millard reaction id -> flux (mM/s); inplace_dict[<unit>]
+        # keeps the in-place apply while declaring the unit (matches the writer).
+        return {"central_fluxes": "inplace_dict[float[mM/s]]"}
 
     def outputs(self):
         return {

@@ -105,15 +105,19 @@ visualizations:
 - name: dnaa7_rida_calibration
   address: image:charts/dnaa7_rida_calibration.png
   chart: charts/dnaa7_rida_calibration.png
-  source_run: dnaa7_ridacal_r0{1,2,3,5,6,7} + dnaa7_rida_full (RIDA sweep, DARS on)
+  source_run: dnaa7_ridacal_r0{1,2,3,5,6,7} + dnaa7_rida_full (RIDA sweep, DARS+DDAH on)
+  render_script: scripts/render_dnaa7_rida_calibration.py
   config:
     title: >-
-      RIDA-rate calibration — the operating window. TOP: DnaA-ATP fraction vs RIDA rate, with the
-      [0.2,0.5] band and the operating window (RIDA 0.5-0.7) shaded; the fraction falls
-      monotonically with RIDA (0.85 -> 0.03) and sits in band only for RIDA 0.5-0.7. BOTTOM:
-      re-initiation ticks + max oriC vs RIDA rate — RIDA >= 0.5 gives 0 re-inits and clean oriC 2.
+      RIDA-rate calibration — the operating window. TOP: DnaA-ATP fraction (gen3+ mean) vs RIDA
+      rate, with the [0.2,0.5] band and the operating window (RIDA 0.5-0.7) shaded; the fraction
+      falls across the coarse sweep (0.85 at RIDA=0.1 -> 0.03 at RIDA=1.0) and within the
+      operating window 0.5-0.7 sits IN band (0.28/0.40/0.26 — flat/tick-noisy, not strictly
+      ordered). BOTTOM: re-initiation ticks + max oriC vs RIDA rate — RIDA >= 0.5 gives 0 re-inits
+      and clean oriC 2; below 0.5 the trigger over-initiates (oriC 4, 900-2600 re-init ticks).
       The overlap (RIDA 0.5-0.7) is where the mechanistic trigger gives clean one-init-per-cycle AND
-      the in-band DnaA-ATP fraction: the operating point (canonical RIDA=0.6).
+      the in-band DnaA-ATP fraction: the operating point (canonical RIDA=0.6, fraction 0.398).
+      Reproducible from the real sweep runs via render_dnaa7_rida_calibration.py (was inline).
 - name: dnaa7_rida_fixes_overinit
   address: image:charts/dnaa7_rida_fixes_overinit.png
   chart: charts/dnaa7_rida_fixes_overinit.png

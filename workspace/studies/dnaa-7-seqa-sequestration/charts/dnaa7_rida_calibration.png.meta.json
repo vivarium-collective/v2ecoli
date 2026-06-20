@@ -1,7 +1,15 @@
 {
-  "title": "dnaa-7 RIDA-rate calibration — the operating window (RIDA 0.5-0.7)",
-  "caption": "RIDA_RATE_MULTIPLIER sweep (DARS on), mechanistic oriC-low trigger + cooperativity, seed 1, 8 gens. TOP: DnaA-ATP fraction (g3+ mean) vs RIDA rate — falls monotonically (0.85 at 0.1 -> 0.03 at 1.0); in the [0.2,0.5] band only for RIDA 0.5-0.7 (shaded operating window). BOTTOM: re-initiation ticks + max oriC vs RIDA rate — RIDA >= 0.5 gives 0 re-inits and clean oriC 2. The overlap (RIDA 0.5-0.7) satisfies BOTH: clean one-init-per-cycle AND the in-band DnaA-ATP fraction; canonical operating point RIDA=0.6 (fraction 0.398).",
-  "interpretation": "There is a genuine operating window for the mechanistic DnaA-ATP/oriC initiation: RIDA 0.5-0.7 (with DARS reactivation) gives clean oriC 1<->2, zero re-initiations, the DnaA-ATP fraction in [0.2,0.5], and the DnaA pool in band, with 8/8 divisions. So RIDA both enforces once-per-cycle (resets the switch) and, at the right rate, leaves DnaA-ATP in its physiological band. The DnaA-ATP/oriC mechanism fully and in-band replaces the cell-mass heuristic. Single-seed (seed 1); multi-seed robustness + a per-origin hemimethylation SeqA model are the open refinements.",
-  "source_runs": ["dnaa7_ridacal_r05_seed1_8gen","dnaa7_ridacal_r06_seed1_8gen","dnaa7_ridacal_r07_seed1_8gen","dnaa7_ridacal_r03_seed1_8gen","dnaa7_rida_full_seed1_8gen"],
-  "script": "inline (sweep summary)"
+  "title": "dnaa-7 RIDA-rate calibration \u2014 the operating window (RIDA 0.5-0.7)",
+  "caption": "RIDA_RATE_MULTIPLIER sweep (DARS+DDAH on), mechanistic oriC-low trigger + cooperativity (n=4, K=30), seed 1, 8 gens. TOP: DnaA-ATP fraction (gen3+ mean) vs RIDA rate \u2014 falls across the coarse sweep (0.85 at 0.1 -> 0.03 at 1.0); within the operating window (RIDA 0.5-0.7) it sits IN the [0.2,0.5] band (0.26-0.40, flat/noisy not strictly ordered). BOTTOM: re-init ticks (oriC>2) + max oriC \u2014 RIDA >= 0.5 gives 0 re-inits and clean oriC 2; below 0.5 the trigger over-initiates (oriC 4, thousands of re-init ticks). The overlap (RIDA 0.5-0.7) satisfies BOTH clean one-init-per-cycle AND the in-band fraction; canonical operating point RIDA=0.6 (fraction 0.398).",
+  "interpretation": "There is a genuine operating window for the mechanistic DnaA-ATP/oriC initiation: RIDA 0.5-0.7 (with DARS reactivation) gives clean oriC 1<->2, zero re-initiations, the DnaA-ATP fraction in [0.2,0.5], and the DnaA pool in band, with 8/8 divisions. RIDA both enforces once-per-cycle (resets the switch) and, at the right rate, leaves DnaA-ATP in its physiological band. The DnaA-ATP/oriC mechanism fully and in-band replaces the cell-mass heuristic. Single-seed (seed 1) shown here; multi-seed robustness is the open refinement.",
+  "source_runs": [
+    "dnaa7_ridacal_r01_seed1_8gen",
+    "dnaa7_ridacal_r02_seed1_8gen",
+    "dnaa7_ridacal_r03_seed1_8gen",
+    "dnaa7_ridacal_r05_seed1_8gen",
+    "dnaa7_ridacal_r06_seed1_8gen",
+    "dnaa7_ridacal_r07_seed1_8gen",
+    "dnaa7_rida_full_seed1_8gen"
+  ],
+  "script": "scripts/render_dnaa7_rida_calibration.py"
 }

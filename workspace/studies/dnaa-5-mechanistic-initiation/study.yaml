@@ -1,0 +1,180 @@
+schema_version: 4
+name: dnaa-5-mechanistic-initiation
+investigation: dnaa-replication
+title: "dnaa-5 — mechanistic replication initiation (DnaA-ATP/oriC trigger replaces the cell-mass heuristic)"
+created: "2026-06-18"
+status: in_progress
+design_status: designed
+implementation_status: implemented
+simulation_status: running
+evaluation_status: in_progress
+gate_status: partial
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-4-autoregulation
+  why: "dnaa-3/4 established a stable, autoregulated DnaA-ATP/oriC binding lineage; dnaa-5 uses it to DRIVE initiation, replacing the inherited cell-mass-per-origin heuristic."
+
+question: >-
+  Can chromosome replication initiation be triggered by DnaA-ATP binding to oriC (the
+  biological mechanism) instead of the inherited cell-mass-per-origin heuristic, while
+  preserving the cell cycle? And is the binding signal stable enough to serve as the
+  trigger?
+
+background: >-
+  v2ecoli inherits the wcEcoli initiation heuristic: a round initiates when
+  cell_mass / n_oriC >= criticalInitiationMass (~975 fg, tau-scaled) — chromosome_replication.py.
+  The DnaA-box binding built in dnaa-3 (and stabilized by dnaa-4 autoregulation) is purely
+  observational ("does NOT gate initiation"). dnaa-5 wires that binding into the initiation
+  decision so initiation fires on the DnaA-ATP filament at oriC — the real trigger.
+
+mechanism: >-
+  Flag-gated swap in chromosome_replication.py (commit 59e108fb): DNAA_INITIATION_TRIGGER=mechanistic
+  fires initiation when the oriC high-affinity DnaA boxes are saturated with DnaA-ATP
+  (oriC_high_bound_atp >= DNAA_INIT_HIGH_THRESHOLD * n_oriC, default 3 = all 3 high-affinity
+  sites), read from the replication_data listener. Default 'mass' = baseline byte-identical.
+  Centralized in _should_initiate(), used at both the request and evolve gates.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa4_s06_F05
+      max_generations: 8
+      single_daughters: true
+      perturbations: {"TU00259[c]": 1.5e-3}
+      note: "dnaa-4 reference config (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025, RIDA/DDAH/DARS off)."
+  variants:
+  - name: mass-trigger-control
+    diff_from_baseline: "DNAA_INITIATION_TRIGGER=mass (the inherited heuristic)"
+    run: dnaa4_s06_F05_seed1_12gen
+    note: "The dnaa-4 reference run IS the mass-trigger control (identical config, mass trigger)."
+  - name: mechanistic-trigger
+    diff_from_baseline: "DNAA_INITIATION_TRIGGER=mechanistic, DNAA_INIT_HIGH_THRESHOLD=3"
+    run: dnaa5_mech_diag_seed1_8gen
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    code_commit: 59e108fb
+    initiation_trigger: mechanistic        # the dnaa-5 swap (baseline = mass)
+    init_high_threshold: 3                  # oriC high-affinity DnaA-ATP sites per origin
+    dnaA_expression_V: 1.5e-3
+    autoreg_form: linear
+    autoreg_strength_s: 0.6
+    F05_kinetic_apo_ATP: true
+    hydrolysis_rate_per_min: 0.025
+    kd_high_nM: 3
+    kd_low_nM: 100
+  source: dnaa-4-reference-eb4ea39 + mechanistic-initiation-swap
+
+readouts:
+- name: number of oriC (initiation control)
+  identifier: listeners.replication_data.number_of_oric
+  units: count
+  status: primary
+- name: cell mass at initiation
+  identifier: listeners.mass.cell_mass at the oriC 1->2 transition
+  units: fg
+  status: primary
+  note: "The diagnostic: mass trigger holds this ~constant; the mechanistic trigger decouples it."
+- name: division interval (tau)
+  identifier: per-generation time span
+  units: min
+  status: primary
+
+tests:
+- name: cell-cycle-preserved
+  classification: primary
+  description: All generations divide and oriC oscillates 1<->2 under the mechanistic trigger.
+  measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+  pass_if: {op: in_range, low: 1, high: 2}
+- name: no-over-initiation
+  classification: primary
+  description: oriC never exceeds 2 (no spurious re-initiation under the binding trigger).
+  measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+  pass_if: {op: max_le, value: 2}
+- name: divisions-occur
+  classification: primary
+  description: Every generation completes a division (cell mass doubles per cycle).
+  measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
+  pass_if: {op: periodic_doubling_every_generation, tolerance: 0.4}
+
+report:
+  title: "dnaa-5 — mechanistic replication initiation"
+  verdict: >-
+    first-pass-diagnostic. PHASE 1 (readiness gate): the DnaA-ATP/oriC binding is NOT yet a
+    stable enough trigger to cleanly replace the mass heuristic — at the 12 initiation events
+    of the dnaa-4 reference run, cell_mass at initiation is noiseless (CV 0.00) while the oriC
+    signal is noisy (oriC-high occupancy CV 0.16, oriC-low CV 0.62), because the binding is
+    independent-site (no cooperativity), so oriC occupancy rises gradually instead of switching
+    sharply. PHASE 2 (first-pass swap, per the chosen diagnostic): wired initiation onto
+    oriC high-affinity DnaA-ATP saturation (DNAA_INITIATION_TRIGGER=mechanistic). RESULT — the
+    mechanistic trigger is VIABLE: the cell divides, oriC stays 1<->2, 0 re-initiations, and
+    initiation fires near the critical mass (~755 vs 735 fg). BUT cycle timing is DEGRADED:
+    division intervals are irregular (preview tau CV 0.54 vs 0.33 for the mass control; a
+    cycle stretched to ~186 min vs ~60). The degradation traces directly to the Phase-1 gap —
+    without cooperative filament assembly, the saturation timing is noisy, so initiation timing
+    (hence cycle length) wobbles. Next: add cooperativity to sharpen the trigger (the path to
+    a clean swap). [Full 8-generation diagnostic + the mass-vs-mechanistic comparison pending.]
+  confidence: diagnostic-preview
+
+next_action: >-
+  Complete the 8-generation mechanistic diagnostic (dnaa5_mech_diag_seed1_8gen) + the
+  mass-vs-mechanistic comparison (tau regularity, cell-mass-at-initiation spread, oriC pattern).
+  Then evaluate whether to (a) add cooperative DnaA-ATP filament assembly to sharpen the trigger
+  before adopting it, or (b) keep the mass heuristic and treat the mechanistic trigger as a
+  validated-but-not-yet-adopted alternative.
+
+runs:
+- name: dnaa5_mech_diag_seed1_8gen
+  status: running
+  canonical: true
+  seed: 1
+  generations: 8
+  cache_dir: out/cache_dnaa4_s06_F05
+  emitter: {kind: parquet, store: out/dnaa5_mech_diag_seed1_8gen/dnaa5_mech_diag_seed1_8gen}
+  note: "Mechanistic trigger (DnaA-ATP/oriC saturation), dnaa-4 reference config, seed 1, 8 gens. The mass-trigger control is the dnaa-4 reference run dnaa4_s06_F05_seed1_12gen (identical config)."
+- name: dnaa5_mech_smoke
+  status: completed
+  canonical: false
+  seed: 1
+  generations: 3
+  note: "3-gen smoke test — validated the mechanistic trigger builds + divides (gens 1-2: oriC 1<->2, 0 re-init, mass-at-init 755, but gen-2 tau stretched to 186 min)."
+
+findings:
+- id: F-01
+  statement: >-
+    READINESS GATE (Phase 1): at the 12 initiation events of the dnaa-4 reference run, the
+    cell-mass trigger fires at cell_mass 734.7 +/- 0.07 (CV 0.000) — noiseless. The candidate
+    DnaA-ATP/oriC trigger signals are far noisier: oriC-high occupancy mean 0.92 (CV 0.157,
+    2-3 of 3 bound), oriC-low occupancy mean 0.23 (CV 0.623), free DnaA-ATP CV 1.07. The
+    low-affinity sites — which biologically gate initiation (they fill last, completing the
+    DnaA-ATP filament) — are only ~23% filled and the noisiest signal. Cause: the binding is
+    independent-site Langmuir with no cooperativity, so oriC occupancy rises gradually rather
+    than switching sharply. CONCLUSION: the binding is not yet a stable trigger; cooperativity
+    is the missing physics.
+  status: evaluated
+  provenance:
+    run_ids: [dnaa4_s06_F05_seed1_12gen]
+- id: F-02
+  statement: >-
+    FIRST-PASS SWAP (Phase 2): wiring initiation onto oriC high-affinity DnaA-ATP saturation
+    (DNAA_INITIATION_TRIGGER=mechanistic) produces a VIABLE cell cycle — the cell divides, oriC
+    stays 1<->2, 0 re-initiations, and initiation fires near the critical mass (~755 fg vs 735).
+    But cycle timing is DEGRADED vs the mass heuristic: division intervals are irregular (smoke
+    preview tau CV 0.54 vs 0.33; a cycle stretched to ~186 min vs ~60). The irregularity is the
+    direct consequence of the F-01 gap — without cooperative filament assembly the saturation
+    timing wobbles, so initiation (and cycle length) wobble too. [8-gen diagnostic in progress.]
+  status: in_progress
+  provenance:
+    run_ids: [dnaa5_mech_smoke, dnaa5_mech_diag_seed1_8gen]
+
+biological_summary: >-
+  Replication initiation in E. coli is triggered when DnaA-ATP assembles into a filament on the
+  oriC DnaA boxes, melting the DUE and loading the replisome — a switch-like, cooperative event.
+  The wcEcoli/v2ecoli heuristic instead fires at a fixed mass-per-origin (Donachie initiation
+  mass). dnaa-5 replaces the heuristic with the mechanistic trigger now that dnaa-3/4 have built
+  and stabilized the DnaA-ATP/oriC binding.

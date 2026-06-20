@@ -113,3 +113,42 @@ acceptance_criteria:
       conditional steps (export apparatus -> motor/basal body -> hook -> complete
       flagellum) that the stochastic Gillespie complexation cannot enforce — Maya's
       Aim 2B.
+
+scientific_argument:
+  main_claim: |
+    Mechanistic transcriptional regulation — the Kalir & Alon SUM-gate coupled to
+    FlgM/sigma-28 sequestration relieved by type-III secretion — gives the v2ecoli
+    whole-cell model temporally ordered flagellar expression and lower, more
+    biologically plausible flagella counts than the unregulated model, WITHOUT the
+    manual multipliers/overrides the current WCM relies on. NFsim rule-based
+    assembly additionally supplies the ordered, conditional construction that
+    stochastic Gillespie complexation cannot.
+  evidence_for:
+    - The SUM-gate writes per-promoter init_prob_override with Class II > Class III,
+      and the ordering is maintained across a cell division (study 02).
+    - FlgM is secreted (1481 -> 5) and free FliA is released but stays bounded
+      (~1.35x initial) via the flgM negative-feedback loop (study 03).
+    - Across 2 generations the regulated lineage carries fewer complete flagella at
+      every generation than the unregulated one (OFF g1=53,g2=44 vs ON g1=44,g2=34),
+      and the gap persists through division (study 01).
+    - NFsim assembles complete flagella through ordered intermediates
+      (export -> motor -> hook -> flagellum); 9 complete flagella in 2400 s (study 04).
+  evidence_against:
+    - The reduction within one generation is modest; the full overexpression ->
+      biological-count correction is not yet demonstrated (needs more generations
+      and/or a low-flagella initial condition).
+    - Quantitative absolute counts rest on a fast-mode ParCa cache; a --mode full
+      calibration is outstanding.
+    - All lineages are single-seed, daughter-1-carry-forward; robustness across
+      seeds/daughters is untested.
+    - The default cache starts already flagellated (~30-35), so the clean
+      assembly-gated Class III temporal LAG is not yet visible from default ICs.
+  key_figures:
+    - flagella-01-overexpression-baseline/charts/02_multigen_flagella_and_mass.svg
+    - flagella-02-sumgate-cascade/charts/01_sumgate_classII_classIII.svg
+    - flagella-03-flgm-flia-feedback/charts/01_flgm_secretion_flia_release.svg
+    - flagella-04-nfsim-assembly/charts/01_nfsim_assembly.svg
+  caveats: |
+    The transcriptional cascade (Aim 2A) and the NFsim assembly (Aim 2B) currently
+    run as separate, opt-in pieces — NFsim is standalone, not yet wired to replace
+    ecoli-complexation inside the WCM. Spatial organization (Aim 1) is out of scope.

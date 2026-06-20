@@ -147,7 +147,7 @@ scientific_argument:
       at exactly 0 and rises only as FlgM is secreted (1481 -> 115) — the
       assembly-gated Class II -> Class III onset, made explicit.
   evidence_against:
-    - CALIBRATION REVERSAL: on the full-mode (properly calibrated) cache a
+    - CALIBRATION REVERSAL — on the full-mode (properly calibrated) cache a
       single-seed 2-gen run shows the regulated lineage with MORE flagella, not
       fewer (ON g1=61,g2=50 vs OFF g1=46,g2=43) — the opposite of the fast-mode
       result. The "regulation trims overexpression" headline is largely a fast-mode

@@ -195,6 +195,12 @@ class ChromosomeReplication(Step):
         # oriC-high ATP count required (default 3 = all 3 high-affinity sites).
         self.initiation_trigger = os.environ.get("DNAA_INITIATION_TRIGGER", "mass").lower()
         self.init_high_threshold = int(os.environ.get("DNAA_INIT_HIGH_THRESHOLD", "3"))
+        # dnaa-6 payoff re-test: which oriC pool's DnaA-ATP saturation triggers initiation.
+        # 'high' (default) = the first-pass oriC-high (3/3) trigger; 'low' = the oriC-LOW
+        # COOPERATIVE switch (the filament-completion signal, dnaa-5) — the biologically
+        # correct trigger once cooperativity makes oriC-low switch-like.
+        self.init_trigger_pool = os.environ.get("DNAA_INIT_TRIGGER_POOL", "high").lower()
+        self.init_low_threshold = int(os.environ.get("DNAA_INIT_LOW_THRESHOLD", "6"))
         self._mech_ready = False  # set each tick in _request, read in _evolve
         self.replichore_lengths = self.parameters["replichore_lengths"]
         self.sequences = self.parameters["sequences"]
@@ -280,8 +286,14 @@ class ChromosomeReplication(Step):
         # saturated with DnaA-ATP (>= threshold per origin). Computed here (in _request)
         # and read again in _evolve via _should_initiate().
         if self.initiation_trigger == "mechanistic":
-            oh_atp = int(states["listeners"]["replication_data"].get("oriC_high_bound_atp", 0))
-            self._mech_ready = oh_atp >= self.init_high_threshold * n_oriC
+            rd = states["listeners"]["replication_data"]
+            if self.init_trigger_pool == "low":
+                signal = int(rd.get("oriC_low_bound_atp", 0))   # cooperative filament-completion (dnaa-5)
+                threshold = self.init_low_threshold
+            else:
+                signal = int(rd.get("oriC_high_bound_atp", 0))  # first-pass oriC-high saturation
+                threshold = self.init_high_threshold
+            self._mech_ready = signal >= threshold * n_oriC
 
         # If replication should be initiated, request subunits required for
         # building two replisomes per one origin of replication, and edit

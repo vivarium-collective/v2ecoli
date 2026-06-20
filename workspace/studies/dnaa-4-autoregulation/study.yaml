@@ -20,6 +20,13 @@ seeded_from:
     its own promoter (the 2 dnaA-promoter boxes) is now modeled + emitted — that
     occupancy is the feedback signal autorepression needs.
 
+pipeline_gate:
+  prerequisites:
+  - dnaa-3-box-binding
+  enables:
+  - dnaa-5-cooperativity
+  gate_status: partial
+
 question: |
   Can DnaA negative autoregulation hold the DnaA pool self-stabilized in the
   literature [300,800] band across generations WITHOUT the manual V override

@@ -15,6 +15,13 @@ seeded_from:
   study: dnaa-3-box-binding
   why: "dnaa-3 correctly shows oriC partial, gradual filling (independent-site binding, no cooperativity) — the right result for that study. dnaa-5 ADDS the cooperativity that makes the oriC filament switch-like, the prerequisite for any DnaA-ATP-triggered initiation (dnaa-6)."
 
+pipeline_gate:
+  prerequisites:
+  - dnaa-4-autoregulation
+  enables:
+  - dnaa-6-mechanistic-initiation
+  gate_status: pass
+
 question: >-
   Can cooperative DnaA-ATP filament assembly at oriC turn the gradual, noisy oriC occupancy into
   a SHARP, reproducible switch (low CV at initiation timing) — while preserving the steady-state

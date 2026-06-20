@@ -15,6 +15,12 @@ seeded_from:
   study: dnaa-6-mechanistic-initiation
   why: "dnaa-6 made the DnaA-ATP/oriC trigger SUSTAIN the cycle (8/8) with cooperativity, but it OVER-initiates (oriC->4) for lack of a post-initiation eclipse. dnaa-7 adds the SeqA sequestration that blocks a just-fired origin from re-firing."
 
+pipeline_gate:
+  prerequisites:
+  - dnaa-6-mechanistic-initiation
+  enables: []
+  gate_status: pass
+
 question: >-
   Does a post-initiation eclipse (SeqA sequestration) restore one-initiation-per-cycle (clean
   oriC 1<->2, no over-initiation) under the mechanistic DnaA-ATP/oriC trigger, while keeping the

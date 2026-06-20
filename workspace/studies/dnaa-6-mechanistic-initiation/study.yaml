@@ -15,6 +15,13 @@ seeded_from:
   study: dnaa-5-cooperativity
   why: "PREREQUISITE ORDER (Rashmi 2026-06-18): the mechanistic initiation trigger requires a SWITCH-LIKE oriC filament, which is dnaa-5-cooperativity. This study (dnaa-6) was run FIRST as a diagnostic and conclusively showed the swap is non-viable until cooperativity lands — so dnaa-5 (cooperativity) gates dnaa-6 (this swap). Built on the dnaa-3/4 binding lineage."
 
+pipeline_gate:
+  prerequisites:
+  - dnaa-5-cooperativity
+  enables:
+  - dnaa-7-seqa-sequestration
+  gate_status: partial
+
 question: >-
   Can chromosome replication initiation be triggered by DnaA-ATP binding to oriC (the
   biological mechanism) instead of the inherited cell-mass-per-origin heuristic, while

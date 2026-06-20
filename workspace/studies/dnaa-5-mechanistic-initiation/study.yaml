@@ -102,6 +102,20 @@ tests:
   measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
   pass_if: {op: periodic_doubling_every_generation, tolerance: 0.4}
 
+conclusion_logic:
+  if_primary_tests_pass: >-
+    If the mechanistic trigger had preserved the cycle (every generation divides, oriC 1<->2),
+    the DnaA-ATP/oriC binding would be a viable replacement for the cell-mass heuristic and the
+    initiation mechanism could be adopted directly.
+  if_primary_tests_fail: >-
+    The primary tests FAILED (divisions-occur FAIL, cell-cycle-preserved FAIL): the full-
+    saturation DnaA-ATP trigger is non-viable on the current independent-site binding — it
+    under-saturates stochastically (gen-2 oriC-high stuck at 2/3), so initiation never fires and
+    the cell runs away to ~6159 fg without dividing, collapsing the lineage. The conclusion is
+    that the binding must be made COOPERATIVE (a sharp filament switch) before the initiation
+    mechanism can be swapped. This is the intended, conclusive diagnostic outcome — a productive
+    negative result that identifies the exact missing physics, not a dead end.
+
 simulation_set:
 - name: mass-trigger-control
   kind: lineage

@@ -185,10 +185,39 @@ def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
         if dot_src.is_file():
             dot_src.unlink()
         out = img_dir / f"{slug}.svg"
+        if out.is_file():
+            _make_svg_responsive(out)
         return out if out.is_file() else None
     except Exception as exc:  # noqa: BLE001
         print(f"  ! viz SVG skipped for {slug}: {exc}", file=sys.stderr)
         return None
+
+
+def _make_svg_responsive(svg_path: Path) -> None:
+    """Make a Graphviz SVG fit its container instead of rendering at native size.
+
+    bigraph-viz emits the SVG with absolute point dimensions (a 55-process
+    composite is ~61000pt wide), so opening it directly fills the page at native
+    scale — huge and effectively cropped. Replace the absolute width/height on
+    the root <svg> with 100% and keep the viewBox so the browser scales the whole
+    graph to fit the window (preserveAspectRatio defaults to xMidYMid meet).
+    """
+    import re
+    try:
+        txt = svg_path.read_text(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        return
+    # Only touch the FIRST <svg ...> tag (the root). Drop its pt width/height.
+    def _fix(m: "re.Match[str]") -> str:
+        tag = m.group(0)
+        tag = re.sub(r'\swidth="[^"]*"', ' width="100%"', tag, count=1)
+        tag = re.sub(r'\sheight="[^"]*"', ' height="100%"', tag, count=1)
+        if "preserveAspectRatio" not in tag:
+            tag = tag[:-1] + ' preserveAspectRatio="xMidYMid meet">'
+        return tag
+    new = re.sub(r"<svg\b[^>]*>", _fix, txt, count=1)
+    if new != txt:
+        svg_path.write_text(new, encoding="utf-8")
 
 
 def render_viz2_html(state: dict, slug: str, viz2_dir: Path) -> Path | None:

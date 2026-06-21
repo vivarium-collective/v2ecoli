@@ -270,6 +270,26 @@ findings:
   status: evaluated
   provenance:
     run_ids: [dnaa5_coop_n4_k30_seed1_8gen]
+- id: F-KD
+  statement: >-
+    FORMULATION DEPENDENCE (Eran 2026-06-21): cooperativity was implemented two ways — Hill in free
+    [DnaA-ATP] (theta=A^n/(K^n+A^n)) and the classical VARYING-dissociation-constant / Adair model
+    (K_i = K0/coop^(i-1) over the 8 oriC-low sites; the theory-paper form), behind
+    DNAA_ORIC_COOP_MODE. ANALYTICALLY they coincide: coop=1.9 reproduces the Hill n=4 occupancy curve
+    (see dnaa5_hill_vs_kd), and coop=1 reduces exactly to Langmuir. BUT the static-curve match does
+    NOT carry to the full dynamic model: an 8-gen in-sim run at coop=1.9 (run dnaa5_kd_coop1p9_seed1_8gen)
+    has the switch reach FULL (occ 1.00) yet the DnaA-ATP fraction COLLAPSES (0.21 -> 0.008 -> 0.08
+    across gens 1-3, vs Hill n=4's stable 0.276) and the cell destabilizes (FBA InvalidBoundaryError
+    at gen 4). The Adair form over-sequesters free DnaA-ATP (8 sites filling cooperatively deplete the
+    pool harder than the reduced Hill), so it preserves homeostasis only at a LOWER cooperativity than
+    its static-matched value — the varying-K_d formulation needs its OWN homeostasis calibration (a
+    coop sweep), analogous to the Hill n-sweep that found n=4. KEY LESSON: matching the equilibrium
+    occupancy curve is necessary but NOT sufficient; the dynamic DnaA-ATP balance is sensitive to the
+    binding formulation. The Hill n=4 (this study's operating point) preserves homeostasis; the
+    varying-K_d operating point is an open calibration.
+  status: evaluated
+  provenance:
+    run_ids: [dnaa5_kd_coop1p9_seed1_8gen, dnaa5_coop_n4_k30_seed1_8gen]
 - id: F-02
   statement: >-
     n=4 preserves the dnaa-3/4 bands but n=6 is too strong: at n=4, K=30 the DnaA pool stays in

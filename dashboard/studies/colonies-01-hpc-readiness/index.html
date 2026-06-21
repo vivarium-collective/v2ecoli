@@ -1817,6 +1817,20 @@ pattern as per_cell_update_ms but on the multibody process.
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <div class="panel" style="margin-bottom:18px">
+    <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
+    <p class="muted" style="font-size:0.9em">
+      Pushes the workspace's current branch, builds a simulator from that commit, and runs
+      it on the Ray backend. Results land as a run on this study. Requires GitHub login.
+    </p>
+    <form id="remote-run-form" onsubmit="return _submitRemoteRun(event)">
+      <label>Generations: <input name="num_generations" type="number" min="1" value="1" required></label>
+      <label>Seeds: <input name="num_seeds" type="number" min="1" value="1" required></label>
+      <label><input type="checkbox" name="run_parca" checked> Run ParCa</label>
+      <button type="submit" class="btn-mini" id="remote-run-btn">▶ Run on remote</button>
+    </form>
+    <div id="remote-run-progress" hidden></div>
+  </div>
   <div class="runs-section">
     <h3 class="section-title">Runs</h3>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
@@ -1845,6 +1859,7 @@ pattern as per_cell_update_ms but on the multibody process.
         <tr id="run-"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="2026-05-16T22:25Z">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1900,6 +1915,7 @@ pattern as per_cell_update_ms but on the multibody process.
         <tr id="run-"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="2026-05-16T22:26Z">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1953,6 +1969,7 @@ pattern as per_cell_update_ms but on the multibody process.
         <tr id="run-"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="2026-05-16T22:27Z">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -2006,6 +2023,7 @@ pattern as per_cell_update_ms but on the multibody process.
         <tr id="run-"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="2026-05-16T22:28Z">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -2059,6 +2077,7 @@ pattern as per_cell_update_ms but on the multibody process.
         <tr id="run-"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="2026-05-16T22:29Z">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>

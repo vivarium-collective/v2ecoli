@@ -117,6 +117,19 @@
       alert('No composite loaded in this view yet — open a composite first.');
       return;
     }
+    // Snapshot (read-only) mode: there is no in-memory state to re-post and no
+    // live API. Open the popup straight at the static loom URL (same ?static=1
+    // &stateUrl= the iframe uses) so it fetches and renders the cached state.
+    if (snapshot.snapshot && snapshot.loomUrl) {
+      var sw = window.open(snapshot.loomUrl, '_blank',
+        'width=1200,height=800,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes');
+      if (!sw) {
+        alert('Popup blocked. Allow popups from this site to pop out the wiring view.');
+        return;
+      }
+      _showPopoutPlaceholder(iframeId, sw);
+      return;
+    }
     // Include id in the URL so the popup can call /api/composite-test-run
     // even before the parent has a chance to postMessage. The composite:load
     // message we re-send after explore:ready still wins for metadata, but the
@@ -1247,6 +1260,35 @@
     '</div>';
   }
 
+  function _renderReportCardCard(rc) {
+    // Embed a saved vEcoli<->v2ecoli comparison report (statistical-equivalence
+    // report cards). Self-contained HTML served from the workspace tree, same
+    // base-path handling as the 3D cards for the hosted snapshot.
+    var base = (window.DataSource && window.DataSource.basePath)
+      ? window.DataSource.basePath()
+      : ((window.__DASH_CONFIG__ && window.__DASH_CONFIG__.basePath) || "");
+    var src = base + rc.url;
+    var meta = [];
+    if (rc.study) meta.push('study: ' + _esc(rc.study));
+    if (rc.verdict) meta.push('overall: ' + _esc(rc.verdict));
+    var desc =
+      'Statistical-equivalence <strong>report cards</strong> from the ' +
+      '<strong>vEcoli &#8596; v2ecoli comparison harness</strong>: the same config ' +
+      'loaded into both engines, their converted processes and ParCa/sim_data ' +
+      'diffed, and cell mass / growth rate compared per condition (Welch t &middot; ' +
+      'Cohen\'s d &middot; relative-mean &Delta;) against a within-tolerance band.';
+    return '<div class="analyses-card">' +
+      '<div class="analyses-card-head">' +
+        '<strong>' + _esc(rc.name || 'comparison report') + '</strong>' +
+        '<a class="btn-mini" href="' + _esc(src) + '" target="_blank" rel="noopener" title="Open full-window in a new tab">Open &#8599;</a>' +
+      '</div>' +
+      (meta.length ? '<div class="muted" style="font-size:0.82em;margin:2px 0 6px">' + meta.join(' &middot; ') + '</div>' : '') +
+      '<p class="muted" style="font-size:0.85em;line-height:1.45;margin:2px 0 8px">' + desc + '</p>' +
+      '<iframe class="viz-embed" src="' + _esc(src) + '" loading="lazy" ' +
+        'style="width:100%;height:520px;border:1px solid #2a313c;border-radius:6px;background:#fff"></iframe>' +
+    '</div>';
+  }
+
   function _renderPtoolsCard(ptools) {
     ptools = ptools || {};
     var studies = ptools.studies || [];
@@ -1284,6 +1326,14 @@
     }
     html += '</div>';
     return html;
+  }
+
+  function _renderExplorerCard() {
+    return '<div class="analyses-card" id="explorer-card">' +
+      '<div class="analyses-card-head"><strong>Data Explorer</strong></div>' +
+      '<p class="muted" style="font-size:0.85em;margin:2px 0 8px">' +
+      'Interactively explore any run: timeseries, scatter, allocation, and flux maps.</p>' +
+      '<div id="explorer-mount"></div></div>';
   }
 
   function _launchPtools(study) {
@@ -1331,7 +1381,10 @@
         data = data || {};
         var saved  = data.saved || [];
         var ptools = data.ptools || {};
+        var reportCards = data.report_cards || [];
         var cards = [];
+        // Comparison report cards lead the gallery (no viewer dependency).
+        cards = cards.concat(reportCards.map(_renderReportCardCard));
         if (data.parsimony_available) {
           cards = cards.concat(saved.map(_render3dVizCard));
         } else if (saved.length) {
@@ -1342,12 +1395,21 @@
         if (!saved.length && !(ptools.studies || []).length && ptools.configured === false) {
           // Still show the (empty) PTools card; only the 3D section is empty.
         }
+        cards.push(_renderExplorerCard());
         if (!cards.length) {
           container.innerHTML = '<p class="empty-state">No saved visualizations yet. Run a parsimony packing composite or a PTools analysis to populate this gallery.</p>';
         } else {
           container.innerHTML = cards.join('');
         }
-        if (countEl) countEl.textContent = saved.length ? '(' + saved.length + ')' : '';
+        if (window.Explorer) {
+          var _em = document.getElementById('explorer-mount');
+          if (_em) window.Explorer.mount(_em, {
+            basePath: (window.DataSource && window.DataSource.basePath) ? window.DataSource.basePath() : '',
+            snapshot: (window.__DASH_CONFIG__ || {}).mode === 'snapshot'
+          });
+        }
+        var _n = saved.length + reportCards.length;
+        if (countEl) countEl.textContent = _n ? '(' + _n + ')' : '';
       })
       .catch(function(err) {
         container.innerHTML = '<p class="empty-state" style="color:#991b1b">Error loading saved visualizations: ' + _esc(String(err)) + '</p>';
@@ -4190,8 +4252,21 @@
     if (document.body.classList.contains('snapshot')) {
       var _snapshotBase = (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.basePath) || "";
       var stateUrl = _snapshotBase + '/api/composite-state/' + encodeURIComponent(ref) + '.json';
-      iframe.src = _snapshotBase + '/bigraph-loom/index.html?static=1&stateUrl=' + encodeURIComponent(stateUrl);
+      var loomUrl = _snapshotBase + '/bigraph-loom/index.html?static=1&stateUrl=' + encodeURIComponent(stateUrl);
+      iframe.src = loomUrl;
       iframe.style.display = '';
+      // Record the loaded composite so "Pop out" works in snapshot mode. There
+      // is no in-memory state to re-post (the loom iframe fetches stateUrl
+      // itself) and no live API, so we stash the static loom URL for the popup
+      // to open directly. Without this, _popoutLoom finds no _loomLastState
+      // entry and falsely reports "No composite loaded in this view yet."
+      window._loomLastState = window._loomLastState || {};
+      window._loomLastState[iframe.id] = {
+        snapshot: true,
+        loomUrl: loomUrl,
+        metadata: { name: nameHint || ref, library: libraryHint || '', id: ref },
+      };
+      window._explorerEmitPaths = [];
       return;
     }
 
@@ -5452,12 +5527,20 @@
     // -- Pass 1: build every card at its column x (top TBD), append, measure --
     studies.forEach(function(s) {
       var liveStatus = s.effective_status || s.status || 'planned';
-      var confidence = s.confidence || (function(st) {
-        if (st === 'completed' || st === 'complete' || st === 'ran') return 'Accepted';
-        if (st === 'in_progress' || st === 'running') return 'Investigating';
-        if (st === 'failed' || st === 'invalid') return 'Refuted';
+      // Derive confidence from the spine's gate_status VERDICT first, so the badge
+      // tracks the computed verdict rather than the drift-prone hand-set `status`
+      // (a stale `status: in_progress` on a passed study used to mis-show
+      // "Investigating"). Fall back to lifecycle status only when no gate verdict.
+      var gateV = String(s.gate_status || '').trim().toLowerCase();
+      var confidence = s.confidence || (function() {
+        if (gateV === 'passed' || gateV === 'pass') return 'Accepted';
+        if (gateV === 'partial' || gateV === 'needs_calibration') return 'Investigating';
+        if (gateV === 'failed' || gateV === 'failed_evaluation' || gateV === 'refuted' || gateV === 'blocked') return 'Refuted';
+        if (liveStatus === 'completed' || liveStatus === 'complete' || liveStatus === 'ran') return 'Accepted';
+        if (liveStatus === 'in_progress' || liveStatus === 'running') return 'Investigating';
+        if (liveStatus === 'failed' || liveStatus === 'invalid') return 'Refuted';
         return 'Planned';
-      })(liveStatus);
+      })();
       var ss = ({
         Accepted:      {color: '#16a34a', icon: '✓'},
         Investigating: {color: '#ca8a04', icon: '◐'},
@@ -5998,6 +6081,31 @@
       });
   }
   window._generateInvestigationReport = _generateInvestigationReport;
+
+  // Download the coder-facing notebook for the current investigation. In a
+  // published (snapshot) bundle this is a static file under
+  // investigation-notebooks/; in local mode the server generates it on demand.
+  // Optional fmt === 'py' fetches the matching script instead of the .ipynb.
+  function _downloadInvestigationNotebook(fmt) {
+    var name = window._currentIset;
+    if (!name) {
+      console.warn('_downloadInvestigationNotebook: no current investigation');
+      return;
+    }
+    var c = window.__DASH_CONFIG__ || {};
+    var base = c.basePath || '';
+    var ext = fmt === 'py' ? '.py' : '.ipynb';
+    var url = (c.mode === 'snapshot')
+      ? base + '/investigation-notebooks/' + encodeURIComponent(name) + ext
+      : '/api/investigation-notebook/' + encodeURIComponent(name) + (fmt === 'py' ? '?format=py' : '');
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  window._downloadInvestigationNotebook = _downloadInvestigationNotebook;
 
   function _triggerDownload(filename, content, mime) {
     var blob = new Blob([content], {type: mime || 'text/plain'});
@@ -7417,6 +7525,27 @@
       var infra       = openFollowups.filter(function(f){return f.kind === 'infrastructure_fix';});
       var newWork     = openFollowups.filter(function(f){return f.kind === 'new';});
 
+      // The authored/spine gate_status is the verdict of record. A study can carry
+      // intended-negative results (controls, productive-negative diagnostics) whose
+      // raw test FAILs must NOT read as "Blocked". An explicit pass/partial gate wins
+      // over the raw-outcome classification below.
+      var gateAuthored = String((s && s.gate_status) || '').trim().toLowerCase();
+      if (gateAuthored === 'passed' || gateAuthored === 'pass') {
+        var enP = (s.pipeline_gate && s.pipeline_gate.enables) || [];
+        return {
+          label: 'Passed', cls: 'dec-passed',
+          passed: passed, failed: failed, partial: partial, blocks: [],
+          next: enP.length ? 'Gate cleared. Next: ' + enP.join(', ') : 'Gate cleared.'
+        };
+      }
+      if (gateAuthored === 'partial') {
+        return {
+          label: 'Partial', cls: 'dec-inprogress',
+          passed: passed, failed: failed, partial: partial, blocks: [],
+          next: 'Gate is PARTIAL — core objective met with a noted caveat (see findings); not a blocker.'
+        };
+      }
+
       if (failed.length === 0 && partial.length === 0 && passed.length > 0) {
         var enables = (s.pipeline_gate && s.pipeline_gate.enables) || [];
         return {
@@ -7589,8 +7718,9 @@
           ranStatus = 'ran';
           verd = { label: 'Reference', glyph: '📄', cls: 'v-none' };
         }
-        else if (gate === 'passed') verd = { label: 'Passed', glyph: '✅', cls: 'v-pass' };
-        else if (gate === 'failed' || gate === 'failed_evaluation') verd = { label: 'Failing', glyph: '❌', cls: 'v-fail' };
+        else if (gate === 'passed' || gate === 'pass') verd = { label: 'Passed', glyph: '✅', cls: 'v-pass' };
+        else if (gate === 'partial') verd = { label: 'Partial', glyph: '◐', cls: 'v-warn' };
+        else if (gate === 'failed' || gate === 'failed_evaluation' || gate === 'refuted') verd = { label: 'Failing', glyph: '❌', cls: 'v-fail' };
         else if (gate === 'blocked') verd = { label: 'Blocked', glyph: '⛔', cls: 'v-block' };
         else if (gate === 'needs_calibration') verd = { label: 'Needs calibration', glyph: '🔄', cls: 'v-cal' };
         else if (gate === 'in_progress') verd = { label: 'In progress', glyph: '🔶', cls: 'v-warn' };
@@ -14037,6 +14167,17 @@
       'title="emitter / persistence format">' + _escSim(t) + '</span>';
   }
 
+  function _simOriginPill(row) {
+    var o = row && row.remote_origin;
+    if (!o) return '<span class="origin-pill origin-local" title="local run">local</span>';
+    var dep = o.deployment || 'remote';
+    var tip = 'Remote run on ' + dep + ' (AWS GovCloud)'
+      + (o.simulation_id != null ? ' — sim ' + o.simulation_id : '')
+      + (o.experiment_id ? '\nexperiment: ' + o.experiment_id : '')
+      + (o.s3_uri ? '\nS3: ' + o.s3_uri : '');
+    return '<span class="origin-pill origin-remote" title="' + _escSim(tip) + '">' + _escSim(dep) + '</span>';
+  }
+
   // Format an epoch-seconds timestamp as a readable local time.
   function _simFmtTime(sec) {
     if (!sec) return '—';
@@ -14086,18 +14227,26 @@
     var runLabel = row.sim_name || row.label || runId;
     var runTitle = ' title="' + _escSim(runId + (row.db_path ? '\n' + row.db_path : '')) + '"';
     var timeSec = row.completed_at || row.started_at;
-    // Actions: open-in-explorer (only when there's a spec_id to seed the
-    // explorer with) + delete. The {simulations} shape carries spec_id +
-    // db_path so both are reconstructable.
+    // Actions: if the run belongs to a study → open its Runs tab at the run;
+    // else if it has a spec_id → open in the Composite Explorer. The
+    // {simulations} shape carries spec_id + db_path so both are reconstructable.
     var specId = row.spec_id || '';
-    var explorerBtn = specId
-      ? '<a href="?id=' + encodeURIComponent(specId) +
+    var studySlug = _simStudy(row);
+    var openBtn;
+    if (studySlug) {
+      openBtn = '<a href="/studies/' + encodeURIComponent(studySlug) + '#run-' + encodeURIComponent(runId) + '" ' +
+        'class="action-btn js-authoring" title="View this run\'s results in the study" ' +
+        'style="text-decoration:none;">Open</a>';
+    } else if (specId) {
+      openBtn = '<a href="?id=' + encodeURIComponent(specId) +
           '&run_id=' + encodeURIComponent(runId) + '#composite-explore" ' +
           'class="action-btn js-authoring" title="Open in Composite Explorer" ' +
           'style="text-decoration:none;" ' +
           'onclick="event.preventDefault(); _openSimulationInExplorer(\'' +
-            _escSim(runId) + '\', \'' + _escSim(specId) + '\');">Open</a>'
-      : '';
+            _escSim(runId) + '\', \'' + _escSim(specId) + '\');">Open</a>';
+    } else {
+      openBtn = '';
+    }
     var deleteBtn = '<button class="action-btn js-authoring" title="Delete simulation" ' +
       'onclick="_deleteSimulationRun(\'' + _escSim(runId) + '\')">🗑</button>';
     return (
@@ -14106,11 +14255,12 @@
       '<td style="padding:6px 8px;">' + studyCell + '</td>' +
       '<td style="padding:6px 8px;"><code style="font-size:11px; color:#6b7280;"' +
         runTitle + '>' + _escSim(runLabel) + '</code></td>' +
+      '<td style="padding:6px 8px;">' + _simOriginPill(row) + '</td>' +
       '<td style="padding:6px 8px;">' + _simEmitterPill(row.emitter_type) + '</td>' +
       '<td style="padding:6px 8px; color:#6b7280;">' + _escSim(_simFmtTime(timeSec)) + '</td>' +
       '<td style="padding:6px 8px;">' + _simStatusChip(row.status) + '</td>' +
       '<td style="padding:6px 8px; text-align:center; white-space:nowrap;">' +
-        explorerBtn + (explorerBtn && deleteBtn ? ' ' : '') + deleteBtn + '</td>' +
+        openBtn + (openBtn && deleteBtn ? ' ' : '') + deleteBtn + '</td>' +
       '</tr>'
     );
   }

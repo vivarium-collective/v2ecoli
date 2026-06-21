@@ -1503,6 +1503,20 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <div class="panel" style="margin-bottom:18px">
+    <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
+    <p class="muted" style="font-size:0.9em">
+      Pushes the workspace's current branch, builds a simulator from that commit, and runs
+      it on the Ray backend. Results land as a run on this study. Requires GitHub login.
+    </p>
+    <form id="remote-run-form" onsubmit="return _submitRemoteRun(event)">
+      <label>Generations: <input name="num_generations" type="number" min="1" value="1" required></label>
+      <label>Seeds: <input name="num_seeds" type="number" min="1" value="1" required></label>
+      <label><input type="checkbox" name="run_parca" checked> Run ParCa</label>
+      <button type="submit" class="btn-mini" id="remote-run-btn">▶ Run on remote</button>
+    </form>
+    <div id="remote-run-progress" hidden></div>
+  </div>
   <div class="runs-section">
     <h3 class="section-title">Runs</h3>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
@@ -1531,6 +1545,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-k-ecoli74-estimation"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1576,6 +1591,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-k-ecoli307-estimation"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1621,6 +1637,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-fdh-dynamic-estimation"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1666,6 +1683,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-exchange-comparison-grade"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1725,6 +1743,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-fba-bridge-run"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1770,6 +1789,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1818,6 +1838,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.estimation.ketchup_baseline__1781291117__17c61b"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1866,6 +1887,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.estimation.ketchup_baseline__1781291240__39a3de"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1914,6 +1936,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.dynamic.ketchup_dynamic__1781291254__d95513"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -1962,6 +1985,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-v2ecoli.composites.baseline.baseline__1781294008__810680"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -2010,6 +2034,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-v2ecoli.composites.baseline.baseline__1781292628__c9cf06"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -2058,6 +2083,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-v2ecoli.composites.millard2017_metabolism__1781292303__cbfeeb"
             data-run-id=""
             data-spec-id=""
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
@@ -2106,6 +2132,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-k-ecoli74-estimation"
             data-run-id="ketchup-k-ecoli74-estimation"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="ketchup-k-ecoli74-estimation"></td>
           <td>
@@ -2155,6 +2182,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-k-ecoli307-estimation"
             data-run-id="ketchup-k-ecoli307-estimation"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="ketchup-k-ecoli307-estimation"></td>
           <td>
@@ -2204,6 +2232,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-fdh-dynamic-estimation"
             data-run-id="ketchup-fdh-dynamic-estimation"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="ketchup-fdh-dynamic-estimation"></td>
           <td>
@@ -2253,6 +2282,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-exchange-comparison-grade"
             data-run-id="ketchup-exchange-comparison-grade"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="ketchup-exchange-comparison-grade"></td>
           <td>
@@ -2300,6 +2330,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-ketchup-fba-bridge-run"
             data-run-id="ketchup-fba-bridge-run"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="ketchup-fba-bridge-run"></td>
           <td>
@@ -2349,6 +2380,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600"
             data-run-id="pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600"></td>
           <td>
@@ -2396,6 +2428,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.estimation.ketchup_baseline__1781291117__17c61b"
             data-run-id="pbg_ketchup.composites.estimation.ketchup_baseline__1781291117__17c61b"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="pbg_ketchup.composites.estimation.ketchup_baseline__1781291117__17c61b"></td>
           <td>
@@ -2443,6 +2476,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.estimation.ketchup_baseline__1781291240__39a3de"
             data-run-id="pbg_ketchup.composites.estimation.ketchup_baseline__1781291240__39a3de"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="pbg_ketchup.composites.estimation.ketchup_baseline__1781291240__39a3de"></td>
           <td>
@@ -2490,6 +2524,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-pbg_ketchup.composites.dynamic.ketchup_dynamic__1781291254__d95513"
             data-run-id="pbg_ketchup.composites.dynamic.ketchup_dynamic__1781291254__d95513"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="pbg_ketchup.composites.dynamic.ketchup_dynamic__1781291254__d95513"></td>
           <td>
@@ -2537,6 +2572,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-v2ecoli.composites.baseline.baseline__1781294008__810680"
             data-run-id="v2ecoli.composites.baseline.baseline__1781294008__810680"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="v2ecoli.composites.baseline.baseline__1781294008__810680"></td>
           <td>
@@ -2584,6 +2620,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-v2ecoli.composites.baseline.baseline__1781292628__c9cf06"
             data-run-id="v2ecoli.composites.baseline.baseline__1781292628__c9cf06"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="v2ecoli.composites.baseline.baseline__1781292628__c9cf06"></td>
           <td>
@@ -2631,6 +2668,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
         <tr id="run-v2ecoli.composites.millard2017_metabolism__1781292303__cbfeeb"
             data-run-id="v2ecoli.composites.millard2017_metabolism__1781292303__cbfeeb"
             data-spec-id="ketchup-exchange-comparison"
+            data-store-path=""
             data-started-at="">
           <td><input type="checkbox" class="run-compare-checkbox" value="v2ecoli.composites.millard2017_metabolism__1781292303__cbfeeb"></td>
           <td>

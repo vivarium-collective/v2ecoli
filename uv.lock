@@ -4572,7 +4572,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#917e0ae2f2cf2212f10db23f267f43919c29b760" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#6da8364a36632e3f223f2a97ec233b59e86708ec" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },

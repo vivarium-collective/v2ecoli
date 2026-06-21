@@ -23,10 +23,27 @@ V2_PYTHON = ".venv/bin/python"
 V2_BIN = str(Path(V2_PYTHON).parent)
 
 
-def _run(cmd, cwd=None, env=None):
-    proc = subprocess.run(cmd, cwd=cwd, env=env)
-    if getattr(proc, "returncode", 0) != 0:
-        raise RuntimeError(f"command failed ({proc.returncode}): {cmd}")
+def _run(cmd, cwd=None, env=None, retries=0):
+    """Run ``cmd``; on non-zero exit retry up to ``retries`` more times.
+
+    Each attempt is a fresh invocation. The vEcoli workflow stamps every run
+    with a new timestamped nextflow_temp / out dir, so a retry re-runs cleanly
+    rather than resuming partial state — this recovers the transient Nextflow
+    launch/JVM/resource failures that otherwise drop a single seed from a
+    multi-seed batch.
+    """
+    last = None
+    for attempt in range(retries + 1):
+        proc = subprocess.run(cmd, cwd=cwd, env=env)
+        rc = getattr(proc, "returncode", 0)
+        if rc == 0:
+            return
+        last = rc
+        if attempt < retries:
+            print(f"  [orchestrator] command failed (rc={rc}); "
+                  f"retry {attempt + 1}/{retries}: {cmd[0]} ...")
+    raise RuntimeError(
+        f"command failed (rc={last}) after {retries + 1} attempt(s): {cmd}")
 
 
 def _vecoli_env(vecoli_repo: str) -> dict:
@@ -85,8 +102,10 @@ def run_vecoli_sim(*, config_path: str, out_dir: Path,
     if render_only or not is_stale(out_dir, token):
         return out_dir
     vecoli_python = f"{vecoli_repo}/.venv/bin/python"
+    # Nextflow occasionally fails to launch (JVM/resource hiccup); retry so a
+    # transient failure on one seed doesn't drop it from a multi-seed batch.
     _run([vecoli_python, "-m", "runscripts.workflow", "--config", config_path],
-         cwd=vecoli_repo, env=_vecoli_env(vecoli_repo))
+         cwd=vecoli_repo, env=_vecoli_env(vecoli_repo), retries=2)
     mark_done(out_dir, token or "ok")
     return out_dir
 
@@ -97,6 +116,6 @@ def run_v2_sim(*, config_path: str, out_dir: Path,
     if render_only or not is_stale(out_dir, token):
         return out_dir
     _run([V2_PYTHON, "-m", "v2ecoli.workflow.run",
-          "--config", config_path, "--out", str(out_dir)])
+          "--config", config_path, "--out", str(out_dir)], retries=1)
     mark_done(out_dir, token or "ok")
     return out_dir

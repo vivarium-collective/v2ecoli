@@ -22,7 +22,13 @@ for label,(run,col) in RUNS.items():
         +[pl.col(c) for c in BATP+BADP]+[pl.col("bulk__count").list.get(i).alias(k) for k,i in idx.items()]
     ).collect().sort(["generation","global_time"])
     a=lambda c: np.asarray(df[c].to_list(),float)
-    t=a("global_time")/60
+    # STITCH global_time (which RESETS to 0 each generation) into cumulative lineage
+    # minutes, so the multi-generation run lays out SEQUENTIALLY instead of overlaying
+    # every cell cycle on one ~60-min axis (the "two green trajectories" artifact).
+    _gen=a("generation").astype(int); _gt=a("global_time"); _t=np.zeros_like(_gt); _off=0.0
+    for _g in sorted(set(_gen.tolist())):
+        _m=_gen==_g; _t[_m]=(_off+_gt[_m])/60.0; _off+=_gt[_m].max()
+    t=_t
     occ=a(L+"oriC_low_bound_atp")/np.maximum(a(L+"oriC_low_bound_atp")+a(L+"oriC_low_free"),1)
     if label!="cooperative n=6":
         ax1.plot(t,occ,color=col,lw=1.0,alpha=0.8,label=f"{label} (max {occ.max():.2f})")

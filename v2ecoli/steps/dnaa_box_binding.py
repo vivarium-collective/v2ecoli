@@ -120,23 +120,60 @@ KD_LOW_M = 100e-9   # 100 nM — oriC_low (ATP only)
 KD_LOW_NM = 100.0   # KD_LOW_M in nM (the half-sat reference for the cooperative switch)
 
 # dnaa-5: cooperative DnaA-ATP filament assembly at oriC. The oriC LOW-affinity pool
-# fills cooperatively (AAA+ oligomerization) once free [DnaA-ATP] crosses threshold —
-# a Hill switch theta = A^n/(K^n + A^n) replacing the one-site Langmuir A/(K_l+A).
-# Defaults n=1 + K=KD_LOW => EXACTLY the current Langmuir (baseline byte-identical).
+# fills cooperatively (AAA+ oligomerization) once free [DnaA-ATP] crosses threshold.
+# TWO formulations of the same cooperative switch, select via DNAA_ORIC_COOP_MODE:
+#   'hill' (default): theta = A^n/(K^n + A^n), cooperativity in the Hill exponent n.
+#   'kd'           : VARYING dissociation constant — the classical cooperative-binding
+#                    (Adair) model where the i-th DnaA binds the N oriC-low sites with
+#                    K_i = K0 * gamma^(i-1) (gamma<1 => each bound neighbour raises the
+#                    affinity for the next, AAA+ filament cooperativity). This is the
+#                    mechanistic form the DnaA-oriC theory literature uses; the Hill
+#                    form is its reduced-form (large-N / strong-cooperativity) limit.
+# Defaults (hill, n=1, K=KD_LOW) and (kd, gamma=1) BOTH reduce to the one-site Langmuir
+# A/(K_l+A) => baseline byte-identical.
 ORIC_COOPERATIVITY_N = float(os.environ.get("DNAA_ORIC_COOPERATIVITY_N", "1.0"))
 ORIC_HALF_SAT_NM = float(os.environ.get("DNAA_ORIC_HALF_SAT_nM", str(KD_LOW_NM)))
+ORIC_COOP_MODE = os.environ.get("DNAA_ORIC_COOP_MODE", "hill").lower()
+ORIC_KD_COOP = float(os.environ.get("DNAA_ORIC_KD_COOP", "1.0"))      # per-pair cooperativity factor (>1 cooperative)
+ORIC_LOW_N_SITES = int(os.environ.get("DNAA_ORIC_LOW_N_SITES", "8"))  # # oriC low-affinity sites
+
+
+def _oric_low_occupancy_kd(A_free: float, K0: float, n_sites: int, coop: float) -> float:
+    """VARYING-K_d (Adair) mean fractional occupancy of N cooperative oriC-low sites.
+    Binding polynomial term_i = C(N,i) * (A/K0)^i * coop^(i(i-1)/2): the binomial counts
+    the i-bound microstates, and the cooperativity factor `coop` is applied per bound
+    PAIR — equivalently the i-th DnaA binds with dissociation constant K_i = K0/coop^(i-1)
+    (each bound neighbour raises the affinity for the next, AAA+ filament cooperativity).
+    coop=1 => N independent identical sites => exactly the one-site Langmuir A/(K0+A);
+    coop>1 => sharp cooperative switch. Log-space (log-sum-exp) for numerical stability."""
+    import math
+    if A_free <= 0.0 or K0 <= 0.0 or n_sites <= 0:
+        return 0.0
+    lr = math.log(A_free / K0)
+    lc = math.log(coop) if coop > 0.0 else 0.0
+    logterms = [0.0]  # i=0
+    for i in range(1, n_sites + 1):
+        lcoef = math.lgamma(n_sites + 1) - math.lgamma(i + 1) - math.lgamma(n_sites - i + 1)
+        logterms.append(lcoef + i * lr + (i * (i - 1) / 2.0) * lc)
+    m = max(logterms)
+    terms = [math.exp(lt - m) for lt in logterms]
+    den = sum(terms)
+    weighted = sum(i * terms[i] for i in range(n_sites + 1))
+    return weighted / (n_sites * den)
 
 
 def _oric_low_occupancy(A_free: float, kd_low_molecules: float) -> float:
     """Fractional occupancy of the oriC low-affinity pool in free DnaA-ATP A_free
-    (molecules). Cooperative Hill switch (dnaa-5): theta = A^n / (K^n + A^n), with
-    K scaled from kd_low by the half-sat ratio (reuses the nM->molecules conversion).
-    With n=1 and K=KD_LOW this is exactly the one-site Langmuir A/(K_l+A)."""
+    (molecules). Cooperative switch (dnaa-5) — Hill (default) or varying-K_d (Adair),
+    per DNAA_ORIC_COOP_MODE. K0 scaled from kd_low by the half-sat ratio (reuses the
+    nM->molecules conversion). Defaults reduce EXACTLY to the one-site Langmuir."""
     if A_free <= 0.0 or kd_low_molecules <= 0.0:
         return 0.0
     K = kd_low_molecules * (ORIC_HALF_SAT_NM / KD_LOW_NM)
     if K <= 0.0:
         return 0.0
+    if ORIC_COOP_MODE == "kd":
+        return _oric_low_occupancy_kd(A_free, K, ORIC_LOW_N_SITES, ORIC_KD_COOP)
     if ORIC_COOPERATIVITY_N == 1.0:
         return A_free / (K + A_free)
     x = (A_free / K) ** ORIC_COOPERATIVITY_N

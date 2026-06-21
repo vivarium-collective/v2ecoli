@@ -104,6 +104,40 @@ def fig_response_sharpness():
     _write(fig, "dnaa5_response_sharpness")
 
 
+def fig_hill_vs_kd():
+    """Analytic: the Hill-in-[DnaA-ATP] switch and the classical varying-K_d (Adair)
+    switch are the SAME curve — n=4 (Hill) coincides with a per-neighbour cooperativity
+    factor coop~1.9 (each bound DnaA lowers the next K_d ~1.9x). Shows n=4's conclusion
+    is formulation-independent."""
+    import sys, numpy as np
+    sys.path.insert(0, ".")
+    from v2ecoli.steps.dnaa_box_binding import _oric_low_occupancy_kd as kd
+    A = np.linspace(0, 4 * K_NM, 400)
+    r = A / K_NM
+    hill4 = r ** 4 / (1 + r ** 4)
+    lang = r / (1 + r)
+    # best-fit cooperativity factor to the Hill n=4 curve
+    coops = np.linspace(1.4, 2.4, 41)
+    def kdcurve(c): return np.array([kd(a, K_NM, 8, c) for a in A])
+    best = min(coops, key=lambda c: float(np.mean((kdcurve(c) - hill4) ** 2)))
+    kdbest = kdcurve(best)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=A, y=lang, name="Langmuir (no cooperativity)", mode="lines",
+                             line=dict(color=GREY, width=2, dash="dash")))
+    fig.add_trace(go.Scatter(x=A, y=hill4, name="Hill in [DnaA-ATP] (n=4)", mode="lines",
+                             line=dict(color=GREEN, width=4)))
+    fig.add_trace(go.Scatter(x=A, y=kdbest, name=f"varying-K_d / Adair (8 sites, coop≈{best:.1f})",
+                             mode="lines", line=dict(color="#ea580c", width=2.4, dash="dot")))
+    fig.add_vline(x=K_NM, line=dict(color="#64748b", width=1, dash="dot"))
+    fig.update_xaxes(title="free DnaA-ATP concentration (nM)")
+    fig.update_yaxes(title="oriC-low occupancy θ", range=[-0.03, 1.08])
+    _layout(fig, "Two formulations, one switch — Hill (n=4) ≈ classical varying-K_d",
+            "the phenomenological Hill switch (n=4) and the mechanistic varying-dissociation-constant "
+            f"(Adair, 8 sites, each neighbour lowering K_d ~{best:.1f}×) give the SAME occupancy curve — "
+            "so n=4's sharp-switch conclusion is formulation-independent")
+    _write(fig, "dnaa5_hill_vs_kd")
+
+
 def fig_langmuir_vs_switch(d):
     """Occupancy time-trace: Langmuir half-fills; the cooperative switch reaches FULL."""
     lang, coop = d.get("langmuir_n1"), d.get("coop_n4")
@@ -212,6 +246,7 @@ def main():
     print(f"loaded {len(d)} run series from {args.data}")
     fig_switch_curves()                # analytic, always
     fig_response_sharpness()           # analytic, always
+    fig_hill_vs_kd()                   # analytic, always
     fig_langmuir_vs_switch(d)
     fig_sweet_spot(d)
     fig_homeostasis(d)

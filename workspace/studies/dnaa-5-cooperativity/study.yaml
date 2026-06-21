@@ -18,8 +18,7 @@ seeded_from:
 pipeline_gate:
   prerequisites:
   - dnaa-4-autoregulation
-  enables:
-  - dnaa-6-mechanistic-initiation
+  enables: []   # dnaa-6 (mechanistic initiation) set aside from the report 2026-06-21
   gate_status: pass
 
 question: >-

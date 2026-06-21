@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><title>v2ecoli</title>
-<link rel="stylesheet" href="assets/style.css?v=1781997683_1781719029">
+<link rel="stylesheet" href="assets/style.css?v=1782006735_1782006478">
 <link rel="stylesheet" href="assets/snapshot-readonly.css">
 <script>
 // Per-workspace branding (rail logo, title, brand text) is resolved
@@ -349,7 +349,7 @@ window.addEventListener('pageshow', function (e) {
 
     <!-- Brand: fixed Vivarium logo + name (no per-workspace icon/name override). -->
     <div class="viv-rail-header">
-      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1781997683_1781719029" alt="Vivarium" loading="lazy">
+      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1782006735_1782006478" alt="Vivarium" loading="lazy">
       <div class="viv-rail-brand">
         <strong>Vivarium</strong>
         <small>dashboard</small>
@@ -823,6 +823,7 @@ window.addEventListener('pageshow', function (e) {
       <button class="btn-mini" id="investigation-detail-refresh" onclick="_refreshInvestigationDetail()" title="Re-fetch the investigation + its studies from disk. Use after editing YAML files directly (which the dashboard can't see otherwise).">↻ Refresh</button>
       <button class="btn-mini" id="investigation-run-unblocked" onclick="_runUnblockedSimulations()" title="Run every variant whose model_settings don't have any unset 'required-before-run' gates. Sequential — one variant at a time on a background thread. Progress shown in the panel below.">▶ Run unblocked</button>
       <button class="btn-mini" onclick="_generateInvestigationReport()" title="Generate a shareable HTML report (self-contained, attach to email)">Generate report 📄</button>
+      <button class="btn-mini" onclick="_downloadInvestigationNotebook()" title="Download a self-contained Jupyter notebook (+ matching .py) that re-runs this investigation's studies via the process-bigraph protocol and renders their figures. The coder-facing complement to the HTML report.">Download notebook 📓</button>
       <button class="btn-mini" onclick="_openCloneIsetModal()" title="Clone this investigation into a fresh planning state (no run results). Useful for a parallel attempt or a demo fixture.">Clone ⎘</button>
     </div>
     <!-- Run-progress panel: rendered while a run-unblocked job is active. -->
@@ -1601,8 +1602,8 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
 <script src="assets/data-source.js"></script>
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/walkthrough.js?v=1781997683_1781719029" onerror="/* walkthrough unavailable */"></script>
-<script src="assets/github-login.js?v=1781997683_1781719029" onerror="/* github-login unavailable */"></script>
+<script src="assets/walkthrough.js?v=1782006735_1782006478" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/github-login.js?v=1782006735_1782006478" onerror="/* github-login unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher
      (investigation-switcher.js). The /api/workspaces endpoints remain available

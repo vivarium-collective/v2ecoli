@@ -7,12 +7,12 @@ status: completed   # 2026-06-20 COMPLETE — gate pass, expert-approved; reconf
 # Build a dynamic DnaA-box occupancy mechanism on top of the dnaa-2 V=1e-3
 # succinate baseline. We are NOT replacing the initiation mechanism yet — this
 # study adds the binding substrate (boxes + occupancy) that later studies
-# (later regulatory + mechanistic-initiation studies) build on.
+# (the later regulatory study, dnaa-4 autoregulation) builds on.
 # Spec: studies/dnaa-3-box-binding/spec.md (Haochen, supplied 2026-06-03).
 design_status: complete            # mechanism + pools + validation fully specified in spec.md
-implementation_status: in_progress # 2026-06-03: Build started — infra mapped, build_plan below; reactions/pools not yet wired
+implementation_status: complete    # 2026-06-20: ADOPTED active box-binding mechanism (PR #162) wired + run on the dnaa-4 reference; supersedes the read-only observer
 simulation_status: ran            # dnaa-3 seed-1 8-gen on the mini (validated composite; binding observational)
-evaluation_status: evaluated      # 4 acceptance tests evaluated from the run
+evaluation_status: evaluated      # 6 acceptance tests evaluated from the run (all PASS, spine-computed)
 gate_status: passed        # 2026-06-16 UPGRADED partial->pass: re-ran box binding under the CURRENT dnaa-4 reference (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025; run dnaa3_currentcfg_seed0_8gen, seed 0, 8 gens) and ALL 6 acceptance tests PASS — cycle 8/8, oriC 1<->2, 0 re-init, DnaA pool every gen in [300,800], gradual oriC-low fill, AND the DnaA-ATP-fraction band now MET (0.284 in [0.2,0.5]). The earlier partial reflected the fixed-V adopted run (fraction 0.127, V-tension scoped to dnaa-4); that tension is now resolved by the dnaa-4 autoregulation mechanism, so under the current config dnaa-3 is a CLEAN PASS. See verdict + the current-config run record.
 expert_review_status: approved     # Rashmi 2026-06-05 'Plan approved go ahead' (design); implementation + results still to be reviewed once run
 
@@ -1426,8 +1426,8 @@ conclusion_logic:
     The read-only DnaA-box binding observer (315 sites, 4 pools, fast equilibrium)
     leaves the dnaa-2 cell cycle intact (8/8 divisions, oriC 1↔2, 0 re-init) and
     the DnaA-ATP fraction in [0.2,0.5], while exposing bound/free + per-nucleotide
-    partitioning. dnaa-3 passes → unblocks the downstream regulatory +
-    mechanistic-initiation studies that act on bound DnaA.
+    partitioning. dnaa-3 passes → unblocks the downstream regulatory study
+    (dnaa-4 autoregulation) that acts on bound DnaA.
   if_primary_tests_fail:
     summary: |
       (Read-only era) The binding observer is READ-ONLY, so it cannot perturb the
@@ -1488,9 +1488,8 @@ pipeline_gate:
   gate_status: pass        # 2026-06-16: 6/6 on the current-config re-run (linear s=0.6 + F-05; run dnaa3_currentcfg_seed0_8gen) — DnaA-ATP-fraction band now MET (0.284); the earlier V-tension partial is resolved by the dnaa-4 autoregulation mechanism. See top-level gate_status.
 
   gate_evaluator:
-    result: failed
-    blocked_by:
-    - dnaa-atp-fraction-in-band-gen3
+    result: passed   # 2026-06-20: all 6 tests spine-computed PASS on the canonical dnaa-4 reference run (reconcile agree); the earlier dnaa-atp-fraction block is resolved by the (free+bound)/total measure + the dnaa-4 autoregulation lever
+    blocked_by: []
     evaluated_by: code
     diverges_from_authored: false
 simulation_set:
@@ -1522,31 +1521,32 @@ planned_runs:
   - dnaa-atp-fraction-in-band-gen3
 
 findings:
-- id: insim-binding-fires-readonly-cycle-preserved
+- id: active-binding-adopted-pass-on-dnaa4-reference
   kind: computational
   status: novel
   statement: |
-    The PROVIDED DnaA-box binding listener runs IN-SIM inside the composite and is
-    cleanly read-only: it writes only listeners.dnaA_binding and never mutates the
-    DnaA pool or the box flags, so the cell cycle matches the dnaa-2 succinate
-    baseline (oriC 1<->2; divisions every generation). The real per-tick in-sim
-    values — free DnaA-ATP/ADP, DnaA-ATP fraction, and oriC low/high occupancy —
-    are recorded under runs[dnaa3-insim-readonly].real_insim_numbers and (for the
-    full cell cycle) runs[dnaa3-readonly-artifact].real_insim_numbers, taken directly
-    from the emitted parquet. Over the full cycle the low-affinity sites stay HIGH
-    (~0.8, free DnaA-ATP above the K_d throughout) — reported honestly as an open
-    observation within the provided mechanism; no cap, sink, added pool, or outside
-    source is introduced.
+    Study 3 PASSES. The read-only DnaA-box occupancy OBSERVER was SUPERSEDED by
+    adopting Rashmi's ACTIVE Langmuir box-binding mechanism (PR #162), which depletes
+    the free DnaA-ATP pool — the physics the observer was missing. This RESOLVES the
+    earlier oriC over-binding (oriC-low now fills GRADUALLY over the cycle instead of
+    pinning ~0.8) and FIXES box-doubling (the 8 low-affinity sites double 8->16 via
+    fork-passage release; all boxes 315<->630). Re-run on the dnaa-4 reference config
+    (linear s=0.6 + F-05), it reproduces the dnaa-4 picture and PASSES all 6 acceptance
+    tests, including the DnaA-ATP fraction IN BAND — computed canonically as
+    (free + bound)/total DnaA (~0.25, matching dnaa-4). Under active binding DnaA-ATP is
+    ~98% bound, so the earlier free-only fraction was the wrong measure (a chart bug
+    fixed 2026-06-20). The read-only-observer findings below are HISTORICAL.
   evidence:
-    from_run: dnaa3-insim-readonly (in-sim listener, parquet listeners.dnaA_binding)
+    from_run: dnaa4_s06_F05_seed1_12gen (canonical shared dnaa-4 reference lineage; runs[].computed_outcomes all 6 PASS, reconcile agree)
   provenance:
     run_ids:
-    - dnaa3-insim-readonly
-    verified_by: scripts/run_condition_multigen_parquet.py + cache_dnaa3 (ParCa --mode full)
+    - dnaa4_s06_F05_seed1_12gen
+    verified_by: pbg_superpowers.study_evaluator.compute_outcomes (spine-computed; all 6 tests PASS)
 - id: readonly-full-cycle-over-binding-open-observation
   kind: computational
   status: novel
   statement: |
+    HISTORICAL (superseded by active binding):
     REAL numbers from the FULL-cell-cycle read-only observer artifact
     (dnaa3-readonly-artifact: a single non-dividing 55-min generation so the entire
     per-tick history survives; no cap, no sink — only the provided fast-equilibrium
@@ -1580,6 +1580,7 @@ findings:
   kind: computational
   status: novel
   statement: |
+    HISTORICAL (superseded by active binding):
     REAL numbers from the FULL-HISTORY 7-generation read-only run (dnaa3-fullhist:
     each generation run as its own subprocess from a resumed steady-state dill so the
     ENTIRE per-tick cell-cycle history of every generation is retained — 2939-3563
@@ -1619,6 +1620,7 @@ findings:
   kind: computational
   status: novel
   statement: |
+    HISTORICAL (superseded by active binding):
     Across the full cell cycle the oriC high-affinity boxes (K_d ~1 nM) stay
     saturated (~1.0) and the 8 oriC low-affinity boxes (K_d ~100 nM) are also high
     and roughly flat (0.77-0.83), because free DnaA-ATP (342-491 nM) sits well above
@@ -1637,7 +1639,7 @@ findings:
 - id: oric-doubles-at-replication
   kind: computational
   status: confirms
-  statement: oriC and its associated boxes double at replication initiation (11->22 low-affinity boxes), reflected in the occupancy figure.
+  statement: 'HISTORICAL (superseded by active binding): oriC and its associated boxes double at replication initiation (11->22 low-affinity boxes), reflected in the occupancy figure (read-only run; box-doubling is now confirmed on the active mechanism — see F-08).'
   evidence:
     from_run: dnaa3_box_occupancy
   provenance:

@@ -6,8 +6,8 @@ created: '2026-06-10'
 status: completed   # 2026-06-20 COMPLETE — established reference config (linear s=0.6 + F-05); multi-seed (0/1/2) done; gate partial only on the seed-sensitive DnaA-ATP fraction (a noted caveat, homeostasis robust). 2026-06-10 SCOPED + first diagnostic done. The next mechanism study, off the back of dnaa-3 (box-binding adopted) + the verified autoregulation gap. Wiring the DnaA-ATP→dnaA-promoter negative recruitment edge (coupled to the adopted dnaA-promoter box occupancy) so DnaA self-stabilizes in [300,800] WITHOUT the manual V override — to dissolve the dnaa-1/dnaa-2 V tension + per-gen drift at the root.
 
 # Canonical 6-axis status
-design_status: in_progress      # scoping done (SCOPING.md); mechanism design = wire the autorepression edge
-implementation_status: done     # next: wire the DnaA-ATP→TU00259 negative recruitment edge
+design_status: done             # scoping done (SCOPING.md); autorepression-edge mechanism designed + wired
+implementation_status: done     # DnaA-ATP→TU00259 negative recruitment edge wired (linear s=0.6 + F-05 canonical)
 simulation_status: ran
 evaluation_status: evaluated
 gate_status: partial
@@ -740,8 +740,8 @@ study_card:
     override, and does it close the V tension (Rashmi's autoregulation-gap handoff)?
   why_before_next: |
     The autoregulation edge + the homeostasis result it exposes (V is cancelled by
-    feedback) are prerequisites for any downstream mechanistic-initiation study that
-    assumes a self-regulating DnaA pool.
+    feedback) are prerequisites for any downstream study that assumes a
+    self-regulating DnaA pool (e.g. dnaa-5 cooperativity).
 
 biological_summary: |
   In E. coli, the replication initiator DnaA negatively autoregulates its own gene.
@@ -890,26 +890,45 @@ conclusion_verdicts:
 
 findings:
 - id: F-01
-  statement: Ran s=0.7 Hill 3-seed; band-centered for 2/3 seeds; resume-stability probe blocked by a dill-roundtrip tooling bug (documented).
-  status: draft
+  statement: >-
+    Canonical result — LINEAR DnaA autoregulation s=0.6 + F-05 kinetic apo+ATP charging
+    (V=1.5e-3, k_h=0.025/min; commit eb4ea39): the autoregulated DnaA homeostasis is ROBUST
+    across seeds 0/1/2 — total-DnaA pool sits in [300,800] every steady generation g4-11 with
+    a clean cell cycle (12/12 divided, oriC 1<->2, 0 re-inits). The DnaA-ATP-fraction band
+    [0.2,0.5] holds on seed 1 only (0.261, matching Rashmi's reference); seeds 0/2 fall below
+    0.2 — so dnaa-4 is an honest PARTIAL on the fraction. This linear s=0.6 + F-05 reference
+    SUPERSEDES the earlier Hill s=0.7 exploration (only 2/3 seeds in band) and the s=0.65/F-06
+    attempt (band-centered but stalled division).
+  status: evaluated
   from_feedback: fb-ae3c03d2f5fae8bb
   provenance:
-    run_ids: [dnaa4_s07_seed0, dnaa4_s07_seed1, dnaa4_s07_seed2]   # the 3-seed s=0.7 round this finding reports
+    run_ids: [dnaa4_s06_F05_seed0_12gen, dnaa4_s06_F05_seed1_12gen, dnaa4_s06_F05_seed2_12gen]   # the canonical linear s=0.6 + F-05 3-seed runs this headline reports
 - id: F-02
-  statement: 'Answered via the homeostasis finding: V is cancelled by feedback; band-centering achieved via s=0.7 (feedback strength is the lever).'
+  statement: >-
+    Homeostasis (form-independent — the central mechanism result): the autoregulation makes
+    the DnaA setpoint INSENSITIVE to the constitutive expression rate V — raising V is cancelled
+    by stronger repression — so the setpoint is tuned by the FEEDBACK STRENGTH at a stable
+    V=1.5e-3, not by V. This reframes and dissolves the dnaa-1/dnaa-2 V tension. Band-centering
+    is delivered by the canonical linear s=0.6 + F-05 reference (see F-01/F-07).
   status: draft
   from_feedback: fb-db23ebc5d0ed0bfb
   provenance:
-    run_ids: [dnaa4_s07_seed0, dnaa4_s07_seed1, dnaa4_s07_seed2]   # band-centering via s=0.7 demonstrated by these runs (the V-cancellation context is the registered V=1.5e-3 control/linear/Hill runs above)
+    run_ids: [dnaa4_s06_F05_seed0_12gen, dnaa4_s06_F05_seed1_12gen, dnaa4_s06_F05_seed2_12gen]   # the V-cancellation context is the registered V=1.5e-3 control/linear/Hill runs above; band-centering is the canonical linear s=0.6 + F-05 runs
 - id: F-03
-  statement: 'Tests run (evaluator): cell-cycle-preserved PASS (robust, all 3 seeds, oriC<=2/0 re-init); DnaA-pool-in-band PARTIAL (strict per-gen FAIL on the g17 partial gen + seed0 noise; 2/3 seeds in-band for full gens g3-16). Not a clean pass -> the box-binding redo on the autoreg expression is pending your call given PARTIAL (and dnaa-4 already runs box-binding UNDER the autoreg expression, so those dynamics are already in the s=0.7 runs).'
+  statement: >-
+    Test outcomes on the canonical linear s=0.6 + F-05 reference (seeds 0/1/2): cell-cycle-preserved
+    PASS robustly on all 3 seeds (oriC 1<->2, 0 re-inits, 12/12 divided); total-DnaA-pool-in-band PASS
+    on all 3 seeds (every steady gen g4-11 in [300,800]); the DnaA-ATP-fraction band is the only PARTIAL
+    axis — in band on seed 1 only (0.261), seeds 0/2 below 0.2. Hence gate_status PARTIAL: homeostasis
+    robust, the fraction band seed-1-specific.
   status: draft
   from_feedback: fb-6bb05a4528f336e1
   provenance:
-    run_ids: [dnaa4_s07_seed0, dnaa4_s07_seed1, dnaa4_s07_seed2]   # the evaluated test outcomes this finding summarizes come from these 3 seeds
+    run_ids: [dnaa4_s06_F05_seed0_12gen, dnaa4_s06_F05_seed1_12gen, dnaa4_s06_F05_seed2_12gen]   # the evaluated test outcomes this finding summarizes come from the canonical 3-seed reference
 - id: F-04
   statement: >-
-    Box-binding dynamics UNDER the s=0.7 autoregulated expression (analyzed from the existing
+    HISTORICAL (superseded by linear s=0.6 + F-05; the binding-under-the-reference view now lives in
+    dnaa-3, re-run on the current config). Box-binding dynamics UNDER the s=0.7 autoregulated expression (analyzed from the existing
     dnaa4_s07_seed{0,1,2} runs, steady gens >=3): high-affinity boxes stay well-occupied
     (chromosomal_high 0.70/0.89/0.95, oriC_high 0.69/0.88/0.93, dnaA-promoter_high 0.67/0.86/0.90
     across seed0/1/2), while the LOW-AFFINITY oriC boxes (K_d 100 nM) stay MOSTLY EMPTY
@@ -967,10 +986,12 @@ findings:
     run_ids: [dnaa4_atpkinetic_g6b, dnaa4_s07_seed1_16gen_fixed]
 - id: F-06
   statement: >-
-    Band-centering CLOSED via feedback strength (s/seed sweep, 2026-06-15): the dnaa-4
+    HISTORICAL (superseded by linear s=0.6 + F-05): the s=0.65 attempt below band-centered but stalled
+    division, which is why the linear s=0.6 + F-05 reference was adopted instead.
+    Band-centering via feedback strength (s/seed sweep, 2026-06-15): the dnaa-4
     DnaA-pool-in-band test was PARTIAL at s=0.7 — seed 0's per-generation MEAN dipped out of
-    [300,800] at g11-13 (246/187/269) while seeds 1,2 held. A focused sweep (RIDA/DDAH/DARS
-    DISABLED — pure dnaa-4) resuming seed 0 from its gen-8 dill through the failing window
+    [300,800] at g11-13 (246/187/269) while seeds 1,2 held. A focused sweep (other DnaA-ATP
+    regulators disabled — pure dnaa-4) resuming seed 0 from its gen-8 dill through the failing window
     g9-14 shows s=0.65 THREADS THE NEEDLE: every generation mean lands in band (409-545) AND
     the peak stays under 800 (781), converting the previously-failing gens to a clean per-gen
     PASS. s=0.60 also lifts the means in-band but the peak breaks 800 (827) — too weak. So
@@ -979,7 +1000,7 @@ findings:
     generation-AVERAGE (operator generation_average_in_range) — at s=0.65 all gen-means are
     in-band, though the instantaneous trough still grazes ~251 momentarily; (2) this is seed 0
     resumed through its dip window — a fully robust clean-pass claim needs a 3-seed fresh
-    16-gen run at s=0.65 (RIDA/DARS off). CONFIRMATION RESULT (2026-06-15) — s=0.65 NOT
+    16-gen run at s=0.65 (other DnaA-ATP regulators off). CONFIRMATION RESULT (2026-06-15) — s=0.65 NOT
     ADOPTED: the fresh runs reveal a TRADE-OFF the resume-sweep hid. WHERE s=0.65 completes
     (seed 2, all 16 gens) the band IS a clean per-gen pass (g3-16 means 320-611, all in
     [300,800]) — band-centering confirmed. BUT s=0.65 induces a progressive division
@@ -1003,7 +1024,7 @@ findings:
     canonical dnaa-4 autoregulation is LINEAR (1 - s*f) at s=0.6 WITH F-05 (kinetic apo+ATP
     charging, integrate_dt_mask[24]=True) at V=1.5e-3, K_d 3/100 nM, k_h=0.025. Rashmi tried
     this combination herself (PDF v1.5e-3_s06_F05_seed1) and asked us to verify. REPRODUCED
-    cleanly (run dnaa4_s06_F05_seed1_12gen, fresh 12-gen seed 1, RIDA/DDAH/DARS off): cell
+    cleanly (run dnaa4_s06_F05_seed1_12gen, fresh 12-gen seed 1, other DnaA-ATP regulators off — pure dnaa-4): cell
     cycle CLEAN (12/12 divided, oriC 1<->2 every gen, tau ~55-71 min), DnaA total per-gen mean
     in [300,800] for EVERY steady generation g4-11 (326-435) — a CLEAN band pass — and DnaA-ATP
     fraction 0.261 (in band [0.2,0.5]). Both pages of her PDF reproduce (trajectory:
@@ -1026,7 +1047,7 @@ findings:
   statement: >-
     MULTI-SEED CONFIRMATION of the F-07 linear-s=0.6+F-05 reference (seeds 0 and 2, 2026-06-16,
     12 generations each, byte-identical config: cache out/cache_dnaa4_s06_F05, V=1.5e-3,
-    DNAA_AUTOREG_FORM=linear, DNAA_AUTOREG_STRENGTH=0.6, k_h=0.025, K_d 3/100 nM, RIDA/DDAH/DARS off).
+    DNAA_AUTOREG_FORM=linear, DNAA_AUTOREG_STRENGTH=0.6, k_h=0.025, K_d 3/100 nM, other DnaA-ATP regulators off — pure dnaa-4).
     RESULT — the HOMEOSTASIS is ROBUST across all three seeds: every seed divides 12/12 with oriC 1<->2
     and 0 re-inits, and the TOTAL-DnaA pool sits in [300,800] on every steady generation g4-11 (seed 0
     per-gen total-mean 315-392; seed 1 326-435; seed 2 382-539). So the autoregulated DnaA homeostasis +

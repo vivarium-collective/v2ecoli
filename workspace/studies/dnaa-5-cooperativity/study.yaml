@@ -8,17 +8,17 @@ design_status: designed
 implementation_status: implemented
 simulation_status: ran
 evaluation_status: evaluated
-gate_status: passed   # cooperativity validated at n=4, K=30 — switch works (oriC-low reaches full) + dnaa-3/4 preserved. n=6 too strong (pool dips). Phase-locking payoff is dnaa-6.
+gate_status: passed   # cooperativity validated at n=4, K=30 — switch works (oriC-low reaches full) + dnaa-3/4 preserved. n=6 too strong (pool dips). Phase-locking the switch to the initiation event is out of scope for this report.
 expert_review_status: pending
 
 seeded_from:
   study: dnaa-3-box-binding
-  why: "dnaa-3 correctly shows oriC partial, gradual filling (independent-site binding, no cooperativity) — the right result for that study. dnaa-5 ADDS the cooperativity that makes the oriC filament switch-like, the prerequisite for any DnaA-ATP-triggered initiation (dnaa-6)."
+  why: "dnaa-3 correctly shows oriC partial, gradual filling (independent-site binding, no cooperativity) — the right result for that study. dnaa-5 ADDS the cooperativity that makes the oriC filament switch-like, the prerequisite for a future DnaA-ATP/oriC initiation trigger (out of scope for this report)."
 
 pipeline_gate:
   prerequisites:
   - dnaa-4-autoregulation
-  enables: []   # dnaa-6 (mechanistic initiation) set aside from the report 2026-06-21
+  enables: []   # a downstream mechanistic-initiation trigger is out of scope for this report (set aside 2026-06-21)
   gate_status: pass
 
 question: >-
@@ -29,8 +29,9 @@ question: >-
 background: >-
   dnaa-3 built oriC DnaA-box binding as an independent-site (Langmuir) equilibrium — correctly
   giving PARTIAL, gradual oriC-low occupancy (~0.23, CV 0.62). That is the right dnaa-3 result.
-  But it is not switch-like, so it cannot reliably trigger initiation — dnaa-6 (the first-pass
-  initiation swap) collapsed precisely because the oriC boxes stochastically fail to saturate.
+  But it is not switch-like, so it cannot reliably trigger initiation — a first-pass DnaA-ATP/oriC
+  initiation trigger (out of scope for this report) collapses precisely because the oriC boxes
+  stochastically fail to saturate.
   Biologically, initiation is switch-like because DnaA-ATP bound at the high-affinity boxes
   NUCLEATES a filament that fills the low-affinity sites COOPERATIVELY (AAA+ oligomerization) —
   an all-or-none transition once free [DnaA-ATP] crosses threshold. dnaa-5 adds that physics.
@@ -52,7 +53,7 @@ mechanism: >-
 implementation_requirements:
 - "dnaa_box_binding.py::_solve_pool — swap the pool-2 (oriC-low) one-site Langmuir quadratic for the cooperative Hill form; condition on oriC-high nucleation."
 - "New env params DNAA_ORIC_COOPERATIVITY_N (Hill n) and DNAA_ORIC_HALF_SAT_nM (K); default n=1 reduces to the current model (baseline byte-identical)."
-- "No listener change — replication_data already emits oriC occupancy; the dnaa-6 trigger already reads it."
+- "No listener change — replication_data already emits oriC occupancy; a downstream initiation trigger could read it directly."
 
 enforced_params:
   params:
@@ -104,11 +105,11 @@ tests:
   result: "PASS — the cooperative occupancy is theta = A^n/(K^n+A^n) with n=6 (effective Hill 6 >= 3). Unit-verified: n=6 gives 0.015/0.5/0.985 at 0.5K/K/2K (sharp) vs n=1's 0.33/0.5/0.67 (gradual). See dnaa5_switch_curve."
 - name: trigger-signal-stable
   classification: primary
-  description: "The oriC-low switch reaches a full, reproducible occupancy (the switch exists). NOTE: phase-locking the switch to the initiation EVENT (low occ-at-init CV) requires the mechanistic trigger, so that part is deferred to dnaa-6 — under the mass trigger the switch fires unsynced to initiation, so occ-at-init is bimodal by construction."
+  description: "The oriC-low switch reaches a full, reproducible occupancy (the switch exists). NOTE: phase-locking the switch to the initiation EVENT (low occ-at-init CV) requires a mechanistic initiation trigger, so that part is out of scope for this report — under the mass trigger the switch fires unsynced to initiation, so occ-at-init is bimodal by construction."
   measure: {kind: derived, path: "max oriC-low occupancy reached (switch existence)"}
   pass_if: {op: ">=", value: 0.9}
   status: passed
-  result: "PASS — at n=4 the oriC-low occupancy reaches max 1.00 (a full switch) vs the Langmuir's 0.50. Phase-locking to initiation is the dnaa-6 re-test (re-point the trigger to oriC-low)."
+  result: "PASS — at n=4 the oriC-low occupancy reaches max 1.00 (a full switch) vs the Langmuir's 0.50. Phase-locking to initiation (re-pointing the trigger to oriC-low) is out of scope for this report."
 - name: dnaa3-4-preserved
   classification: primary
   description: "Steady-state cell cycle + DnaA pool [300,800] + DnaA-ATP fraction [0.2,0.5] unchanged by cooperativity."
@@ -152,8 +153,8 @@ visualizations:
       The cooperative oriC switch. oriC-low occupancy vs free DnaA-ATP: dnaa-3's independent-site
       Langmuir (grey, n=1) is gradual and partial; the dnaa-5 cooperative Hill (green, n=6, K=30 nM)
       is a sharp all-or-none switch crossing in the ~19-30 nM free-DnaA-ATP range seen near
-      initiation. This is the missing physics dnaa-6 showed is required before the DnaA-ATP/oriC
-      initiation trigger can be adopted.
+      initiation. This is the missing physics required before a future DnaA-ATP/oriC initiation
+      trigger (out of scope for this report) could be adopted.
 
 - name: dnaa5_cooperative_validation
   address: image:charts/dnaa5_cooperative_validation.png
@@ -176,7 +177,7 @@ runs:
   note: "Cooperative binding n=4, K=30 nM, MASS trigger, dnaa-4 reference config, seed 1, 8/8 divided."
   outcomes:
     switch-is-sharp: {result: PASS, detail: "oriC-low occupancy reaches max 1.00 (full switch) vs Langmuir 0.50."}
-    trigger-signal-stable: {result: PASS, detail: "switch reaches full, reproducible occupancy; phase-locking deferred to dnaa-6."}
+    trigger-signal-stable: {result: PASS, detail: "switch reaches full, reproducible occupancy; phase-locking to initiation is out of scope for this report."}
     dnaa3-4-preserved: {result: PASS, detail: "DnaA pool 454-334 in [300,800] every steady gen; DnaA-ATP fraction 0.276 in [0.2,0.5]; clean 8/8 cycle, oriC 1<->2, 0 re-inits."}
 - name: dnaa5_coop_n4_k30_seed0_8gen
   status: completed
@@ -205,6 +206,17 @@ runs:
   outcomes:
     dnaa3-4-preserved: {result: FAIL, detail: "DnaA pool dips to 246 (< 300) in mid-gens — cooperativity too strong at n=6, K=30."}
 
+embed_visualizations:
+- name: "Switch curve — cooperativity sharpens the oriC-low filament"
+  url: /reports/figures/dnaa-5-cooperativity/dnaa5_switch_curve_interactive.html
+  caption: "θ = Aⁿ/(Kⁿ+Aⁿ), K=30 nM. The Langmuir (n=1) fills gradually; the cooperative filament snaps all-or-none. n=4 is the operating point (sharp switch + homeostasis preserved); n=6 is too sharp and over-depletes the pool. Analytic (the Hill model itself)."
+- name: "On/off contrast — the switch sharpens with cooperativity"
+  url: /reports/figures/dnaa-5-cooperativity/dnaa5_response_sharpness.html
+  caption: "A small rise in free DnaA-ATP (½K → 2K) flips oriC-low occupancy from ~0 to ~1 at n≥4 (on/off contrast 0.94 at n=4) versus the Langmuir's gradual 0.33 → 0.67 (contrast 0.33). Unit-verified analytic values matching the study (n=6: 0.015/0.5/0.985)."
+# Run-derived figures (occupancy time-trace, sweet-spot from real runs, homeostasis-preserved,
+# multi-seed) are generated by scripts/make_dnaa5_figures.py from the mini run data — pending a
+# Tailscale re-auth to extract; they will be added here once built.
+
 report:
   title: "dnaa-5 — cooperative DnaA-ATP oriC switch"
   verdict: >-
@@ -216,12 +228,12 @@ report:
     DnaA pool every steady gen in [300,800], DnaA-ATP fraction 0.276 in [0.2,0.5], clean 8/8 cycle,
     oriC 1<->2, 0 re-inits. (3) n=6 is TOO STRONG — it depletes the pool below 300 (dips to 246),
     so n=4 is the operating point. dnaa-3's partial filling stays correct-by-design; dnaa-5 is
-    additive (n=1 recovers it exactly). KEY HANDOFF TO dnaa-6: the switch is on oriC-LOW (the
-    cooperative filament-completion signal), but the dnaa-6 first-pass trigger fired on oriC-HIGH
-    saturation — so dnaa-6 must RE-POINT the mechanistic trigger to the oriC-low cooperative switch
-    (oriC_low_bound_atp >= threshold) to get phase-locking between filament completion and
-    initiation. The occupancy is now switch-like and reproducible; the cycle-coupling payoff is the
-    dnaa-6 re-test. MULTI-SEED ROBUSTNESS (seeds 0/1/2, 2026-06-20): the cooperative switch is
+    additive (n=1 recovers it exactly). FUTURE WORK (out of scope for this report): the switch is on
+    oriC-LOW (the cooperative filament-completion signal), so a mechanistic initiation trigger would
+    need to fire on the oriC-low cooperative switch (oriC_low_bound_atp >= threshold) to get
+    phase-locking between filament completion and initiation. The occupancy is now switch-like and
+    reproducible; the cycle-coupling payoff is left to future work. MULTI-SEED ROBUSTNESS (seeds
+    0/1/2, 2026-06-20): the cooperative switch is
     seed-robust on homeostasis — all 3 seeds give 8/8 divisions, oriC 1<->2, 0 re-inits, and the
     DnaA pool in [300,800] (g3+ mean 332/380/376). The DnaA-ATP fraction band [0.2,0.5] holds on
     seed 1 only (0.171/0.276/0.194) — the SAME seed-sensitivity already documented for dnaa-4 (the
@@ -235,7 +247,8 @@ findings:
     The cooperative DnaA-ATP oriC switch works: replacing the oriC-low independent-site Langmuir
     with a Hill form (n=4, K=30 nM, flag-gated; n=1 recovers the dnaa-3 Langmuir exactly) makes the
     oriC-low occupancy snap to FULL (max 1.00, bimodal) versus the Langmuir's gradual partial
-    (max 0.50), with an effective Hill of 4-6. This is the switch-like trigger signal dnaa-6 needs.
+    (max 0.50), with an effective Hill of 4-6. This is the switch-like trigger signal a future
+    DnaA-ATP/oriC initiation trigger would need (out of scope for this report).
   status: evaluated
   provenance:
     run_ids: [dnaa5_coop_n4_k30_seed1_8gen]
@@ -262,18 +275,20 @@ conclusion_logic:
   if_primary_tests_pass: >-
     Cooperativity gives a sharp oriC-low switch (occupancy reaches full, reproducible) while
     preserving the dnaa-3/4 steady-state cell cycle and DnaA / DnaA-ATP levels (at n=4, K=30).
-    The binding is now switch-like — the prerequisite dnaa-6 needs — so dnaa-6 can re-test the
-    mechanistic initiation trigger (re-pointed to the oriC-low switch) for sustained cycling.
+    The binding is now switch-like — the prerequisite a future mechanistic initiation trigger
+    (re-pointed to the oriC-low switch) would need for sustained cycling, which is out of scope for
+    this report.
   if_primary_tests_fail: >-
     If cooperativity could not produce a sharp switch without breaking the DnaA bands or the cell
     cycle, the mechanistic initiation trigger would remain blocked and an alternative switch
     mechanism (explicit MWC filament, or a different threshold/Hill regime) would be required.
 
 next_action: >-
-  Hand off to dnaa-6: re-point the mechanistic initiation trigger from oriC-HIGH saturation to the
-  oriC-LOW cooperative switch (oriC_low_bound_atp >= threshold), run with cooperative binding
-  (n=4, K=30), and test whether the cell now cycles sustainably (no gen-2 collapse) — the payoff
-  of the whole chain. Optional: a finer (n, K) sweep to optimize the switch timing.
+  Study self-contained at this gate (cooperative switch validated at n=4, K=30). FUTURE WORK, out
+  of scope for this report: a mechanistic initiation trigger re-pointed from oriC-HIGH saturation to
+  the oriC-LOW cooperative switch (oriC_low_bound_atp >= threshold), run with cooperative binding
+  (n=4, K=30), to test whether the cell cycles sustainably (no gen-2 collapse); optionally a finer
+  (n, K) sweep to optimize the switch timing.
 
 biological_summary: >-
   E. coli initiation is switch-like: DnaA-ATP nucleates at the oriC high-affinity boxes and the

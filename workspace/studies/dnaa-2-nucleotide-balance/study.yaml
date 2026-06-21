@@ -76,7 +76,7 @@ runtime:
 
 report:
   title: dnaa-2 — DnaA nucleotide-state partitioning (succinate)
-  verdict: pass   # re-verified multi-seed (0+1+2) on the corrected emitter; all 4 behaviours pass on Rashmi's generation-average criterion (awaiting her re-approval)
+  verdict: pass   # re-verified multi-seed (0+1+2) on the corrected emitter; all 4 behaviours pass on Rashmi's generation-average criterion (Rashmi RE-APPROVED 2026-06-10)
   confidence: high
   evidence_quality: empirical
 
@@ -199,10 +199,30 @@ conclusion_verdicts:
       [ATP]:[ADP] / expected-fraction revision needed.
 
 findings:
+- id: dnaa-atp-fraction-passes-in-band-multiseed
+  kind: computational
+  summary: |
+    HEADLINE / CURRENT RESULT (re-verified 2026-06-09, multi-seed). Study 2 PASSES.
+    Haochen's bf8b82e kinetic intrinsic-hydrolysis mechanism — the DnaA-ADP reaction
+    kept bidirectional + flagged integrate_dt (literal k_r = 1×10⁻⁷/s), with DnaA-ATP
+    intrinsic hydrolysis as a one-way kinetic reaction (k = 0.046/min), superseding
+    the rejected 0.03/min workaround — drives the DnaA-ATP fraction OFF the ~0.997
+    fast-equilibrium pin and INTO the Boesen 2024 [0.2,0.5] band. Validated multi-seed
+    (seeds 0/1/2 × 8 gens, corrected emitter): generation-average DnaA-ATP fraction
+    0.268/0.267/0.302, all in band; mass-doubling 8/8 and oriC 1↔2 every seed. The
+    acceptance bar is the generation average (early gens may transiently sit out of
+    band while stabilizing).
+  evidence:
+    from_run: dnaa2-reverify-multiseed-v1e3 (seeds 0/1/2 × 8 gens, corrected emitter)
+  provenance:
+    run_ids: [dnaa2-reverify-multiseed-v1e3]
+    verified_by: out/dnaa2_reverify_v1e3_seed{0,1,2} bulk-species DnaA-ATP fraction + oriC + mass
+  status: confirms
+  statement: 'Study 2 PASSES: Haochen''s kinetic intrinsic-hydrolysis mechanism (DnaA-ADP reaction bidirectional + integrate_dt, superseding the rejected 0.03/min workaround) drives the DnaA-ATP fraction off the ~0.997 fast-equilibrium pin into the Boesen [0.2,0.5] band — generation-average 0.268/0.267/0.302 across seeds 0/1/2 — with mass-doubling 8/8 and oriC 1↔2 every seed (run dnaa2-reverify-multiseed-v1e3).'
 - id: fraction-drift-is-total-dnaa-dependence-not-atp-adp-drift
   kind: computational
   summary: |
-    DIAGNOSIS (2026-06-04, seed-1 8-gen) of why the DnaA-ATP fraction drifts low
+    SECONDARY DIAGNOSIS (2026-06-04, seed-1 8-gen) of why the DnaA-ATP fraction drifts low
     in later generations. The background [ATP]:[ADP] ratio is CONSTANT at 20.3
     across all 8 gens (pinned by metabolism) — so the drift is NOT a nucleotide-
     ratio drift. Instead the DnaA-ATP fraction is strongly ANTI-correlated with
@@ -222,7 +242,7 @@ findings:
     run_ids: [dnaa2-seed1-8gen]
     verified_by: out/dnaa2_seed1_8gen bulk species; corr -0.88, [ATP]:[ADP]=20.3 constant
   status: novel
-  statement: 'The drift in the DnaA-ATP fraction is driven by total DnaA abundance, not by ATP/ADP nucleotide drift: the per-tick %DnaA-ATP-vs-total analysis across all 8 generations (run dnaa2-seed1-8gen) shows the fraction moves with the size of the total pool, isolating the real driver.'
+  statement: 'SECONDARY DIAGNOSIS (not the verdict — see the headline PASS finding): the residual low-edge drift of the in-band DnaA-ATP fraction is driven by total DnaA abundance, not by ATP/ADP nucleotide drift — the per-tick %DnaA-ATP-vs-total analysis across all 8 generations (run dnaa2-seed1-8gen) shows the fraction moves with the size of the total pool, isolating the real driver.'
 - id: dnaa-atp-fraction-in-band-via-integrate-dt
   kind: computational
   summary: |
@@ -242,7 +262,7 @@ findings:
     run_ids: [seed0-v1e-3-6gen-ondisk]
     verified_by: out/dnaa2_seed0_parquet bulk-species DnaA-ATP fraction (2026-06-03)
   status: confirms
-  statement: Computing the DnaA-ATP fraction with the integrate-dt accumulator brings the cycle-mean into the Boesen [0.2, 0.5] band (run seed0-v1e-3-6gen), confirming the in-band target is reachable with the corrected measurement.
+  statement: 'HISTORICAL (early single-seed confirmation; its "clean reproduction pending" caveat is now CLOSED by the multi-seed re-verify above): computing the DnaA-ATP fraction with the integrate-dt accumulator brought the cycle-mean into the Boesen [0.2, 0.5] band (run seed0-v1e-3-6gen), an early confirmation that the in-band target is reachable with the corrected measurement.'
 - id: fast-equilibrium-assumption-was-the-artefact
   kind: computational
   summary: |
@@ -960,4 +980,4 @@ pipeline_gate:
   prerequisites:
   - dnaa-1-expression
   enables: []
-  gate_status: pending   # strict per-gen DnaA-ATP band NOT clean on the on-disk run; clean 7-gen reproduction needed
+  gate_status: passed   # PASS on Rashmi's generation-average criterion (multi-seed 0/1/2, corrected emitter); the strict per-gen reading was superseded + Rashmi re-approved 2026-06-10

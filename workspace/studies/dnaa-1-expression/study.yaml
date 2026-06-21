@@ -1179,6 +1179,16 @@ readouts:
   notes: Periodic sawtooth; every generation divides with chromosomes=2 and d_period_elapsed=True.
 
 findings:
+# Leading (headline) finding — the card "Finds:" headline renders from findings[0].statement.
+# Reconciled 2026-06-09 to the CANONICAL V=0.8e-3 result; the older descriptive
+# "pool doubles per cycle" finding (still true, kept for provenance) is demoted below.
+- id: canonical-v0.8e-3-in-band-steady
+  kind: computational
+  status: novel
+  provenance:
+    run_ids:
+    - dnaa1-v08e3-canonical-2026-06-09
+  statement: 'At the canonical Mechanism-A override V = 0.8e-3 the total DnaA monomer pool oscillates WITHIN the literature band [300,800] across the steady generations (cycle-mean ~362, peaks <800, troughs ~207) while the cell cycle stays clean (oriC 1↔2, a division every generation) — a PASS on the expert''s in-band + steady criterion. The ~0.6/min dnaA mRNA initiation rate is the known sub-physiological tradeoff (init-rate test PARTIAL): no single constitutive V closes both the in-band pool and the ~1/min rate, which is what motivated the regulated autoregulation lever in study 4.'
 - id: dnaa-pool-doubles-per-cycle
   kind: computational
   summary: |

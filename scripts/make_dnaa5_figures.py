@@ -138,6 +138,32 @@ def fig_hill_vs_kd():
     _write(fig, "dnaa5_hill_vs_kd")
 
 
+def fig_kd_sweep():
+    """In-sim varying-K_d sweep: the Adair formulation over-depletes the DnaA-ATP fraction
+    at every cooperativity tested (1.3-1.9), while Hill n=4 holds it in band. Real g3+ means
+    from the 8-gen runs (dnaa5_kd_coop1p{3,5,7} + 1p9 crashed-at-gen-4 + Hill n=4 reference)."""
+    coops = [1.3, 1.5, 1.7, 1.9]
+    atpfr = [0.081, 0.086, 0.089, 0.071]   # kd-mode g3+ means (seed 1)
+    crashed = [False, False, False, True]
+    fig = go.Figure()
+    fig.add_hrect(y0=0.2, y1=0.5, fillcolor=BAND_GREEN, line_width=0,
+                  annotation_text="DnaA-ATP band [0.2,0.5]", annotation_position="top left")
+    cols = [RED if c else "#ea580c" for c in crashed]
+    fig.add_trace(go.Scatter(x=coops, y=atpfr, mode="lines+markers+text",
+                             text=[f"{v:.2f}" + (" ✗crash" if c else "") for v, c in zip(atpfr, crashed)],
+                             textposition="top center", line=dict(color="#ea580c", width=2),
+                             marker=dict(size=11, color=cols), name="varying-K_d (Adair)"))
+    fig.add_hline(y=0.276, line=dict(color=GREEN, width=2.5, dash="dash"),
+                  annotation_text="Hill n=4 = 0.276 (in band)", annotation_position="bottom right")
+    fig.update_xaxes(title="varying-K_d cooperativity factor (coop)")
+    fig.update_yaxes(title="DnaA-ATP fraction (gen3+ mean)", range=[0, 0.6])
+    _layout(fig, "Varying-K_d over-depletes DnaA-ATP at every cooperativity",
+            "across the kd-mode sweep (coop 1.3-1.9) the DnaA-ATP fraction collapses to ~0.08 — well below "
+            "the [0.2,0.5] band — and at coop=1.9 the cell crashes; the Hill n=4 form holds 0.276 in band. "
+            "Static-curve equivalence does NOT survive the dynamic DnaA-ATP balance.", h=470)
+    _write(fig, "dnaa5_kd_sweep")
+
+
 def fig_langmuir_vs_switch(d):
     """Occupancy time-trace: Langmuir half-fills; the cooperative switch reaches FULL."""
     lang, coop = d.get("langmuir_n1"), d.get("coop_n4")
@@ -247,6 +273,7 @@ def main():
     fig_switch_curves()                # analytic, always
     fig_response_sharpness()           # analytic, always
     fig_hill_vs_kd()                   # analytic, always
+    fig_kd_sweep()                     # in-sim sweep summary, always
     fig_langmuir_vs_switch(d)
     fig_sweet_spot(d)
     fig_homeostasis(d)

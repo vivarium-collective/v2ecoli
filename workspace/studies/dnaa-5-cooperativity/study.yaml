@@ -219,7 +219,10 @@ embed_visualizations:
   caption: "A small rise in free DnaA-ATP (½K → 2K) flips oriC-low occupancy from ~0 to ~1 at n≥4 (on/off contrast 0.94 at n=4) versus the Langmuir's gradual 0.33 → 0.67 (contrast 0.33). Unit-verified analytic values matching the study (n=6: 0.015/0.5/0.985)."
 - name: "Two formulations, one switch — Hill (n=4) ≈ classical varying-K_d"
   url: /reports/figures/dnaa-5-cooperativity/dnaa5_hill_vs_kd.html
-  caption: "The phenomenological Hill-in-[DnaA-ATP] switch (n=4) and the mechanistic varying-dissociation-constant model (Adair, 8 oriC-low sites, each bound DnaA lowering the next K_d ~1.9×, the classical/theory-paper form) give the SAME occupancy curve. So the n=4 sharp-switch conclusion is formulation-independent. Implemented via DNAA_ORIC_COOP_MODE=kd (dnaa_box_binding.py); coop=1 reduces exactly to Langmuir."
+  caption: "The phenomenological Hill-in-[DnaA-ATP] switch (n=4) and the mechanistic varying-dissociation-constant model (Adair, 8 oriC-low sites, each bound DnaA lowering the next K_d ~1.9×, the classical/theory-paper form) give the SAME static occupancy curve; coop=1 reduces exactly to Langmuir. Implemented via DNAA_ORIC_COOP_MODE=kd (dnaa_box_binding.py). BUT see dnaa5_kd_sweep — the static match does NOT survive the dynamics."
+- name: "Varying-K_d over-depletes DnaA-ATP in-sim — static match ≠ dynamic equivalence"
+  url: /reports/figures/dnaa-5-cooperativity/dnaa5_kd_sweep.html
+  caption: "In-sim 8-gen sweep of the varying-K_d (Adair) mode: the DnaA-ATP fraction collapses to ~0.08 at EVERY cooperativity (coop 1.3-1.9), well below the [0.2,0.5] band — and at coop=1.9 the cell crashes (FBA) at gen 4 — while Hill n=4 holds 0.276 in band. The Adair form over-sequesters free DnaA-ATP regardless of coop, so there is no varying-K_d operating point with both a switch and homeostasis. Matching the equilibrium occupancy curve is necessary but not sufficient (finding F-KD)."
 - name: "Multi-cell-cycle occupancy — Langmuir half-fills; the switch reaches FULL every cycle"
   url: /reports/figures/dnaa-5-cooperativity/dnaa5_langmuir_vs_switch.html
   caption: "oriC-low occupancy over the full 8-generation succinate lineage (cumulative time, dnaa-4 reference, seed 1). The cooperative n=4 switch reaches FULL (max 1.00) and re-fires each cell cycle, while the Langmuir (n=1) stays ≤0.5 throughout — across all cycles, not one."
@@ -282,14 +285,20 @@ findings:
     across gens 1-3, vs Hill n=4's stable 0.276) and the cell destabilizes (FBA InvalidBoundaryError
     at gen 4). The Adair form over-sequesters free DnaA-ATP (8 sites filling cooperatively deplete the
     pool harder than the reduced Hill), so it preserves homeostasis only at a LOWER cooperativity than
-    its static-matched value — the varying-K_d formulation needs its OWN homeostasis calibration (a
-    coop sweep), analogous to the Hill n-sweep that found n=4. KEY LESSON: matching the equilibrium
-    occupancy curve is necessary but NOT sufficient; the dynamic DnaA-ATP balance is sensitive to the
-    binding formulation. The Hill n=4 (this study's operating point) preserves homeostasis; the
-    varying-K_d operating point is an open calibration.
+    its static-matched value. SWEEP RESULT (coop 1.3/1.5/1.7/1.9, 8-gen, seed 1, see dnaa5_kd_sweep):
+    lowering the cooperativity does NOT recover the band — the Adair varying-K_d crashes the
+    DnaA-ATP fraction to ~0.08 (g3+ mean) at EVERY tested coop (0.081/0.086/0.089/0.071), well below
+    [0.2,0.5], even though the cell cycle survives (oriC 1<->2, 8/8 divide) at coop<=1.7 (coop=1.9
+    crashes the FBA at gen 4). So there is NO varying-K_d operating point with both a switch and an
+    in-band DnaA-ATP fraction — unlike Hill n=4 which holds 0.276 in band. KEY LESSON: matching the
+    equilibrium occupancy curve is necessary but NOT sufficient; the Adair form's 8 cooperatively-
+    filling sites over-sequester free DnaA-ATP and break the ATP/ADP balance regardless of coop. The
+    Hill n=4 (this study's operating point) is the formulation that preserves homeostasis at a sharp
+    switch; making the mechanistic varying-K_d work would need a deeper fix (re-coupling to the
+    DnaA-ATP charging/hydrolysis), not just a cooperativity tweak.
   status: evaluated
   provenance:
-    run_ids: [dnaa5_kd_coop1p9_seed1_8gen, dnaa5_coop_n4_k30_seed1_8gen]
+    run_ids: [dnaa5_kd_coop1p3_seed1_8gen, dnaa5_kd_coop1p5_seed1_8gen, dnaa5_kd_coop1p7_seed1_8gen, dnaa5_kd_coop1p9_seed1_8gen, dnaa5_coop_n4_k30_seed1_8gen]
 - id: F-02
   statement: >-
     n=4 preserves the dnaa-3/4 bands but n=6 is too strong: at n=4, K=30 the DnaA pool stays in

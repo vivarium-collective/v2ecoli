@@ -1,7 +1,7 @@
 schema_version: 4
 name: dnaa-6-mechanistic-initiation
 investigation: dnaa-replication
-title: "dnaa-6 — mechanistic replication initiation (DnaA-ATP/oriC trigger replaces the cell-mass heuristic)"
+title: "Study 6 — Mechanistic Initiation"   # reader-friendly (matches Study 0-4 convention); was: dnaa-6 — mechanistic replication initiation (DnaA-ATP/oriC trigger replaces the cell-mass heuristic)
 created: "2026-06-18"
 status: completed
 design_status: designed

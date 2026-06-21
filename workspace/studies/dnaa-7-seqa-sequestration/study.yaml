@@ -1,14 +1,14 @@
 schema_version: 4
 name: dnaa-7-seqa-sequestration
 investigation: dnaa-replication
-title: "dnaa-7 — initiation control: RIDA enforces one-initiation-per-cycle (SeqA eclipse insufficient)"
+title: "Study 7 — Initiation Control (RIDA)"   # reader-friendly (matches Study 0-4 convention); was: dnaa-7 — initiation control: RIDA enforces one-initiation-per-cycle (SeqA eclipse insufficient)
 created: "2026-06-20"
 status: completed
 design_status: designed
 implementation_status: implemented
 simulation_status: ran
 evaluation_status: evaluated
-gate_status: pass   # OPERATING POINT FOUND: RIDA 0.5-0.7 (+DARS) gives clean oriC 1<->2, 0 re-inits, AND DnaA-ATP fraction in [0.2,0.5] + pool in band, 8/8 divide. Mechanistic DnaA-ATP/oriC initiation fully + in-band replaces the cell-mass heuristic. See verdict.
+gate_status: passed   # OPERATING POINT FOUND: RIDA 0.5-0.7 (+DARS) gives clean oriC 1<->2, 0 re-inits, AND DnaA-ATP fraction in [0.2,0.5] + pool in band, 8/8 divide. Mechanistic DnaA-ATP/oriC initiation fully + in-band replaces the cell-mass heuristic. See verdict.
 expert_review_status: pending
 
 seeded_from:

@@ -16,6 +16,8 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+import pbg_plot_style as ps  # shared house plotting style (scripts/ on sys.path)
+
 OUT_DIR = "reports/figures/dnaa-5-cooperativity"
 K_NM = 30.0  # half-saturation free [DnaA-ATP]
 # palette
@@ -25,30 +27,13 @@ BAND_BLUE = "rgba(37,99,235,0.08)"
 
 
 def _wrap(s, width=78):
-    """Wrap a subtitle into <br>-separated lines so it doesn't overflow/clip the iframe."""
-    words, lines, cur = s.split(), [], ""
-    for w in words:
-        if cur and len(cur) + len(w) + 1 > width:
-            lines.append(cur); cur = w
-        else:
-            cur = (cur + " " + w).strip()
-    if cur:
-        lines.append(cur)
-    return "<br>".join(lines)
+    """Thin wrapper over the shared house style (pbg_plot_style.wrap)."""
+    return ps.wrap(s, width=width)
 
 
 def _layout(fig, title, subtitle, h=480):
-    sub = _wrap(subtitle)
-    nlines = sub.count("<br>") + 1
-    fig.update_layout(
-        title=dict(text=f"<b>{title}</b><br><span style='font-size:12px;color:#475569'>{sub}</span>",
-                   x=0.5, xanchor="center", font=dict(size=17)),
-        template="plotly_white", height=h + 18 * max(0, nlines - 1),
-        font=dict(family="Inter, system-ui, sans-serif", size=13),
-        margin=dict(t=64 + 16 * nlines, b=55, l=70, r=40), hovermode="x unified",
-        legend=dict(bgcolor="rgba(255,255,255,0.7)", bordercolor="#e2e8f0", borderwidth=1),
-    )
-    return fig
+    """Thin wrapper over the shared house style (pbg_plot_style.house_layout)."""
+    return ps.house_layout(fig, title, subtitle, height=h)
 
 
 def _write(fig, name):

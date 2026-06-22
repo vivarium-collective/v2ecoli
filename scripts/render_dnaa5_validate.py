@@ -4,6 +4,7 @@ import polars as pl
 import matplotlib
 matplotlib.use("Agg"); import matplotlib.pyplot as plt
 import dnaa_observables as dnaa   # canonical DnaA pool columns (single source of truth)
+import pbg_plot_style as ps   # shared house style: minutes stitch, lineage lines, no gridlines
 L=dnaa.L
 BATP=dnaa.BOUND_ATP_COLS
 BADP=dnaa.BOUND_ADP_COLS
@@ -13,6 +14,7 @@ RUNS={"Langmuir n=1":("out/dnaa4_s06_F05_seed1_12gen/dnaa4_s06_F05_seed1_12gen",
       "cooperative n=6":("out/dnaa5_coop_n6_k30_seed1_8gen/dnaa5_coop_n6_k30_seed1_8gen","#d62728")}
 fig,(ax1,ax2)=plt.subplots(2,1,figsize=(9,7))
 ax1.set_title("dnaa-5 — cooperativity makes oriC-low SWITCH while preserving DnaA homeostasis (mass trigger, seed 1)",fontsize=10.5)
+n4_bnd=[]
 for label,(run,col) in RUNS.items():
     fs=sorted(glob.glob(f"{run}/history/**/*.pq",recursive=True))
     ids=pl.scan_parquet(fs[0]).select("bulk__id").head(1).collect()["bulk__id"][0].to_list()
@@ -25,10 +27,8 @@ for label,(run,col) in RUNS.items():
     # STITCH global_time (which RESETS to 0 each generation) into cumulative lineage
     # minutes, so the multi-generation run lays out SEQUENTIALLY instead of overlaying
     # every cell cycle on one ~60-min axis (the "two green trajectories" artifact).
-    _gen=a("generation").astype(int); _gt=a("global_time"); _t=np.zeros_like(_gt); _off=0.0
-    for _g in sorted(set(_gen.tolist())):
-        _m=_gen==_g; _t[_m]=(_off+_gt[_m])/60.0; _off+=_gt[_m].max()
-    t=_t
+    t=ps.stitch_minutes(a("generation"), a("global_time"))
+    if label=="cooperative n=4": n4_bnd=ps.gen_boundaries(a("generation"), t)
     occ=a(L+"oriC_low_bound_atp")/np.maximum(a(L+"oriC_low_bound_atp")+a(L+"oriC_low_free"),1)
     if label!="cooperative n=6":
         ax1.plot(t,occ,color=col,lw=1.0,alpha=0.8,label=f"{label} (max {occ.max():.2f})")
@@ -41,11 +41,12 @@ for label,(run,col) in RUNS.items():
         tot=b("apo")+b("atp")+b("adp")+sum(b(c) for c in BATP)+sum(b(c) for c in BADP)
         pm.append(tot.mean())
     ax2.plot(steady,pm,"-o",color=col,ms=4,label=f"{label}")
-ax1.set_ylabel("oriC-low occupancy"); ax1.set_ylim(-0.03,1.05); ax1.legend(fontsize=8,loc="upper right")
-ax1.set_xlabel("time (min)"); ax1.grid(alpha=0.2)
+ps.mark_lineages(ax1, n4_bnd)
+ax1.set_ylim(-0.03,1.05); ax1.legend(fontsize=8,loc="upper right")
+ps.style_axes(ax1, "lineage time (min)", "oriC-low occupancy (fraction)")
 ax1.annotate("cooperative: snaps to FULL (switch)\nLangmuir: gradual, partial (<=0.5)",xy=(0.02,0.7),xycoords="axes fraction",fontsize=8.5)
 ax2.axhspan(300,800,color="#f1f5f9",zorder=0,label="DnaA band [300,800]")
-ax2.set_ylabel("DnaA pool /gen (fg-eq count)"); ax2.set_xlabel("generation"); ax2.legend(fontsize=8,loc="upper right"); ax2.grid(alpha=0.2)
+ax2.legend(fontsize=8,loc="upper right"); ps.style_axes(ax2, "generation", "DnaA pool /gen (fg-eq count)")
 ax2.annotate("n=4 stays in band (preserved);\nn=6 too strong -> dips below",xy=(0.02,0.05),xycoords="axes fraction",fontsize=8.5)
 for ax in (ax1,ax2): ax.spines[["top","right"]].set_visible(False)
 fig.tight_layout()

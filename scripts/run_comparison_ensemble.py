@@ -76,6 +76,23 @@ def _ensure_vecoli() -> dict:
     if _VECOLI:
         return _VECOLI
     vecoli_dir = str(REPO_ROOT.parent / "vEcoli")
+
+    # Force-cache the INSTALLED (Cython-COMPILED) wholecell tree BEFORE vecoli_dir
+    # goes on sys.path. The composite checkout ships wholecell SOURCE only (its
+    # Cython _build_sequences etc. are unbuilt), so once vecoli_dir is first on
+    # the path an uncached `import wholecell.utils.polymerize` would resolve to
+    # the unbuilt copy and raise "Failed to import Cython module". Importing the
+    # whole installed tree now pins every wholecell.* submodule to the compiled
+    # build; ecoli (loaded from vecoli_dir below) then reuses those cached modules.
+    import importlib as _importlib
+    import pkgutil as _pkgutil
+    import wholecell as _wholecell
+    for _mi in _pkgutil.walk_packages(_wholecell.__path__, "wholecell."):
+        try:
+            _importlib.import_module(_mi.name)
+        except Exception:
+            pass  # optional/unbuildable submodules; ecoli imports only the core ones
+
     sys.path.insert(0, vecoli_dir)
 
     # ecoli/__init__.py registers parquet/updaters/dividers/serializers into
@@ -100,6 +117,19 @@ def _ensure_vecoli() -> dict:
 
         _vreg.Registry.register = _idempotent_register
         _vreg.Registry._idempotent_patched = True
+
+    # The composite-softfloor vEcoli expects cloud-URI helpers that the v2ecoli
+    # venv's INSTALLED wholecell.utils.filepath lacks (is_cloud_uri /
+    # cloud_path_join, added in the composite branch for S3 output). Inject them
+    # onto the installed module rather than swapping wholecell wholesale —
+    # wholecell is SHARED with the v2ecoli infra (parallel_seeds / xarray_run)
+    # and must stay the installed version for the v2ecoli engine to keep working.
+    import posixpath as _posixpath
+    import wholecell.utils.filepath as _wfp
+    if not hasattr(_wfp, "is_cloud_uri"):
+        _wfp.is_cloud_uri = lambda path: str(path).startswith(("s3://", "gs://", "gcs://"))
+    if not hasattr(_wfp, "cloud_path_join"):
+        _wfp.cloud_path_join = lambda *parts: _posixpath.join(*parts)
 
     # Drop any cached (possibly shadow) ecoli modules so the imports below
     # resolve from vecoli_dir (the composite-softfloor checkout).

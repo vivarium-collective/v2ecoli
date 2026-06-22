@@ -202,7 +202,19 @@ def _build_vecoli(seed: int, condition: str):
     try:
         core = v["allocate_core"]()
         core.register_types(v["ECOLI_TYPES"])
-        sim = v["EcoliSim"].from_cli()
+        # EcoliSim.from_cli() parses sys.argv, which here still holds the
+        # comparison driver's args (e.g. --composite vecoli). That collides with
+        # EcoliSim's own --composite_checkpoint_* options ("ambiguous option:
+        # --composite") → argparse sys.exit(2), which inside a Ray worker shows
+        # up as WorkerCrashedError. Strip argv to just the program name (as
+        # run_vecoli_composite.py does) so from_cli() uses defaults; the
+        # condition/seed are applied via sim.config below.
+        _saved_argv = sys.argv
+        sys.argv = sys.argv[:1]
+        try:
+            sim = v["EcoliSim"].from_cli()
+        finally:
+            sys.argv = _saved_argv
         # condition → media is set via the vEcoli sim config; lineage_seed=seed.
         sim.config["condition"] = condition
         sim.config["seed"] = seed

@@ -5,511 +5,511 @@
  -->
 <!-- Title: bigraph Pages: 1 -->
 <svg width="100%" height="100%"
- viewBox="0.00 0.00 1624.60 341.74" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">
-<g id="graph0" class="graph" transform="scale(1.38889 1.38889) rotate(0) translate(4 337.74)">
+ viewBox="0.00 0.00 1624.60 343.16" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid meet">
+<g id="graph0" class="graph" transform="scale(1.38889 1.38889) rotate(0) translate(4 339.16)">
 <title>bigraph</title>
-<polygon fill="white" stroke="none" points="-4,4 -4,-337.74 1620.6,-337.74 1620.6,4 -4,4"/>
+<polygon fill="white" stroke="none" points="-4,4 -4,-339.16 1620.6,-339.16 1620.6,4 -4,4"/>
 <!-- (&#39;cells&#39;,) -->
 <g id="node1" class="node">
 <title>(&#39;cells&#39;,)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="845.6" cy="-302.72" rx="18" ry="18"/>
-<text text-anchor="start" x="834.61" y="-299.12" font-family="Times,serif" font-size="12.00">cells</text>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="845.6" cy="-304.14" rx="18" ry="18"/>
+<text text-anchor="start" x="834.61" y="-300.54" font-family="Times,serif" font-size="12.00">cells</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;) -->
 <g id="node2" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="1173.6" cy="-201.45" rx="24.25" ry="24.25"/>
-<text text-anchor="start" x="1151.28" y="-197.85" font-family="Times,serif" font-size="12.00">a_53a66f</text>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)</title>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="1173.6" cy="-202.16" rx="24.6" ry="24.6"/>
+<text text-anchor="start" x="1150.95" y="-198.56" font-family="Times,serif" font-size="12.00">a_0cec4b</text>
 </g>
-<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;) -->
+<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;) -->
 <g id="edge1" class="edge">
-<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M863.24,-296.38C918.33,-279.71 1087.25,-228.58 1149.9,-209.62"/>
+<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M863.24,-297.76C918.19,-281.01 1086.44,-229.73 1149.44,-210.52"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;) -->
 <g id="node16" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="446.6" cy="-201.45" rx="23.89" ry="23.89"/>
-<text text-anchor="start" x="424.62" y="-197.85" font-family="Times,serif" font-size="12.00">a_eaf2d4</text>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)</title>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="446.6" cy="-202.16" rx="24.96" ry="24.96"/>
+<text text-anchor="start" x="423.61" y="-198.56" font-family="Times,serif" font-size="12.00">a_068e2a</text>
 </g>
-<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;) -->
+<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;) -->
 <g id="edge16" class="edge">
-<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M827.68,-297.26C763.24,-281.22 543.21,-226.48 470.29,-208.34"/>
+<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M827.68,-298.65C763.54,-282.58 545.27,-227.88 471.33,-209.35"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
 <g id="node31" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
 <polygon fill="none" stroke="black" stroke-width="2" points="1221.6,-36 1167.6,-36 1167.6,0 1221.6,0 1221.6,-36"/>
 <text text-anchor="start" x="1182.94" y="-14.4" font-family="Times,serif" font-size="12.00">ecoli</text>
 </g>
-<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
-<g id="edge45" class="edge">
-<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M834.61,-274.47C818.46,-229.57 794.53,-139.34 836.6,-82 875.62,-28.83 1089.54,-20.49 1166.78,-19.21"/>
-<polygon fill="black" stroke="black" points="831.28,-275.56 838.07,-283.69 837.83,-273.1 831.28,-275.56"/>
+<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
+<g id="edge41" class="edge">
+<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M834.66,-276.04C818.43,-230.98 794.16,-139.85 836.6,-82 875.62,-28.83 1089.54,-20.49 1166.78,-19.21"/>
+<polygon fill="black" stroke="black" points="831.35,-277.17 838.14,-285.3 837.9,-274.71 831.35,-277.17"/>
 <text text-anchor="start" x="813.6" y="-151.2" font-family="Times,serif" font-size="10.00">agents</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
 <g id="node32" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<polygon fill="none" stroke="black" stroke-width="2" points="502.6,-36 448.6,-36 448.6,0 502.6,0 502.6,-36"/>
-<text text-anchor="start" x="463.94" y="-14.4" font-family="Times,serif" font-size="12.00">ecoli</text>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<polygon fill="none" stroke="black" stroke-width="2" points="504.6,-36 450.6,-36 450.6,0 504.6,0 504.6,-36"/>
+<text text-anchor="start" x="465.94" y="-14.4" font-family="Times,serif" font-size="12.00">ecoli</text>
 </g>
-<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
-<g id="edge50" class="edge">
-<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M815.38,-300.88C676.53,-296.3 102.72,-269.14 9.6,-131.2 -2.63,-113.08 -3.61,-99.42 9.6,-82 37.5,-45.23 64.23,-62.45 109.6,-54 234.48,-30.74 386.37,-22.49 447.82,-19.97"/>
-<polygon fill="black" stroke="black" points="815.12,-304.37 825.22,-301.19 815.34,-297.38 815.12,-304.37"/>
+<!-- (&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
+<g id="edge46" class="edge">
+<title>(&#39;cells&#39;,)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M815.38,-302.25C676.54,-297.41 102.76,-269.19 9.6,-131.2 -2.63,-113.08 -3.61,-99.42 9.6,-82 37.5,-45.23 64.23,-62.44 109.6,-54 235.16,-30.64 387.89,-22.45 449.67,-19.96"/>
+<polygon fill="black" stroke="black" points="815.11,-305.74 825.22,-302.57 815.34,-298.74 815.11,-305.74"/>
 <text text-anchor="start" x="36.6" y="-151.2" font-family="Times,serif" font-size="10.00">agents</text>
 </g>
 <!-- (&#39;multibody&#39;,) -->
 <g id="node33" class="node">
 <title>(&#39;multibody&#39;,)</title>
-<polygon fill="none" stroke="black" stroke-width="2" points="901.87,-219.45 845.34,-219.45 845.34,-183.45 901.87,-183.45 901.87,-219.45"/>
-<text text-anchor="start" x="848.94" y="-197.85" font-family="Times,serif" font-size="12.00">multibody</text>
+<polygon fill="none" stroke="black" stroke-width="2" points="901.87,-220.16 845.34,-220.16 845.34,-184.16 901.87,-184.16 901.87,-220.16"/>
+<text text-anchor="start" x="848.94" y="-198.56" font-family="Times,serif" font-size="12.00">multibody</text>
 </g>
 <!-- (&#39;cells&#39;,)&#45;&gt;(&#39;multibody&#39;,) -->
 <g id="edge51" class="edge">
 <title>(&#39;cells&#39;,)&#45;&gt;(&#39;multibody&#39;,)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M853.6,-273.37C857.33,-260.13 861.77,-244.4 865.52,-231.12"/>
-<polygon fill="black" stroke="black" points="850.24,-272.39 850.89,-282.97 856.98,-274.29 850.24,-272.39"/>
-<polygon fill="black" stroke="black" points="868.84,-232.24 868.18,-221.66 862.1,-230.34 868.84,-232.24"/>
-<text text-anchor="start" x="861.6" y="-245.69" font-family="Times,serif" font-size="10.00">segment_cells</text>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M853.35,-275.49C857.17,-261.85 861.77,-245.43 865.62,-231.68"/>
+<polygon fill="black" stroke="black" points="850.09,-274.15 850.76,-284.72 856.83,-276.04 850.09,-274.15"/>
+<polygon fill="black" stroke="black" points="868.91,-232.91 868.23,-222.33 862.17,-231.02 868.91,-232.91"/>
+<text text-anchor="start" x="861.6" y="-247.12" font-family="Times,serif" font-size="10.00">segment_cells</text>
 </g>
 <!-- (&#39;emitter&#39;,) -->
 <g id="node34" class="node">
 <title>(&#39;emitter&#39;,)</title>
-<polygon fill="none" stroke="black" stroke-width="2" points="1269.6,-219.45 1215.6,-219.45 1215.6,-183.45 1269.6,-183.45 1269.6,-219.45"/>
-<text text-anchor="start" x="1225.61" y="-197.85" font-family="Times,serif" font-size="12.00">emitter</text>
+<polygon fill="none" stroke="black" stroke-width="2" points="1270.6,-220.16 1216.6,-220.16 1216.6,-184.16 1270.6,-184.16 1270.6,-220.16"/>
+<text text-anchor="start" x="1226.61" y="-198.56" font-family="Times,serif" font-size="12.00">emitter</text>
 </g>
 <!-- (&#39;cells&#39;,)&#45;&gt;(&#39;emitter&#39;,) -->
 <g id="edge39" class="edge">
 <title>(&#39;cells&#39;,)&#45;&gt;(&#39;emitter&#39;,)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M864.34,-300.19C918.98,-295.25 1082.23,-276.89 1206.6,-225.69 1206.83,-225.6 1207.05,-225.51 1207.28,-225.41"/>
-<polygon fill="black" stroke="black" points="1208.55,-228.69 1215.92,-221.08 1205.41,-222.43 1208.55,-228.69"/>
-<text text-anchor="start" x="1150.6" y="-245.69" font-family="Times,serif" font-size="10.00">agents</text>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M864.42,-301.71C919.32,-297.02 1083.24,-279.27 1207.6,-227.12 1208.23,-226.85 1208.86,-226.58 1209.49,-226.29"/>
+<polygon fill="black" stroke="black" points="1210.99,-229.46 1218.18,-221.67 1207.71,-223.28 1210.99,-229.46"/>
+<text text-anchor="start" x="1151.6" y="-247.12" font-family="Times,serif" font-size="10.00">agents</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;id&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;id&#39;) -->
 <g id="node3" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;id&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;id&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1544.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="1539.94" y="-103" font-family="Times,serif" font-size="12.00">id</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;id&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;id&#39;) -->
 <g id="edge2" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;id&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1192.15,-184.73C1196.63,-181.72 1201.58,-178.96 1206.6,-177.2 1270.91,-154.72 1454.08,-194.06 1512.6,-159.2 1525.46,-151.54 1533.9,-136.5 1538.87,-124.63"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;id&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1192.35,-185.21C1197.05,-182.01 1202.29,-179.06 1207.6,-177.2 1271.69,-154.79 1454.28,-193.95 1512.6,-159.2 1525.46,-151.54 1533.9,-136.5 1538.87,-124.62"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;type&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;type&#39;) -->
 <g id="node4" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;type&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;type&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1598.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="1588.27" y="-103" font-family="Times,serif" font-size="12.00">type</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;type&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;type&#39;) -->
 <g id="edge3" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;type&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1192.14,-184.72C1196.62,-181.71 1201.57,-178.95 1206.6,-177.2 1343.25,-129.7 1394.89,-206.49 1531.6,-159.2 1553.8,-151.52 1574.43,-133.28 1586.77,-120.69"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;type&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1192.34,-185.2C1197.05,-182 1202.28,-179.05 1207.6,-177.2 1343.82,-129.83 1395.31,-206.36 1531.6,-159.2 1553.8,-151.52 1574.43,-133.28 1586.77,-120.68"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;mass&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;mass&#39;) -->
 <g id="node5" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;mass&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;mass&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="863.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="851.6" y="-103" font-family="Times,serif" font-size="12.00">mass</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;mass&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;mass&#39;) -->
 <g id="edge4" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;mass&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1148.53,-198.77C1097.09,-194.41 977.21,-179.46 890.6,-131.2 885.49,-128.35 880.49,-124.41 876.22,-120.57"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;mass&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1148.53,-199.39C1097.11,-194.84 977.26,-179.48 890.6,-131.2 885.49,-128.35 880.49,-124.41 876.22,-120.57"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;length&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;length&#39;) -->
 <g id="node6" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;length&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;length&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="917.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="902.61" y="-103" font-family="Times,serif" font-size="12.00">length</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;length&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;length&#39;) -->
 <g id="edge5" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;length&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1149.14,-196.7C1105.68,-189.28 1013.11,-169.95 944.6,-131.2 939.51,-128.32 934.52,-124.37 930.24,-120.53"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;length&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1148.81,-197.24C1105.22,-189.58 1012.99,-169.88 944.6,-131.2 939.51,-128.32 934.52,-124.37 930.24,-120.53"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;radius&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;radius&#39;) -->
 <g id="node7" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;radius&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;radius&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="971.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="956.94" y="-103" font-family="Times,serif" font-size="12.00">radius</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;radius&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;radius&#39;) -->
 <g id="edge6" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;radius&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1149.77,-193.86C1114.94,-183.61 1048.82,-161.82 998.6,-131.2 993.61,-128.15 988.64,-124.16 984.35,-120.33"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;radius&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1149.48,-194.36C1114.58,-183.92 1048.7,-161.86 998.6,-131.2 993.61,-128.14 988.65,-124.15 984.36,-120.32"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;angle&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;angle&#39;) -->
 <g id="node8" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;angle&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;angle&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1025.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="1012.61" y="-103" font-family="Times,serif" font-size="12.00">angle</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;angle&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;angle&#39;) -->
 <g id="edge7" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;angle&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1151.84,-189.66C1126.99,-176.97 1085.52,-154.65 1052.6,-131.2 1047.94,-127.87 1043.14,-123.89 1038.91,-120.15"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;angle&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1151.4,-189.99C1126.51,-177.1 1085.36,-154.64 1052.6,-131.2 1047.95,-127.86 1043.15,-123.88 1038.92,-120.14"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;location&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;location&#39;) -->
 <g id="node9" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;location&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;location&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1082.6" cy="-106.6" rx="21.04" ry="21.04"/>
 <text text-anchor="start" x="1063.28" y="-103" font-family="Times,serif" font-size="12.00">location</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;location&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;location&#39;) -->
 <g id="edge8" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;location&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1156.49,-182.98C1139.39,-165.54 1113.4,-139.02 1097.24,-122.53"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;location&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1156.49,-183.56C1139.39,-165.99 1113.4,-139.26 1097.24,-122.65"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;velocity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;velocity&#39;) -->
 <g id="node10" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;velocity&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;velocity&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1142.6" cy="-106.6" rx="21.04" ry="21.04"/>
 <text text-anchor="start" x="1123.28" y="-103" font-family="Times,serif" font-size="12.00">velocity</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;velocity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;velocity&#39;) -->
 <g id="edge9" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;velocity&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1165.94,-177.5C1160.81,-162.14 1154.13,-142.13 1149.23,-127.45"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;velocity&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1165.94,-178.03C1160.81,-162.55 1154.13,-142.39 1149.23,-127.61"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;elasticity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;elasticity&#39;) -->
 <g id="node11" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;elasticity&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;elasticity&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1205.6" cy="-106.6" rx="23.54" ry="23.54"/>
 <text text-anchor="start" x="1183.94" y="-103" font-family="Times,serif" font-size="12.00">elasticity</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;elasticity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;elasticity&#39;) -->
 <g id="edge10" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;elasticity&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1181.51,-177.5C1186.55,-162.89 1193.03,-144.08 1198.01,-129.65"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;elasticity&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1181.51,-178.03C1186.55,-163.31 1193.03,-144.35 1198.01,-129.82"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;adhesins&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;adhesins&#39;) -->
 <g id="node12" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;adhesins&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;adhesins&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1269.6" cy="-106.6" rx="22.47" ry="22.47"/>
 <text text-anchor="start" x="1248.94" y="-103" font-family="Times,serif" font-size="12.00">adhesins</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;adhesins&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;adhesins&#39;) -->
 <g id="edge11" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;adhesins&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1191.21,-183.42C1208.97,-166.25 1236.15,-139.96 1253.39,-123.28"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;adhesins&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1191.21,-184C1208.97,-166.69 1236.15,-140.21 1253.39,-123.4"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;local&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;local&#39;) -->
 <g id="node13" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;local&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;local&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="1327.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="1315.94" y="-103" font-family="Times,serif" font-size="12.00">local</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;local&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;local&#39;) -->
 <g id="edge12" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;local&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1193.16,-185.91C1197.5,-182.9 1202.14,-179.84 1206.6,-177.2 1246.63,-153.51 1261.87,-156.95 1300.6,-131.2 1305.48,-127.96 1310.41,-123.92 1314.71,-120.1"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;local&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1193.4,-186.44C1197.97,-183.26 1202.89,-180 1207.6,-177.2 1247.24,-153.62 1262.26,-156.81 1300.6,-131.2 1305.47,-127.95 1310.4,-123.9 1314.7,-120.08"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;volume&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;exchange&#39;) -->
 <g id="node14" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;volume&#39;)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="1383.6" cy="-106.6" rx="19.62" ry="19.62"/>
-<text text-anchor="start" x="1365.61" y="-103" font-family="Times,serif" font-size="12.00">volume</text>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;exchange&#39;)</title>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="1388.6" cy="-106.6" rx="24.6" ry="24.6"/>
+<text text-anchor="start" x="1365.95" y="-103" font-family="Times,serif" font-size="12.00">exchange</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;volume&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;exchange&#39;) -->
 <g id="edge13" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;volume&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1192.82,-185.28C1197.19,-182.31 1201.92,-179.43 1206.6,-177.2 1233.29,-164.51 1242.36,-167.87 1270.6,-159.2 1308.22,-147.65 1320.11,-150.15 1354.6,-131.2 1359.72,-128.38 1364.83,-124.63 1369.3,-120.95"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;exchange&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1193.05,-185.79C1197.65,-182.64 1202.65,-179.57 1207.6,-177.2 1233.87,-164.63 1242.78,-167.8 1270.6,-159.2 1308.2,-147.57 1319.42,-148.82 1354.6,-131.2 1359.49,-128.75 1364.47,-125.68 1369.06,-122.57"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;exchange&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;volume&#39;) -->
 <g id="node15" class="node">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;exchange&#39;)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="1445.6" cy="-106.6" rx="24.6" ry="24.6"/>
-<text text-anchor="start" x="1422.95" y="-103" font-family="Times,serif" font-size="12.00">exchange</text>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;volume&#39;)</title>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="1450.6" cy="-106.6" rx="19.62" ry="19.62"/>
+<text text-anchor="start" x="1432.61" y="-103" font-family="Times,serif" font-size="12.00">volume</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;exchange&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;volume&#39;) -->
 <g id="edge14" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;exchange&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1192.68,-184.95C1197.05,-182 1201.82,-179.21 1206.6,-177.2 1247.01,-160.18 1260.79,-168.66 1303.6,-159.2 1352.44,-148.41 1367.27,-152.33 1412.6,-131.2 1417.33,-129 1422.08,-126.1 1426.45,-123.08"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;volume&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1192.9,-185.45C1197.5,-182.32 1202.55,-179.34 1207.6,-177.2 1247.18,-160.44 1260.56,-168.08 1302.6,-159.2 1356.19,-147.88 1373.65,-155.75 1422.6,-131.2 1427.61,-128.69 1432.48,-125.12 1436.72,-121.51"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
 <g id="edge15" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M1192.25,-185C1196.72,-181.97 1201.64,-179.13 1206.6,-177.2 1321.24,-132.51 1401.93,-226.63 1479.6,-131.2 1551.02,-43.46 1306.9,-24.06 1222.37,-20.01"/>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M1192.44,-185.47C1197.15,-182.25 1202.35,-179.23 1207.6,-177.2 1321.91,-132.86 1402.57,-226.58 1479.6,-131.2 1550.68,-43.18 1306.78,-23.97 1222.35,-19.99"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
 <g id="edge34" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
 <path fill="none" stroke="black" stroke-dasharray="5,2" d="M1538.75,-88.77C1533.73,-76.99 1525.26,-61.98 1512.6,-54 1467.01,-25.24 1307.72,-19.97 1233.37,-19.11"/>
 <polygon fill="black" stroke="black" points="1233.75,-15.61 1223.72,-19.02 1233.68,-22.61 1233.75,-15.61"/>
 <text text-anchor="start" x="1523.6" y="-56" font-family="Times,serif" font-size="10.00">agent_id</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
-<g id="edge41" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
+<g id="edge42" class="edge">
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
 <path fill="none" stroke="black" stroke-dasharray="5,2" d="M885,-85.73C886.84,-84.39 888.72,-83.12 890.6,-82 921.16,-63.77 931.17,-62.96 965.6,-54 1036.83,-35.47 1123.25,-25.55 1166.74,-21.39"/>
 <polygon fill="black" stroke="black" points="883.03,-82.82 877.49,-91.85 887.45,-88.25 883.03,-82.82"/>
 <text text-anchor="start" x="965.6" y="-56" font-family="Times,serif" font-size="10.00">mass</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
-<g id="edge43" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
+<g id="edge45" class="edge">
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
 <path fill="none" stroke="black" stroke-dasharray="5,2" d="M938.87,-85.49C940.74,-84.2 942.66,-83.02 944.6,-82 1019.14,-42.95 1119.03,-27.28 1166.84,-21.71"/>
 <polygon fill="black" stroke="black" points="936.94,-82.55 931.31,-91.53 941.31,-88.02 936.94,-82.55"/>
 <text text-anchor="start" x="1009.6" y="-56" font-family="Times,serif" font-size="10.00">length</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
 <g id="edge31" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
 <path fill="none" stroke="black" stroke-dasharray="5,2" d="M1038.47,-93.06C1042.77,-89.24 1047.71,-85.2 1052.6,-82 1085.32,-60.59 1126.52,-43.22 1156.11,-32.19"/>
 <polygon fill="black" stroke="black" points="1157.22,-35.51 1165.41,-28.79 1154.82,-28.93 1157.22,-35.51"/>
 <text text-anchor="start" x="1101.6" y="-56" font-family="Times,serif" font-size="10.00">angle</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
 <g id="edge33" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
 <path fill="none" stroke="black" stroke-dasharray="5,2" d="M1099.4,-92.33C1103.69,-88.95 1108.31,-85.34 1112.6,-82 1128.92,-69.32 1147.14,-55.3 1162.26,-43.72"/>
 <polygon fill="black" stroke="black" points="1164.21,-46.63 1170.02,-37.77 1159.95,-41.07 1164.21,-46.63"/>
 <text text-anchor="start" x="1148.6" y="-56" font-family="Times,serif" font-size="10.00">location</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
 <g id="edge32" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
 <path fill="none" stroke="black" stroke-dasharray="5,2" d="M1314.27,-93.09C1310.03,-89.36 1305.24,-85.36 1300.6,-82 1278.96,-66.31 1253.2,-50.93 1232.5,-39.3"/>
 <polygon fill="black" stroke="black" points="1234.25,-36.27 1223.8,-34.47 1230.85,-42.39 1234.25,-36.27"/>
 <text text-anchor="start" x="1272.6" y="-56" font-family="Times,serif" font-size="10.00">local</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
-<g id="edge42" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1360.05,-85.68C1358.24,-84.38 1356.42,-83.14 1354.6,-82 1311.81,-54.99 1255.55,-36.13 1222.41,-26.47"/>
-<polygon fill="black" stroke="black" points="1357.51,-88.14 1367.57,-91.47 1361.78,-82.59 1357.51,-88.14"/>
-<text text-anchor="start" x="1322.6" y="-56" font-family="Times,serif" font-size="10.00">volume</text>
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
+<g id="edge43" class="edge">
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1358.96,-84.61C1357.5,-83.71 1356.04,-82.83 1354.6,-82 1310.94,-56.72 1255.2,-37.36 1222.35,-27.12"/>
+<polygon fill="black" stroke="black" points="1356.91,-87.45 1367.19,-89.99 1360.73,-81.59 1356.91,-87.45"/>
+<text text-anchor="start" x="1317.6" y="-56" font-family="Times,serif" font-size="10.00">exchange</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;) -->
 <g id="edge44" class="edge">
-<title>(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_53a66f&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1416.3,-84.29C1415.06,-83.5 1413.83,-82.74 1412.6,-82 1388.77,-67.64 1382.85,-63.23 1356.6,-54 1310.87,-37.91 1255.15,-27.84 1222.41,-22.83"/>
-<polygon fill="black" stroke="black" points="1414.19,-87.09 1424.44,-89.76 1418.09,-81.28 1414.19,-87.09"/>
-<text text-anchor="start" x="1381.6" y="-56" font-family="Times,serif" font-size="10.00">exchange</text>
+<title>(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_0cec4b&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1427.38,-85.21C1425.8,-84.08 1424.2,-83 1422.6,-82 1358.03,-41.58 1267.33,-26.66 1222.26,-21.51"/>
+<polygon fill="black" stroke="black" points="1424.87,-87.69 1434.9,-91.1 1429.19,-82.18 1424.87,-87.69"/>
+<text text-anchor="start" x="1389.6" y="-56" font-family="Times,serif" font-size="10.00">volume</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;id&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;id&#39;) -->
 <g id="node17" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;id&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;id&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="663.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="658.94" y="-103" font-family="Times,serif" font-size="12.00">id</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;id&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;id&#39;) -->
 <g id="edge17" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;id&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M471.18,-200.8C509.07,-200.16 582.51,-194.07 631.6,-159.2 643.81,-150.53 652.32,-135.6 657.48,-124.03"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;id&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M472.44,-201.37C510.68,-200.45 583.07,-193.8 631.6,-159.2 643.62,-150.63 652.06,-136 657.25,-124.5"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;type&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;type&#39;) -->
 <g id="node18" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;type&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;type&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="717.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="707.27" y="-103" font-family="Times,serif" font-size="12.00">type</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;type&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;type&#39;) -->
 <g id="edge18" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;type&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M471.12,-198.74C510.42,-195.3 589.33,-185.47 650.6,-159.2 671.92,-150.06 692.45,-132.54 705.04,-120.48"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;type&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M472.08,-199.25C511.7,-195.57 589.83,-185.38 650.6,-159.2 671.91,-150.02 692.44,-132.52 705.03,-120.46"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;mass&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;mass&#39;) -->
 <g id="node19" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;mass&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;mass&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="771.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="759.6" y="-103" font-family="Times,serif" font-size="12.00">mass</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;mass&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;mass&#39;) -->
 <g id="edge19" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;mass&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M470.93,-197.68C513.03,-192.54 601.92,-180.08 674.6,-159.2 706.81,-149.95 716.03,-148.69 744.6,-131.2 749.6,-128.14 754.56,-124.15 758.85,-120.32"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;mass&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M471.95,-198.17C514.44,-192.78 602.49,-180.03 674.6,-159.2 706.8,-149.9 716.03,-148.69 744.6,-131.2 749.6,-128.14 754.56,-124.15 758.85,-120.32"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;length&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;length&#39;) -->
 <g id="node20" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;length&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;length&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="36.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="21.61" y="-103" font-family="Times,serif" font-size="12.00">length</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;length&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;length&#39;) -->
 <g id="edge20" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;length&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M422.12,-198.14C372.17,-193.19 255.09,-180.21 158.6,-159.2 115.59,-149.83 102.18,-152.4 63.6,-131.2 58.48,-128.38 53.47,-124.45 49.19,-120.6"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;length&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M420.96,-198.66C370.38,-193.45 254.36,-180.17 158.6,-159.2 115.61,-149.78 102.18,-152.4 63.6,-131.2 58.48,-128.38 53.47,-124.45 49.19,-120.6"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;radius&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;radius&#39;) -->
 <g id="node21" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;radius&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;radius&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="90.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="75.94" y="-103" font-family="Times,serif" font-size="12.00">radius</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;radius&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;radius&#39;) -->
 <g id="edge21" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;radius&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M422.18,-197.21C378.98,-191.26 286.39,-177.49 209.6,-159.2 168.03,-149.29 154.97,-151.95 117.6,-131.2 112.49,-128.36 107.49,-124.42 103.21,-120.58"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;radius&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M421.14,-197.68C377.51,-191.48 285.79,-177.47 209.6,-159.2 168.04,-149.23 154.97,-151.95 117.6,-131.2 112.49,-128.36 107.49,-124.42 103.21,-120.58"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;angle&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;angle&#39;) -->
 <g id="node22" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;angle&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;angle&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="144.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="131.61" y="-103" font-family="Times,serif" font-size="12.00">angle</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;angle&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;angle&#39;) -->
 <g id="edge22" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;angle&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M421.92,-198.44C371.85,-193.49 255.96,-177.55 171.6,-131.2 166.48,-128.38 161.47,-124.45 157.19,-120.6"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;angle&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M421.16,-198.97C370.69,-193.75 255.58,-177.34 171.6,-131.2 166.48,-128.38 161.47,-124.45 157.19,-120.6"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;location&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;location&#39;) -->
 <g id="node23" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;location&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;location&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="201.6" cy="-106.6" rx="21.04" ry="21.04"/>
 <text text-anchor="start" x="182.28" y="-103" font-family="Times,serif" font-size="12.00">location</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;location&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;location&#39;) -->
 <g id="edge23" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;location&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M422.6,-195.65C381.68,-186.83 296.51,-165.74 231.6,-131.2 226.69,-128.58 221.77,-125.14 217.38,-121.7"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;location&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M421.61,-196.04C380.32,-186.94 296,-165.59 231.6,-131.2 226.69,-128.58 221.78,-125.13 217.38,-121.69"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;velocity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;velocity&#39;) -->
 <g id="node24" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;velocity&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;velocity&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="261.6" cy="-106.6" rx="21.04" ry="21.04"/>
 <text text-anchor="start" x="242.28" y="-103" font-family="Times,serif" font-size="12.00">velocity</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;velocity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;velocity&#39;) -->
 <g id="edge24" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;velocity&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M423.66,-192.24C392.62,-180.69 336.01,-158.02 291.6,-131.2 286.84,-128.32 281.97,-124.79 277.58,-121.35"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;velocity&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M422.6,-192.42C391.35,-180.59 335.53,-157.84 291.6,-131.2 286.84,-128.31 281.98,-124.78 277.59,-121.33"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;elasticity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;elasticity&#39;) -->
 <g id="node25" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;elasticity&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;elasticity&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="324.6" cy="-106.6" rx="23.54" ry="23.54"/>
 <text text-anchor="start" x="302.94" y="-103" font-family="Times,serif" font-size="12.00">elasticity</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;elasticity&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;elasticity&#39;) -->
 <g id="edge25" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;elasticity&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M427.54,-185.94C404.62,-168.5 366.39,-139.4 343.53,-122"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;elasticity&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M426.73,-185.92C403.64,-168.21 365.83,-139.21 343.27,-121.91"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;adhesins&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;adhesins&#39;) -->
 <g id="node26" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;adhesins&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;adhesins&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="388.6" cy="-106.6" rx="22.47" ry="22.47"/>
 <text text-anchor="start" x="367.94" y="-103" font-family="Times,serif" font-size="12.00">adhesins</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;adhesins&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;adhesins&#39;) -->
 <g id="edge26" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;adhesins&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M434.02,-180.3C424.09,-164.41 410.33,-142.39 400.57,-126.75"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;adhesins&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M433.44,-179.93C423.48,-163.86 409.93,-142 400.34,-126.52"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;local&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;local&#39;) -->
 <g id="node27" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;local&#39;)</title>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;local&#39;)</title>
 <ellipse fill="none" stroke="black" stroke-width="2" cx="446.6" cy="-106.6" rx="18" ry="18"/>
 <text text-anchor="start" x="434.94" y="-103" font-family="Times,serif" font-size="12.00">local</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;local&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;local&#39;) -->
 <g id="edge27" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;local&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M446.6,-177.02C446.6,-161.01 446.6,-140.12 446.6,-125.45"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;local&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M446.6,-176.58C446.6,-160.55 446.6,-140 446.6,-125.51"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;volume&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;exchange&#39;) -->
 <g id="node28" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;volume&#39;)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="502.6" cy="-106.6" rx="19.62" ry="19.62"/>
-<text text-anchor="start" x="484.61" y="-103" font-family="Times,serif" font-size="12.00">volume</text>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;exchange&#39;)</title>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="507.6" cy="-106.6" rx="24.6" ry="24.6"/>
+<text text-anchor="start" x="484.95" y="-103" font-family="Times,serif" font-size="12.00">exchange</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;volume&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;exchange&#39;) -->
 <g id="edge28" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;volume&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M458.76,-180.3C468.86,-163.55 483.06,-140 492.53,-124.29"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;exchange&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M460.14,-180.39C470.25,-164.89 484,-143.79 494.1,-128.3"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;exchange&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;volume&#39;) -->
 <g id="node29" class="node">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;exchange&#39;)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="564.6" cy="-106.6" rx="24.6" ry="24.6"/>
-<text text-anchor="start" x="541.95" y="-103" font-family="Times,serif" font-size="12.00">exchange</text>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;volume&#39;)</title>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="569.6" cy="-106.6" rx="19.62" ry="19.62"/>
+<text text-anchor="start" x="551.61" y="-103" font-family="Times,serif" font-size="12.00">volume</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;exchange&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;volume&#39;) -->
 <g id="edge29" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;exchange&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M465.56,-185.53C487.45,-168.31 523.27,-140.13 545.3,-122.79"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;volume&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M467.28,-186.53C486.72,-172.63 516.51,-150.98 541.6,-131.2 545.9,-127.81 550.47,-124.04 554.64,-120.52"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
 <g id="edge30" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-width="2" d="M471.08,-197.42C506.34,-191.59 570.29,-175.22 598.6,-131.2 618.04,-100.98 604.24,-74.32 574.6,-54 552.95,-39.16 524.34,-29.94 503.44,-24.71"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-width="2" d="M471.97,-197.86C507.42,-191.74 570.56,-174.98 598.6,-131.2 617.78,-101.26 606.29,-75.01 577.6,-54 556.08,-38.24 526.86,-29.11 505.56,-24.15"/>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
 <g id="edge38" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M657.48,-89.18C652.31,-77.6 643.8,-62.68 631.6,-54 597.21,-29.54 548.63,-21.79 514.85,-19.53"/>
-<polygon fill="black" stroke="black" points="515.25,-16.04 505.08,-19.02 514.89,-23.03 515.25,-16.04"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;id&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M657.25,-88.7C652.06,-77.2 643.62,-62.57 631.6,-54 597.76,-29.86 549.98,-22.04 516.65,-19.67"/>
+<polygon fill="black" stroke="black" points="517.2,-16.2 507.02,-19.13 516.81,-23.19 517.2,-16.2"/>
 <text text-anchor="start" x="641.6" y="-56" font-family="Times,serif" font-size="10.00">agent_id</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
-<g id="edge46" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M750.14,-85.83C748.32,-84.47 746.46,-83.17 744.6,-82 718,-65.22 709.76,-62.94 679.6,-54 618.11,-35.76 543.19,-25.94 503.47,-21.67"/>
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
+<g id="edge47" class="edge">
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;mass&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M750.14,-85.83C748.32,-84.47 746.46,-83.17 744.6,-82 718,-65.22 709.75,-62.97 679.6,-54 618.88,-35.94 544.94,-26.07 505.52,-21.74"/>
 <polygon fill="black" stroke="black" points="747.69,-88.34 757.63,-92 752.13,-82.94 747.69,-88.34"/>
 <text text-anchor="start" x="710.6" y="-56" font-family="Times,serif" font-size="10.00">mass</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
-<g id="edge48" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M57.86,-85.46C59.73,-84.18 61.65,-83 63.6,-82 111.93,-57.17 129.1,-63.46 182.61,-54 279.47,-36.88 395.85,-25.75 447.98,-21.26"/>
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
+<g id="edge50" class="edge">
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;length&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M57.86,-85.46C59.73,-84.18 61.65,-83 63.6,-82 111.93,-57.17 129.1,-63.44 182.61,-54 280.13,-36.8 397.3,-25.71 449.8,-21.24"/>
 <polygon fill="black" stroke="black" points="55.93,-82.51 50.29,-91.48 60.29,-87.99 55.93,-82.51"/>
 <text text-anchor="start" x="183.6" y="-56" font-family="Times,serif" font-size="10.00">length</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
 <g id="edge35" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M157.29,-92.76C161.57,-88.92 166.55,-84.95 171.6,-82 203.89,-63.14 214.69,-63.14 250.95,-54 314.9,-37.88 391.06,-27.9 436.26,-22.9"/>
-<polygon fill="black" stroke="black" points="436.53,-26.39 446.1,-21.84 435.78,-19.43 436.53,-26.39"/>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;angle&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M157.29,-92.76C161.57,-88.92 166.55,-84.95 171.6,-82 203.89,-63.14 214.68,-63.12 250.95,-54 315.64,-37.74 392.73,-27.77 438.28,-22.83"/>
+<polygon fill="black" stroke="black" points="438.63,-26.31 448.2,-21.78 437.89,-19.35 438.63,-26.31"/>
 <text text-anchor="start" x="251.6" y="-56" font-family="Times,serif" font-size="10.00">angle</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
 <g id="edge37" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M217.28,-91.3C221.67,-87.86 226.62,-84.47 231.6,-82 299.49,-48.4 387.14,-31.43 436.79,-23.97"/>
-<polygon fill="black" stroke="black" points="437.07,-27.47 446.46,-22.57 436.07,-20.54 437.07,-27.47"/>
-<text text-anchor="start" x="302.6" y="-56" font-family="Times,serif" font-size="10.00">location</text>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;location&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M217.27,-91.29C221.67,-87.85 226.61,-84.46 231.6,-82 300.04,-48.21 388.42,-31.31 438.47,-23.91"/>
+<polygon fill="black" stroke="black" points="438.83,-27.39 448.24,-22.52 437.84,-20.46 438.83,-27.39"/>
+<text text-anchor="start" x="303.6" y="-56" font-family="Times,serif" font-size="10.00">location</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
 <g id="edge36" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M452.33,-88.49C456.23,-76.86 461.47,-61.19 466,-47.68"/>
-<polygon fill="black" stroke="black" points="469.25,-49 469.11,-38.4 462.61,-46.77 469.25,-49"/>
-<text text-anchor="start" x="464.6" y="-56" font-family="Times,serif" font-size="10.00">local</text>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;local&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M452.58,-88.9C456.76,-77.23 462.45,-61.34 467.34,-47.67"/>
+<polygon fill="black" stroke="black" points="470.63,-48.86 470.71,-38.26 464.04,-46.5 470.63,-48.86"/>
+<text text-anchor="start" x="465.6" y="-56" font-family="Times,serif" font-size="10.00">local</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
-<g id="edge47" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M493.48,-76.33C489.38,-63.2 484.69,-48.14 481.14,-36.75"/>
-<polygon fill="black" stroke="black" points="490.11,-77.28 496.43,-85.79 496.79,-75.2 490.11,-77.28"/>
-<text text-anchor="start" x="489.6" y="-56" font-family="Times,serif" font-size="10.00">volume</text>
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
+<g id="edge48" class="edge">
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M495.9,-71.81C491.75,-59.85 487.26,-46.87 483.76,-36.77"/>
+<polygon fill="black" stroke="black" points="492.49,-72.66 499.07,-80.96 499.1,-70.37 492.49,-72.66"/>
+<text text-anchor="start" x="492.6" y="-56" font-family="Times,serif" font-size="10.00">exchange</text>
 </g>
-<!-- (&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;) -->
+<!-- (&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;) -->
 <g id="edge49" class="edge">
-<title>(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;exchange&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_eaf2d4&#39;, &#39;ecoli&#39;)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M543.62,-76.38C537.55,-68.74 530.65,-60.76 523.6,-54 517.28,-47.93 509.86,-42.03 502.78,-36.86"/>
-<polygon fill="black" stroke="black" points="540.78,-78.43 549.65,-84.23 546.33,-74.17 540.78,-78.43"/>
-<text text-anchor="start" x="532.6" y="-56" font-family="Times,serif" font-size="10.00">exchange</text>
+<title>(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;volume&#39;)&#45;&gt;(&#39;cells&#39;, &#39;a_068e2a&#39;, &#39;ecoli&#39;)</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M554.54,-78.82C548.96,-70.29 542.14,-61.2 534.6,-54 526.04,-45.82 515.25,-38.6 505.37,-32.87"/>
+<polygon fill="black" stroke="black" points="551.45,-80.48 559.68,-87.15 557.4,-76.81 551.45,-80.48"/>
+<text text-anchor="start" x="543.6" y="-56" font-family="Times,serif" font-size="10.00">volume</text>
 </g>
 <!-- (&#39;global_time&#39;,) -->
 <g id="node30" class="node">
 <title>(&#39;global_time&#39;,)</title>
-<ellipse fill="none" stroke="black" stroke-width="2" cx="1242.6" cy="-302.72" rx="31.02" ry="31.02"/>
-<text text-anchor="start" x="1213.94" y="-299.12" font-family="Times,serif" font-size="12.00">global_time</text>
+<ellipse fill="none" stroke="black" stroke-width="2" cx="1243.6" cy="-304.14" rx="31.02" ry="31.02"/>
+<text text-anchor="start" x="1214.94" y="-300.54" font-family="Times,serif" font-size="12.00">global_time</text>
 </g>
 <!-- (&#39;global_time&#39;,)&#45;&gt;(&#39;emitter&#39;,) -->
 <g id="edge40" class="edge">
 <title>(&#39;global_time&#39;,)&#45;&gt;(&#39;emitter&#39;,)</title>
-<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1242.6,-270.85C1242.6,-258.39 1242.6,-244.07 1242.6,-231.77"/>
-<polygon fill="black" stroke="black" points="1246.1,-231.79 1242.6,-221.79 1239.1,-231.79 1246.1,-231.79"/>
-<text text-anchor="start" x="1242.6" y="-245.69" font-family="Times,serif" font-size="10.00">time</text>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M1243.6,-272.33C1243.6,-259.54 1243.6,-244.79 1243.6,-232.2"/>
+<polygon fill="black" stroke="black" points="1247.1,-232.44 1243.6,-222.44 1240.1,-232.44 1247.1,-232.44"/>
+<text text-anchor="start" x="1243.6" y="-247.12" font-family="Times,serif" font-size="10.00">time</text>
 </g>
 </g>
 </svg>

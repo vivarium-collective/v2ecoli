@@ -138,6 +138,32 @@ def fig_hill_vs_kd():
     _write(fig, "dnaa5_hill_vs_kd")
 
 
+def fig_parent_daughter(domain_path="/tmp/dnaa5_domain_occ.json"):
+    """Parent vs daughter oriC-low occupancy — the two oriC copies after replication.
+    Answers Haochen's 'two trajectories' question: after the chromosome replicates the
+    oriC-low sites double (8->16) and split into two domains; each copy fills its own
+    low-affinity sites. The aggregate occupancy mixed them — here they're marked separately."""
+    import json as _json
+    if not os.path.exists(domain_path):
+        print(f"  (skip parent/daughter: no {domain_path})"); return
+    dd = _json.load(open(domain_path))
+    t = dd["t_min"]; cA = dd["copyA"]; cB = dd["copyB"]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=t, y=cA, name="oriC copy 1 (parent domain)", mode="lines",
+                             line=dict(color=BLUE, width=1.4), connectgaps=False,
+                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>parent</extra>"))
+    fig.add_trace(go.Scatter(x=t, y=cB, name="oriC copy 2 (daughter, post-replication)", mode="lines",
+                             line=dict(color="#ea580c", width=1.4), connectgaps=False,
+                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>daughter</extra>"))
+    fig.update_xaxes(title="lineage time (min)")
+    fig.update_yaxes(title="oriC-low occupancy (per copy)", range=[-0.03, 1.08])
+    _layout(fig, "The two oriC copies, marked separately — parent vs daughter",
+            "after replication the oriC-low sites double (8→16) into two chromosome domains; each copy "
+            "fills its own sites cooperatively. The daughter copy (orange) only exists while oriC=2 — "
+            "this is the second trajectory in the aggregate view, not a mixed/stale artifact.")
+    _write(fig, "dnaa5_parent_vs_daughter")
+
+
 def fig_kd_sweep():
     """In-sim varying-K_d sweep: the Adair formulation over-depletes the DnaA-ATP fraction
     at every cooperativity tested (1.3-1.9), while Hill n=4 holds it in band. Real g3+ means
@@ -274,6 +300,7 @@ def main():
     fig_response_sharpness()           # analytic, always
     fig_hill_vs_kd()                   # analytic, always
     fig_kd_sweep()                     # in-sim sweep summary, always
+    fig_parent_daughter()              # per-domain parent/daughter occupancy (if data present)
     fig_langmuir_vs_switch(d)
     fig_sweet_spot(d)
     fig_homeostasis(d)

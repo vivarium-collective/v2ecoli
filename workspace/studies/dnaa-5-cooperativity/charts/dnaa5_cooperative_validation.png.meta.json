@@ -1,7 +1,0 @@
-{
-  "title": "dnaa-5 cooperative oriC switch — in-sim validation (switch works + DnaA homeostasis preserved)",
-  "caption": "8-generation runs at the dnaa-4 reference config with the MASS trigger (so the cycle is driven normally), seed 1. TOP: oriC-low occupancy over time — cooperative n=4 (green) snaps to FULL occupancy (max 1.00, a switch) while the independent-site Langmuir n=1 (grey, the dnaa-3 model) is gradual and partial (max 0.50). BOTTOM: per-generation DnaA pool — cooperative n=4 (green) stays inside the [300,800] band (dnaa-3/4 preserved) while n=6 (red) is too strong and depletes the pool below 300 (to 246).",
-  "interpretation": "Cooperativity converts the gradual, partial oriC-low occupancy into a sharp, full switch (the AAA+ filament) while preserving the DnaA pool and DnaA-ATP-fraction bands and the clean 8/8 cell cycle, at the operating point n=4, K=30 nM. n=6 is too aggressive (pool dips). The switch is now reproducible — the missing prerequisite for the mechanistic initiation trigger. Phase-locking the switch to initiation is the dnaa-6 re-test, which must re-point the trigger from oriC-high saturation to the oriC-low cooperative switch.",
-  "source_runs": ["dnaa5_coop_n4_k30_seed1_8gen", "dnaa5_coop_n6_k30_seed1_8gen", "dnaa4_s06_F05_seed1_12gen"],
-  "script": "scripts/render_dnaa5_validate.py"
-}

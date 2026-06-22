@@ -52,13 +52,19 @@ executive:
     studies (RIDA/DDAH/DARS, seqA sequestration, cooperativity, validation) are scaffolded
     as a roadmap but not yet worked.
   verdict: |-
-    HEADLINE: the succinate DnaA cell cycle is reconstructed mechanistically across six validated
-    studies (0-5) — a periodic baseline, in-band DnaA expression, ATP/ADP nucleotide balance, active
-    DnaA-box binding, DnaA self-autoregulation, and a cooperative oriC switch — with each step's gate
-    held and each step's tension pinpointing the next mechanism. The cooperative oriC switch (study 5)
-    is the prerequisite for a DnaA-ATP/oriC initiation trigger to eventually replace the inherited
-    cell-mass-per-origin heuristic; that mechanistic-initiation work is in progress and set aside from
-    this report for now.
+    HEADLINE: the succinate DnaA cell cycle is reconstructed mechanistically across six studies
+    (0-5) — a periodic baseline, in-band DnaA expression, ATP/ADP nucleotide balance, active
+    DnaA-box binding, DnaA self-autoregulation, and a cooperative oriC switch — each step's gate met
+    (or honestly PARTIAL), each step's tension pinpointing the next mechanism. The cooperative oriC
+    switch (study 5) is the prerequisite for a DnaA-ATP/oriC initiation trigger to eventually replace
+    the inherited cell-mass-per-origin heuristic; that mechanistic-initiation work is in progress and
+    set aside from this report for now.
+
+    OPEN ITEM FLAGGED FOR REVIEW (Haochen): the cooperative switch does NOT yet saturate once per
+    generation — under the mass trigger it over-fires early (gens 1-3) then stops saturating later
+    (gens 4-9, as free DnaA-ATP drifts down), so dnaa-5's gate is PARTIAL on that criterion. Clean
+    once-per-cycle firing needs the mechanistic DnaA-ATP/oriC trigger (phase-locked to initiation) plus
+    a sustained DnaA-ATP level — both out of scope for this report but the clear next requirement.
 
     THE ARC — the steps it took to get here:
       (0) succinate baseline — v2ecoli reaches periodic steady state (oriC 1↔2 from gen 3).
@@ -72,7 +78,9 @@ executive:
           dnaa-1/2/3 V-tension at the root. Homeostasis robust across 3 seeds; the DnaA-ATP fraction
           band is seed-1-specific (honest PARTIAL).
       (5) cooperative oriC switch — a Hill filament makes oriC-low occupancy SWITCH-LIKE (reaches
-          full), preserving the dnaa-3/4 bands. The prerequisite a mechanistic initiation trigger needs.
+          full), preserving the dnaa-3/4 bands (PASS). The prerequisite a mechanistic initiation
+          trigger needs. PARTIAL: it does NOT yet fire once-per-generation (needs the mechanistic
+          trigger + sustained DnaA-ATP) — the flagged open item.
 
     NEXT (in progress, set aside from this report): wire the cooperative switch into a DnaA-ATP/oriC
     initiation trigger to replace the inherited cell-mass-per-origin heuristic. Detail per step follows.
@@ -110,7 +118,8 @@ executive:
     seed 0 (0.156, ramping toward band late) and seed 2 (0.085, erratic) fall below 0.2 — so dnaa-4
     stays PARTIAL on the fraction (homeostasis confirmed, fraction band seed-1-specific).
 
-    dnaa-5 (cooperative oriC switch) PASS: replacing the oriC-low independent-site Langmuir with a
+    dnaa-5 (cooperative oriC switch) PARTIAL — switch + homeostasis PASS, once-per-cycle firing OPEN:
+    replacing the oriC-low independent-site Langmuir with a
     cooperative Hill filament (n=4, K=30 nM, flag-gated; n=1 recovers dnaa-3 exactly) makes the
     oriC-low occupancy snap to FULL (max 1.00) versus the Langmuir's gradual partial (max 0.50) — a
     switch-like, reproducible signal — while preserving the dnaa-3/4 steady state (DnaA pool in
@@ -119,7 +128,14 @@ executive:
     is seed-robust on homeostasis — 8/8 divisions, oriC 1↔2, and pool in [300,800] on all three seeds
     (g3+ mean 332/380/376); the DnaA-ATP-fraction band holds on seed 1 only (0.171/0.276/0.194), the
     same seed-sensitivity carried from dnaa-4 (the ATP-charging kinetics are seed-variable). So the
-    switch mechanism generalises; the in-band fraction stays seed-1-calibrated.
+    switch mechanism generalises; the in-band fraction stays seed-1-calibrated. ONCE-PER-GENERATION
+    (Haochen's test, the reason dnaa-5 is PARTIAL): the switch does NOT saturate once per cycle —
+    per-gen saturation episodes [11,93,95,0,0,0,0,0,0], over-firing in gens 1-3 then not saturating in
+    gens 4-9 (free DnaA-ATP drifts below threshold). Clean once-per-cycle firing needs the mechanistic
+    DnaA-ATP/oriC trigger phase-locked to initiation + a sustained DnaA-ATP level (out of scope). Also:
+    cooperativity was cross-checked in the classical varying-K_d (Adair) formulation — statically
+    equivalent to Hill n=4, but dynamically it over-depletes DnaA-ATP at every cooperativity (finding
+    F-KD), so the Hill form is the homeostasis-preserving one.
 
     The cooperative switch is the prerequisite for a DnaA-ATP/oriC initiation trigger to replace the
     cell-mass heuristic — that mechanistic-initiation work (and the RIDA once-per-cycle control) is in

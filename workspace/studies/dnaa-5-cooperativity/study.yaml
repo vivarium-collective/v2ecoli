@@ -248,7 +248,7 @@ embed_visualizations:
 report:
   title: "dnaa-5 — cooperative DnaA-ATP oriC switch"
   verdict: >-
-    cooperative-switch-validated. Implemented the cooperative DnaA-ATP oriC switch (Hill on the
+    switch-validated; once-per-cycle firing OPEN (gate PARTIAL). Implemented the cooperative DnaA-ATP oriC switch (Hill on the
     oriC-low _solve_pool, flag-gated; n=1 = the dnaa-3 Langmuir). RESULTS (8-gen, mass trigger,
     dnaa-4 reference config, seed 1): (1) SWITCH WORKS — at n=4, K=30 nM the oriC-low occupancy
     snaps to FULL (max 1.00, bimodal) versus the Langmuir's gradual partial (max 0.50); the
@@ -266,8 +266,13 @@ report:
     DnaA pool in [300,800] (g3+ mean 332/380/376). The DnaA-ATP fraction band [0.2,0.5] holds on
     seed 1 only (0.171/0.276/0.194) — the SAME seed-sensitivity already documented for dnaa-4 (the
     ATP-charging kinetics are seed-variable), so the in-band fraction is seed-1-calibrated while the
-    switch mechanism itself generalises.
-  confidence: validated
+    switch mechanism itself generalises. ONCE-PER-GENERATION TEST (Haochen 2026-06-21) — FAILS, gate
+    PARTIAL: the switch does NOT saturate once per cycle. Per-gen saturation episodes [11,93,95,0,0,0,
+    0,0,0] — it over-fires in gens 1-3 (unsynced square-wave) then stops saturating in gens 4-9 (free
+    DnaA-ATP drifts below threshold). Clean once-per-cycle firing needs the mechanistic DnaA-ATP/oriC
+    trigger phase-locked to initiation (out of scope) PLUS a sustained DnaA-ATP level. So dnaa-5
+    establishes the switch + homeostasis (PASS) but once-per-cycle firing is an honest OPEN item.
+  confidence: switch-validated-firing-open
 
 findings:
 - id: F-01

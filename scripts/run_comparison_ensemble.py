@@ -54,44 +54,95 @@ def _build_v2ecoli(seed: int, cache_dir: str):
     return build_composite("baseline", cache_dir=cache_dir, seed=seed)
 
 
+# Cache for the once-per-process vEcoli import + global registrations. Re-importing
+# ``ecoli.*`` per seed would re-trigger module-level emitter registration (e.g.
+# ``parquet``) into the process-global registry → "registry already contains an
+# entry for parquet" on the 2nd seed. So do the path-fix + purge + imports +
+# resolve-dispatch registration EXACTLY ONCE, then reuse the cached symbols.
+_VECOLI: dict = {}
+
+
+def _ensure_vecoli() -> dict:
+    """Import the vEcoli composite stack once per process; cache its symbols.
+
+    The v2ecoli image bakes the vEcoli composite-softfloor checkout at
+    ``/app/vEcoli``, but an installed vEcoli release (lacking
+    ``ecoli.composites.ecoli_composite``) may already be cached in sys.modules
+    transitively. ``sys.path.insert`` does NOT re-resolve an already-imported
+    package, so we drop every ``ecoli*`` module ONCE to force a fresh import
+    from the composite-softfloor branch. Mirrors scripts/run_vecoli_composite.py
+    (incl. the SharedProcess resolve dispatches the composite branch needs).
+    """
+    if _VECOLI:
+        return _VECOLI
+    vecoli_dir = str(REPO_ROOT.parent / "vEcoli")
+    sys.path.insert(0, vecoli_dir)
+    for _m in [m for m in sys.modules if m == "ecoli" or m.startswith("ecoli.")]:
+        del sys.modules[_m]
+
+    from ecoli.experiments.ecoli_master_sim import EcoliSim
+    from ecoli.composites.ecoli_composite import build_composite_native
+    from ecoli.library.bigraph_types import ECOLI_TYPES, SharedProcess
+    from process_bigraph import Composite
+    from bigraph_schema import allocate_core
+    import v2ecoli.types  # noqa: F401  (register v2ecoli types/dispatches)
+
+    # SharedProcess (new in the composite branch) needs resolve dispatches.
+    from bigraph_schema.methods.resolve import resolve as _resolve
+    from bigraph_schema.schema import Tuple as _Tuple
+    from v2ecoli.types.process import ProcessInstance
+
+    @_resolve.dispatch
+    def _resolve_tuple_shared(current: _Tuple, update: SharedProcess, path=None):
+        return update
+
+    @_resolve.dispatch
+    def _resolve_shared_tuple(current: SharedProcess, update: _Tuple, path=None):
+        return current
+
+    @_resolve.dispatch
+    def _resolve_pi_shared(current: ProcessInstance, update: SharedProcess, path=None):
+        return update
+
+    @_resolve.dispatch
+    def _resolve_shared_pi(current: SharedProcess, update: ProcessInstance, path=None):
+        return current
+
+    _VECOLI.update(
+        vecoli_dir=vecoli_dir, EcoliSim=EcoliSim,
+        build_composite_native=build_composite_native,
+        ECOLI_TYPES=ECOLI_TYPES, Composite=Composite, allocate_core=allocate_core,
+    )
+    return _VECOLI
+
+
 def _build_vecoli(seed: int, condition: str):
     """Original vEcoli model as a process-bigraph composite (no Nextflow).
 
-    Mirrors scripts/run_vecoli_composite.py: build_composite_native from the
-    vEcoli ``composite`` branch. REQUIRES the vEcoli checkout to be on a branch
-    that has both ``ecoli.composites.ecoli_composite.build_composite_native``
-    AND the ppGpp soft-floor (i.e. the soft-floor applied onto the composite
-    branch). See the module docstring.
+    Mirrors scripts/run_vecoli_composite.py: ``build_composite_native`` from the
+    vEcoli composite-softfloor branch (carries the ppGpp soft-floor). The import
+    + global registration happens once via ``_ensure_vecoli``; this builds a
+    fresh per-seed composite on its own ``core``.
     """
-    vecoli_dir = str(REPO_ROOT.parent / "vEcoli")
-    sys.path.insert(0, vecoli_dir)
-    # The installed vEcoli release may already be cached in sys.modules (pulled
-    # in transitively when v2ecoli imports loaded), and that release lacks
-    # ``ecoli.composites.ecoli_composite``. A bare ``sys.path.insert`` does NOT
-    # re-resolve an already-imported package, so drop every ``ecoli*`` module
-    # to force a fresh import from ``vecoli_dir`` (the composite-softfloor
-    # branch that carries ``build_composite_native``).
-    for _m in [m for m in sys.modules if m == "ecoli" or m.startswith("ecoli.")]:
-        del sys.modules[_m]
+    v = _ensure_vecoli()
     prev = os.getcwd()
-    os.chdir(vecoli_dir)
+    os.chdir(v["vecoli_dir"])
     try:
-        from ecoli.experiments.ecoli_master_sim import EcoliSim
-        from ecoli.composites.ecoli_composite import build_composite_native
-        from ecoli.library.bigraph_types import ECOLI_TYPES
-        from process_bigraph import Composite
-        from bigraph_schema import allocate_core
-        import v2ecoli.types  # noqa: F401  (register v2ecoli types/dispatches)
-
-        core = allocate_core()
-        for name, schema in ECOLI_TYPES.items():
-            core.register(name, schema)
-        sim = EcoliSim.from_cli()
+        core = v["allocate_core"]()
+        core.register_types(v["ECOLI_TYPES"])
+        sim = v["EcoliSim"].from_cli()
         # condition → media is set via the vEcoli sim config; lineage_seed=seed.
         sim.config["condition"] = condition
         sim.config["seed"] = seed
-        state = build_composite_native(core, sim.config)
-        return Composite({"state": state}, core=core)
+        sim.processes = sim._retrieve_processes(
+            sim.processes, sim.add_processes, sim.exclude_processes, sim.swap_processes)
+        sim.topology = sim._retrieve_topology(
+            sim.topology, sim.processes, sim.swap_processes, sim.log_updates)
+        sim.process_configs = sim._retrieve_process_configs(sim.process_configs, sim.processes)
+        state = v["build_composite_native"](core, sim.config)
+        composite = v["Composite"](dict(schema=dict(), state=state), core=core)
+        composite.to_run = []
+        return composite
     finally:
         os.chdir(prev)
 

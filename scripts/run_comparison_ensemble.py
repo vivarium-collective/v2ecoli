@@ -230,8 +230,13 @@ def _build_vecoli(seed: int, condition: str, cache_dir: str):
             sim.topology, sim.processes, sim.swap_processes, sim.log_updates)
         sim.process_configs = sim._retrieve_process_configs(sim.process_configs, sim.processes)
         state = v["build_composite_native"](core, sim.config)
+        # NB: do NOT clear composite.to_run here. run_vecoli_composite.py clears
+        # it because it drives ecoli.run(chunk) MANUALLY; our driver
+        # (run_multigen_xarray) calls composite.run(1)/composite.run(chunk)
+        # itself, so an emptied to_run means zero steps execute → an empty zarr
+        # (group hierarchy only, no observable arrays). The v2ecoli composite
+        # leaves to_run at its default and emits correctly; mirror that.
         composite = v["Composite"](dict(schema=dict(), state=state), core=core)
-        composite.to_run = []
         return composite
     finally:
         os.chdir(prev)

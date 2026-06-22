@@ -24,12 +24,28 @@ BAND_GREEN = "rgba(34,197,94,0.10)"
 BAND_BLUE = "rgba(37,99,235,0.08)"
 
 
+def _wrap(s, width=78):
+    """Wrap a subtitle into <br>-separated lines so it doesn't overflow/clip the iframe."""
+    words, lines, cur = s.split(), [], ""
+    for w in words:
+        if cur and len(cur) + len(w) + 1 > width:
+            lines.append(cur); cur = w
+        else:
+            cur = (cur + " " + w).strip()
+    if cur:
+        lines.append(cur)
+    return "<br>".join(lines)
+
+
 def _layout(fig, title, subtitle, h=480):
+    sub = _wrap(subtitle)
+    nlines = sub.count("<br>") + 1
     fig.update_layout(
-        title=dict(text=f"<b>{title}</b><br><span style='font-size:13px;color:#475569'>{subtitle}</span>",
-                   x=0.5, xanchor="center", font=dict(size=18)),
-        template="plotly_white", height=h, font=dict(family="Inter, system-ui, sans-serif", size=13),
-        margin=dict(t=90, b=55, l=70, r=30), hovermode="x unified",
+        title=dict(text=f"<b>{title}</b><br><span style='font-size:12px;color:#475569'>{sub}</span>",
+                   x=0.5, xanchor="center", font=dict(size=17)),
+        template="plotly_white", height=h + 18 * max(0, nlines - 1),
+        font=dict(family="Inter, system-ui, sans-serif", size=13),
+        margin=dict(t=64 + 16 * nlines, b=55, l=70, r=40), hovermode="x unified",
         legend=dict(bgcolor="rgba(255,255,255,0.7)", bordercolor="#e2e8f0", borderwidth=1),
     )
     return fig
@@ -138,6 +154,32 @@ def fig_hill_vs_kd():
     _write(fig, "dnaa5_hill_vs_kd")
 
 
+def fig_saturation_per_gen():
+    """Test 'oriC saturates roughly once per generation' (Haochen): per-generation count of
+    oriC-low saturation episodes (occ>=0.9) + max occupancy. Real values from the n=4 run."""
+    gens = list(range(1, 10))
+    sats = [11, 93, 95, 0, 0, 0, 0, 0, 0]
+    maxocc = [1.00, 1.00, 1.00, 0.25, 0.25, 0.12, 0.25, 0.50, 0.12]
+    fig = make_subplots(specs=[[{"secondary_y": True}]])
+    fig.add_trace(go.Bar(x=gens, y=sats, name="saturation episodes (occ≥0.9)", marker_color="#ea580c",
+                         text=sats, textposition="outside",
+                         hovertemplate="gen %{x}<br>%{y} saturations<extra></extra>"), secondary_y=False)
+    fig.add_trace(go.Scatter(x=gens, y=maxocc, name="max oriC-low occupancy", mode="lines+markers",
+                             line=dict(color=BLUE, width=2), marker=dict(size=7),
+                             hovertemplate="gen %{x}<br>max occ %{y:.2f}<extra></extra>"), secondary_y=True)
+    fig.add_hline(y=1, line=dict(color="#16a34a", width=1, dash="dot"),
+                  annotation_text="once-per-generation target", annotation_position="top left")
+    fig.update_xaxes(title="generation")
+    fig.update_yaxes(title_text="saturation episodes per generation", secondary_y=False)
+    fig.update_yaxes(title_text="max oriC-low occupancy", range=[0, 1.1], secondary_y=True)
+    _layout(fig, "Test: does oriC saturate once per generation? — NOT under the mass trigger",
+            "the cooperative switch over-fires in gens 1-3 (11-95 saturation episodes, far more than once) "
+            "then STOPS saturating in gens 4-9 (max occupancy 0.12-0.50, never reaches full) as free DnaA-ATP "
+            "drifts down. Clean once-per-cycle firing needs the mechanistic DnaA-ATP/oriC trigger phase-locked "
+            "to initiation (out of scope for this report) plus a sustained DnaA-ATP level — a real open item.", h=480)
+    _write(fig, "dnaa5_saturation_per_gen")
+
+
 def fig_parent_daughter(domain_path="/tmp/dnaa5_domain_occ.json"):
     """Parent vs daughter oriC-low occupancy — the two oriC copies after replication.
     Answers Haochen's 'two trajectories' question: after the chromosome replicates the
@@ -149,18 +191,20 @@ def fig_parent_daughter(domain_path="/tmp/dnaa5_domain_occ.json"):
     dd = _json.load(open(domain_path))
     t = dd["t_min"]; cA = dd["copyA"]; cB = dd["copyB"]
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=t, y=cA, name="oriC copy 1 (parent domain)", mode="lines",
+    fig.add_trace(go.Scatter(x=t, y=cA, name="daughter oriC copy 1", mode="lines",
                              line=dict(color=BLUE, width=1.4), connectgaps=False,
-                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>parent</extra>"))
-    fig.add_trace(go.Scatter(x=t, y=cB, name="oriC copy 2 (daughter, post-replication)", mode="lines",
+                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>daughter 1</extra>"))
+    fig.add_trace(go.Scatter(x=t, y=cB, name="daughter oriC copy 2", mode="lines",
                              line=dict(color="#ea580c", width=1.4), connectgaps=False,
-                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>daughter</extra>"))
+                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>daughter 2</extra>"))
     fig.update_xaxes(title="lineage time (min)")
-    fig.update_yaxes(title="oriC-low occupancy (per copy)", range=[-0.03, 1.08])
-    _layout(fig, "The two oriC copies, marked separately — parent vs daughter",
-            "after replication the oriC-low sites double (8→16) into two chromosome domains; each copy "
-            "fills its own sites cooperatively. The daughter copy (orange) only exists while oriC=2 — "
-            "this is the second trajectory in the aggregate view, not a mixed/stale artifact.")
+    fig.update_yaxes(title="oriC-low occupancy (per chromosome domain)", range=[-0.03, 1.08])
+    _layout(fig, "The two daughter oriC copies, tracked separately",
+            "at replication initiation the origin fires and the chromosome forms TWO sister (daughter) "
+            "copies, so the oriC-low sites double 8→16 into two domains; each daughter fills its own "
+            "sites cooperatively. Before replication (oriC=1) only copy 1 is present; copy 2 (orange) "
+            "appears when oriC=2. Both daughters are now tracked separately — the 'second trajectory' "
+            "in the aggregate view is the daughter chromosome's oriC, not a mixed/stale artifact.")
     _write(fig, "dnaa5_parent_vs_daughter")
 
 
@@ -300,7 +344,8 @@ def main():
     fig_response_sharpness()           # analytic, always
     fig_hill_vs_kd()                   # analytic, always
     fig_kd_sweep()                     # in-sim sweep summary, always
-    fig_parent_daughter()              # per-domain parent/daughter occupancy (if data present)
+    fig_parent_daughter()              # per-domain daughter-copy occupancy (if data present)
+    fig_saturation_per_gen()           # the once-per-generation saturation test
     fig_langmuir_vs_switch(d)
     fig_sweet_spot(d)
     fig_homeostasis(d)

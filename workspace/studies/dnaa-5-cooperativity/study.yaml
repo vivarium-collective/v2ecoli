@@ -8,7 +8,7 @@ design_status: designed
 implementation_status: implemented
 simulation_status: ran
 evaluation_status: evaluated
-gate_status: passed   # cooperativity validated at n=4, K=30 — switch works (oriC-low reaches full) + dnaa-3/4 preserved. n=6 too strong (pool dips). Phase-locking the switch to the initiation event is out of scope for this report.
+gate_status: partial   # 2026-06-21: switch works (oriC-low reaches full) + dnaa-3/4 homeostasis preserved at n=4,K=30 (PASS). But the once-per-generation saturation test (Haochen) FAILS: under the mass trigger the switch over-fires in gens 1-3 then stops saturating in gens 4-9 — once-per-cycle firing needs the mechanistic DnaA-ATP/oriC trigger (out of scope) + a sustained DnaA-ATP level. n=6 too strong (pool dips).
 expert_review_status: pending
 
 seeded_from:
@@ -19,7 +19,7 @@ pipeline_gate:
   prerequisites:
   - dnaa-4-autoregulation
   enables: []   # a downstream mechanistic-initiation trigger is out of scope for this report (set aside 2026-06-21)
-  gate_status: pass
+  gate_status: partial
 
 question: >-
   Can cooperative DnaA-ATP filament assembly at oriC turn the gradual, noisy oriC occupancy into
@@ -121,6 +121,13 @@ tests:
   pass_if: {op: generation_average_in_range, low: 300, high: 800}
   status: passed
   result: "PASS at n=4, K=30 — DnaA pool every steady gen in [300,800] (454-334), DnaA-ATP fraction 0.276 in [0.2,0.5], clean 8/8 cycle, oriC 1<->2, 0 re-inits. n=6 FAILS (pool dips to 246) — too strong; n=4 is the operating point."
+- name: oriC-saturates-once-per-generation
+  classification: primary
+  description: "oriC-low occupancy should saturate (reach ~full) roughly ONCE per generation — the switch fires once per cell cycle (Haochen 2026-06-21). Measured as oriC-low saturation episodes (occ>=0.9, rising edges) per generation; target ~1."
+  measure: {kind: derived, path: "oriC-low saturation episodes (occ>=0.9) per generation"}
+  pass_if: {op: generation_average_in_range, low: 0.5, high: 2.0}
+  status: failed
+  result: "FAIL (honest) under the MASS trigger — the switch does NOT fire once per generation. Per-gen saturation episodes = [11,93,95,0,0,0,0,0,0]: it OVER-fires in gens 1-3 (11-95 episodes, the unsynced square-wave) then STOPS saturating in gens 4-9 (max occupancy 0.12-0.50, free DnaA-ATP drifts too low). Two causes: (1) under the mass trigger the switch is not phase-locked to initiation (a mechanistic DnaA-ATP/oriC trigger, out of scope for this report, would couple them); (2) the DnaA-ATP level drifts down in later gens so the switch stops crossing threshold. Once-per-generation firing is an OPEN item needing the mechanistic trigger + a sustained DnaA-ATP level. See dnaa5_saturation_per_gen."
 
 planned_runs:
 - name: dnaa5_coop_sweep
@@ -220,9 +227,12 @@ embed_visualizations:
 - name: "Multi-cell-cycle occupancy — Langmuir half-fills; the switch reaches FULL every cycle"
   url: /reports/figures/dnaa-5-cooperativity/dnaa5_langmuir_vs_switch.html
   caption: "oriC-low occupancy over the full 8-generation succinate lineage (cumulative time, dnaa-4 reference, seed 1). The cooperative n=4 switch reaches FULL (max 1.00) and re-fires each cell cycle, while the Langmuir (n=1) stays ≤0.5 throughout — across all cycles, not one. (Replaces the retired dnaa5_cooperative_validation chart, which overlaid all cycles on a per-generation axis.)"
-- name: "Parent vs daughter oriC copies — answering Haochen's 'two trajectories'"
+- name: "Two daughter oriC copies, tracked separately — answering Haochen's 'two trajectories'"
   url: /reports/figures/dnaa-5-cooperativity/dnaa5_parent_vs_daughter.html
-  caption: "After the chromosome replicates, the oriC-low sites DOUBLE (8→16) and split into two domains — the parent and daughter oriC copies — each filling its own low-affinity sites cooperatively (verified: 1481 timesteps with 2 copies, both occupancy 0→1). The aggregate occupancy mixed them; here parent (blue) and daughter (orange) are marked separately. The daughter trace exists only while oriC=2 — so the 'second trajectory' is the real daughter oriC copy, not a stale/mixed artifact."
+  caption: "At replication initiation the origin fires and the chromosome forms TWO sister (daughter) oriC copies, so the oriC-low sites double 8→16 into two domains (verified: 1481 timesteps with 2 copies, both occupancy 0→1). Each daughter fills its own sites; before replication only copy 1 is present, copy 2 appears when oriC=2. Both daughters are now tracked separately — the aggregate 'second trajectory' is the daughter chromosome's oriC, not a stale/mixed artifact."
+- name: "Test — does oriC saturate once per generation? (NOT under the mass trigger)"
+  url: /reports/figures/dnaa-5-cooperativity/dnaa5_saturation_per_gen.html
+  caption: "Haochen's once-per-generation test: per-gen oriC-low saturation episodes = [11,93,95,0,0,0,0,0,0]. The switch over-fires in gens 1-3 (the unsynced square-wave) then stops saturating in gens 4-9 (max occ 0.12-0.50) as free DnaA-ATP drifts down. So it does NOT fire once per generation under the mass trigger — clean once-per-cycle firing needs the mechanistic DnaA-ATP/oriC trigger phase-locked to initiation (out of scope) + a sustained DnaA-ATP level. An honest open item (gate now PARTIAL)."
 - name: "Homeostasis preserved across cycles — DnaA pool + ATP fraction stay in band"
   url: /reports/figures/dnaa-5-cooperativity/dnaa5_homeostasis_preserved.html
   caption: "Under cooperative n=4 over all 8 generations: total DnaA pool in [300,800] (g3+ mean 380) and DnaA-ATP fraction in [0.2,0.5] (g3+ mean 0.276). Cooperativity does not break the dnaa-3/4 bands."

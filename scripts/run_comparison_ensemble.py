@@ -188,7 +188,7 @@ def _ensure_vecoli() -> dict:
     return _VECOLI
 
 
-def _build_vecoli(seed: int, condition: str):
+def _build_vecoli(seed: int, condition: str, cache_dir: str):
     """Original vEcoli model as a process-bigraph composite (no Nextflow).
 
     Mirrors scripts/run_vecoli_composite.py: ``build_composite_native`` from the
@@ -218,6 +218,12 @@ def _build_vecoli(seed: int, condition: str):
         # condition → media is set via the vEcoli sim config; lineage_seed=seed.
         sim.config["condition"] = condition
         sim.config["seed"] = seed
+        # Consume the SAME ParCa output as the v2ecoli composite: the ParCa step
+        # (v2ecoli build_cache → _write_sim_input_bundle) now also dumps the raw
+        # SimulationData as <cache_dir>/simData.cPickle. Point the vEcoli
+        # composite's LoadSimData at it instead of the unbuilt default
+        # /app/vEcoli/out/kb/simData.cPickle.
+        sim.config["sim_data_path"] = os.path.join(cache_dir, "simData.cPickle")
         sim.processes = sim._retrieve_processes(
             sim.processes, sim.add_processes, sim.exclude_processes, sim.swap_processes)
         sim.topology = sim._retrieve_topology(
@@ -246,7 +252,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, cache_dir)
         elif composite_kind == "vecoli":
-            composite = _build_vecoli(seed, condition)
+            composite = _build_vecoli(seed, condition, cache_dir)
         else:
             raise ValueError(f"unknown composite_kind {composite_kind!r}")
         view = view_from_emit_paths(COMPARISON_PATHS, include_vectors=False)

@@ -574,6 +574,17 @@ def run_multigen_xarray(
         try:
             composite.run(chunk)
         except Exception as e:
+            # A graceful end-of-run (e.g. a composite that can't divide further)
+            # raises here after emitting real data — stay lenient in that case.
+            # But a failure on the VERY FIRST chunk (done still at the warm-up
+            # value of 1) means the composite never produced any observable
+            # data; silently breaking yields an empty-but-valid zarr and a
+            # misleading success. Fail loud with the full traceback instead.
+            if done <= 1:
+                import traceback as _tb
+                print(f"[multigen_xarray] composite FAILED on first chunk "
+                      f"(no data emitted):\n{_tb.format_exc()}")
+                raise
             print(f"[multigen_xarray] composite stopped at {done}s: {str(e)[:80]}")
             break
         done += chunk

@@ -281,20 +281,20 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Phase 0 produces the Markov-blanket reference dataset that gates every later phase — a Phase-N replacement subprocess is only accepted when its interface statistics match the Phase 0 zarr ensemble within tolerance.
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Phase 0 produces the Markov-blanket reference dataset that gates every later phase. A Phase-N replacement subprocess is only accepted when its interface statistics match the Phase 0 zarr ensemble within tolerance.
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Caveat</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
                     data-narrative-path="report.caveat"
-                    placeholder="One sentence: the headline limitation a reviewer needs to know.">Pre-execution scaffold. The acceptance bands cited in this study (W₂ ratio &lt; 0.05, stiffness κ &gt; 10⁴, MCSE &lt; 10% of inter-condition effect size, the ±σ / |z|≤2 operationalization) are currently ad-hoc and uncited — provenance pending; none is asserted as met. Concrete tolerance bands will be fitted from the N≥64 replicate runs once the diagnostic harness lands and the canonical reference is committed.</textarea>
+                    placeholder="One sentence: the headline limitation a reviewer needs to know.">Pre-execution scaffold. The acceptance bands cited in this study (W₂ ratio &lt; 0.05, stiffness κ &gt; 10⁴, MCSE &lt; 10% of inter-condition effect size, the ±σ / |z|≤2 operationalization) are currently ad-hoc and uncited; provenance pending, and none is asserted as met. Concrete tolerance bands will be fitted from the N≥64 replicate runs once the diagnostic harness lands and the canonical reference is committed.</textarea>
         </label>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Conclusion</span>
           <textarea class="narrative-input narrative-textarea" rows="3"
                     data-narrative-path="report.conclusion"
-                    placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted — every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, teleonomic, or coupling-artifact; per-step compute will decompose into measurable marshalling vs. essential buckets across ≥3 conditions.</textarea>
+                    placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted; every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, teleonomic, or coupling-artifact; per-step compute will decompose into measurable marshalling vs. essential buckets across ≥3 conditions.</textarea>
         </label>
       </div>
       
@@ -374,7 +374,7 @@
           <div>
             <strong style="color:#1e293b">region-unexplored</strong>
             <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">Multi-generation zarr trajectories via XArrayEmitter are not yet produced (composite.run() does not auto-attach the emitter; task #39) — only single-generation endpoint + per-tick listener JSON exists today, so the multi-gen lineage statistics Phase 2 needs are missing.</div>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">Multi-generation zarr trajectories via XArrayEmitter are not yet produced (composite.run() does not auto-attach the emitter; task #39); only single-generation endpoint + per-tick listener JSON exists today, so the multi-gen lineage statistics Phase 2 needs are missing.</div>
           </div>
         </div>
         
@@ -402,7 +402,7 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">No biology is changed in Phase 0 — v2ecoli (55-process partitioned whole-cell model) is run as-is to characterise what state each subprocess exchanges. The one biological sanity signal is growth-rate ordering across media: glucose+aa (doubling 25 min) &gt; glucose (44 min) &gt; acetate (136 min), which the N=32 ensemble reproduces in endpoint cell/dry mass.</textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">No biology is changed in Phase 0: v2ecoli (55-process partitioned whole-cell model) is run as-is to characterise what state each subprocess exchanges. The one biological sanity signal is growth-rate ordering across media: glucose+aa (doubling 25 min) &gt; glucose (44 min) &gt; acetate (136 min), which the N=32 ensemble reproduces in endpoint cell/dry mass.</textarea>
         
       </div>
 
@@ -434,7 +434,7 @@ separate marshalling overhead from essential computation.">
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="No biology is changed in Phase 0 — v2ecoli (55-process partitioned whole-cell model) is run as-is to characterise what state each subprocess exchanges. The one biological sanity signal is growth-rate ordering across media: glucose+aa (doubling 25 min) &gt; glucose (44 min) &gt; acetate (136 min), which the N=32 ensemble reproduces in endpoint cell/dry mass.">
+                   placeholder="No biology is changed in Phase 0: v2ecoli (55-process partitioned whole-cell model) is run as-is to characterise what state each subprocess exchanges. The one biological sanity signal is growth-rate ordering across media: glucose+aa (doubling 25 min) &gt; glucose (44 min) &gt; acetate (136 min), which the N=32 ensemble reproduces in endpoint cell/dry mass.">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
@@ -564,7 +564,7 @@ motivating the column-centric runtime refactor in Phase 4.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">A real 3-condition Phase-0 reference ensemble exists (M9-glucose / acetate / +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim. HONEST SCOPE: N=32, NOT the N&gt;=64 canonical gating target, so the investigation gate is NOT met by this ensemble.</div>
+        <div class="finding-statement">A real 3-condition Phase-0 reference ensemble exists (M9-glucose / acetate / +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim. Scope: N=32, not the N&gt;=64 canonical gating target, so the investigation gate is not met by this ensemble.</div>
         
         
         
@@ -1861,7 +1861,7 @@ expect:  {"field": "cv_pct", "operator": "greater-than", "threshold": 0.01}</pre
       <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
         <strong>Latest result:</strong>
         
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: Gating criterion NOT met: only N=32 per condition ran (provenance: &#34;Do NOT cite as N=64&#34;); the N≥64 ensemble + MCSE-vs-effect-size ratio was not produced. This is the study&#39;s gate and it is unmet — verdict kept honest at in_progress, not passed.</code>
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: Gating criterion not met: only N=32 per condition ran (provenance: &#34;Do NOT cite as N=64&#34;); the N≥64 ensemble + MCSE-vs-effect-size ratio was not produced. This is the study&#39;s gate and it is unmet; verdict kept at in_progress, not passed.</code>
         
       </div>
       
@@ -2132,13 +2132,13 @@ expect:  {"expected": ["M9+acetate", "M9+glucose", "M9+glucose+aa"], "operator":
       
       <div class="di-unc di-unc-resolved">
         <h4>✓ Resolved uncertainties</h4>
-        <ul><li>The per-process RNG-seeding bug — diagnosed via a 3-seed pilot that produced CV 0.000% across seeds — is fixed (each stochastic process seeds from crc32(process_name, master_seed)); multi-seed ensembles now diverge (CV &gt; 1% at t=100 s), so every downstream ensemble is a genuine sample, not one trajectory in disguise.</li><li>A fresh N=6 x 250 model-second M9-glucose PILOT ensemble (.pbg/runs/phase0-traj/) ran successfully on the merged branch with trajectories that genuinely diverge across seeds (ATP[c] CV ~ 0.029%) — a single-condition pilot, explicitly NOT the 3-condition x N=64 x 600 s canonical reference, which is NOT committed in this checkout and is being RE-RUN. Earlier cross-condition ATP ratios (glucose:acetate 3.85x, +aa:glucose 1.97x) are from a prior uncommitted run and await the re-run before being re-asserted.</li></ul>
+        <ul><li>The per-process RNG-seeding bug (diagnosed via a 3-seed pilot that produced CV 0.000% across seeds) is fixed (each stochastic process seeds from crc32(process_name, master_seed)); multi-seed ensembles now diverge (CV &gt; 1% at t=100 s), so every downstream ensemble is a genuine sample, not one trajectory in disguise.</li><li>A fresh N=6 x 250 model-second M9-glucose pilot ensemble (.pbg/runs/phase0-traj/) ran successfully on the merged branch with trajectories that genuinely diverge across seeds (ATP[c] CV ~ 0.029%); a single-condition pilot, explicitly not the 3-condition x N=64 x 600 s canonical reference, which is not committed in this checkout and is being re-run. Earlier cross-condition ATP ratios (glucose:acetate 3.85x, +aa:glucose 1.97x) are from a prior uncommitted run and await the re-run before being re-asserted.</li></ul>
       </div>
       
       
       <div class="di-unc di-unc-remaining">
         <h4>● Remaining uncertainties</h4>
-        <ul><li>Multi-generation zarr trajectories via XArrayEmitter are not yet produced (composite.run() does not auto-attach the emitter; task #39) — only single-generation endpoint + per-tick listener JSON exists today, so the multi-gen lineage statistics Phase 2 needs are missing.</li><li>The typed PB Markov-blanket interface schemas (6 subprocesses) and the per-step marshalling-vs- essential compute profile are specified as planned readouts but not yet emitted as deliverables.</li></ul>
+        <ul><li>Multi-generation zarr trajectories via XArrayEmitter are not yet produced (composite.run() does not auto-attach the emitter; task #39); only single-generation endpoint + per-tick listener JSON exists today, so the multi-gen lineage statistics Phase 2 needs are missing.</li><li>The typed PB Markov-blanket interface schemas (6 subprocesses) and the per-step marshalling-vs- essential compute profile are specified as planned readouts but not yet emitted as deliverables.</li></ul>
       </div>
       
     </div>
@@ -2149,7 +2149,7 @@ expect:  {"expected": ["M9+acetate", "M9+glucose", "M9+glucose+aa"], "operator":
       <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
       
       <div class="di-card">
-        <div class="di-card-stmt"><strong>Per-step wall time is dominated by essential biological computation (the FBA LP solve), not by store-process marshalling — which would refute the Phase-4 column-centric motivation.</strong></div>
+        <div class="di-card-stmt"><strong>Per-step wall time is dominated by essential biological computation (the FBA LP solve), not by store-process marshalling, which would refute the Phase-4 column-centric motivation.</strong></div>
         <div class="di-card-why">The 55-process WCM runs a multi-objective FBA LP every tick, and LP solves are classically the expensive step in constraint-based metabolic models.</div>
         
         <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
@@ -2305,7 +2305,7 @@ expect:  {"expected": ["M9+acetate", "M9+glucose", "M9+glucose+aa"], "operator":
         
         <li>Per-process RNG seeding (crc32(process_name, master_seed)) makes multi-seed ensembles genuinely diverge; v2ecoli&#39;s bare `seed` only seeded the allocator, leaving ensembles bit-identical.</li>
         
-        <li>A real 3-condition Phase-0 reference ensemble exists (M9-glucose / acetate / +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim. HONEST SCOPE: N=32, NOT the N&gt;=64 canonical gating target, so the investigation gate is NOT met by this ensemble.</li>
+        <li>A real 3-condition Phase-0 reference ensemble exists (M9-glucose / acetate / +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim. Scope: N=32, not the N&gt;=64 canonical gating target, so the investigation gate is not met by this ensemble.</li>
         
       </ul>
       

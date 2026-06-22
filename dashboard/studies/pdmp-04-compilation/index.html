@@ -285,14 +285,14 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Throughput is downstream of correctness — the gating test is W₂ equivalence to within 5σ of MC fluctuation between the compiled runner and the Phase 2 Python runner. FP summation order is the silent-killer bug here; pairwise/Kahan summation is non-negotiable.
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Throughput is downstream of correctness. The gating test is W₂ equivalence to within 5σ of MC fluctuation between the compiled runner and the Phase 2 Python runner. FP summation order is the bug that hides here; pairwise/Kahan summation is required.
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Caveat</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
                     data-narrative-path="report.caveat"
-                    placeholder="One sentence: the headline limitation a reviewer needs to know.">FP32 on GPU is tempting for 2× throughput but corrupts long-run ABC posteriors via catastrophic cancellation in propensity sums — default FP64, FP32 only with explicit bit-equivalence + ABC-posterior KL &lt; 0.01 vs. FP64.</textarea>
+                    placeholder="One sentence: the headline limitation a reviewer needs to know.">FP32 on GPU promises 2× throughput but corrupts long-run ABC posteriors via catastrophic cancellation in propensity sums. Default FP64, FP32 only with explicit bit-equivalence + ABC-posterior KL &lt; 0.01 vs. FP64.</textarea>
         </label>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Conclusion</span>
@@ -366,7 +366,7 @@
           <div>
             <strong style="color:#1e293b">region-unexplored</strong>
             <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The column-centric runtime is validated as prototypes + a projection, NOT as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC — numerical equivalence of the vectorized path is unproven.</div>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The column-centric runtime is validated as prototypes + a projection, not as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC; numerical equivalence of the vectorized path is unproven.</div>
           </div>
         </div>
         
@@ -1794,7 +1794,7 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
           <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/column_centric_prototype.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
         </div>
         
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Constant per-trajectory wall regardless of N — 3.1× speedup on pure-Poisson toy.</p>
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Constant per-trajectory wall regardless of N; 3.1× speedup on pure-Poisson toy.</p>
         
         <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/column_centric_prototype.html"
                 style="width:100%;min-height:200px;border:0;display:block"
@@ -1809,7 +1809,7 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
           <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/marshalling_hotspots.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
         </div>
         
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine cProfile counts). Much per-tick time is outside process_update, but that includes real numpy/scipy numeric work — not all of it marshalling.</p>
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine cProfile counts). Much per-tick time is outside process_update, but that includes real numpy/scipy numeric work, not all of it marshalling.</p>
         
         <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/marshalling_hotspots.html"
                 style="width:100%;min-height:200px;border:0;display:block"
@@ -1824,7 +1824,7 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
           <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/multistep_prototype.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
         </div>
         
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Speedup does NOT compound across processes — pbg overhead is per-process, not per-step.</p>
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Speedup does not compound across processes; pbg overhead is per-process, not per-step.</p>
         
         <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/multistep_prototype.html"
                 style="width:100%;min-height:200px;border:0;display:block"
@@ -1854,7 +1854,7 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
           <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/ti_shaped_prototype.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
         </div>
         
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Realistic TI-shaped workload: honest 1.5× per-tick recalibration (vs toys&#39; 3×) — a measured microbenchmark, an extrapolation not validated on the 55-process WCM. This 1.5× is the toy factor fed into the illustrative ~1500× = factor × N projection (not a measured speedup; column-centric runtime never built).</p>
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">TI-shaped workload: 1.5× per-tick recalibration (vs toys&#39; 3×), a measured microbenchmark and an extrapolation not validated on the 55-process WCM. This 1.5× is the toy factor fed into the illustrative ~1500× = factor × N projection (not a measured speedup; column-centric runtime never built).</p>
         
         <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/ti_shaped_prototype.html"
                 style="width:100%;min-height:200px;border:0;display:block"
@@ -1869,7 +1869,7 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
           <a href="/v2ecoli/dashboard/reports/figures/pdmp-04/wcm_baseline_projection.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
         </div>
         
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Real WCM benchmark (measured): pbg sequential at N=10³ × 30 ticks = 26 min. The &#34;≈ 1 sec / ~1500× total speedup&#34; is an ILLUSTRATIVE PROJECTION = toy factor × N (script hardcodes 3× → 3000×; prose uses 1.5× → ~1500×); the column-centric parallel runtime was never built or timed. Not a measured speedup.</p>
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Real WCM benchmark (measured): pbg sequential at N=10³ × 30 ticks = 26 min. The &#34;≈ 1 sec / ~1500× total speedup&#34; is an illustrative projection = toy factor × N (script hardcodes 3× → 3000×; prose uses 1.5× → ~1500×); the column-centric parallel runtime was never built or timed. Not a measured speedup.</p>
         
         <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-04/wcm_baseline_projection.html"
                 style="width:100%;min-height:200px;border:0;display:block"
@@ -1933,13 +1933,13 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
       
       <div class="di-unc di-unc-resolved">
         <h4>✓ Resolved uncertainties</h4>
-        <ul><li>The production composite per-tick wall is ~52 ms (74 ms single-tick), of which ~76% is spent outside process_update (this bucket includes real numpy/scipy numeric work, e.g. Poisson logpmf, not all of it marshalling) — and no single Process dominates.</li><li>The cProfile hotspots are 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine counts); much of the per-tick cost is outside process_update, though that bucket includes real numpy/scipy numeric work, so it is not purely marshalling.</li><li>Column-centric prototypes give constant-in-N per-trajectory wall and a per-tick speedup of 1.5x on a realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys) — measured microbenchmarks, an extrapolation not validated on the 55-process WCM. The &#34;~1500x at N=1e3 x 30 ticks (26 min -&gt; ~1 s)&#34; is an ILLUSTRATIVE PROJECTION = toy factor x N (the script hardcodes 3x -&gt; 3000x; the prose uses the 1.5x recalibration -&gt; ~1500x), NOT a measured speedup: the column-centric vectorized runtime was never built and never timed — only the pbg sequential side was measured (at N=1,2,4).</li></ul>
+        <ul><li>The production composite per-tick wall is ~52 ms (74 ms single-tick), of which ~76% is spent outside process_update (this bucket includes real numpy/scipy numeric work, e.g. Poisson logpmf, not all of it marshalling) — and no single Process dominates.</li><li>The cProfile hotspots are 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine counts); much of the per-tick cost is outside process_update, though that bucket includes real numpy/scipy numeric work, so it is not purely marshalling.</li><li>Column-centric prototypes give constant-in-N per-trajectory wall and a per-tick speedup of 1.5x on a realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys): measured microbenchmarks and an extrapolation not validated on the 55-process WCM. The &#34;~1500x at N=1e3 x 30 ticks (26 min -&gt; ~1 s)&#34; is an illustrative projection = toy factor x N (the script hardcodes 3x -&gt; 3000x; the prose uses the 1.5x recalibration -&gt; ~1500x), not a measured speedup: the column-centric vectorized runtime was never built and never timed; only the pbg sequential side was measured (at N=1,2,4).</li></ul>
       </div>
       
       
       <div class="di-unc di-unc-remaining">
         <h4>● Remaining uncertainties</h4>
-        <ul><li>The column-centric runtime is validated as prototypes + a projection, NOT as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC — numerical equivalence of the vectorized path is unproven.</li><li>Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order needed for reproducible ABC posteriors across hardware is untested.</li></ul>
+        <ul><li>The column-centric runtime is validated as prototypes + a projection, not as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC; numerical equivalence of the vectorized path is unproven.</li><li>Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order needed for reproducible ABC posteriors across hardware is untested.</li></ul>
       </div>
       
     </div>
@@ -1950,7 +1950,7 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
       <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
       
       <div class="di-card">
-        <div class="di-card-stmt"><strong>Per-Process Catalyst.jl JIT compilation is the right performance attack, recovering most of the per-tick cost.</strong></div>
+        <div class="di-card-stmt"><strong>Per-Process Catalyst.jl JIT compilation is the main performance lever, recovering most of the per-tick cost.</strong></div>
         <div class="di-card-why">JIT-compiling reaction propensities is the standard speedup for stochastic chemical kinetics.</div>
         
         <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>

@@ -264,13 +264,13 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the INNER per-cell
-RAMEmitter, not chromosome_history and NOT &#34;emitter-independent&#34;. Each
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
+RAMEmitter, not chromosome_history and not &#34;emitter-independent&#34;. Each
 embedded cell&#39;s inner Composite (built by baseline() in the EcoliWCM
 bridge) gets a default RAMEmitter whose no-override branch
 (_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
 molecule node arrays every tick into an unbounded history list that is
-never read. colonies-02&#39;s no-emitter probe nulled only the OUTER colony
+never read. colonies-02&#39;s no-emitter probe nulled only the outer colony
 emitter, missing the per-cell inner emitters.
 
             <span class="muted small">— computed from findings</span></span>
@@ -373,37 +373,37 @@ emitter, missing the per-cell inner emitters.
         
         <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
           <em>Derived from findings (shown in the report when no override is set):</em>
-          <p style="margin:4px 0 0">The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the INNER per-cell
-RAMEmitter, not chromosome_history and NOT &#34;emitter-independent&#34;. Each
+          <p style="margin:4px 0 0">The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
+RAMEmitter, not chromosome_history and not &#34;emitter-independent&#34;. Each
 embedded cell&#39;s inner Composite (built by baseline() in the EcoliWCM
 bridge) gets a default RAMEmitter whose no-override branch
 (_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
 molecule node arrays every tick into an unbounded history list that is
-never read. colonies-02&#39;s no-emitter probe nulled only the OUTER colony
+never read. colonies-02&#39;s no-emitter probe nulled only the outer colony
 emitter, missing the per-cell inner emitters.
 </p><p style="margin:4px 0 0">Setting the inner RAMEmitter to &#39;minimal&#39; capture (global_time +
 listeners only) for embedded cells bounds per-cell RSS. A single
 EcoliWCM built through the bridge (set_ram_emitter_capture(&#39;minimal&#39;))
 holds RSS essentially flat.
-</p><p style="margin:4px 0 0">The fix only narrows what the inner RAMEmitter RECORDS (a read-only
+</p><p style="margin:4px 0 0">The fix only narrows what the inner RAMEmitter records (a read-only
 history sink); the emit_schema does not feed back into simulation state,
 so division timing and masses are unchanged by construction. The full
 colony re-run (first division still tick 2338) is the empirical
 re-confirmation, deferred with the no-OOM run above.
-</p><p style="margin:4px 0 0">The inner-RAMEmitter fix (F-01/F-02) is real and bounds a SINGLE bare WCM,
-but it is NOT the dominant leak for a multi-CELL colony. Re-running
+</p><p style="margin:4px 0 0">The inner-RAMEmitter fix (F-01/F-02) is real and bounds a single bare WCM,
+but it is not the dominant leak for a multi-cell colony. Re-running
 colonies-02 on current main with all three contributory fixes live
 (#239 inner emitter, emit_cells=False outer emitter, viva-munk #11 pymunk
-shape churn) STILL leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
-5.1 -&gt; 22.3 GB at a CONSTANT 6 cells and OOMs ~gen 3, unchanged from before
+shape churn) still leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
+5.1 -&gt; 22.3 GB at a constant 6 cells and OOMs ~gen 3, unchanged from before
 the fixes.
-</p><p style="margin:4px 0 0">The dominant per-tick growth is NATIVE and localized to the LLVM/Numba JIT
+</p><p style="margin:4px 0 0">The dominant per-tick growth is native and localized to the LLVM/Numba JIT
 layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
-numpy-object bytes FLAT within each cell-count plateau while native memory
+numpy-object bytes flat within each cell-count plateau while native memory
 climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
 the true unreachable leak with stacks in llvmlite&#39;s LLVM pass pipeline
 (LLVMPY_buildFunctionSimplificationPipeline). So the WCM&#39;s JIT compilation
-is the source — not the emitters (#239), the outer emitter (emit_cells), the
+is the source, not the emitters (#239), the outer emitter (emit_cells), the
 pymunk shapes (viva-munk #11), or a retained numpy array.
 </p>
         </div>
@@ -433,13 +433,13 @@ pymunk shapes (viva-munk #11), or a retained numpy array.
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the INNER per-cell
-RAMEmitter, not chromosome_history and NOT &#34;emitter-independent&#34;. Each
+                   placeholder="The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
+RAMEmitter, not chromosome_history and not &#34;emitter-independent&#34;. Each
 embedded cell&#39;s inner Composite (built by baseline() in the EcoliWCM
 bridge) gets a default RAMEmitter whose no-override branch
 (_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
 molecule node arrays every tick into an unbounded history list that is
-never read. colonies-02&#39;s no-emitter probe nulled only the OUTER colony
+never read. colonies-02&#39;s no-emitter probe nulled only the outer colony
 emitter, missing the per-cell inner emitters.
 ">
           </td></tr>
@@ -487,13 +487,13 @@ emitter, missing the per-cell inner emitters.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the INNER per-cell
-RAMEmitter, not chromosome_history and NOT &#34;emitter-independent&#34;. Each
+        <div class="finding-statement">The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
+RAMEmitter, not chromosome_history and not &#34;emitter-independent&#34;. Each
 embedded cell&#39;s inner Composite (built by baseline() in the EcoliWCM
 bridge) gets a default RAMEmitter whose no-override branch
 (_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
 molecule node arrays every tick into an unbounded history list that is
-never read. colonies-02&#39;s no-emitter probe nulled only the OUTER colony
+never read. colonies-02&#39;s no-emitter probe nulled only the outer colony
 emitter, missing the per-cell inner emitters.
 </div>
         
@@ -566,7 +566,7 @@ generations without OOM. The fix is per-cell, so N bounded cells follow.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">The fix only narrows what the inner RAMEmitter RECORDS (a read-only
+        <div class="finding-statement">The fix only narrows what the inner RAMEmitter records (a read-only
 history sink); the emit_schema does not feed back into simulation state,
 so division timing and masses are unchanged by construction. The full
 colony re-run (first division still tick 2338) is the empirical
@@ -588,12 +588,12 @@ re-confirmation, deferred with the no-OOM run above.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">refutes literature</span>
         </div>
-        <div class="finding-statement">The inner-RAMEmitter fix (F-01/F-02) is real and bounds a SINGLE bare WCM,
-but it is NOT the dominant leak for a multi-CELL colony. Re-running
+        <div class="finding-statement">The inner-RAMEmitter fix (F-01/F-02) is real and bounds a single bare WCM,
+but it is not the dominant leak for a multi-cell colony. Re-running
 colonies-02 on current main with all three contributory fixes live
 (#239 inner emitter, emit_cells=False outer emitter, viva-munk #11 pymunk
-shape churn) STILL leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
-5.1 -&gt; 22.3 GB at a CONSTANT 6 cells and OOMs ~gen 3, unchanged from before
+shape churn) still leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
+5.1 -&gt; 22.3 GB at a constant 6 cells and OOMs ~gen 3, unchanged from before
 the fixes.
 </div>
         
@@ -632,13 +632,13 @@ valid wins (merged).
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">The dominant per-tick growth is NATIVE and localized to the LLVM/Numba JIT
+        <div class="finding-statement">The dominant per-tick growth is native and localized to the LLVM/Numba JIT
 layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
-numpy-object bytes FLAT within each cell-count plateau while native memory
+numpy-object bytes flat within each cell-count plateau while native memory
 climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
 the true unreachable leak with stacks in llvmlite&#39;s LLVM pass pipeline
 (LLVMPY_buildFunctionSimplificationPipeline). So the WCM&#39;s JIT compilation
-is the source — not the emitters (#239), the outer emitter (emit_cells), the
+is the source, not the emitters (#239), the outer emitter (emit_cells), the
 pymunk shapes (viva-munk #11), or a retained numpy array.
 </div>
         
@@ -663,8 +663,8 @@ pymunk shapes (viva-munk #11), or a retained numpy array.
         <div class="finding-next"><strong>→ Next:</strong> Tracked as engineering issue #253: find where the WCM (re)compiles @njit
 functions per tick/cell and make them module-level + cache=True so they
 compile once and are shared; confirm with NUMBA_DISABLE_JIT=1 flattening the
-growth. SEPARATELY, the per-cell footprint (each cell = an independent
-baseline composite loading its OWN sim_data, ~1+ GB/cell — colonies-02
+growth. Separately, the per-cell footprint (each cell = an independent
+baseline composite loading its own sim_data, ~1+ GB/cell, colonies-02
 charts/02) is a distinct, bounded RAM limiter worth a shared-sim_data design.
 </div>
       </div>
@@ -687,19 +687,19 @@ colonies HPC sizing?
       
       
       <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> LOCALIZED (2026-06-15): the leak is the INNER per-cell RAMEmitter, not
+        <strong>Mechanism / Model change.</strong> Localized (2026-06-15): the leak is the inner per-cell RAMEmitter, not
 chromosome_history. Each embedded cell&#39;s inner Composite (built by
 baseline() in the EcoliWCM bridge) gets a default RAMEmitter whose
 no-override branch (v2ecoli/composites/_helpers.py) captures `bulk`
 (~25k-molecule array) + four unique-molecule node arrays (full_chromosome
-/ active_replisome / active_RNAP / chromosome_domain) EVERY tick into an
+/ active_replisome / active_RNAP / chromosome_domain) every tick into an
 unbounded history list (RAMEmitter.update -&gt; history.append(tree_copy)).
 The inner RAM history is never read (the bridge reads composite.state
-directly), so it is pure leak — and it matches the ~7.7 MB/sim-s. This
+directly), so it is pure leak, and it matches the ~7.7 MB/sim-s. This
 corrects colonies-02&#39;s &#34;emitter-independent&#34; call: the no-emitter probe
-there nulled only the OUTER colony emitter; each cell&#39;s INNER emitter kept
+there nulled only the outer colony emitter; each cell&#39;s inner emitter kept
 accumulating.
-FIX: a `_RAM_EMITTER_CAPTURE=&#39;minimal&#39;` mode in _helpers.py (global_time
+Fix: a `_RAM_EMITTER_CAPTURE=&#39;minimal&#39;` mode in _helpers.py (global_time
 + listeners only) that the bridge sets for embedded cells; default stays
 &#39;full&#39; for standalone callers that read the in-RAM tree.
 (Other candidates ruled out as dominant: chromosome_history append
@@ -1557,13 +1557,13 @@ monotonic ~MB/sim-s climb); colonies-02&#39;s seq-1cell-4div completes
       
       <ul class="synthesis-list">
         
-        <li>The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the INNER per-cell
-RAMEmitter, not chromosome_history and NOT &#34;emitter-independent&#34;. Each
+        <li>The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
+RAMEmitter, not chromosome_history and not &#34;emitter-independent&#34;. Each
 embedded cell&#39;s inner Composite (built by baseline() in the EcoliWCM
 bridge) gets a default RAMEmitter whose no-override branch
 (_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
 molecule node arrays every tick into an unbounded history list that is
-never read. colonies-02&#39;s no-emitter probe nulled only the OUTER colony
+never read. colonies-02&#39;s no-emitter probe nulled only the outer colony
 emitter, missing the per-cell inner emitters.
 </li>
         
@@ -1573,29 +1573,29 @@ EcoliWCM built through the bridge (set_ram_emitter_capture(&#39;minimal&#39;))
 holds RSS essentially flat.
 </li>
         
-        <li>The fix only narrows what the inner RAMEmitter RECORDS (a read-only
+        <li>The fix only narrows what the inner RAMEmitter records (a read-only
 history sink); the emit_schema does not feed back into simulation state,
 so division timing and masses are unchanged by construction. The full
 colony re-run (first division still tick 2338) is the empirical
 re-confirmation, deferred with the no-OOM run above.
 </li>
         
-        <li>The inner-RAMEmitter fix (F-01/F-02) is real and bounds a SINGLE bare WCM,
-but it is NOT the dominant leak for a multi-CELL colony. Re-running
+        <li>The inner-RAMEmitter fix (F-01/F-02) is real and bounds a single bare WCM,
+but it is not the dominant leak for a multi-cell colony. Re-running
 colonies-02 on current main with all three contributory fixes live
 (#239 inner emitter, emit_cells=False outer emitter, viva-munk #11 pymunk
-shape churn) STILL leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
-5.1 -&gt; 22.3 GB at a CONSTANT 6 cells and OOMs ~gen 3, unchanged from before
+shape churn) still leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
+5.1 -&gt; 22.3 GB at a constant 6 cells and OOMs ~gen 3, unchanged from before
 the fixes.
 </li>
         
-        <li>The dominant per-tick growth is NATIVE and localized to the LLVM/Numba JIT
+        <li>The dominant per-tick growth is native and localized to the LLVM/Numba JIT
 layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
-numpy-object bytes FLAT within each cell-count plateau while native memory
+numpy-object bytes flat within each cell-count plateau while native memory
 climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
 the true unreachable leak with stacks in llvmlite&#39;s LLVM pass pipeline
 (LLVMPY_buildFunctionSimplificationPipeline). So the WCM&#39;s JIT compilation
-is the source — not the emitters (#239), the outer emitter (emit_cells), the
+is the source, not the emitters (#239), the outer emitter (emit_cells), the
 pymunk shapes (viva-munk #11), or a retained numpy array.
 </li>
         
@@ -1621,13 +1621,13 @@ no monotonic emitter-driven climb.
 </li>
         
         <li>tracemalloc(4) over 150 ticks at 2 forced-division cells: RSS climbed
-1396 -&gt; 1586 MB (+1.3 MB/tick) — leak reproduced — yet tracemalloc
+1396 -&gt; 1586 MB (+1.3 MB/tick), leak reproduced, yet tracemalloc
 accounted for only ~1-2 MB of retained Python allocations (largest single
 site +0.08 MB; all transient WCM compute: counts_deriver/translation_deriver
-np.bincount, scipy-sparse .dot). So the dominant allocator is C-LEVEL /
+np.bincount, scipy-sparse .dot). So the dominant allocator is C-level /
 native (numpy/scipy array buffers or a C-extension retaining or fragmenting
-memory), INVISIBLE to tracemalloc (it tracks only CPython&#39;s allocator, not
-numpy&#39;s). gc object-COUNT scans likewise found only small symptoms
+memory), invisible to tracemalloc (it tracks only CPython&#39;s allocator, not
+numpy&#39;s). gc object-count scans likewise found only small symptoms
 (pymunk Segments -&gt; #11), not the megabytes.
 </li>
         

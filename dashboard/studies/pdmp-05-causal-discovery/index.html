@@ -281,14 +281,14 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Active causal inference closes the experiment-design loop — instead of passively observing, the agent selects in-silico knockouts/overexpression by expected information gain. This is what converts annotation from pattern-matching to hypothesis-driven discovery.
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Active causal inference handles the experiment-design loop. Instead of passively observing, the agent selects in-silico knockouts/overexpression by expected information gain, which makes annotation hypothesis-driven.
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Caveat</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
                     data-narrative-path="report.caveat"
-                    placeholder="One sentence: the headline limitation a reviewer needs to know.">RR estimator variance is unbounded in pathological cases — N_eff ≥ 100 per marginal-likelihood estimate is the floor; below that, the run is flagged and falls back to thermodynamic integration / nested sampling with documented bias.</textarea>
+                    placeholder="One sentence: the headline limitation a reviewer needs to know.">RR estimator variance is unbounded in pathological cases. N_eff ≥ 100 per marginal-likelihood estimate is the floor; below that, the run is flagged and falls back to thermodynamic integration / nested sampling with documented bias.</textarea>
         </label>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Conclusion</span>
@@ -434,7 +434,7 @@
           <tr><th>Goal</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.goal"
-                   value="Phase 5 — close the loop on the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes."
+                   value="Phase 5 — pursue the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes."
                    placeholder="Implement the marginal-likelihood estimator (Russian Roulette /
 doubly-intractable methods) on top of the Phase 3 likelihood
 accumulator and Phase 4 compiled runtime; build the active causal
@@ -455,7 +455,7 @@ resource estimate for genome-wide scaling.
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.why_before_next"
-                   value="This is the payoff phase: use the fast, likelihood-bearing model to compare gene-function hypotheses and choose informative perturbations."
+                   value="This is the final phase: use the fast, likelihood-bearing model to compare gene-function hypotheses and choose informative perturbations."
                    placeholder="RR marginal-likelihood estimator achieves N_eff ≥ 100 per estimate. Log BF CIs lie entirely above |log BF| &gt; 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p &gt; 0.05. Active-inference EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4.">
           </td></tr>
           <tr><th>Expected result</th><td>
@@ -1801,7 +1801,7 @@ expect:  {"field": "empirical_FDR", "operator": "less-than", "threshold": 0.05}<
       
       <div class="di-card">
         <div class="di-card-stmt"><strong>The Phase-5 identifiability ceiling is set by observable choice (transcript_init counts under the homeostat), and adopting the Phase-3 combined count vector — not more replicates or wider priors — will recover decisive Bayes factors.</strong></div>
-        <div class="di-card-why">Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only observable richness or sigma can move; Phase 3 showed count vectors give a measurable grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid — a diagnostic, not a posterior; the &#34;~100x&#34; framing was a hardcoded literal, not computed).</div>
+        <div class="di-card-why">Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only observable richness or sigma can move; Phase 3 showed count vectors give a measurable grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid, a diagnostic, not a posterior; the &#34;~100x&#34; framing was a hardcoded literal, not computed).</div>
         
         <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
           <code>inference-observable</code>, <code>marginal-likelihood-separation</code>

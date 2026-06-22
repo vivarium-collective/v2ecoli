@@ -270,7 +270,7 @@
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
           <span class="narrative-input" style="background:transparent;border:0;color:#334155">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
-DECREASE with N as Python/import overhead amortizes). Composite scales
+decrease with N as Python/import overhead amortizes). Composite scales
 linearly on one machine.
 
             <span class="muted small">— computed from findings</span></span>
@@ -362,7 +362,7 @@ linearly on one machine.
         <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
           <em>Derived from findings (shown in the report when no override is set):</em>
           <p style="margin:4px 0 0">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
-DECREASE with N as Python/import overhead amortizes). Composite scales
+decrease with N as Python/import overhead amortizes). Composite scales
 linearly on one machine.
 </p><p style="margin:4px 0 0">The GIL is the dominant bottleneck at colony scale. Process-bigraph
 composites are single-threaded by design — one process uses ~1 CPU core
@@ -407,7 +407,7 @@ visible only in long runs, not in the 60s N-sweep windows.
                    data-narrative-path="study_card.mechanism"
                    value=""
                    placeholder="Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
-DECREASE with N as Python/import overhead amortizes). Composite scales
+decrease with N as Python/import overhead amortizes). Composite scales
 linearly on one machine.
 ">
           </td></tr>
@@ -458,7 +458,7 @@ to the HPC follow-up.
           <span class="finding-status-text">confirms literature</span>
         </div>
         <div class="finding-statement">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
-DECREASE with N as Python/import overhead amortizes). Composite scales
+decrease with N as Python/import overhead amortizes). Composite scales
 linearly on one machine.
 </div>
         
@@ -2366,7 +2366,7 @@ blow-up that would block HPC scaling.
         
           <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">ratio: 0.96</code>
         
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: per-cell 70.4 ms vs reference 73.6 ms (slight DECREASE — Python startup amortization)</code>
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: per-cell 70.4 ms vs reference 73.6 ms (slight decrease, Python startup amortization)</code>
         
       </div>
       
@@ -2605,8 +2605,8 @@ force-divided produces 4 hydrated daughters that all advance.
 ──────────────────────────────────────────────────────────────────────
 Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window):
 
-- Per-cell wall is FLAT at 70-74 ms across N=1..8 (slight DECREASE
-  with N — Python/import overhead amortizes). The
+- Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease
+  with N as Python/import overhead amortizes). The
   per-cell-cost-within-2x-reference test passes at all N.
 - pymunk is essentially free (&lt;0.2 ms/tick even at N=8). All cost
   is in the inner EcoliWCM composite (55 biological steps × N cells,
@@ -2632,7 +2632,7 @@ HPC node sizing (64-core / 256 GB target):
   ~440 ms (~2× realtime).
 
 ──────────────────────────────────────────────────────────────────────
-What this study does NOT validate (handed to colonies-02):
+What this study does not validate (handed to colonies-02):
 
 - Cross-node scaling, distributed environment field
 - Process-bigraph composite parallelism within a single process

@@ -285,20 +285,20 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">The PDMP contract is the smoking-gun test for stochastic correctness: between-jump deterministic ODE flow + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches every propensity bug.
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">The PDMP contract is the key test for stochastic correctness: between-jump deterministic ODE flow + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches propensity bugs.
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Caveat</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
                     data-narrative-path="report.caveat"
-                    placeholder="One sentence: the headline limitation a reviewer needs to know.">τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition (max Δλ/λ &lt; 0.03) is monitored at every step and processes get switched to exact SSA when violated &gt;0.1% of the time. NOTE on provenance: the per-sprint σ/μ/W2 summary table (base_mu/base_sd/pdmp_mu/pdmp_sd/w2_cm, incl. the cell_mass W2 progression 9.73 → 15.35 → 49.46) is HAND-ENTERED in scripts/phase2_progress_report.py (marked &#34;Hardcoded here&#34; so the report survives source-HTML churn) — it is transcribed, not recomputed at render time. Report figures are limited to the artifacts committed in this checkout (initiation-mode comparisons, event-rate / per-TU distributions, trajectory-divergence, ensemble-validation); the multi-gen inheritance / Gillespie / waiting-time figure set regenerates from a re-run of the phase0-multigen and jump-process pilots.</textarea>
+                    placeholder="One sentence: the headline limitation a reviewer needs to know.">τ-leaping for high-rate processes trades unbiasedness for compute. The leap condition (max Δλ/λ &lt; 0.03) is monitored at every step and processes get switched to exact SSA when violated &gt;0.1% of the time. On provenance: the per-sprint σ/μ/W2 summary table (base_mu/base_sd/pdmp_mu/pdmp_sd/w2_cm, incl. the cell_mass W2 progression 9.73 → 15.35 → 49.46) is hand-entered in scripts/phase2_progress_report.py (marked &#34;Hardcoded here&#34; so the report survives source-HTML churn); it is transcribed, not recomputed at render time. Report figures are limited to the artifacts committed in this checkout (initiation-mode comparisons, event-rate / per-TU distributions, trajectory-divergence, ensemble-validation); the multi-gen inheritance / Gillespie / waiting-time figure set regenerates from a re-run of the phase0-multigen and jump-process pilots.</textarea>
         </label>
         <label class="narrative-row narrative-row-wide">
           <span class="narrative-label">Conclusion</span>
           <textarea class="narrative-input narrative-textarea" rows="3"
                     data-narrative-path="report.conclusion"
-                    placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted — replacing scaled-Poisson stochastics with continuous-time jumps from measured kinetic constants (Anderson-Darling Exp(1) verified), plus a first-passage division trigger, will yield a PDMP whose trajectory ensembles match v2ecoli baseline summaries within W₂ tolerance.</textarea>
+                    placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted. Replacing scaled-Poisson stochastics with continuous-time jumps from measured kinetic constants (Anderson-Darling Exp(1) verified), plus a first-passage division trigger, will yield a PDMP whose trajectory ensembles match v2ecoli baseline summaries within W₂ tolerance.</textarea>
         </label>
       </div>
       
@@ -366,7 +366,7 @@
           <div>
             <strong style="color:#1e293b">region-unexplored</strong>
             <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The original Phase-2 gate `pdmp-trajectory-distribution-match` — trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions — FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the WRONG gate (cell_mass is the wrong observable), a legitimate negative/structural result — but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</div>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The original Phase-2 gate `pdmp-trajectory-distribution-match` (trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions) FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the wrong gate (cell_mass is the wrong observable), a legitimate negative/structural result, but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</div>
           </div>
         </div>
         
@@ -394,7 +394,7 @@
         </h2>
         <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                   data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Aims to represent the cell&#39;s discrete molecular events (transcription/translation initiation, division, resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the direct event counts (rna_init) carry ~30× more variance — so the stochasticity lives at the count level.</textarea>
+                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Aims to represent the cell&#39;s discrete molecular events (transcription/translation initiation, division, resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the direct event counts (rna_init) carry ~30× more variance, so the stochasticity lives at the count level.</textarea>
         
       </div>
 
@@ -429,7 +429,7 @@ the Phase 0 conditions.
             <input type="text" class="narrative-input narrative-card-input"
                    data-narrative-path="study_card.mechanism"
                    value=""
-                   placeholder="Aims to represent the cell&#39;s discrete molecular events (transcription/translation initiation, division, resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the direct event counts (rna_init) carry ~30× more variance — so the stochasticity lives at the count level.">
+                   placeholder="Aims to represent the cell&#39;s discrete molecular events (transcription/translation initiation, division, resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the direct event counts (rna_init) carry ~30× more variance, so the stochasticity lives at the count level.">
           </td></tr>
           <tr><th>Why before next</th><td>
             <input type="text" class="narrative-input narrative-card-input"
@@ -450,7 +450,7 @@ doubling-time division trigger with a first-passage threshold
 crossing in cell volume or total protein mass reproduces the
 observed division-time distribution. (c) Replacing the global
 resource reallocation step with affinity-based competition jumps
-conserves mass and yields a clean PDMP — deterministic ODE flow
+conserves mass and yields a PDMP: deterministic ODE flow
 between jumps with state-dependent kernels at jumps.
 ">
           </td></tr>
@@ -523,13 +523,13 @@ between jumps with state-dependent kernels at jumps.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">contradicts literature</span>
         </div>
-        <div class="finding-statement">The Phase-2 trajectory-distribution-match gate FAILED on cell_mass: the Poisson tau-leap Wasserstein-2 grows monotonically rather than converging. The decisive (negative) finding is that cell_mass is the WRONG observable for jump-process variance -- the consumption_matched homeostat washes per-tick variance out by construction -- redirecting Phase-3 inference onto count-level listeners.</div>
+        <div class="finding-statement">The Phase-2 trajectory-distribution-match gate FAILED on cell_mass: the Poisson tau-leap Wasserstein-2 grows monotonically rather than converging. The negative finding is that cell_mass is the wrong observable for jump-process variance, because the consumption_matched homeostat washes per-tick variance out by construction. This redirects Phase-3 inference onto count-level listeners.</div>
         
         
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> cell_mass Poisson W2 grows 9.73 -&gt; 15.35 -&gt; 49.46 (monotonic; gate NOT met) · 
+          <strong>observed:</strong> cell_mass Poisson W2 grows 9.73 -&gt; 15.35 -&gt; 49.46 (monotonic; gate not met) · 
           
           in run <a href="#run-phase2-progress"><code>phase2-progress (Poisson tau-leap vs baseline)</code></a>
           
@@ -568,7 +568,7 @@ between jumps with state-dependent kernels at jumps.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">Empirical confirmation of the Phase-2 redirect: across 4 seeds at 250 steps, every AGGREGATE observable (cell_mass, dry_mass, total monomer, ATP[c] count) washes out to ~0.028% cross-seed CV, while the DIRECT jump-event count (cumulative transcription-initiation events, rnap_data.rna_init_event) shows 0.85% CV -- ~30x higher. So the jump-process stochasticity is real but lives at the per-event count level, not in aggregate mass/pool observables the consumption_matched homeostat regulates -- which is exactly why Phase-3 inference must anchor on count-level listeners.</div>
+        <div class="finding-statement">Confirms the Phase-2 redirect: across 4 seeds at 250 steps, every aggregate observable (cell_mass, dry_mass, total monomer, ATP[c] count) washes out to ~0.028% cross-seed CV, while the direct jump-event count (cumulative transcription-initiation events, rnap_data.rna_init_event) shows 0.85% CV, ~30x higher. The jump-process stochasticity is real but lives at the per-event count level, not in the aggregate mass/pool observables the consumption_matched homeostat regulates. This is why Phase-3 inference must anchor on count-level listeners.</div>
         
         
         
@@ -646,7 +646,7 @@ the Markov property of a piecewise-deterministic Markov process?
     <details class="overview-section">
       <summary class="overview-label">Key assumptions</summary>
       <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Discrete-time WCM updates can be re-expressed as a continuous-time jump process (transcription, translation, division, competition jumps) with exponential inter-event clocks.</li><li style="margin:2px 0">A trajectory-distribution match (Wasserstein-2) against the baseline ensemble is the right acceptance gate — but the right OBSERVABLE is count-level, not aggregate mass (see findings).</li><li style="margin:2px 0">First-passage-time division and binomial inheritance are the load-bearing stochastic structures to reproduce.</li>
+        <li style="margin:2px 0">Discrete-time WCM updates can be re-expressed as a continuous-time jump process (transcription, translation, division, competition jumps) with exponential inter-event clocks.</li><li style="margin:2px 0">A trajectory-distribution match (Wasserstein-2) against the baseline ensemble is the right acceptance gate, but the right observable is count-level, not aggregate mass (see findings).</li><li style="margin:2px 0">First-passage-time division and binomial inheritance are the key stochastic structures to reproduce.</li>
       </ul>
     </details>
     
@@ -1883,7 +1883,7 @@ expect:  {"conditions": [{"field": "speedup_ratio", "operator": "greater-than", 
           <a href="/v2ecoli/dashboard/reports/figures/pdmp-02/trajectory_divergence.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
         </div>
         
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">max |Δ cell_mass| = 150 fg between configs (transient, single trajectory pair; computed in scripts/trajectory_divergence.py on the cell_mass quantity — NOT at the rnap_data listener). Closeout finding: cell_mass is the WRONG observable for jump-process variance — the consumption_matched homeostat washes per-tick variance out by construction.</p>
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">max |Δ cell_mass| = 150 fg between configs (transient, single trajectory pair; computed in scripts/trajectory_divergence.py on the cell_mass quantity, not at the rnap_data listener). Closeout finding: cell_mass is the wrong observable for jump-process variance, because the consumption_matched homeostat washes per-tick variance out by construction.</p>
         
         <iframe src="/v2ecoli/dashboard/reports/figures/pdmp-02/trajectory_divergence.html"
                 style="width:100%;min-height:200px;border:0;display:block"
@@ -1985,13 +1985,13 @@ expect:  {"conditions": [{"field": "speedup_ratio", "operator": "greater-than", 
       
       <div class="di-unc di-unc-resolved">
         <h4>✓ Resolved uncertainties</h4>
-        <ul><li>Continuous-time per-promoter / per-protein Poisson tau-leap samplers were implemented and land in `poisson` mode. The &#34;150 fg&#34; headline is max |Delta cell_mass| = 150 fg between configs — a transient on a single trajectory pair, computed in scripts/trajectory_divergence.py on the cell_mass quantity (NOT measured at the rnap_data listener, which is a narrative literal absent from the computing script); and it cuts against this study&#39;s own thesis that cell_mass is the wrong observable.</li><li>cell_mass is decisively the WRONG observable for jump-process variance: the consumption_matched homeostat (from Phase 1) washes per-tick variance out of cell_mass by construction. Three controller- tuning attempts (tau-EMA, open-loop, sparse injection) all failed to recover mass variance.</li></ul>
+        <ul><li>Continuous-time per-promoter / per-protein Poisson tau-leap samplers were implemented and land in `poisson` mode. The &#34;150 fg&#34; figure is max |Delta cell_mass| = 150 fg between configs, a transient on a single trajectory pair, computed in scripts/trajectory_divergence.py on the cell_mass quantity. It is not measured at the rnap_data listener (a narrative literal absent from the computing script), and it cuts against this study&#39;s own thesis that cell_mass is the wrong observable.</li><li>cell_mass is the wrong observable for jump-process variance: the consumption_matched homeostat (from Phase 1) washes per-tick variance out of cell_mass by construction. Three controller- tuning attempts (tau-EMA, open-loop, sparse injection) all failed to recover mass variance.</li></ul>
       </div>
       
       
       <div class="di-unc di-unc-remaining">
         <h4>● Remaining uncertainties</h4>
-        <ul><li>The original Phase-2 gate `pdmp-trajectory-distribution-match` — trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions — FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the WRONG gate (cell_mass is the wrong observable), a legitimate negative/structural result — but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</li><li>The Anderson-Darling Exp(1) exponential-clock verification (&gt;=1e4 inter-event intervals) and the OU first-passage division-trigger validation (KS &lt; 0.02) remain unrun.</li></ul>
+        <ul><li>The original Phase-2 gate `pdmp-trajectory-distribution-match` (trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions) FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the wrong gate (cell_mass is the wrong observable), a legitimate negative/structural result, but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</li><li>The Anderson-Darling Exp(1) exponential-clock verification (&gt;=1e4 inter-event intervals) and the OU first-passage division-trigger validation (KS &lt; 0.02) remain unrun.</li></ul>
       </div>
       
     </div>
@@ -2156,9 +2156,9 @@ expect:  {"conditions": [{"field": "speedup_ratio", "operator": "greater-than", 
       
       <ul class="synthesis-list">
         
-        <li>The Phase-2 trajectory-distribution-match gate FAILED on cell_mass: the Poisson tau-leap Wasserstein-2 grows monotonically rather than converging. The decisive (negative) finding is that cell_mass is the WRONG observable for jump-process variance -- the consumption_matched homeostat washes per-tick variance out by construction -- redirecting Phase-3 inference onto count-level listeners.</li>
+        <li>The Phase-2 trajectory-distribution-match gate FAILED on cell_mass: the Poisson tau-leap Wasserstein-2 grows monotonically rather than converging. The negative finding is that cell_mass is the wrong observable for jump-process variance, because the consumption_matched homeostat washes per-tick variance out by construction. This redirects Phase-3 inference onto count-level listeners.</li>
         
-        <li>Empirical confirmation of the Phase-2 redirect: across 4 seeds at 250 steps, every AGGREGATE observable (cell_mass, dry_mass, total monomer, ATP[c] count) washes out to ~0.028% cross-seed CV, while the DIRECT jump-event count (cumulative transcription-initiation events, rnap_data.rna_init_event) shows 0.85% CV -- ~30x higher. So the jump-process stochasticity is real but lives at the per-event count level, not in aggregate mass/pool observables the consumption_matched homeostat regulates -- which is exactly why Phase-3 inference must anchor on count-level listeners.</li>
+        <li>Confirms the Phase-2 redirect: across 4 seeds at 250 steps, every aggregate observable (cell_mass, dry_mass, total monomer, ATP[c] count) washes out to ~0.028% cross-seed CV, while the direct jump-event count (cumulative transcription-initiation events, rnap_data.rna_init_event) shows 0.85% CV, ~30x higher. The jump-process stochasticity is real but lives at the per-event count level, not in the aggregate mass/pool observables the consumption_matched homeostat regulates. This is why Phase-3 inference must anchor on count-level listeners.</li>
         
       </ul>
       
@@ -2169,7 +2169,7 @@ expect:  {"conditions": [{"field": "speedup_ratio", "operator": "greater-than", 
       
       <ul class="synthesis-list">
         
-        <li>from_run: phase2-progress (Poisson tau-leap vs baseline); observed: cell_mass Poisson W2 grows 9.73 -&gt; 15.35 -&gt; 49.46 (monotonic; gate NOT met)</li>
+        <li>from_run: phase2-progress (Poisson tau-leap vs baseline); observed: cell_mass Poisson W2 grows 9.73 -&gt; 15.35 -&gt; 49.46 (monotonic; gate not met)</li>
         
         <li>from_run: baseline N=4 x 250 steps tick-by-tick (scripts/phase2_count_variance.py); observed: CV: cell_mass 0.0285%, dry_mass 0.0288%, monomer 0.0273%, ATP 0.0283%, cumulative rna_init 0.846% (~30x)</li>
         

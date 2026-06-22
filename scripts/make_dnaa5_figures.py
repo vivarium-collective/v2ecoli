@@ -165,31 +165,76 @@ def fig_saturation_per_gen():
     _write(fig, "dnaa5_saturation_per_gen")
 
 
-def fig_parent_daughter(domain_path="/tmp/dnaa5_domain_occ.json"):
-    """Parent vs daughter oriC-low occupancy — the two oriC copies after replication.
-    Answers Haochen's 'two trajectories' question: after the chromosome replicates the
-    oriC-low sites double (8->16) and split into two domains; each copy fills its own
-    low-affinity sites. The aggregate occupancy mixed them — here they're marked separately."""
+def fig_parent_daughter(domain_path="/tmp/dnaa5_domain_counts.json"):
+    """Per-chromosome oriC-low binding split parent / daughter 1 / daughter 2 — the actual
+    bound-box COUNT (/8, left axis) AND the occupancy fraction (right axis), per generation
+    (use the selector). HONEST per-box extraction from the run: each oriC-low box's chromosome
+    domain (dnaa_box_domain_index) and ATP-bound state (dnaa_box_bound_form). Within a
+    generation one oriC (parent) is present until replication initiation, after which it
+    becomes two daughter oriCs — the parent / daughter-1 / daughter-2 structure."""
     import json as _json
     if not os.path.exists(domain_path):
         print(f"  (skip parent/daughter: no {domain_path})"); return
-    dd = _json.load(open(domain_path))
-    t = dd["t_min"]; cA = dd["copyA"]; cB = dd["copyB"]
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=t, y=cA, name="daughter oriC copy 1", mode="lines",
-                             line=dict(color=BLUE, width=1.4), connectgaps=False,
-                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>daughter 1</extra>"))
-    fig.add_trace(go.Scatter(x=t, y=cB, name="daughter oriC copy 2", mode="lines",
-                             line=dict(color="#ea580c", width=1.4), connectgaps=False,
-                             hovertemplate="%{x:.0f} min<br>occ %{y:.2f}<extra>daughter 2</extra>"))
-    fig.update_xaxes(title="lineage time (min)")
-    fig.update_yaxes(title="oriC-low occupancy (per chromosome domain)", range=[-0.03, 1.08])
-    _layout(fig, "The two daughter oriC copies, tracked separately",
-            "at replication initiation the origin fires and the chromosome forms TWO sister (daughter) "
-            "copies, so the oriC-low sites double 8→16 into two domains; each daughter fills its own "
-            "sites cooperatively. Before replication (oriC=1) only copy 1 is present; copy 2 (orange) "
-            "appears when oriC=2. Both daughters are now tracked separately — the 'second trajectory' "
-            "in the aggregate view is the daughter chromosome's oriC, not a mixed/stale artifact.")
+    dd = _json.load(open(domain_path)); gens = dd["gens"]; NS = int(dd.get("n_sites", 8))
+    PURPLE = "#7c3aed"
+    order = sorted(gens, key=lambda g: int(g))
+    roles = (("parent chromosome", "parent", GREEN),
+             ("daughter 1", "daughter1", PURPLE),
+             ("daughter 2", "daughter2", RED))
+
+    def _peak(g):
+        return max([v for k in ("parent", "daughter1", "daughter2")
+                    for v in gens[g][k] if v is not None] or [0])
+    # default to the generation that most clearly shows the parent -> 2-daughter split
+    default_g = max(order, key=lambda g: (gens[g]["init_min"] is not None, _peak(g), -int(g)))
+
+    fig = go.Figure(); per_gen = {}
+    for g in order:
+        gd = gens[g]; t = gd["t_min"]; vis = (g == default_g); idxs = []
+        for name, key, col in roles:
+            cd = [(v / NS if v is not None else None) for v in gd[key]]
+            fig.add_trace(go.Scatter(x=t, y=gd[key], name=name, mode="lines",
+                line=dict(color=col, width=2.2, shape="hv"), connectgaps=False,
+                visible=vis, showlegend=vis, legendgroup=name, customdata=cd,
+                hovertemplate="%{x:.1f} min<br>" + name + ": %{y} / " + str(NS) +
+                              " boxes (%{customdata:.0%})<extra></extra>"))
+            idxs.append(len(fig.data) - 1)
+        im = gd["init_min"]
+        fig.add_trace(go.Scatter(x=[im, im] if im is not None else [None, None],
+            y=[-0.4, NS + 0.4], mode="lines", line=dict(color="#1f2937", width=1.5, dash="dash"),
+            name="replication initiation", visible=vis, showlegend=vis, legendgroup="init",
+            hovertemplate=(f"initiation @ {im} min<extra></extra>" if im is not None
+                           else "no initiation this generation<extra></extra>")))
+        idxs.append(len(fig.data) - 1)
+        per_gen[g] = idxs
+    # invisible anchor so the right-hand fraction axis (y2) renders
+    fig.add_trace(go.Scatter(x=[0], y=[0], yaxis="y2", mode="markers",
+                             marker=dict(opacity=0), showlegend=False, hoverinfo="skip"))
+    ntr = len(fig.data)
+    buttons = []
+    for g in order:
+        vmask = [False] * ntr; slmask = [False] * ntr
+        for i in per_gen[g]:
+            vmask[i] = True; slmask[i] = True
+        vmask[-1] = True  # keep the y2 anchor alive
+        buttons.append(dict(label=f"gen {g}", method="update",
+                            args=[{"visible": vmask, "showlegend": slmask}]))
+
+    fig.update_xaxes(title="time within generation (min)")
+    fig.update_layout(
+        yaxis=dict(title="oriC-low bound DnaA-ATP (boxes, /%d)" % NS, range=[-0.4, NS + 0.4],
+                   tickvals=list(range(0, NS + 1, 2)), zeroline=False),
+        yaxis2=dict(title="occupancy fraction", overlaying="y", side="right",
+                    range=[-0.4 / NS, (NS + 0.4) / NS], tickvals=[0, 0.25, 0.5, 0.75, 1.0],
+                    showgrid=False, zeroline=False),
+        updatemenus=[dict(buttons=buttons, x=0.0, xanchor="left", y=1.0, yanchor="top",
+                          pad=dict(t=2, l=2), showactive=True, direction="down")])
+    _layout(fig, "Per-chromosome oriC-low binding — parent, daughter 1, daughter 2",
+            "honest per-box tracking (each oriC-low box's chromosome domain + ATP-bound state): one oriC "
+            "(parent) is present until replication initiation, then two daughter oriCs. Left axis = actual "
+            "bound-box count (/8); right axis = the same reading as occupancy fraction. Use the selector to "
+            "switch generation. Cooperative n=4 run (seed 1) — note binding fills fully in early generations "
+            "and is sparser in later ones.")
     _write(fig, "dnaa5_parent_vs_daughter")
 
 

@@ -57,6 +57,11 @@ def trim_state_for_view(obj, *, max_list: int = 8):
     # numpy (and other 1-D array-likes): cap then recurse on the python list.
     tolist = getattr(obj, "tolist", None)
     if callable(tolist) and getattr(obj, "ndim", 0) >= 1:
+        # Structured arrays (bulk / unique molecules) keep their dtype so the JSON
+        # serializer (_json_default) can label rows by field name / id instead of
+        # positional index. Just cap the row count; don't flatten to a list.
+        if getattr(getattr(obj, "dtype", None), "names", None):
+            return obj[:max_list]
         try:
             return trim_state_for_view(obj[:max_list].tolist(), max_list=max_list)
         except Exception:  # noqa: BLE001 — fall through to leave the value as-is
@@ -187,31 +192,6 @@ def _count_nodes(obj) -> int:
     return n
 
 
-def _namify_bulk_arrays(obj, *, top_n: int = 16):
-    """Replace a bulk-style structured array with a `{molecule_id: count}` map.
-
-    `bulk` (renamed `molecules` in the biological composite) is a NumPy
-    structured array whose rows are `[id, count, …submasses]`. The viewers render
-    that as positional indices (0, 1, 2, …) with the real molecule id buried as a
-    cell value — which reads as meaningless numbers. Convert it to a name→count
-    map (most-abundant first, capped) so the viewers show real molecule names.
-    Detected by dtype, so it works regardless of the store's key/path.
-    """
-    names = getattr(getattr(obj, "dtype", None), "names", None)
-    if names and "id" in names and "count" in names:
-        ids = obj["id"].tolist()
-        counts = obj["count"].tolist()
-        pairs = sorted(zip(ids, counts), key=lambda p: -int(p[1]))
-        out = {str(i): int(c) for i, c in pairs[:top_n]}
-        if len(pairs) > top_n:
-            out[f"… +{len(pairs) - top_n} more molecules"] = ""
-        return out
-    if isinstance(obj, dict):
-        return {k: _namify_bulk_arrays(v, top_n=top_n) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple)):
-        return [_namify_bulk_arrays(v, top_n=top_n) for v in obj]
-    return obj
-
 
 def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
     """Best-effort bigraph-viz static SVG. Returns the path or None on failure.
@@ -303,7 +283,6 @@ def build_rows(entries, *, viewers_dir, resolve, render_svg, render_viz2):
             state = resolve(e.id)
             if state is None:
                 continue  # resolve() already logged why
-            state = _namify_bulk_arrays(state)  # bulk array -> {molecule_id: count}
             state = trim_state_for_view(state)  # drop bulk data arrays the viewers don't draw
             write_state(state, e.slug, data_dir)
             svg = render_svg(state, e.slug, img_dir)

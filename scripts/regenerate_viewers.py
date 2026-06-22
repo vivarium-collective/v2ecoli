@@ -187,45 +187,52 @@ def _count_nodes(obj) -> int:
     return n
 
 
-def _cell_level_collapse_paths(state: dict, depth: int = 2):
-    """Paths to the `depth`-deep subtrees (e.g. each `agents.<id>` cell), so the
-    static SVG of a big composite renders as a high-level overview — cells/clock
-    as collapsed boxes — instead of an unreadable ~17000pt-wide layout."""
-    out = []
+def _namify_bulk_arrays(obj, *, top_n: int = 16):
+    """Replace a bulk-style structured array with a `{molecule_id: count}` map.
 
-    def walk(node, d, prefix):
-        if not isinstance(node, dict):
-            return
-        for k, v in node.items():
-            if k in _VIZ_META_KEYS or (isinstance(k, str) and k.startswith("_")):
-                continue
-            p = prefix + [k]
-            if d + 1 == depth:
-                out.append(p)
-            elif isinstance(v, dict):
-                walk(v, d + 1, p)
-
-    walk(state, 0, [])
-    return out
+    `bulk` (renamed `molecules` in the biological composite) is a NumPy
+    structured array whose rows are `[id, count, …submasses]`. The viewers render
+    that as positional indices (0, 1, 2, …) with the real molecule id buried as a
+    cell value — which reads as meaningless numbers. Convert it to a name→count
+    map (most-abundant first, capped) so the viewers show real molecule names.
+    Detected by dtype, so it works regardless of the store's key/path.
+    """
+    names = getattr(getattr(obj, "dtype", None), "names", None)
+    if names and "id" in names and "count" in names:
+        ids = obj["id"].tolist()
+        counts = obj["count"].tolist()
+        pairs = sorted(zip(ids, counts), key=lambda p: -int(p[1]))
+        out = {str(i): int(c) for i, c in pairs[:top_n]}
+        if len(pairs) > top_n:
+            out[f"… +{len(pairs) - top_n} more molecules"] = ""
+        return out
+    if isinstance(obj, dict):
+        return {k: _namify_bulk_arrays(v, top_n=top_n) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_namify_bulk_arrays(v, top_n=top_n) for v in obj]
+    return obj
 
 
 def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
-    """Best-effort bigraph-viz static SVG. Returns the path or None on failure."""
+    """Best-effort bigraph-viz static SVG. Returns the path or None on failure.
+
+    Skipped for large composites: graphviz spreads a whole-cell model's hundreds
+    of connected nodes across ~17000pt — unreadable as a static image, and
+    collapsing far enough to fit leaves only a couple of circles. Big composites
+    drop the static "Viz" link entirely and rely on the interactive loom + viz2
+    viewers; small composites still render a full static SVG.
+    """
     try:
         from bigraph_viz import plot_bigraph
-        img_dir.mkdir(parents=True, exist_ok=True)
-        # A whole-cell composite has ~hundreds of connected nodes that graphviz
-        # spreads across ~17000pt — unreadable even when fit to the window. For
-        # large composites collapse to a high-level overview (cells/clock as
-        # boxes); small composites render in full. _make_svg_responsive() below
-        # still fits whatever remains to the viewport.
-        kwargs = {}
         if _count_nodes(state) > 120:
-            paths = _cell_level_collapse_paths(state)
-            if paths:
-                kwargs["collapse_paths"] = paths
+            # Remove any stale SVG from a previous run so the hub drops the button.
+            stale = img_dir / f"{slug}.svg"
+            if stale.is_file():
+                stale.unlink()
+            return None
+        img_dir.mkdir(parents=True, exist_ok=True)
         plot_bigraph(state, out_dir=str(img_dir), filename=slug,
-                     file_format="svg", show_compiled_state=False, **kwargs)
+                     file_format="svg", show_compiled_state=False)
         # plot_bigraph also writes the intermediate Graphviz DOT source as a
         # bare <slug> file (no extension) alongside <slug>.svg — drop it.
         dot_src = img_dir / slug
@@ -296,6 +303,7 @@ def build_rows(entries, *, viewers_dir, resolve, render_svg, render_viz2):
             state = resolve(e.id)
             if state is None:
                 continue  # resolve() already logged why
+            state = _namify_bulk_arrays(state)  # bulk array -> {molecule_id: count}
             state = trim_state_for_view(state)  # drop bulk data arrays the viewers don't draw
             write_state(state, e.slug, data_dir)
             svg = render_svg(state, e.slug, img_dir)

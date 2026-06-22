@@ -77,6 +77,32 @@ def _ensure_vecoli() -> dict:
         return _VECOLI
     vecoli_dir = str(REPO_ROOT.parent / "vEcoli")
     sys.path.insert(0, vecoli_dir)
+
+    # ecoli/__init__.py registers parquet/updaters/dividers/serializers into
+    # vivarium's PROCESS-GLOBAL registries as an import side effect. A shadow
+    # ecoli release may already have registered those keys, and vivarium's
+    # Registry.register RAISES on a duplicate key whose item object differs —
+    # which re-importing ecoli guarantees (new class/function identities). Make
+    # register idempotent (skip keys already present) so re-importing ecoli from
+    # the composite checkout below doesn't blow up on "registry already contains
+    # an entry for parquet". The freshly imported ecoli.composites.* and the
+    # soft-floor transcription still come from vecoli_dir; only the shared
+    # registry helpers fall back to whatever registered first (functionally
+    # equivalent — the soft-floor lives in transcription, not in these helpers).
+    import vivarium.core.registry as _vreg
+    if not getattr(_vreg.Registry, "_idempotent_patched", False):
+        _orig_register = _vreg.Registry.register
+
+        def _idempotent_register(self, key, item, alternate_keys=tuple()):
+            if key in self.registry:
+                return None
+            return _orig_register(self, key, item, alternate_keys)
+
+        _vreg.Registry.register = _idempotent_register
+        _vreg.Registry._idempotent_patched = True
+
+    # Drop any cached (possibly shadow) ecoli modules so the imports below
+    # resolve from vecoli_dir (the composite-softfloor checkout).
     for _m in [m for m in sys.modules if m == "ecoli" or m.startswith("ecoli.")]:
         del sys.modules[_m]
 

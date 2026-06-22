@@ -148,6 +148,22 @@ def _ensure_vecoli() -> dict:
     from bigraph_schema.schema import Tuple as _Tuple
     from v2ecoli.types.process import ProcessInstance
 
+    # This file uses `from __future__ import annotations` (PEP 563), so the
+    # dispatch annotations below are stored as STRINGS and resolved lazily by
+    # beartype from the function's __module__ globals (which is "__main__" when
+    # the script runs directly, e.g. on a Ray worker). Defined inside this
+    # function, _Tuple/SharedProcess/ProcessInstance would be locals that vanish
+    # on return → "Forward reference '_Tuple' unimportable from module
+    # '__main__'". Publish them into the module (and __main__) globals so the
+    # forward-ref resolution succeeds, mirroring run_vecoli_composite.py's
+    # module-level definitions.
+    _main = sys.modules.get("__main__")
+    for _nm, _ty in (("_Tuple", _Tuple), ("SharedProcess", SharedProcess),
+                     ("ProcessInstance", ProcessInstance)):
+        globals()[_nm] = _ty
+        if _main is not None:
+            setattr(_main, _nm, _ty)
+
     @_resolve.dispatch
     def _resolve_tuple_shared(current: _Tuple, update: SharedProcess, path=None):
         return update

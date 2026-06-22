@@ -567,6 +567,42 @@ def _sim_health_html(card: dict, label: str) -> str:
             f"duration cap without dividing ({nd}/{nt} divided)</div></section>")
 
 
+def _coverage_html(coverage) -> str:
+    """A 'Scope & coverage' panel — the behavioral-spec map. ``coverage`` is
+    ``{lede, invite, rows:[(category, status, kind, detail)]}`` where status is
+    'covered' | 'planned' and kind is 'independent' | 'fit-to' (the latter a
+    ParCa calibration target — a consistency check, not independent validation).
+    Frames the card as a deliberately partial, growing spec rather than a
+    complete one. Absent on cards that don't supply it."""
+    if not coverage or not coverage.get("rows"):
+        return ""
+    rows = [r if len(r) == 4 else (r[0], r[1], "independent", r[2])
+            for r in coverage["rows"]]
+    n_cov = sum(1 for r in rows if r[1] == "covered")
+    n_tot = len(rows)
+    items = []
+    for cat, status, kind, detail in rows:
+        cov = status == "covered"
+        mark = "✓" if cov else "○"
+        cls = "cov-yes" if cov else "cov-no"
+        tag = "" if cov else "<span class='cov-tag'>planned</span>"
+        if kind == "fit-to":
+            tag += "<span class='cov-tag cov-fit'>ParCa fit-to</span>"
+        items.append(
+            f"<li class='{cls}'><span class='cov-mark'>{mark}</span>"
+            f"<span class='cov-cat'>{cat}{tag}</span>"
+            f"<span class='cov-detail'>{detail}</span></li>")
+    lede = f"<p class='cov-lede'>{coverage['lede']}</p>" if coverage.get("lede") else ""
+    invite = (f"<p class='cov-invite'>💬 {coverage['invite']}</p>"
+              if coverage.get("invite") else "")
+    return (f"<section class='card coverage'><div class='head'>"
+            f"<h2>Scope &amp; coverage</h2>"
+            f"<div class='chips'><span class='chip' style='background:#6b7280'>"
+            f"{n_cov} of {n_tot} categories populated</span></div></div>"
+            f"<div class='covbody'>{lede}<ul class='covlist'>{''.join(items)}</ul>"
+            f"{invite}</div></section>")
+
+
 def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) -> str:
     report = grade_card(card, reference)
     c = _counts(report)
@@ -638,6 +674,7 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
     findings_html = ("<section class='card'><div class='head'><h2>Findings</h2></div>"
                      "<ul class='findings'>" + "".join(f"<li>{f}</li>" for f in findings)
                      + "</ul></section>") if findings else ""
+    coverage_html = _coverage_html(reference.get("coverage"))
     stim = reference.get("stimulus", {})
     # one stimulus descriptor for the header, whatever shape the card is:
     # population cards carry `ensemble` (seeds × gens); others carry `summary`.
@@ -709,12 +746,20 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 .stat-callout{{border-left:4px solid {_COLOR['drift']}}} .stat-callout .statbody{{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}}
 .statbody code{{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}}
 .findings{{margin:0;padding:14px 34px;color:#374151;font-size:13px}} footer{{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}}
+.coverage{{border-left:4px solid #6b7280}} .covbody{{padding:14px 18px}}
+.cov-lede{{margin:0 0 12px;font-size:13px;color:#374151;line-height:1.5}}
+.covlist{{list-style:none;margin:0;padding:0}} .covlist li{{display:grid;grid-template-columns:20px 220px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f3f5;font-size:12.5px}}
+.cov-mark{{font-weight:700;text-align:center}} .cov-yes .cov-mark{{color:{_COLOR['within_tol']}}} .cov-no .cov-mark{{color:#b0b6bd}}
+.cov-cat{{font-weight:600;color:#1a1d21}} .cov-no .cov-cat{{color:#6b7280}} .cov-detail{{color:var(--muted)}}
+.cov-tag{{margin-left:7px;font-size:10px;font-weight:600;color:#8a93a0;background:#eef0f2;padding:1px 6px;border-radius:999px;vertical-align:middle}}
+.cov-fit{{color:#7c5a00;background:#fdf3da}}
+.cov-invite{{margin:12px 0 0;font-size:12.5px;color:#374151;background:#f6f8fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;line-height:1.5}}
 </style></head><body>
 <header class="top"><h1>{title} — report card</h1>
 <div class="sub">{subtitle}</div>
 <div class="obadge">{overall} &nbsp;·&nbsp; {c['within_tol']} ✓ &nbsp; {c['drift']} ≈ &nbsp; {c['mismatch']} ✗ &nbsp; {c['ungraded']} –</div></header>
 <nav class="sticky">{nav}</nav>
-<main>{sim_html}{stationarity_html}{''.join(sections)}{findings_html}</main>
+<main>{coverage_html}{sim_html}{stationarity_html}{''.join(sections)}{findings_html}</main>
 <footer>{footer}</footer>
 </body></html>"""
 

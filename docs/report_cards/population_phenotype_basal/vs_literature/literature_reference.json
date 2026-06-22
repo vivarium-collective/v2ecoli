@@ -13,6 +13,48 @@
     "Metabolism splits into two independent reads: the model routes central carbon CORRECTLY (G6P split ≈ Crown's EMP/oxPPP/ED) but UNDER-RESPIRES (O₂ 0.48 vs ~11–15, RQ 3.6 vs ≈1.1) with no overflow — 94% of glucose carbon is retained as biomass (vs ~50% in a real aerobic cell), the C-mol root of the inflated yield. The defect is energetic (respiration), not carbon routing."
   ],
   "footer": "Behavioral report card (PR #134 grader) · vs_literature mode · physiology · metabolism · proteome.",
+  "coverage": {
+    "lede": "A <b>basal behavioral spec</b> for glucose-minimal MG1655 — the behaviors a faithful whole-cell model should reproduce at rest. This is a <b>starting point, not a complete card</b>: it populates the categories below as they are built, one report-card-gated axis at a time.",
+    "invite": "What else would convince you the model is being E. coli? Missing categories are an open invitation — propose one (a behavior + a reference) and it becomes the next row.",
+    "rows": [
+      [
+        "Growth & physiology",
+        "covered",
+        "independent",
+        "μ · biomass yield · glucose uptake — vs Bremer-Dennis + ¹³C-MFA studies"
+      ],
+      [
+        "Metabolic fluxes & exchanges",
+        "covered",
+        "independent",
+        "central-carbon flux map · O₂/CO₂/acetate · branch-point splits — vs Crown 2015 / Toya 2010"
+      ],
+      [
+        "Proteome census",
+        "covered",
+        "independent",
+        "protein copies/cell across the proteome — vs Schmidt 2016 MG1655"
+      ],
+      [
+        "Macromolecular composition",
+        "planned",
+        "fit-to",
+        "protein / RNA / DNA / lipid mass fractions — vs the ParCa dry-mass-composition target (Bremer &amp; Dennis 2008, EcoSal Plus, doi:10.1128/ecosal.5.2.3; data/flat/dry_mass_composition.tsv). A round-trip consistency check (the model is fit to this), not independent validation."
+      ],
+      [
+        "Cell size, mass & geometry",
+        "planned",
+        "independent",
+        "cell mass · volume · length · surface-to-volume — vs BioNumbers / Volkmer-Heinemann 2011"
+      ],
+      [
+        "Metabolite pools",
+        "planned",
+        "independent",
+        "absolute intracellular metabolite concentrations · energy charge — vs Bennett 2009"
+      ]
+    ]
+  },
   "axes": {
     "physiology.growth_rate": {
       "group": "Physiology",

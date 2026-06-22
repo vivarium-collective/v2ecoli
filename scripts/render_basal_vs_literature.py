@@ -461,6 +461,39 @@ def build_proteome(pro: dict, bundle_path: Path | None = None) -> tuple[dict, di
     return axes, card
 
 
+# The basal behavioral spec — the (deliberately partial) set of basal-condition
+# behaviors a glucose-minimal MG1655 cell exhibits that a faithful whole-cell
+# model should reproduce. This card POPULATES the `covered` rows; the `planned`
+# rows are named-but-not-yet-built — the spec is meant to grow, one report-card-
+# gated axis at a time. Adding a category is a row here + its axis; the panel is
+# the standing invitation ("what else would convince you it's being E. coli?").
+# Kept intentionally lean: one worked axis per covered category, not exhaustive.
+#
+# Two KINDS of reference, worth keeping distinct (the "kind" field):
+#   "independent" — the model is NOT fit to it; matching is genuine validation
+#                   (Crown fluxes, Schmidt proteome, the ¹³C yields).
+#   "fit-to"      — a ParCa INPUT the model is calibrated to; matching is a
+#                   round-trip consistency check, not independent validation.
+# Each row: (category, status, kind, detail). status ∈ covered|planned.
+BASAL_SPEC = [
+    ("Growth & physiology", "covered", "independent",
+     "μ · biomass yield · glucose uptake — vs Bremer-Dennis + ¹³C-MFA studies"),
+    ("Metabolic fluxes & exchanges", "covered", "independent",
+     "central-carbon flux map · O₂/CO₂/acetate · branch-point splits — vs Crown 2015 / Toya 2010"),
+    ("Proteome census", "covered", "independent",
+     "protein copies/cell across the proteome — vs Schmidt 2016 MG1655"),
+    ("Macromolecular composition", "planned", "fit-to",
+     "protein / RNA / DNA / lipid mass fractions — vs the ParCa dry-mass-composition "
+     "target (Bremer &amp; Dennis 2008, EcoSal Plus, doi:10.1128/ecosal.5.2.3; "
+     "data/flat/dry_mass_composition.tsv). A round-trip consistency check (the model "
+     "is fit to this), not independent validation."),
+    ("Cell size, mass & geometry", "planned", "independent",
+     "cell mass · volume · length · surface-to-volume — vs BioNumbers / Volkmer-Heinemann 2011"),
+    ("Metabolite pools", "planned", "independent",
+     "absolute intracellular metabolite concentrations · energy charge — vs Bennett 2009"),
+]
+
+
 def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tuple[dict, dict, dict]:
     """Return (card, reference, model) — the gradeable inputs (importable for tests)."""
     model = model_physiology(model_json)
@@ -490,6 +523,17 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
         ],
         "footer": "Behavioral report card (PR #134 grader) · vs_literature mode · "
                   "physiology · metabolism · proteome.",
+        "coverage": {
+            "lede": ("A <b>basal behavioral spec</b> for glucose-minimal MG1655 — "
+                     "the behaviors a faithful whole-cell model should reproduce at "
+                     "rest. This is a <b>starting point, not a complete card</b>: it "
+                     "populates the categories below as they are built, one "
+                     "report-card-gated axis at a time."),
+            "invite": ("What else would convince you the model is being E. coli? "
+                       "Missing categories are an open invitation — propose one "
+                       "(a behavior + a reference) and it becomes the next row."),
+            "rows": BASAL_SPEC,
+        },
         "axes": build_reference(lit, model),
     }
     card = build_card(model)

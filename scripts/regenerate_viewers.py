@@ -172,13 +172,60 @@ def _log_resolve_failure(spec_id: str) -> None:
           file=sys.stderr)
 
 
+_VIZ_META_KEYS = {"address", "config", "inputs", "outputs", "interval",
+                  "_type", "instance", "wires"}
+
+
+def _count_nodes(obj) -> int:
+    if not isinstance(obj, dict):
+        return 0
+    n = 0
+    for k, v in obj.items():
+        if k in _VIZ_META_KEYS or (isinstance(k, str) and k.startswith("_")):
+            continue
+        n += 1 + _count_nodes(v)
+    return n
+
+
+def _cell_level_collapse_paths(state: dict, depth: int = 2):
+    """Paths to the `depth`-deep subtrees (e.g. each `agents.<id>` cell), so the
+    static SVG of a big composite renders as a high-level overview — cells/clock
+    as collapsed boxes — instead of an unreadable ~17000pt-wide layout."""
+    out = []
+
+    def walk(node, d, prefix):
+        if not isinstance(node, dict):
+            return
+        for k, v in node.items():
+            if k in _VIZ_META_KEYS or (isinstance(k, str) and k.startswith("_")):
+                continue
+            p = prefix + [k]
+            if d + 1 == depth:
+                out.append(p)
+            elif isinstance(v, dict):
+                walk(v, d + 1, p)
+
+    walk(state, 0, [])
+    return out
+
+
 def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
     """Best-effort bigraph-viz static SVG. Returns the path or None on failure."""
     try:
         from bigraph_viz import plot_bigraph
         img_dir.mkdir(parents=True, exist_ok=True)
+        # A whole-cell composite has ~hundreds of connected nodes that graphviz
+        # spreads across ~17000pt — unreadable even when fit to the window. For
+        # large composites collapse to a high-level overview (cells/clock as
+        # boxes); small composites render in full. _make_svg_responsive() below
+        # still fits whatever remains to the viewport.
+        kwargs = {}
+        if _count_nodes(state) > 120:
+            paths = _cell_level_collapse_paths(state)
+            if paths:
+                kwargs["collapse_paths"] = paths
         plot_bigraph(state, out_dir=str(img_dir), filename=slug,
-                     file_format="svg", show_compiled_state=False)
+                     file_format="svg", show_compiled_state=False, **kwargs)
         # plot_bigraph also writes the intermediate Graphviz DOT source as a
         # bare <slug> file (no extension) alongside <slug>.svg — drop it.
         dot_src = img_dir / slug
@@ -225,7 +272,11 @@ def render_viz2_html(state: dict, slug: str, viz2_dir: Path) -> Path | None:
     try:
         from bigraph_viz2 import emit_html
         viz2_dir.mkdir(parents=True, exist_ok=True)
-        html = emit_html(state, height="100vh")
+        # Open large WCM composites collapsed below the top subsystems so the
+        # graph is legible/fast; the user drills in (double-click) + zooms.
+        import os as _os
+        depth = int(_os.environ.get("VIZ2_COLLAPSE_DEPTH", "2"))
+        html = emit_html(state, height="100vh", collapse_depth=depth)
         out = viz2_dir / f"{slug}.html"
         out.write_text(html, encoding="utf-8")
         return out

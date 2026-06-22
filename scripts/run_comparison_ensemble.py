@@ -65,6 +65,14 @@ def _build_vecoli(seed: int, condition: str):
     """
     vecoli_dir = str(REPO_ROOT.parent / "vEcoli")
     sys.path.insert(0, vecoli_dir)
+    # The installed vEcoli release may already be cached in sys.modules (pulled
+    # in transitively when v2ecoli imports loaded), and that release lacks
+    # ``ecoli.composites.ecoli_composite``. A bare ``sys.path.insert`` does NOT
+    # re-resolve an already-imported package, so drop every ``ecoli*`` module
+    # to force a fresh import from ``vecoli_dir`` (the composite-softfloor
+    # branch that carries ``build_composite_native``).
+    for _m in [m for m in sys.modules if m == "ecoli" or m.startswith("ecoli.")]:
+        del sys.modules[_m]
     prev = os.getcwd()
     os.chdir(vecoli_dir)
     try:

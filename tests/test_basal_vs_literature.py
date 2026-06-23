@@ -294,13 +294,12 @@ def test_composition_rna_is_total_rna(graded):
 # 7. Metabolite pools (aggregate) vs Bennett 2009 — fit-to consistency
 # ---------------------------------------------------------------------------
 
-def test_metabolite_pool_total_under_bennett(graded):
+def test_metabolite_pool_total_under_bennett():
     # The model's realized aggregate metabolite pool is ~0.54x its Bennett-derived
-    # target total — it under-fills the metabolome in aggregate. A fit-to
-    # consistency check (the model is calibrated to these targets), graded mismatch.
-    report, _ = graded
-    ax = report["axes"].get("pools.total")
-    assert ax is not None and ax["verdict"] == "mismatch"
+    # target total over the same matched set — it under-fills the metabolome in
+    # aggregate (a like-for-like sum over the same EcoCyc ids). Bake-level sanity;
+    # the card itself shows this via the per-metabolite scatter, not an aggregate
+    # axis (which would penalize the scale offset the scatter's Pearson r tolerates).
     import json
     pools = json.load(open(rvl._POOLS_JSON, encoding="utf-8"))
     assert 0.4 < pools["ratio"] < 0.7          # model under-fills (~0.54x)

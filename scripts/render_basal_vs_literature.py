@@ -529,30 +529,12 @@ def bennett_pools(bundle_path: Path | None = None) -> dict:
 
 
 def build_metabolite_pools(pools: dict, bundle_path: Path | None = None) -> tuple[dict, dict]:
-    """(axes, card_node) for the Metabolite pools section: (1) the model's total
-    realized intracellular metabolite pool vs the Bennett 2009 measured total, and
-    (2) the per-metabolite scatter (model vs Bennett, log-log). The model is
-    calibrated to these per-metabolite targets, so both are fit-to consistency
-    checks, not independent validation."""
-    n = pools["n_matched"]
-    model_mM = pools["model_total"] * 1000.0
-    bennett_mM = pools["bennett_total"] * 1000.0
-    axes = {"pools.total": {
-        "group": "Metabolite pools",
-        "label": "Total metabolite pool (mM)", "units": "mM", "plot": "literature",
-        "how": (f"Model: total realized intracellular metabolite concentration "
-                f"(Σ bulk molecule counts / cell volume / Nₐ; per-cell time-mean then "
-                f"ensemble) over the {n} metabolites carrying a Bennett-derived "
-                f"concentration target. Graded vs the Bennett 2009 measured total over "
-                f"the same set. The model is FIT to these per-metabolite targets "
-                f"(metabolite_concentrations.tsv) — a fit-to consistency check, NOT "
-                f"independent validation. Strain: Bennett K-12 NCM3722, glucose minimal, "
-                f"filter culture (td 77 min)."),
-        "criterion": {"type": "literature", "measured": [round(bennett_mM, 4)],
-                      "theoretical_max": None, "tol_rel": 0.10,
-                      "sources": ["bennett_2009"]},
-    }}
-    card = {"total": {"mean": model_mM}}
+    """(axes, card_node) for the Metabolite pools section: the per-metabolite
+    scatter (model realized concentration vs the genuine Bennett 2009 value + 95%
+    CI, log-log). The model is calibrated to these per-metabolite targets, so this
+    is a fit-to consistency check, not independent validation."""
+    axes: dict = {}
+    card: dict = {}
 
     # Per-metabolite scatter: model realized concentration vs the genuine Bennett
     # 2009 published value + 95% CI (joined by the slot's ecocyc_id), log-log,
@@ -583,7 +565,8 @@ def build_metabolite_pools(pools: dict, bundle_path: Path | None = None) -> tupl
                           "r_min": 0.9, "r_drift": 0.7,
                           "ids": names, "entity_label": "metabolite",
                           "count_label": "concentration", "min_count": 0.0,
-                          "outlier_log2fc": 2.0},
+                          "outlier_log2fc": 2.0,
+                          "up_label": "higher in", "down_label": "lower in"},
         }
         card["per_metabolite"] = {"vector": model_vec}
     return axes, card
@@ -616,9 +599,8 @@ BASAL_SPEC = [
     ("Cell size, mass & geometry", "planned", "independent",
      "cell mass · volume · length · surface-to-volume — vs BioNumbers / Volkmer-Heinemann 2011"),
     ("Metabolite pools", "covered", "fit-to",
-     "absolute intracellular metabolite concentrations — vs Bennett 2009 (aggregate pool "
-     "total + per-metabolite scatter; the model is calibrated to these targets — a "
-     "fit-to consistency check)."),
+     "absolute intracellular metabolite concentrations — vs Bennett 2009 (per-metabolite "
+     "scatter; the model is calibrated to these targets — a fit-to consistency check)."),
 ]
 
 

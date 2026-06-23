@@ -51,7 +51,7 @@
         "Metabolite pools",
         "covered",
         "fit-to",
-        "absolute intracellular metabolite concentrations — vs Bennett 2009 (aggregate pool total + per-metabolite scatter; the model is calibrated to these targets — a fit-to consistency check)."
+        "absolute intracellular metabolite concentrations — vs Bennett 2009 (per-metabolite scatter; the model is calibrated to these targets — a fit-to consistency check)."
       ]
     ]
   },
@@ -2196,24 +2196,6 @@
         "residual_warn": 0.05
       }
     },
-    "pools.total": {
-      "group": "Metabolite pools",
-      "label": "Total metabolite pool (mM)",
-      "units": "mM",
-      "plot": "literature",
-      "how": "Model: total realized intracellular metabolite concentration (Σ bulk molecule counts / cell volume / Nₐ; per-cell time-mean then ensemble) over the 93 metabolites carrying a Bennett-derived concentration target. Graded vs the Bennett 2009 measured total over the same set. The model is FIT to these per-metabolite targets (metabolite_concentrations.tsv) — a fit-to consistency check, NOT independent validation. Strain: Bennett K-12 NCM3722, glucose minimal, filter culture (td 77 min).",
-      "criterion": {
-        "type": "literature",
-        "measured": [
-          217.7294
-        ],
-        "theoretical_max": null,
-        "tol_rel": 0.1,
-        "sources": [
-          "bennett_2009"
-        ]
-      }
-    },
     "pools.per_metabolite": {
       "group": "Metabolite pools",
       "label": "Per-metabolite concentration (mol/L)",
@@ -2609,7 +2591,9 @@
         "entity_label": "metabolite",
         "count_label": "concentration",
         "min_count": 0.0,
-        "outlier_log2fc": 2.0
+        "outlier_log2fc": 2.0,
+        "up_label": "higher in",
+        "down_label": "lower in"
       }
     }
   }

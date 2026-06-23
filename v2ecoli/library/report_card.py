@@ -400,6 +400,8 @@ def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) ->
     names = crit.get("names") or [""] * len(ids)
     entity = crit.get("entity_label", "gene")        # noun for the row entity
     count_noun = crit.get("count_label", "counts")   # noun for the values
+    up_word = crit.get("up_label", "over-expressed in")    # direction phrasing
+    down_word = crit.get("down_label", "under-expressed in")
     ref = crit.get("ref_vector") or []
     meas = measured.get("vector") or []
     if not ids or not ref or not meas:
@@ -453,8 +455,8 @@ def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) ->
                 f"<th class='ohnum'>log2FC</th></tr></thead>"
                 f"<tbody>{trs}</tbody></table>{more}</div>")
 
-    up_html = _table(f"↑ over-expressed in {meas_label}", up)
-    down_html = _table(f"↓ under-expressed in {meas_label}", down)
+    up_html = _table(f"↑ {up_word} {meas_label}", up)
+    down_html = _table(f"↓ {down_word} {meas_label}", down)
     return (f"<div class='otbl'><div class='otgrid'>{up_html}{down_html}</div>"
             f"<div class='ftnote'>log2 fold-change ({meas_label} / {ref_label}) "
             f"of ensemble-mean {count_noun} · |log2FC| > {cut:g}, "

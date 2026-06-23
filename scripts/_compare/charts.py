@@ -42,7 +42,7 @@ def _fmt_axis(v: float) -> str:
 
 
 def multiline_svg(series, w=300, h=120, baseline_zero=True, axes=False,
-                  x_label="time (s)"):
+                  x_label="time (s)", colors=None, vlines=None):
     """Shared-axis multi-line SVG. ``series`` is a list aligned to engine index;
     each element is a list of (x, y) points (or None/empty to skip). All lines
     share one auto-scaled x/y range so absolute divergence is directly visible.
@@ -51,8 +51,17 @@ def multiline_svg(series, w=300, h=120, baseline_zero=True, axes=False,
     ``composite_comparison.py``. ``axes=True`` reserves margins and draws
     numbered x (time) and y (value) tick labels with undistorted text.
 
+    ``colors`` optionally overrides the per-series stroke (list aligned to
+    ``series``); when ``None`` the cyclic ``PALETTE`` is used. ``vlines`` is an
+    optional list of x positions drawn as light dashed verticals (axes mode) —
+    used to mark generation boundaries.
+
     Returns ``(svg_str, (y0, y1))`` — the SVG string and the y-axis extent.
     """
+    def _color(i):
+        if colors and i < len(colors) and colors[i]:
+            return colors[i]
+        return PALETTE[i % len(PALETTE)]
     gxs, gys = [], []
     for pts in series:
         for t, v in (pts or []):
@@ -78,7 +87,7 @@ def multiline_svg(series, w=300, h=120, baseline_zero=True, axes=False,
                 f"{pad+(t-x0)/dx*(w-2*pad):.1f},{h-pad-((v-y0)/dy*(h-2*pad)):.1f}"
                 for t, v in pts)
             lines.append(
-                f"<polyline fill='none' stroke='{PALETTE[i % len(PALETTE)]}' "
+                f"<polyline fill='none' stroke='{_color(i)}' "
                 f"stroke-width='1.5' points='{coords}'/>")
         svg = (f"<svg width='100%' height='{h}' viewBox='0 0 {w} {h}' "
                f"preserveAspectRatio='none'>"
@@ -103,12 +112,17 @@ def multiline_svg(series, w=300, h=120, baseline_zero=True, axes=False,
             continue
         coords = " ".join(f"{X(t):.1f},{Y(v):.1f}" for t, v in pts)
         lines.append(
-            f"<polyline fill='none' stroke='{PALETTE[i % len(PALETTE)]}' "
+            f"<polyline fill='none' stroke='{_color(i)}' "
             f"stroke-width='1.4' points='{coords}'/>")
 
     axis = (f"<line x1='{mL}' y1='{mT}' x2='{mL}' y2='{mT+ph}' stroke='#cbd5e1'/>"
             f"<line x1='{mL}' y1='{mT+ph}' x2='{mL+pw}' y2='{mT+ph}' "
             f"stroke='#cbd5e1'/>")
+    for vx in (vlines or []):
+        if x0 <= vx <= x1:
+            axis += (f"<line x1='{X(vx):.1f}' y1='{mT}' x2='{X(vx):.1f}' "
+                     f"y2='{mT+ph}' stroke='#cbd5e1' stroke-width='1' "
+                     f"stroke-dasharray='3,3'/>")
 
     def _t(x, y, s, anchor="middle"):
         return (f"<text x='{x:.0f}' y='{y:.0f}' font-size='8' fill='#64748b' "

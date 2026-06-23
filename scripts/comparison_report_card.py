@@ -63,7 +63,7 @@ from scripts._compare import report
 from scripts._compare.report_card_section import build_report_card
 from scripts._compare.vecoli_parquet_reader import read_vecoli_trajectory
 from scripts.compare_matched_trajectories import (
-    BUCKET, PREFIX, REGION, OBS_LABEL, _legend_html, overlay_svg,
+    BUCKET, PREFIX, REGION, OBS_LABEL, _legend_html, overlay_svg_multi,
     read_v2ecoli_trajectory, _gen1_window)
 
 # condition -> (v2ecoli zarr experiment dir, vEcoli parquet experiment dir).
@@ -140,13 +140,23 @@ def _matched(v2g1, veg1) -> dict | None:
 # --------------------------------------------------------------------------- #
 # read every condition's per-seed matched stats + a seed's trajectories to plot
 # --------------------------------------------------------------------------- #
+def _gen_bounds(gen_traj) -> list[float]:
+    """Times at which the generation label increments (gen boundaries)."""
+    if not gen_traj:
+        return []
+    gt, gv = gen_traj
+    return [float(gt[i]) for i in range(1, len(gv)) if gv[i] != gv[i - 1]]
+
+
 def build(conditions: dict[str, tuple[str, str]]) -> dict:
     cond_data: dict[str, tuple] = {}
     for cond, (v2_dir, ve_dir) in conditions.items():
         print(f"=== {cond} ===  v2={v2_dir}  ve={ve_dir}")
         ve_prefix = f"{PREFIX}/{ve_dir}"
         per_obs = {obs: [] for obs in OBSERVABLES}
-        plot_v2, plot_ve = {}, {}
+        # all-seed full trajectories per observable, for the overlay plots.
+        plot_trajs = {obs: {"v2": [], "ve": []} for obs in OBSERVABLES}
+        v2_bounds: list[float] = []
         for seed in SEEDS:
             try:
                 v2 = read_v2ecoli_trajectory(v2_dir, seed, OBSERVABLES)
@@ -162,6 +172,8 @@ def build(conditions: dict[str, tuple[str, str]]) -> dict:
                 print(f"  seed{seed}: vE read failed: {type(e).__name__} {str(e)[:60]}")
                 continue
             v2_gen, ve_gen = v2.get("_generation"), ve.get("_generation")
+            if not v2_bounds:
+                v2_bounds = _gen_bounds(v2_gen)
             for obs in OBSERVABLES:
                 if obs not in v2 or obs not in ve:
                     continue
@@ -171,9 +183,10 @@ def build(conditions: dict[str, tuple[str, str]]) -> dict:
                 if st:
                     st["seed"] = seed
                     per_obs[obs].append(st)
-            if not plot_v2:
-                plot_v2, plot_ve = v2, ve
-        cond_data[cond] = (per_obs, plot_v2, plot_ve)
+                # keep EVERY seed's full trajectory for the overlay plot.
+                plot_trajs[obs]["v2"].append(v2[obs])
+                plot_trajs[obs]["ve"].append(ve[obs])
+        cond_data[cond] = (per_obs, plot_trajs, v2_bounds)
         for obs in OBSERVABLES:
             sts = per_obs[obs]
             if sts:
@@ -192,7 +205,7 @@ def _med(sts, key):
 def overview_section(cond_data: dict) -> dict:
     """One row per condition: graded init-mass match + gen-1 dynamics match."""
     rows = []
-    for cond, (per_obs, _v2, _ve) in cond_data.items():
+    for cond, (per_obs, *_rest) in cond_data.items():
         cm = per_obs.get("cell_mass", [])
         if not cm:
             rows.append({"label": cond, "left": "—", "right": "—",
@@ -223,7 +236,7 @@ def parca_section(cond_data: dict) -> dict:
     """Per-condition t~0 initial masses for both engines = same-initial-state
     evidence (each sim starts from its engine's ParCa fit)."""
     rows = []
-    for cond, (per_obs, _v2, _ve) in cond_data.items():
+    for cond, (per_obs, *_rest) in cond_data.items():
         rows.append({"label": f"── {cond} ──", "left": "vEcoli init",
                      "right": "v2ecoli init", "verdict": "not_compared",
                      "group": cond, "reason": "first matched emit (t~0), median over seeds"})
@@ -486,109 +499,123 @@ def config_diff_section(cond: str, ve_cfg: dict | None, v2_cfg: dict | None,
     }
 
 
-def config_sections(conditions: dict[str, tuple[str, str]]) -> list[dict]:
-    """One pair of config panels (vEcoli + v2ecoli) per condition/variant.
-
-    Every condition gets BOTH engines' resolved run config, so the reader can see
-    exactly what drove each comparison. Variant is part of the title so a future
-    multi-variant run would render one panel pair per (condition, variant)."""
+def config_sections_for(cond: str, v2_dir: str, ve_dir: str) -> list[dict]:
+    """The vEcoli + v2ecoli config panels + the config-diff panel for ONE
+    condition (variant 0), in render order — dropped straight into that
+    condition's block (config -> runs -> evaluation)."""
     sections: list[dict] = []
-    for cond, (v2_dir, ve_dir) in conditions.items():
-        variant = 0  # these runs are variant=0 only
-        suffix = f"{cond} (variant {variant})"
 
-        ve_cfg = _read_vecoli_config(ve_dir, cond)
-        if ve_cfg is not None:
-            sec = report.config_panel_section(ve_cfg)
-            sec["title"] = f"Config — vEcoli — {suffix}"
-            sec["desc"] = (
-                f"vEcoli resolved workflow_config.json (the full config workflow.py "
-                f"ran) for condition '{cond}', from s3://.../{ve_dir}/cond_{cond}/"
-                f"nextflow/. Keys present only in the resolved (non-stripped) form "
-                f"are tucked into the collapsible details.")
-            sections.append(sec)
-        else:
-            sections.append({
-                "title": f"Config — vEcoli — {suffix}", "kind": "content",
-                "desc": f"vEcoli config for condition '{cond}'.",
-                "html": f"<p style='color:#6b7280'>config not found for {cond} "
-                        f"(no workflow_config.json under {ve_dir}/cond_{cond}).</p>"})
-
-        # Prefer the new build-config sidecar (full resolved process set +
-        # topology straight from the Composite); fall back to the zarr-attrs run
-        # config for older runs that predate it. Label which one is shown.
-        v2_build = _read_v2ecoli_build_config(v2_dir)
-        if v2_build is not None:
-            v2_cfg, v2_source = v2_build, "build-config sidecar"
-            sec = report.config_panel_section(v2_cfg)
-            sec["title"] = f"Config — v2ecoli — {suffix}"
-            sec["desc"] = (
-                f"v2ecoli RESOLVED build config for condition '{cond}', from the "
-                f"v2ecoli_build_config.json sidecar the run emitted straight off the "
-                f"built Composite (process set, per-process config keys, topology, "
-                f"time_step, condition, seed, options).")
-            sections.append(sec)
-        else:
-            v2_cfg = _read_v2ecoli_config(v2_dir)
-            v2_source = "zarr-attrs run config (sidecar absent)"
-            if v2_cfg is not None:
-                sec = report.config_panel_section(v2_cfg)
-                sec["title"] = f"Config — v2ecoli — {suffix}"
-                sec["desc"] = (
-                    f"v2ecoli RUN config for condition '{cond}', recovered from the "
-                    f"compact zarr's lineage-node attrs (the build-config sidecar was "
-                    f"absent — this is the run config: condition, seed, time_step, "
-                    f"max_duration, variant, generation).")
-                sections.append(sec)
-            else:
-                sections.append({
-                    "title": f"Config — v2ecoli — {suffix}", "kind": "content",
-                    "desc": f"v2ecoli run config for condition '{cond}'.",
-                    "html": f"<p style='color:#6b7280'>config not found for {cond} "
-                            f"(no sidecar and no recoverable run config in "
-                            f"{v2_dir} zarr attrs).</p>"})
-
-        # CONFIG DIFF panel — vEcoli resolved vs v2ecoli build config.
-        sections.append(config_diff_section(cond, ve_cfg, v2_cfg, v2_source))
-    return sections
-
-
-def trajectory_sections(cond_data: dict) -> list[dict]:
-    sections = []
-    for cond, (per_obs, v2, ve) in cond_data.items():
-        rows, plots = [], [_legend_html()]
-        for obs in OBSERVABLES:
-            sts = per_obs.get(obs, [])
-            if not sts:
-                rows.append({"label": OBS_LABEL.get(obs, obs), "left": "—",
-                             "right": "—", "verdict": "not_compared",
-                             "reason": "no paired trajectory (observable absent in "
-                                       "one engine's emitter)"})
-                continue
-            med = _med(sts, "median_rel")
-            ive, iv2 = _med(sts, "init_ve"), _med(sts, "init_v2")
-            irel = (iv2 - ive) / ive if ive else float("nan")
-            rows.append({
-                "label": OBS_LABEL.get(obs, obs), "left": f"{ive:.4g}",
-                "right": f"{iv2:.4g}", "verdict": _grade(med),
-                "median_rel": med, "max_rel": _med(sts, "max_rel"),
-                "reason": f"t~{sts[0]['init_t']:.0f}s init Δ={irel*100:+.2f}%; gen-1 "
-                          f"matched median |Δ|={med*100:.2f}% (median of {len(sts)} seed)",
-            })
-            if v2 and ve and obs in v2 and obs in ve:
-                svg = overlay_svg(v2[obs], ve[obs], obs)
-                plots.append(
-                    f'<div style="display:inline-block;width:48%;vertical-align:top;'
-                    f'margin:0 1% 8px 0"><div style="font-size:12px;font-weight:600;'
-                    f'color:#334155">{OBS_LABEL.get(obs, obs)}</div>{svg}</div>')
+    ve_cfg = _read_vecoli_config(ve_dir, cond)
+    if ve_cfg is not None:
+        sec = report.config_panel_section(ve_cfg)
+        sec["title"] = f"{cond} — config (vEcoli)"
+        sec["desc"] = (
+            f"vEcoli resolved workflow_config.json (the full config workflow.py "
+            f"ran) for condition '{cond}', from s3://.../{ve_dir}/cond_{cond}/"
+            f"nextflow/. Keys present only in the resolved (non-stripped) form "
+            f"are tucked into the collapsible details.")
+        sections.append(sec)
+    else:
         sections.append({
-            "title": f"Matched trajectory — {cond}",
-            "desc": "vEcoli (left) vs v2ecoli (right) initial values; verdict from "
-                    "gen-1 matched-time median |Δ|. Plots overlay full trajectories "
-                    "(all generations) on a shared seconds axis.",
-            "rows": rows,
-            "html": '<div style="padding:8px 18px 14px">' + "".join(plots) + "</div>"})
+            "title": f"{cond} — config (vEcoli)", "kind": "content",
+            "desc": f"vEcoli config for condition '{cond}'.",
+            "html": f"<p style='color:#6b7280'>config not found for {cond} "
+                    f"(no workflow_config.json under {ve_dir}/cond_{cond}).</p>"})
+
+    # Prefer the new build-config sidecar (full resolved process set +
+    # topology straight from the Composite); fall back to the zarr-attrs run
+    # config for older runs that predate it. Label which one is shown.
+    v2_build = _read_v2ecoli_build_config(v2_dir)
+    if v2_build is not None:
+        v2_cfg, v2_source = v2_build, "build-config sidecar"
+        sec = report.config_panel_section(v2_cfg)
+        sec["title"] = f"{cond} — config (v2ecoli)"
+        sec["desc"] = (
+            f"v2ecoli RESOLVED build config for condition '{cond}', from the "
+            f"v2ecoli_build_config.json sidecar the run emitted straight off the "
+            f"built Composite (process set, per-process config keys, topology, "
+            f"time_step, condition, seed, options).")
+        sections.append(sec)
+    else:
+        v2_cfg = _read_v2ecoli_config(v2_dir)
+        v2_source = "zarr-attrs run config (sidecar absent)"
+        if v2_cfg is not None:
+            sec = report.config_panel_section(v2_cfg)
+            sec["title"] = f"{cond} — config (v2ecoli)"
+            sec["desc"] = (
+                f"v2ecoli RUN config for condition '{cond}', recovered from the "
+                f"compact zarr's lineage-node attrs (the build-config sidecar was "
+                f"absent — this is the run config: condition, seed, time_step, "
+                f"max_duration, variant, generation).")
+            sections.append(sec)
+        else:
+            v2_cfg = None
+            sections.append({
+                "title": f"{cond} — config (v2ecoli)", "kind": "content",
+                "desc": f"v2ecoli run config for condition '{cond}'.",
+                "html": f"<p style='color:#6b7280'>config not found for {cond} "
+                        f"(no sidecar and no recoverable run config in "
+                        f"{v2_dir} zarr attrs).</p>"})
+
+    # CONFIG DIFF panel — vEcoli resolved vs v2ecoli build config.
+    diff = config_diff_section(cond, ve_cfg, v2_cfg, v2_source)
+    diff["title"] = f"{cond} — config diff"
+    sections.append(diff)
     return sections
+
+
+def runs_section(cond: str, per_obs: dict, plot_trajs: dict,
+                 v2_bounds: list[float]) -> dict:
+    """Simulation-runs block for ONE condition: all-replicate trajectory
+    overlays (every seed of BOTH engines), full trajectories, gen boundaries."""
+    n_seeds = max((len(per_obs.get(o, [])) for o in OBSERVABLES), default=0)
+    plots = [_legend_html(n_seeds)]
+    for obs in OBSERVABLES:
+        pt = plot_trajs.get(obs, {"v2": [], "ve": []})
+        if not pt["v2"] or not pt["ve"]:
+            continue
+        svg = overlay_svg_multi(pt["v2"], pt["ve"], obs, vlines=v2_bounds)
+        plots.append(
+            f'<div style="display:inline-block;width:48%;vertical-align:top;'
+            f'margin:0 1% 8px 0"><div style="font-size:12px;font-weight:600;'
+            f'color:#334155">{OBS_LABEL.get(obs, obs)}</div>{svg}</div>')
+    return {
+        "title": f"{cond} — simulation runs", "kind": "content",
+        "desc": f"All replicate trajectories for '{cond}' — every seed of both "
+                f"engines overlaid (vEcoli indigo, v2ecoli amber), full trajectory "
+                f"across all generations on a shared seconds axis; dashed verticals "
+                f"mark generation boundaries.",
+        "html": '<div style="padding:8px 18px 14px">' + "".join(plots) + "</div>"}
+
+
+def eval_section(cond: str, per_obs: dict) -> dict:
+    """Comparison-evaluation block for ONE condition: per-observable matched
+    verdict rows (median |Δ| over the matched gen-1 window, ALL seeds)."""
+    rows = []
+    for obs in OBSERVABLES:
+        sts = per_obs.get(obs, [])
+        if not sts:
+            rows.append({"label": OBS_LABEL.get(obs, obs), "left": "—",
+                         "right": "—", "verdict": "not_compared",
+                         "reason": "no paired trajectory (observable absent in "
+                                   "one engine's emitter)"})
+            continue
+        med = _med(sts, "median_rel")
+        ive, iv2 = _med(sts, "init_ve"), _med(sts, "init_v2")
+        irel = (iv2 - ive) / ive if ive else float("nan")
+        rows.append({
+            "label": OBS_LABEL.get(obs, obs), "left": f"{ive:.4g}",
+            "right": f"{iv2:.4g}", "verdict": _grade(med),
+            "median_rel": med, "max_rel": _med(sts, "max_rel"),
+            "reason": f"t~{sts[0]['init_t']:.0f}s init Δ={irel*100:+.2f}%; gen-1 "
+                      f"matched median |Δ|={med*100:.2f}% (median of {len(sts)} seed)",
+        })
+    return {
+        "title": f"{cond} — evaluation",
+        "desc": "vEcoli (left) vs v2ecoli (right) initial values; verdict from the "
+                "gen-1 matched-time median |Δ| over ALL seeds. Graded 5% within / "
+                "10% drift; vEcoli = reference.",
+        "rows": rows}
 
 
 def _load_experiments(out_dir: str) -> dict | None:
@@ -637,13 +664,29 @@ def main(argv=None):
     cond_data = build(conds)
     graded = list(conds)  # conditions whose data feeds the report card
 
-    sections = [overview_section(cond_data), parca_section(cond_data)]
-    # Configuration group: BOTH engines' resolved config, one panel-pair per
-    # condition/variant, placed right after ParCa / initial-state.
-    sections += config_sections(conds)
+    # 1. OVERALL RESULTS first — the canonical report-card render + the
+    #    per-condition verdict-count overview. Both collapse into ONE "Overall"
+    #    nav entry (nav_group), so the sticky nav stays at ~7 top-level buttons.
     vjson, card_html, card_section = report_card(cond_data, conditions=graded)
-    sections.append(card_section)
-    sections += trajectory_sections(cond_data)
+    overview = overview_section(cond_data)
+    card_section["nav_group"] = overview["nav_group"] = "Overall"
+    sections = [card_section, overview]
+    # 2. ParCa / initial-state comparison — its own nav entry.
+    parca = parca_section(cond_data)
+    parca["nav_group"] = "ParCa comparison"
+    sections.append(parca)
+    # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
+    #    config -> simulation runs -> evaluation. All of a condition's sections
+    #    share nav_group=<cond>, so they fold into ONE nav button per condition.
+    for cond in conds:
+        v2_dir, ve_dir = conds[cond]
+        per_obs, plot_trajs, v2_bounds = cond_data[cond]
+        cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
+                         + [runs_section(cond, per_obs, plot_trajs, v2_bounds),
+                            eval_section(cond, per_obs)])
+        for s in cond_sections:
+            s["nav_group"] = cond
+        sections += cond_sections
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     html = report.render_report(

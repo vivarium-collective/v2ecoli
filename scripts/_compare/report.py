@@ -251,14 +251,34 @@ def _legend() -> str:
 
 
 def _nav(sections: list[dict[str, Any]]) -> str:
-    links = []
+    """One nav entry per top-level group.
+
+    Sections sharing an optional ``nav_group`` key collapse into a SINGLE nav
+    entry (label = the group name, anchored to the first section in the group,
+    verdict counts summed across the group). Sections without a ``nav_group``
+    each get their own entry keyed by title. Groups appear in first-appearance
+    order, so e.g. all of a condition's config/runs/evaluation sections fold
+    into one button.
+    """
+    order: list[str] = []
+    members: dict[str, list[dict[str, Any]]] = {}
+    labels: dict[str, str] = {}
     for s in sections:
-        c = _counts(s.get("rows", []))
+        key = s.get("nav_group") or s["title"]
+        if key not in members:
+            members[key] = []
+            order.append(key)
+            labels[key] = s.get("nav_group") or s["title"]
+        members[key].append(s)
+    links = []
+    for key in order:
+        secs = members[key]
+        anchor = _slug(secs[0]["title"])
+        c = _counts([r for s in secs for r in s.get("rows", [])])
         n = sum(c.values())
         off = c.get("mismatch", 0) + c.get("drift", 0)
         mini = f'<span class="minicount">{n - off}/{n} ok</span>' if n else ""
-        links.append(
-            f'<a href="#{_slug(s["title"])}">{_e(s["title"])} {mini}</a>')
+        links.append(f'<a href="#{anchor}">{_e(labels[key])} {mini}</a>')
     return f'<nav class="sticky">{"".join(links)}</nav>'
 
 

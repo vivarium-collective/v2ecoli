@@ -207,13 +207,35 @@ _C_VE = charts.PALETTE[0]   # indigo
 _C_V2 = charts.PALETTE[1]   # amber
 
 
-def _legend_html():
+def overlay_svg_multi(v2_trajs, ve_trajs, obs, vlines=None):
+    """Inline-SVG overlay of ALL replicate seeds, full trajectories.
+
+    ``v2_trajs`` / ``ve_trajs`` are lists of (times, values) arrays — one per
+    seed. Every vEcoli seed is drawn in indigo, every v2ecoli seed in amber, on
+    one shared axis, so the two engines stay visually distinguishable while all
+    replicates are visible. ``vlines`` marks generation boundaries.
+    """
+    ve_series = [list(zip(t.tolist(), v.tolist())) for t, v in ve_trajs]
+    v2_series = [list(zip(t.tolist(), v.tolist())) for t, v in v2_trajs]
+    series = ve_series + v2_series
+    colors = [_C_VE] * len(ve_series) + [_C_V2] * len(v2_series)
+    if not any(len(s) >= 2 for s in series):
+        return "<span class='ref'>—</span>"
+    svg, _ = charts.multiline_svg(series, w=440, h=190, axes=True,
+                                  baseline_zero=False, colors=colors,
+                                  vlines=vlines, x_label="simulation time (s)")
+    return svg
+
+
+def _legend_html(n_seeds=None):
+    n = f" (n={n_seeds} seeds/engine)" if n_seeds else ""
     return (
         f'<div style="font-size:12px;color:#475569;margin:2px 0 10px">'
         f'<span style="color:{_C_VE};font-weight:700">&#9644; vEcoli</span> '
         f'(dense, full generation) &nbsp;&nbsp;'
         f'<span style="color:{_C_V2};font-weight:700">&#9644; v2ecoli</span> '
-        f'(compact, 1 pt / 60 s)</div>')
+        f'(compact, 1 pt / 60 s) &nbsp;&nbsp;all replicates overlaid{n}; '
+        f'dashed = generation boundary</div>')
 
 
 # --------------------------------------------------------------------------- #

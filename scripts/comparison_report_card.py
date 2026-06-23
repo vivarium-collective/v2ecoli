@@ -209,7 +209,7 @@ def overview_section(cond_data: dict) -> dict:
     of median_rel, abs) as a percent, colored by _grade; a leading seeds column
     and a trailing worst-axis condition verdict. Self-contained inline HTML.
     """
-    from scripts._compare.report import _e, _verdict_chip
+    from scripts._compare.report import _e, _verdict_chip, _slug
     # (data-key, display label) for the matrix columns, in render order.
     cols = [("cell_mass", "cell mass"), ("dry_mass", "dry mass"),
             ("protein_mass", "protein mass"), ("rna_mass", "rna mass"),
@@ -243,8 +243,18 @@ def overview_section(cond_data: dict) -> dict:
                 f'{rel*100:.1f}%</td>')
         cv = worst(axis_v)
         cond_verdicts.append(cv)
+        # Link the row to that condition's first sub-section (its vEcoli config
+        # panel). Use the SAME report._slug on the SAME title string the section
+        # is rendered with (f"{cond} — config (vEcoli)") so the anchor resolves
+        # exactly. Whole row clickable (onclick) + the condition cell is a real
+        # <a> for an accessible, hover-cued link target.
+        anchor = _slug(f"{cond} — config (vEcoli)")
         body_rows.append(
-            f'<tr><td style="padding:6px 11px;font-weight:650">{_e(cond)}</td>'
+            f'<tr onclick="location.hash=\'#{anchor}\'" style="cursor:pointer">'
+            f'<td style="padding:6px 11px;font-weight:650">'
+            f'<a href="#{anchor}" style="color:var(--ink);text-decoration:none;'
+            f'border-bottom:1px dotted var(--muted)" '
+            f'title="jump to {_e(cond)} block">{_e(cond)} &rarr;</a></td>'
             f'<td style="padding:6px 11px;text-align:center;color:var(--muted)">'
             f'{n_seed}</td>{"".join(cells)}'
             f'<td style="padding:6px 11px">{_verdict_chip(cv)}</td></tr>')
@@ -712,10 +722,17 @@ def main(argv=None):
     # 1. OVERALL RESULTS first — the canonical report-card render + the
     #    per-condition verdict-count overview. Both collapse into ONE "Overall"
     #    nav entry (nav_group), so the sticky nav stays at ~7 top-level buttons.
-    vjson, card_html, card_section = report_card(cond_data, conditions=graded)
+    # report_card() still emits the canonical verdict.json + standalone
+    # report_card.html artifacts, but its rendered SECTION is intentionally NOT
+    # shown at the top: it grades only the graded subset (≈basal) on the gen-1
+    # MEAN value — a narrower scope + different metric than the Overview matrix
+    # (all conditions × observables, matched |Δ|), so showing both reads as
+    # contradictory. The Overview matrix is the high-level view; verdict.json
+    # stays as the machine-readable artifact for tooling/dashboard.
+    vjson, card_html, _card_section = report_card(cond_data, conditions=graded)
     overview = overview_section(cond_data)
-    card_section["nav_group"] = overview["nav_group"] = "Overall"
-    sections = [card_section, overview]
+    overview["nav_group"] = "Overall"
+    sections = [overview]
     # 2. ParCa / initial-state comparison — its own nav entry.
     parca = parca_section(cond_data)
     parca["nav_group"] = "ParCa comparison"

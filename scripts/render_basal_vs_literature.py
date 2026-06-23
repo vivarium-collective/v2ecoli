@@ -52,6 +52,8 @@ OUT = REPO / "docs/report_cards/population_phenotype_basal/vs_literature"
 _MODEL_JSON = OUT / "model_physiology.json"        # baked per-cell model values (committed)
 _MET_JSON = OUT / "model_metabolism.json"          # baked by scripts/bake_model_metabolism.py
 _PRO_JSON = OUT / "model_proteome.json"
+_COMP_JSON = OUT / "model_composition.json"
+_POOLS_JSON = OUT / "model_metabolite_pools.json"
 _SWEEP = REPO / "out/population_phenotype_basal"   # blessed ensemble (gitignored; --from-sweep)
 
 # Metabolism exchange axes (scalar, graded like physiology against measured bands).
@@ -461,6 +463,92 @@ def build_proteome(pro: dict, bundle_path: Path | None = None) -> tuple[dict, di
     return axes, card
 
 
+def composition_reference(model_td_min: float, bundle_path: Path | None = None) -> dict:
+    """Bremer & Dennis protein/RNA/DNA dry-mass fractions interpolated to the
+    model's doubling time, plus the implied ``other`` (= 1 − Σ). The reference is
+    a growth-rate series; we grade against the matched growth rate."""
+    root = _bundle_path(bundle_path).parent
+    df = pd.read_csv(root / "data/basal/macromolecular_composition.tsv", sep="\t", comment="#")
+    bd = df[df["source_id"] == "bremer_dennis_2008"]
+
+    def _interp(td: list[float], val: list[float], x: float) -> float:
+        pts = sorted(zip(td, val))
+        if x <= pts[0][0]:
+            return pts[0][1]
+        if x >= pts[-1][0]:
+            return pts[-1][1]
+        for (t0, v0), (t1, v1) in zip(pts, pts[1:]):
+            if t0 <= x <= t1:
+                return v0 + (v1 - v0) * (x - t0) / (t1 - t0)
+        return pts[-1][1]
+
+    out = {}
+    for comp in ("protein", "rna", "dna"):
+        sub = bd[bd["component"] == comp]
+        out[comp] = _interp(list(sub["doubling_time_min"]), list(sub["value"]), model_td_min)
+    out["other"] = 1.0 - out["protein"] - out["rna"] - out["dna"]
+    return out
+
+
+def build_composition(comp: dict, bundle_path: Path | None = None) -> tuple[dict, dict]:
+    """(axes, card_node) for the Composition section: model macromolecular
+    dry-mass fractions (protein/RNA/DNA/other) vs the Bremer & Dennis growth-rate
+    composition at the matched doubling time — an INDEPENDENT reference (the model
+    is not fit to B&D), graded as a composition (total-variation distance)."""
+    td = comp["doubling_time_min"]
+    ref = composition_reference(td, bundle_path)
+    fr = comp["fractions"]
+    axes = {"composition.macromolecular": {
+        "group": "Composition",
+        "label": "Macromolecular composition (% dry weight)", "units": "",
+        "how": (f"Model: protein / RNA (total RNA: rRNA+tRNA+mRNA) / DNA as fractions "
+                f"of dry weight (time-mean within cell, then across post-burn-in cells); "
+                f"'other' is the dry-weight remainder. Graded by total-variation distance "
+                f"vs Bremer &amp; Dennis 2008 (E. coli B/r) at the model's doubling time "
+                f"({td:.0f} min, interpolated on their growth-rate curve — composition is "
+                f"growth-rate-dependent). 'other' is each side's remainder over DIFFERENT "
+                f"unmeasured components (B&amp;D: lipid/murein/LPS/etc, which B&amp;D did "
+                f"not itemize; the model: its lumped small-molecule mass), so the 'other' "
+                f"segments are not a like-for-like species comparison. Strain caveat: "
+                f"B&amp;D is B/r, the model MG1655."),
+        "plot": "split",
+        "criterion": {"type": "composition", "ref_fractions": ref,
+                      "ref_label": "Bremer & Dennis 2008", "xlabel": "fraction of dry weight",
+                      "tv_good": 0.05, "tv_warn": 0.15, "residual_max": 0.02,
+                      "residual_warn": 0.05},
+    }}
+    card = {"macromolecular": {"branches": {b: fr[b] for b in comp["branches"]},
+                               "influx": 1.0}}
+    return axes, card
+
+
+def build_metabolite_pools(pools: dict) -> tuple[dict, dict]:
+    """(axes, card_node) for the Metabolite pools section: the model's total
+    realized intracellular metabolite pool vs the Bennett 2009 measured total
+    over the same set. The model is calibrated to these per-metabolite targets,
+    so this is a fit-to consistency check, not independent validation."""
+    n = pools["n_matched"]
+    model_mM = pools["model_total"] * 1000.0
+    bennett_mM = pools["bennett_total"] * 1000.0
+    axes = {"pools.total": {
+        "group": "Metabolite pools",
+        "label": "Total metabolite pool (mM)", "units": "mM", "plot": "literature",
+        "how": (f"Model: total realized intracellular metabolite concentration "
+                f"(Σ bulk molecule counts / cell volume / Nₐ; per-cell time-mean then "
+                f"ensemble) over the {n} metabolites carrying a Bennett-derived "
+                f"concentration target. Graded vs the Bennett 2009 measured total over "
+                f"the same set. The model is FIT to these per-metabolite targets "
+                f"(metabolite_concentrations.tsv) — a fit-to consistency check, NOT "
+                f"independent validation. Strain: Bennett K-12 NCM3722, glucose minimal, "
+                f"filter culture (td 77 min)."),
+        "criterion": {"type": "literature", "measured": [round(bennett_mM, 4)],
+                      "theoretical_max": None, "tol_rel": 0.10,
+                      "sources": ["bennett_2009"]},
+    }}
+    card = {"total": {"mean": model_mM}}
+    return axes, card
+
+
 # The basal behavioral spec — the (deliberately partial) set of basal-condition
 # behaviors a glucose-minimal MG1655 cell exhibits that a faithful whole-cell
 # model should reproduce. This card POPULATES the `covered` rows; the `planned`
@@ -482,15 +570,15 @@ BASAL_SPEC = [
      "central-carbon flux map · O₂/CO₂/acetate · branch-point splits — vs Crown 2015 / Toya 2010"),
     ("Proteome census", "covered", "independent",
      "protein copies/cell across the proteome — vs Schmidt 2016 MG1655"),
-    ("Macromolecular composition", "planned", "fit-to",
-     "protein / RNA / DNA / lipid mass fractions — vs the ParCa dry-mass-composition "
-     "target (Bremer &amp; Dennis 2008, EcoSal Plus, doi:10.1128/ecosal.5.2.3; "
-     "data/flat/dry_mass_composition.tsv). A round-trip consistency check (the model "
-     "is fit to this), not independent validation."),
+    ("Macromolecular composition", "covered", "independent",
+     "protein / RNA / DNA fractions of dry weight — vs Bremer &amp; Dennis 2008 "
+     "(EcoSal Plus, doi:10.1128/ecosal.5.2.3), at the model's growth rate"),
     ("Cell size, mass & geometry", "planned", "independent",
      "cell mass · volume · length · surface-to-volume — vs BioNumbers / Volkmer-Heinemann 2011"),
-    ("Metabolite pools", "planned", "independent",
-     "absolute intracellular metabolite concentrations · energy charge — vs Bennett 2009"),
+    ("Metabolite pools", "covered", "fit-to",
+     "absolute intracellular metabolite concentrations — vs Bennett 2009 (aggregate pool "
+     "total; the model is calibrated to these targets — a fit-to consistency check). "
+     "Per-metabolite scatter is a follow-up."),
 ]
 
 
@@ -557,6 +645,16 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
         ax, cnode = build_proteome(pro, bundle_path)
         reference["axes"].update(ax)
         card["proteome"] = cnode
+    if _COMP_JSON.exists():
+        comp = json.load(open(_COMP_JSON, encoding="utf-8"))
+        ax, cnode = build_composition(comp, bundle_path)
+        reference["axes"].update(ax)
+        card["composition"] = cnode
+    if _POOLS_JSON.exists():
+        pools = json.load(open(_POOLS_JSON, encoding="utf-8"))
+        ax, cnode = build_metabolite_pools(pools)
+        reference["axes"].update(ax)
+        card["pools"] = cnode
 
     return card, reference, model
 

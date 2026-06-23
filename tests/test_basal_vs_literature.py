@@ -252,3 +252,66 @@ def test_accoa_node_no_overflow_is_mismatch(graded, fate_nodes):
     fr = fate_nodes["accoa"]["fractions"]
     assert fr["acetate"] < 0.02          # no overflow
     assert fr["biosynthesis"] > 0.6      # carbon dumped into biomass instead
+
+
+# ---------------------------------------------------------------------------
+# 6. Macromolecular composition (% dry weight) vs Bremer & Dennis 2008
+# ---------------------------------------------------------------------------
+
+def test_composition_reference_interpolates_to_model_td():
+    # B&D is a growth-rate series; the reference is interpolated to the model's
+    # doubling time, and the four fractions are a composition (sum ~ 1).
+    import json
+    comp = json.load(open(rvl._COMP_JSON, encoding="utf-8"))
+    ref = rvl.composition_reference(comp["doubling_time_min"])
+    assert 0.50 < ref["protein"] < 0.60   # ~55% at td ~52 min
+    assert 0.10 < ref["rna"] < 0.15
+    assert abs(sum(ref.values()) - 1.0) < 1e-6
+
+
+def test_composition_rna_matches_protein_low_pool_high(graded):
+    # The finding: RNA fraction matches B&D, but the model under-represents
+    # protein and over-represents the small-molecule pool ('other') — graded
+    # drift. An independent reference (not ParCa fit-to).
+    report, _ = graded
+    ax = report["axes"].get("composition.macromolecular")
+    assert ax is not None and ax["verdict"] in ("within_tol", "drift")
+    import json
+    fr = json.load(open(rvl._COMP_JSON, encoding="utf-8"))["fractions"]
+    assert fr["protein"] < 0.50           # model protein low vs B&D ~0.55
+    assert fr["other"] > 0.35             # small-molecule pool inflated vs B&D ~0.30
+
+
+def test_composition_rna_is_total_rna(graded):
+    # RNA is total RNA (rRNA+tRNA+mRNA); its fraction (~0.13) is in the B&D band,
+    # not mRNA-only (which would be ~0.006 and a ~20x mismatch).
+    import json
+    fr = json.load(open(rvl._COMP_JSON, encoding="utf-8"))["fractions"]
+    assert 0.10 < fr["rna"] < 0.15
+
+
+# ---------------------------------------------------------------------------
+# 7. Metabolite pools (aggregate) vs Bennett 2009 — fit-to consistency
+# ---------------------------------------------------------------------------
+
+def test_metabolite_pool_total_under_bennett(graded):
+    # The model's realized aggregate metabolite pool is ~0.54x its Bennett-derived
+    # target total — it under-fills the metabolome in aggregate. A fit-to
+    # consistency check (the model is calibrated to these targets), graded mismatch.
+    report, _ = graded
+    ax = report["axes"].get("pools.total")
+    assert ax is not None and ax["verdict"] == "mismatch"
+    import json
+    pools = json.load(open(rvl._POOLS_JSON, encoding="utf-8"))
+    assert 0.4 < pools["ratio"] < 0.7          # model under-fills (~0.54x)
+    assert pools["n_matched"] > 50             # a substantial mapped set
+
+
+def test_metabolite_pool_concentrations_plausible(graded):
+    # Sanity on units (mol/L via bulk count / volume[fL]·Na): the per-metabolite
+    # realized concentrations are in a physiological mM range, not off by 1e3.
+    import json
+    per = json.load(open(rvl._POOLS_JSON, encoding="utf-8"))["per_metabolite"]
+    # glutamate (GLT) is the abundant pool — model ~tens of mM (Bennett 96 mM)
+    glt = per.get("GLT")
+    assert glt is not None and 0.005 < glt["model"] < 0.10   # 5-100 mM

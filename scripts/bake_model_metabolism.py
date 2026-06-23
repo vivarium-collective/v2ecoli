@@ -315,6 +315,96 @@ def proteome_from_sweep(sweep_dir: Path, parca_state) -> dict:
             "units": "copies/cell", "by_symbol": by_symbol}
 
 
+def composition_from_sweep(sweep_dir: Path) -> dict:
+    """Per-cell macromolecular dry-mass fractions (protein / RNA / DNA / other)
+    + the model's doubling time, from the sweep. RNA is total RNA (rRNA+tRNA+
+    mRNA); 'other' is the dry-weight remainder (the model's small-molecule pool).
+    Graded vs the Bremer & Dennis growth-rate composition at the matched td."""
+    flist = _parquet_glob(sweep_dir)
+    con = duckdb.connect()
+    df = con.sql(f"""
+        SELECT lineage_seed s, generation g, agent_id a, global_time t,
+               listeners__mass__dry_mass dm, listeners__mass__protein_mass pm,
+               listeners__mass__rna_mass rm, listeners__mass__dna_mass dn
+        FROM read_parquet({flist}, hive_partitioning=true)
+        WHERE generation >= {GEN_LB} AND listeners__mass__dry_mass > 0
+    """).df()
+    df["protein"] = df.pm / df.dm
+    df["rna"] = df.rm / df.dm
+    df["dna"] = df.dn / df.dm
+    pc = df.groupby(["s", "g", "a"])[["protein", "rna", "dna"]].mean()
+    span = df.groupby(["s", "g", "a"]).t.agg(lambda x: x.max() - x.min())
+    n = len(pc)
+    fr = {c: float(pc[c].mean()) for c in ("protein", "rna", "dna")}
+    fr["other"] = 1.0 - fr["protein"] - fr["rna"] - fr["dna"]
+    branches = ["protein", "rna", "dna", "other"]
+    per_cell = [[round(float(pc[c].iloc[i]), 4) for c in ("protein", "rna", "dna")]
+                + [round(1.0 - sum(pc[c].iloc[i] for c in ("protein", "rna", "dna")), 4)]
+                for i in range(n)]
+    return {"n_cells": n, "gen_lb": GEN_LB,
+            "method": "blessed baseline sweep; per-cell time-mean mass fractions, gen>=%d" % GEN_LB,
+            "doubling_time_min": float(span.mean() / 60.0),
+            "branches": branches, "fractions": fr,
+            "per_cell_fractions": per_cell}
+
+
+def metabolite_pools_from_sweep(sweep_dir: Path) -> dict:
+    """Per-metabolite realized intracellular concentrations (mol/L) from the
+    sweep — bulk molecule count / (cell volume · Nₐ), per-cell time-mean then
+    ensemble — over the metabolites carrying a Bennett-derived concentration
+    target (the model's `metabolite_concentrations.tsv` Bennett column gives the
+    model-EcoCyc-id ↔ Bennett-value mapping). Reports the aggregate total pool
+    vs the Bennett total over the same set, plus the per-metabolite pairs (the
+    model side of the per-metabolite scatter; the name→id map to the validation
+    slot is a follow-up)."""
+    import csv as _csv
+    import ecoli_sources
+    NA = 6.022e23
+    es = os.path.dirname(ecoli_sources.__file__)
+    recon = {}
+    with open(os.path.join(es, "data/flat/metabolite_concentrations.tsv")) as f:
+        for r in _csv.DictReader((l for l in f if not l.startswith("#")), delimiter="\t"):
+            mcol = next(k for k in r if k.startswith("Metabolite"))
+            vcol = next(k for k in r if "Bennett" in k)
+            if r[vcol] and r[vcol] != "NaN":
+                recon[r[mcol]] = float(r[vcol])
+
+    flist = _parquet_glob(sweep_dir)
+    con = duckdb.connect()
+    bid = con.sql(f"SELECT bulk__id FROM read_parquet({flist}) "
+                  f"WHERE len(bulk__id)>0 LIMIT 1").fetchone()[0]
+    idpos = {b: i for i, b in enumerate(bid)}
+    matched = {}                                       # ecocyc id -> bulk index
+    for mid in recon:
+        for cand in (f"{mid}[c]", f"{mid}[p]", mid):
+            if cand in idpos:
+                matched[mid] = idpos[cand]
+                break
+    idxs = sorted(set(matched.values()))
+    sel = ", ".join(f"list_extract(bulk__count,{i + 1}) c{i}" for i in idxs)
+    df = con.sql(f"""
+        SELECT lineage_seed s, generation g, agent_id a,
+               listeners__mass__volume vol, {sel}
+        FROM read_parquet({flist}, hive_partitioning=true)
+        WHERE generation >= {GEN_LB} AND len(bulk__count) > 0
+          AND listeners__mass__volume > 0
+    """).df()
+    for i in idxs:                                     # count / (vol[fL]·1e-15·Nₐ) -> mol/L
+        df[f"m{i}"] = df[f"c{i}"] / (df.vol * 1e-15 * NA)
+    pc = df.groupby(["s", "g", "a"])[[f"m{i}" for i in idxs]].mean()
+    M = pc.mean()
+    per = {mid: {"model": float(M[f"m{matched[mid]}"]), "bennett": recon[mid]}
+           for mid in matched}
+    model_total = sum(p["model"] for p in per.values())
+    bennett_total = sum(p["bennett"] for p in per.values())
+    return {"n_cells": len(pc), "gen_lb": GEN_LB,
+            "method": "blessed baseline sweep; bulk count / (volume·Nₐ), per-cell time-mean, gen>=%d" % GEN_LB,
+            "units": "mol/L", "n_matched": len(matched),
+            "model_total": model_total, "bennett_total": bennett_total,
+            "ratio": model_total / bennett_total if bennett_total else None,
+            "per_metabolite": per}
+
+
 def main(from_sweep: str | None) -> None:
     sweep = Path(from_sweep) if from_sweep else _SWEEP
     state, sim_data = _load()
@@ -323,6 +413,16 @@ def main(from_sweep: str | None) -> None:
     (OUT / "model_metabolism.json").write_text(json.dumps(met, indent=2))
     pro = proteome_from_sweep(sweep, state)
     (OUT / "model_proteome.json").write_text(json.dumps(pro, indent=2))
+    comp = composition_from_sweep(sweep)
+    (OUT / "model_composition.json").write_text(json.dumps(comp, indent=2))
+    print(f"model_composition.json: {comp['n_cells']} cells, td {comp['doubling_time_min']:.1f} min, "
+          f"protein {comp['fractions']['protein']:.3f} RNA {comp['fractions']['rna']:.3f} "
+          f"DNA {comp['fractions']['dna']:.4f} other {comp['fractions']['other']:.3f}")
+    pools = metabolite_pools_from_sweep(sweep)
+    (OUT / "model_metabolite_pools.json").write_text(json.dumps(pools, indent=2))
+    print(f"model_metabolite_pools.json: {pools['n_matched']} metabolites, "
+          f"model total {pools['model_total']*1000:.0f} mM vs Bennett {pools['bennett_total']*1000:.0f} mM "
+          f"(ratio {pools['ratio']:.2f})")
 
     g = met["nodes"]["g6p"]["fractions"]
     e = met["exchanges"]

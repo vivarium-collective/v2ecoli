@@ -37,9 +37,9 @@
       ],
       [
         "Macromolecular composition",
-        "planned",
-        "fit-to",
-        "protein / RNA / DNA / lipid mass fractions — vs the ParCa dry-mass-composition target (Bremer &amp; Dennis 2008, EcoSal Plus, doi:10.1128/ecosal.5.2.3; data/flat/dry_mass_composition.tsv). A round-trip consistency check (the model is fit to this), not independent validation."
+        "covered",
+        "independent",
+        "protein / RNA / DNA fractions of dry weight — vs Bremer &amp; Dennis 2008 (EcoSal Plus, doi:10.1128/ecosal.5.2.3), at the model's growth rate"
       ],
       [
         "Cell size, mass & geometry",
@@ -49,9 +49,9 @@
       ],
       [
         "Metabolite pools",
-        "planned",
-        "independent",
-        "absolute intracellular metabolite concentrations · energy charge — vs Bennett 2009"
+        "covered",
+        "fit-to",
+        "absolute intracellular metabolite concentrations — vs Bennett 2009 (aggregate pool total; the model is calibrated to these targets — a fit-to consistency check). Per-metabolite scatter is a follow-up."
       ]
     ]
   },
@@ -2172,6 +2172,46 @@
         ],
         "r_min": 0.9,
         "r_drift": 0.7
+      }
+    },
+    "composition.macromolecular": {
+      "group": "Composition",
+      "label": "Macromolecular composition (% dry weight)",
+      "units": "",
+      "how": "Model: protein / RNA (total RNA: rRNA+tRNA+mRNA) / DNA as fractions of dry weight (time-mean within cell, then across post-burn-in cells); 'other' is the dry-weight remainder. Graded by total-variation distance vs Bremer &amp; Dennis 2008 (E. coli B/r) at the model's doubling time (52 min, interpolated on their growth-rate curve — composition is growth-rate-dependent). 'other' is each side's remainder over DIFFERENT unmeasured components (B&amp;D: lipid/murein/LPS/etc, which B&amp;D did not itemize; the model: its lumped small-molecule mass), so the 'other' segments are not a like-for-like species comparison. Strain caveat: B&amp;D is B/r, the model MG1655.",
+      "plot": "split",
+      "criterion": {
+        "type": "composition",
+        "ref_fractions": {
+          "protein": 0.548649675,
+          "rna": 0.1233533,
+          "dna": 0.025142475,
+          "other": 0.30285455000000006
+        },
+        "ref_label": "Bremer & Dennis 2008",
+        "xlabel": "fraction of dry weight",
+        "tv_good": 0.05,
+        "tv_warn": 0.15,
+        "residual_max": 0.02,
+        "residual_warn": 0.05
+      }
+    },
+    "pools.total": {
+      "group": "Metabolite pools",
+      "label": "Total metabolite pool (mM)",
+      "units": "mM",
+      "plot": "literature",
+      "how": "Model: total realized intracellular metabolite concentration (Σ bulk molecule counts / cell volume / Nₐ; per-cell time-mean then ensemble) over the 93 metabolites carrying a Bennett-derived concentration target. Graded vs the Bennett 2009 measured total over the same set. The model is FIT to these per-metabolite targets (metabolite_concentrations.tsv) — a fit-to consistency check, NOT independent validation. Strain: Bennett K-12 NCM3722, glucose minimal, filter culture (td 77 min).",
+      "criterion": {
+        "type": "literature",
+        "measured": [
+          217.7294
+        ],
+        "theoretical_max": null,
+        "tol_rel": 0.1,
+        "sources": [
+          "bennett_2009"
+        ]
       }
     }
   }

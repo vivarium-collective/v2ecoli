@@ -27,8 +27,8 @@ _DEFAULT_FOOTER = ("Behavioral report card — see docs/report_cards/README.md "
 # Canonical group order for the population phenotype card. Independent of the
 # axis insertion order in any given reference (self-pin vs equivalence pin may
 # differ); groups not listed here fall to the end in first-appearance order.
-_GROUP_ORDER = ["Physiology", "Metabolism", "Proteome", "Composition", "Ribosomes",
-                "Exchange fluxes", "Gene expression"]
+_GROUP_ORDER = ["Physiology", "Metabolism", "Proteome", "Composition",
+                "Metabolite pools", "Ribosomes", "Exchange fluxes", "Gene expression"]
 
 
 def _ordered_groups(groups: dict) -> list:
@@ -526,6 +526,7 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
             return card_plots.composition_bars(
                 measured["branches"], crit.get("ref_fractions"),
                 influx=measured.get("influx"), label=axis.get("label", ""),
+                xlabel=crit.get("xlabel", "fraction of node flux"),
                 ref_label=crit.get("ref_label", ref_label), meas_label=meas_label)
         if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
             stat_label = "r" if crit.get("type") == "pearson" else "R²"

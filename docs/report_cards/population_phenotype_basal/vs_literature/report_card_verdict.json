@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "v2ecoli baseline (blessed baseline, gen≥3)",
   "reference_model": "experimental literature (ecoli-sources validation_data)",
-  "generated": "2026-06-22 10:14",
+  "generated": "2026-06-23 13:36",
   "overall": "mismatch",
   "groups": {
     "physiology": {
@@ -215,6 +215,63 @@
           "detail": {
             "r": 0.7460256765417883,
             "n": 1781
+          }
+        }
+      ]
+    },
+    "composition": {
+      "verdict": "drift",
+      "axes": [
+        {
+          "id": "composition.macromolecular",
+          "label": "Macromolecular composition (% dry weight)",
+          "verdict": "drift",
+          "value": 0.11888936788739939,
+          "meter": "TV = 0.119 · model [protein 44%, rna 13%, dna 2%, other 42%] vs ref [protein 55%, rna 12%, dna 3%, other 30%] · residual +0%",
+          "detail": {
+            "tv": 0.11888936788739939,
+            "residual": 1.1102230246251565e-16,
+            "model_fractions": {
+              "protein": 0.4365769829185162,
+              "rna": 0.12807268046565598,
+              "dna": 0.018325799194084388,
+              "other": 0.4170245374217435
+            },
+            "ref_fractions": {
+              "protein": 0.548649675,
+              "rna": 0.1233533,
+              "dna": 0.025142475,
+              "other": 0.30285455000000006
+            },
+            "routing_verdict": "drift",
+            "residual_verdict": "within_tol",
+            "branch_names": [
+              "protein",
+              "rna",
+              "dna",
+              "other"
+            ]
+          }
+        }
+      ]
+    },
+    "metabolite_pools": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "pools.total",
+          "label": "Total metabolite pool (mM)",
+          "verdict": "mismatch",
+          "value": 117.81847098761591,
+          "meter": "117.8 vs measured 218–218 (Δmid -46%)",
+          "detail": {
+            "measured_lo": 217.7294,
+            "measured_hi": 217.7294,
+            "measured_mid": 217.7294,
+            "n_sources": 1,
+            "theoretical_max": null,
+            "first_principles_violation": false,
+            "rel_to_mid": -0.4588766101977229
           }
         }
       ]

@@ -428,8 +428,8 @@ def ternary_plot(branches: dict, influx=None, *, ref_fractions=None,
 
 
 def composition_bars(branches: dict, ref_fractions=None, *, influx=None, label="",
-                     meas_label="model", ref_label="reference", width=4.4,
-                     height=2.2) -> str:
+                     meas_label="model", ref_label="reference", xlabel="fraction of node flux",
+                     width=4.4, height=2.2) -> str:
     """Two stacked horizontal bars — model over reference — of a branch-point
     flux composition, each renormalized to 1. For 2- to N-way fate splits where a
     ternary doesn't apply (e.g. isocitrate ICDH/ICL, or AcCoA TCA/acetate/
@@ -474,7 +474,7 @@ def composition_bars(branches: dict, ref_fractions=None, *, influx=None, label="
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels([r[0] for r in rows], fontsize=8)
     ax.invert_yaxis()                      # model on top
-    ax.set_xlim(0, 1); ax.set_xlabel("fraction of node flux", fontsize=8)
+    ax.set_xlim(0, 1); ax.set_xlabel(xlabel, fontsize=8)
     ax.tick_params(labelsize=7)
     handles = [plt.Rectangle((0, 0), 1, 1, color=cmap[n]) for n in names]
     leg_names = list(names)

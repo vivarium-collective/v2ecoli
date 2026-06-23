@@ -2,7 +2,7 @@
 
 > **Explore in your browser — no install:**
 > &nbsp;🖥️ **[Interactive dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/)** (browse the whole workspace)
-> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?file=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/ecoli_3d.pack.json)** (interactive whole-cell structural model — opens directly; **"View in VR"** on a Meta Quest)
+> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json)** (interactive whole-cell structural model — switch between a newborn cell and a pre-division cell with two segregated chromosomes; opens directly; **"View in VR"** on a Meta Quest)
 > &nbsp;·&nbsp; 📊 **[Baseline Showcase report](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)** ⭐ (best starting point)
 > &nbsp;·&nbsp; 🗂️ **[Report gallery](https://vivarium-collective.github.io/v2ecoli/)**
 > — see **[Explore v2ecoli](#explore-v2ecoli)** for what each one is.
@@ -76,6 +76,17 @@ then browse the rest from the
 [report gallery](https://vivarium-collective.github.io/v2ecoli/) or interactively
 in the [dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/). Full
 list with research questions: **[docs/reports.md](docs/reports.md#2-investigation-reports-auto-generated)**.
+
+### 🧬 3D whole-cell structural model — *molecular-scale, in your browser*
+
+An interactive **[3D structural model of the *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json)** —
+hundreds of molecular species (ribosomes, RNA polymerase, metabolic enzymes,
+the supercoiled chromosome, flagella) packed at true abundance from a v2ecoli
+cell state. Switch between a **newborn cell** and a **pre-division cell** with
+two segregated chromosomes, toggle/isolate species by functional category, and
+**"View in VR"** on a Meta Quest. Built with
+**[pbg-parsimony](https://github.com/vivarium-collective/pbg-parsimony)** from
+the molecular counts of a simulated cell.
 
 ### 🔬 Model viewers & technical reports — *standalone HTML*
 

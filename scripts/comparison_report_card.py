@@ -203,33 +203,78 @@ def _med(sts, key):
 
 
 def overview_section(cond_data: dict) -> dict:
-    """One row per condition: graded init-mass match + gen-1 dynamics match."""
-    rows = []
+    """High-level SUMMARY MATRIX: rows = conditions, columns = observables.
+
+    Each observable cell = the per-condition matched gen-1 |Δ| (median over seeds
+    of median_rel, abs) as a percent, colored by _grade; a leading seeds column
+    and a trailing worst-axis condition verdict. Self-contained inline HTML.
+    """
+    from scripts._compare.report import _e, _verdict_chip
+    # (data-key, display label) for the matrix columns, in render order.
+    cols = [("cell_mass", "cell mass"), ("dry_mass", "dry mass"),
+            ("protein_mass", "protein mass"), ("rna_mass", "rna mass"),
+            ("instantaneous_growth_rate", "growth rate")]
+    tok = {"within_tol": "green", "drift": "amber",
+           "mismatch": "red", "not_compared": "grey"}
+    rank = {"within_tol": 0, "drift": 1, "mismatch": 2}
+
+    def worst(vs: list[str]) -> str:
+        g = [v for v in vs if v in rank]
+        return max(g, key=lambda v: rank[v]) if g else "not_compared"
+
+    body_rows, cond_verdicts, seed_counts = [], [], set()
     for cond, (per_obs, *_rest) in cond_data.items():
-        cm = per_obs.get("cell_mass", [])
-        if not cm:
-            rows.append({"label": cond, "left": "—", "right": "—",
-                         "verdict": "not_compared", "reason": "no paired data"})
-            continue
-        init_rel = abs(_med(cm, "init_rel"))
-        dyn = float(np.median([s["median_rel"] for o in MASS_OBS
-                               for s in per_obs.get(o, [])]
-                              or [float("nan")]))
-        v = _grade(max(init_rel, dyn))
-        n_seed = len(cm)
-        rows.append({
-            "label": cond, "group": "per-condition",
-            "left": f"init |Δ|={init_rel*100:.2f}%",
-            "right": f"gen-1 |Δ|={dyn*100:.2f}%",
-            "verdict": v, "median_rel": dyn,
-            "reason": f"{n_seed} seed(s); cell-mass init match {init_rel*100:.2f}%, "
-                      f"gen-1 matched mass dynamics {dyn*100:.2f}%",
-        })
-    return {"title": "Overview — all conditions",
-            "desc": "Per-condition headline: how closely v2ecoli matches vEcoli at "
-                    "matched initial state (init |Δ|) and over generation-1 dynamics "
-                    "(gen-1 |Δ|). Graded 5% within / 10% drift; vEcoli = reference.",
-            "rows": rows}
+        n_seed = max((len(per_obs.get(o, [])) for o, _ in cols), default=0)
+        seed_counts.add(n_seed)
+        cells, axis_v = [], []
+        for okey, _lbl in cols:
+            sts = per_obs.get(okey, [])
+            if not sts:
+                cells.append('<td style="padding:6px 11px;text-align:center;'
+                             'color:var(--grey)">—</td>')
+                continue
+            rel = abs(_med(sts, "median_rel"))
+            g = _grade(rel)
+            axis_v.append(g)
+            t = tok[g]
+            cells.append(
+                f'<td style="padding:6px 11px;text-align:right;font-weight:600;'
+                f'color:var(--{t});box-shadow:inset 3px 0 0 var(--{t})">'
+                f'{rel*100:.1f}%</td>')
+        cv = worst(axis_v)
+        cond_verdicts.append(cv)
+        body_rows.append(
+            f'<tr><td style="padding:6px 11px;font-weight:650">{_e(cond)}</td>'
+            f'<td style="padding:6px 11px;text-align:center;color:var(--muted)">'
+            f'{n_seed}</td>{"".join(cells)}'
+            f'<td style="padding:6px 11px">{_verdict_chip(cv)}</td></tr>')
+
+    overall = worst(cond_verdicts)
+    n_cond = len(cond_data)
+    seeds_desc = (f"{next(iter(seed_counts))} seeds × gen-1 each"
+                  if len(seed_counts) == 1 and seed_counts != {0}
+                  else "per-condition seeds (see column)")
+    th = ('padding:6px 11px;text-align:right;font-size:11px;'
+          'text-transform:uppercase;letter-spacing:.5px;color:var(--muted)')
+    head = (f'<th style="{th};text-align:left">condition</th>'
+            f'<th style="{th};text-align:center">seeds</th>'
+            + "".join(f'<th style="{th}">{_e(lbl)}</th>' for _, lbl in cols)
+            + f'<th style="{th};text-align:left">condition verdict</th>')
+    hdr = (f'<p style="margin:0 0 12px;font-size:14px">'
+           f'<b>Overall:</b> {_verdict_chip(overall)} '
+           f'&middot; {n_cond} condition{"s" if n_cond != 1 else ""} '
+           f'&middot; {seeds_desc}</p>')
+    table = (
+        '<table style="border-collapse:collapse;width:100%;font-size:13px">'
+        f'<thead><tr>{head}</tr></thead>'
+        f'<tbody>{"".join(body_rows)}</tbody></table>')
+    return {"title": "Overview — all conditions", "kind": "content",
+            "desc": "Summary matrix — every condition (row) × every observable "
+                    "(column). Each cell is the matched gen-1 |Δ| (median over "
+                    "seeds), colored 5% within / 10% drift / else mismatch; "
+                    "vEcoli = reference. Trailing column = the condition's "
+                    "worst-axis verdict.",
+            "html": hdr + table}
 
 
 def parca_section(cond_data: dict) -> dict:

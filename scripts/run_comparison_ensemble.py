@@ -85,8 +85,20 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
         if not os.path.exists(marker) and os.path.exists(sd_path):
             with open(sd_path, "rb") as f:
                 sim_data = pickle.load(f)
-            save_sim_input(sim_data, bundle_dir=cond_cache, seed=seed,
-                           condition=condition)
+            # save_sim_input's generate_initial_state spins a default emitter that
+            # writes to a FIXED relative path (.pbg/parquet-runs/default/…), so
+            # parallel seeds collide → FileExistsError (+ a secondary KeyError
+            # 'emitter'). Run it in a unique cwd per (condition, seed) so that
+            # side-effect is isolated; bundle_dir (absolute) is unaffected.
+            _prev = os.getcwd()
+            _iso = os.path.join(cache_dir, f".regen_{condition}_seed{seed:02d}")
+            os.makedirs(_iso, exist_ok=True)
+            os.chdir(_iso)
+            try:
+                save_sim_input(sim_data, bundle_dir=cond_cache, seed=seed,
+                               condition=condition)
+            finally:
+                os.chdir(_prev)
         if os.path.exists(marker):
             eff_cache = cond_cache
     kwargs: dict = {"cache_dir": eff_cache, "seed": seed}

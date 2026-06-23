@@ -260,7 +260,13 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             composite = _build_vecoli(seed, condition, cache_dir)
         else:
             raise ValueError(f"unknown composite_kind {composite_kind!r}")
-        view = view_from_emit_paths(COMPARISON_PATHS, include_vectors=False)
+        # include_vectors=True (the xarray_run default): the scalar counts
+        # listeners.unique_molecule_counts.active_RNAP / active_ribosome share a
+        # LEAF NAME with the unique-molecule coordinate vectors, so the legacy
+        # include_vectors=False skipped the counts by name too — dropping them
+        # from the comparison. The view is still only the 8 COMPARISON_PATHS, so
+        # this keeps the two counts (scalars) without emitting any coord vectors.
+        view = view_from_emit_paths(COMPARISON_PATHS, include_vectors=True)
         metadata_base = {
             "experiment_id": f"cmp-{composite_kind}-{condition}-seed{seed:02d}",
             "engine": composite_kind,

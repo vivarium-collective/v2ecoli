@@ -102,6 +102,7 @@ full list + how to regenerate each in **[docs/reports.md](docs/reports.md#3-stan
 - [ParCa](#parca)
 - [What changed since vEcoli](#what-changed-since-vecoli)
 - [Performance & validation](#performance--validation)
+- [v2ecoli ↔ vEcoli comparison harness](#v2ecoli--vecoli-comparison-harness)
 - [Known limitations](#known-limitations)
 - [Repository layout](#repository-layout)
 - [Dependencies & ecosystem](#dependencies--ecosystem)
@@ -466,6 +467,88 @@ bulk-molecule counts, and replication dynamics; through the full cell cycle the
 dry-mass trajectories agree to within a fraction of a percent (707.2 fg vs
 705.3 fg at division). Regenerate with `reports/v1_v2_report.py` /
 `reports/composite_comparison.py`.
+
+---
+
+## v2ecoli ↔ vEcoli comparison harness
+
+A single, reproducible entry point that validates v2ecoli as a **faithful port**
+of vEcoli by running BOTH engines on GovCloud and grading them with one canonical
+report card. The whole flow is `scripts/comparison_harness.sh`
+(`register` → `launch` → `report`, or `all`).
+
+**What it compares — matched timepoints, not snapshots.** v2ecoli and vEcoli share
+the same ParCa, processes, and initial state, so they should track each other. The
+harness lines both engines up on a shared simulation-seconds axis and grades
+**matched generation-1 timepoints**. It does *not* compare end-of-run snapshots —
+those catch the two cells at different cell-cycle phases (one may have just
+divided) and produce ±100% artifacts that are pure phase, not divergence. At
+matched basal timepoints the masses track to ~1%.
+
+**Grading — the canonical report card.** `scripts/comparison_report_card.py` feeds
+per-seed gen-1 means into `v2ecoli.library.report_card.grade_card`, which emits a
+machine-readable `verdict.json` (schema `report_card_verdict/v1`, **vEcoli =
+reference model**). Each of the 7 axes (cell / dry / protein / RNA mass +
+growth_rate + active_RNAP + active_ribosome) gets a Welch **t-test** plus a
+relative-Δ band: `within_tol` (≤5%), `drift` (≤10%), or `mismatch` (>10%);
+absent observables are reported `ungraded`, not faked.
+
+### Reproduce it
+
+Prereqs (one-time per session):
+
+```bash
+aws sso login --profile stanford-sso
+# SSM tunnel to sms-api on localhost:8080 (run in its own terminal — flaky under a harness)
+nohup bash ~/code/sms-cdk/scripts/ptools-proxy.sh -s smsvpctest >/tmp/ptools.log 2>&1 &
+```
+
+Then the whole chain (5 conditions × 2 engines, defaults 4 seeds × 2 generations):
+
+```bash
+# register v2ecoli at the current commit (vEcoli is fixed sim id 47), launch, report:
+bash scripts/comparison_harness.sh all                       # register→launch→report
+# …or step by step:
+bash scripts/comparison_harness.sh register                  # → v2ecoli simulator_id
+bash scripts/comparison_harness.sh launch --v2-sim <ID> --seeds 4 --gens 2
+#   …wait for the runs to finish on S3…
+bash scripts/comparison_harness.sh report --only all
+```
+
+`launch` POSTs each run to sms-api — v2ecoli via **Ray** (`composite=v2ecoli`,
+`condition=<c>`), vEcoli via **Nextflow** (`simulation_config_filename=cond_<c>.json`,
+clearing the stale `nf-cond-<c>` K8s job/configmap first) — and writes the
+per-condition experiment ids it created to `out/full_compare/experiments.json`.
+`report` exports env AWS creds (aiobotocore's SSO refresh is unreliable; s3fs +
+duckdb need real env creds) and reads that file, so launch → report is one
+deterministic chain with no hand-editing. Runs land at
+`s3://smsvpctest-shared-sharedbucket60d199d6-abfvwv0day91/vecoli-output/<exp>/`
+(us-gov-west-1; v2ecoli zarr, vEcoli parquet under `cond_<c>/history`).
+
+### Output artifacts (`out/full_compare/`)
+
+- `standardized_comparison_report.html` — the multi-section report (overview →
+  ParCa/initial-state → report card → per-condition matched-trajectory overlays);
+  also copied to `~/Downloads/`.
+- `report_card.html` — the standalone rendered card.
+- `verdict.json` — the machine-readable `report_card_verdict/v1` verdict.
+- `experiments.json` — the launched experiment ids the report read from.
+
+### Known caveats
+
+- **`total_rna_init` is excluded** — it is a unit mismatch between the engines,
+  not a real divergence.
+- **`active_RNAP` / `active_ribosome`** require `include_vectors=True` in
+  `scripts/run_comparison_ensemble.py` (their scalar counts share a leaf name with
+  the unique-molecule coordinate vectors, so the old `include_vectors=False`
+  dropped them); emitters that don't export them show `ungraded`.
+- **vEcoli runs via Nextflow, not the in-process native composite** — the
+  `build_composite_native` path is wrapped in `run_comparison_ensemble.py` but is
+  effectively dead for production comparison; the launched vEcoli reference is the
+  Nextflow workflow (`simulator_id=47`, `vEcoli@62924758`).
+- Until the per-condition-initial-state v2ecoli runs (`sim59-v2fix-*`) land, only
+  **basal** is a fully valid v2↔vE comparison; the other conditions are launched
+  but their v2ecoli initial state was basal in the older `sim48-*` runs.
 
 ---
 

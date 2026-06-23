@@ -48,7 +48,8 @@ COMPARISON_PATHS = [
 ]
 
 
-def _build_v2ecoli(seed: int, condition: str, cache_dir: str):
+def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
+                   overrides: dict | None = None):
     """v2ecoli ported composite (baseline) for the given media condition.
 
     The condition MUST be threaded through: the v2ecoli builder selects the
@@ -57,10 +58,132 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str):
     _build_vecoli does via sim.config["condition"]. Omitting it (the old bug)
     silently ran BASAL for every condition, so non-basal v2ecoli↔vEcoli rows
     compared a basal v2ecoli cell against a condition-specific vEcoli cell.
+
+    ``overrides`` (PART 3, opt-in) supplies extra ``baseline`` generator
+    parameters translated from the vEcoli config (see ``_translated_v2_overrides``).
+    Default None keeps the working runs on the baseline defaults.
     """
     from v2ecoli import build_composite
-    return build_composite("baseline", cache_dir=cache_dir, seed=seed,
-                           condition=condition)
+    kwargs: dict = {"cache_dir": cache_dir, "seed": seed, "condition": condition}
+    if overrides:
+        kwargs.update(overrides)
+    return build_composite("baseline", **kwargs)
+
+
+# --------------------------------------------------------------------------- #
+# PART 1 — emit the RESOLVED v2ecoli build config as an S3 sidecar.
+#
+# The built Composite carries the resolved model under
+# ``state['agents'][<id>]``: every process/step keyed by name with its
+# ``address`` (which class ran), ``interval`` (per-step time_step), ``config``
+# (per-process config), and ``inputs``/``outputs`` (the topology wiring). We
+# summarize that into a small JSON-serializable dict — process set, per-process
+# config KEYS + topology, time_step, condition/seed, and the build options —
+# and write it next to the run's zarr so the report can diff it against vEcoli's
+# resolved workflow_config.json. Best-effort: never crash a run.
+# --------------------------------------------------------------------------- #
+def extract_v2_build_config(composite, *, seed: int, condition: str,
+                            cache_dir: str, options: dict) -> dict:
+    """Pull the resolved v2ecoli config out of the built Composite document."""
+    state = getattr(composite, "state", {}) or {}
+    agents = state.get("agents", {}) or {}
+    agent_id = next(iter(agents), None)
+    agent = agents.get(agent_id, {}) if agent_id is not None else {}
+    processes: list[dict] = []
+    topology: dict[str, dict] = {}
+    for name, node in sorted(agent.items()):
+        if not isinstance(node, dict):
+            continue
+        ntype = node.get("_type")
+        if ntype not in ("process", "step"):
+            continue
+        cfg = node.get("config")
+        processes.append({
+            "name": name, "type": ntype, "address": node.get("address"),
+            "interval": node.get("interval"),
+            "config_keys": sorted(cfg.keys()) if isinstance(cfg, dict) else [],
+        })
+        topology[name] = {"inputs": node.get("inputs") or {},
+                          "outputs": node.get("outputs") or {}}
+    return {
+        "engine": "v2ecoli", "source": "composite_document",
+        "condition": condition, "seed": seed, "cache_dir": str(cache_dir),
+        "time_step": agent.get("timestep", state.get("timestep")),
+        "global_time": state.get("global_time"), "agent_id": agent_id,
+        "options": options, "n_processes": len(processes),
+        "processes": processes, "topology": topology,
+    }
+
+
+def _write_json_sidecar(path: str, obj: dict) -> None:
+    """Write ``obj`` as JSON to ``path`` (local or s3://) via fsspec.
+
+    Uses the SAME storage layer the zarr writer relies on (fsspec/s3fs), so the
+    sidecar lands alongside the per-seed stores under the run's out_root.
+    """
+    import fsspec
+    text = json.dumps(obj, default=str, indent=2)
+    so: dict = {}
+    region = os.environ.get("AWS_DEFAULT_REGION") or os.environ.get("AWS_REGION")
+    if str(path).startswith("s3://") and region:
+        so = {"client_kwargs": {"region_name": region}}
+    with fsspec.open(path, "w", **so) as f:
+        f.write(text)
+
+
+# --------------------------------------------------------------------------- #
+# PART 3 — advance the goal that vEcoli configs AUTO-TRANSLATE to v2ecoli.
+#
+# End goal: v2ecoli configured FROM the vEcoli config (equivalence by
+# construction) rather than from two independent default sets. Today the gap is
+# a NAMESPACE one: ``translate_vecoli_config`` yields a vEcoli-WORKFLOW-shaped
+# dict (lineage_seed, single_daughters, max_duration_per_gen, condition, …),
+# but ``build_composite("baseline")`` accepts a DISJOINT set of generator
+# parameters (seed, cache_dir, transcript/polypeptide_initiation_mode,
+# config_overrides, the feature toggles, emitter, injected_processes). The two
+# share almost no key names, so a straight pass-through maps very little.
+#
+# What is default-vs-translatable today:
+#   * DEFAULT-only (set inside build_composite("baseline"), NOT from vEcoli cfg):
+#       process set + topology, time_step (1 s), the feature toggles
+#       (ppgpp_regulation on, trna/supercoiling/mass off), the initiation modes,
+#       and emitter — these come from the generator defaults.
+#   * Cache-driven (NOT a build_composite arg): condition / media and every
+#       ParCa parameter — they enter via the cache_dir ParСa build, not baseline().
+#   * Translatable NOW: only keys whose NAME already matches a baseline generator
+#       parameter (e.g. config_overrides). seed is owned by the per-seed loop and
+#       is deliberately NOT overridden.
+#
+# What fully closing the loop requires: a NAME-MAPPING layer (vEcoli key ->
+# baseline generator param OR cache/ParCa knob), e.g. {fixed_media/condition ->
+# the cache build, mar_regulon -> a feature toggle, ppgpp* -> ppgpp_regulation,
+# process_configs/swap_processes -> injected_processes/config_overrides}, plus
+# driving the ParCa cache build itself from parca_options. Until that table
+# exists, this path is gated OFF by default (--translate-vecoli-config) so it
+# cannot destabilize the working runs; when on it applies only the safely
+# name-matched subset and records the full translation in the sidecar.
+# --------------------------------------------------------------------------- #
+def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
+    """Resolve+translate a vEcoli config; return (overrides, translated_full).
+
+    ``overrides`` keeps only keys that are declared ``baseline`` generator
+    parameters (minus ``seed``, owned by the per-seed loop). For typical vEcoli
+    configs this is nearly empty — that emptiness IS the finding above.
+    """
+    from scripts._compare.config_adapter import (
+        resolve_vecoli_config, translate_vecoli_config)
+    import v2ecoli.composites  # noqa: F401  (register generators)
+    from pbg_superpowers.composite_generator import _REGISTRY
+    valid: set[str] = set()
+    for e in _REGISTRY.values():
+        if e.name == "baseline":
+            valid = set(e.parameters)
+            break
+    resolved = resolve_vecoli_config(vecoli_config_path)
+    translated = translate_vecoli_config(resolved)
+    overrides = {k: v for k, v in translated.items()
+                 if k in valid and k != "seed"}
+    return overrides, translated
 
 
 # Cache for the once-per-process vEcoli import + global registrations. Re-importing
@@ -253,9 +376,22 @@ def _build_vecoli(seed: int, condition: str, cache_dir: str):
 
 def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  max_generations: int, max_steps: int, chunk: int,
-                 out_root: str):
+                 out_root: str, seed_start: int = 0,
+                 vecoli_config: str | None = None,
+                 translate_config: bool = False):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
+
+    # PART 3 (opt-in): translate the vEcoli config into baseline overrides ONCE.
+    v2_overrides: dict | None = None
+    v2_translated: dict | None = None
+    if composite_kind == "v2ecoli" and translate_config and vecoli_config:
+        try:
+            v2_overrides, v2_translated = _translated_v2_overrides(vecoli_config)
+            print(f"[translate] vEcoli→v2 overrides applied: {sorted(v2_overrides)} "
+                  f"({len(v2_translated)} translated keys total)")
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] vEcoli→v2 config translation failed: {type(e).__name__} {e}")
 
     def run_one(seed: int) -> dict:
         t0 = time.time()
@@ -264,7 +400,26 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         if "://" not in str(store_path) and Path(store_path).exists():
             shutil.rmtree(store_path)
         if composite_kind == "v2ecoli":
-            composite = _build_v2ecoli(seed, condition, cache_dir)
+            composite = _build_v2ecoli(seed, condition, cache_dir,
+                                       overrides=v2_overrides)
+            # PART 1: emit the resolved v2ecoli build config ONCE (lowest seed)
+            # as a sidecar next to the zarr stores. Best-effort — never crash.
+            if seed == seed_start:
+                try:
+                    cfg = extract_v2_build_config(
+                        composite, seed=seed, condition=condition,
+                        cache_dir=cache_dir,
+                        options={"overrides": v2_overrides or {},
+                                 "translated_from_vecoli": vecoli_config
+                                 if translate_config else None,
+                                 "translated": v2_translated})
+                    _write_json_sidecar(
+                        f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
+                    print(f"[config] wrote v2ecoli_build_config.json "
+                          f"({cfg['n_processes']} processes) under {out_root}")
+                except Exception as e:  # noqa: BLE001
+                    print(f"[warn] v2 build-config sidecar emit failed: "
+                          f"{type(e).__name__} {e}")
         elif composite_kind == "vecoli":
             composite = _build_vecoli(seed, condition, cache_dir)
         else:
@@ -317,6 +472,13 @@ def main(argv=None):
     p.add_argument("--out-root", required=True,
                    help="dir or s3:// prefix for per-seed zarr stores.")
     p.add_argument("--mode", default="ray", help="run_seeds_parallel mode (ray/serial).")
+    p.add_argument("--vecoli-config", default=None,
+                   help="vEcoli config path to translate into v2ecoli build "
+                        "overrides (PART 3; only used with --translate-vecoli-config).")
+    p.add_argument("--translate-vecoli-config", action="store_true",
+                   help="OPT-IN: configure the v2ecoli build FROM the translated "
+                        "vEcoli config (default off — keeps the working runs on "
+                        "baseline defaults).")
     args = p.parse_args(argv)
 
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
@@ -324,7 +486,9 @@ def main(argv=None):
     run_one = make_run_one(
         composite_kind=args.composite, condition=args.condition,
         cache_dir=args.cache_dir, max_generations=args.max_generations,
-        max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root)
+        max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
+        seed_start=args.seed_start, vecoli_config=args.vecoli_config,
+        translate_config=args.translate_vecoli_config)
     parallel = run_seeds_parallel(seeds, run_one, mode=args.mode)
     summaries = getattr(parallel, "results", parallel)
     ensemble = {"composite": args.composite, "condition": args.condition,

@@ -101,7 +101,14 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                 os.chdir(_prev)
         if os.path.exists(marker):
             eff_cache = cond_cache
-    kwargs: dict = {"cache_dir": eff_cache, "seed": seed}
+    # emitter="null": the real comparison output is captured OUT OF BAND by the
+    # external XArrayEmitter that run_multigen_xarray drives (the compact 8-path
+    # view → zarr). The composite's INTERNAL parquet sink is pure redundancy
+    # here, writes to ephemeral container-local disk that's never collected, and
+    # — critically — its daughter instances collide on a shared default
+    # partition at division and crash gen 2 (see v2ecoli/steps/division.py).
+    # Disabling it leaves only the global_time RAMEmitter internally.
+    kwargs: dict = {"cache_dir": eff_cache, "seed": seed, "emitter": "null"}
     if overrides:
         kwargs.update(overrides)
     return build_composite("baseline", **kwargs)

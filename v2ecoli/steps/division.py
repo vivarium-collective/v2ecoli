@@ -265,9 +265,27 @@ class Division(V2Step):
                     _meta['agent_id'] = _parent_aid + _suffix
                     _meta['generation'] = int(_parent_gen) + 1
                     set_parquet_emitter_override(_ovr)
+                # Emitter sink for the daughter's INTERNAL 'emitter' step.
+                # baseline() defaults to 'parquet', whose declared-default sink
+                # has a FIXED partition (generation=1/agent_id=1) with no
+                # per-daughter identity. When NO parquet override is active
+                # (e.g. runs driven by run_multigen_xarray, which captures the
+                # real output via an EXTERNAL XArrayEmitter), both daughters
+                # would otherwise spawn ParquetEmitters pinned to that one
+                # shared partition and stomp each other's temp files — the next
+                # batch flush (~step 400 ≈ 780s of gen 2) raises FileNotFoundError
+                # on the temp→final rename, which the runner swallows as a
+                # "graceful stop" and truncates the lineage mid-generation.
+                # The internal sink is redundant in that path, so build the
+                # daughter with the no-op 'null' emitter (global_time-only
+                # RAMEmitter) — no files, no collision, gen 2+ runs a full
+                # cell cycle. When an override IS active the repointed,
+                # per-daughter-partitioned parquet sink above is used instead.
+                _daughter_emitter = "parquet" if _saved is not None else "null"
                 try:
                     doc = baseline(
-                        core=self.core, seed=seed, cache_dir=self._cache_dir)
+                        core=self.core, seed=seed, cache_dir=self._cache_dir,
+                        emitter=_daughter_emitter)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

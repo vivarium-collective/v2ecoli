@@ -585,7 +585,16 @@ def run_multigen_xarray(
                 print(f"[multigen_xarray] composite FAILED on first chunk "
                       f"(no data emitted):\n{_tb.format_exc()}")
                 raise
-            print(f"[multigen_xarray] composite stopped at {done}s: {str(e)[:80]}")
+            # Past the first chunk we stay lenient (a composite that can no
+            # longer divide legitimately raises here after emitting real data).
+            # But print the FULL traceback, never just a truncated message: an
+            # IOError / emitter crash mid-generation looks identical to a
+            # graceful end-of-lineage in an 80-char snippet, and silently
+            # breaking truncated whole generations (the gen-2-at-780s bug).
+            import traceback as _tb
+            print(f"[multigen_xarray] composite raised at {done}s; ending "
+                  f"lineage here (full traceback below for diagnosis):\n"
+                  f"{_tb.format_exc()}")
             break
         done += chunk
         agents = (composite.state or {}).get("agents") or {}

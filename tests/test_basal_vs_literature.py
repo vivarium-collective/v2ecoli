@@ -315,3 +315,41 @@ def test_metabolite_pool_concentrations_plausible(graded):
     # glutamate (GLT) is the abundant pool — model ~tens of mM (Bennett 96 mM)
     glt = per.get("GLT")
     assert glt is not None and 0.005 < glt["model"] < 0.10   # 5-100 mM
+
+
+# ---------------------------------------------------------------------------
+# 8. Metabolite pools (per-metabolite scatter) vs Bennett 2009 — fit-to
+# ---------------------------------------------------------------------------
+
+def test_metabolite_per_metabolite_concordant(graded):
+    # Per-metabolite model vs the genuine Bennett concentrations, log-log Pearson
+    # r. A fit-to consistency check (the model is calibrated to these targets), so
+    # it tracks them across ~5 orders of magnitude (r ~ 0.93) -> within_tol/drift.
+    report, _ = graded
+    ax = report["axes"].get("pools.per_metabolite")
+    assert ax is not None and ax["verdict"] in ("within_tol", "drift")
+    assert ax["value"] > 0.85
+
+
+def test_metabolite_scatter_uses_genuine_bennett_with_ci():
+    # The reference side is the genuine Bennett slot value + 95% CI (joined by the
+    # slot's ecocyc_id), not the rounded reconstruction column: a substantial
+    # mapped set, asymmetric CI error bars paired to each point, and glutamate's
+    # published 0.096 mol/L present in the reference vector.
+    _, reference, _ = rvl.build()
+    crit = reference["axes"]["pools.per_metabolite"]["criterion"]
+    n = len(crit["ref_vector"])
+    assert n > 50
+    assert len(crit["ref_err"]) == 2 and len(crit["ref_err"][0]) == n
+    assert len(crit["ids"]) == n                         # one label per point
+    assert any(abs(v - 0.096) < 1e-4 for v in crit["ref_vector"])  # GLT genuine
+
+
+def test_bennett_pools_mapping_coverage():
+    # The slot's ecocyc_id column resolves to the model ids: every metabolite the
+    # model realizes (the baked per_metabolite set) has a genuine Bennett value.
+    import json
+    per = set(json.load(open(rvl._POOLS_JSON, encoding="utf-8"))["per_metabolite"])
+    ref = rvl.bennett_pools()
+    assert per <= set(ref)                              # full coverage of the model set
+    assert ref["GLT"]["name"].lower().startswith("glutamate")

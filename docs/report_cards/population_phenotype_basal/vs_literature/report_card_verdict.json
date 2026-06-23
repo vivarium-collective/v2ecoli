@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "v2ecoli baseline (blessed baseline, gen≥3)",
   "reference_model": "experimental literature (ecoli-sources validation_data)",
-  "generated": "2026-06-23 13:36",
+  "generated": "2026-06-23 17:10",
   "overall": "mismatch",
   "groups": {
     "physiology": {
@@ -272,6 +272,17 @@
             "theoretical_max": null,
             "first_principles_violation": false,
             "rel_to_mid": -0.4588766101977229
+          }
+        },
+        {
+          "id": "pools.per_metabolite",
+          "label": "Per-metabolite concentration (mol/L)",
+          "verdict": "within_tol",
+          "value": 0.9265899230663216,
+          "meter": "r = 0.927",
+          "detail": {
+            "r": 0.9265899230663216,
+            "n": 91
           }
         }
       ]

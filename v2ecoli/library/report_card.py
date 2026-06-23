@@ -398,6 +398,8 @@ def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) ->
     ids = crit.get("ids") or []
     syms = crit.get("symbols") or [""] * len(ids)
     names = crit.get("names") or [""] * len(ids)
+    entity = crit.get("entity_label", "gene")        # noun for the row entity
+    count_noun = crit.get("count_label", "counts")   # noun for the values
     ref = crit.get("ref_vector") or []
     meas = measured.get("vector") or []
     if not ids or not ref or not meas:
@@ -445,7 +447,7 @@ def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) ->
                 if len(direction) > top_n else "")
         return (f"<div class='otcol'><div class='oth'>{label} "
                 f"<span class='otn'>({len(direction)})</span></div>"
-                f"<table><thead><tr><th class='ohgene'>gene</th>"
+                f"<table><thead><tr><th class='ohgene'>{entity}</th>"
                 f"<th class='ohnum'>{ref_label}</th>"
                 f"<th class='ohnum'>{meas_label}</th>"
                 f"<th class='ohnum'>log2FC</th></tr></thead>"
@@ -455,8 +457,8 @@ def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) ->
     down_html = _table(f"↓ under-expressed in {meas_label}", down)
     return (f"<div class='otbl'><div class='otgrid'>{up_html}{down_html}</div>"
             f"<div class='ftnote'>log2 fold-change ({meas_label} / {ref_label}) "
-            f"of ensemble-mean counts · |log2FC| > {cut:g}, "
-            f"min {min_count:g} counts · ±∞ = on/off in one model · "
+            f"of ensemble-mean {count_noun} · |log2FC| > {cut:g}, "
+            f"min {min_count:g} {count_noun} · ±∞ = on/off in one model · "
             f"top {top_n}/direction</div></div>")
 
 
@@ -533,6 +535,7 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
             svg = card_plots.loglog_scatter(
                 measured["vector"], crit.get("ref_vector"),
                 r2=axis.get("value"), stat_label=stat_label, label=axis.get("label", ""),
+                ref_err=crit.get("ref_err"),
                 ref_label=ref_label, meas_label=meas_label)
             tbl = _omics_table(measured, crit, ref_label, meas_label)
             return f"<div class='omicswrap'>{svg}{tbl}</div>" if tbl else svg

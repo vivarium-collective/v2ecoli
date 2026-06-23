@@ -307,16 +307,24 @@ def generation_trend(by_cell, ref_by_cell=None, *, scale=1.0, units="", label=""
 
 
 def loglog_scatter(cand_vec, ref_vec, *, r2=None, stat_label="R²", label="",
-                   width=3.4, height=3.2,
+                   width=3.4, height=3.2, ref_err=None,
                    ref_label="reference", meas_label="candidate") -> str:
     """Candidate vs reference ensemble-mean vector on log-log axes with the
-    identity line. Points are per-gene/protein (ensemble means)."""
+    identity line. Points are per-gene/protein (ensemble means).
+
+    ``ref_err`` (optional) is an asymmetric x-error array of shape (2, N) —
+    [lower, upper] absolute errors on the reference values (e.g. measurement
+    95% CI bounds) — drawn as horizontal error bars."""
     plt = _setup()
     import numpy as np
     cand = np.asarray(cand_vec, float)
     ref = np.asarray(ref_vec, float)
     m = (cand > 0) & (ref > 0)
     fig, ax = plt.subplots(figsize=(width, height))
+    if ref_err is not None:
+        err = np.asarray(ref_err, float)[:, m]
+        ax.errorbar(ref[m], cand[m], xerr=err, fmt="none", ecolor="#1f6feb",
+                    elinewidth=0.5, alpha=0.25, capsize=0, zorder=1)
     ax.scatter(ref[m], cand[m], s=5, alpha=0.25, color="#1f6feb", edgecolor="none")
     if m.any():
         lo = min(ref[m].min(), cand[m].min())

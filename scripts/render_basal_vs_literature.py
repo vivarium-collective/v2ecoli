@@ -297,10 +297,10 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
 
     # Exchange axes (absolute rates vs measured bands; C-mol context in `how`).
     cmol_note = {
-        "o2_uptake": f"Per glucose-C the model oxidizes only ~{cmol['co2']:.0f}% to CO₂.",
+        "o2_uptake": f"Per glucose-C, ~{cmol['co2']:.0f}% is recovered as CO₂.",
         "co2_evolution": (f"C-mol balance: {cmol['biomass']:.0f}% of glucose carbon → biomass, "
                           f"{cmol['co2']:.0f}% → CO₂, {cmol['acetate']:.0f}% → acetate "
-                          f"(a real cell on glucose ~50% biomass). RQ = CER/OUR = "
+                          f"(reference aerobic cell on glucose ~50% biomass). RQ = CER/OUR = "
                           f"{(exch['rq'] or 0):.2f} (full oxidation ≈ 1)."),
         "acetate_secretion": "The overflow axis — measured rates are direct (HPLC), not GUR-derived.",
     }
@@ -354,19 +354,17 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
             "label": "Central-carbon fluxes (vs Crown 2015)", "units": "% of glucose uptake",
             "how": ("Model: ensemble central-carbon fluxes (signed, reaction-set-summed, "
                     "aligned to the reference direction), normalized to glucose uptake = 100. "
-                    "Graded vs Crown 2015 COMPLETE-MFA (MG1655, ¹³C PLE). Glycolysis and "
-                    "oxidative-PPP sit on the identity line — carbon ROUTING into central "
-                    "metabolism is right. The divergences are the finding: PDH, αKG "
-                    "dehydrogenase and malate synthase collapse to ~0 and acetate overflow "
-                    "is absent (the oxidative TCA isn't turning — the reaction-level face of "
-                    "the under-respiration), while the lower TCA runs REDUCTIVELY (Fum, MDH "
-                    "negative — OAC→Mal→Fum) ⤺. Glucose entry (Crown's PTS) is omitted: the "
-                    "model enters glucose mostly via glucokinase + pyruvate kinase, which is "
-                    "¹³C-indistinguishable from PTS — not a gradeable difference. † Pyk: its "
-                    "flux is coupled to that entry choice, shown but not independently "
-                    "resolvable. ‡ Pfk/Fba: the model routes most hexose→triose through "
-                    "fructose-6-P / sedoheptulose-bisP aldolases (an FBA carbon-rearrangement "
-                    "deviation — node balances are unaffected), so these read low."),
+                    "Graded vs Crown 2015 COMPLETE-MFA (MG1655, ¹³C PLE) by identity-R² over "
+                    "the reaction vector; per-reaction model−reference values are listed in "
+                    "the companion table (with sign flips ⤺ where the model runs a reaction "
+                    "reverse to Crown's direction). Methodological caveats: glucose entry "
+                    "(Crown's PTS) is omitted — the model enters glucose mostly via "
+                    "glucokinase + pyruvate kinase, ¹³C-indistinguishable from PTS, so not a "
+                    "gradeable difference. † Pyk: its flux is coupled to that entry choice, "
+                    "shown but not independently resolvable. ‡ Pfk/Fba: the model routes most "
+                    "hexose→triose through fructose-6-P / sedoheptulose-bisP aldolases (an FBA "
+                    "carbon-rearrangement degeneracy — node balances are unaffected), so the "
+                    "single-reaction Pfk/Fba flux is not a glycolytic-throughput proxy."),
             "plot": "flux_scatter",
             # qualitative=False: these are internal fluxes — a reaction at ~0 is a
             # low value, not a categorical on/off, so drop the appeared/lost
@@ -391,8 +389,7 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
                 "variation distance vs the Crown 2015 ¹³C-MFA composition (the routing "
                 "of carbon through central metabolism, independent of uptake rate); the "
                 "hatched residual is G6P unaccounted by the three branches — a small "
-                "biomass drain, expected < 5%. The model routes carbon CORRECTLY here "
-                "(low TV) — the defects are downstream (respiration / overflow)."),
+                "biomass drain, expected < 5%."),
         "plot": "split",
         "criterion": {
             "type": "composition", "ref_fractions": crown, "ref_label": "Crown 2015",
@@ -410,9 +407,8 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
             "label": "Isocitrate fate (oxidative TCA / glyoxylate)", "units": "",
             "how": ("Model: the isocitrate branch point — oxidative decarboxylation "
                     "(isocitrate dehydrogenase → α-ketoglutarate) vs the glyoxylate "
-                    "shunt (isocitrate lyase). Graded by total-variation distance vs "
-                    "Crown 2015. The model routes ~96% oxidative (ICDH makes α-KG for "
-                    "biosynthesis — note α-KG is NOT dehydrogenated onward, αKGDH ≈ 0)."),
+                    "shunt (isocitrate lyase), as fractions of isocitrate flux. Graded "
+                    "by total-variation distance vs Crown 2015."),
             "plot": "split",
             "criterion": {"type": "composition", "ref_fractions": cf["isocitrate"],
                           "ref_label": "Crown 2015", "tv_good": 0.05, "tv_warn": 0.15,
@@ -424,11 +420,9 @@ def build_metabolism(lit: dict, met: dict, bundle_path: Path | None = None) -> t
             "group": "Metabolism",
             "label": "Acetyl-CoA fate (TCA / acetate / biosynthesis)", "units": "",
             "how": ("Model: where acetyl-CoA goes — citrate synthase (TCA), acetate "
-                    "overflow (Pta/AckA), or biosynthesis (fatty acids + amino acids). "
-                    "Graded by total-variation distance vs Crown 2015. The contrast is "
-                    "the overflow defect: the model dumps ~79% of acetyl-CoA into "
-                    "biosynthesis with **no acetate overflow**, where Crown overflows "
-                    "~59% to acetate — the AcCoA-node face of the missing overflow."),
+                    "overflow (Pta/AckA), or biosynthesis (fatty acids + amino acids), "
+                    "as fractions of acetyl-CoA flux. Graded by total-variation distance "
+                    "vs Crown 2015."),
             "plot": "split",
             "criterion": {"type": "composition", "ref_fractions": cf["accoa"],
                           "ref_label": "Crown 2015", "tv_good": 0.05, "tv_warn": 0.15,
@@ -522,11 +516,24 @@ def build_composition(comp: dict, bundle_path: Path | None = None) -> tuple[dict
     return axes, card
 
 
-def build_metabolite_pools(pools: dict) -> tuple[dict, dict]:
-    """(axes, card_node) for the Metabolite pools section: the model's total
-    realized intracellular metabolite pool vs the Bennett 2009 measured total
-    over the same set. The model is calibrated to these per-metabolite targets,
-    so this is a fit-to consistency check, not independent validation."""
+def bennett_pools(bundle_path: Path | None = None) -> dict:
+    """The Bennett 2009 glucose per-metabolite concentrations (mol/L) + 95% CI
+    bounds, keyed by the model EcoCyc id carried in the slot's ``ecocyc_id``
+    column (populated for the 93 metabolites that have a single model id)."""
+    root = _bundle_path(bundle_path).parent
+    df = pd.read_csv(root / "data/basal/metabolite_pools.tsv", sep="\t", comment="#")
+    df = df[(df["condition"] == "glucose") & df["ecocyc_id"].notna()]
+    return {str(r.ecocyc_id): {"value": float(r.value), "name": str(r.metabolite),
+                               "ci_low": float(r.ci_low), "ci_high": float(r.ci_high)}
+            for r in df.itertuples()}
+
+
+def build_metabolite_pools(pools: dict, bundle_path: Path | None = None) -> tuple[dict, dict]:
+    """(axes, card_node) for the Metabolite pools section: (1) the model's total
+    realized intracellular metabolite pool vs the Bennett 2009 measured total, and
+    (2) the per-metabolite scatter (model vs Bennett, log-log). The model is
+    calibrated to these per-metabolite targets, so both are fit-to consistency
+    checks, not independent validation."""
     n = pools["n_matched"]
     model_mM = pools["model_total"] * 1000.0
     bennett_mM = pools["bennett_total"] * 1000.0
@@ -546,6 +553,39 @@ def build_metabolite_pools(pools: dict) -> tuple[dict, dict]:
                       "sources": ["bennett_2009"]},
     }}
     card = {"total": {"mean": model_mM}}
+
+    # Per-metabolite scatter: model realized concentration vs the genuine Bennett
+    # 2009 published value + 95% CI (joined by the slot's ecocyc_id), log-log,
+    # graded by Pearson r (like the proteome axis).
+    per = pools.get("per_metabolite", {})
+    ref = bennett_pools(bundle_path)
+    ids = sorted(set(per) & set(ref))
+    if ids:
+        names = [ref[i]["name"] for i in ids]
+        model_vec = [per[i]["model"] for i in ids]
+        ref_vec = [ref[i]["value"] for i in ids]
+        ref_err = [[max(ref[i]["value"] - ref[i]["ci_low"], 0.0) for i in ids],
+                   [max(ref[i]["ci_high"] - ref[i]["value"], 0.0) for i in ids]]
+        axes["pools.per_metabolite"] = {
+            "group": "Metabolite pools",
+            "label": "Per-metabolite concentration (mol/L)", "units": "mol/L",
+            "plot": "loglog",
+            "how": (f"Model: ensemble realized intracellular concentration per "
+                    f"metabolite (bulk count / cell volume / Nₐ; per-cell time-mean "
+                    f"then ensemble). Graded vs the Bennett 2009 absolute "
+                    f"concentrations (with 95% CI as horizontal error bars) over the "
+                    f"{len(ids)} metabolites mapped to a single model id, by log-log "
+                    f"Pearson r. The model is FIT to these targets — a fit-to "
+                    f"consistency check, NOT independent validation; the companion "
+                    f"table lists the metabolites that diverge most. Strain: Bennett "
+                    f"K-12 NCM3722, glucose minimal, filter culture (td 77 min)."),
+            "criterion": {"type": "pearson", "ref_vector": ref_vec, "ref_err": ref_err,
+                          "r_min": 0.9, "r_drift": 0.7,
+                          "ids": names, "entity_label": "metabolite",
+                          "count_label": "concentration", "min_count": 0.0,
+                          "outlier_log2fc": 2.0},
+        }
+        card["per_metabolite"] = {"vector": model_vec}
     return axes, card
 
 
@@ -577,8 +617,8 @@ BASAL_SPEC = [
      "cell mass · volume · length · surface-to-volume — vs BioNumbers / Volkmer-Heinemann 2011"),
     ("Metabolite pools", "covered", "fit-to",
      "absolute intracellular metabolite concentrations — vs Bennett 2009 (aggregate pool "
-     "total; the model is calibrated to these targets — a fit-to consistency check). "
-     "Per-metabolite scatter is a follow-up."),
+     "total + per-metabolite scatter; the model is calibrated to these targets — a "
+     "fit-to consistency check)."),
 ]
 
 
@@ -601,11 +641,10 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
             "Biomass yield is computed by DIRECT mass balance (ΔDW / ∫q_glc·DW dt) "
             "per cell — a true g-DW-made / g-glucose-eaten ratio, robust to the "
             "steady-state assumption (the μ/(q·M) shortcut ran ~7% higher).",
-            "The yield exceeds the theoretical_max stoichiometric ceiling: an "
-            "ENERGETIC first-principles violation (the model gets ATP without "
-            f"respiring — implied biomass carbon ≈ {iC:.2f} gC/gDW is physically "
-            "plausible, so carbon IS conserved; the model under-respires rather "
-            "than creating mass)." if iC is not None else
+            "The yield exceeds the theoretical_max stoichiometric ceiling — a "
+            "first-principles violation (no carbon- and energy-balanced cell can "
+            f"exceed it). The implied biomass carbon (≈ {iC:.2f} gC/gDW) sits within "
+            "the physically plausible range, so total carbon is conserved." if iC is not None else
             "The yield exceeds the theoretical_max stoichiometric ceiling — a "
             "first-principles violation.",
         ],
@@ -634,12 +673,12 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
         card["metabolism"] = cnode
         e = met["exchanges"]
         reference["findings"].append(
-            "Metabolism splits into two independent reads: the model routes central "
-            f"carbon CORRECTLY (G6P split ≈ Crown's EMP/oxPPP/ED) but UNDER-RESPIRES "
-            f"(O₂ {e['absolute']['o2']:.2g} vs ~11–15, RQ {(e['rq'] or 0):.1f} vs ≈1.1) "
-            f"with no overflow — {e['cmol_pct']['biomass']:.0f}% of glucose carbon is "
-            "retained as biomass (vs ~50% in a real aerobic cell), the C-mol root of the "
-            "inflated yield. The defect is energetic (respiration), not carbon routing.")
+            "Metabolism axes (verdicts): the G6P split matches Crown's EMP/oxPPP/ED "
+            f"composition (within_tol); the O₂ uptake ({e['absolute']['o2']:.2g} vs "
+            f"measured ~11–15), CO₂ evolution, and acetate secretion exchanges fall "
+            f"below the measured bands (mismatch). RQ = CER/OUR = {(e['rq'] or 0):.1f} "
+            f"(full oxidation ≈ 1); C-mol balance {e['cmol_pct']['biomass']:.0f}% of "
+            "glucose carbon → biomass (reference aerobic cell ~50%).")
     if _PRO_JSON.exists():
         pro = json.load(open(_PRO_JSON, encoding="utf-8"))
         ax, cnode = build_proteome(pro, bundle_path)
@@ -652,7 +691,7 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
         card["composition"] = cnode
     if _POOLS_JSON.exists():
         pools = json.load(open(_POOLS_JSON, encoding="utf-8"))
-        ax, cnode = build_metabolite_pools(pools)
+        ax, cnode = build_metabolite_pools(pools, bundle_path)
         reference["axes"].update(ax)
         card["pools"] = cnode
 

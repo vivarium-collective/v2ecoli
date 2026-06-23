@@ -62,9 +62,34 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     ``overrides`` (PART 3, opt-in) supplies extra ``baseline`` generator
     parameters translated from the vEcoli config (see ``_translated_v2_overrides``).
     Default None keeps the working runs on the baseline defaults.
+
+    NOTE: ``condition`` is NOT a ``build_composite`` parameter (that raises
+    "unknown parameter(s) for ...baseline: ['condition']"). It is applied at
+    CACHE-BUILD time — ``save_sim_input(sim_data, condition=...)`` →
+    ``LoadSimData(condition=...)`` selects the condition-specific initial state
+    (growth rate / doubling time / saved media from the ParCa state's
+    ``condition_to_doubling_time`` — no refit). The sms-api ParCa builds a BASAL
+    cache, so for non-basal we regenerate a condition+seed-specific bundle from
+    the raw SimulationData (``simData.cPickle``, also dumped into the cache) into
+    a per-condition subdir and build from that. Validated: basal 1267 /
+    with_aa 2687 / acetate 350 fg initial cell_mass (vEcoli 1272 / 3013 / 346).
     """
     from v2ecoli import build_composite
-    kwargs: dict = {"cache_dir": cache_dir, "seed": seed, "condition": condition}
+    eff_cache = cache_dir
+    if condition and condition != "basal":
+        import pickle
+        from v2ecoli.core import save_sim_input
+        cond_cache = os.path.join(cache_dir, f"cond_{condition}_seed{seed:02d}")
+        marker = os.path.join(cond_cache, "sim_data_cache.dill")
+        sd_path = os.path.join(cache_dir, "simData.cPickle")
+        if not os.path.exists(marker) and os.path.exists(sd_path):
+            with open(sd_path, "rb") as f:
+                sim_data = pickle.load(f)
+            save_sim_input(sim_data, bundle_dir=cond_cache, seed=seed,
+                           condition=condition)
+        if os.path.exists(marker):
+            eff_cache = cond_cache
+    kwargs: dict = {"cache_dir": eff_cache, "seed": seed}
     if overrides:
         kwargs.update(overrides)
     return build_composite("baseline", **kwargs)

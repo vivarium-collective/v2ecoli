@@ -48,10 +48,19 @@ COMPARISON_PATHS = [
 ]
 
 
-def _build_v2ecoli(seed: int, cache_dir: str):
-    """v2ecoli ported composite (baseline) for a condition cache."""
+def _build_v2ecoli(seed: int, condition: str, cache_dir: str):
+    """v2ecoli ported composite (baseline) for the given media condition.
+
+    The condition MUST be threaded through: the v2ecoli builder selects the
+    condition-specific initial state (growth rate / doubling time / saved media
+    from the ParCa state's condition_to_doubling_time — no refit) exactly as
+    _build_vecoli does via sim.config["condition"]. Omitting it (the old bug)
+    silently ran BASAL for every condition, so non-basal v2ecoli↔vEcoli rows
+    compared a basal v2ecoli cell against a condition-specific vEcoli cell.
+    """
     from v2ecoli import build_composite
-    return build_composite("baseline", cache_dir=cache_dir, seed=seed)
+    return build_composite("baseline", cache_dir=cache_dir, seed=seed,
+                           condition=condition)
 
 
 # Cache for the once-per-process vEcoli import + global registrations. Re-importing
@@ -255,7 +264,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         if "://" not in str(store_path) and Path(store_path).exists():
             shutil.rmtree(store_path)
         if composite_kind == "v2ecoli":
-            composite = _build_v2ecoli(seed, cache_dir)
+            composite = _build_v2ecoli(seed, condition, cache_dir)
         elif composite_kind == "vecoli":
             composite = _build_vecoli(seed, condition, cache_dir)
         else:

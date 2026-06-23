@@ -215,6 +215,9 @@ embed_visualizations:
 - name: "Switch curve — cooperativity sharpens the oriC-low filament"
   url: /reports/figures/dnaa-5-cooperativity/dnaa5_switch_curve_interactive.html
   caption: "θ = Aⁿ/(Kⁿ+Aⁿ), K=30 nM. The Langmuir (n=1) fills gradually; the cooperative filament snaps all-or-none. n=4 is the operating point (sharp switch + homeostasis preserved); n=6 is too sharp and over-depletes the pool. Analytic (the Hill model itself)."
+- name: "Lowering K (half-saturation) makes oriC-low easier to saturate"
+  url: /reports/figures/dnaa-5-cooperativity/dnaa5_k_sweep.html
+  caption: "Companion to the n-sweep, answering Haochen: θ = A⁴/(K⁴+A⁴) at fixed n=4, varying K. K sets the THRESHOLD (where the switch trips); n sets the SHARPNESS. Dropping K 30→10 nM shifts the switch to lower free DnaA-ATP, so the same pool saturates oriC-low more readily — confirming the intuition analytically. The dynamic consequence (earlier/more initiation, homeostasis) needs an in-sim K-sweep (the K-analogue of the n-sweep); flagged as a follow-up."
 - name: "On/off contrast — the switch sharpens with cooperativity"
   url: /reports/figures/dnaa-5-cooperativity/dnaa5_response_sharpness.html
   caption: "A small rise in free DnaA-ATP (½K → 2K) flips oriC-low occupancy from ~0 to ~1 at n≥4 (on/off contrast 0.94 at n=4) versus the Langmuir's gradual 0.33 → 0.67 (contrast 0.33). Unit-verified analytic values matching the study (n=6: 0.015/0.5/0.985)."

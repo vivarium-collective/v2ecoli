@@ -72,6 +72,34 @@ def fig_switch_curves():
     _write(fig, "dnaa5_switch_curve_interactive")
 
 
+def fig_k_sweep():
+    """Analytic companion to the n-sweep: vary the half-saturation K (not the
+    cooperativity n). Lower K shifts the switch to LOWER free DnaA-ATP, so oriC-low
+    saturates more readily — Haochen's 2026-06-23 question/hypothesis."""
+    A = np.linspace(0, 4 * K_NM, 400)
+    n = 4
+    fig = go.Figure()
+    ks = [(10, GREEN, "K = 10 nM — saturates easiest"),
+          (20, "#60a5fa", "K = 20 nM"),
+          (30, "#64748b", "K = 30 nM — current operating point"),
+          (50, RED, "K = 50 nM — hardest to saturate")]
+    for K, c, lab in ks:
+        theta = A ** n / (K ** n + A ** n)
+        fig.add_trace(go.Scatter(x=A, y=theta, name=lab, mode="lines",
+                                 line=dict(color=c, width=3.4 if K == 30 else 2.2),
+                                 hovertemplate="free DnaA-ATP %{x:.0f} nM<br>occupancy %{y:.2f}<extra>" + lab + "</extra>"))
+        fig.add_vline(x=K, line=dict(color=c, width=1, dash="dot"))
+    fig.update_xaxes(title="free DnaA-ATP concentration (nM)")
+    fig.update_yaxes(title="oriC-low occupancy θ  (n = 4 fixed)", range=[-0.03, 1.08])
+    _layout(fig, "Lowering K (half-saturation) makes oriC-low easier to saturate",
+            "θ = A⁴ / (K⁴ + A⁴) at fixed cooperativity n=4. K sets WHERE the switch trips (the threshold free "
+            "DnaA-ATP); n sets how SHARP it is. Dropping K from 30→10 nM shifts the switch left, so the same "
+            "DnaA-ATP pool saturates oriC-low more readily — confirming Haochen's intuition analytically. The "
+            "dynamic consequence (earlier/more initiation, and whether homeostasis still holds) needs an in-sim "
+            "K-sweep, the K-analogue of the n-sweep.")
+    _write(fig, "dnaa5_k_sweep")
+
+
 def fig_response_sharpness():
     """Analytic: occupancy contrast below/at/above threshold — the switch sharpens with n.
     Matches the study's unit-verified values (n=6: 0.015/0.5/0.985; n=1: 0.33/0.5/0.67)."""
@@ -135,7 +163,11 @@ def fig_hill_vs_kd():
     _layout(fig, "Two formulations, one switch — Hill (n=4) ≈ classical varying-K_d",
             "the phenomenological Hill switch (n=4) and the mechanistic varying-dissociation-constant "
             f"(Adair, 8 sites, each neighbour lowering K_d ~{best:.1f}×) give the SAME occupancy curve — "
-            "so n=4's sharp-switch conclusion is formulation-independent")
+            "so n=4's sharp-switch conclusion is formulation-independent. NOTE (per Haochen): this is NOT the "
+            "same as varying the single K in θ. That K is the LUMPED half-saturation — it sets the THRESHOLD "
+            "(where the switch trips). Varying-K_d is the set of PER-SITE constants that DECREASE as sites fill "
+            "— the microscopic SOURCE of cooperativity, i.e. the SHARPNESS that n captures. K = threshold; "
+            "n / varying-K_d = sharpness.")
     _write(fig, "dnaa5_hill_vs_kd")
 
 
@@ -371,6 +403,7 @@ def main():
     d = json.load(open(args.data)) if os.path.exists(args.data) else {}
     print(f"loaded {len(d)} run series from {args.data}")
     fig_switch_curves()                # analytic, always
+    fig_k_sweep()                      # analytic K-sweep (Haochen), always
     fig_response_sharpness()           # analytic, always
     fig_hill_vs_kd()                   # analytic, always
     fig_kd_sweep()                     # in-sim sweep summary, always

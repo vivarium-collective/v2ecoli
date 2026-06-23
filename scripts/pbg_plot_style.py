@@ -159,9 +159,12 @@ def house_layout(fig, title: str, subtitle: str, height: int = 480):
         title=dict(
             text=f"<b>{title}</b><br><span style='font-size:12px;color:#475569'>{sub}</span>",
             x=0.5, xanchor="center", font=dict(size=17)),
-        template="plotly_white", height=height + 18 * max(0, nlines - 1),
+        template="plotly_white", height=height + 18 * max(0, nlines - 1) + 40,
         font=dict(family="Inter, system-ui, sans-serif", size=13),
-        margin=dict(t=64 + 16 * nlines, b=55, l=70, r=40), hovermode="x unified",
-        legend=dict(bgcolor="rgba(255,255,255,0.7)", bordercolor="#e2e8f0", borderwidth=1),
+        margin=dict(t=64 + 16 * nlines, b=110, l=70, r=40), hovermode="x unified",
+        # Horizontal legend BELOW the plot so it is never clipped or hidden in the
+        # top-right corner on wide renders (convention from Haochen 2026-06-23).
+        legend=dict(orientation="h", yanchor="top", y=-0.22, xanchor="center", x=0.5,
+                    bgcolor="rgba(255,255,255,0.7)", bordercolor="#e2e8f0", borderwidth=1),
     )
     return fig

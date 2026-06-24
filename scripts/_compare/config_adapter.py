@@ -77,6 +77,10 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     # well before either cap).
     if "max_duration" in vecoli:
         v2.setdefault("max_duration_per_gen", float(vecoli["max_duration"]))
+        # max_duration is RENAMED to max_duration_per_gen, not a v2 key — drop
+        # the source so the v2 config doesn't carry a redundant/confusing twin
+        # (v2ecoli reads only max_duration_per_gen).
+        v2.pop("max_duration", None)
     return v2
 
 

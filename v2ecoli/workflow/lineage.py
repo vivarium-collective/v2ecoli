@@ -74,6 +74,7 @@ class LineageProcess(Process):
         # baseline emitter step then falls back to RAM (not read).
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
+        "injected_processes": {"_default": {}},
     }
 
     def initialize(self, config):
@@ -123,7 +124,8 @@ class LineageProcess(Process):
             try:
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides)
+                               config_overrides=overrides,
+                               injected_processes=self.config.get("injected_processes"))
             finally:
                 set_null_emitter_override(False)
             self._xarray_pending = True
@@ -142,7 +144,8 @@ class LineageProcess(Process):
             try:
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides)
+                               config_overrides=overrides,
+                               injected_processes=self.config.get("injected_processes"))
             finally:
                 set_parquet_emitter_override(None)
 

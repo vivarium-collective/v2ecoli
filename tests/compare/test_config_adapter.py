@@ -53,6 +53,28 @@ def test_translate_sets_lineage_seed_default_when_absent():
     assert v2["lineage_seed"] == 0
 
 
+def test_translate_maps_max_duration_to_per_gen_cap():
+    # vEcoli's per-generation `max_duration` must become v2's
+    # `max_duration_per_gen`; otherwise v2 defaults to 3600 s and force-divides
+    # slow-growth media (doubling > 60 min) at low mass — a comparison artifact.
+    v2 = translate_vecoli_config(
+        {"experiment_id": "x", "generations": 1, "max_duration": 10000.0})
+    assert v2["max_duration_per_gen"] == 10000.0
+
+
+def test_translate_respects_explicit_per_gen_cap():
+    # an explicit max_duration_per_gen is not overwritten by max_duration
+    v2 = translate_vecoli_config(
+        {"experiment_id": "x", "generations": 1,
+         "max_duration": 10000.0, "max_duration_per_gen": 7000.0})
+    assert v2["max_duration_per_gen"] == 7000.0
+
+
+def test_translate_no_per_gen_cap_when_no_max_duration():
+    v2 = translate_vecoli_config({"experiment_id": "x", "generations": 1})
+    assert "max_duration_per_gen" not in v2
+
+
 def test_resolve_vecoli_config_invokes_vecoli_loader(monkeypatch, tmp_path):
     captured = {}
 

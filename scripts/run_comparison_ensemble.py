@@ -5,9 +5,12 @@ comparison is apples-to-apples (same framework, same compact emitter, same
 compute), with NO Nextflow:
 
   --composite v2ecoli  → v2ecoli's ported ``baseline()`` composite
-  --composite vecoli   → the original vEcoli model as a bigraph composite via
-                         ``build_composite_native`` (the vEcoli ``composite``
-                         branch, auto-wrapped through ``wrap_vivarium_process``)
+  --composite vecoli   → the PRISTINE upstream ``CovertLab/vEcoli`` model, run as
+                         a process-bigraph composite via the EXTERNAL wrapper
+                         (``v2ecoli.library.vecoli_pbg_upstream`` +
+                         ``upstream_division``) with ZERO edits to the upstream
+                         checkout. Opt back into the legacy composite-softfloor
+                         fork with ``--vecoli-source composite-softfloor``.
 
 Each seed runs ``max_generations`` past divisions (``run_multigen_xarray``,
 daughter-following) and emits ONLY the compact comparison ``view`` (8 scalar
@@ -365,13 +368,60 @@ def _ensure_vecoli() -> dict:
     return _VECOLI
 
 
-def _build_vecoli(seed: int, condition: str, cache_dir: str):
-    """Original vEcoli model as a process-bigraph composite (no Nextflow).
+# Known-good upstream-master-compatible sim_data fallback (vEcoli-built ParCa;
+# the v2ecoli-built out/kb pickle predates upstream master's TCS
+# modified_molecules and won't unpickle cleanly under master).
+_UPSTREAM_SIMDATA_FALLBACK = (
+    "/Users/eranagmon/code/v2ecoli/out/compare_harness/vecoli_parca/"
+    "kb/simData.cPickle")
+
+
+def _build_vecoli(seed: int, condition: str, cache_dir: str,
+                  source: str = "upstream"):
+    """Build the ``--composite vecoli`` engine.
+
+    ``source="upstream"`` (DEFAULT) builds the **pristine, unmodified
+    CovertLab/vEcoli** model via the external wrapper
+    (:func:`v2ecoli.library.upstream_division.build_upstream_agents_composite`):
+    upstream ``EcoliSim`` is imported + each vivarium process wrapped externally
+    (ZERO edits to the upstream checkout), placed under a colony ``('agents',)``
+    map with a harness-side pbg division step so it runs multi-generationally
+    through ``run_multigen_xarray``.
+
+    ``source="composite-softfloor"`` (opt-in) builds the legacy
+    vivarium-collective/vEcoli ``composite-softfloor`` fork via
+    ``build_composite_native`` (see :func:`_build_vecoli_composite_softfloor`).
+    """
+    if source == "upstream":
+        from v2ecoli.library.upstream_division import (
+            build_upstream_agents_composite)
+        sim_data_path = os.path.join(cache_dir, "simData.cPickle")
+        if not os.path.exists(sim_data_path):
+            sim_data_path = _UPSTREAM_SIMDATA_FALLBACK
+        composite, _info = build_upstream_agents_composite(
+            seed=seed,
+            condition=condition,
+            sim_data_path=sim_data_path,
+            # monomer_counts_listener is a read-only listener that trips on a
+            # TCS sim_data provenance skew; excluded per the wrapper smoke-driver
+            # precedent. Does not affect the comparison observables.
+            exclude_processes=["monomer_counts_listener"],
+            verbose=True,
+        )
+        return composite
+    if source == "composite-softfloor":
+        return _build_vecoli_composite_softfloor(seed, condition, cache_dir)
+    raise ValueError(f"unknown vecoli source {source!r}")
+
+
+def _build_vecoli_composite_softfloor(seed: int, condition: str, cache_dir: str):
+    """Legacy: vivarium-collective/vEcoli ``composite-softfloor`` fork composite.
 
     Mirrors scripts/run_vecoli_composite.py: ``build_composite_native`` from the
     vEcoli composite-softfloor branch (carries the ppGpp soft-floor). The import
     + global registration happens once via ``_ensure_vecoli``; this builds a
-    fresh per-seed composite on its own ``core``.
+    fresh per-seed composite on its own ``core``. Opt-in via
+    ``--vecoli-source composite-softfloor``.
     """
     v = _ensure_vecoli()
     prev = os.getcwd()
@@ -423,7 +473,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  max_generations: int, max_steps: int, chunk: int,
                  out_root: str, seed_start: int = 0,
                  vecoli_config: str | None = None,
-                 translate_config: bool = False):
+                 translate_config: bool = False,
+                 vecoli_source: str = "upstream"):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
 
@@ -466,7 +517,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                     print(f"[warn] v2 build-config sidecar emit failed: "
                           f"{type(e).__name__} {e}")
         elif composite_kind == "vecoli":
-            composite = _build_vecoli(seed, condition, cache_dir)
+            composite = _build_vecoli(seed, condition, cache_dir,
+                                      source=vecoli_source)
         else:
             raise ValueError(f"unknown composite_kind {composite_kind!r}")
         # include_vectors=True (the xarray_run default): the scalar counts
@@ -517,6 +569,12 @@ def main(argv=None):
     p.add_argument("--out-root", required=True,
                    help="dir or s3:// prefix for per-seed zarr stores.")
     p.add_argument("--mode", default="ray", help="run_seeds_parallel mode (ray/serial).")
+    p.add_argument("--vecoli-source", default="upstream",
+                   choices=["upstream", "composite-softfloor"],
+                   help="--composite vecoli engine: 'upstream' (default) = the "
+                        "pristine CovertLab/vEcoli external wrapper; "
+                        "'composite-softfloor' = the legacy vivarium-collective "
+                        "fork via build_composite_native.")
     p.add_argument("--vecoli-config", default=None,
                    help="vEcoli config path to translate into v2ecoli build "
                         "overrides (PART 3; only used with --translate-vecoli-config).")
@@ -533,7 +591,8 @@ def main(argv=None):
         cache_dir=args.cache_dir, max_generations=args.max_generations,
         max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
         seed_start=args.seed_start, vecoli_config=args.vecoli_config,
-        translate_config=args.translate_vecoli_config)
+        translate_config=args.translate_vecoli_config,
+        vecoli_source=args.vecoli_source)
     parallel = run_seeds_parallel(seeds, run_one, mode=args.mode)
     summaries = getattr(parallel, "results", parallel)
     ensemble = {"composite": args.composite, "condition": args.condition,

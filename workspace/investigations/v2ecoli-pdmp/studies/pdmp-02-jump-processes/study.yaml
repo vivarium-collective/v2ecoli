@@ -350,10 +350,7 @@ interventions: []
 runs: []
 bibliography:
   bib_keys:
-  - dibaeinia2020
-  - blom2023
   - kuritz2017
-  - metz1986
 report:
   confidence: design-stage
   evidence_quality: scaffold
@@ -810,10 +807,6 @@ biological_summary: 'Aims to represent the cell''s discrete molecular events (tr
   mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the
   direct event counts (rna_init) carry ~30× more variance, so the stochasticity lives at the count level.'
 literature_anchors:
-- key: dibaeinia2020
-  relevance: Stochastic gene-expression / network simulation context for the jump-process layer.
-- key: metz1986
-  relevance: First-passage-time / renewal-theory basis for division-time distributions.
 - key: kuritz2017
   relevance: Inference/identifiability framing for stochastic single-cell dynamics.
 model_change: 'Replace fixed-timestep discrete updates of the stochastic subprocesses with a continuous-time

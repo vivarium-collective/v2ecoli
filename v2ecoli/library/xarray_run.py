@@ -589,28 +589,35 @@ def run_multigen_xarray(
         try:
             composite.run(chunk)
         except Exception as e:
-            # A graceful end-of-run (e.g. a composite that can't divide further)
-            # raises here after emitting real data — stay lenient in that case.
-            # But a failure on the VERY FIRST chunk (done still at the warm-up
-            # value of 1) means the composite never produced any observable
-            # data; silently breaking yields an empty-but-valid zarr and a
-            # misleading success. Fail loud with the full traceback instead.
-            if done <= 1:
-                import traceback as _tb
-                print(f"[multigen_xarray] composite FAILED on first chunk "
-                      f"(no data emitted):\n{_tb.format_exc()}")
-                raise
-            # Past the first chunk we stay lenient (a composite that can no
-            # longer divide legitimately raises here after emitting real data).
-            # But print the FULL traceback, never just a truncated message: an
-            # IOError / emitter crash mid-generation looks identical to a
-            # graceful end-of-lineage in an 80-char snippet, and silently
-            # breaking truncated whole generations (the gen-2-at-780s bug).
+            # FAIL LOUD when a crash TRUNCATES the requested run. A swallowed
+            # ``break`` here returns normally → the process exits 0 → the batch
+            # job reports SUCCESS while having written only partial, often
+            # unreadable data (the 4x4x5 crash that masqueraded as success).
+            #
+            # The ONLY tolerable raise is one that fires AFTER all requested
+            # generations have already completed (``gen >= max_generations`` and
+            # we are past the warm-up tick) — post-run noise, e.g. a cell that
+            # can no longer divide. Everything else — a crash mid-generation,
+            # before the requested generation count — is a real failure that
+            # must surface as a non-zero exit, never a silent truncation.
             import traceback as _tb
-            print(f"[multigen_xarray] composite raised at {done}s; ending "
-                  f"lineage here (full traceback below for diagnosis):\n"
-                  f"{_tb.format_exc()}")
-            break
+            tb = _tb.format_exc()
+            reached_target = gen >= max_generations and done > 1
+            print(f"[multigen_xarray] composite raised at {done}s "
+                  f"(gen {gen}/{max_generations}, target_reached={reached_target}):\n{tb}",
+                  flush=True)
+            if reached_target:
+                break
+            # Finalize whatever data exists (for diagnosis) then re-raise so the
+            # batch job FAILS visibly instead of exiting 0 with a partial zarr.
+            try:
+                em.close(success=False)
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"[multigen_xarray] composite CRASHED at {done}s in generation "
+                f"{gen} (requested {max_generations} generations) — failing loud; "
+                f"see traceback above") from e
         done += chunk
         agents = (composite.state or {}).get("agents") or {}
         curr_ids = set(agents.keys())

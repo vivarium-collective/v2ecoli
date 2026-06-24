@@ -217,6 +217,16 @@ def _write_sim_input_bundle(loader, bundle_dir):
     with open(cache_path, 'wb') as f:
         dill.dump(cache, f)
 
+    # Also dump the RAW SimulationData as vEcoli's classic simData.cPickle so the
+    # vEcoli composite (ecoli.library.sim_data.LoadSimData, via sim_data_path)
+    # can consume the SAME ParCa output as the v2ecoli composite — identical
+    # sim_data isolates the MODEL difference in the v2ecoli↔vEcoli comparison.
+    # v2ecoli's own composite uses the `configs` dict above and ignores this file.
+    import pickle as _pickle
+    simdata_path = os.path.join(bundle_dir, 'simData.cPickle')
+    with open(simdata_path, 'wb') as f:
+        _pickle.dump(loader.sim_data, f, protocol=_pickle.HIGHEST_PROTOCOL)
+
     save_json({'unique_names': unique_names},
               os.path.join(bundle_dir, 'metadata.json'))
     write_cache_version(bundle_dir)

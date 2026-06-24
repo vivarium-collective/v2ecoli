@@ -51,6 +51,10 @@ dependencies = [
     # [tool.uv.sources] for uv-native resolution.
     "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
     "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
+    # NeuralProcess surrogate of the baseline (investigations/surrogate-modeling).
+    # Pulls torch; surfaced in the dashboard Registry via build_core() + the
+    # dashboard.registry.include allow-list in workspace.yaml.
+    "pbg-torch @ git+https://github.com/vivarium-collective/pbg-torch.git@main",
 ]
 
 [project.optional-dependencies]
@@ -110,6 +114,7 @@ pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.gi
 pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git", branch = "main" }
 pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
+pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
 vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }

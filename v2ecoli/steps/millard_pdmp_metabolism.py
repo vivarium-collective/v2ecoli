@@ -295,8 +295,12 @@ class MillardPDMPMetabolism(Process):
 
     def outputs(self):
         return {
-            "species_concentrations": InPlaceDict(),
-            "central_fluxes": InPlaceDict(),
+            # mM concentrations / mM/s fluxes (see module docstring + the medium-
+            # exchange notes above). inplace_dict[<unit>] keeps the in-place merge
+            # apply these shared stores require while declaring the value unit so
+            # units_resolver labels them like the tFBA Metabolism's fba_results.
+            "species_concentrations": "inplace_dict[float[mM]]",
+            "central_fluxes": "inplace_dict[float[mM/s]]",
             "control_applied": InPlaceDict(),
             "bulk": "bulk_array",
             # Per-tick signed molecule-count exchange with the medium, keyed by

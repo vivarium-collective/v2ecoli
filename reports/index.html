@@ -1,7 +1,23 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><title>v2ecoli</title>
-<link rel="stylesheet" href="assets/style.css?v=1780023143_1779982631">
+<link rel="stylesheet" href="assets/style.css?v=1781620843_1781453160">
+<link rel="stylesheet" href="assets/snapshot-readonly.css">
+<script>
+// Per-workspace branding (rail logo, title, brand text) is resolved
+// server-side at GET / and is NOT re-applied by any client script. The
+// cross-workspace switcher navigates between dashboard ports with a full
+// location.assign(), so a round-trip switch (workspace A -> B -> A) relies on
+// the browser actually re-running GET / for A to restore A's custom branding.
+// Modern browsers instead restore A from the back/forward cache (bfcache) — a
+// frozen DOM snapshot served WITHOUT a new server render — so A's branding can
+// come back stale (the Vivarium default that was showing when A was frozen).
+// `Cache-Control: no-store` on sub-resources does not disable page bfcache.
+// Force a real reload on bfcache restore so branding is always re-rendered.
+window.addEventListener('pageshow', function (e) {
+  if (e.persisted) { window.location.reload(); }
+});
+</script>
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
 /* Modal overlay */
@@ -48,6 +64,15 @@
   border-radius: 4px; cursor: pointer; font-size: 0.88em;
 }
 .action-btn:hover { background: #bbdefb; }
+/* Emitter-type pills for the Simulations DB table */
+.emitter-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.emitter-sqlite  { background: #e5e7eb; color: #374151; }   /* gray  */
+.emitter-parquet { background: #fef3c7; color: #92400e; }   /* amber */
+.emitter-xarray  { background: #ccfbf1; color: #0f766e; }   /* teal  */
+.emitter-none    { background: transparent; color: #9ca3af; }   /* no emitter (summary-only) */
 .action-btn--secondary {
   margin-top: 10px; padding: 5px 12px;
   border: 1px solid #b91c1c; background: #fef2f2;
@@ -103,16 +128,43 @@
 }
 
 /* Workspace switcher (top of the left rail). */
-.viv-workspace-switcher { position: relative; padding: 8px 12px; }
-.viv-workspace-switcher-trigger {
-  display: flex; align-items: center; gap: 6px;
-  width: 100%; padding: 6px 8px; background: #fff;
-  border: 1px solid #ddd; border-radius: 4px; cursor: pointer;
-  font-size: 13px;
+.viv-workspace-switcher { position: relative; padding: 0; }
+/* One dashboard per repo: the workspace name is a built-in FIXTURE — a quiet
+   caption sitting directly under the Vivarium brand. NOT a control: no box, no
+   background, no border, no hover, default cursor. Just a small status dot + the
+   repo name in muted text. */
+.viv-workspace-name {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 16px 10px;
+  margin: 0;
+  font-size: 12.5px; font-weight: 600;
+  color: #64748b; cursor: default;
+  background: none; border: none; border-radius: 0;
 }
-.viv-workspace-switcher-trigger:hover { background: #f5f5f5; }
+.viv-workspace-name strong { font-weight: 600; }
+.viv-workspace-name .viv-workspace-switcher-glyph { font-size: 8px; }
 .viv-workspace-switcher-glyph { color: #2ea043; font-size: 14px; }
 .viv-glyph-running { color: #2ea043; }
+/* The workspace name links to its GitHub repo; a small mark signals it. */
+.viv-ws-repo-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: inherit; text-decoration: none;
+}
+.viv-ws-repo-link strong { font-weight: 600; }
+.viv-ws-repo-link:hover { color: #0f172a; }
+.viv-ws-gh-mark { flex: none; color: #94a3b8; }
+.viv-ws-repo-link:hover .viv-ws-gh-mark { color: #0f172a; }
+/* Collapsed rail: a single centered GitHub mark (the switcher is hidden). */
+.viv-rail-repo-mini { display: none; }
+.viv-rail.viv-rail-collapsed .viv-rail-repo-mini {
+  display: flex; justify-content: center; align-items: center;
+  /* Sit in the nav-icon rhythm: breathing room under the brand avatar, not
+     crammed against it. Muted to match the expanded name's GitHub mark. */
+  padding: 10px 0 14px; color: #94a3b8;
+}
+.viv-rail.viv-rail-collapsed .viv-rail-repo-mini:hover { color: #0f172a; }
+/* Keep the snapshot repo label out of the collapsed rail (avoids truncation). */
+.viv-rail.viv-rail-collapsed #snapshot-repo-label { display: none !important; }
 .viv-glyph-stopped { color: #999; }
 .viv-glyph-stale   { color: #d29922; }
 .viv-glyph-missing { color: #cf222e; }
@@ -292,24 +344,51 @@
   <!-- LEFT RAIL -->
   <aside id="viv-rail" class="viv-rail">
 
-    <!-- Brand + workspace switcher -->
+    <!-- Brand: fixed Vivarium logo + name (no per-workspace icon/name override). -->
     <div class="viv-rail-header">
-      <img class="viv-rail-logo" src="assets/vivarium-logo.png" alt="Vivarium" loading="lazy">
+      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1781620843_1781453160" alt="Vivarium" loading="lazy">
       <div class="viv-rail-brand">
         <strong>Vivarium</strong>
         <small>dashboard</small>
       </div>
     </div>
 
+    
+    <!-- GitHub mark, defined once and reused (workspace-name link + collapsed icon). -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="viv-gh-mark" viewBox="0 0 16 16"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></symbol></svg>
+    
+
     <div class="viv-workspace-switcher" id="viv-workspace-switcher">
-      <button class="viv-workspace-switcher-trigger" type="button"
-              aria-haspopup="true" aria-expanded="false"
-              id="viv-workspace-switcher-trigger">
+      <!-- One dashboard per repo: the workspace name IS the link to the
+           associated GitHub repository (git remote origin). -->
+      <div class="viv-workspace-name">
         <span class="viv-workspace-switcher-glyph">●</span>
-        <strong>v2ecoli</strong>
-        <span class="viv-arrow">▾</span>
-      </button>
+        
+        <a class="viv-ws-repo-link" href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener"
+           title="Open v2ecoli on GitHub">
+          <strong>v2ecoli</strong>
+          <svg class="viv-ws-gh-mark" width="12" height="12"><use href="#viv-gh-mark"/></svg>
+        </a>
+        
+      </div>
     </div>
+    <!-- Snapshot mode: static repo label replaces the switcher dropdown. -->
+    <div class="viv-repo-label" id="snapshot-repo-label" style="display:none">
+      <span class="viv-workspace-switcher-glyph">●</span>
+      
+      <a class="viv-ws-repo-link" href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener"
+         title="Open v2ecoli on GitHub"><strong>v2ecoli</strong>
+        <svg class="viv-ws-gh-mark" width="12" height="12"><use href="#viv-gh-mark"/></svg></a>
+      
+    </div>
+
+    
+    <!-- Collapsed rail: a single centered GitHub mark linking to the repo. -->
+    <a class="viv-rail-repo-mini" href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener"
+       title="Open v2ecoli on GitHub" aria-label="GitHub repository">
+      <svg width="16" height="16"><use href="#viv-gh-mark"/></svg>
+    </a>
+    
 
     <!-- Primary nav -->
     <nav class="viv-rail-section" role="tablist">
@@ -323,7 +402,7 @@
             <rect x="12" y="4" width="10" height="16" rx="1"/>
           </svg>
         </span>
-        <span class="viv-rail-link-label">Inputs</span>
+        <span class="viv-rail-link-label">Sources</span>
       </a>
       <!-- Registry: 3×2 grid of stores — the type catalog. Top row of
            circles (continuous-type stores) over a bottom row of squares
@@ -369,7 +448,7 @@
             <path d="M8.5 12L16 19"/>
           </svg>
         </span>
-        <span class="viv-rail-link-label">Investigation</span>
+        <span class="viv-rail-link-label">Investigations</span>
       </a>
       <a href="#simulations"       class="viv-rail-link menu-link" data-page="simulations">
         <span class="viv-rail-link-icon">
@@ -401,7 +480,7 @@
             <circle cx="19" cy="10" r="1.05" fill="currentColor" stroke="none"/>
           </svg>
         </span>
-        <span class="viv-rail-link-label">Visualizations</span>
+        <span class="viv-rail-link-label">Analyses</span>
       </a>
       <!-- Branch: workspace branch + remote (formerly "GitHub"). The icon
            is a branch-and-node glyph; renaming the label to "Branch"
@@ -424,7 +503,7 @@
     </nav>
 
     <!-- Studies of the active investigation, dependency-ordered. -->
-    <div class="viv-rail-section">
+    <div class="viv-rail-section" id="viv-rail-studies-section">
       <div class="viv-rail-section-label">Studies</div>
       <div id="viv-rail-investigations">
         <p class="viv-rail-empty" style="font-size:0.85em;color:#9ca3af;padding:4px 12px">Loading…</p>
@@ -468,525 +547,31 @@
   <!-- MAIN: topbar + content -->
   <div class="viv-main">
 
-    <header class="viv-topbar">
-      <nav class="viv-topbar-breadcrumbs" id="viv-breadcrumbs">
-        <span>v2ecoli dashboard</span>
-      </nav>
-      <div class="viv-topbar-actions" id="viv-topbar-actions">
-        <!-- Git status strip + Open-PR button were here; moved into the
-             GitHub tab (Workspace → GitHub) for a cleaner topbar. The JS
-             (_refreshGitStatus) still targets #viv-git-status by id and
-             populates it wherever it lives. -->
-        <span class="viv-btn viv-tooltip" data-tooltip="Coming soon — share workspace link">Share</span>
-        <span class="viv-kebab viv-tooltip" data-tooltip="Workspace settings — coming soon">⋯</span>
-        
-        
-        <a class="viv-avatar viv-avatar-topbar viv-avatar-link"
-           href="https://github.com/eagmon"
-           target="_blank" rel="noopener"
-           title="eagmon · agmon.eran@gmail.com">EA</a>
-        
-      </div>
-    </header>
+    <!-- Read-only snapshot banner — hidden in local mode; shown when body.snapshot is set.
+         The link points at the vivarium-dashboard repo (clone + `vivarium-dashboard
+         serve` to run the full interactive dashboard locally); there is no hosted
+         interactive version. -->
+    <div id="snapshot-banner">
+      <span>Read-only snapshot &mdash; run the dashboard locally for the full interactive version.</span>
+      <a id="snapshot-interactive-link"
+         href="https://github.com/vivarium-collective/vivarium-dashboard#readme"
+         target="_blank" rel="noopener">Get vivarium-dashboard on GitHub →</a>
+    </div>
+
+    <!-- Top banner removed — was a non-functional breadcrumb + "Coming soon" Share/settings placeholders + a decorative avatar. -->
 
     <main class="viv-content pages" id="viv-content">
 
 <!-- ===== PAGE: WORKSPACE INPUTS ===== -->
 <section id="page-workspace-inputs" class="page" data-page="workspace-inputs">
-  <h2 class="page-title">Inputs</h2>
-  <p class="page-lead">External resources you bring into the workspace. Datasets feed validation, references and expert docs anchor the science. Simulation modules (the Python packages providing Processes/Steps) live in the <a href="#registry">Registry</a> tab.</p>
+  <h2 class="page-title">Sources</h2>
+  <p class="page-lead">The loaded investigation's sources come first &mdash; the datasets, references, and expert docs it owns. Below them are the repo-wide / shared data sources every investigation can draw on (imported source packages plus shared datasets and references). Simulation modules (the Python packages providing Processes/Steps) live in the <a href="#registry">Registry</a> tab.</p>
 
-  <!-- Datasets panel -->
-  <div class="panel">
-    <h3>Datasets</h3>
-    <p class="panel-lead">Register datasets your model will compare against. Each entry maps to specific model claims it supports.</p>
-    
-    <p style="color:#888;font-style:italic">No datasets registered yet.</p>
-    
-    <button class="action-btn" onclick="openModal('modal-dataset')">+ Add dataset</button>
-  </div>
-
-  <!-- Expert knowledge panel — card layout (replaces cramped 5-column table) -->
-  <div class="panel">
-    <h3>Expert knowledge</h3>
-    <p class="panel-lead">Curated expert documents &mdash; PDFs, lab notes, expert review docs &mdash; that aren&rsquo;t formal publications but capture domain knowledge driving the model. Linked to the claims they support.</p>
-    
-    <div class="expert-docs-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:14px;margin-bottom:12px">
-    
-      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-          <strong style="font-size:1.02em;flex:1">multiscale_bioprocess_roadmap</strong>
-          
-            
-              <span class="file-status status-ok" style="font-size:0.78em">✓ 2.1 KB</span>
-            
-            <a href="/references/expert/multiscale_bioprocess_roadmap.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
-          
-        </div>
-        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">references/expert/multiscale_bioprocess_roadmap.md</div>
-        
-        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Pointer to the upstream vivarium-collective/multiscale-bioprocess
-roadmap (chris/initial-scaffolding) that inspired (but is diverged
-from by) the v2ecoli-workspace multiscale-bioprocess investigation.
-</p>
-        
-        
-        
-      </div>
-    
-      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-          <strong style="font-size:1.02em;flex:1">cell_side_interface_contract</strong>
-          
-            
-              <span class="file-status status-ok" style="font-size:0.78em">✓ 8.8 KB</span>
-            
-            <a href="/references/expert/cell_side_interface_contract.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
-          
-        </div>
-        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">references/expert/cell_side_interface_contract.md</div>
-        
-        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">The substitutability story made concrete: what an engine wired to
-the reactor MUST provide (inputs / outputs / lifecycle hooks /
-identifier scheme). Load-bearing for mbp-03 (Monod → v2ecoli swap)
-and for future engine comparator studies (dFBA, surrogate, WCM
-variants). Inherits the upstream multiscale-bioprocess roadmap's
-"engine substitution as a phase boundary" open question.
-</p>
-        
-        
-        
-      </div>
-    
-      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-          <strong style="font-size:1.02em;flex:1">palsson_2025_fed_batch</strong>
-          
-            
-              <span class="file-status status-ok" style="font-size:0.78em">✓ 4.3 KB</span>
-            
-            <a href="/references/expert/palsson_2025_fed_batch.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
-          
-        </div>
-        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">references/expert/palsson_2025_fed_batch.md</div>
-        
-        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Beulig F, ..., Palsson B. "Trade-off between resistance and persistence
-in high cell density cultures." mSystems 10(7), 2025.
-doi:10.1128/msystems.00323-25. Open access; PDF at
-references/papers/Beulig_2025_mSystems_high_cell_density.pdf. The
-quantitative benchmark targeted by study mbp-05. Bib key
-`Beulig2025mSystems` in references/papers.bib.
-</p>
-        
-        
-        
-      </div>
-    
-      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
-          <strong style="font-size:1.02em;flex:1">chris_feedback_2026_05_26</strong>
-          
-            
-              <span class="file-status status-ok" style="font-size:0.78em">✓ 33 KB</span>
-            
-            <a href="/references/expert/chris_feedback_2026_05_26.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
-          
-        </div>
-        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">references/expert/chris_feedback_2026_05_26.md</div>
-        
-        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Structured digest of Chris Long's inline-feedback review on the
-multiscale-bioprocess investigation (rpt-20260523011545, exported
-2026-05-26). Drives the next-round spec revisions: mbp-01 plumbing/
-biology split, mbp-02 cells_per_agent scaling, mbp-03 Option-B
-BiRDTransportProcess fork, mbp-04 explicit C/N auditor requirements,
-mbp-05 reframe as evaluation phase with generic comparison_overlays,
-mbp-06 carried-forward priors + resolution_type schema. Raw YAML
-preserved at references/expert/raw/chris_feedback_2026_05_26.yaml.
-MUST be read before drafting any further mbp-* spec edits or
-advancing a study to Build phase.
-</p>
-        
-        
-        
-      </div>
-    
-    </div>
-    
-    <button class="action-btn" onclick="openModal('modal-expert-doc')">+ Add expert document</button>
-  </div>
-
-  <!-- References panel — papers.bib explorer + PDF status + add-reference action -->
-  <div class="panel">
-    <h3>References <span class="muted" style="font-size:0.75em;font-weight:normal">(9 entries, 0 PDFs in references/papers.bib)</span></h3>
-    <p class="panel-lead">Formal publications cited across the studies, plus the PDFs committed alongside them. Click any card to expand its details; click <em>Open ↗</em> to access the paper. Reading notes (if present) live at <code>references/notes/&lt;bib-key&gt;.md</code>. Adds entries to <code>references/papers.bib</code> and <code>references/claims.yaml</code>.</p>
-
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
-      <input type="search" id="bib-filter" placeholder="Filter by key, title, author, year…"
-             style="flex:1;min-width:240px;max-width:480px;padding:6px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:0.9em"
-             oninput="_filterBibEntries(this.value)">
-      <button class="action-btn" onclick="openModal('modal-reference')">+ Add reference (PDF)</button>
-    </div>
-
-    
-    
-
-    
-
-    
-    <div id="bib-entries-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px">
-    
-      <details class="bib-entry" data-key="beulig2025msystems" data-title="trade-off between resistance and persistence in high cell density cultures" data-author="beulig, f. and bafna-r\"uhrer, j. and jensen, p. e. and kim, s. h. and patel, a. and kandasamy, v. and steffen, c. and decker, k. and zielinski, d. and yang, l. and \"ozdemir, e. and sudarsan, s. and palsson, b." data-year="2025"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Beulig2025mSystems</code>
-            <span class="muted" style="font-size:0.82em">2025</span>
-            <span style="font-size:0.85em">mSystems</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">Trade-off between resistance and persistence in high cell density cultures</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Beulig, F. and Bafna-R\"uhrer, J. and Jensen, P. E. and Kim, S. H. and Patel, A. and Kandasamy, V. and Steffen, C. and Decker, K. and Zielinski, D. and Yang, L. and \"Ozdemir, E. and Sudarsan, S. and Palsson, B.</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>mSystems</em> 10(7) (2025).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1128/msystems.00323-25" target="_blank">10.1128/msystems.00323-25</a></p>
-          <p style="margin:4px 0"><strong>URL:</strong> <a href="https://journals.asm.org/doi/10.1128/msystems.00323-25" target="_blank">Open ↗</a></p>
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Open access (CC BY 4.0). Received 6 March 2025; Accepted 7 May 2025; Published 13 June 2025. Two-stage batch-to-fed-batch fermentation, exponential feeding, to high cell density (50–80 gDW/L). 5 strain groups (BW25113 WT, 31 single-gene knockouts SGKO, TRP, TRPp, melatonin MEL); 4 fermentation phases I–IV; >470 transcriptomic samples. Senior author B. Palsson. PDF in references/papers/Beulig_2025_mSystems_high_cell_density.pdf.</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="monod1949annrevmicrobiol" data-title="the growth of bacterial cultures" data-author="monod, jacques" data-year="1949"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Monod1949AnnRevMicrobiol</code>
-            <span class="muted" style="font-size:0.82em">1949</span>
-            <span style="font-size:0.85em">Annual Review of Microbiology</span>
-            
-            
-            
-            
-            
-            <button class="ref-handoff-btn"
-                    data-bib-key="Monod1949AnnRevMicrobiol"
-                    data-bib-title="The growth of bacterial cultures"
-                    data-bib-author="Monod, Jacques"
-                    data-bib-year="1949"
-                    data-bib-journal="Annual Review of Microbiology"
-                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
-                    title="Copy a per-entry Claude Code research prompt to your clipboard"
-                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">The growth of bacterial cultures</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Monod, Jacques</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Annual Review of Microbiology</em> 3, pp. 371--394 (1949).</p>
-          
-          
-          
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Source for Monod kinetics (placeholder cell process in mbp-01).</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="sander2015atmoschemphys" data-title="compilation of henry's law constants (version 4.0) for water as solvent" data-author="sander, r." data-year="2015"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Sander2015AtmosChemPhys</code>
-            <span class="muted" style="font-size:0.82em">2015</span>
-            <span style="font-size:0.85em">Atmospheric Chemistry and Physics</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">Compilation of Henry's law constants (version 4.0) for water as solvent</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Sander, R.</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Atmospheric Chemistry and Physics</em> 15, pp. 4399--4981 (2015).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.5194/acp-15-4399-2015" target="_blank">10.5194/acp-15-4399-2015</a></p>
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Source for O2/CO2 Henry constants used in mbp-02 kLa transport.</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="gardengarciaochoa2009biotechadv" data-title="bioreactor scale-up and oxygen transfer rate in microbial processes: an overview" data-author="garcia-ochoa, felix and gomez, emilio" data-year="2009"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">GardenGarciaOchoa2009BiotechAdv</code>
-            <span class="muted" style="font-size:0.82em">2009</span>
-            <span style="font-size:0.85em">Biotechnology Advances</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">Bioreactor scale-up and oxygen transfer rate in microbial processes: An overview</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Garcia-Ochoa, Felix and Gomez, Emilio</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Biotechnology Advances</em> 27, pp. 153--176 (2009).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.biotechadv.2008.10.006" target="_blank">10.1016/j.biotechadv.2008.10.006</a></p>
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Reference for kLa correlations and oxygen transfer in stirred bioreactors (mbp-02).</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="vemuri2006applenvironmicrobiol" data-title="overflow metabolism in escherichia coli during steady-state growth: transcriptional regulation and effect of the redox ratio" data-author="vemuri, g. n. and altman, e. and sangurdekar, d. p. and khodursky, a. b. and eiteman, m. a." data-year="2006"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Vemuri2006ApplEnvironMicrobiol</code>
-            <span class="muted" style="font-size:0.82em">2006</span>
-            <span style="font-size:0.85em">Applied and Environmental Microbiology</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">Overflow metabolism in Escherichia coli during steady-state growth: Transcriptional regulation and effect of the redox ratio</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Vemuri, G. N. and Altman, E. and Sangurdekar, D. P. and Khodursky, A. B. and Eiteman, M. A.</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Applied and Environmental Microbiology</em> 72, pp. 3653--3661 (2006).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1128/AEM.72.5.3653-3661.2006" target="_blank">10.1128/AEM.72.5.3653-3661.2006</a></p>
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Acetate overflow under low DO; cited in mbp-03 acceptance tests.</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="basan2015nature" data-title="overflow metabolism in \em escherichia coli results from efficient proteome allocation" data-author="basan, markus and hui, sheng and okano, hiroyuki and zhang, zhongge and shen, yang and williamson, james r. and hwa, terence" data-year="2015"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Basan2015Nature</code>
-            <span class="muted" style="font-size:0.82em">2015</span>
-            <span style="font-size:0.85em">Nature</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">Overflow metabolism in \em Escherichia coli results from efficient proteome allocation</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Basan, Markus and Hui, Sheng and Okano, Hiroyuki and Zhang, Zhongge and Shen, Yang and Williamson, James R. and Hwa, Terence</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Nature</em> 528, pp. 99--104 (2015).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/nature15765" target="_blank">10.1038/nature15765</a></p>
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Proteome-allocation explanation of acetate overflow.</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="enjalbert2017scirep" data-title="acetate fluxes in \em escherichia coli are determined by the thermodynamic control of the pta-acka pathway" data-author="enjalbert, brice and millard, pierre and dinclaux, mickael and portais, jean-charles and letisse, fabien" data-year="2017"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Enjalbert2017SciRep</code>
-            <span class="muted" style="font-size:0.82em">2017</span>
-            <span style="font-size:0.85em">Scientific Reports</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">Acetate fluxes in \em Escherichia coli are determined by the thermodynamic control of the Pta-AckA pathway</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Enjalbert, Brice and Millard, Pierre and Dinclaux, Mickael and Portais, Jean-Charles and Letisse, Fabien</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Scientific Reports</em> 7, pp. 42135 (2017).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/srep42135" target="_blank">10.1038/srep42135</a></p>
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Acetate reconsumption phase; cited in mbp-03.</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="lee1996trendsbiotechnol" data-title="high cell-density culture of \em escherichia coli" data-author="lee, sang yup" data-year="1996"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Lee1996TrendsBiotechnol</code>
-            <span class="muted" style="font-size:0.82em">1996</span>
-            <span style="font-size:0.85em">Trends in Biotechnology</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">High cell-density culture of \em Escherichia coli</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Lee, Sang Yup</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Trends in Biotechnology</em> 14, pp. 98--105 (1996).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/0167-7799(96)80930-9" target="_blank">10.1016/0167-7799(96)80930-9</a></p>
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Fed-batch operations reference; cited in mbp-04.</p>
-          
-          
-        </div>
-      </details>
-    
-      <details class="bib-entry" data-key="korz1995jbiotechnol" data-title="simple fed-batch technique for high cell density cultivation of \em escherichia coli" data-author="korz, d. j. and rinas, u. and hellmuth, k. and sanders, e. a. and deckwer, w.-d." data-year="1995"
-               style="border-radius:8px;padding:10px 14px">
-        <summary style="cursor:pointer;list-style:none">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
-            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Korz1995JBiotechnol</code>
-            <span class="muted" style="font-size:0.82em">1995</span>
-            <span style="font-size:0.85em">Journal of Biotechnology</span>
-            
-            
-            
-            
-            
-          </div>
-          <div style="margin-top:5px;font-weight:500">Simple fed-batch technique for high cell density cultivation of \em Escherichia coli</div>
-          <div class="muted" style="font-size:0.85em;margin-top:3px">Korz, D. J. and Rinas, U. and Hellmuth, K. and Sanders, E. A. and Deckwer, W.-D.</div>
-        </summary>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
-          
-          <p style="margin:4px 0"><em>Journal of Biotechnology</em> 39, pp. 59--65 (1995).</p>
-          
-          
-          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/0168-1656(94)00143-Z" target="_blank">10.1016/0168-1656(94)00143-Z</a></p>
-          
-          
-          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Exponential feed protocol; cited in mbp-04.</p>
-          
-          
-        </div>
-      </details>
-    
-    </div>
-    <script>
-      function _filterBibEntries(q) {
-        q = (q || '').toLowerCase().trim();
-        document.querySelectorAll('#bib-entries-grid .bib-entry').forEach(function(el) {
-          var hay = (el.dataset.key + ' ' + el.dataset.title + ' ' + el.dataset.author + ' ' + el.dataset.year).toLowerCase();
-          el.style.display = (!q || hay.indexOf(q) >= 0) ? '' : 'none';
-        });
-      }
-
-      // Per-entry "hand off to Claude" — builds a focused single-entry
-      // research prompt and copies it to the user's clipboard. Pasted into
-      // any Claude Code session running in this workspace, the agent
-      // searches for the paper, downloads an OA PDF if available, and
-      // updates references/papers.bib + workspace.yaml.references_pdfs.
-      // Replaces the previous bulk "hand off N references" banner: users
-      // now triage one paper at a time as they're browsing the
-      // bibliography.
-      function _handOffRef(btn) {
-        var d = btn.dataset;
-        var citation = '- ' + d.bibKey + ' — "' + d.bibTitle + '" (' +
-                       d.bibAuthor + ', ' + d.bibYear +
-                       (d.bibJournal ? ', ' + d.bibJournal : '') + ')';
-        var prompt =
-          'Resolve this reference in `references/papers.bib`:\n\n' +
-          citation + '\n\n' +
-          'Do the following, then commit on the active workstream branch:\n\n' +
-          '1. Search the web for the paper using its title + first author + year.\n' +
-          '   Use WebSearch / WebFetch to find the canonical publisher page.\n' +
-          '2. Note the DOI and the publisher URL.\n' +
-          '3. If an open-access PDF is available (publisher, arXiv, bioRxiv,\n' +
-          '   PubMed Central, author site, institutional repository, …),\n' +
-          '   download it to `references/' + d.bibKey + '.pdf` and add the\n' +
-          '   entry to `workspace.yaml.references_pdfs` with the sha256 of\n' +
-          '   the downloaded file.\n' +
-          '4. Edit the entry in `references/papers.bib` to add `doi = {...}`\n' +
-          '   and `url = {...}` fields where missing. Preserve the existing\n' +
-          '   entry structure.\n' +
-          '5. If you cannot find a freely-available PDF but can identify a\n' +
-          '   stable URL, just add the `url` / `doi` and skip the PDF download.\n' +
-          '6. After updating, run `python scripts/lint-workspace.py` to confirm\n' +
-          '   nothing is broken.\n\n' +
-          'Short-circuit DOI + Unpaywall lookup with:\n' +
-          '    curl -X POST -H \'Content-Type: application/json\' \\\n' +
-          '         -d \'{"key":"' + d.bibKey + '"}\' \\\n' +
-          '         http://localhost:8765/api/references-fetch\n\n' +
-          '…but treat that as a fallback — manual search usually finds links\n' +
-          'Unpaywall misses (paywalled DOIs the publisher hosts a free PDF\n' +
-          'for, preprint servers, etc.).\n';
-        var done = function(ok) {
-          var orig = btn.textContent;
-          btn.textContent = ok ? '✓ Copied' : '⚠ Copy failed';
-          btn.disabled = true;
-          setTimeout(function() { btn.textContent = orig; btn.disabled = false; }, 1800);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(prompt).then(function() { done(true); },
-                                                      function() { done(false); });
-        } else {
-          // Fallback: stash in a temporary textarea + execCommand for
-          // older browsers / non-HTTPS contexts.
-          var ta = document.createElement('textarea');
-          ta.value = prompt;
-          document.body.appendChild(ta);
-          ta.select();
-          try { done(document.execCommand('copy')); } catch (e) { done(false); }
-          document.body.removeChild(ta);
-        }
-      }
-      window._handOffRef = _handOffRef;
-    </script>
-    
+  <!-- Investigation-first inputs, rendered client-side from /api/inputs.
+       Single source of truth for the datasets/references/expert-docs lists;
+       the management panels below provide the add/edit actions + bib explorer. -->
+  <div id="inputs-api-render" class="panel">
+    <p class="muted" style="font-style:italic">Loading inputs…</p>
   </div>
 
 </section>
@@ -1021,34 +606,16 @@ advancing a study to Build phase.
 
 </section>
 
-<!-- ===== PAGE: VISUALIZATIONS ===== -->
+<!-- ===== PAGE: ANALYSES ===== -->
 <section id="page-visualizations" class="page" data-page="visualizations">
-  <h2 class="page-title">Visualizations</h2>
-  <p class="page-lead">Charts rendered from observable trajectories. Either configure a registered class with specific settings, or describe what to plot in natural language and let <code>/pbg-viz</code> generate the function.</p>
+  <h2 class="page-title">Analyses</h2>
+  <p class="page-lead">A gallery of special, saved, interactive visualizations for this workspace &mdash; embedded <strong>3D structural models</strong> (parsimony packs) and a <strong>Pathway Tools</strong> Omics-Viewer launcher. Looking for the chart/analysis <em>class</em> catalog? It now lives in <a href="#registry" onclick="setTimeout(function(){_setRegistrySubtab&amp;&amp;_setRegistrySubtab('discovered');_setRegistryTab&amp;&amp;_setRegistryTab('visualization');},0)">Registry &rarr; Discovered &rarr; Visualizations</a>.</p>
 
-
-  <!-- Workspace visualizations (workspace.yaml-driven, primary panel) -->
   <div class="panel">
-    <h3>Workspace visualizations</h3>
-    <p class="panel-lead">Configured visualizations registered in <code>workspace.yaml</code>. <strong>Class-backed</strong> entries are ready to use immediately in investigations. <strong>Description-only</strong> entries follow the Create/Add/Commit lifecycle to generate code via <code>/pbg-viz</code>.</p>
-    <div style="margin-bottom:8px">
-      <button class="action-btn" onclick="_openWorkspaceVizModal()">+ Add visualization</button>
-      <button class="action-btn" onclick="_vizCommitAll()">Commit all staged</button>
-    </div>
-    
-    <p style="color:#888;font-style:italic">No visualizations registered yet.</p>
-    
-  </div>
-
-  <!-- Available Visualization classes (registry-driven, secondary catalog) -->
-  <div class="panel">
-    <h3>Available Visualization classes <span id="viz-count" class="count-badge"></span></h3>
-    <p class="panel-lead">Visualization classes discovered from <code>core.link_registry</code> (subclasses of <code>pbg_superpowers.visualization.Visualization</code> from any installed pbg-* package). Click <strong>Preview</strong> to see a demo render; <strong>Use</strong> to register it as a Workspace visualization. <span class="muted">Workspace classes listed first; environment-only classes follow.</span> Need a new one? Run <code>/pbg-viz &lt;name&gt; &lt;description&gt;</code> in Claude Code.</p>
-    <input type="search" id="viz-catalog-search" placeholder="Search Visualization classes by name or doc…"
-           style="width:100%;padding:6px;margin-bottom:8px;font-size:0.9em"
-           oninput="_filterVizCatalog(this.value)">
-    <div id="viz-picker-container">
-      <p class="empty-state">Discovering Visualization classes&hellip; <span class="muted">First load walks every installed pbg-* package and can take a few seconds; subsequent loads are cached for 30 s.</span></p>
+    <h3>Saved visualizations <span id="viz-count" class="count-badge"></span></h3>
+    <p class="panel-lead">Interactive scenes saved as workspace artifacts. 3D models load embedded below; open any in a new tab for a full-window view. Produce a 3D model by running a parsimony packing composite (it writes <code>studies/&lt;name&gt;/viz/3d/&lt;name&gt;.pack.json</code>), then revisit this tab.</p>
+    <div id="analyses-gallery" class="analyses-gallery">
+      <p class="empty-state">Loading saved visualizations&hellip;</p>
     </div>
   </div>
 
@@ -1062,6 +629,18 @@ advancing a study to Build phase.
     <div id="viz-preview-source-row" style="margin-bottom:8px;font-size:0.9em;color:#555"></div>
     <iframe id="viz-preview-iframe" style="width:100%;height:480px;border:1px solid #ddd;background:#fff"></iframe>
     <div id="viz-preview-notes" style="margin-top:8px;font-size:0.85em;color:#666"></div>
+  </div>
+</div>
+
+<!-- Data-source file preview modal (repo-wide data sources, Inputs tab) -->
+<div id="modal-ds-preview" class="modal-overlay">
+  <div class="modal-box" style="max-width:900px">
+    <button class="modal-close" onclick="closeModal('modal-ds-preview')">&times;</button>
+    <h3 style="margin-bottom:8px">Data source: <code id="ds-preview-title" style="font-size:0.85em"></code></h3>
+    <div style="margin-bottom:8px">
+      <a id="ds-preview-download" class="action-btn" download>Download</a>
+    </div>
+    <pre id="ds-preview-body" style="max-height:560px;overflow:auto;background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;font-size:0.8em;line-height:1.4;white-space:pre;margin:0"></pre>
   </div>
 </div>
 
@@ -1117,6 +696,7 @@ advancing a study to Build phase.
       <button class="registry-tab"        data-kind="step"          onclick="_setRegistryTab('step')">Steps <span class="count-badge" id="registry-step-count"></span></button>
       <button class="registry-tab"        data-kind="emitter"       onclick="_setRegistryTab('emitter')">Emitters <span class="count-badge" id="registry-emitter-count"></span></button>
       <button class="registry-tab"        data-kind="visualization" onclick="_setRegistryTab('visualization')">Visualizations <span class="count-badge" id="registry-visualization-count"></span></button>
+      <button class="registry-tab"        data-kind="analysis"      onclick="_setRegistryTab('analysis')">Analyses <span class="count-badge" id="registry-analysis-count"></span></button>
       <button class="registry-tab"        data-kind="type"          onclick="_setRegistryTab('type')">Types <span class="count-badge" id="registry-type-count"></span></button>
     </div>
 
@@ -1126,6 +706,7 @@ advancing a study to Build phase.
     <div class="registry-tab-panel"        data-kind="step"          id="registry-steps-container"></div>
     <div class="registry-tab-panel"        data-kind="emitter"       id="registry-emitters-container"></div>
     <div class="registry-tab-panel"        data-kind="visualization" id="registry-visualizations-container"></div>
+    <div class="registry-tab-panel"        data-kind="analysis"      id="registry-analyses-container"></div>
     <div class="registry-tab-panel"        data-kind="type"          id="registry-types-container"></div>
   </section>
 </section>
@@ -1133,13 +714,13 @@ advancing a study to Build phase.
 <!-- ===== PAGE: STUDIES ===== -->
 <section id="page-investigations" class="page" data-page="investigations">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <h2 class="page-title" style="margin:0">Investigation</h2>
+    <h2 class="page-title" style="margin:0">Investigations</h2>
     <div style="display:flex;gap:8px;align-items:center">
       <!-- "Switch investigation" + "+ New Investigation" actions now live in
            the left-rail investigation switcher dropdown (top of the rail). -->
     </div>
   </div>
-  <p class="page-lead" id="investigation-page-lead">The active investigation. Click a node in the DAG to open a study. Use the investigation switcher at the top of the left rail to switch active investigation or start a new one.</p>
+  <p class="page-lead" id="investigation-page-lead">All investigations in this repo. Select one to open it — its studies appear in the left rail. Merged investigations are preserved as artifacts; in-progress ones live on their branch/PR.</p>
 
   <!-- List view: investigation cards. -->
   <div id="investigations-list" class="investigations-list-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap:12px;">
@@ -1222,6 +803,8 @@ advancing a study to Build phase.
 
   <!-- Detail view: one investigation's DAG. Toggled on click. -->
   <div id="investigation-detail-view" style="display:none; margin-top:8px">
+    <button class="iset-back-link" onclick="_showInvestigationList()" title="Back to all investigations"
+            style="background:none; border:none; padding:0; margin:0 0 4px; color:#64748b; font-size:0.82em; cursor:pointer; display:inline-flex; align-items:center; gap:4px">&larr; All investigations</button>
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
       <h3 id="investigation-detail-title" style="margin:0; flex:1"></h3>
       <span id="investigation-detail-status" class="status-pill planned" style="font-size:0.85em"></span>
@@ -1240,20 +823,28 @@ advancing a study to Build phase.
       <!-- At-a-glance grid: one tile per study with a one-line role. Populated by JS. -->
       <div id="investigation-at-a-glance" class="inv-at-a-glance" style="display:none"></div>
       <!-- How to read this: ordered list of usage tips for the evaluator. -->
-      <div id="investigation-how-to-read" class="inv-how-to-read" style="display:none">
-        <strong>How to read this</strong>
+      <details id="investigation-how-to-read" class="inv-how-to-read" style="display:none">
+        <summary>How to read this</summary>
         <ol></ol>
-      </div>
+      </details>
       <!-- Glossary: collapsible. -->
       <details id="investigation-glossary" class="inv-glossary" style="display:none">
         <summary>Glossary</summary>
         <dl></dl>
       </details>
       <!-- Biology story (free-form prose). Hidden if the yaml omits it. -->
-      <div id="investigation-biology-story" class="inv-bio-story" style="display:none">
-        <strong class="inv-bio-story-label">Biology story</strong>
+      <details id="investigation-biology-story" class="inv-bio-story" style="display:none">
+        <summary class="inv-bio-story-label">Biology — the mechanism this investigation models</summary>
         <div id="investigation-biology-story-text" class="inv-bio-story-text"></div>
-      </div>
+      </details>
+      <!-- SP5: Needs-attention panel. Populated by JS from /api/needs-attention. -->
+      <div id="investigation-needs-attention"></div>
+    </div>
+    <!-- Discourse-graph framing: studies as knowledge-producing operations. -->
+    <div id="investigation-dag-lead" style="margin: 4px 0 8px; font-size: 0.88em; color: #475569; line-height: 1.4;">
+      <strong>Investigation graph</strong> — each study is a knowledge-producing operation that
+      builds understanding of the mechanism. Each node shows the <em>question</em> it asks and
+      the <em>evidence</em> it produced; edges show what a result leads to.
     </div>
     <div id="investigation-dag-shell"
          style="position: relative; border: 1px solid #e2e8f0; border-radius: 6px; background: #fafafa;
@@ -1458,52 +1049,60 @@ advancing a study to Build phase.
 <section id="page-simulations" class="page" data-page="simulations">
   <h2 class="page-title">Simulations DB</h2>
   <p class="page-lead">
-    All persisted runs across this workspace, gathered from
-    <code>.pbg/composite-runs.db</code> and every
-    <code>studies/&lt;name&gt;/runs.db</code>. Delete a row to remove its
-    DB rows, run artifacts, and any Study references.
+    Every persisted run across this workspace, tagged by investigation and
+    study, gathered from each <code>studies/&lt;name&gt;/runs.db</code>.
+    Shows all investigations by default — untoggle to scope to the current one.
   </p>
 
-  <div style="margin: 8px 0 12px; display: flex; gap: 8px; align-items: center;">
-    <input id="sim-filter" type="search" placeholder="Filter by composite, investigation, study, or label…"
-           style="flex: 1; max-width: 480px; padding: 6px 10px; font-size: 14px;
-                  border: 1px solid #d1d5db; border-radius: 4px;" />
+  <div style="margin: 8px 0 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+    <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+      <input id="sim-all-toggle" type="checkbox" checked /> All investigations
+    </label>
+    <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+      Study
+      <select id="sim-study-filter" style="padding:4px 8px; font-size:13px;
+              border:1px solid #d1d5db; border-radius:4px;">
+        <option value="">All</option>
+      </select>
+    </label>
+    <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
+      Emitter
+      <select id="sim-emitter-filter" style="padding:4px 8px; font-size:13px;
+              border:1px solid #d1d5db; border-radius:4px;">
+        <option value="">All</option>
+      </select>
+    </label>
     <button id="sim-refresh" class="action-btn">Refresh</button>
   </div>
 
   <div id="sim-loading" style="color: #6b7280; padding: 12px;">Loading simulations…</div>
   <div id="sim-empty"   style="color: #6b7280; padding: 12px; display: none;">
-    No simulations yet. Run a composite from the
-    <a href="#composite-explore">Composite Explorer</a> or from a
-    <a href="#studies">Study</a> to see entries here.
+    No simulation runs found.
   </div>
 
   <table id="sim-table" style="width:100%; border-collapse: collapse; font-size: 13px; display: none;">
     <thead>
       <tr style="background:#f3f4f6;">
-        <th style="text-align:left; padding:6px 8px;">Composite</th>
         <th style="text-align:left; padding:6px 8px;">Investigation</th>
-        <th style="text-align:left; padding:6px 8px;">Studies</th>
+        <th style="text-align:left; padding:6px 8px;">Study</th>
+        <th style="text-align:left; padding:6px 8px;">Run</th>
+        <th style="text-align:left; padding:6px 8px; width:90px;">Emitter</th>
+        <th style="text-align:left; padding:6px 8px; width:140px;">Time</th>
         <th style="text-align:left; padding:6px 8px; width:90px;">Status</th>
-        <th style="text-align:left; padding:6px 8px; width:80px;">Steps</th>
-        <th style="text-align:left; padding:6px 8px;">Label</th>
-        <th style="text-align:left; padding:6px 8px; width:120px;">Started</th>
-        <th style="text-align:left; padding:6px 8px; width:80px;">Run</th>
-        <th style="text-align:left; padding:6px 8px; width:60px;"></th>
+        <th style="text-align:center; padding:6px 8px; width:120px;">Actions</th>
       </tr>
     </thead>
     <tbody id="sim-tbody"></tbody>
   </table>
 
-  <!-- Delete confirmation dialog -->
+  <!-- Confirmation dialog for full simulation delete -->
   <div id="sim-delete-dialog" style="display:none; position:fixed; inset:0;
-                                      background:rgba(0,0,0,0.45); z-index:1000;
-                                      align-items:center; justify-content:center;">
-    <div style="background:#fff; max-width:560px; padding:20px; border-radius:6px;
-                 box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+       background:rgba(0,0,0,0.4); align-items:center; justify-content:center; z-index:1000;">
+    <div style="background:#fff; border-radius:8px; padding:20px; max-width:520px;
+         width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
       <h3 style="margin:0 0 12px;">Delete simulation?</h3>
-      <div id="sim-delete-body" style="font-size:14px; color:#374151;"></div>
-      <div style="text-align:right; margin-top:16px;">
+      <div id="sim-delete-body" style="font-size:13px; color:#374151;"></div>
+      <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
         <button id="sim-delete-cancel" class="action-btn">Cancel</button>
         <button id="sim-delete-confirm" class="action-btn"
                 style="background:#dc2626; color:#fff;">Delete</button>
@@ -1624,7 +1223,7 @@ advancing a study to Build phase.
         <button class="btn-mini" onclick="_popoutLoom('composite-explore-frame')" title="Open in a separate window. If it opens as a tab, your browser's 'open new pages as tabs' preference is overriding the popup hint (Safari → Tabs → 'Open pages in tabs instead of windows' → set to 'Manually').">Pop out &#8599;</button>
       </div>
       <iframe id="composite-explore-frame"
-              src="/loom-explore/index.html"
+              src="/bigraph-loom/index.html"
               title="Composite Explorer"
               style="width:100%;height:720px;border:1px solid #ddd;background:#fff"></iframe>
     </div>
@@ -1981,11 +1580,17 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
   </div>
 </div>
 
+<!-- DataSource layer (client-fetch seam, sub-project #1).
+     __DASH_CONFIG__ sets the data-source mode; data-source.js exposes the
+     DataSource global that renderers call to fetch narrative data.
+     local-server mode (default) fetches from the same-origin /api/* endpoints.
+     Hosted mode (sub-projects #2/#3) will set a different config here. -->
+<script>window.__DASH_CONFIG__ = { mode: "local-server" };</script>
+<script src="assets/data-source.js"></script>
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/walkthrough.js?v=1780023143_1779982631" onerror="/* walkthrough unavailable */"></script>
-<script src="assets/github-login.js?v=1780023143_1779982631" onerror="/* github-login unavailable */"></script>
-<script src="assets/investigations.js" onerror="/* investigations unavailable */"></script>
+<script src="assets/walkthrough.js?v=1781620843_1781453160" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/github-login.js?v=1781620843_1781453160" onerror="/* github-login unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher
      (investigation-switcher.js). The /api/workspaces endpoints remain available

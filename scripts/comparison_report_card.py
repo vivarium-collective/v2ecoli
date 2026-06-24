@@ -64,7 +64,7 @@ from scripts._compare.report_card_section import build_report_card
 from scripts._compare.vecoli_parquet_reader import read_vecoli_trajectory
 from scripts.compare_matched_trajectories import (
     BUCKET, PREFIX, REGION, OBS_LABEL, _legend_html, overlay_svg_multi,
-    read_v2ecoli_trajectory, _gen1_window)
+    read_v2ecoli_trajectory, read_pbg_local, _gen1_window)
 
 # condition -> (v2ecoli zarr experiment dir, vEcoli parquet experiment dir).
 # v2: sim48-v2-full-* is basal-everywhere for the NON-basal dirs (the old bug);
@@ -148,26 +148,38 @@ def _gen_bounds(gen_traj) -> list[float]:
     return [float(gt[i]) for i in range(1, len(gv)) if gv[i] != gv[i - 1]]
 
 
-def build(conditions: dict[str, tuple[str, str]]) -> dict:
+def build(conditions: dict[str, tuple[str, str]], *,
+          read_v2=None, read_ve=None, seeds=None) -> dict:
+    """Read each condition's per-seed matched stats + trajectories.
+
+    Default readers compare S3 v2ecoli-zarr vs vEcoli-Nextflow-parquet. Pass
+    ``read_v2`` / ``read_ve`` ``(dir_or_path, seed) -> {obs: (t, v)}`` to drive a
+    different pairing — e.g. pbg-vs-pbg, where BOTH engines read v2ecoli-format
+    zarr via ``read_pbg_local`` — and ``seeds`` to override the seed list.
+    """
+    if read_v2 is None:
+        read_v2 = lambda d, s: read_v2ecoli_trajectory(d, s, OBSERVABLES)
+    if read_ve is None:
+        read_ve = lambda d, s: read_vecoli_trajectory(
+            f"{PREFIX}/{d}", BUCKET, OBSERVABLES, lineage_seed=s, region=REGION)
+    seeds = SEEDS if seeds is None else seeds
     cond_data: dict[str, tuple] = {}
     for cond, (v2_dir, ve_dir) in conditions.items():
         print(f"=== {cond} ===  v2={v2_dir}  ve={ve_dir}")
-        ve_prefix = f"{PREFIX}/{ve_dir}"
         per_obs = {obs: [] for obs in OBSERVABLES}
         # all-seed full trajectories per observable, for the overlay plots.
         plot_trajs = {obs: {"v2": [], "ve": []} for obs in OBSERVABLES}
         v2_bounds: list[float] = []
-        for seed in SEEDS:
+        for seed in seeds:
             try:
-                v2 = read_v2ecoli_trajectory(v2_dir, seed, OBSERVABLES)
+                v2 = read_v2(v2_dir, seed)
             except Exception as e:  # noqa: BLE001
                 print(f"  seed{seed}: v2 read failed: {type(e).__name__} {str(e)[:60]}")
                 continue
             if not v2:
                 continue
             try:
-                ve = read_vecoli_trajectory(ve_prefix, BUCKET, OBSERVABLES,
-                                            lineage_seed=seed, region=REGION)
+                ve = read_ve(ve_dir, seed)
             except Exception as e:  # noqa: BLE001
                 print(f"  seed{seed}: vE read failed: {type(e).__name__} {str(e)[:60]}")
                 continue
@@ -696,11 +708,20 @@ def main(argv=None):
     p.add_argument("--conditions-json", default=None,
                    help='override condition dirs as JSON: '
                         '{"basal":["<v2_dir>","<ve_dir>"], ...}')
+    p.add_argument("--local-pbg", default=None,
+                   help='pbg-vs-pbg mode: JSON {cond:[v2_zarr_path, ve_zarr_path]} '
+                        'of LOCAL v2ecoli-format zarr stores (BOTH engines as '
+                        'process-bigraph composites). Reads both via read_pbg_local '
+                        'and emits the overview + report-card + per-condition '
+                        'trajectory/eval sections (skips the S3/Nextflow-only panels).')
     p.add_argument("-o", "--out", default="out/full_compare",
                    help="output directory (also read for experiments.json)")
     args = p.parse_args(argv)
 
-    if args.conditions_json:                          # 1. explicit override
+    local_pbg = bool(args.local_pbg)
+    if local_pbg:                                     # 0. pbg-vs-pbg local zarr
+        conds = json.loads(args.local_pbg)
+    elif args.conditions_json:                        # 1. explicit override
         conds = json.loads(args.conditions_json)
     else:                                             # 2. launch's experiments.json
         conds = _load_experiments(args.out)
@@ -716,7 +737,16 @@ def main(argv=None):
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    cond_data = build(conds)
+    if local_pbg:
+        # Both engines as process-bigraph composites → both read v2ecoli-format
+        # zarr from a LOCAL path; the json maps each cond to a single seed's
+        # stores, so the per-seed loop runs once.
+        cond_data = build(
+            conds, seeds=[0],
+            read_v2=lambda d, s: read_pbg_local(d, OBSERVABLES),
+            read_ve=lambda d, s: read_pbg_local(d, OBSERVABLES))
+    else:
+        cond_data = build(conds)
     graded = list(conds)  # conditions whose data feeds the report card
 
     # 1. OVERALL RESULTS first — the canonical report-card render + the
@@ -733,27 +763,34 @@ def main(argv=None):
     overview = overview_section(cond_data)
     overview["nav_group"] = "Overall"
     sections = [overview]
-    # 2. ParCa / initial-state comparison — its own nav entry.
-    parca = parca_section(cond_data)
-    parca["nav_group"] = "ParCa comparison"
-    sections.append(parca)
+    # 2. ParCa / initial-state comparison — its own nav entry. Skipped in
+    #    local-pbg mode (it reads each engine's S3 store attrs / Nextflow config).
+    if not local_pbg:
+        parca = parca_section(cond_data)
+        parca["nav_group"] = "ParCa comparison"
+        sections.append(parca)
     # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
     #    config -> simulation runs -> evaluation. All of a condition's sections
     #    share nav_group=<cond>, so they fold into ONE nav button per condition.
+    #    The config panels read S3/Nextflow workflow_config.json, so they are
+    #    omitted in local-pbg mode (both engines are local pbg composites).
     for cond in conds:
         v2_dir, ve_dir = conds[cond]
         per_obs, plot_trajs, v2_bounds = cond_data[cond]
-        cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
-                         + [runs_section(cond, per_obs, plot_trajs, v2_bounds),
-                            eval_section(cond, per_obs)])
+        cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
+                         eval_section(cond, per_obs)]
+        if not local_pbg:
+            cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
+                             + cond_sections)
         for s in cond_sections:
             s["nav_group"] = cond
         sections += cond_sections
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    html = report.render_report(
-        sections,
-        title=f"v2ecoli ↔ vEcoli — standardized comparison ({gen})")
+    title = (f"vEcoli-pbg ↔ v2ecoli-pbg — process-bigraph comparison ({gen})"
+             if local_pbg
+             else f"v2ecoli ↔ vEcoli — standardized comparison ({gen})")
+    html = report.render_report(sections, title=title)
 
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)

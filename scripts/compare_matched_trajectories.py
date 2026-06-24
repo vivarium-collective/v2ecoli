@@ -72,19 +72,27 @@ _SO = {"anon": False, "client_kwargs": {"region_name": REGION}}
 # v2ecoli trajectory (compact zarr)
 # --------------------------------------------------------------------------- #
 def read_v2ecoli_trajectory(experiment_dir: str, seed: int,
-                            observables) -> dict:
-    """{obs: (times, values)} for one v2ecoli seed, continuous over generations.
+                            observables, *, store_uri: str | None = None,
+                            storage_options: dict | None = None) -> dict:
+    """{obs: (times, values)} for one v2ecoli-format zarr, continuous over generations.
 
     The compact emitter writes one value every 60 ticks; each generation's
     cumulative end-time is recorded in the lineage-node attrs as
     ``last_write_gen=<g> -> {sim_time}``. Per generation the emit interval is
     ``(end - prev_end) / n_emits`` and emit ``i`` lands at
     ``prev_end + (i+1)*dt`` on the global seconds axis.
+
+    By default reads the S3 experiment dir. Pass ``store_uri`` (a local path or
+    full URI to the ``.zarr`` store) to read a pbg engine's output from anywhere
+    — vEcoli-pbg and v2ecoli-pbg both write THIS format, so the same reader
+    serves both sides of a pbg-vs-pbg comparison.
     """
     import xarray as xr
-    uri = f"s3://{BUCKET}/{PREFIX}/{experiment_dir}/v2ecoli_seed{seed:02d}.zarr"
-    tree = xr.open_datatree(uri, engine="zarr", consolidated=False,
-                            storage_options=_SO)
+    if store_uri is None:
+        store_uri = f"s3://{BUCKET}/{PREFIX}/{experiment_dir}/v2ecoli_seed{seed:02d}.zarr"
+        storage_options = _SO
+    tree = xr.open_datatree(store_uri, engine="zarr", consolidated=False,
+                            storage_options=storage_options)
     lpaths = [p for p in tree.groups
               if p.split("/")[-1].startswith("lineage_seed=")]
     if not lpaths:
@@ -125,6 +133,17 @@ def read_v2ecoli_trajectory(experiment_dir: str, seed: int,
             out.setdefault("_generation",
                            (np.concatenate(times), np.concatenate(gnums)))
     return out
+
+
+def read_pbg_local(zarr_path: str, observables) -> dict:
+    """Read a pbg engine's v2ecoli-format zarr from a local path (or any URI).
+
+    vEcoli-pbg and v2ecoli-pbg both emit this format, so this serves BOTH sides
+    of a local pbg-vs-pbg comparison through the SAME reader the standardized
+    report uses for v2ecoli.
+    """
+    return read_v2ecoli_trajectory(None, 0, observables, store_uri=zarr_path,
+                                   storage_options=None)
 
 
 # --------------------------------------------------------------------------- #

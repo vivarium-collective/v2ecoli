@@ -251,7 +251,8 @@ def _ensure_vecoli() -> dict:
     """
     if _VECOLI:
         return _VECOLI
-    vecoli_dir = str(REPO_ROOT.parent / "vEcoli")
+    vecoli_dir = os.environ.get(
+        "V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
 
     # Force-cache the INSTALLED (Cython-COMPILED) wholecell tree BEFORE vecoli_dir
     # goes on sys.path. The composite checkout ships wholecell SOURCE only (its

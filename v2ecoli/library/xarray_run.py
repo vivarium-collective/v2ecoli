@@ -564,10 +564,25 @@ def run_multigen_xarray(
         payload = _filter_agent_state(agents_map[key], view)
         if _EMIT_UNIQUE:
             payload = {**payload, **_extract_unique_attrs(agents_map[key])}
+        # CRITICAL: emit the payload under the emitter's OWN agent_id
+        # (``partition_agent_id``), NOT the inner-composite key ``key``
+        # (``followed``). The XArrayEmitter transducer strips the agent prefix
+        # via ``get_in(data, ("agents", partition.agent_id))`` where
+        # ``partition.agent_id`` is the metadata agent_id this generation's
+        # emitter was built with (== ``partition_agent_id``). When the inner
+        # composite REUSES a key so ``followed`` diverges from the true
+        # phylogeny ``partition_agent_id`` (happens at deeper divisions, gen 4+),
+        # emitting under ``followed`` makes ``get_in`` miss → ``dict_to_paths``
+        # yields the empty-tuple path → ``KeyError: 'Unexpected emit path: ()'``.
+        # Relabelling the payload to ``partition_agent_id`` here is exact: the
+        # emitter only uses the key to locate the cell subtree, and the
+        # generation/agent_id partition metadata is already keyed to
+        # ``partition_agent_id``. (``partition_agent_id`` is read by late binding
+        # so each call uses the current generation's value.)
         emitter.update({
             "time": float(done),
             "global_time": float(done),
-            "agents": {key: payload},
+            "agents": {partition_agent_id: payload},
         })
 
     while done < max_steps and gen <= max_generations:

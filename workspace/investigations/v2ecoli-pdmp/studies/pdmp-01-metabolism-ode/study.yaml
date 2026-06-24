@@ -454,10 +454,7 @@ bibliography:
   bib_keys:
   - millard2017
   - birch2014
-  - uygun2006
   - saa2017
-  - choi2023
-  - hari2024
 report:
   confidence: design-stage
   evidence_quality: first-run-confirmed
@@ -1015,8 +1012,6 @@ literature_anchors:
   relevance: LQR / optimal-control theory underpinning the outer growth-rate controller.
 - key: villani2008
   relevance: Wasserstein/optimal-transport basis for the W2 interface-fidelity metric.
-- key: uygun2006
-  relevance: Kinetic/identifiability modelling context for the metabolic ODE.
 model_change: 'Replace the multi-objective FBA (wholecell.utils.modular_fba, glpk-linear) central-carbon
   block with the Millard 2017 kinetic ODE + an LQR outer controller, integrated via an FBA-bridge that pins
   ODE-predicted central fluxes into the remaining WCM FBA. NOT yet accepted (requires_expert_approval: true).'

@@ -229,11 +229,7 @@ inputs:
   - birch2014
   - stumpf2021
   - saa2017
-  - choi2023
-  - hari2024
   - talts2018sbc
-  - lyne2015
-  - toth2022
   expert_docs:
   - name: duf-final-report
     path: workspace/references/expert/duf_final_report_2026.pdf

@@ -5,7 +5,7 @@ import scripts._compare.orchestrator as orch
 def test_vecoli_sim_uses_passed_repo(monkeypatch):
     captured = {}
 
-    def fake_run(cmd, cwd=None, env=None):
+    def fake_run(cmd, cwd=None, env=None, retries=0):
         captured["cmd"], captured["cwd"], captured["env"] = cmd, cwd, env
 
     monkeypatch.setattr(orch, "_run", fake_run)

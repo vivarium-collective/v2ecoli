@@ -1,0 +1,482 @@
+{
+  "n_cells": 20,
+  "gen_lb": 3,
+  "method": "blessed baseline sweep; per-cell time-mean, gen>=3",
+  "nodes": {
+    "g6p": {
+      "branches": [
+        "EMP",
+        "oxPPP",
+        "ED"
+      ],
+      "model_flux": {
+        "EMP": 3.5956826497507293,
+        "oxPPP": 1.3513261887225316,
+        "ED": 8.993826623381556e-07
+      },
+      "influx": 5.144658996515911,
+      "fractions": {
+        "EMP": 0.7403062685403826,
+        "oxPPP": 0.2596935332773368,
+        "ED": 1.9818228061399516e-07
+      },
+      "residual": 0.038227655698878524,
+      "per_cell_fractions": [
+        [
+          0.9995,
+          0.0005,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.4058,
+          0.5942,
+          0.0
+        ],
+        [
+          0.5439,
+          0.4561,
+          0.0
+        ],
+        [
+          0.7574,
+          0.2426,
+          -0.0
+        ],
+        [
+          0.4777,
+          0.5223,
+          -0.0
+        ],
+        [
+          0.9987,
+          0.0013,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.3997,
+          0.6003,
+          0.0
+        ],
+        [
+          0.472,
+          0.528,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.9012,
+          0.0988,
+          0.0
+        ],
+        [
+          0.4793,
+          0.5207,
+          0.0
+        ],
+        [
+          0.4832,
+          0.5168,
+          0.0
+        ],
+        [
+          0.4819,
+          0.5181,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.4059,
+          0.5941,
+          0.0
+        ]
+      ]
+    },
+    "isocitrate": {
+      "branches": [
+        "oxidative_TCA",
+        "glyoxylate"
+      ],
+      "model_flux": {
+        "oxidative_TCA": 1.5439427898512121,
+        "glyoxylate": 0.06175937368715294
+      },
+      "influx": 1.605702163538365,
+      "fractions": {
+        "oxidative_TCA": 0.9615374662315591,
+        "glyoxylate": 0.038462533768440874
+      }
+    },
+    "accoa": {
+      "branches": [
+        "TCA",
+        "acetate",
+        "biosynthesis"
+      ],
+      "model_flux": {
+        "TCA": 0.8071197841893282,
+        "acetate": 0.0,
+        "biosynthesis": 2.942299785516737
+      },
+      "influx": 3.7494195697060655,
+      "fractions": {
+        "TCA": 0.21526526151155767,
+        "acetate": 0.0,
+        "biosynthesis": 0.7847347384884423
+      }
+    }
+  },
+  "exchanges": {
+    "absolute": {
+      "glucose": 5.144658996515911,
+      "o2": 0.48099674816858784,
+      "co2": 1.7076626313424115,
+      "acetate": 0.0
+    },
+    "per_cell": {
+      "glucose": [
+        3.6435,
+        4.7921,
+        5.4987,
+        5.3868,
+        4.6766,
+        4.8367,
+        4.4363,
+        4.2986,
+        5.8106,
+        4.9265,
+        5.9519,
+        6.044,
+        5.7219,
+        5.3463,
+        5.8813,
+        5.4711,
+        4.9697,
+        4.4243,
+        5.3684,
+        5.4077
+      ],
+      "o2": [
+        0.5048,
+        0.8298,
+        0.2578,
+        0.0812,
+        0.1852,
+        0.0448,
+        0.8265,
+        0.7854,
+        0.2789,
+        0.0576,
+        1.1141,
+        0.8977,
+        0.032,
+        0.052,
+        0.0269,
+        0.7442,
+        0.8715,
+        0.8249,
+        0.9521,
+        0.2525
+      ],
+      "co2": [
+        1.005,
+        2.1981,
+        1.2253,
+        1.718,
+        1.3413,
+        1.2437,
+        1.8272,
+        1.8837,
+        1.353,
+        1.1977,
+        2.7288,
+        2.4059,
+        1.435,
+        1.3731,
+        1.5948,
+        2.0767,
+        2.0644,
+        1.8195,
+        2.3654,
+        1.2967
+      ],
+      "acetate": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "cmol_pct": {
+      "co2": 5.532153613092991,
+      "acetate": 0.0,
+      "biomass": 94.467846386907
+    },
+    "per_glucose": {
+      "o2": 0.09349438874264175,
+      "co2": 0.33192921678557946,
+      "acetate": 0.0
+    },
+    "rq": 3.550258162543505
+  },
+  "central_carbon": {
+    "normalized_to_glucose_100": true,
+    "reactions": [
+      {
+        "label": "Pgi",
+        "crown_fid": "crown_f2",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 71.18383469647823,
+        "model_std": 25.628372233192234,
+        "model_abs": 3.5956826497507293
+      },
+      {
+        "label": "Pfk",
+        "crown_fid": "crown_f3",
+        "group": "glycolysis",
+        "flag": "aldolase_bypass",
+        "model": 25.483326060911278,
+        "model_std": 5.962224096029436,
+        "model_abs": 1.2889730490208418
+      },
+      {
+        "label": "Fba",
+        "crown_fid": "crown_f4",
+        "group": "glycolysis",
+        "flag": "aldolase_bypass",
+        "model": 23.015313993636376,
+        "model_std": 5.337464367555476,
+        "model_abs": 1.1649774966164932
+      },
+      {
+        "label": "Tpi",
+        "crown_fid": "crown_f5",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 70.81090332381117,
+        "model_std": 8.41681473150754,
+        "model_abs": 3.6179155746399188
+      },
+      {
+        "label": "GAPDH",
+        "crown_fid": "crown_f6",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 145.60490919519782,
+        "model_std": 9.017018310322902,
+        "model_abs": 7.463607805200889
+      },
+      {
+        "label": "Eno",
+        "crown_fid": "crown_f7",
+        "group": "glycolysis",
+        "flag": null,
+        "model": 145.29781344414533,
+        "model_std": 8.942508893546803,
+        "model_abs": 7.4481639047263615
+      },
+      {
+        "label": "Pyk",
+        "crown_fid": "crown_f8",
+        "group": "glycolysis",
+        "flag": "pts_coupled",
+        "model": 31.915922746839335,
+        "model_std": 40.271120963711155,
+        "model_abs": 1.6223297911944026
+      },
+      {
+        "label": "Zwf",
+        "crown_fid": "crown_f9",
+        "group": "oxPPP",
+        "flag": null,
+        "model": 25.088793761511795,
+        "model_std": 25.69391441868385,
+        "model_abs": 1.3562370961903754
+      },
+      {
+        "label": "6PGDH",
+        "crown_fid": "crown_f10",
+        "group": "oxPPP",
+        "flag": null,
+        "model": 24.993380639282975,
+        "model_std": 25.692745180843545,
+        "model_abs": 1.3513261887225316
+      },
+      {
+        "label": "Rpe",
+        "crown_fid": "crown_f11",
+        "group": "PPP",
+        "flag": null,
+        "model": 4.441431125633178,
+        "model_std": 17.282770343636514,
+        "model_abs": 0.27173033118975
+      },
+      {
+        "label": "Rpi",
+        "crown_fid": "crown_f12",
+        "group": "PPP",
+        "flag": null,
+        "model": 20.21246293210107,
+        "model_std": 8.494681922008766,
+        "model_abs": 1.0620421148302812
+      },
+      {
+        "label": "EDD / EDA",
+        "crown_fid": "crown_f18",
+        "group": "ED",
+        "flag": null,
+        "model": 1.909435093241938e-05,
+        "model_std": 4.7535194519548816e-05,
+        "model_abs": 8.993826623381556e-07
+      },
+      {
+        "label": "PDH",
+        "crown_fid": "crown_f20",
+        "group": "TCA",
+        "flag": null,
+        "model": 9.080110343249192,
+        "model_std": 13.56237026628193,
+        "model_abs": 0.45911940717871813
+      },
+      {
+        "label": "CS",
+        "crown_fid": "crown_f21",
+        "group": "TCA",
+        "flag": null,
+        "model": 16.447006438241523,
+        "model_std": 14.774042391884016,
+        "model_abs": 0.8071197841893282
+      },
+      {
+        "label": "ICDH",
+        "crown_fid": "crown_f23",
+        "group": "TCA",
+        "flag": null,
+        "model": 31.333204042915092,
+        "model_std": 54.802941732466614,
+        "model_abs": 1.5439427898512121
+      },
+      {
+        "label": "aKGDH",
+        "crown_fid": "crown_f24",
+        "group": "TCA",
+        "flag": null,
+        "model": 0.00034334611032013336,
+        "model_std": 0.0011640095923129907,
+        "model_abs": 1.4467020514570371e-05
+      },
+      {
+        "label": "SDH",
+        "crown_fid": "crown_f26",
+        "group": "TCA",
+        "flag": null,
+        "model": 9.493988085212859,
+        "model_std": 9.924828597286515,
+        "model_abs": 0.46468871287054403
+      },
+      {
+        "label": "Fum",
+        "crown_fid": "crown_f27",
+        "group": "TCA",
+        "flag": "reductive_reverse",
+        "model": -70.17693777000959,
+        "model_std": 45.0722672941233,
+        "model_abs": -3.5923167354096295
+      },
+      {
+        "label": "MDH",
+        "crown_fid": "crown_f28",
+        "group": "TCA",
+        "flag": "reductive_reverse",
+        "model": -91.65186086045672,
+        "model_std": 54.631211897950244,
+        "model_abs": -4.713601405330353
+      },
+      {
+        "label": "Icl",
+        "crown_fid": "crown_f29",
+        "group": "glyoxylate",
+        "flag": null,
+        "model": 1.9249898052272818,
+        "model_std": 15.001670693624186,
+        "model_abs": 0.06175937368715294
+      },
+      {
+        "label": "MS",
+        "crown_fid": "crown_f30",
+        "group": "glyoxylate",
+        "flag": null,
+        "model": 0.0,
+        "model_std": 0.0,
+        "model_abs": 0.0
+      },
+      {
+        "label": "Ppc",
+        "crown_fid": "crown_f33",
+        "group": "anaplerotic",
+        "flag": null,
+        "model": 58.00810069526447,
+        "model_std": 12.063289147005184,
+        "model_abs": 3.001799331203734
+      },
+      {
+        "label": "Ack",
+        "crown_fid": "crown_f35",
+        "group": "overflow",
+        "flag": null,
+        "model": -4.209345593343779,
+        "model_std": 0.9445315620931,
+        "model_abs": -0.2143626325609859
+      }
+    ]
+  }
+}

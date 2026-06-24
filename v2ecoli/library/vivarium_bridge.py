@@ -309,8 +309,20 @@ def wrap_vivarium_instance(
             if hasattr(v1, 'update_condition'):
                 try:
                     return bool(v1.update_condition(state.get('timestep', 1), state))
-                except Exception:
-                    return True
+                except Exception as _gate_exc:
+                    # FAIL CLOSED. The Evolver/Requester variable-timestep gate is
+                    # the ONLY thing that stops a partitioned process from
+                    # re-applying its bulk delta more than once per scheduled
+                    # step. If the gate can't be evaluated, returning True (run
+                    # anyway) lets the evolver re-apply every tick → runaway
+                    # synthesis / mass explosion (observed: cell_mass 5k→98k over
+                    # one generation on the upstream wrapper). A gate we cannot
+                    # evaluate must SKIP, not run. Surface the cause, don't swallow.
+                    import sys as _sys
+                    print(f"[vivarium_bridge] update_condition raised for "
+                          f"{type(v1).__name__}; skipping (fail-closed): {_gate_exc!r}",
+                          file=_sys.stderr, flush=True)
+                    return False
             return True
 
     _InstanceBridge.__name__ = f'{type(v1_instance).__name__}InstanceBridge'

@@ -645,7 +645,18 @@ def run_multigen_xarray(
         if inner_next is None:
             break
 
-        em.close(success=True)
+        # Same pbg-emitters quirk as the final close below: flush(final=True)
+        # asserts when the buffer is exactly full at close. This PER-GENERATION
+        # close lands on a buffer multiple for some conditions (alt-media gens
+        # have different step counts), and an unguarded assert here propagates
+        # out of the Ray task → the whole run FAILS (the 4/5 alt-media failures).
+        # The completed generation's buffers are already on disk; swallow the
+        # trailing-buffer assert and keep going, exactly as the final close does.
+        try:
+            em.close(success=True)
+        except AssertionError:
+            print(f"[multigen_xarray] gen-{gen} close hit pbg-emitters final-flush "
+                  "assert (buffer full at division); flushed data retained.")
         followed = inner_next
         partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
         gen += 1

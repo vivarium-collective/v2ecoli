@@ -146,6 +146,22 @@ def read_pbg_local(zarr_path: str, observables) -> dict:
                                    storage_options=None)
 
 
+def read_vecoli_pbg_trajectory(experiment_dir: str, seed: int,
+                               observables) -> dict:
+    """Read the vEcoli-PBG side of a pbg-vs-pbg run from S3.
+
+    In the upstream-wrapper route the vEcoli engine is run as a Ray
+    ``composite=vecoli`` job that emits the SAME v2ecoli-format zarr the v2ecoli
+    side does — just under ``vecoli_seed{NN}.zarr`` instead of
+    ``v2ecoli_seed{NN}.zarr``. So both sides read through ``read_v2ecoli_trajectory``;
+    this only points the store URI at the ``vecoli_`` prefix on S3.
+    """
+    uri = (f"s3://{BUCKET}/{PREFIX}/{experiment_dir}/"
+           f"vecoli_seed{seed:02d}.zarr")
+    return read_v2ecoli_trajectory(None, seed, observables, store_uri=uri,
+                                   storage_options=_SO)
+
+
 # --------------------------------------------------------------------------- #
 # matched-timepoint stats
 # --------------------------------------------------------------------------- #

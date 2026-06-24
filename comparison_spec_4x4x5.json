@@ -13,38 +13,38 @@
   "from_vecoli_config": "configs/default.json",
   "defaults": {
     "seeds": 4,
-    "gens": 2
+    "gens": 4
   },
   "conditions": [
     {
       "name": "basal",
       "config": "cond_basal.json",
       "seeds": 4,
-      "gens": 2
+      "gens": 4
     },
     {
       "name": "with_aa",
       "config": "cond_with_aa.json",
       "seeds": 4,
-      "gens": 2
+      "gens": 4
     },
     {
       "name": "succinate",
       "config": "cond_succinate.json",
       "seeds": 4,
-      "gens": 2
+      "gens": 4
     },
     {
       "name": "no_oxygen",
       "config": "cond_no_oxygen.json",
       "seeds": 4,
-      "gens": 2
+      "gens": 4
     },
     {
       "name": "acetate",
       "config": "cond_acetate.json",
       "seeds": 4,
-      "gens": 2
+      "gens": 4
     }
   ]
 }

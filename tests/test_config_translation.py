@@ -18,6 +18,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts._compare.config_adapter import (  # noqa: E402
     translate_vecoli_config,
+    vecoli_native_kwargs,
     schema_diff,
 )
 
@@ -99,3 +100,35 @@ def test_schema_diff_partitions_keys():
     assert d["only_in_vecoli"] == ["a", "b"]
     assert d["only_in_v2"] == ["c"]
     assert d["different"] == {"shared": (1, 9)}
+
+
+# --------------------------------------------------------------------------- #
+# Gap 2 — ONE vEcoli config drives BOTH engines, each in its native form.
+# The v2ecoli side gets translate_vecoli_config(); the vEcoli side
+# (upstream wrapper) gets vecoli_native_kwargs(). Both must agree on the
+# run knobs they share, so the two engines genuinely run the SAME config.
+# --------------------------------------------------------------------------- #
+def test_vecoli_native_kwargs_extracts_run_knobs():
+    native = vecoli_native_kwargs(dict(VECOLI_CONFIG,
+                                       time_step=2.0,
+                                       exclude_processes=["foo_listener"]))
+    assert native["condition"] == "basal"
+    assert native["time_step"] == 2.0
+    assert native["exclude_processes"] == ["foo_listener"]
+    # vEcoli-only / workflow-infra keys do NOT reach the wrapper.
+    assert "emitter" not in native
+    assert "sim_data_path" not in native
+
+
+def test_both_engines_consistent_from_one_config():
+    cfg = dict(VECOLI_CONFIG, condition="with_aa", time_step=1.5,
+               exclude_processes=["monomer_counts_listener"])
+    v2 = translate_vecoli_config(cfg)          # v2ecoli side
+    native = vecoli_native_kwargs(cfg)         # vecoli (upstream wrapper) side
+    # the engines AGREE on the shared run knobs derived from one source config
+    assert v2["condition"] == native["condition"] == "with_aa"
+    assert v2["time_step"] == native["time_step"] == 1.5
+    assert native["exclude_processes"] == cfg["exclude_processes"]
+    # neither engine's run body carries vEcoli-only infra keys
+    assert "emitter" not in v2 and "emitter" not in native
+    assert "sim_data_path" not in v2 and "sim_data_path" not in native

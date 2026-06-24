@@ -64,7 +64,8 @@ from scripts._compare.report_card_section import build_report_card
 from scripts._compare.vecoli_parquet_reader import read_vecoli_trajectory
 from scripts.compare_matched_trajectories import (
     BUCKET, PREFIX, REGION, OBS_LABEL, _legend_html, overlay_svg_multi,
-    read_v2ecoli_trajectory, read_pbg_local, _gen1_window)
+    read_v2ecoli_trajectory, read_pbg_local, read_vecoli_pbg_trajectory,
+    _gen1_window)
 
 # condition -> (v2ecoli zarr experiment dir, vEcoli parquet experiment dir).
 # v2: sim48-v2-full-* is basal-everywhere for the NON-basal dirs (the old bug);
@@ -714,11 +715,23 @@ def main(argv=None):
                         'process-bigraph composites). Reads both via read_pbg_local '
                         'and emits the overview + report-card + per-condition '
                         'trajectory/eval sections (skips the S3/Nextflow-only panels).')
+    p.add_argument("--pbg-vs-pbg", action="store_true",
+                   help='S3 pbg-vs-pbg mode (the default upstream-wrapper route): '
+                        'BOTH engines emit v2ecoli-format zarr to S3 — v2 under '
+                        'v2ecoli_seed*.zarr, vecoli under vecoli_seed*.zarr in its '
+                        'own experiment dir. Reads both via the zarr reader from S3 '
+                        '(condition dirs from experiments.json / --conditions-json) '
+                        'and skips the Nextflow-only config panels. Use this to '
+                        'render the standardized report for any pbg-vs-pbg run.')
     p.add_argument("-o", "--out", default="out/full_compare",
                    help="output directory (also read for experiments.json)")
     args = p.parse_args(argv)
 
     local_pbg = bool(args.local_pbg)
+    pbg_vs_pbg = bool(args.pbg_vs_pbg)
+    # both modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
+    # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
+    skip_nextflow = local_pbg or pbg_vs_pbg
     if local_pbg:                                     # 0. pbg-vs-pbg local zarr
         conds = json.loads(args.local_pbg)
     elif args.conditions_json:                        # 1. explicit override
@@ -745,6 +758,14 @@ def main(argv=None):
             conds, seeds=[0],
             read_v2=lambda d, s: read_pbg_local(d, OBSERVABLES),
             read_ve=lambda d, s: read_pbg_local(d, OBSERVABLES))
+    elif pbg_vs_pbg:
+        # The default upstream-wrapper route: BOTH engines emit v2ecoli-format
+        # zarr to S3 (v2 -> v2ecoli_seed*.zarr, vecoli -> vecoli_seed*.zarr),
+        # each in its own experiment dir. Read both via the zarr reader from S3.
+        cond_data = build(
+            conds,
+            read_v2=lambda d, s: read_v2ecoli_trajectory(d, s, OBSERVABLES),
+            read_ve=lambda d, s: read_vecoli_pbg_trajectory(d, s, OBSERVABLES))
     else:
         cond_data = build(conds)
     graded = list(conds)  # conditions whose data feeds the report card
@@ -764,8 +785,8 @@ def main(argv=None):
     overview["nav_group"] = "Overall"
     sections = [overview]
     # 2. ParCa / initial-state comparison — its own nav entry. Skipped in
-    #    local-pbg mode (it reads each engine's S3 store attrs / Nextflow config).
-    if not local_pbg:
+    #    pbg-vs-pbg modes (the vecoli side is a pbg zarr, not a Nextflow config).
+    if not skip_nextflow:
         parca = parca_section(cond_data)
         parca["nav_group"] = "ParCa comparison"
         sections.append(parca)
@@ -779,7 +800,7 @@ def main(argv=None):
         per_obs, plot_trajs, v2_bounds = cond_data[cond]
         cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
                          eval_section(cond, per_obs)]
-        if not local_pbg:
+        if not skip_nextflow:
             cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
                              + cond_sections)
         for s in cond_sections:
@@ -788,7 +809,7 @@ def main(argv=None):
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     title = (f"vEcoli-pbg ↔ v2ecoli-pbg — process-bigraph comparison ({gen})"
-             if local_pbg
+             if skip_nextflow
              else f"v2ecoli ↔ vEcoli — standardized comparison ({gen})")
     html = report.render_report(sections, title=title)
 

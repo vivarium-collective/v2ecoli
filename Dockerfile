@@ -55,10 +55,16 @@ RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 # the EXTERNAL wrapper (v2ecoli.library.vecoli_pbg_upstream + upstream_division):
 # upstream EcoliSim is imported from here and each vivarium process wrapped
 # externally, with ZERO edits to the checkout. V2E_VECOLI_DIR points the wrapper
-# at it. `master` (not a fork branch) is the pristine upstream.
+# at it. The fork to WRAP is spec-driven: docker/build-and-push-ecr.sh reads
+# comparison_spec.json's vecoli.{repo,commit} and passes them as these build-args,
+# so pointing the comparison at a NEW vEcoli fork is a pure spec edit + rebuild —
+# no Dockerfile change. Defaults clone the pristine upstream CovertLab/vEcoli@master.
+# VECOLI_UPSTREAM_REF may be a branch OR a commit sha; we fetch+checkout so either
+# works (a bare `clone --branch <sha>` does not accept a commit).
+ARG VECOLI_UPSTREAM_REPO=https://github.com/CovertLab/vEcoli
 ARG VECOLI_UPSTREAM_REF=master
-RUN git clone --depth 1 --branch "${VECOLI_UPSTREAM_REF}" \
-        https://github.com/CovertLab/vEcoli.git /app/vEcoli
+RUN git clone "${VECOLI_UPSTREAM_REPO}" /app/vEcoli \
+ && git -C /app/vEcoli checkout "${VECOLI_UPSTREAM_REF}"
 ENV V2E_VECOLI_DIR=/app/vEcoli
 # Verify the clone + that the external upstream wrapper imports and can reach
 # upstream EcoliSim through its sys.path/Cython-pinning shim (does NOT build a

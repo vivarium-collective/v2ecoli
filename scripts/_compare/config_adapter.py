@@ -84,6 +84,50 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     return v2
 
 
+# Keys of a resolved vEcoli config that the PRISTINE upstream wrapper
+# (build_upstream_agents_composite) consumes in its NATIVE form — i.e. the
+# vEcoli side runs on the ORIGINAL config, not a translated one. ``condition``
+# selects the media/initial-state, ``time_step`` the integration step, and
+# ``exclude_processes`` the dropped processes. These are exactly the build_upstream
+# kwargs that mirror what vEcoli's own EcoliSim reads from the same config keys.
+_VECOLI_NATIVE_KEYS = ("condition", "time_step", "exclude_processes")
+
+
+def vecoli_native_kwargs(resolved: dict[str, Any]) -> dict[str, Any]:
+    """Extract the keys the upstream-wrapper consumes from a resolved vEcoli config.
+
+    This is the vEcoli side of "run BOTH engines on the SAME config": where
+    :func:`translate_vecoli_config` produces the v2ecoli overrides, this passes
+    the ORIGINAL vEcoli config's run knobs straight into the upstream wrapper —
+    so both engines are driven from one source config, each in its native form.
+    """
+    return {k: resolved[k] for k in _VECOLI_NATIVE_KEYS if k in resolved}
+
+
+def resolve_vecoli_config_local(config_path: str, fork_dir: str) -> dict[str, Any]:
+    """Resolve a vEcoli fork config WITHOUT needing the fork's own venv.
+
+    ``resolve_vecoli_config`` shells out to ``<fork>/.venv/bin/python`` to honour
+    the fork's loader. In the v2ecoli image the upstream clone (``V2E_VECOLI_DIR``)
+    is SOURCE-ONLY (no venv), so this resolves the fork's config with v2ecoli's
+    OWN inheritance loader instead (identical merge semantics), keyed off the
+    config's directory inside the fork. ``config_path`` may be absolute or
+    relative to ``fork_dir`` (e.g. ``configs/default.json``).
+    """
+    import os
+    abspath = (config_path if os.path.isabs(config_path)
+               else os.path.join(fork_dir, config_path))
+    config_dir = os.path.dirname(abspath)
+    try:
+        from v2ecoli.workflow.config import load_config_with_inheritance
+        return load_config_with_inheritance(abspath, config_dir=config_dir)
+    except Exception:
+        # Last-resort fallback: a flat read (no inheritance) so a missing v2ecoli
+        # loader / unexpected schema still yields the config body.
+        with open(abspath) as fh:
+            return json.load(fh)
+
+
 VECOLI_REPO = "/Users/eranagmon/code/vEcoli"
 VECOLI_PYTHON = f"{VECOLI_REPO}/.venv/bin/python"
 

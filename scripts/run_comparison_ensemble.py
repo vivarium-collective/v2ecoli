@@ -51,6 +51,23 @@ COMPARISON_PATHS = [
 ]
 
 
+def _spec_from_vecoli_config() -> str | None:
+    """``from_vecoli_config`` from the comparison_spec.json baked into the image.
+
+    ``COPY . .`` in the Dockerfile puts the repo (incl. comparison_spec.json) at
+    REPO_ROOT, so the default Ray route picks up the spec's fork config WITHOUT
+    any per-job API/sms-api parameter. Returns None if absent/unreadable.
+    """
+    spec_path = REPO_ROOT / "comparison_spec.json"
+    if not spec_path.exists():
+        return None
+    try:
+        spec = json.loads(spec_path.read_text())
+    except Exception:  # noqa: BLE001
+        return None
+    return spec.get("from_vecoli_config") or None
+
+
 def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                    overrides: dict | None = None):
     """v2ecoli ported composite (baseline) for the given media condition.
@@ -210,27 +227,40 @@ def _write_json_sidecar(path: str, obj: dict) -> None:
 # cannot destabilize the working runs; when on it applies only the safely
 # name-matched subset and records the full translation in the sidecar.
 # --------------------------------------------------------------------------- #
-def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
-    """Resolve+translate a vEcoli config; return (overrides, translated_full).
-
-    ``overrides`` keeps only keys that are declared ``baseline`` generator
-    parameters (minus ``seed``, owned by the per-seed loop). For typical vEcoli
-    configs this is nearly empty — that emptiness IS the finding above.
-    """
-    from scripts._compare.config_adapter import (
-        resolve_vecoli_config, translate_vecoli_config)
+def _baseline_param_names() -> set:
+    """The declared ``baseline`` generator parameter names (for override filtering)."""
     import v2ecoli.composites  # noqa: F401  (register generators)
     from pbg_superpowers.composite_generator import _REGISTRY
-    valid: set[str] = set()
     for e in _REGISTRY.values():
         if e.name == "baseline":
-            valid = set(e.parameters)
-            break
-    resolved = resolve_vecoli_config(vecoli_config_path)
+            return set(e.parameters)
+    return set()
+
+
+def _overrides_from_resolved(resolved: dict) -> tuple[dict, dict]:
+    """Translate an ALREADY-resolved vEcoli config into baseline overrides.
+
+    Returns ``(overrides, translated_full)``. ``overrides`` keeps only keys that
+    are declared ``baseline`` generator parameters (minus ``seed``, owned by the
+    per-seed loop). For typical vEcoli configs this is nearly empty — that
+    emptiness IS the namespace finding above.
+    """
+    from scripts._compare.config_adapter import translate_vecoli_config
+    valid = _baseline_param_names()
     translated = translate_vecoli_config(resolved)
     overrides = {k: v for k, v in translated.items()
                  if k in valid and k != "seed"}
     return overrides, translated
+
+
+def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
+    """Resolve+translate a vEcoli config; return (overrides, translated_full).
+
+    Resolves via the fork's own loader (``resolve_vecoli_config``), then delegates
+    to :func:`_overrides_from_resolved`.
+    """
+    from scripts._compare.config_adapter import resolve_vecoli_config
+    return _overrides_from_resolved(resolve_vecoli_config(vecoli_config_path))
 
 
 # Cache for the once-per-process vEcoli import + global registrations. Re-importing
@@ -377,7 +407,7 @@ _UPSTREAM_SIMDATA_FALLBACK = (
 
 
 def _build_vecoli(seed: int, condition: str, cache_dir: str,
-                  source: str = "upstream"):
+                  source: str = "upstream", native_kwargs: dict | None = None):
     """Build the ``--composite vecoli`` engine.
 
     ``source="upstream"`` (DEFAULT) builds the **pristine, unmodified
@@ -388,25 +418,41 @@ def _build_vecoli(seed: int, condition: str, cache_dir: str,
     map with a harness-side pbg division step so it runs multi-generationally
     through ``run_multigen_xarray``.
 
+    ``native_kwargs`` (from ``config_adapter.vecoli_native_kwargs`` on the
+    resolved vEcoli config) threads the ORIGINAL config's run knobs straight into
+    the wrapper — ``time_step`` and ``exclude_processes`` — so the vEcoli side
+    runs the SAME source config the v2ecoli side was translated from. ``condition``
+    stays CLI-driven (the harness launches one job per media condition), so the
+    config's own ``condition`` does not override it.
+
     ``source="composite-softfloor"`` (opt-in) builds the legacy
     vivarium-collective/vEcoli ``composite-softfloor`` fork via
     ``build_composite_native`` (see :func:`_build_vecoli_composite_softfloor`).
     """
+    native = native_kwargs or {}
     if source == "upstream":
         from v2ecoli.library.upstream_division import (
             build_upstream_agents_composite)
         sim_data_path = os.path.join(cache_dir, "simData.cPickle")
         if not os.path.exists(sim_data_path):
             sim_data_path = _UPSTREAM_SIMDATA_FALLBACK
+        # monomer_counts_listener is a read-only listener that trips on a TCS
+        # sim_data provenance skew; excluded per the wrapper smoke-driver
+        # precedent. Does not affect the comparison observables. Merge it with
+        # any exclude_processes the source config requested.
+        exclude = list(native.get("exclude_processes") or [])
+        if "monomer_counts_listener" not in exclude:
+            exclude.append("monomer_counts_listener")
+        extra: dict = {}
+        if "time_step" in native:
+            extra["time_step"] = float(native["time_step"])
         composite, _info = build_upstream_agents_composite(
             seed=seed,
             condition=condition,
             sim_data_path=sim_data_path,
-            # monomer_counts_listener is a read-only listener that trips on a
-            # TCS sim_data provenance skew; excluded per the wrapper smoke-driver
-            # precedent. Does not affect the comparison observables.
-            exclude_processes=["monomer_counts_listener"],
+            exclude_processes=exclude,
             verbose=True,
+            **extra,
         )
         return composite
     if source == "composite-softfloor":
@@ -474,14 +520,44 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  out_root: str, seed_start: int = 0,
                  vecoli_config: str | None = None,
                  translate_config: bool = False,
-                 vecoli_source: str = "upstream"):
+                 vecoli_source: str = "upstream",
+                 from_vecoli_config: str | None = None,
+                 vecoli_dir: str | None = None):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
 
     # PART 3 (opt-in): translate the vEcoli config into baseline overrides ONCE.
     v2_overrides: dict | None = None
     v2_translated: dict | None = None
-    if composite_kind == "v2ecoli" and translate_config and vecoli_config:
+    vecoli_native: dict | None = None
+
+    # NEW (headline capability): drive BOTH engines from ONE vEcoli FORK config.
+    # Resolve it ONCE (using v2ecoli's own loader so the fork needs no venv),
+    # then derive each engine's form: the v2ecoli side gets the TRANSLATED
+    # baseline overrides; the vEcoli side gets the ORIGINAL config's native run
+    # knobs (time_step / exclude_processes). One source config → both engines.
+    if from_vecoli_config:
+        try:
+            from scripts._compare.config_adapter import (
+                resolve_vecoli_config_local, vecoli_native_kwargs)
+            fork_dir = vecoli_dir or os.environ.get(
+                "V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
+            resolved = resolve_vecoli_config_local(from_vecoli_config, fork_dir)
+            if composite_kind == "v2ecoli":
+                v2_overrides, v2_translated = _overrides_from_resolved(resolved)
+                print(f"[from-vecoli-config] {from_vecoli_config} → v2 overrides "
+                      f"{sorted(v2_overrides)} ({len(v2_translated)} translated keys)")
+            else:
+                vecoli_native = vecoli_native_kwargs(resolved)
+                print(f"[from-vecoli-config] {from_vecoli_config} → vecoli native "
+                      f"kwargs {sorted(vecoli_native)} (run on the ORIGINAL config)")
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] from-vecoli-config resolve failed: {type(e).__name__} {e}")
+
+    # Legacy opt-in: translate the vEcoli config into baseline overrides ONCE
+    # (only when --from-vecoli-config did not already populate them).
+    if (composite_kind == "v2ecoli" and translate_config and vecoli_config
+            and v2_overrides is None):
         try:
             v2_overrides, v2_translated = _translated_v2_overrides(vecoli_config)
             print(f"[translate] vEcoli→v2 overrides applied: {sorted(v2_overrides)} "
@@ -518,7 +594,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                           f"{type(e).__name__} {e}")
         elif composite_kind == "vecoli":
             composite = _build_vecoli(seed, condition, cache_dir,
-                                      source=vecoli_source)
+                                      source=vecoli_source,
+                                      native_kwargs=vecoli_native)
         else:
             raise ValueError(f"unknown composite_kind {composite_kind!r}")
         # include_vectors=True (the xarray_run default): the scalar counts
@@ -582,7 +659,21 @@ def main(argv=None):
                    help="OPT-IN: configure the v2ecoli build FROM the translated "
                         "vEcoli config (default off — keeps the working runs on "
                         "baseline defaults).")
+    p.add_argument("--from-vecoli-config", default=None,
+                   help="Path WITHIN the vEcoli fork (under V2E_VECOLI_DIR), e.g. "
+                        "configs/default.json, to drive BOTH engines from: the "
+                        "v2ecoli side gets the TRANSLATED overrides, the vecoli "
+                        "side runs the ORIGINAL config. If omitted, falls back to "
+                        "$V2E_FROM_VECOLI_CONFIG then comparison_spec.json's "
+                        "from_vecoli_config (baked into the image) — so the default "
+                        "Ray route is spec-driven with no per-job flag.")
     args = p.parse_args(argv)
+
+    # Resolve --from-vecoli-config: CLI flag > env > baked comparison_spec.json.
+    from_vc = (args.from_vecoli_config
+               or os.environ.get("V2E_FROM_VECOLI_CONFIG")
+               or _spec_from_vecoli_config())
+    vecoli_dir = os.environ.get("V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
 
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
     seeds = list(range(args.seed_start, args.seed_start + args.n_seeds))
@@ -592,7 +683,8 @@ def main(argv=None):
         max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
         seed_start=args.seed_start, vecoli_config=args.vecoli_config,
         translate_config=args.translate_vecoli_config,
-        vecoli_source=args.vecoli_source)
+        vecoli_source=args.vecoli_source,
+        from_vecoli_config=from_vc, vecoli_dir=vecoli_dir)
     parallel = run_seeds_parallel(seeds, run_one, mode=args.mode)
     summaries = getattr(parallel, "results", parallel)
     ensemble = {"composite": args.composite, "condition": args.condition,

@@ -92,11 +92,9 @@ def fig_k_sweep():
     fig.update_xaxes(title="free DnaA-ATP concentration (nM)")
     fig.update_yaxes(title="oriC-low occupancy θ  (n = 4 fixed)", range=[-0.03, 1.08])
     _layout(fig, "Lowering K (half-saturation) makes oriC-low easier to saturate",
-            "θ = A⁴ / (K⁴ + A⁴) at fixed cooperativity n=4. K sets WHERE the switch trips (the threshold free "
-            "DnaA-ATP); n sets how SHARP it is. Dropping K from 30→10 nM shifts the switch left, so the same "
-            "DnaA-ATP pool saturates oriC-low more readily — confirming Haochen's intuition analytically. The "
-            "dynamic consequence (earlier/more initiation, and whether homeostasis still holds) needs an in-sim "
-            "K-sweep, the K-analogue of the n-sweep.")
+            "θ = A⁴/(K⁴+A⁴) at fixed n=4. K sets where the switch trips; lowering it 30→10 nM shifts the switch "
+            "left, so the same DnaA-ATP pool saturates oriC-low more readily. The dynamic consequence needs an "
+            "in-sim K-sweep.")
     _write(fig, "dnaa5_k_sweep")
 
 
@@ -161,13 +159,10 @@ def fig_hill_vs_kd():
     fig.update_xaxes(title="free DnaA-ATP concentration (nM)")
     fig.update_yaxes(title="oriC-low occupancy θ", range=[-0.03, 1.08])
     _layout(fig, "Two formulations, one switch — Hill (n=4) ≈ classical varying-K_d",
-            "the phenomenological Hill switch (n=4) and the mechanistic varying-dissociation-constant "
-            f"(Adair, 8 sites, each neighbour lowering K_d ~{best:.1f}×) give the SAME occupancy curve — "
-            "so n=4's sharp-switch conclusion is formulation-independent. NOTE (per Haochen): this is NOT the "
-            "same as varying the single K in θ. That K is the LUMPED half-saturation — it sets the THRESHOLD "
-            "(where the switch trips). Varying-K_d is the set of PER-SITE constants that DECREASE as sites fill "
-            "— the microscopic SOURCE of cooperativity, i.e. the SHARPNESS that n captures. K = threshold; "
-            "n / varying-K_d = sharpness.")
+            "the Hill switch (n=4) and the mechanistic varying-K_d form "
+            f"(Adair, 8 sites, each neighbour lowering K_d ~{best:.1f}×) give the same occupancy curve, so "
+            "n=4's sharp-switch conclusion is formulation-independent. (K is the lumped half-saturation = "
+            "threshold; varying-K_d / n is the sharpness.)")
     _write(fig, "dnaa5_hill_vs_kd")
 
 
@@ -189,11 +184,10 @@ def fig_saturation_per_gen():
     fig.update_xaxes(title="generation")
     fig.update_yaxes(title_text="saturation episodes per generation", secondary_y=False)
     fig.update_yaxes(title_text="max oriC-low occupancy", range=[0, 1.1], secondary_y=True)
-    _layout(fig, "Test: does oriC saturate once per generation? — NOT under the mass trigger",
-            "the cooperative switch over-fires in gens 1-3 (11-95 saturation episodes, far more than once) "
-            "then STOPS saturating in gens 4-9 (max occupancy 0.12-0.50, never reaches full) as free DnaA-ATP "
-            "drifts down. Clean once-per-cycle firing needs the mechanistic DnaA-ATP/oriC trigger phase-locked "
-            "to initiation (out of scope for this report) plus a sustained DnaA-ATP level — a real open item.", h=480)
+    _layout(fig, "Test: does oriC saturate once per generation? — not under the mass trigger",
+            "the cooperative switch over-fires in gens 1-3 then stops saturating in gens 4-9 as free DnaA-ATP "
+            "drifts down. Clean once-per-cycle firing needs the mechanistic DnaA-ATP/oriC trigger plus a "
+            "sustained DnaA-ATP level (out of scope).", h=480)
     _write(fig, "dnaa5_saturation_per_gen")
 
 

@@ -158,7 +158,10 @@ def house_layout(fig, title: str, subtitle: str, height: int = 480):
     fig.update_layout(
         title=dict(
             text=f"<b>{title}</b><br><span style='font-size:12px;color:#475569'>{sub}</span>",
-            x=0.5, xanchor="center", font=dict(size=17)),
+            x=0.5, xanchor="center", font=dict(size=17),
+            # pin to the container top so the subtitle grows downward into the
+            # reserved top margin (not into the plot / subplot titles below it)
+            yref="container", y=0.965, yanchor="top"),
         template="plotly_white", height=height + 18 * max(0, nlines - 1) + 70,
         font=dict(family="Inter, system-ui, sans-serif", size=13),
         # Legend sits HORIZONTALLY BELOW the plot (centered). An outside-top-right
@@ -168,7 +171,7 @@ def house_layout(fig, title: str, subtitle: str, height: int = 480):
         # legend lives inside the figure's own height, so it can't be clipped at any
         # container width and never overlaps the plotting area. The +70 height and
         # b=120 margin reserve room for it (wraps to extra rows for many entries).
-        margin=dict(t=64 + 16 * nlines, b=120, l=70, r=50), hovermode="x unified",
+        margin=dict(t=92 + 22 * nlines, b=120, l=70, r=50), hovermode="x unified",
         legend=dict(orientation="h", yanchor="top", y=-0.16, xanchor="center", x=0.5,
                     bgcolor="rgba(255,255,255,0.7)", bordercolor="#e2e8f0", borderwidth=1),
     )

@@ -121,6 +121,20 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                 os.chdir(_prev)
         if os.path.exists(marker):
             eff_cache = cond_cache
+        else:
+            # FAIL LOUD instead of silently falling back to the base (basal) cache.
+            # The base ParCa is the shipped --mode FAST fixture (reduced TF condition
+            # set), so the per-condition regen produces no condition-specific bundle —
+            # and a silent basal fallback made EVERY non-basal condition run basal,
+            # which read as a 44-336% v2-vs-vEcoli "divergence" that was pure setup
+            # artifact. A condition that cannot be applied must error, not run basal.
+            raise RuntimeError(
+                f"v2ecoli condition '{condition}' could not be applied: the per-"
+                f"condition regen produced no bundle at {cond_cache} (likely because "
+                f"the ParCa cache {cache_dir!r} is the --mode fast fixture, which omits "
+                f"non-basal conditions). Build a FULL condition-complete ParCa "
+                f"(scripts/build_comparison_caches.sh) and point --cache-dir at it."
+            )
     # emitter="null": the real comparison output is captured OUT OF BAND by the
     # external XArrayEmitter that run_multigen_xarray drives (the compact 8-path
     # view → zarr). The composite's INTERNAL parquet sink is pure redundancy

@@ -256,12 +256,14 @@ def overview_section(cond_data: dict) -> dict:
                 f'{rel*100:.1f}%</td>')
         cv = worst(axis_v)
         cond_verdicts.append(cv)
-        # Link the row to that condition's first sub-section (its vEcoli config
-        # panel). Use the SAME report._slug on the SAME title string the section
-        # is rendered with (f"{cond} — config (vEcoli)") so the anchor resolves
+        # Link the row to that condition's "simulation runs" sub-section — it is
+        # rendered in BOTH modes (the "config (vEcoli)" panel is SKIPPED in
+        # local-pbg / pbg-vs-pbg mode, so anchoring there left the row pointing at
+        # a non-existent id and the click did nothing). Use the SAME report._slug on
+        # the SAME title string the section is rendered with so the anchor resolves
         # exactly. Whole row clickable (onclick) + the condition cell is a real
         # <a> for an accessible, hover-cued link target.
-        anchor = _slug(f"{cond} — config (vEcoli)")
+        anchor = _slug(f"{cond} — simulation runs")
         body_rows.append(
             f'<tr onclick="location.hash=\'#{anchor}\'" style="cursor:pointer">'
             f'<td style="padding:6px 11px;font-weight:650">'

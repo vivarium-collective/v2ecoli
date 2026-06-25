@@ -58,9 +58,28 @@ def vecoli_fork(spec):
 
 
 def vecoli_engine(spec):
-    """'upstream-wrapper' (default — vEcoli run as a Ray composite=vecoli job on
-    the v2ecoli image) or 'nextflow' (legacy separate Nextflow registration)."""
+    """How the genuine vEcoli side runs:
+      - 'upstream-wrapper' (default) — vEcoli decomposed into ~50 pbg steps (external
+        wrapper), run as a Ray composite=vecoli job on the v2ecoli image.
+      - 'vivarium-process' — genuine vEcoli as a SINGLE pbg node with vivarium-core's
+        own Engine inside (faithful by construction: vivarium handles partition /
+        reconcile / division natively). Same Ray composite=vecoli job + image.
+      - 'nextflow' — legacy separate Nextflow registration (parquet output)."""
     return spec.get("vecoli_engine") or DEFAULT_VECOLI_ENGINE
+
+
+# Map the spec's vecoli_engine -> run_comparison_ensemble's --vecoli-source flag.
+_ENGINE_TO_SOURCE = {
+    "upstream-wrapper": "upstream",          # step-decomposed external wrapper (pbg)
+    "vivarium-process": "vivarium-process",  # single pbg node, vivarium Engine inside
+}
+
+
+def vecoli_source(spec):
+    """The ``run_comparison_ensemble --vecoli-source`` value for the spec's
+    ``vecoli_engine``. 'nextflow' has no run_comparison_ensemble source (it registers
+    separately), so it falls back to the upstream default."""
+    return _ENGINE_TO_SOURCE.get(vecoli_engine(spec), "upstream")
 
 
 def from_vecoli_config(spec):

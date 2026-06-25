@@ -206,16 +206,25 @@ class VivariumEcoliProcess(Process):
         "fork_dir": {"_type": "string", "_default": ""},
     }
 
+    # Set by build_vivarium_ecoli_composite to inject a pre-built (possibly daughter-
+    # overlaid) engine so the process doesn't rebuild EcoliSim. Consumed once at
+    # construction. Single build is sequential; Ray seeds are separate processes.
+    _PENDING_HANDLE = None
+
     def __init__(self, config=None, core=None):
         super().__init__(config, core)
-        self._handle = build_vivarium_ecoli(
-            sim_data_path=self.config["sim_data_path"],
-            condition=self.config["condition"],
-            seed=int(self.config["seed"]),
-            time_step=float(self.config["time_step"]),
-            exclude_processes=list(self.config.get("exclude_processes") or []) or None,
-            fork_dir=(self.config.get("fork_dir") or None),
-        )
+        if VivariumEcoliProcess._PENDING_HANDLE is not None:
+            self._handle = VivariumEcoliProcess._PENDING_HANDLE
+            VivariumEcoliProcess._PENDING_HANDLE = None
+        else:
+            self._handle = build_vivarium_ecoli(
+                sim_data_path=self.config["sim_data_path"],
+                condition=self.config["condition"],
+                seed=int(self.config["seed"]),
+                time_step=float(self.config["time_step"]),
+                exclude_processes=list(self.config.get("exclude_processes") or []) or None,
+                fork_dir=(self.config.get("fork_dir") or None),
+            )
 
     def inputs(self):
         return {}
@@ -230,6 +239,21 @@ class VivariumEcoliProcess(Process):
         obs = cell_observables(self._handle.engine)
         return {"listeners": {"mass": {k: obs[k] for k in MASS_OBS}}}
 
+    def divide(self) -> dict:
+        """Split the inner cell with vEcoli's faithful ``divide_cell``; return
+        daughter-0's overlay (bulk/unique/environment/boundary) to seed the next
+        generation's Engine. The split is vivarium-native — no pbg ``_add``."""
+        obs = cell_observables(self._handle.engine)
+        d1, _d2 = divide_cell({
+            "bulk": obs["bulk"], "unique": obs["unique"],
+            "environment": obs["environment"], "boundary": obs["boundary"]})
+        return d1
+
+    def division_signals(self) -> tuple:
+        """``(dry_mass_fg, n_chromosomes)`` for the lineage driver's division gate."""
+        obs = cell_observables(self._handle.engine)
+        return obs["dry_mass"], _n_chromosomes(obs["unique"])
+
 
 def build_vivarium_ecoli_composite(
     *,
@@ -241,19 +265,27 @@ def build_vivarium_ecoli_composite(
     fork_dir: str | None = None,
     core=None,
     agent_id: str = "0",
+    initial_overlay: dict | None = None,
 ):
     """Wrap a single :class:`VivariumEcoliProcess` as a one-node pbg Composite under
     ``agents/<agent_id>`` — the genuine-vEcoli analogue of the v2ecoli agent composite,
     so the SAME ``run_multigen_xarray`` / ``XArrayEmitter`` path serves both engines.
 
-    Returns ``(composite, info)``. The process writes ``listeners.mass.*`` (overwrite/
-    set semantics) into the agent store each tick; the standard mass view reads them.
+    ``initial_overlay`` (a daughter's divided bulk/unique/env/boundary) seeds a non-
+    founder generation. Returns ``(composite, info)``. The process writes
+    ``listeners.mass.*`` (overwrite/set semantics) into the agent store each tick.
     """
     from process_bigraph import Composite
     if core is None:
         from v2ecoli.core import build_core
         core = build_core()
 
+    # Build the (optionally daughter-seeded) engine once and inject it so the process
+    # doesn't rebuild EcoliSim.
+    VivariumEcoliProcess._PENDING_HANDLE = build_vivarium_ecoli(
+        sim_data_path=sim_data_path, condition=condition, seed=int(seed),
+        time_step=float(time_step), exclude_processes=list(exclude_processes or []) or None,
+        fork_dir=fork_dir or None, initial_overlay=initial_overlay)
     proc = VivariumEcoliProcess(config={
         "sim_data_path": sim_data_path, "condition": condition, "seed": int(seed),
         "time_step": float(time_step),
@@ -275,11 +307,126 @@ def build_vivarium_ecoli_composite(
     }
     state = {"agents": {agent_id: cell_state}, "global_time": 0.0}
     composite = Composite(dict(schema=dict(), state=state), core=core)
-    return composite, {"core": core, "agent_root": "agents", "agent_id": agent_id}
+    return composite, {"core": core, "agent_root": "agents",
+                       "agent_id": agent_id, "process": proc}
+
+
+def run_vivarium_ecoli_pbg_multigen(
+    *,
+    store_path,
+    sim_data_path: str,
+    condition: str = "basal",
+    seed: int = 0,
+    max_generations: int = 2,
+    max_steps_per_gen: int = 9000,
+    time_step: float = 1.0,
+    chunk: int = 20,
+    exclude_processes: list | None = None,
+    fork_dir: str | None = None,
+    mass_multiplier: float = 1.0,
+    core=None,
+    experiment_id: str = "vecoli",
+    variant: int = 0,
+    lineage_seed: int = 0,
+) -> dict:
+    """Single-lineage multigen for the vEcoli **pbg node**, emitting the v2ecoli-format zarr.
+
+    Each generation is a one-node pbg ``Composite`` (``VivariumEcoliProcess``) driven by
+    ``composite.run``; a per-generation ``XArrayEmitter`` writes a ``generation=N``
+    partition into the shared store (the SAME emitter v2ecoli uses). At the division
+    criterion (dry_mass ≥ birth + expectedDryMassIncrease AND ≥2 chromosomes) vEcoli's own
+    ``divide_cell`` splits the inner cell and the followed daughter seeds the next
+    generation's Composite. No pbg ``_add`` — the division-handoff crash cannot occur.
+    """
+    import shutil
+    from pathlib import Path
+    from v2ecoli.library.xarray_run import _build_emitter, _filter_agent_state
+    from v2ecoli.library.upstream_division import daughter_phylogeny_id
+
+    if core is None:
+        from v2ecoli.core import build_core
+        core = build_core()
+    store_path = str(store_path)
+    if Path(store_path).exists():
+        shutil.rmtree(store_path)
+
+    view = [{"root": ("listeners",),
+             "variables": {"mass": {k: [{"path": k, "dtype": "<f8"}] for k in MASS_OBS}}}]
+    metadata_base = {
+        "experiment_id": experiment_id, "variant": int(variant),
+        "lineage_seed": int(lineage_seed), "time_step": float(time_step),
+        "max_duration": float(max_generations * max_steps_per_gen),
+    }
+
+    overlay = None
+    composite_agent_id = "0"            # the inner cell's key in the pbg agents map
+    partition_agent_id = "0"            # the emitter's phylogeny key ("0"->"00"->...),
+                                        # distinct per generation so each writes its own
+                                        # zarr partition (avoids a same-store collision).
+    done_global = 0
+    divisions = 0
+    gens_done = 0
+    final_cell_mass = None
+
+    for gen in range(max_generations):
+        # gen 0 is a fresh founder (overlay=None); later generations seed the inner
+        # Engine from the previous generation's daughter (overlay set below).
+        comp, info = build_vivarium_ecoli_composite(
+            sim_data_path=sim_data_path, condition=condition, seed=seed + gen,
+            time_step=time_step, exclude_processes=exclude_processes,
+            fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
+            initial_overlay=overlay)
+        proc = info["process"]
+        comp.run(1)  # warm-up tick so listeners materialise
+        em = _build_emitter(
+            core=core, store_path=store_path, view=view, metadata_base=metadata_base,
+            generation=gen, agent_id=partition_agent_id, output_metadata={}, buffer_size=3)
+
+        steps = 1
+        threshold = None
+        divided = False
+        while steps < max_steps_per_gen:
+            comp.run(chunk)
+            steps += chunk
+            done_global += chunk
+            agent_state = comp.state["agents"][composite_agent_id]
+            payload = _filter_agent_state(agent_state, view)
+            # Relabel the payload to the emitter's phylogeny key (the emitter strips
+            # the agent prefix via get_in(data, ("agents", partition_agent_id))).
+            em.update({"time": float(done_global), "global_time": float(done_global),
+                       "agents": {partition_agent_id: payload}})
+            mass = agent_state["listeners"]["mass"]
+            final_cell_mass = float(mass.get("cell_mass", 0.0) or 0.0)
+            dry = float(mass.get("dry_mass", 0.0) or 0.0)
+            if threshold is None and dry > 0:
+                raw = (proc._handle.dry_mass_inc_dict.get(proc._handle.media_id)
+                       or proc._handle.dry_mass_inc_dict.get("minimal"))
+                inc = _inc_to_fg(raw) if raw is not None else dry
+                if not inc or inc <= 0:
+                    inc = dry  # fallback: mass doubling
+                threshold = dry + inc * mass_multiplier
+            _dry, nchrom = proc.division_signals()
+            if threshold is not None and dry >= threshold and nchrom >= 2:
+                divided = True
+                break
+
+        try:
+            em.close(success=True)
+        except AssertionError:
+            pass  # F5: trailing-buffer include_static assert; generation already on disk
+        gens_done += 1
+        if not divided:
+            break
+        overlay = proc.divide()
+        partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
+        divisions += 1
+
+    return {"generations": gens_done, "divisions": divisions,
+            "store": store_path, "final_cell_mass": final_cell_mass}
 
 
 # ---------------------------------------------------------------------------
-# Single-lineage multi-generation driver
+# Single-lineage multi-generation driver (standalone, non-pbg — local utility)
 # ---------------------------------------------------------------------------
 
 def run_vivarium_ecoli_multigen(

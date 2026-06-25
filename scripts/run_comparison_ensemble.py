@@ -571,6 +571,28 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         # local stores: clear stale
         if "://" not in str(store_path) and Path(store_path).exists():
             shutil.rmtree(store_path)
+
+        # vivarium-process engine: genuine vEcoli as a SINGLE pbg node with vivarium's
+        # own Engine inside (faithful by construction — no re-implemented partition/
+        # reconcile/division). It runs its OWN single-lineage multigen + XArrayEmitter
+        # (vivarium handles division internally; no pbg _add), emitting the SAME
+        # v2ecoli-format zarr, so it bypasses the pbg-division run_multigen_xarray below.
+        if composite_kind == "vecoli" and vecoli_source == "vivarium-process":
+            from v2ecoli.library.vivarium_ecoli_engine import run_vivarium_ecoli_pbg_multigen
+            sim_data_path = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
+            if not os.path.exists(sim_data_path):
+                sim_data_path = _UPSTREAM_SIMDATA_FALLBACK
+            res = run_vivarium_ecoli_pbg_multigen(
+                store_path=store_path, sim_data_path=sim_data_path, condition=condition,
+                seed=seed, max_generations=max_generations, max_steps_per_gen=max_steps,
+                chunk=chunk, exclude_processes=["monomer_counts_listener"],
+                fork_dir=os.environ.get("V2E_VECOLI_DIR"),
+                experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
+                variant=0, lineage_seed=seed)
+            return {"seed": seed, "wall_seconds": round(time.time() - t0, 1),
+                    "store": str(store_path), "steps": None,
+                    "generations": list(range(1, res.get("generations", 0) + 1))}
+
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, condition, cache_dir,
                                        overrides=v2_overrides)
@@ -647,7 +669,7 @@ def main(argv=None):
                    help="dir or s3:// prefix for per-seed zarr stores.")
     p.add_argument("--mode", default="ray", help="run_seeds_parallel mode (ray/serial).")
     p.add_argument("--vecoli-source", default="upstream",
-                   choices=["upstream", "composite-softfloor"],
+                   choices=["upstream", "composite-softfloor", "vivarium-process"],
                    help="--composite vecoli engine: 'upstream' (default) = the "
                         "pristine CovertLab/vEcoli external wrapper; "
                         "'composite-softfloor' = the legacy vivarium-collective "

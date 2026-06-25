@@ -395,7 +395,8 @@ def run_vivarium_ecoli_pbg_multigen(
         comp.run(1)  # warm-up tick so listeners materialise
         em = _build_emitter(
             core=core, store_path=store_path, view=view, metadata_base=metadata_base,
-            generation=gen, agent_id=partition_agent_id, output_metadata={}, buffer_size=3)
+            generation=gen + 1,  # 1-indexed to match run_multigen_xarray (v2ecoli side)
+            agent_id=partition_agent_id, output_metadata={}, buffer_size=3)
 
         steps = 1
         threshold = None

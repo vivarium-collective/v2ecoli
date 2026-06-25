@@ -153,17 +153,24 @@ def _state(engine):
     return engine.state.get_value()
 
 
-# The mass observables compared by the report card (scripts/comparison_report_card.py
-# MASS_OBS). Emitted into the v2ecoli-format zarr so BOTH engines read identically.
-MASS_OBS = ("cell_mass", "dry_mass", "protein_mass", "rna_mass")
+# The 7 report-card observables (scripts/comparison_report_card.py OBSERVABLES), at the
+# SAME paths v2ecoli emits (run_comparison_ensemble COMPARISON_PATHS) so both engines read
+# identically: 5 in listeners.mass, 2 in listeners.unique_molecule_counts.
+MASS_OBS = ("cell_mass", "dry_mass", "protein_mass", "rna_mass",
+            "instantaneous_growth_rate")
+COUNT_OBS = ("active_RNAP", "active_ribosome")
+OBSERVABLES = MASS_OBS + COUNT_OBS
 
 
 def cell_observables(engine) -> dict:
-    """Pull the comparison observables from the live Engine state. Single-cell, no
-    agents wrapper (divide=False). Scalar mass axes + the raw bulk/unique for division."""
+    """Pull the 7 comparison observables from the live Engine state. Single-cell, no
+    agents wrapper (divide=False). Scalar axes + the raw bulk/unique for division."""
     st = _state(engine)
-    mass = (st.get("listeners", {}) or {}).get("mass", {}) or {}
+    listeners = st.get("listeners", {}) or {}
+    mass = listeners.get("mass", {}) or {}
+    umc = listeners.get("unique_molecule_counts", {}) or {}
     obs = {k: float(mass.get(k, 0.0) or 0.0) for k in MASS_OBS}
+    obs.update({k: float(umc.get(k, 0.0) or 0.0) for k in COUNT_OBS})
     obs.update({
         "bulk": st.get("bulk"),
         "unique": st.get("unique"),
@@ -230,14 +237,20 @@ class VivariumEcoliProcess(Process):
         return {}
 
     def outputs(self):
-        # Mass observables are recomputed-absolute each tick → 'set' semantics
-        # (overwrite), matching vivarium's Mass listener _updater='set'.
-        return {"listeners": {"mass": {k: "overwrite[float]" for k in MASS_OBS}}}
+        # Recomputed-absolute each tick → 'set' semantics (overwrite), matching
+        # vivarium's listener _updater='set'.
+        return {"listeners": {
+            "mass": {k: "overwrite[float]" for k in MASS_OBS},
+            "unique_molecule_counts": {k: "overwrite[float]" for k in COUNT_OBS},
+        }}
 
     def update(self, state, interval):
         self._handle.engine.run_for(float(interval))
         obs = cell_observables(self._handle.engine)
-        return {"listeners": {"mass": {k: obs[k] for k in MASS_OBS}}}
+        return {"listeners": {
+            "mass": {k: obs[k] for k in MASS_OBS},
+            "unique_molecule_counts": {k: obs[k] for k in COUNT_OBS},
+        }}
 
     def divide(self) -> dict:
         """Split the inner cell with vEcoli's faithful ``divide_cell``; return
@@ -350,8 +363,10 @@ def run_vivarium_ecoli_pbg_multigen(
     if Path(store_path).exists():
         shutil.rmtree(store_path)
 
-    view = [{"root": ("listeners",),
-             "variables": {"mass": {k: [{"path": k, "dtype": "<f8"}] for k in MASS_OBS}}}]
+    view = [{"root": ("listeners",), "variables": {
+        "mass": {k: [{"path": k, "dtype": "<f8"}] for k in MASS_OBS},
+        "unique_molecule_counts": {k: [{"path": k, "dtype": "<f8"}] for k in COUNT_OBS},
+    }}]
     metadata_base = {
         "experiment_id": experiment_id, "variant": int(variant),
         "lineage_seed": int(lineage_seed), "time_step": float(time_step),

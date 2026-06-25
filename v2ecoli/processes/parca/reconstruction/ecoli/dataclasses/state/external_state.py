@@ -106,7 +106,7 @@ class ExternalState(object):
             }
 
     def exchange_data_from_concentrations(
-        self, molecules: dict[str, float]
+        self, molecules: dict[str, float], aerobic_cap: float | None = None
     ) -> dict[str, Any]:
         """
         Update importExchangeMolecules for FBA based on current nutrient concentrations.
@@ -120,6 +120,9 @@ class ExternalState(object):
         Args:
                 molecules: external molecules (no location tag) with external concentration,
                         concentration can be inf
+                aerobic_cap: aerobic carbon-source uptake cap (mmol/gDCW/h). When
+                        None, falls back to the V2ECOLI_GLC_UPTAKE_CAP_AEROBIC env
+                        var, then 20.0 (stock behavior).
 
         Returns dict with the following keys:
                 externalExchangeMolecules (set[str]): all exchange molecules (with
@@ -161,14 +164,18 @@ class ExternalState(object):
                 if oxygen_id in importUnconstrainedExchangeMolecules:
                     # Aerobic carbon-source uptake cap (default 20.0 mmol/gDCW/h).
                     # GUR-titration knob for the metabolic-perturbation-response
-                    # investigation: overridable per-run via env var (cf. the
-                    # RIDA_RATE_MULTIPLIER env-var pattern in composites/baseline.py).
-                    # Read inline so a sweep runner that sets the env var before
-                    # each composite build is picked up when the FBA recomputes
-                    # import constraints. Default preserves stock behavior.
-                    aerobic_cap = float(
-                        os.environ.get("V2ECOLI_GLC_UPTAKE_CAP_AEROBIC", "20.0"))
-                    importConstrainedExchangeMolecules[carbon_source_id] = aerobic_cap * (
+                    # investigation. Config-driven: the ExchangeData step threads
+                    # `aerobic_cap` from its `glc_uptake_cap_aerobic` config field
+                    # (a per-cap `config_overrides` variant), which survives the
+                    # division->daughter rebuild because baseline() re-applies the
+                    # override every generation. When the caller passes None we fall
+                    # back to the env var (kept for the standalone 2-cap probe) and
+                    # then to 20.0, preserving stock behavior for every other config.
+                    cap = aerobic_cap
+                    if cap is None:
+                        cap = float(
+                            os.environ.get("V2ECOLI_GLC_UPTAKE_CAP_AEROBIC", "20.0"))
+                    importConstrainedExchangeMolecules[carbon_source_id] = cap * (
                         units.mmol / units.g / units.h
                     )
                 else:

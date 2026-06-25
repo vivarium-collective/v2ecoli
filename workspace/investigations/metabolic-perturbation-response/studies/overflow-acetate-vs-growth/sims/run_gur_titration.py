@@ -36,7 +36,6 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import os
 import shutil
 import subprocess
 import sys
@@ -137,22 +136,42 @@ def extract_cap(sweep_dir: str, gen_lb: int, floor: float, c_content: float) -> 
 
 def run_cap(cap: float, n_seeds: int, generations: int, base_cfg: dict,
             work: Path, cache_dir: str) -> str:
-    """Run the scaled basal ensemble at one cap; return the sweep dir."""
+    """Run the scaled basal ensemble at one cap; return the sweep dir.
+
+    Config-driven cap (replaces the old V2ECOLI_GLC_UPTAKE_CAP_AEROBIC env var,
+    which only reached generation 0): a single-value `variants` block targets
+    the ExchangeData step's `glc_uptake_cap_aerobic` config field. meta_composite
+    threads it into each LineageProcess as a `config_overrides` entry, and
+    baseline() re-applies that override on EVERY generation's rebuild — so the
+    cap survives the division->daughter rebuild. `skip_baseline` keeps only the
+    capped variant (no extra uncapped baseline branch).
+    """
     cfg = dict(base_cfg)
+    experiment_id = f"gur_cap_{str(cap).replace('.', 'p')}"
+    # Pin out_dir per cap: run.py uses setdefault, so the inherited base_cfg
+    # out_dir would otherwise win and land parquet at out/population_phenotype_basal
+    # (the bug the old extractor tripped on). Own dir per cap == known read path.
+    sweep_dir = work / experiment_id
     cfg.update({
-        "experiment_id": f"gur_cap_{str(cap).replace('.', 'p')}",
+        "experiment_id": experiment_id,
+        "out_dir": str(sweep_dir),
         "n_init_sims": n_seeds, "generations": generations,
         "emitter": "parquet",  # build_cell_records / extract_vectors read parquet
         "cache_dir": cache_dir,
+        "skip_baseline": True,
+        "variants": {
+            "glc_cap": {
+                "target": "exchange_data.glc_uptake_cap_aerobic",
+                "value": [cap],
+            }
+        },
     })
-    sweep_dir = work / cfg["experiment_id"]
-    cfg_path = work / f"{cfg['experiment_id']}.json"
+    cfg_path = work / f"{experiment_id}.json"
     cfg_path.write_text(json.dumps(cfg, indent=2))
-    env = dict(os.environ, V2ECOLI_GLC_UPTAKE_CAP_AEROBIC=str(cap))
     wf = str(REPO / ".venv/bin/v2ecoli-workflow")
-    print(f"  [cap={cap}] running ensemble ({n_seeds}×{generations}, Ray) …", flush=True)
+    print(f"  [cap={cap}] running ensemble ({n_seeds}×{generations}) …", flush=True)
     subprocess.run([wf, "--config", str(cfg_path), "--out", str(sweep_dir)],
-                   env=env, check=True)
+                   check=True)
     return str(sweep_dir)
 
 
@@ -198,7 +217,7 @@ def main():
         if not args.keep_sweeps:
             shutil.rmtree(sweep, ignore_errors=True)
 
-    out = {"arm": "baseline", "knob": "V2ECOLI_GLC_UPTAKE_CAP_AEROBIC",
+    out = {"arm": "baseline", "knob": "exchange_data.glc_uptake_cap_aerobic",
            "n_seeds": args.n_seeds, "generations": args.generations,
            "gen_lb": args.gen_lb, "c_content_gC_per_gDW": args.c_content,
            "units": {"growth_rate": "1/h", "fluxes": "mmol/gDCW/h (neg=uptake, pos=secretion)",

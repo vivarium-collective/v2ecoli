@@ -58,6 +58,42 @@ def chromosome_state(state_source="snapshot"):
         return default
 
 
+def rnap_state(state_source="snapshot"):
+    """Return RNAP arrays ``{coordinates, domain_index, is_forward}`` from the snapshot.
+
+    Reads keys ``rnap_coordinates`` (i8), ``rnap_domain_index`` (i4), and
+    ``rnap_is_forward`` (bool) from the saved state npz, mirroring the file
+    selection of :func:`chromosome_state`.  Returns empty arrays with correct
+    dtypes when the keys are absent or the file is missing, so callers can
+    always iterate over the result without guarding for ``None``.
+    """
+    if state_source == "division":
+        npz_path = DATA / "v2ecoli_state_division.npz"
+    else:
+        npz_path = DATA / "v2ecoli_state.npz"
+
+    _empty = {
+        "coordinates": np.array([], dtype="i8"),
+        "domain_index": np.array([], dtype="i4"),
+        "is_forward": np.array([], dtype=bool),
+    }
+    try:
+        st = np.load(npz_path)
+        return {
+            "coordinates": st["rnap_coordinates"].astype("i8")
+            if "rnap_coordinates" in st
+            else _empty["coordinates"],
+            "domain_index": st["rnap_domain_index"].astype("i4")
+            if "rnap_domain_index" in st
+            else _empty["domain_index"],
+            "is_forward": st["rnap_is_forward"].astype(bool)
+            if "rnap_is_forward" in st
+            else _empty["is_forward"],
+        }
+    except Exception:
+        return _empty
+
+
 def division_progress(state_source="snapshot"):
     """Fraction through the D-period (replication termination → division), 0..1.
 

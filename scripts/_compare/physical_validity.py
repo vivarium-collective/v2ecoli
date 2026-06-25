@@ -78,7 +78,7 @@ def load_cell_mass(store_path: str) -> np.ndarray:
 
     Searches the dataset's data variables for one named 'cell_mass' (the view in
     run_upstream_multigen.py emits listeners/mass/cell_mass, which xarray flattens
-    to a 'cell_mass' variable). Concatenates along the leading (time) axis.
+    to a 'cell_mass' variable). Returns the single cell_mass variable flattened to a 1-D time-ordered array.
     """
     ds = xr.open_zarr(store_path)
     name = next((v for v in ds.data_vars if str(v).split("/")[-1] == "cell_mass"), None)

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import xarray as xr
 from scripts._compare.physical_validity import segment_generations, assess_physical, load_cell_mass
 
@@ -51,7 +52,7 @@ def test_load_cell_mass_from_zarr(tmp_path):
     store = str(tmp_path / "lineage.zarr")
     cm = np.linspace(5000.0, 10000.0, 30)
     ds = xr.Dataset({"cell_mass": ("time", cm)}, coords={"time": np.arange(30)})
-    ds.to_zarr(store, mode="w")
+    ds.to_zarr(store, mode="w", consolidated=False)
     out = load_cell_mass(store)
     assert out.shape == (30,)
     assert np.allclose(out, cm)
@@ -59,7 +60,6 @@ def test_load_cell_mass_from_zarr(tmp_path):
 
 def test_load_cell_mass_missing_raises(tmp_path):
     store = str(tmp_path / "empty.zarr")
-    xr.Dataset({"dry_mass": ("time", np.ones(5))}, coords={"time": np.arange(5)}).to_zarr(store, mode="w")
-    import pytest
+    xr.Dataset({"dry_mass": ("time", np.ones(5))}, coords={"time": np.arange(5)}).to_zarr(store, mode="w", consolidated=False)
     with pytest.raises(ValueError):
         load_cell_mass(store)

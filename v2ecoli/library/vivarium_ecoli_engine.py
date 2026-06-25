@@ -153,19 +153,82 @@ def _state(engine):
     return engine.state.get_value()
 
 
+# The mass observables compared by the report card (scripts/comparison_report_card.py
+# MASS_OBS). Emitted into the v2ecoli-format zarr so BOTH engines read identically.
+MASS_OBS = ("cell_mass", "dry_mass", "protein_mass", "rna_mass")
+
+
 def cell_observables(engine) -> dict:
-    """Pull the comparison observables (cell_mass, dry_mass, bulk, unique) from the
-    live Engine state. Single-cell, no agents wrapper (divide=False)."""
+    """Pull the comparison observables from the live Engine state. Single-cell, no
+    agents wrapper (divide=False). Scalar mass axes + the raw bulk/unique for division."""
     st = _state(engine)
     mass = (st.get("listeners", {}) or {}).get("mass", {}) or {}
-    return {
-        "cell_mass": float(mass.get("cell_mass", 0.0) or 0.0),
-        "dry_mass": float(mass.get("dry_mass", 0.0) or 0.0),
+    obs = {k: float(mass.get(k, 0.0) or 0.0) for k in MASS_OBS}
+    obs.update({
         "bulk": st.get("bulk"),
         "unique": st.get("unique"),
         "environment": st.get("environment", {}),
         "boundary": st.get("boundary", {}),
+    })
+    return obs
+
+
+# ---------------------------------------------------------------------------
+# pbg Process: genuine vEcoli as ONE process-bigraph node (vivarium Engine inside)
+# ---------------------------------------------------------------------------
+
+from process_bigraph import Process
+
+
+class VivariumEcoliProcess(Process):
+    """Genuine upstream vEcoli as a SINGLE process-bigraph node, with vivarium-core's
+    own Engine running inside.
+
+    This PRESERVES the process-bigraph design: v2ecoli and vEcoli compare on the SAME
+    pbg runtime (one pbg node each at ``agents/0``), so the comparison stays a true
+    pbg-vs-pbg test — but vivarium handles partition / update-reconciliation / division
+    *inside* this node, so none of the Engine-reimplementation bugs (the bulk-reconcile
+    mass explosion; the ``_add`` division crash) can arise.
+
+    ``update(state, interval)`` advances the inner vivarium Engine by ``interval`` via
+    ``Engine.run_for`` and writes the cell's mass observables back to the pbg store
+    (``listeners.mass.*``), so the standard ``XArrayEmitter`` view reads them exactly as
+    it does for v2ecoli. REST-ready: the in-process Engine can later be swapped for an
+    out-of-process vivarium service behind this same port interface.
+    """
+
+    config_schema = {
+        "sim_data_path": "string",
+        "condition": {"_type": "string", "_default": "basal"},
+        "seed": {"_type": "integer", "_default": 0},
+        "time_step": {"_type": "float", "_default": 1.0},
+        "exclude_processes": {"_type": "list[string]", "_default": []},
+        "fork_dir": {"_type": "string", "_default": ""},
     }
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config, core)
+        self._handle = build_vivarium_ecoli(
+            sim_data_path=self.config["sim_data_path"],
+            condition=self.config["condition"],
+            seed=int(self.config["seed"]),
+            time_step=float(self.config["time_step"]),
+            exclude_processes=list(self.config.get("exclude_processes") or []) or None,
+            fork_dir=(self.config.get("fork_dir") or None),
+        )
+
+    def inputs(self):
+        return {}
+
+    def outputs(self):
+        # Mass observables are recomputed-absolute each tick → 'set' semantics
+        # (overwrite), matching vivarium's Mass listener _updater='set'.
+        return {"listeners": {"mass": {k: "overwrite[float]" for k in MASS_OBS}}}
+
+    def update(self, state, interval):
+        self._handle.engine.run_for(float(interval))
+        obs = cell_observables(self._handle.engine)
+        return {"listeners": {"mass": {k: obs[k] for k in MASS_OBS}}}
 
 
 # ---------------------------------------------------------------------------

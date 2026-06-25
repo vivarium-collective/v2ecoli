@@ -2,7 +2,37 @@ schema_version: 2
 name: dnaa-replication
 title: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)
 created: '2026-05-29'
-status: active   # 2026-06-09: dnaa-0 PASS; dnaa-1 PASS at CANONICAL V=0.8e-3 on the expert's IN-BAND + STEADY criterion — the DnaA pool oscillates WITHIN [300,800] (steady-gen cycle-mean ~362, peaks <800, troughs ~207) with steady dynamics (oriC 1↔2, every gen divides), exactly her ask; the ~0.6/min dnaA init rate is the known sub-physiological TRADEOFF (init-rate test PARTIAL). No CONSTITUTIVE V closes both band + ~1/min rate (7-point sweep + the 15-gen V=1.1e-3 equilibration run that overshoots) — closing both needs a regulated synthesis lever (Rashmi/Haochen). The earlier V=1.1e-3 pick is WITHDRAWN (its 7-gen "676 in-band" was a pre-equilibration artifact). Rashmi CONFIRMED 2026-06-09 ("0.8e would be okay to move forward") — dnaa-1 SIGNED OFF at V=0.8e-3; the regulated-synthesis lever is deferred (non-blocking). dnaa-2 (hydrolysis) is BEING REDONE on the corrected full-per-gen-history emitter (Rashmi 2026-06-09: the old PASS was stale on pre-fix truncated data). Seed-1 8-gen re-verify @ V=1e-3: still PASSES on the generation-average criterion — DnaA-ATP fraction avg 0.267 in [0.2,0.5] (hydrolysis mechanism HOLDS on clean data), mass-doubling 8/8, oriC 1↔2, total-DnaA all-gen avg 575. HONEST CHANGE: total-DnaA per-gen MEAN now ramps 73→…→880 (ABOVE the 800 ceiling in gens 6-8) — in-band only on the all-gen average; the old "all gens ≤660 in band" was a truncation artifact. This matches dnaa-1's V=1e-3 overshoot → a genuine V TENSION (dnaa-1 wants 0.8e-3 in-band pool; dnaa-2's fraction needs ~1e-3; 0.8e-3 destabilizes dnaa-2). MULTI-SEED (0+1+2) re-verify on the mini DONE — RESULTS STAND: DnaA-ATP fraction robust across all 3 seeds (0.268/0.267/0.302, in [0.2,0.5]); oriC 1↔2 + mass hold every seed; total-DnaA in-band on the all-gen average every seed (392/575/578), with the per-gen >800 overshoot SEED-VARIABLE (seeds 1&2 overshoot mid-run, seed 0 stays in band). Hydrolysis mechanism holds robustly. Rashmi RE-APPROVED dnaa-2 2026-06-10 ("this looks good. lets run the tests as well") — the 4 behaviour tests are evaluated on the canonical re-verify run + recorded (all PASS), so dnaa-2 is CLOSED PASS. ACTIVE FOCUS now dnaa-3 (DnaA-box binding), UN-GATED per her "move on to the next study": the read-only DnaA-box occupancy observer is built + runs on the dnaa-2 baseline; the OPEN QUESTION is the oriC low-affinity OVER-BINDING (free DnaA-ATP ~380-550 nM >> ~100 nM K_d), which the V-down sweep (chart dnaa3_v_sweep_overbinding: V cuts oriC-low occupancy 0.82→0.65→0.57 but is INSUFFICIENT — structurally pinned ~0.5-0.8 given K_d≈100 nM + the pool band) showed V alone cannot resolve — needs a different lever. RESOLVED 2026-06-10: Rashmi shared her ACTIVE box-binding branch; reviewed + VERIFIED + ADOPTED (PR #162, merged → v3; ported via a flat_overrides/dna_sites.tsv true-override). Her active Langmuir solve DEPLETES the free pool (the missing physics the read-only observer lacked) → OVER-BINDING RESOLVED: oriC-low occupancy mean 0.46 (vs read-only ~0.8); BOX-DOUBLING FIXED (315↔630, low-aff doubles 8→16 via fork-passage release); 8/8 clean divisions (chart dnaa3_active_binding_adopted). The read-only observer is superseded. dnaa-3 box-binding is now the active mechanism. RASHMI FEEDBACK 2026-06-10T12:42 INTEGRATED: re-ran the binding at the IN-BAND V=1e-3 (the value used before, not the overshooting 1.2e-3) — run dnaa3_adopt_v1e3_seed0 (8/8 divided); ALL boxes double 315↔630 (low-aff included — answered her Q1); oriC-low occupancy fills GRADUALLY over the cycle (~0.3 birth → ~0.7 init, NOT pre-filled — test #2 PASS); DnaA pool in-band gens 1-5, drifts >800 gens 6-8 (V-tension, test #1 PARTIAL → dnaa-4). Charts restored + re-rendered (time in minutes, division demarcation lines, no gridlines); findings/discovery de-staled; 2 tests added. NEXT (the deeper item Rashmi flagged): DnaA self-autoregulation. VERIFIED 2026-06-10 in our ParCa state: delta_prob[TU00259[c], MONOMER0-160] self-edge = 0 exactly; natural basal dnaA synth = 1.06e-5 (the V override 1e-3 is ~100× that). STOPGAP TRIED (patch basal+delta_prob, drop V override): FAILED — DnaA collapsed to ~17 (natural-rate scale). DIAGNOSIS: the runtime dnaA synth prob is a PRECOMPUTED STATIC value (cache configs.ecoli-transcript-initiation.synth_prob, set during ParCa + overridden by Mechanism A's V) — NOT dynamically recomputed from basal + delta_prob × DnaA-binding each tick. So late-patching transcription_regulation.basal_prob/delta_prob doesn't reach it. UNIFYING INSIGHT: the SAME static-synth-prob architecture is why (a) the V override is needed (to set DnaA in band) AND (b) autoregulation is absent (no feedback). Real fix = make dnaA transcription DYNAMICALLY feedback-controlled at runtime (recompute synth prob from basal + autorepression × actual DnaA-promoter occupancy — ideally her adopted dnaA-promoter boxes) + calibrate basal so feedback equilibrates in-band. This is a proper modeling study (→ dnaa-04 / a regulation study), not a quick patch. It would likely dissolve the V tension + drift at the root.
+status: active
+# Status log (latest 2026-06-10).
+# dnaa-0 pass. dnaa-1 pass at the canonical V=0.8e-3 on the expert's in-band + steady
+# criterion: the DnaA pool oscillates within [300,800] (steady-gen cycle-mean ~362, peaks
+# <800, troughs ~207), oriC stays 1↔2, and every generation divides. The ~0.6/min dnaA
+# init rate is the known sub-physiological tradeoff (init-rate test partial). No constitutive
+# V closes both the band and the ~1/min rate (7-point sweep plus a 15-gen V=1.1e-3 run that
+# overshoots), so a regulated synthesis lever is needed; the earlier V=1.1e-3 pick was
+# withdrawn (its 7-gen "676 in-band" reading was a pre-equilibration artifact). Rashmi signed
+# dnaa-1 off at V=0.8e-3 2026-06-09; the regulated lever is deferred and non-blocking.
+# dnaa-2 was re-verified on the corrected full-per-gen-history emitter (the old pass was stale
+# on pre-fix truncated data). It passes on the generation-average criterion across seeds 0/1/2:
+# DnaA-ATP fraction 0.268/0.267/0.302 in [0.2,0.5], mass-doubling and oriC 1↔2 every seed,
+# total-DnaA in band on the all-gen average (392/575/578). The per-gen mean overshoots 800
+# mid-run on seeds 1 and 2 but not seed 0 — in-band only on the all-gen average, matching
+# dnaa-1's V=1e-3 overshoot (a genuine V tension: dnaa-1 wants 0.8e-3, dnaa-2's fraction needs
+# ~1e-3). Rashmi re-approved dnaa-2 2026-06-10; the 4 behaviour tests pass on the canonical run.
+# dnaa-3 box-binding: the read-only occupancy observer left an over-binding (free DnaA-ATP
+# ~380-550 nM vs the ~100 nM K_d, oriC-low occupancy ~0.8) that a V-down sweep could not resolve.
+# Adopting Rashmi's active Langmuir branch (PR #162) depletes the free pool — the physics the
+# observer lacked — resolving the over-binding (oriC-low occupancy mean 0.46) and fixing
+# box-doubling (315↔630, low-aff 8→16 via fork-passage release), with 8/8 clean divisions.
+# dnaa-4 (DnaA self-autoregulation) is the regulated lever the data called for. The runtime dnaA
+# synth prob is a precomputed static value (set in ParCa, overridden by Mechanism A's V), not
+# recomputed from basal + delta_prob each tick — the dnaA delta_prob self-edge is 0 and natural
+# basal synth is 1.06e-5 (~100x below the 1e-3 override). A stopgap (patch basal+delta_prob, drop
+# the V override) failed: DnaA collapsed to ~17 at the natural rate. The same static-synth-prob
+# architecture is why both the V override is needed and autoregulation is absent. The fix is to
+# make dnaA transcription dynamically feedback-controlled (recompute synth prob from basal +
+# autorepression x DnaA-promoter occupancy) and calibrate basal to equilibrate in band; this
+# should dissolve the V tension and drift at the root.
 
 question: |
   Can v2ecoli reproduce DnaA-driven replication initiation in succinate at
@@ -23,7 +53,7 @@ hypothesis: |
   cycle again — never reaching 4 oriC simultaneously.
 
 lead: |
-  This investigation REPLACES the prior dnaa-replication work entirely.
+  This investigation replaces the prior dnaa-replication work entirely.
   Prior context (Round 1–3.8 framing, glycerol cache, imposed τ/C/D,
   intrinsic-hydrolysis dnaa-02, RIDA mechanisms, etc.) is deliberately
   retired per the 2026-05-29 reviewer feedback (see
@@ -34,246 +64,235 @@ lead: |
 
 executive:
   what_is_this: |
-    v2ecoli + DnaA-driven chromosome replication initiation under the succinate
-    growth condition, built study-by-study. The first five studies now hold together:
-    dnaa-0 (succinate periodic steady state) PASS; dnaa-1 (DnaA expression) PASS at
-    V=0.8e-3 on the expert's in-band + steady criterion (pool oscillates WITHIN [300,800],
-    oriC 1↔2, every gen divides; the ~0.6/min init rate is the known sub-physiological
-    tradeoff — init-rate test PARTIAL, flagged as needing a REGULATED lever); dnaa-2
-    (DnaA-ATP/ADP nucleotide balance + intrinsic hydrolysis) PASS, multi-seed, fraction
-    in the Boesen [0.2,0.5] band via Haochen's kinetic-hydrolysis mechanism; dnaa-3
-    (DnaA-box binding) PASS — the active Langmuir binding depletes the free pool and
-    fixes box-doubling, RESOLVING the earlier over-binding; dnaa-4 (DnaA self-
-    autoregulation) is the regulated lever dnaa-1 called for — it dissolves the V-tension
-    at the root. A per-generation parquet-emit truncation bug (fixed 2026-06-08) had
-    biased the early reads; every PASS above is on the corrected full-per-gen history.
-    Each study has an explicit acceptance criterion in biological observables (oriC
-    periodicity, DnaA pool steady state, DnaA-ATP fraction band). Further mechanistic
-    studies (RIDA/DDAH/DARS, seqA sequestration, cooperativity, validation) are scaffolded
-    as a roadmap but not yet worked.
+    v2ecoli with DnaA-driven chromosome replication initiation under succinate, built
+    study by study. The first five studies hold together: dnaa-0 (succinate periodic steady
+    state) pass; dnaa-1 (DnaA expression) pass at V=0.8e-3 on the expert's in-band + steady
+    criterion (pool oscillates within [300,800], oriC 1↔2, every gen divides; the ~0.6/min
+    init rate is the known sub-physiological tradeoff, so the init-rate test is partial and
+    flags the need for a regulated lever); dnaa-2 (DnaA-ATP/ADP nucleotide balance + intrinsic
+    hydrolysis) pass, multi-seed, with the fraction in the Boesen [0.2,0.5] band via Haochen's
+    kinetic-hydrolysis mechanism; dnaa-3 (DnaA-box binding) pass, where active Langmuir binding
+    depletes the free pool and fixes box-doubling, resolving the earlier over-binding; dnaa-4
+    (DnaA self-autoregulation) is the regulated lever dnaa-1 called for, dissolving the V-tension
+    at the root. A per-generation parquet-emit truncation bug (fixed 2026-06-08) had biased the
+    early reads; every pass above is on the corrected full-per-gen history. Each study has an
+    explicit acceptance criterion in biological observables (oriC periodicity, DnaA pool steady
+    state, DnaA-ATP fraction band). Further mechanistic studies (RIDA/DDAH/DARS, seqA
+    sequestration, cooperativity, validation) are scaffolded as a roadmap but not yet worked.
   verdict: |-
-    HEADLINE: the succinate DnaA cell cycle is reconstructed mechanistically across six studies
-    (0-5) — a periodic baseline, in-band DnaA expression, ATP/ADP nucleotide balance, active
-    DnaA-box binding, DnaA self-autoregulation, and a cooperative oriC switch — each step's gate met
-    (or honestly PARTIAL), each step's tension pinpointing the next mechanism. The cooperative oriC
-    switch (study 5) is the prerequisite for a DnaA-ATP/oriC initiation trigger to eventually replace
-    the inherited cell-mass-per-origin heuristic; that mechanistic-initiation work is in progress and
-    set aside from this report for now.
+    The succinate DnaA cell cycle is reconstructed mechanistically across six studies (0-5):
+    a periodic baseline, in-band DnaA expression, ATP/ADP nucleotide balance, active DnaA-box
+    binding, DnaA self-autoregulation, and a cooperative oriC switch. Each step meets its gate
+    (or is honestly partial), and each step's tension pinpoints the next mechanism. The cooperative
+    oriC switch (study 5) is the prerequisite for a DnaA-ATP/oriC initiation trigger to eventually
+    replace the inherited cell-mass-per-origin heuristic; that mechanistic-initiation work is in
+    progress and set aside from this report for now.
 
-    OPEN ITEM FLAGGED FOR REVIEW (Haochen) — out of scope, the clear next requirement: the cooperative
-    switch does NOT yet saturate once per generation. Under the mass trigger it over-fires early
-    (gens 1-3) then stops saturating later (gens 4-9, as free DnaA-ATP drifts down) — the expected
-    behaviour without phase-locking. Clean once-per-cycle firing needs the mechanistic DnaA-ATP/oriC
-    trigger (phase-locked to initiation) plus a sustained DnaA-ATP level. dnaa-5 PASSES its in-scope
-    gate (switch + homeostasis); once-per-cycle firing is tracked as a secondary out-of-scope test
-    (dnaa5_saturation_per_gen) for the future mechanistic-initiation work.
+    Open item flagged for review (Haochen), out of scope and the clear next requirement: the
+    cooperative switch does not yet saturate once per generation. Under the mass trigger it over-fires
+    early (gens 1-3) then stops saturating later (gens 4-9, as free DnaA-ATP drifts down), the
+    expected behaviour without phase-locking. Clean once-per-cycle firing needs the mechanistic
+    DnaA-ATP/oriC trigger (phase-locked to initiation) plus a sustained DnaA-ATP level. dnaa-5 passes
+    its in-scope gate (switch + homeostasis); once-per-cycle firing is tracked as a secondary
+    out-of-scope test (dnaa5_saturation_per_gen) for that future work.
 
-    THE ARC — the steps it took to get here:
-      (0) succinate baseline — v2ecoli reaches periodic steady state (oriC 1↔2 from gen 3).
-      (1) DnaA expression — V=0.8e-3 holds the pool in band, but NO constitutive V also gives the
-          ~1/min init rate → the data itself called for a REGULATED lever.
-      (2) DnaA-ATP/ADP nucleotide balance — Haochen's kinetic hydrolysis puts the DnaA-ATP fraction
-          in the Boesen [0.2,0.5] band (off the fast-equilibrium pin). multi-seed PASS.
-      (3) DnaA-box binding — active Langmuir binding depletes free DnaA-ATP, RESOLVING the
-          over-binding + fixing box-doubling. 6/6 tests PASS, spine-verified.
-      (4) DnaA self-autoregulation — the regulated lever (linear s=0.6 + F-05): dissolves the
-          dnaa-1/2/3 V-tension at the root. Homeostasis robust across 3 seeds; the DnaA-ATP fraction
-          band is seed-1-specific (honest PARTIAL).
-      (5) cooperative oriC switch — a Hill filament makes oriC-low occupancy SWITCH-LIKE (reaches
-          full), preserving the dnaa-3/4 bands (PASS). The prerequisite a mechanistic initiation
-          trigger needs. Out-of-scope future criterion: once-per-generation firing (needs the
-          mechanistic trigger + sustained DnaA-ATP) — flagged for review, tracked as a secondary test.
+    The arc, step by step:
+      (0) succinate baseline: v2ecoli reaches periodic steady state (oriC 1↔2 from gen 3).
+      (1) DnaA expression: V=0.8e-3 holds the pool in band, but no constitutive V also gives the
+          ~1/min init rate, so the data itself called for a regulated lever.
+      (2) DnaA-ATP/ADP nucleotide balance: Haochen's kinetic hydrolysis puts the DnaA-ATP fraction
+          in the Boesen [0.2,0.5] band, off the fast-equilibrium pin. Multi-seed pass.
+      (3) DnaA-box binding: active Langmuir binding depletes free DnaA-ATP, resolving the
+          over-binding and fixing box-doubling. 6/6 tests pass, spine-verified.
+      (4) DnaA self-autoregulation: the regulated lever (linear s=0.6 + F-05) dissolves the
+          dnaa-1/2/3 V-tension at the root. Homeostasis is robust across 3 seeds; the DnaA-ATP
+          fraction band is seed-1-specific (honest partial).
+      (5) cooperative oriC switch: a Hill filament makes oriC-low occupancy switch-like (reaches
+          full) while preserving the dnaa-3/4 bands (pass). This is the prerequisite a mechanistic
+          initiation trigger needs. Out-of-scope future criterion: once-per-generation firing (needs
+          the mechanistic trigger + sustained DnaA-ATP), flagged for review and tracked as a
+          secondary test.
 
-    NEXT (in progress, set aside from this report): wire the cooperative switch into a DnaA-ATP/oriC
+    Next (in progress, set aside from this report): wire the cooperative switch into a DnaA-ATP/oriC
     initiation trigger to replace the inherited cell-mass-per-origin heuristic. Detail per step follows.
 
-    dnaa-0 PASS (succinate periodic steady state, oriC 1↔2 from gen 3). dnaa-1 PASS at
-    V=0.8e-3 on the expert's IN-BAND + STEADY criterion (steady-gen cycle-mean ~362,
-    peaks <800, troughs ~207; oriC clean 1↔2, every gen divides) — with the ~0.6/min init
-    rate the KNOWN sub-physiological TRADEOFF (init-rate test PARTIAL). A 7-point V-sweep
-    + a 15-gen equilibration run established that NO constitutive V closes both the in-band
-    pool AND the ~1/min rate (both rise together with V), so dnaa-1 explicitly called for a
-    REGULATED lever. dnaa-2 PASS (multi-seed 0/1/2): Haochen's kinetic-hydrolysis mechanism
-    drives the DnaA-ATP fraction off the ~0.997 fast-equilibrium pin and into the Boesen
-    [0.2,0.5] band (avg ~0.27), mass-doubling 8/8, oriC 1↔2.
+    dnaa-0 pass (succinate periodic steady state, oriC 1↔2 from gen 3). dnaa-1 pass at V=0.8e-3
+    on the expert's in-band + steady criterion (steady-gen cycle-mean ~362, peaks <800, troughs
+    ~207; oriC clean 1↔2, every gen divides), with the ~0.6/min init rate the known
+    sub-physiological tradeoff (init-rate test partial). A 7-point V-sweep plus a 15-gen
+    equilibration run established that no constitutive V closes both the in-band pool and the
+    ~1/min rate (both rise together with V), so dnaa-1 explicitly called for a regulated lever.
+    dnaa-2 pass (multi-seed 0/1/2): Haochen's kinetic-hydrolysis mechanism drives the DnaA-ATP
+    fraction off the ~0.997 fast-equilibrium pin and into the Boesen [0.2,0.5] band (avg ~0.27),
+    with mass-doubling 8/8 and oriC 1↔2.
 
-    dnaa-3 (DnaA-box binding) PASS: the adopted ACTIVE Langmuir binding (Rashmi's mechanism,
-    PR #162) depletes the free DnaA-ATP pool — the physics the read-only observer lacked —
-    so the earlier over-binding (free DnaA-ATP ~380-550 nM, oriC-low occupancy ~0.8) is
-    RESOLVED, and box-doubling is fixed (low-aff sites double 8→16 via fork-passage release).
-    Under the current dnaa-4 reference the box-binding re-run passes ALL 6 acceptance tests,
-    including the DnaA-ATP-fraction band (0.284), with oriC-low occupancy down to 0.04-0.17
-    and free DnaA-ATP ~5-11 nM (<< the 100 nM K_d).
+    dnaa-3 (DnaA-box binding) pass: the adopted active Langmuir binding (Rashmi's mechanism,
+    PR #162) depletes the free DnaA-ATP pool, the physics the read-only observer lacked, so the
+    earlier over-binding (free DnaA-ATP ~380-550 nM, oriC-low occupancy ~0.8) is resolved and
+    box-doubling is fixed (low-aff sites double 8→16 via fork-passage release). Under the current
+    dnaa-4 reference the box-binding re-run passes all 6 acceptance tests, including the
+    DnaA-ATP-fraction band (0.284), with oriC-low occupancy down to 0.04-0.17 and free DnaA-ATP
+    ~5-11 nM (well below the 100 nM K_d).
 
-    dnaa-4 (DnaA self-autoregulation) — the regulated lever, mechanism-validated homeostasis.
-    CANONICAL REFERENCE (F-07; Rashmi/Haochen commit eb4ea39): LINEAR autoregulation s=0.6 +
-    F-05 (kinetic apo+ATP charging) at V=1.5e-3, k_h=0.025/min — a CLEAN band pass (every
-    steady gen g4-11 in [300,800]), clean cell cycle (12/12 divided, oriC 1↔2), DnaA-ATP
-    fraction 0.261, matching Rashmi's reference PDF. This SUPERSEDES the earlier Hill
-    exploration (Hill s=0.7 brought only 2/3 seeds in-band; s=0.65/F-06 stalled division).
-    Feedback holding free DnaA-ATP low is also what lets dnaa-3 pass its fraction band — so
-    autoregulation dissolves the dnaa-1/2/3 V-tension at the root, exactly as deferred.
+    dnaa-4 (DnaA self-autoregulation) is the regulated lever, with mechanism-validated homeostasis.
+    The canonical reference (F-07; Rashmi/Haochen commit eb4ea39) is linear autoregulation s=0.6 +
+    F-05 (kinetic apo+ATP charging) at V=1.5e-3, k_h=0.025/min: a clean band pass (every steady gen
+    g4-11 in [300,800]), clean cell cycle (12/12 divided, oriC 1↔2), DnaA-ATP fraction 0.261,
+    matching Rashmi's reference PDF. It supersedes the earlier Hill exploration (Hill s=0.7 brought
+    only 2/3 seeds in-band; s=0.65/F-06 stalled division). Feedback holding free DnaA-ATP low is
+    also what lets dnaa-3 pass its fraction band, so autoregulation dissolves the dnaa-1/2/3
+    V-tension at the root, exactly as deferred.
 
-    MULTI-SEED (seeds 0/1/2, 12-gen): the autoregulated HOMEOSTASIS is ROBUST — clean cell cycle
+    Multi-seed (seeds 0/1/2, 12-gen): the autoregulated homeostasis is robust — clean cell cycle
     (12/12, oriC 1↔2, 0 re-inits) and total-DnaA pool in [300,800] (steady g4-11) on all three
-    seeds. The DnaA-ATP-FRACTION band, however, is SEED-SENSITIVE — in band only on seed 1 (0.261);
-    seed 0 (0.156, ramping toward band late) and seed 2 (0.085, erratic) fall below 0.2 — so dnaa-4
-    stays PARTIAL on the fraction (homeostasis confirmed, fraction band seed-1-specific).
+    seeds. The DnaA-ATP-fraction band, however, is seed-sensitive: in band only on seed 1 (0.261),
+    while seed 0 (0.156, ramping toward band late) and seed 2 (0.085, erratic) fall below 0.2. So
+    dnaa-4 stays partial on the fraction (homeostasis confirmed, fraction band seed-1-specific).
 
-    dnaa-5 (cooperative oriC switch) PASS — switch + homeostasis validated (once-per-cycle firing is a
-    tracked out-of-scope future criterion): replacing the oriC-low independent-site Langmuir with a
-    cooperative Hill filament (n=4, K=30 nM, flag-gated; n=1 recovers dnaa-3 exactly) makes the
-    oriC-low occupancy snap to FULL (max 1.00) versus the Langmuir's gradual partial (max 0.50) — a
-    switch-like, reproducible signal — while preserving the dnaa-3/4 steady state (DnaA pool in
+    dnaa-5 (cooperative oriC switch) pass — switch and homeostasis validated, with once-per-cycle
+    firing a tracked out-of-scope future criterion. Replacing the oriC-low independent-site Langmuir
+    with a cooperative Hill filament (n=4, K=30 nM, flag-gated; n=1 recovers dnaa-3 exactly) makes the
+    oriC-low occupancy snap to full (max 1.00) versus the Langmuir's gradual partial (max 0.50), a
+    switch-like, reproducible signal, while preserving the dnaa-3/4 steady state (DnaA pool in
     [300,800], DnaA-ATP fraction 0.276 in band, clean 8/8 cycle, oriC 1↔2). n=6 is too strong (pool
-    dips below 300), so n=4 is the operating point. MULTI-SEED (seeds 0/1/2): the cooperative switch
-    is seed-robust on homeostasis — 8/8 divisions, oriC 1↔2, and pool in [300,800] on all three seeds
+    dips below 300), so n=4 is the operating point. Multi-seed (seeds 0/1/2): the cooperative switch is
+    seed-robust on homeostasis — 8/8 divisions, oriC 1↔2, and pool in [300,800] on all three seeds
     (g3+ mean 332/380/376); the DnaA-ATP-fraction band holds on seed 1 only (0.171/0.276/0.194), the
     same seed-sensitivity carried from dnaa-4 (the ATP-charging kinetics are seed-variable). So the
-    switch mechanism generalises; the in-band fraction stays seed-1-calibrated. ONCE-PER-GENERATION
-    (Haochen's criterion — OUT-OF-SCOPE future test, does not gate dnaa-5): under the mass trigger the
-    switch does NOT saturate once per cycle — per-gen saturation episodes [11,93,95,0,0,0,0,0,0],
-    over-firing in gens 1-3 then not saturating in gens 4-9 (free DnaA-ATP drifts below threshold),
-    the expected behaviour without phase-locking. Clean once-per-cycle firing needs the mechanistic
-    DnaA-ATP/oriC trigger phase-locked to initiation + a sustained DnaA-ATP level (out of scope). Also:
-    cooperativity was cross-checked in the classical varying-K_d (Adair) formulation — statically
+    switch mechanism generalises while the in-band fraction stays seed-1-calibrated. Once-per-generation
+    (Haochen's criterion, an out-of-scope future test that does not gate dnaa-5): under the mass trigger
+    the switch does not saturate once per cycle — per-gen saturation episodes [11,93,95,0,0,0,0,0,0],
+    over-firing in gens 1-3 then not saturating in gens 4-9 (free DnaA-ATP drifts below threshold), the
+    expected behaviour without phase-locking. Clean once-per-cycle firing needs the mechanistic
+    DnaA-ATP/oriC trigger phase-locked to initiation plus a sustained DnaA-ATP level (out of scope).
+    Cooperativity was also cross-checked in the classical varying-K_d (Adair) formulation: statically
     equivalent to Hill n=4, but dynamically it over-depletes DnaA-ATP at every cooperativity (finding
     F-KD), so the Hill form is the homeostasis-preserving one.
 
     The cooperative switch is the prerequisite for a DnaA-ATP/oriC initiation trigger to replace the
-    cell-mass heuristic — that mechanistic-initiation work (and the RIDA once-per-cycle control) is in
+    cell-mass heuristic. That mechanistic-initiation work (and the RIDA once-per-cycle control) is in
     progress and set aside from this report for now, to keep study 5's cooperative-binding mechanism
     (which runs under the inherited mass trigger) clearly distinct from the initiation-trigger swap.
   verdict_status: in-progress
   verdict_detail: |-
-    Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate
-    periodic steady state (oriC 1↔2 from gen 3, transient 4 in gens 1–2;
-    reviewer-confirmed). Both acceptance tests re-verified from the parquet
-    (2026-05-31, scripts/verify_dnaa0_acceptance.py): oriC max ≤2 from gen 3,
-    cell_mass CV birth 0.021 / peak 0.045. dnaa-1 — PASS 2026-06-09 at the CANONICAL
-    V=0.8e-3 on the expert's IN-BAND + STEADY criterion. A 7-point V-sweep (Rashmi's request
-    — "tune the v value to get the DnaA levels to oscillate between 300-800... my guess
-    would be 1e-3") plus a 15-gen equilibration run and a multiseed, set per-run via the
-    recorded --perturbation 'TU00259[c]=V' override on one shared cache
-    (out/cache_dnaa1_mechA_1.7e-3, each run OVERRODE the baked 0.0017), full per-gen
-    history, seed 1. V=0.8e-3 is the ONLY V whose DnaA pool oscillates WITHIN [300,800] —
-    the whole oscillation, steady-gen (4-7) cycle-mean 336.5/337.5/359.5/414.8 (pooled
-    ~362), peaks <800 (max 553), troughs ~207 — AND keeps steady-state dynamics (oriC clean
-    1↔2 every gen, every gen divides), which is exactly the expert's ask. The dnaA init rate
-    at V=0.8e-3 is ~0.6/min (gens 4-7 0.65/0.46/0.57/0.71) — sub-physiological vs the ~1/min
-    target: the KNOWN TRADEOFF, recorded as PARTIAL on the init-rate test. ESTABLISHED: no
-    single CONSTITUTIVE V closes both the in-band pool AND the ~1/min rate — the rate hits
-    ~1/min only at V≈1.0-1.1e-3, where the pool does NOT equilibrate in band (the completed
-    15-gen V=1.1e-3 run out/dnaa1_v1p1e-3_long shows the cycle-mean climbs over 800 — peak
-    976 @gen9, gens 6-12 ≥800 — then relaxes to 485 by gen15). Both the pool and the rate
-    rise together with V, so closing both needs a REGULATED / cell-cycle-coupled DnaA
-    synthesis lever (for Rashmi/Haochen). The earlier V=1.1e-3 pick is WITHDRAWN: its 7-gen
-    "676 in-band" reading was a pre-equilibration artifact, caught mid-ramp before the pool
-    finished climbing over the ceiling. oriC clean 1↔2 every gen, every gen divides, and the
-    steady-state dynamics are seed-robust (multiseed seeds 0-3). Pending Rashmi's
-    confirmation of the V=0.8e-3 pick. The earlier
-    "in-band 665-710" PASS at V=1.7e-3 was a truncated-emit artifact (only ~43 s/gen, the
+    Both foundational studies pass. dnaa-0: v2ecoli reaches the succinate periodic steady state
+    (oriC 1↔2 from gen 3, transient 4 in gens 1–2; reviewer-confirmed). Both acceptance tests were
+    re-verified from the parquet (2026-05-31, scripts/verify_dnaa0_acceptance.py): oriC max ≤2 from
+    gen 3, cell_mass CV birth 0.021 / peak 0.045. dnaa-1 passed 2026-06-09 at the canonical V=0.8e-3
+    on the expert's in-band + steady criterion. A 7-point V-sweep (Rashmi's request: "tune the v
+    value to get the DnaA levels to oscillate between 300-800... my guess would be 1e-3") plus a
+    15-gen equilibration run and a multiseed were set per-run via the recorded --perturbation
+    'TU00259[c]=V' override on one shared cache (out/cache_dnaa1_mechA_1.7e-3, each run overrode the
+    baked 0.0017), full per-gen history, seed 1. V=0.8e-3 is the only V whose DnaA pool oscillates
+    within [300,800] across the whole oscillation — steady-gen (4-7) cycle-mean
+    336.5/337.5/359.5/414.8 (pooled ~362), peaks <800 (max 553), troughs ~207 — while keeping
+    steady-state dynamics (oriC clean 1↔2 every gen, every gen divides), exactly the expert's ask.
+    The dnaA init rate at V=0.8e-3 is ~0.6/min (gens 4-7 0.65/0.46/0.57/0.71), sub-physiological vs
+    the ~1/min target: the known tradeoff, recorded as partial on the init-rate test. No single
+    constitutive V closes both the in-band pool and the ~1/min rate; the rate hits ~1/min only at
+    V≈1.0-1.1e-3, where the pool does not equilibrate in band (the completed 15-gen V=1.1e-3 run
+    out/dnaa1_v1p1e-3_long shows the cycle-mean climbing over 800 — peak 976 @gen9, gens 6-12 ≥800 —
+    then relaxing to 485 by gen15). Both the pool and the rate rise together with V, so closing both
+    needs a regulated, cell-cycle-coupled DnaA synthesis lever (for Rashmi/Haochen). The earlier
+    V=1.1e-3 pick was withdrawn: its 7-gen "676 in-band" reading was a pre-equilibration artifact,
+    caught mid-ramp before the pool finished climbing over the ceiling. oriC is clean 1↔2 every gen,
+    every gen divides, and the steady-state dynamics are seed-robust (multiseed seeds 0-3). The
+    earlier "in-band 665-710" pass at V=1.7e-3 was a truncated-emit artifact (only ~43 s/gen, the
     post-division trough, was emitted before the now-fixed division history-wipe bug).
 
-    2026-05-31 reviewer round (Rashmi): (1) dnaa-0 + dnaa-1 now carry explicit
-    `runs:` provenance + canonical 6-axis status, so the report shows them as
-    ran/evaluated/passed rather than "pending" (they previously declared
-    completion but recorded no runs — a derive-on-read status gap, now also
-    guarded by a new report-linter check). (2) dnaa-1's RNA-synth probability
-    re-tuned 2e-3 → 1.7e-3 to reduce the pre-division DnaA peak overshoot
-    (~28% → ~10–15% over the 800 ceiling), CV 7.2% → 2.3%, oriC still clean;
-    the residual peak excursion is intrinsic (the DnaA pool doubles per cycle).
-    (3) dnaa-2 canonical lineage pinned to seed 0 — seed 2 showed a within-cycle
-    reinitiation at its 4th generation (oriC 1→2→4); seeds 0 & 3 stay clean.
+    2026-05-31 reviewer round (Rashmi): (1) dnaa-0 and dnaa-1 now carry explicit `runs:`
+    provenance and canonical 6-axis status, so the report shows them as ran/evaluated/passed rather
+    than "pending" (they previously declared completion but recorded no runs, a derive-on-read status
+    gap now guarded by a new report-linter check). (2) dnaa-1's RNA-synth probability was re-tuned
+    2e-3 → 1.7e-3 to reduce the pre-division DnaA peak overshoot (~28% → ~10–15% over the 800
+    ceiling), CV 7.2% → 2.3%, oriC still clean; the residual peak excursion is intrinsic (the DnaA
+    pool doubles per cycle). (3) the dnaa-2 canonical lineage was pinned to seed 0: seed 2 showed a
+    within-cycle reinitiation at its 4th generation (oriC 1→2→4), while seeds 0 and 3 stay clean.
 
-    dnaa-2 (DnaA-ATP/ADP nucleotide balance + intrinsic hydrolysis) — PASS.
-    The earlier ~0.997 DnaA-ATP pin was diagnosed (Haochen) as a FAST-EQUILIBRIUM
-    artefact, not a parameter error: v2ecoli integrated the DnaA-ADP binding to
-    steady state each tick, instantly reverting hydrolysis-made DnaA-ADP. Haochen's
-    bf8b82e mechanism (commit ADOPTED) keeps the DnaA-ADP reaction bidirectional but
-    flags it integrate_dt=true (kinetic, literal k_r=1×10⁻⁷/s) and adds DnaA-ATP
-    intrinsic hydrolysis (k=0.046/min) as a one-way kinetic reaction. This drives
-    the DnaA-ATP fraction OFF the pin and INTO the Boesen [0.2,0.5] band.
-    DIRECTED RUN (Rashmi 2026-06-04) — SEED 1 × 8 GENERATIONS, evaluated on her
-    GENERATION-AVERAGE criterion (2026-06-04: initial gens may not strictly fall in
-    band while stabilizing — use the average). All four must-preserve behaviours PASS:
-    periodic mass doubling (8/8 divisions); oriC 1↔2 one-init/gen (in {1,2} every gen);
-    total DnaA in [300,800] on the generation average (avg 535; within-cycle peaks
-    >800 pre-division are the expected accumulate-then-divide behaviour); DnaA-ATP
-    fraction in [0.2,0.5] on the generation average (all-gen avg 0.26, steady-gen avg
-    0.222). Canonical figure charts/dnaa2_reverify_multiseed.png. SECONDARY (not a
-    blocker): per-gen averages trend to the low edge of the band in later gens — a
-    total-DnaA dependence (diagnosis figure), with k_r the future-tuning lever for Haochen.
+    dnaa-2 (DnaA-ATP/ADP nucleotide balance + intrinsic hydrolysis) passes. The earlier ~0.997
+    DnaA-ATP pin was diagnosed (Haochen) as a fast-equilibrium artefact, not a parameter error:
+    v2ecoli integrated the DnaA-ADP binding to steady state each tick, instantly reverting
+    hydrolysis-made DnaA-ADP. Haochen's bf8b82e mechanism (adopted) keeps the DnaA-ADP reaction
+    bidirectional but flags it integrate_dt=true (kinetic, literal k_r=1×10⁻⁷/s) and adds DnaA-ATP
+    intrinsic hydrolysis (k=0.046/min) as a one-way kinetic reaction, driving the DnaA-ATP fraction
+    off the pin and into the Boesen [0.2,0.5] band. The directed run (Rashmi 2026-06-04) was seed 1
+    over 8 generations, evaluated on her generation-average criterion (initial gens may not strictly
+    fall in band while stabilizing, so use the average). All four must-preserve behaviours pass:
+    periodic mass doubling (8/8 divisions); oriC 1↔2, one init/gen (in {1,2} every gen); total DnaA
+    in [300,800] on the generation average (avg 535; within-cycle peaks >800 pre-division are the
+    expected accumulate-then-divide behaviour); and DnaA-ATP fraction in [0.2,0.5] on the generation
+    average (all-gen avg 0.26, steady-gen avg 0.222). Canonical figure
+    charts/dnaa2_reverify_multiseed.png. Secondary (not a blocker): per-gen averages trend to the low
+    edge of the band in later gens, a total-DnaA dependence (diagnosis figure), with k_r the
+    future-tuning lever for Haochen.
 
-    dnaa-3 (DnaA-box binding) — PREPARED FOR REVIEW. Haochen's spec wraps DnaA
-    binding to 315 boxes in 4 affinity pools (302 chromosomal-high, 3 oriC-high, 8
-    oriC-low, 2 promoter-high) in fast equilibrium on the dnaa-2 baseline, without
-    changing initiation. Design complete + a 6-step build plan; the 307-box
-    chromosome map + the dnaa-2 baseline figure are attached. NOW BUILT + RUN
-    (the read-only listener; see the 2026-06-07/08 update below).
+    dnaa-3 (DnaA-box binding), prepared for review. Haochen's spec wraps DnaA binding to 315 boxes
+    in 4 affinity pools (302 chromosomal-high, 3 oriC-high, 8 oriC-low, 2 promoter-high) in fast
+    equilibrium on the dnaa-2 baseline, without changing initiation. Design complete with a 6-step
+    build plan; the 307-box chromosome map and the dnaa-2 baseline figure are attached. Now built and
+    run (the read-only listener; see the 2026-06-07/08 update below).
 
-    dnaa-3 (2026-06-07/08): the in-sim DnaA-box binding fires correctly inside the simulation as the PROVIDED read-only occupancy listener (4 affinity pools, fast equilibrium, full box set; three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). It reports free DnaA-ATP and per-pool occupancy with the dnaa-2 cell cycle preserved exactly. CORRECTION (Rashmi 2026-06-08): an earlier pass had added a box-capacity cap=32 justified by outside ChIP-seq (Smith 2024) plus a DnaA sink and abundance/datA literature — none of which were provided. These have been WITHDRAWN; only the provided mechanisms are modeled. The multi-generation read-only run (7 gens, full per-gen history) and the full plot set Rashmi requested are now DONE (oriC, cell mass, all DnaA forms bound+free, concentrations, ATP/ADP fraction across generations; box occupancy at a steady-state generation). HONEST FINDING: the over-binding PERSISTS within the provided model. The DnaA-ATP fraction is in band (0.23), but free DnaA-ATP stays ~380-550 nM — ≈4× the 100 nM oriC-low K_d — for 100% of every cycle across all 7 generations, so oriC-low occupancy holds ~0.8 throughout (high-affinity pools saturate). So contrary to the 2026-06-08 expectation, the correct DnaA-ATP fraction does NOT by itself leave the low-affinity sites modestly occupied; the over-binding is a real open question within the provided mechanisms (nothing in the provided read-only model lowers free DnaA-ATP), and we are NOT re-introducing a cap/sink to force it down. The withdrawn ideas (Smith ChIP-seq, abundance, datA) are recorded as proposed_inputs for Rashmi to Accept or Decline in the report.
+    dnaa-3 (2026-06-07/08): the in-sim DnaA-box binding fires correctly inside the simulation as the provided read-only occupancy listener (4 affinity pools, fast equilibrium, full box set; three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). It reports free DnaA-ATP and per-pool occupancy with the dnaa-2 cell cycle preserved exactly. Correction (Rashmi 2026-06-08): an earlier pass had added a box-capacity cap=32 justified by outside ChIP-seq (Smith 2024) plus a DnaA sink and abundance/datA literature, none of which were provided. These have been withdrawn; only the provided mechanisms are modeled. The multi-generation read-only run (7 gens, full per-gen history) and the full plot set Rashmi requested are now done (oriC, cell mass, all DnaA forms bound+free, concentrations, ATP/ADP fraction across generations; box occupancy at a steady-state generation). Honest finding: the over-binding persists within the provided model. The DnaA-ATP fraction is in band (0.23), but free DnaA-ATP stays ~380-550 nM, about 4x the 100 nM oriC-low K_d, for 100% of every cycle across all 7 generations, so oriC-low occupancy holds ~0.8 throughout (the high-affinity pools saturate). So, contrary to the 2026-06-08 expectation, the correct DnaA-ATP fraction does not by itself leave the low-affinity sites modestly occupied; the over-binding is a real open question within the provided mechanisms (nothing in the provided read-only model lowers free DnaA-ATP), and we are not re-introducing a cap/sink to force it down. The withdrawn ideas (Smith ChIP-seq, abundance, datA) are recorded as proposed_inputs for Rashmi to accept or decline in the report.
   decisions_needed:
-  - question: "dnaa-4 — the seed-sensitive DnaA-ATP fraction: is it acceptable, or does it warrant a follow-up? (seeds 0/2 confirmation DONE — homeostasis robust 3/3, but the fraction band holds only on seed 1.) Also: advance into the downstream mechanistic roadmap (dnaa-05 RIDA/DDAH/DARS next)?"
+  - question: "dnaa-4 — the seed-sensitive DnaA-ATP fraction: is it acceptable, or does it warrant a follow-up? (Seeds 0/2 confirmation done: homeostasis robust 3/3, but the fraction band holds only on seed 1.) And should we advance into the downstream mechanistic roadmap (dnaa-05 RIDA/DDAH/DARS next)?"
     status: |
-      SEEDS 0/2 CONFIRMED 2026-06-16 (F-08): the homeostasis (clean cell cycle + total-DnaA pool
-      in [300,800]) is ROBUST across seeds 0/1/2; the DnaA-ATP fraction band [0.2,0.5] is NOT —
-      in band only on seed 1 (0.261), with seed 0 (0.156, ramping toward band by late gens) and
-      seed 2 (0.085, erratic) below. dnaa-4 stays PARTIAL on the fraction. OPEN: whether this
-      seed-sensitivity is acceptable for the mechanism verdict or warrants a follow-up (longer
-      runs to test if seed 0's slow ATP charging settles in band; or a k_h / charging-kinetics
+      Seeds 0/2 confirmed 2026-06-16 (F-08): the homeostasis (clean cell cycle + total-DnaA pool
+      in [300,800]) is robust across seeds 0/1/2; the DnaA-ATP fraction band [0.2,0.5] is not,
+      holding in band only on seed 1 (0.261), with seed 0 (0.156, ramping toward band by late gens)
+      and seed 2 (0.085, erratic) below. dnaa-4 stays partial on the fraction. Open: whether this
+      seed-sensitivity is acceptable for the mechanism verdict or warrants a follow-up (longer runs
+      to test whether seed 0's slow ATP charging settles in band, or a k_h / charging-kinetics
       recalibration). Separately, the roadmap studies (RIDA/DDAH/DARS, seqA, cooperativity,
-      validation) are scaffolded but not yet started — awaiting a go-ahead on sequencing them.
+      validation) are scaffolded but not yet started, awaiting a go-ahead on sequencing them.
     context: |
       The dnaa-4 reference (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025) was verified on seed 1
       (matches Rashmi's PDF); the seeds 0/2 confirmation closed the coincidence-vs-robust question
-      the same way dnaa-1/2 were multi-seeded — and found the homeostasis robust but the fraction
-      band seed-1-specific.
-  - question: "dnaa-2 — RESOLVED + PASS (was the mechanism + clean-reproduction question)."
+      the same way dnaa-1/2 were multi-seeded, finding the homeostasis robust but the fraction band
+      seed-1-specific.
+  - question: "dnaa-2 — resolved and passing (was the mechanism + clean-reproduction question)."
     status: |
-      RESOLVED 2026-06-04 — dnaa-2 PASSES. MECHANISM: Haochen's bf8b82e (DnaA-ADP
-      reaction bidirectional + integrate_dt=true, literal k_r=1×10⁻⁷/s; DnaA-ATP
-      intrinsic hydrolysis one-way), superseding the rejected DnaaAdpRelease/0.03-min
-      workaround. REPRODUCTION: Rashmi directed seed-1 × 8-gen + clarified the
-      acceptance criterion (2026-06-04: "initial generations might not strictly fall
-      in band while stabilizing — consider the generation average"). On the
-      generation-average criterion all four behaviours PASS: mass-doubling, oriC
-      one-init/gen, total-DnaA avg 535 in [300,800], DnaA-ATP fraction avg 0.26 in
-      [0.2,0.5]. SECONDARY (not a blocker): per-gen averages trend to the low edge in
-      later gens — a total-DnaA dependence; k_r is the future-tuning lever for Haochen.
+      Resolved 2026-06-04, dnaa-2 passes. Mechanism: Haochen's bf8b82e (DnaA-ADP reaction
+      bidirectional + integrate_dt=true, literal k_r=1×10⁻⁷/s; DnaA-ATP intrinsic hydrolysis
+      one-way), superseding the rejected DnaaAdpRelease/0.03-min workaround. Reproduction: Rashmi
+      directed a seed-1 8-gen run and clarified the acceptance criterion (2026-06-04: "initial
+      generations might not strictly fall in band while stabilizing, consider the generation
+      average"). On the generation-average criterion all four behaviours pass: mass-doubling, oriC
+      one-init/gen, total-DnaA avg 535 in [300,800], DnaA-ATP fraction avg 0.26 in [0.2,0.5].
+      Secondary (not a blocker): per-gen averages trend to the low edge in later gens, a total-DnaA
+      dependence; k_r is the future-tuning lever for Haochen.
     context: |
-      Mechanism + in-band fraction REGION validated; the open item is a clean per-gen
-      reproduction across a full 8-gen lineage on the seed Rashmi confirmed (seed 1).
-  - question: dnaa-3 — DnaA-box binding design (Haochen's spec, 4 affinity pools, 315 boxes, fast equilibrium on the dnaa-2 baseline) is PREPARED. Does the first-step design look right before we build it — esp. low-aff K_d≈100 nM with cooperativity deferred (vs the brief's 50→1 nM range), and tracking bound-ATP/bound-ADP separately on high-aff pools?
-    status: "RESOLVED + PASS. The cap=32 sink (and the Smith-2024/abundance/datA additions) were WITHDRAWN 2026-06-08 as non-provided. The over-binding was instead resolved by ADOPTING Rashmi's ACTIVE Langmuir binding (PR #162) — it depletes the free DnaA-ATP pool (the missing physics) and fixes box-doubling (8→16 low-aff via fork-passage release). Under the dnaa-4 autoregulation reference the box-binding re-run passes all 6 acceptance tests (oriC-low occupancy 0.04-0.17, free DnaA-ATP ~5-11 nM, DnaA-ATP fraction 0.284 in band). dnaa-3 gate_status: pass."
+      Mechanism and in-band fraction region validated; the open item is a clean per-gen reproduction
+      across a full 8-gen lineage on the seed Rashmi confirmed (seed 1).
+  - question: dnaa-3 — DnaA-box binding design (Haochen's spec, 4 affinity pools, 315 boxes, fast equilibrium on the dnaa-2 baseline) is prepared. Does the first-step design look right before we build it, especially low-aff K_d≈100 nM with cooperativity deferred (vs the brief's 50→1 nM range), and tracking bound-ATP/bound-ADP separately on high-aff pools?
+    status: "Resolved and passing. The cap=32 sink (and the Smith-2024/abundance/datA additions) were withdrawn 2026-06-08 as non-provided. The over-binding was instead resolved by adopting Rashmi's active Langmuir binding (PR #162), which depletes the free DnaA-ATP pool (the missing physics) and fixes box-doubling (8→16 low-aff via fork-passage release). Under the dnaa-4 autoregulation reference the box-binding re-run passes all 6 acceptance tests (oriC-low occupancy 0.04-0.17, free DnaA-ATP ~5-11 nM, DnaA-ATP fraction 0.284 in band). dnaa-3 gate_status: pass."
     context: |
       dnaa-3 is design-complete with a 6-step build plan, the 307-box chromosome
       map (from the WCM genome), and the dnaa-2 baseline figure attached. The 8
       oriC low-affinity coordinates are still provisional (to be extracted exactly
       from the oriC sequence at build). Gated on dnaa-2's baseline holding.
   - question: dnaa-0 succinate run reaches per-cell periodic steady state with oriC oscillating 1 ↔ 2 at steady state (transient overshoot to 4 in early gens allowed) — pass or fail?
-    status: RESOLVED 2026-05-30 — PASS (Rashmi review)
+    status: Resolved 2026-05-30, pass (Rashmi review)
     context: |
       Initialization task per PDF: run ParCa with succinate as the growth
       condition, then run v2ecoli single_daughters and check convergence.
-      RESOLUTION (Rashmi 2026-05-30, "this looks correct"): the followed
-      daughter's oriC is periodic 1 → 2 → 1 → 2 FROM GENERATION 3 ONWARDS
+      Resolution (Rashmi 2026-05-30, "this looks correct"): the followed
+      daughter's oriC is periodic 1 → 2 → 1 → 2 from generation 3 onwards
       (the steady state). The brief overshoot to oriC = 4 in the early
-      generations is the expected NOT-YET-STEADY-STATE signature, not a
-      failure — the prior "never reaches 4" framing was corrected. Cell
+      generations is the expected not-yet-steady-state signature, not a
+      failure; the prior "never reaches 4" framing was corrected. Cell
       mass is correspondingly periodic. The generation-3 state is saved as
       the canonical succinate steady-state initial condition
       (out/steady_state_inputs/succinate_default_gen3_start.dill) and
       dnaa-1 is unblocked.
   - question: dnaa-1 RNA-synthesis-probability tuning holds the DnaA monomer pool oscillating in [300,800] with steady cell-cycle dynamics across the succinate lineage — what V, and does the ≈1/min init rate come along for free?
     status: |
-      RESOLVED 2026-06-09 — PASS at CANONICAL V=0.8e-3 on the expert's IN-BAND +
-      STEADY criterion. V=0.8e-3 is the only V whose DnaA pool oscillates WITHIN
+      Resolved 2026-06-09, pass at the canonical V=0.8e-3 on the expert's in-band +
+      steady criterion. V=0.8e-3 is the only V whose DnaA pool oscillates within
       [300,800] (steady-gen cycle-mean ~362, peaks <800, troughs ~207) while
-      keeping steady dynamics (oriC 1↔2, every gen divides) — her ask. The ~0.6/min
-      init rate is the KNOWN TRADEOFF (init-rate test PARTIAL): no single
-      CONSTITUTIVE V closes both the band and the ~1/min rate (7-point sweep + the
-      15-gen V=1.1e-3 equilibration run that overshoots) — closing both needs a
+      keeping steady dynamics (oriC 1↔2, every gen divides), her ask. The ~0.6/min
+      init rate is the known tradeoff (init-rate test partial): no single
+      constitutive V closes both the band and the ~1/min rate (7-point sweep + the
+      15-gen V=1.1e-3 equilibration run that overshoots), so closing both needs a
       regulated synthesis lever (Rashmi/Haochen). The earlier V=1.1e-3 pick is
       withdrawn (7-gen "676 in-band" was a pre-equilibration artifact).
     context: |
@@ -282,13 +301,13 @@ executive:
       (Mechanism A — runtime overwrite of dnaA's per-promoter init_prob).
       Baseline unchanged: dnaA TE = 0.35, dnaA mRNA t½ = 1.9 min, DnaA
       protein t½ = 280 min.
-      REFRAMED ACCEPTANCE (Rashmi 2026-05-30): the PDF "target" is the
-      BIOLOGICALLY-EXPECTED dnaA RNA-synthesis rate; V=2e-3 produced
-      ≈1.01 events/min, close to it, and THAT is what brought the DnaA
-      counts into range. So the PRIMARY criterion is the init rate near
+      Reframed acceptance (Rashmi 2026-05-30): the PDF "target" is the
+      biologically-expected dnaA RNA-synthesis rate; V=2e-3 produced
+      ≈1.01 events/min, close to it, and that is what brought the DnaA
+      counts into range. So the primary criterion is the init rate near
       ≈1 event/min; the in-band [300, 800], cross-generation-stable DnaA
       monomer pool is the downstream consequence.
-      STATUS: the earlier "pass" had no valid run behind it (FBA SUC[p]
+      Status: the earlier "pass" had no valid run behind it (FBA SUC[p]
       failure, then a 1-row/gen flush bug); a full-series re-run
       (dnaa1-mechA-7gen-2026-05-30) is underway.
       Validation plots required:
@@ -301,23 +320,23 @@ executive:
 scientific_argument:
   main_claim: |
     Under ParCa-default succinate, v2ecoli reaches a non-overlapping
-    periodic cell cycle (oriC 1↔2 at steady state, from gen 3 onwards —
+    periodic cell cycle (oriC 1↔2 at steady state, from gen 3 onwards;
     a transient overshoot to 4 in the first generations marks the
-    pre-steady-state relaxation) AND, with the 2e-3 dnaA init_prob
+    pre-steady-state relaxation) and, with the 2e-3 dnaA init_prob
     runtime overwrite, the dnaA mRNA initiation rate lands near the
     biologically-expected ≈1 event/min, which in turn holds the DnaA
     monomer pool in the Schmidt 2016 / Mori 2021 [300, 800] band stably
     across generations.
   evidence_for:
-  - 'dnaa-0 (CONFIRMED 2026-05-30, Rashmi "this looks correct"): succinate single-daughters lineage is periodic from gen 3 onwards — oriC 1↔2, cell mass sawtooth, every division fires with d_period_elapsed=True and chromosomes=2 at the split (Round 3.7 D-period fix in place). The early-generation oriC overshoot to 4 is the expected pre-steady-state transient. Gen-3 state saved as the canonical succinate initial condition.'
-  - 'dnaa-1 (PASS 2026-06-09 at the CANONICAL V=0.8e-3 on the expert''s IN-BAND + STEADY criterion): a 7-point full-per-gen-history sweep of the dnaA RNA-synth probability plus a 15-gen equilibration run and a multiseed (set per-run via the recorded --perturbation override on one shared cache) establish that V=0.8e-3 is the ONLY V whose DnaA pool oscillates WITHIN [300,800] — the whole oscillation, steady-gen (4-7) cycle-mean 336.5/337.5/359.5/414.8 (pooled ~362), peaks <800 (max 553), troughs ~207 — AND keeps steady-state dynamics (oriC periodic 1↔2 never 4 every gen, every gen divides), so the dnaa-0 cell cycle is preserved under the tuned expression and the expert''s ask is met. The dnaA init rate at V=0.8e-3 is ~0.6/min (gens 4-7 0.65/0.46/0.57/0.71) — sub-physiological vs the ~1/min target: the KNOWN TRADEOFF (init-rate test PARTIAL). No single CONSTITUTIVE V closes both the in-band pool AND the ~1/min rate (7-point sweep + the 15-gen V=1.1e-3 equilibration run that overshoots the band then relaxes) — closing both needs a regulated / cell-cycle-coupled DnaA synthesis lever (for Rashmi/Haochen). The earlier V=1.1e-3 pick is WITHDRAWN (its 7-gen "676 in-band" reading was a pre-equilibration artifact). Steady-state dynamics are seed-robust (multiseed seeds 0-3). Pending Rashmi''s confirmation. Canonical run out/dnaa1_v0p8e-3, seed 1.'
+  - 'dnaa-0 (confirmed 2026-05-30, Rashmi "this looks correct"): the succinate single-daughters lineage is periodic from gen 3 onwards — oriC 1↔2, cell mass sawtooth, every division fires with d_period_elapsed=True and chromosomes=2 at the split (Round 3.7 D-period fix in place). The early-generation oriC overshoot to 4 is the expected pre-steady-state transient. Gen-3 state saved as the canonical succinate initial condition.'
+  - 'dnaa-1 (pass 2026-06-09 at the canonical V=0.8e-3 on the expert''s in-band + steady criterion): a 7-point full-per-gen-history sweep of the dnaA RNA-synth probability plus a 15-gen equilibration run and a multiseed (set per-run via the recorded --perturbation override on one shared cache) establish that V=0.8e-3 is the only V whose DnaA pool oscillates within [300,800] — the whole oscillation, steady-gen (4-7) cycle-mean 336.5/337.5/359.5/414.8 (pooled ~362), peaks <800 (max 553), troughs ~207 — while keeping steady-state dynamics (oriC periodic 1↔2, never 4, every gen, every gen divides), so the dnaa-0 cell cycle is preserved under the tuned expression and the expert''s ask is met. The dnaA init rate at V=0.8e-3 is ~0.6/min (gens 4-7 0.65/0.46/0.57/0.71), sub-physiological vs the ~1/min target: the known tradeoff (init-rate test partial). No single constitutive V closes both the in-band pool and the ~1/min rate (7-point sweep + the 15-gen V=1.1e-3 equilibration run that overshoots the band then relaxes), so closing both needs a regulated, cell-cycle-coupled DnaA synthesis lever (for Rashmi/Haochen). The earlier V=1.1e-3 pick is withdrawn (its 7-gen "676 in-band" reading was a pre-equilibration artifact). Steady-state dynamics are seed-robust (multiseed seeds 0-3). Canonical run out/dnaa1_v0p8e-3, seed 1.'
   evidence_against:
-  - 'Within each cycle the DnaA pool OSCILLATES above the [300,800] band at its pre-division peak (≈1000) before halving at division — so the band holds for the cycle-MEAN, not every instantaneous tick. This is the expected accumulate-then-divide behaviour, not a contradiction, but worth stating: "in band" here means cycle-typical, not a hard cap.'
+  - 'Within each cycle the DnaA pool oscillates above the [300,800] band at its pre-division peak (≈1000) before halving at division, so the band holds for the cycle-mean, not every instantaneous tick. This is the expected accumulate-then-divide behaviour, not a contradiction, but worth stating: "in band" here means cycle-typical, not a hard cap.'
   caveats:
-  - 'This investigation is a FRESH START as of 2026-05-29. All prior Round 1–3.8 findings, prose, and decisions are retired (see feedback-2026-05-29-fresh-start/feedback.pdf for the directive). Anyone reading the prior dnaa-mock work (PR 59 on feat/dnaa-mock-investigation-start) should treat its content as historical reference only.'
-  - RIDA mechanism is OUT of scope for this investigation. The extrinsic-regulation study (formerly dnaa-06) is removed entirely. Glossary entries for RIDA are likewise removed.
-  - dnaa-2..N are BLOCKED until dnaa-0 and dnaa-1 reach passing verdicts. Do not author further studies in this directory tree until the first two are validated.
-  - Round 3.7 D-period wiring fix (v2ecoli/steps/division.py + v2ecoli/composites/_helpers.py, commit 8b5d8cd on feat/dnaa-mock-investigation-start) is the one upstream artifact worth pulling forward. Under any media, the Division step needs to read MarkDPeriod's `divide` flag to enforce D. Cherry-pick or re-implement before running dnaa-0 — otherwise the 10-gen succinate run will fire division at the wrong time and the periodic-steady-state test will fail for the wrong reason.
+  - 'This investigation is a fresh start as of 2026-05-29. All prior Round 1–3.8 findings, prose, and decisions are retired (see feedback-2026-05-29-fresh-start/feedback.pdf for the directive). Anyone reading the prior dnaa-mock work (PR 59 on feat/dnaa-mock-investigation-start) should treat its content as historical reference only.'
+  - RIDA mechanism is out of scope for this investigation. The extrinsic-regulation study (formerly dnaa-06) is removed entirely. Glossary entries for RIDA are likewise removed.
+  - 'Original gating directive (now satisfied): dnaa-2..N were blocked until dnaa-0 and dnaa-1 reached passing verdicts; no further studies were to be authored in this directory tree until the first two were validated.'
+  - Round 3.7 D-period wiring fix (v2ecoli/steps/division.py + v2ecoli/composites/_helpers.py, commit 8b5d8cd on feat/dnaa-mock-investigation-start) is the one upstream artifact worth pulling forward. Under any media, the Division step needs to read MarkDPeriod's `divide` flag to enforce D. Cherry-pick or re-implement before running dnaa-0, otherwise the 10-gen succinate run will fire division at the wrong time and the periodic-steady-state test will fail for the wrong reason.
   interpretation_ref: biological_story
 
 biological_story: |
@@ -410,13 +429,13 @@ feedback_rounds:
   reviewer: Haochen
   artifact: feedback-2026-06-06-1544/feedback.yaml
   summary: |
-    dnaa-3 binding analysis (Haochen): new self-consistent binding figure on the
-    steady gens — free DnaA in nM (count/cell VOLUME) vs the 100 nM K_d, oriC-low
-    occupancy zoomed, free-vs-bound DnaA, per-pool occupancy. Occupancy figure now
-    shows oriC DOUBLING at replication. FINDING (confirms Haochen): even
-    self-consistently the model's free DnaA stays >100 nM — it does NOT reach the
-    expected <100 nM regime; modeled DnaA abundance exceeds box capacity. The CAUSE
-    is an OPEN QUESTION; candidate factors (ours — Haochen did not name a cause):
+    dnaa-3 binding analysis (Haochen): a new self-consistent binding figure on the
+    steady gens — free DnaA in nM (count/cell volume) vs the 100 nM K_d, oriC-low
+    occupancy zoomed, free-vs-bound DnaA, per-pool occupancy. The occupancy figure now
+    shows oriC doubling at replication. Finding (confirms Haochen): even
+    self-consistently the model's free DnaA stays >100 nM and does not reach the
+    expected <100 nM regime; the modeled DnaA abundance exceeds box capacity. The cause
+    is an open question; candidate factors (ours, Haochen did not name a cause):
     DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope). On PR #137.
 - date: '2026-06-05-1244'
   reviewer: Rashmi
@@ -446,11 +465,11 @@ feedback_rounds:
   reviewer: Rashmi
   artifact: feedback-2026-06-04-1515/feedback.yaml
   summary: |
-    dnaa-2 presentation fixes (round 3): keep only ONE visualization (done — the
+    dnaa-2 presentation fixes (round 3): keep only one visualization (done — the
     seed-1 8-gen canonical) and make the tests render (they showed 'pending'
     because the report read a no-outcome historical run; removed the historical
-    runs so the canonical run with all 4 PASS is read → Tests: 4✓). dnaa-2 stays
-    PASS; report prose trimmed to match. Ready to move to dnaa-3.
+    runs so the canonical run with all 4 passing is read → Tests: 4✓). dnaa-2 stays
+    pass; report prose trimmed to match. Ready to move to dnaa-3.
 - date: '2026-06-04-1247'
   reviewer: Rashmi
   artifact: feedback-2026-06-04-1247/feedback.yaml
@@ -458,27 +477,27 @@ feedback_rounds:
     Two dnaa-2 notes. (1) Charts: remove previous-run plots, keep only the latest
     run — done (seed-0 reproduction removed; charts show the seed-1 8-gen run only).
     (2) Tests: initial generations may not strictly fall in band while stabilizing,
-    so use the GENERATION AVERAGE. → band tests reframed to generation-average;
-    re-evaluated on seed-1 8-gen all four behaviours PASS (DnaA-ATP avg 0.26,
-    total-DnaA avg 535). dnaa-2 QUALIFIED → PASS. (The earlier strict per-gen FAIL
+    so use the generation average. → band tests reframed to generation-average;
+    re-evaluated on seed-1 8-gen, all four behaviours pass (DnaA-ATP avg 0.26,
+    total-DnaA avg 535). dnaa-2 qualified → pass. (The earlier strict per-gen fail
     was an over-strict reading on our side; the average is the intended criterion.)
 - date: '2026-06-04'
   reviewer: Rashmi
   artifact: feedback-2026-06-04/feedback.yaml
   summary: |
-    On dnaa-2 readouts: named the FOUR behaviours that must be preserved —
+    On dnaa-2 readouts: named the four behaviours that must be preserved —
     (1) periodic mass doubling, (2) oriC 1→2 = exactly one initiation per
     generation, (3) DnaA counts in [300,800], (4) DnaA-ATP fraction in
-    [0.2,0.5]. DIRECTIVE: "seed 1 on my branch reproduces this behaviour; run
-    8 generations, then run the tests." → dnaa-2 canonical reproduction is now
-    SEED 1 × 8 GENERATIONS (planned run dnaa2-seed1-8gen); the four become
+    [0.2,0.5]. Directive: "seed 1 on my branch reproduces this behaviour; run
+    8 generations, then run the tests." → the dnaa-2 canonical reproduction is now
+    seed 1 over 8 generations (planned run dnaa2-seed1-8gen); the four become
     explicit dnaa-2 tests; dnaa-3's validation cascades to seed-1 8-gen. This
-    is the concrete path to flip dnaa-2 QUALIFIED → PASS.
+    is the concrete path to flip dnaa-2 qualified → pass.
 - date: '2026-05-29'
   reviewer: Rashmi
   artifact: feedback-2026-05-29-fresh-start/feedback.pdf
   summary: |
-    Directed the fresh start — retire all prior Round 1–3.8 work, switch
+    Directed the fresh start: retire all prior Round 1–3.8 work, switch
     to succinate, gate the investigation to two studies (dnaa-0 steady
     state, dnaa-1 DnaA expression via Mechanism A), block everything else.
 - date: '2026-05-30'
@@ -487,7 +506,7 @@ feedback_rounds:
   summary: |
     Inline chart review of the first report.
       dnaa-0: "this looks correct." The early-generation oriC overshoot
-        to 4 is the expected pre-steady-state signature, NOT a failure
+        to 4 is the expected pre-steady-state signature, not a failure
         (the prior "never 4" framing was wrong); periodicity emerges from
         gen 3, which is the state to use as the initial condition. Chart
         requests: lineage-separator lines, generation-number labels,
@@ -503,17 +522,17 @@ feedback_rounds:
     caused the truncation to a division-time emitter partition-wipe
     (daughter cells' emitters deleting the parent generation's history),
     fixed it in v2ecoli/steps/division.py, and re-ran on real full-cycle
-    data → dnaa-1 PASS (init rate 0.99/min, DnaA cycle-mean 706 in band,
+    data → dnaa-1 pass (init rate 0.99/min, DnaA cycle-mean 706 in band,
     CV 7.2%, oriC periodic 1↔2). Verdict re-asserted on evidence.
 
 studies:
 - dnaa-0-succinate-baseline
 - dnaa-1-expression
 - dnaa-2-nucleotide-balance     # added 2026-05-30 (dnaa-0/dnaa-1 passed); Step 1 baseline done
-- dnaa-3-box-binding        # added 2026-06-03 (DnaA-box occupancy); 2026-06-10 Rashmi's ACTIVE binding mechanism adopted (PR #162) — over-binding RESOLVED + box-doubling fixed
-- dnaa-4-autoregulation     # added 2026-06-10 — DnaA negative autoregulation: wire DnaA-ATP→dnaA-promoter repression (coupled to the adopted box occupancy) so DnaA self-stabilizes WITHOUT the V override; dissolves the dnaa-1/dnaa-2 V tension + drift at the root. SCOPED + first diagnostic done (promoter-occupancy feedback signal confirmed present).
-- dnaa-5-cooperativity      # added 2026-06-18 (Rashmi ordering) — cooperative DnaA-ATP filament assembly at oriC: turn the gradual, partial oriC occupancy (dnaa-3, correct as-is) into a SHARP switch. Prerequisite for the mechanistic initiation swap. DESIGNED; build pending.
-# SET ASIDE 2026-06-21 (not in the report for now): dnaa-6-mechanistic-initiation and
+- dnaa-3-box-binding        # added 2026-06-03 (DnaA-box occupancy); 2026-06-10 Rashmi's active binding mechanism adopted (PR #162), over-binding resolved and box-doubling fixed
+- dnaa-4-autoregulation     # added 2026-06-10 — DnaA negative autoregulation: wire DnaA-ATP→dnaA-promoter repression (coupled to the adopted box occupancy) so DnaA self-stabilizes without the V override; dissolves the dnaa-1/dnaa-2 V tension and drift at the root. Scoped, first diagnostic done (promoter-occupancy feedback signal confirmed present).
+- dnaa-5-cooperativity      # added 2026-06-18 (Rashmi ordering) — cooperative DnaA-ATP filament assembly at oriC: turn the gradual, partial oriC occupancy (dnaa-3, correct as-is) into a sharp switch. Prerequisite for the mechanistic initiation swap. Designed; build pending.
+# Set aside 2026-06-21 (not in the report for now): dnaa-6-mechanistic-initiation and
 # dnaa-7-seqa-sequestration use the mechanistic DnaA-ATP/oriC initiation trigger + RIDA,
 # which are exploratory and risk being conflated with study 5's cooperative-binding
 # mechanism (which uses the MASS trigger). The study.yaml files remain on disk under
@@ -563,7 +582,7 @@ inputs:
   - dnaa-stability-jb-1999
   - dnaa-review-frontiers-2018-fmicb-00319
 proposed_inputs:
-  _note: Agent-suggested references/mechanisms that the expert did NOT provide. They are NOT integrated — pending expert accept/decline. (Framework guardrail 2026-06-08.)
+  _note: Agent-suggested references/mechanisms that the expert did not provide. They are not integrated, pending expert accept/decline. (Framework guardrail 2026-06-08.)
   items:
   - id: dnaa-binding-landscape-chipseq
     kind: reference

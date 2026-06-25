@@ -105,6 +105,15 @@ timeout_method = "thread"
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
+[tool.uv]
+# vivarium-dashboard and pbg-superpowers both pull pbg-basic-processes via a
+# git "@main" direct URL; uv refuses to unify two mutable-ref URLs ("conflicting
+# URLs"), so force a single immutable rev for the package across all requirers.
+# Bump this rev when pbg-basic-processes main advances.
+override-dependencies = [
+    "pbg-basic-processes @ git+https://github.com/vivarium-collective/pbg-basic-processes.git@af83ccc834a84af4e4b3bb5d114aca79713cf401",
+]
+
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }

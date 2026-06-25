@@ -7,6 +7,9 @@ resolution-markers = [
     "sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
+[manifest]
+overrides = [{ name = "pbg-basic-processes", git = "https://github.com/vivarium-collective/pbg-basic-processes.git?rev=af83ccc834a84af4e4b3bb5d114aca79713cf401" }]
+
 [[package]]
 name = "absl-py"
 version = "2.4.0"
@@ -2813,7 +2816,7 @@ wheels = [
 [[package]]
 name = "pbg-basic-processes"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?branch=main#cbd10e73b79e4e8c7dd9e33bf84614881b559072" }
+source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?rev=af83ccc834a84af4e4b3bb5d114aca79713cf401#af83ccc834a84af4e4b3bb5d114aca79713cf401" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -4572,7 +4575,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#a7144168a3d504d8b738c30e85c2a5b066f0c8e2" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#1d2260a26d4df0f27191c4c6b57b29c274ebbac3" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },
@@ -4580,6 +4583,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
     { name = "numpy" },
+    { name = "pbg-basic-processes" },
     { name = "pbg-superpowers" },
     { name = "process-bigraph" },
     { name = "pydantic" },

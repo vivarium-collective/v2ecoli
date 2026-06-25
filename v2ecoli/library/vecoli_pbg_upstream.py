@@ -365,6 +365,20 @@ def build_upstream_cell_document(
                 proc_name, {"bulk": []})
             cell_state.setdefault("allocate", {}).setdefault(
                 proc_name, {"bulk": _np.zeros(n_bulk, dtype=_np.int64)})
+        # Also seed next_update_time for non-partitioned steps (e.g. Metabolism,
+        # TfBinding, ChromosomeStructure) whose topology wires next_update_time to
+        # a process-specific subkey like ("next_update_time", "metabolism"). The
+        # partitioned loop above only covers PartitionedProcess instances stored in
+        # cell_state["process"]; direct Steps use different subkeys and would have
+        # their update_condition raise KeyError("next_update_time") on every tick if
+        # those subkeys are absent — causing them to be skipped (fail-closed gate),
+        # which starves PolypeptideElongation of metabolite data → NaN crash.
+        for _step_name, _step_topo in topology.items():
+            _nup_wire = _step_topo.get("next_update_time")
+            if isinstance(_nup_wire, (tuple, list)) and len(_nup_wire) == 2:
+                _subkey = _nup_wire[1]
+                cell_state.setdefault("next_update_time", {}).setdefault(
+                    _subkey, float(time_step))
         # Allocator needs an RNG store (upstream wires allocator_rng).
         if "allocator_rng" not in cell_state:
             cell_state["allocator_rng"] = _np.random.RandomState(seed=int(seed))

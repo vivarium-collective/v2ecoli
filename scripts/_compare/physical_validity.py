@@ -73,16 +73,74 @@ def assess_physical(
     )
 
 
+def _zarr_find_cell_mass(store_path: str) -> np.ndarray:
+    """Walk the zarr group hierarchy to find cell_mass arrays.
+
+    run_multigen_xarray writes stores with the Hive-style layout:
+        {store}/experiment_id=.../variant=.../lineage_seed=.../cell_mass/generation=N
+
+    xr.open_zarr at the root sees no variables (only groups), so we walk zarr
+    directly: find every array whose path ends in .../cell_mass/generation=<int>,
+    sort by generation index, concatenate in order.
+    """
+    import zarr  # local import — zarr is only needed in this fallback path
+
+    root = zarr.open(store_path)
+
+    def _iter_arrays(grp, path=""):
+        for name, child in grp.members():
+            child_path = f"{path}/{name}" if path else name
+            if hasattr(child, "members"):
+                yield from _iter_arrays(child, child_path)
+            else:
+                # child is a zarr Array
+                yield child_path, child
+
+    # Collect all arrays whose leaf parent is "cell_mass" (path ends in
+    # .../cell_mass/generation=N).
+    gen_arrays: list[tuple[int, np.ndarray]] = []
+    for arr_path, arr in _iter_arrays(root):
+        parts = arr_path.split("/")
+        if len(parts) >= 2 and parts[-2] == "cell_mass" and parts[-1].startswith("generation="):
+            try:
+                gen_idx = int(parts[-1].split("=", 1)[1])
+            except ValueError:
+                continue
+            gen_arrays.append((gen_idx, np.asarray(arr[:], dtype=float)))
+
+    if not gen_arrays:
+        raise ValueError(
+            f"no 'cell_mass/generation=*' arrays found in {store_path} "
+            f"(zarr walk found no matching paths)"
+        )
+
+    gen_arrays.sort(key=lambda x: x[0])
+    return np.concatenate([a for _, a in gen_arrays]).reshape(-1)
+
+
 def load_cell_mass(store_path: str) -> np.ndarray:
     """Return the time-ordered cell_mass series from a run_multigen_xarray store.
 
-    Searches the dataset's data variables for one named 'cell_mass' (the view in
-    run_upstream_multigen.py emits listeners/mass/cell_mass, which xarray flattens
-    to a 'cell_mass' variable). Returns the single cell_mass variable flattened to a 1-D time-ordered array.
+    Tries two strategies:
+
+    1. Flat xarray: ``xr.open_zarr(store_path)`` and search ``data_vars`` for a
+       variable whose leaf name is ``cell_mass`` (legacy / simple stores).
+    2. Nested zarr groups: walk the zarr hierarchy to find arrays at the path
+       ``…/cell_mass/generation=<int>`` emitted by the Hive-style
+       ``run_multigen_xarray`` stores (``experiment_id=…/variant=…/lineage_seed=…/
+       cell_mass/generation=N``). Concatenates all generations in order.
+
+    Returns a 1-D time-ordered float array. Raises ``ValueError`` if no
+    ``cell_mass`` data is found by either strategy.
     """
-    ds = xr.open_zarr(store_path)
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ds = xr.open_zarr(store_path)
     name = next((v for v in ds.data_vars if str(v).split("/")[-1] == "cell_mass"), None)
-    if name is None:
-        raise ValueError(f"no 'cell_mass' variable in {store_path}; vars={list(ds.data_vars)}")
-    arr = np.asarray(ds[name].values, dtype=float).reshape(-1)
-    return arr
+    if name is not None:
+        return np.asarray(ds[name].values, dtype=float).reshape(-1)
+
+    # Flat xarray found nothing — fall back to zarr group walk.
+    return _zarr_find_cell_mass(store_path)

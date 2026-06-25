@@ -433,7 +433,7 @@ def _build_vecoli(seed: int, condition: str, cache_dir: str,
     if source == "upstream":
         from v2ecoli.library.upstream_division import (
             build_upstream_agents_composite)
-        sim_data_path = os.path.join(cache_dir, "simData.cPickle")
+        sim_data_path = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
         if not os.path.exists(sim_data_path):
             sim_data_path = _UPSTREAM_SIMDATA_FALLBACK
         # monomer_counts_listener is a read-only listener that trips on a TCS

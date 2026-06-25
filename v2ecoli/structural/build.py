@@ -138,7 +138,7 @@ CATEGORY_COLOR = {
 CURATED = [
     # id,             gene,  category,           structure,         count_key,       region
     ("70S_ribosome",  None, "Translation",      ("cif", "4YBB"),   20000,           "interior"),
-    ("rna_polymerase", None, "Transcription",   ("pdb", "4YG2"),   2000,            "fiber"),
+    ("rna_polymerase", None, "Transcription",   ("pdb", "4YG2"),   0,               "fiber"),
     ("groel",         None, "Protein folding",  ("pdb", "1AON"),   1500,            "interior"),
     ("EG10367-MONOMER", None, "Metabolism",     "af",              "GAPDH-A-CPLX",  "interior"),  # GAPDH (complex abundance)
 ]
@@ -518,7 +518,7 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
             ref = StructureRef("alphafold", acc)
         cnt = counts.get(ckey, 0) if isinstance(ckey, str) else int(ckey)
         ingredients.append(Ingredient(
-            id=key, count=max(1, cnt), structure=ref, region=region,
+            id=key, count=(max(1, cnt) if cnt > 0 else 0), structure=ref, region=region,
             display_name=DISPLAY.get(key, prot.get(key, key)), category=cat,
             color=CATEGORY_COLOR[cat],
             proxy_voxel_size=12.0 if isinstance(struct, tuple) else None,
@@ -955,14 +955,14 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # counts = active_replisome / oriC counts); terC is the terminus locus.
     ingredients.append(Ingredient(
         id="replisome", count=0, structure=StructureRef("pdb", "2HPI"),
-        color=(1.0, 0.35, 0.1), category="Replication", proxy_voxel_size=14.0,
+        color=(1.0, 0.35, 0.1), category="Replication", proxy_voxel_size=22.0,
         display_name="Replisome — DNA polymerase III (active_replisome, at fork)"))
     ingredients.append(Ingredient(
-        id="oriC", count=0, sphere_radius=70.0,
+        id="oriC", count=0, sphere_radius=130.0,
         color=(0.2, 0.9, 0.4), category="Replication",
         display_name="oriC (origin of replication)"))
     ingredients.append(Ingredient(
-        id="terminus", count=0, sphere_radius=70.0,
+        id="terminus", count=0, sphere_radius=130.0,
         color=(0.35, 0.5, 1.0), category="Replication",
         display_name="terC (replication terminus)"))
     # Cell envelope from the Shape step (Skalnik et al. 2023): fixed width +
@@ -978,13 +978,19 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # so size/mass) scales as n_chromosomes×(1+fork_fraction) — matching the
     # state's real total DNA bp.
     n_chrom, fork_fraction = chromosome_state(state_source)
+    rs = rnap_state(state_source)
+    rnaps = [
+        {"coordinates": int(c), "domain_index": int(d), "is_forward": bool(f)}
+        for c, d, f in zip(rs["coordinates"], rs["domain_index"], rs["is_forward"])
+    ]
     chromosome = Chromosome(
         beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
         segment=StructureRef("pdb", "1BNA"),
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200},
         n_chromosomes=n_chrom, fork_fraction=fork_fraction,
-        fork_marker="replisome", oric_marker="oriC", ter_marker="terminus")
+        fork_marker="replisome", oric_marker="oriC", ter_marker="terminus",
+        rnaps=rnaps, rnap_marker="rna_polymerase")
     # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
     # membrane + interior follow it). Depth is state-driven — it tracks the cell's
     # division progress (D-period), so a newborn is a smooth rod and a near-division

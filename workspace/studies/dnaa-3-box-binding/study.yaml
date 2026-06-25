@@ -259,42 +259,42 @@ biological_summary: |
   to a feedback-regulated synthesis lever (the dnaa-4 autoregulation study).
 
 literature_anchors:
-- expectation: >-
-    The fraction of DnaA in the active ATP-bound form sits in ~0.2-0.5 (Boesen et al.
-    2024, Delta4 cells).
-  model_observable: "bulk MONOMER0-160[c] / (MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c])"
-  source: Boesen et al. 2024, PNAS
-  status_in_workspace: >-
-    Partial — evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound) on the
-    canonical run, BELOW the band (the V-tension; deferred to dnaa-4).
-  cites:
-  - pnas-pnas-2322772121
-- expectation: Total DnaA abundance is on the order of a few hundred molecules per cell ([300,800]).
-  model_observable: "total DnaA (bulk apo+ATP+ADP) + sum of box-bound DnaA"
-  source: J. Bacteriol. 1991 (original DnaA abundance measurement)
-  status_in_workspace: >-
-    Verified — generation-average total DnaA 348-536 across gens, all within [300,800]
-    on dnaa3_adopt_v0p8e3_seed0.
-  cites:
-  - dnaa-abundance-jb-1991
-- expectation: >-
-    Exactly one initiation per cell cycle (oriC copy number oscillates 1↔2), set by
-    DnaA titration to the boxes.
-  model_observable: listeners.replication_data.number_of_oric
-  source: Initiator-titration modeling literature (Study 3 references)
-  status_in_workspace: Verified — oriC oscillates 1↔2 every generation, 0 re-initiation.
-  cites:
-  - initiator-titration-nat-comm-s41467-022-33886-6
-  - initiator-titration-prxlife-1-013011
-- expectation: >-
-    The oriC low-affinity boxes fill gradually as DnaA-ATP accumulates toward
-    initiation (not pre-filled at cell birth).
-  model_observable: oriC-low occupancy trajectory over a steady generation
-  status_in_workspace: >-
-    Verified — gen-5 oriC-low occupancy ~0.3 at birth rising to ~0.7 toward initiation
-    on the adopted active mechanism (chart dnaa3_box_occupancy).
-  cites:
-  - initiator-titration-prxlife-1-013011
+  - expectation: >-
+      The fraction of DnaA in the active ATP-bound form sits in ~0.2-0.5 (Boesen et al.
+      2024, Delta4 cells).
+    model_observable: "bulk MONOMER0-160[c] / (MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c])"
+    source: Boesen et al. 2024, PNAS
+    status_in_workspace: >-
+      Partial — evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound) on the
+      canonical run, BELOW the band (the V-tension; deferred to dnaa-4).
+    cites:
+      - pnas-pnas-2322772121
+  - expectation: Total DnaA abundance is on the order of a few hundred molecules per cell ([300,800]).
+    model_observable: "total DnaA (bulk apo+ATP+ADP) + sum of box-bound DnaA"
+    source: J. Bacteriol. 1991 (original DnaA abundance measurement)
+    status_in_workspace: >-
+      Verified — generation-average total DnaA 348-536 across gens, all within [300,800]
+      on dnaa3_adopt_v0p8e3_seed0.
+    cites:
+      - dnaa-abundance-jb-1991
+  - expectation: >-
+      Exactly one initiation per cell cycle (oriC copy number oscillates 1↔2), set by
+      DnaA titration to the boxes.
+    model_observable: listeners.replication_data.number_of_oric
+    source: Initiator-titration modeling literature (Study 3 references)
+    status_in_workspace: Verified — oriC oscillates 1↔2 every generation, 0 re-initiation.
+    cites:
+      - initiator-titration-nat-comm-s41467-022-33886-6
+      - initiator-titration-prxlife-1-013011
+  - expectation: >-
+      The oriC low-affinity boxes fill gradually as DnaA-ATP accumulates toward
+      initiation (not pre-filled at cell birth).
+    model_observable: oriC-low occupancy trajectory over a steady generation
+    status_in_workspace: >-
+      Verified — gen-5 oriC-low occupancy ~0.3 at birth rising to ~0.7 toward initiation
+      on the adopted active mechanism (chart dnaa3_box_occupancy).
+    cites:
+      - initiator-titration-prxlife-1-013011
 
 model_change: |
   ADOPTED: Rashmi's ACTIVE DnaA-box binding mechanism (v2ecoli PR #162, merged),
@@ -316,159 +316,159 @@ model_change: |
   which is the dnaa-4 question.
 
 design_pivot_required:
-- id: adopt-active-box-binding
-  status: accepted   # 2026-06-10 — Rashmi's active mechanism (PR #162) reviewed, verified, and adopted
-  question: >-
-    The read-only occupancy observer pinned oriC-low occupancy ~0.8 (free DnaA-ATP
-    stayed several-fold above the 100 nM K_d for the whole cycle, never drawn down)
-    and its 8 low-affinity sites were a hard-coded pool that did not double at
-    replication. Replace it with Rashmi's ACTIVE depleted-pool Langmuir mechanism?
-  alternatives:
-  - "Keep the read-only observer (over-binding unresolved; low-aff pool under-doubled)."
-  - "Adopt the active mechanism (PR #162) — the Langmuir solve depletes the free pool, so oriC-low fills gradually, and all boxes double 315<->630 at replication."
-  requested_response: Confirm the adopted mechanism is correct and should stand.
-  notes: >-
-    ADOPTED + verified on our side: over-binding RESOLVED (oriC-low gradual ~0.3→0.7
-    vs read-only ~0.8), box-doubling FIXED (315↔630), cell cycle clean (8/8 divisions,
-    oriC 1↔2). The read-only-era charts are historical/superseded.
-- id: defer-atp-fraction-to-dnaa-4
-  status: open
-  question: >-
-    No constitutive V satisfies both the DnaA pool band [300,800] and the inherited
-    DnaA-ATP-fraction band [0.2,0.5] (the V-tension): tuning V down to hold the pool
-    drives the ATP fraction to 0.127, below the band, and active binding sequesters
-    DnaA-ATP onto boxes. Defer closing the fraction to a regulated-V lever (dnaa-4
-    negative autoregulation) rather than force a constitutive V?
-  alternatives:
-  - Force a constitutive V to hit the ATP-fraction band (breaks the [300,800] pool band).
-  - Defer to dnaa-4 negative autoregulation (feedback-controlled dnaA synthesis).
-  requested_response: Confirm deferral of the ATP fraction to dnaa-4 is the right scoping.
-  notes: >-
-    This deferral was the basis of the earlier 'partial' verdict — the adopted
-    mechanism met its core goals; the ATP fraction was a known constitutive-V tension,
-    not a refutation of the mechanism. RESOLVED 2026-06-16: the dnaa-4 autoregulation
-    mechanism (linear s=0.6 + F-05) returns the fraction to band (0.284) on the
-    current-config re-run, so the deferral is closed and the verdict is now a clean pass.
+  - id: adopt-active-box-binding
+    status: accepted # 2026-06-10 — Rashmi's active mechanism (PR #162) reviewed, verified, and adopted
+    question: >-
+      The read-only occupancy observer pinned oriC-low occupancy ~0.8 (free DnaA-ATP
+      stayed several-fold above the 100 nM K_d for the whole cycle, never drawn down)
+      and its 8 low-affinity sites were a hard-coded pool that did not double at
+      replication. Replace it with Rashmi's ACTIVE depleted-pool Langmuir mechanism?
+    alternatives:
+      - "Keep the read-only observer (over-binding unresolved; low-aff pool under-doubled)."
+      - "Adopt the active mechanism (PR #162) — the Langmuir solve depletes the free pool, so oriC-low fills gradually, and all boxes double 315<->630 at replication."
+    requested_response: Confirm the adopted mechanism is correct and should stand.
+    notes: >-
+      ADOPTED + verified on our side: over-binding RESOLVED (oriC-low gradual ~0.3→0.7
+      vs read-only ~0.8), box-doubling FIXED (315↔630), cell cycle clean (8/8 divisions,
+      oriC 1↔2). The read-only-era charts are historical/superseded.
+  - id: defer-atp-fraction-to-dnaa-4
+    status: open
+    question: >-
+      No constitutive V satisfies both the DnaA pool band [300,800] and the inherited
+      DnaA-ATP-fraction band [0.2,0.5] (the V-tension): tuning V down to hold the pool
+      drives the ATP fraction to 0.127, below the band, and active binding sequesters
+      DnaA-ATP onto boxes. Defer closing the fraction to a regulated-V lever (dnaa-4
+      negative autoregulation) rather than force a constitutive V?
+    alternatives:
+      - Force a constitutive V to hit the ATP-fraction band (breaks the [300,800] pool band).
+      - Defer to dnaa-4 negative autoregulation (feedback-controlled dnaA synthesis).
+    requested_response: Confirm deferral of the ATP fraction to dnaa-4 is the right scoping.
+    notes: >-
+      This deferral was the basis of the earlier 'partial' verdict — the adopted
+      mechanism met its core goals; the ATP fraction was a known constitutive-V tension,
+      not a refutation of the mechanism. RESOLVED 2026-06-16: the dnaa-4 autoregulation
+      mechanism (linear s=0.6 + F-05) returns the fraction to band (0.284) on the
+      current-config re-run, so the deferral is closed and the verdict is now a clean pass.
 
 # ── Reference documents (staged under workspace/references/dnaa/) ──────────────
 references:
-- name: molecular-information-replication-initiation
-  path: ../../workspace/references/dnaa/molecular_information_replication_initiation.pdf
-  role: |
-    Biology source. 11 oriC boxes (3 high-aff R1/R2/R4; 8 low-aff R5M, τ2, I1,
-    I2, C3, C2, I3, C1), affinity ranges (high ≈1 nM; low >100 nM), nucleotide
-    specificity (high bind ATP+ADP; low prefer ATP), dnaA-promoter box layout.
-- name: oric-sequence
-  path: ../../workspace/references/dnaa/oric_sequence.pdf
-  role: |
-    462-bp oriC sequence with all 11 boxes annotated. Source for the 8
-    low-affinity box coordinates (see inputs_to_supply).
-- name: parameters-wcm-stage1-heuristics
-  path: ../../workspace/references/dnaa/parameters_wcm_stage1_heuristics.pdf
-  role: |
-    Stage-1 heuristic parameters (rows 13-17 cover DnaA-box params).
+  - name: molecular-information-replication-initiation
+    path: ../../workspace/references/dnaa/molecular_information_replication_initiation.pdf
+    role: |
+      Biology source. 11 oriC boxes (3 high-aff R1/R2/R4; 8 low-aff R5M, τ2, I1,
+      I2, C3, C2, I3, C1), affinity ranges (high ≈1 nM; low >100 nM), nucleotide
+      specificity (high bind ATP+ADP; low prefer ATP), dnaA-promoter box layout.
+  - name: oric-sequence
+    path: ../../workspace/references/dnaa/oric_sequence.pdf
+    role: |
+      462-bp oriC sequence with all 11 boxes annotated. Source for the 8
+      low-affinity box coordinates (see inputs_to_supply).
+  - name: parameters-wcm-stage1-heuristics
+    path: ../../workspace/references/dnaa/parameters_wcm_stage1_heuristics.pdf
+    role: |
+      Stage-1 heuristic parameters (rows 13-17 cover DnaA-box params).
 
 # ── Box catalog: the four pools (315 sites total) ─────────────────────────────
 box_catalog:
   total_sites: 315
   pools:
-  - name: chromosomal_high
-    n_sites: 302
-    kd_nM: 1
-    binds: [DnaA-ATP, DnaA-ADP]
-    state_counts: [free, bound_ATP, bound_ADP]
-    source: |
-      307 consensus DnaA boxes (TTWTNCACA, Schaper-Messer) computed at
-      ParCa-build time on the K-12 genome, MINUS the 3 oriC high-aff + 2
-      dnaA-promoter high-aff sites broken out into their own pools = 302.
-  - name: oric_high
-    n_sites: 3
-    sites: [R1, R2, R4]
-    kd_nM: 1
-    binds: [DnaA-ATP, DnaA-ADP]
-    state_counts: [free, bound_ATP, bound_ADP]
-    coords_signed: {R1: -55, R2: 50, R4: 124}     # known anchors (spec)
-  - name: oric_low
-    n_sites: 8
-    sites: [R5M, "τ2", I1, I2, C3, C2, I3, C1]
-    kd_nM: 100     # Haochen first-step; higher-order site interactions deferred to a later study
-    binds: [DnaA-ATP]
-    state_counts: [free, bound_ATP]
-  - name: promoter_high
-    n_sites: 2
-    sites: [box1, box2]
-    kd_nM: 1
-    binds: [DnaA-ATP, DnaA-ADP]
-    state_counts: [free, bound_ATP, bound_ADP]
-    coords_signed: {box1: -41917, box2: -42883}     # relative to oriC (spec)
+    - name: chromosomal_high
+      n_sites: 302
+      kd_nM: 1
+      binds: [DnaA-ATP, DnaA-ADP]
+      state_counts: [free, bound_ATP, bound_ADP]
+      source: |
+        307 consensus DnaA boxes (TTWTNCACA, Schaper-Messer) computed at
+        ParCa-build time on the K-12 genome, MINUS the 3 oriC high-aff + 2
+        dnaA-promoter high-aff sites broken out into their own pools = 302.
+    - name: oric_high
+      n_sites: 3
+      sites: [R1, R2, R4]
+      kd_nM: 1
+      binds: [DnaA-ATP, DnaA-ADP]
+      state_counts: [free, bound_ATP, bound_ADP]
+      coords_signed: {R1: -55, R2: 50, R4: 124}   # known anchors (spec)
+    - name: oric_low
+      n_sites: 8
+      sites: [R5M, "τ2", I1, I2, C3, C2, I3, C1]
+      kd_nM: 100   # Haochen first-step; higher-order site interactions deferred to a later study
+      binds: [DnaA-ATP]
+      state_counts: [free, bound_ATP]
+    - name: promoter_high
+      n_sites: 2
+      sites: [box1, box2]
+      kd_nM: 1
+      binds: [DnaA-ATP, DnaA-ADP]
+      state_counts: [free, bound_ATP, bound_ADP]
+      coords_signed: {box1: -41917, box2: -42883}   # relative to oriC (spec)
 
 # ── Haochen's first-step assumptions (from spec.md) ───────────────────────────
 key_assumptions:
-- All 307 consensus DnaA boxes (TTWTNCACA) are high-affinity (K_d ≈ 1 nM).
-- oriC has 3 high-affinity + 8 low-affinity boxes; low-affinity K_d ≈ 100 nM.
-- DnaA-ATP and DnaA-ADP binding to boxes is FAST EQUILIBRIUM (only K_d matters; absolute k_fwd/k_rev magnitudes degenerate after the steady-state solve).
-- DNA binding does NOT alter the DnaA-ATP intrinsic hydrolysis rate (bf8b82e k ≈ 0.046/min applies uniformly to bound and free DnaA-ATP).
-- Higher-order interactions between low-affinity sites are DEFERRED to a later study.
-- High-affinity pools track bound-ATP and bound-ADP separately so the correct nucleotide form can be released later by downstream regulatory studies (extrinsic DnaA-ATP/ADP conversion + sequestration; per Haochen's spec).
-- 'DISCREPANCY (recorded): the Stage-1 parameter brief lists oriC low-affinity K_d as a 50→1 nM range; dnaa-3 uses Haochen''s first-step K_d ≈ 100 nM, with higher-order site interactions deferred to a later study. The spec assumption governs.'
+  - All 307 consensus DnaA boxes (TTWTNCACA) are high-affinity (K_d ≈ 1 nM).
+  - oriC has 3 high-affinity + 8 low-affinity boxes; low-affinity K_d ≈ 100 nM.
+  - DnaA-ATP and DnaA-ADP binding to boxes is FAST EQUILIBRIUM (only K_d matters; absolute k_fwd/k_rev magnitudes degenerate after the steady-state solve).
+  - DNA binding does NOT alter the DnaA-ATP intrinsic hydrolysis rate (bf8b82e k ≈ 0.046/min applies uniformly to bound and free DnaA-ATP).
+  - Higher-order interactions between low-affinity sites are DEFERRED to a later study.
+  - High-affinity pools track bound-ATP and bound-ADP separately so the correct nucleotide form can be released later by downstream regulatory studies (extrinsic DnaA-ATP/ADP conversion + sequestration; per Haochen's spec).
+  - 'DISCREPANCY (recorded): the Stage-1 parameter brief lists oriC low-affinity K_d as a 50→1 nM range; dnaa-3 uses Haochen''s first-step K_d ≈ 100 nM, with higher-order site interactions deferred to a later study. The spec assumption governs.'
 
 # ── Rashmi's review guidance carried forward (feedback 2026-05-30) ────────────
 rashmi_guidance:
-- topic: DnaA-form readout source
-  note: |
-    Rashmi (dnaa-1 build): "check whether the monomer counts listener provides
-    protein counts in ALL forms; if yes we can use it directly." → For dnaa-3,
-    verify the monomer_counts listener already sums apo/ATP/ADP DnaA before
-    adding a bespoke per-pool listener; reuse it where possible.
-- topic: chart conventions
-  note: |
-    Rashmi (dnaa-0 charts): x-axis in MINUTES (cumulative), label axes with units,
-    draw lines separating lineages + label the number of generations. The baseline
-    figure already follows this; the 4 planned trajectory viz must too.
-- topic: gating discipline
-  note: |
-    Rashmi (2026-05-29): "do not attempt next studies until the first two pass and
-    are validated." dnaa-0 + dnaa-1 PASS; dnaa-2 is QUALIFIED (strict per-gen band
-    not clean on the on-disk run). dnaa-3 is being prepared/designed for review, not
-    run — its validation is GATED on dnaa-2's baseline holding (pipeline_gate).
-- topic: scope — no RIDA
-  note: |
-    Rashmi (2026-05-29): "do not have RIDA in the glossary or in any study." RIDA /
-    DDAH / DARS extrinsic regulation + SeqA are OUT of scope for this investigation.
-    dnaa-3 only PROVIDES the bound/free + per-nucleotide partitioning; it models no
-    such mechanism and declares no downstream study.
+  - topic: DnaA-form readout source
+    note: |
+      Rashmi (dnaa-1 build): "check whether the monomer counts listener provides
+      protein counts in ALL forms; if yes we can use it directly." → For dnaa-3,
+      verify the monomer_counts listener already sums apo/ATP/ADP DnaA before
+      adding a bespoke per-pool listener; reuse it where possible.
+  - topic: chart conventions
+    note: |
+      Rashmi (dnaa-0 charts): x-axis in MINUTES (cumulative), label axes with units,
+      draw lines separating lineages + label the number of generations. The baseline
+      figure already follows this; the 4 planned trajectory viz must too.
+  - topic: gating discipline
+    note: |
+      Rashmi (2026-05-29): "do not attempt next studies until the first two pass and
+      are validated." dnaa-0 + dnaa-1 PASS; dnaa-2 is QUALIFIED (strict per-gen band
+      not clean on the on-disk run). dnaa-3 is being prepared/designed for review, not
+      run — its validation is GATED on dnaa-2's baseline holding (pipeline_gate).
+  - topic: scope — no RIDA
+    note: |
+      Rashmi (2026-05-29): "do not have RIDA in the glossary or in any study." RIDA /
+      DDAH / DARS extrinsic regulation + SeqA are OUT of scope for this investigation.
+      dnaa-3 only PROVIDES the bound/free + per-nucleotide partitioning; it models no
+      such mechanism and declares no downstream study.
 
 inputs_in_place:
-- 307 high-affinity DnaA box catalog computed at ParCa-build (Schaper-Messer consensus on the K-12 genome). Includes the 3 oriC high-aff (R1 −55, R2 +50, R4 +124) and the 2 high-aff dnaA-promoter sites (box1 −41917, box2 −42883).
-- Static dnaA autorepression via fold_changes_nca.tsv (dnaA→dnaA = −2.31 log2 FC). The 5 weaker dnaA-promoter boxes are intentionally NOT modeled (autorepression already covers self-regulation — do not double-count).
-- bf8b82e DnaA-ATP intrinsic hydrolysis (k ≈ 0.046/min) active in the equilibrium.
+  - 307 high-affinity DnaA box catalog computed at ParCa-build (Schaper-Messer consensus on the K-12 genome). Includes the 3 oriC high-aff (R1 −55, R2 +50, R4 +124) and the 2 high-aff dnaA-promoter sites (box1 −41917, box2 −42883).
+  - Static dnaA autorepression via fold_changes_nca.tsv (dnaA→dnaA = −2.31 log2 FC). The 5 weaker dnaA-promoter boxes are intentionally NOT modeled (autorepression already covers self-regulation — do not double-count).
+  - bf8b82e DnaA-ATP intrinsic hydrolysis (k ≈ 0.046/min) active in the equilibrium.
 
 inputs_to_supply:
-- id: oric-low-affinity-coordinates
-  title: 8 low-affinity oriC box coordinates (R5M, τ2, I1, I2, C3, C2, I3, C1)
-  status: provisional
-  method: |
-    Extract precise positions from oric_sequence.pdf using R1 (−55), R2 (+50),
-    R4 (+124) as signed-coordinate anchors. Order along oriC (from the sequence
-    map): R1 · R5M · τ2 · I1 · I2 · R2 · C3 · C2 · I3 · C1 · R4 — so 4 low-aff
-    boxes (R5M, τ2, I1, I2) lie between R1 and R2, and 4 (C3, C2, I3, C1)
-    between R2 and R4.
-  provisional_coords_signed:
+  - id: oric-low-affinity-coordinates
+    title: 8 low-affinity oriC box coordinates (R5M, τ2, I1, I2, C3, C2, I3, C1)
+    status: provisional
+    method: |
+      Extract precise positions from oric_sequence.pdf using R1 (−55), R2 (+50),
+      R4 (+124) as signed-coordinate anchors. Order along oriC (from the sequence
+      map): R1 · R5M · τ2 · I1 · I2 · R2 · C3 · C2 · I3 · C1 · R4 — so 4 low-aff
+      boxes (R5M, τ2, I1, I2) lie between R1 and R2, and 4 (C3, C2, I3, C1)
+      between R2 and R4.
+    provisional_coords_signed:
       # PROVISIONAL — interpolated from the rendered oric_sequence figure using the
       # R1/R2/R4 anchors (signed ≈ figure_pos − 255). MUST be confirmed by exact
       # sequence matching against oriC 3925744–3925989 at ParCa build before use.
-    R5M: -10
-    "τ2": 3
-    I1: 15
-    I2: 30
-    C3: 67
-    C2: 85
-    I3: 97
-    C1: 110
-  note: |
-    Treat the coordinates above as approximate ordering aids, NOT final. The REQ
-    below (extract-low-aff-coords) closes this by pulling exact positions from the
-    raw oriC sequence.
+      R5M: -10
+      "τ2": 3
+      I1: 15
+      I2: 30
+      C3: 67
+      C2: 85
+      I3: 97
+      C1: 110
+    note: |
+      Treat the coordinates above as approximate ordering aids, NOT final. The REQ
+      below (extract-low-aff-coords) closes this by pulling exact positions from the
+      raw oriC sequence.
 
 # ── Conditions: reuse the dnaa-2 V=1e-3 succinate baseline ─────────────────────
 conditions:
@@ -482,23 +482,23 @@ conditions:
       max_generations: 8
       resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
   variants:
-  - name: box-binding-reference
-    description: |
-      315-box 4-pool DnaA binding at the spec K_d's (chromosomal-high 302 @1nM,
-      oriC-high 3 @1nM, oriC-low 8 @100nM ATP-only, promoter-high 2 @1nM) on the
-      dnaa-2 V=1e-3 succinate burned-in baseline. The single reference config for
-      this first step; higher-order site interactions + low-aff Kd sweeps are deferred to a later study.
-    params:
-      kd_high_nM: 1
-      kd_low_nM: 100
-      seed: 1
+    - name: box-binding-reference
+      description: |
+        315-box 4-pool DnaA binding at the spec K_d's (chromosomal-high 302 @1nM,
+        oriC-high 3 @1nM, oriC-low 8 @100nM ATP-only, promoter-high 2 @1nM) on the
+        dnaa-2 V=1e-3 succinate burned-in baseline. The single reference config for
+        this first step; higher-order site interactions + low-aff Kd sweeps are deferred to a later study.
+      params:
+        kd_high_nM: 1
+        kd_low_nM: 100
+        seed: 1
   model_settings:
-  - name: dnaa-box-binding
-    detail: "315 boxes, 4 pools (302 chromosomal_high + 3 oriC_high + 8 oriC_low + 2 promoter_high), fast equilibrium by K_d"
-  - name: nucleotide-form-tracking
-    detail: "High-aff pools track free/bound-ATP/bound-ADP; low-aff pool tracks free/bound-ATP"
-  - name: dnaa-nucleotide-feature
-    detail: "MUST stay disabled — the dormant dnaa_nucleotide opt-in conflicts with bf8b82e"
+    - name: dnaa-box-binding
+      detail: "315 boxes, 4 pools (302 chromosomal_high + 3 oriC_high + 8 oriC_low + 2 promoter_high), fast equilibrium by K_d"
+    - name: nucleotide-form-tracking
+      detail: "High-aff pools track free/bound-ATP/bound-ADP; low-aff pool tracks free/bound-ATP"
+    - name: dnaa-nucleotide-feature
+      detail: "MUST stay disabled — the dormant dnaa_nucleotide opt-in conflicts with bf8b82e"
 
 runtime:
   subprocess_timeout_s: 7200
@@ -506,796 +506,786 @@ runtime:
   single_daughters: true
 
 reviewer_feedback:
-- round: '2026-06-06-1544'
-  reviewer: Haochen
-  source: feedback-2026-06-06-1544/feedback.yaml
-  notes: |
-    Haochen's five points, addressed in the dnaa3_occupancy_haochen figure (all rendered from the provided read-only binding model):
-    (1) oriC low-affinity occupancy on a separate zoomed axis; (2)
-    occupancy/analysis restricted to LATER (steady) generations; (3) free DnaA
-    plotted alongside bound; (4) free-DnaA concentration reported in nM
-    (count / cell volume), comparable to the nM K_d values; (5) the occupancy
-    illustration shows oriC DOUBLING at replication (11→22 boxes). The
-    free-DnaA-ATP magnitude is read directly off the read-only run (see
-    runs[].real_insim_numbers), not assumed.
-    NOTE (decontaminated 2026-06-08 per Rashmi): an earlier response to this round
-    introduced outside references and a separate-mechanism box-count sweep to argue
-    an over-binding "cause"; those were NOT provided and have been removed — no cap,
-    no sink, no outside source. UPDATE (full-cycle observer artifact
-    dnaa3-readonly-artifact): when the WHOLE cell cycle is observed (not just the
-    early-cycle slice the multigen run emitted), free DnaA-ATP stays at 342-491 nM —
-    several-fold above the 100 nM oriC-low K_d for 100% of the cycle — so oriC
-    low-affinity occupancy is HIGH (0.77-0.83) throughout, not sub-saturated. This
-    over-binding is reported HONESTLY as an OPEN observation within the provided
-    mechanism; it is not resolved by a cap/sink/added pool, and it is not framed as
-    a mere premise artifact.
-- round: '2026-06-05-1244'
-  reviewer: Rashmi
-  source: feedback-2026-06-05-1244/feedback.yaml
-  notes: |
-    (1) "total DnaA boxes trend doesn't look right — with replication, boxes double"
-    → FIXED: the readouts figure now uses the REAL total_DnaA_boxes listener (307→614
-    doubling during replication), scaled across all pools, instead of a constant 315.
-    (2) "start the study, run it — I want to see the plots after the study is run"
-    → dnaa-3 seed-1 8-gen RUN launched on the mini (validated composite cache_kr_1em7,
-    which completes; the in-sim binding step is un-wired WIP). On completion: evaluate
-    the 4 acceptance tests + record the run + regenerate plots FROM the run.
-- round: '2026-06-05-0420'
-  reviewer: Rashmi
-  source: feedback-2026-06-05-0420/feedback.yaml
-  notes: |
-    (1) dnaA-promoter/oriC labels overlapped on the box-map → separated with leader
-    lines. (2) "run this study, make all the plots in the what-we-will-measure
-    section" → dnaa-3 seed-1 8-gen run launched (mini, cache_dnaa3); new
-    the read-only readouts figure (retired) plotted every readout. (3) "total concentration is count/cell
-    mass not volume" → occupancy + readouts panels now use count / cell MASS.
-    Also (Eran): free/unbound boxes were invisible (high-aff pools saturate) → free
-    boxes now drawn as bold red rings + explicit "bound/free" per-region labels.
-- round: '2026-06-05-0043'
-  reviewer: Rashmi
-  source: feedback-2026-06-05-0043/feedback.yaml
-  verdict_effect: PLAN APPROVED — build started; 2 design tweaks applied
-  notes: |
-    (1) Charts: non-provided regulatory sites are out of scope at this stage —
-    the occupancy viz shows only the provided pools (oriC +
-    dnaA-promoter + chromosomal). (2) Readouts: added 'total DnaA concentration'
-    = total count (all forms, bound + unbound) / cell mass, as a primary readout +
-    a panel on the occupancy figure. (3) 'Plan approved go ahead' → expert_review_status
-    approved; status in_progress; building the box-binding mechanism + the
-    bound/unbound-per-box chromosome occupancy visualization.
+  - round: '2026-06-06-1544'
+    reviewer: Haochen
+    source: feedback-2026-06-06-1544/feedback.yaml
+    notes: |
+      Haochen's five points, addressed in the dnaa3_occupancy_haochen figure (all rendered from the provided read-only binding model):
+      (1) oriC low-affinity occupancy on a separate zoomed axis; (2)
+      occupancy/analysis restricted to LATER (steady) generations; (3) free DnaA
+      plotted alongside bound; (4) free-DnaA concentration reported in nM
+      (count / cell volume), comparable to the nM K_d values; (5) the occupancy
+      illustration shows oriC DOUBLING at replication (11→22 boxes). The
+      free-DnaA-ATP magnitude is read directly off the read-only run (see
+      runs[].real_insim_numbers), not assumed.
+      NOTE (decontaminated 2026-06-08 per Rashmi): an earlier response to this round
+      introduced outside references and a separate-mechanism box-count sweep to argue
+      an over-binding "cause"; those were NOT provided and have been removed — no cap,
+      no sink, no outside source. UPDATE (full-cycle observer artifact
+      dnaa3-readonly-artifact): when the WHOLE cell cycle is observed (not just the
+      early-cycle slice the multigen run emitted), free DnaA-ATP stays at 342-491 nM —
+      several-fold above the 100 nM oriC-low K_d for 100% of the cycle — so oriC
+      low-affinity occupancy is HIGH (0.77-0.83) throughout, not sub-saturated. This
+      over-binding is reported HONESTLY as an OPEN observation within the provided
+      mechanism; it is not resolved by a cap/sink/added pool, and it is not framed as
+      a mere premise artifact.
+  - round: '2026-06-05-1244'
+    reviewer: Rashmi
+    source: feedback-2026-06-05-1244/feedback.yaml
+    notes: |
+      (1) "total DnaA boxes trend doesn't look right — with replication, boxes double"
+      → FIXED: the readouts figure now uses the REAL total_DnaA_boxes listener (307→614
+      doubling during replication), scaled across all pools, instead of a constant 315.
+      (2) "start the study, run it — I want to see the plots after the study is run"
+      → dnaa-3 seed-1 8-gen RUN launched on the mini (validated composite cache_kr_1em7,
+      which completes; the in-sim binding step is un-wired WIP). On completion: evaluate
+      the 4 acceptance tests + record the run + regenerate plots FROM the run.
+  - round: '2026-06-05-0420'
+    reviewer: Rashmi
+    source: feedback-2026-06-05-0420/feedback.yaml
+    notes: |
+      (1) dnaA-promoter/oriC labels overlapped on the box-map → separated with leader
+      lines. (2) "run this study, make all the plots in the what-we-will-measure
+      section" → dnaa-3 seed-1 8-gen run launched (mini, cache_dnaa3); new
+      the read-only readouts figure (retired) plotted every readout. (3) "total concentration is count/cell
+      mass not volume" → occupancy + readouts panels now use count / cell MASS.
+      Also (Eran): free/unbound boxes were invisible (high-aff pools saturate) → free
+      boxes now drawn as bold red rings + explicit "bound/free" per-region labels.
+  - round: '2026-06-05-0043'
+    reviewer: Rashmi
+    source: feedback-2026-06-05-0043/feedback.yaml
+    verdict_effect: PLAN APPROVED — build started; 2 design tweaks applied
+    notes: |
+      (1) Charts: non-provided regulatory sites are out of scope at this stage —
+      the occupancy viz shows only the provided pools (oriC +
+      dnaA-promoter + chromosomal). (2) Readouts: added 'total DnaA concentration'
+      = total count (all forms, bound + unbound) / cell mass, as a primary readout +
+      a panel on the occupancy figure. (3) 'Plan approved go ahead' → expert_review_status
+      approved; status in_progress; building the box-binding mechanism + the
+      bound/unbound-per-box chromosome occupancy visualization.
 
 readouts:
-- name: total DnaA concentration
-  status: primary
-  identifier: (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c] + sum(all bound-box DnaA)) / listeners.mass.cell_mass
-  units: count / fg
-  notes: |
-    Rashmi 2026-06-05: plot total DnaA CONCENTRATION (count / cell mass), where
-    total includes ALL forms of DnaA — free (apo + DnaA-ATP + DnaA-ADP) AND
-    box-bound. Concentration (not raw count) controls binding equilibria, so this
-    is the physiologically meaningful readout across the cycle.
-- name: DnaA-ATP fraction
-  status: primary
-  identifier: bulk MONOMER0-160[c] / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
-  notes: Carried over from dnaa-2; must stay in the [0.2,0.5] band (gen-3 ~0.2-0.5).
-- name: oriC count
-  status: primary
-  identifier: listeners.replication_data.number_of_oric
-  notes: Cell-cycle integrity — 1↔2, unchanged from dnaa-2.
-- name: DnaA bound (high-aff, ATP)
-  status: measured
-  identifier: sum(chromosomal_high.bound_ATP + oriC_high.bound_ATP + promoter_high.bound_ATP)
-- name: DnaA bound (high-aff, ADP)
-  status: measured
-  identifier: sum(chromosomal_high.bound_ADP + oriC_high.bound_ADP + promoter_high.bound_ADP)
-- name: DnaA bound (low-aff, ATP)
-  status: measured
-  identifier: oric_low.bound_ATP
-- name: total DnaA boxes available
-  status: measured
-  identifier: sum over 4 pools (free + bound)
-  notes: 315 at birth → 630 at replication termination → 315 per daughter (raw count).
-
-# ── Validation (spec table): dnaa-3 must preserve dnaa-2 behaviour ─────────────
+  - name: total DnaA concentration
+    identifier: (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c] + sum(all bound-box DnaA)) / listeners.mass.cell_mass
+    units: count / fg
+    status: primary
+  - name: DnaA-ATP fraction
+    identifier: bulk MONOMER0-160[c] / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
+    status: primary
+  - name: oriC count
+    store_path: listeners.replication_data.number_of_oric
+    status: primary
+  - name: DnaA bound (high-aff, ATP)
+    identifier: sum(chromosomal_high.bound_ATP + oriC_high.bound_ATP + promoter_high.bound_ATP)
+    status: measured
+  - name: DnaA bound (high-aff, ADP)
+    identifier: sum(chromosomal_high.bound_ADP + oriC_high.bound_ADP + promoter_high.bound_ADP)
+    status: measured
+  - name: DnaA bound (low-aff, ATP)
+    store_path: oric_low.bound_ATP
+    status: measured
+  - name: total DnaA boxes available
+    identifier: sum over 4 pools (free + bound)
+    status: measured
 runs:
-- name: dnaa4_s06_F05_seed1_12gen
-  status: completed
-  kind: single-seed-multigen-lineage
-  canonical: true   # CANONICAL (2026-06-17): the SHARED dnaa-4 reference lineage (seed 1, 12 gens) — dnaa-3 reports its box-binding observables, dnaa-4 reports the autoregulation observables, from the SAME run. Backs BOTH the dnaa-3 tests and charts (no seed mismatch). See docs/conventions/staged-investigation-config-propagation.md.
-  run_dir: out/dnaa4_s06_F05_seed1_12gen
-  emitter: {kind: parquet, store: out/dnaa4_s06_F05_seed1_12gen/dnaa4_s06_F05_seed1_12gen}
-  cache_dir: out/cache_dnaa4_s06_F05
-  seed: 1
-  generations: 12
-  description: |
-    Box binding OBSERVED ON the dnaa-4 autoregulation-stabilized lineage (the reference run,
-    linear s=0.6 + F-05, V=1.5e-3, k_h=0.025/min, K_d 3/100 nM, RIDA/DDAH/DARS off; commit eb4ea39).
-    This is the run the dnaa-3 charts (dnaa3_box_occupancy / dnaa3_readouts) render from, so tests
-    and figures now share one seed-1/12-gen lineage — closing the prior seed-0(tests)/seed-1(charts)
-    mismatch. It is the SAME run dnaa-4 uses for its autoregulation outcomes (one composite carries
-    both mechanisms); the two studies report different observables from it.
-  outcomes:
-    cycles-divided-8-of-8: {result: PASS, measured_value: 12, detail: '12/12 generations divided'}
-    oric-pattern-1-or-2: {result: PASS, measured_value: 2, detail: 'oriC range 1-2 (one initiation/gen)'}
-    re-init-events-zero: {result: PASS, measured_value: 0, detail: '0 ticks with oriC>2'}
-    dnaa-atp-fraction-in-band-gen3: {result: PASS, measured_value: 0.254, detail: 'gen3+ mean 0.254 in [0.2,0.5] (clean on the reference seed 1)'}
-    dnaa-pool-within-band: {result: PASS, measured_value: {3: 395, 4: 391, 5: 435, 6: 376, 7: 417, 8: 354, 9: 376, 10: 387, 11: 326, 12: 307}, detail: 'every STEADY gen g3-12 mean in [300,800]; the truncated final gen 13 (214) is a partial-generation artifact, not a steady-state excursion (same caveat as dnaa-4/dnaa-1/2)'}
-    oric-low-gradual-filling: {result: PASS, measured_value: 0.22, detail: 'gen7 oriC-low occ rises 0.02 (birth) -> 0.22 (mid-cycle)'}
-  computed_outcomes:
-    cycles-divided-8-of-8:
-      result: PASS
-      measured_value:
-        1: 2.2711
-        2: 1.7501
-        3: 1.9624
-        4: 2.0907
-        5: 1.852
-        6: 2.1231
-        7: 2.0047
-        8: 1.9584
-        9: 1.9831
-        10: 1.8907
-        11: 1.9153
-        12: 1.9747
-      evaluated_by: code
-      operator: per_generation_mass_ratio/periodic_doubling_every_generation
-      detail: 'all gens: doubling ratio within 0.70 of 2.0'
-      reconcile: agree
-    oric-pattern-1-or-2:
-      result: PASS
-      measured_value: 1.617422
-      evaluated_by: code
-      operator: snapshot_window/in_range
-      detail: 1.617 in [1.0, 2.0]
-      reconcile: agree
-    re-init-events-zero:
-      result: PASS
-      measured_value: 2.0
-      evaluated_by: code
-      operator: snapshot_window/max_le
-      detail: max=2 <= 2.0
-      reconcile: agree
-    dnaa-atp-fraction-in-band-gen3:
-      result: PASS
-      measured_value: 0.25385
-      evaluated_by: code
-      operator: generation_average/range
-      detail: 0.2538 in [0.2, 0.5]
-      reconcile: agree
-    dnaa-pool-within-band:
-      result: PASS
-      measured_value:
-        3: 396.1048
-        4: 391.4981
-        5: 436.1924
-        6: 377.1757
-        7: 419.7781
-        8: 354.3458
-        9: 377.2411
-        10: 386.7194
-        11: 325.7428
-        12: 308.4251
-      evaluated_by: code
-      operator: generation_average/generation_average_in_range
-      detail: all 10 gens in [300.0, 800.0]
-      reconcile: agree
-    oric-low-gradual-filling:
-      result: PASS
-      measured_value:
-        1: 0.2305
-        2: 0.2393
-        3: 0.0975
-        4: 0.1877
-        5: 0.2505
-        6: 0.0831
-        7: 0.2971
-        8: 0.1225
-        9: 0.271
-        10: 0.1515
-        11: 0.2237
-        12: 0.2324
-      evaluated_by: code
-      operator: per_gen/rises_within_cycle
-      detail: 12/12 gens rise >= 0.03 (late-third - early-third); fraction 1.00 >= 0.6
-      reconcile: agree
-- name: dnaa3_currentcfg_seed0_8gen
-  status: completed
-  kind: single-seed-multigen-lineage
-  canonical: false   # 2026-06-17: demoted to a seed-0 CONFIRMATION of the canonical seed-1 reference run (above). Also all-6-PASS on the dnaa-4 config; kept as the second seed.
-  run_dir: out/dnaa3_currentcfg_seed0_8gen
-  emitter: {kind: parquet, store: out/dnaa3_currentcfg_seed0_8gen/dnaa3_currentcfg_seed0_8gen}
-  cache_dir: out/cache_dnaa4_s06_F05
-  seed: 0
-  description: |
-    Box-binding re-run under the CURRENT dnaa-4 reference configuration (linear autoregulation
-    s=0.6 + F-05 kinetic apo+ATP charging, V=1.5e-3, k_h=0.025/min, K_d 3/100 nM; RIDA/DDAH/DARS
-    OFF), succinate, seed 0, 8 generations (8/8 divided) — answers Rashmi 2026-06-16 ("rerun that
-    study with the current configuration and run the tests"). All charts re-rendered on this run
-    (dnaa3_box_occupancy / dnaa3_binding_analysis / dnaa3_readouts / dnaa3_chromosome_state).
-    Chromosome binding: oriC-low over-binding resolved (occupancy ~0.04-0.17, gradual fill;
-    high-affinity ~0.93-0.97), free DnaA-ATP ~5-11 nM (<< 100 nM low-aff K_d).
-  outcomes:
-    cycles-divided-8-of-8: {result: PASS, measured_value: 8, detail: '8/8 generations divided'}
-    oric-pattern-1-or-2: {result: PASS, measured_value: 2, detail: 'oriC range 1-2 (one initiation/gen)'}
-    re-init-events-zero: {result: PASS, measured_value: 0, detail: '0 ticks with oriC>2'}
-    dnaa-atp-fraction-in-band-gen3: {result: PASS, measured_value: 0.284, detail: 'gen3+ mean 0.284 in [0.2,0.5]'}
-    dnaa-pool-within-band: {result: PASS, measured_value: {3: 457, 4: 389, 5: 392, 6: 404, 7: 358, 8: 413}, detail: 'every gen mean in [300,800] — clean band pass under the current config'}
-    oric-low-gradual-filling: {result: PASS, measured_value: 0.17, detail: 'oriC-low occ rises 0.06 (birth) -> 0.17 (mid-cycle)'}
-  computed_outcomes:
-    cycles-divided-8-of-8:
-      result: PASS
-      measured_value:
-        1: 2.2848
-        2: 1.8441
-        3: 1.898
-        4: 1.9761
-        5: 2.0003
-        6: 1.9159
-        7: 2.0473
-        8: 2.0599
-      evaluated_by: code
-      operator: per_generation_mass_ratio/periodic_doubling_every_generation
-      detail: 'all gens: doubling ratio within 0.70 of 2.0'
-      reconcile: agree
-    oric-pattern-1-or-2:
-      result: PASS
-      measured_value: 1.676627
-      evaluated_by: code
-      operator: snapshot_window/in_range
-      detail: 1.677 in [1.0, 2.0]
-      reconcile: agree
-    re-init-events-zero:
-      result: PASS
-      measured_value: 2.0
-      evaluated_by: code
-      operator: snapshot_window/max_le
-      detail: max=2 <= 2.0
-      reconcile: agree
-    dnaa-atp-fraction-in-band-gen3:
-      result: PASS
-      measured_value: 0.283988
-      evaluated_by: code
-      operator: generation_average/range
-      detail: 0.284 in [0.2, 0.5]
-      reconcile: agree
-    dnaa-pool-within-band:
-      result: PASS
-      measured_value:
-        3: 457.7575
-        4: 390.2732
-        5: 393.5944
-        6: 405.2974
-        7: 359.0826
-        8: 415.0211
-      evaluated_by: code
-      operator: generation_average/generation_average_in_range
-      detail: all 6 gens in [300.0, 800.0]
-      reconcile: agree
-    oric-low-gradual-filling:
-      result: PASS
-      measured_value:
-        1: 0.6113
-        2: 0.0617
-        3: 0.2383
-        4: 0.2528
-        5: 0.2088
-        6: 0.2792
-        7: 0.1289
-        8: 0.2718
-      evaluated_by: code
-      operator: per_gen/rises_within_cycle
-      detail: 8/8 gens rise >= 0.03 (late-third - early-third); fraction 1.00 >= 0.6
-      reconcile: agree
-- name: dnaa3_binding_under_autoregulation
-  status: completed
-  kind: single-seed-multigen-lineage
-  canonical: false   # re-run source for Rashmi 2026-06-15 ("rerun the binding study with the negative autoregulation in place"); the box-binding plots are re-rendered on this run. The dnaa-3 canonical fixed-V run stays dnaa3_adopt_v0p8e3_seed0.
-  run_dir: out/dnaa4_s07_seed1_16gen_fixed
-  emitter: {kind: parquet, store: out/dnaa4_s07_seed1_16gen_fixed/dnaa4_s07_seed1_16gen_fixed}
-  seed: 1
-  description: |
-    Box binding re-run UNDER negative autoregulation (Rashmi feedback 2026-06-15,
-    rpt-20260615171945). This is the dnaa-4 s=0.7 Hill-autoregulation run (V=1.5e-3,
-    K_d high 3nM / low 100nM, k_h=0.025) — the box-binding composite WITH the dnaA
-    self-autoregulation active. Re-rendered the run-specific dnaa-3 plots on it:
-    dnaa3_box_occupancy, dnaa3_binding_analysis, dnaa3_readouts, dnaa3_chromosome_state.
-    Result: oriC-low over-binding resolves FURTHER (occupancy 0.10-0.15 vs 0.46 at fixed
-    V), high-affinity 0.96-0.98, free DnaA-ATP ~13 nM mean (<< 100 nM oriC-low K_d), and
-    the DnaA-ATP fraction returns to band (~0.33 in [0.2,0.5]) — so binding under
-    autoregulation meets both bands, resolving the dnaa-3 partial's deferred V-tension.
-  computed_outcomes:
-    cycles-divided-8-of-8:
-      result: PASS
-      measured_value:
-        1: 2.318
-        2: 1.7272
-        3: 1.9387
-        4: 1.9855
-        5: 2.0748
-        6: 1.9485
-        7: 2.1873
-        8: 2.1312
-        9: 1.8463
-        10: 1.8783
-        11: 2.2564
-        12: 2.0302
-        13: 1.9441
-        14: 1.778
-        15: 2.0425
-        16: 1.9402
-      evaluated_by: code
-      operator: per_generation_mass_ratio/periodic_doubling_every_generation
-      detail: 'all gens: doubling ratio within 0.70 of 2.0'
-      reconcile: no_authored
-    oric-pattern-1-or-2:
-      result: PASS
-      measured_value: 1.703811
-      evaluated_by: code
-      operator: snapshot_window/in_range
-      detail: 1.704 in [1.0, 2.0]
-      reconcile: no_authored
-    re-init-events-zero:
-      result: PASS
-      measured_value: 2.0
-      evaluated_by: code
-      operator: snapshot_window/max_le
-      detail: max=2 <= 2.0
-      reconcile: no_authored
-    dnaa-atp-fraction-in-band-gen3:
-      result: PASS
-      measured_value: 0.314944
-      evaluated_by: code
-      operator: generation_average/range
-      detail: 0.3149 in [0.2, 0.5]
-      reconcile: no_authored
-    dnaa-pool-within-band:
-      result: PASS
-      measured_value:
-        3: 350.9003
-        4: 334.3484
-        5: 384.6865
-        6: 411.2993
-        7: 378.7387
-        8: 435.9128
-        9: 336.5825
-        10: 373.4662
-        11: 448.8997
-        12: 468.3014
-        13: 488.3677
-        14: 400.551
-        15: 388.4829
-        16: 341.6358
-      evaluated_by: code
-      operator: generation_average/generation_average_in_range
-      detail: all 14 gens in [300.0, 800.0]
-      reconcile: no_authored
-    oric-low-gradual-filling:
-      result: PASS
-      measured_value:
-        1: 0.2697
-        2: 0.1592
-        3: 0.139
-        4: 0.2106
-        5: 0.1472
-        6: 0.2205
-        7: 0.2694
-        8: 0.2304
-        9: 0.0365
-        10: 0.1906
-        11: 0.4217
-        12: 0.2118
-        13: 0.174
-        14: 0.0501
-        15: 0.2319
-        16: 0.06
-      evaluated_by: code
-      operator: per_gen/rises_within_cycle
-      detail: 16/16 gens rise >= 0.03 (late-third - early-third); fraction 1.00 >= 0.6
-      reconcile: no_authored
-- name: dnaa3-insim-readonly
-  status: completed
-  kind: single-seed-multigen-lineage
-  canonical: false   # superseded 2026-06-10 by dnaa3_adopt_v1e3_seed0 (active mechanism); read-only historical
-  run_dir: parquet-runs/dnaa3-insim-readonly
-  cache_dir: out/cache_dnaa3
-  resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
-  seed: 1
-  description: |
-    REAL IN-SIM read-only binding run, multi-generation (seed 1, >=6 gens). The
-    PROVIDED dnaa_box_binding_listener (4 affinity pools, fast equilibrium, full
-    box set, no box-capacity limit, no DnaA-pool mutation) runs INSIDE the
-    composite on the dnaa-3 ParCa+cache
-    (out/cache_dnaa3, --mode full), emitting per-tick DnaA-box occupancy to
-    listeners.dnaA_binding in the parquet. The listener is strictly READ-ONLY
-    (writes only listeners.dnaA_binding; bulk + DnaA_box + mass are pure reads),
-    so the cell cycle matches the dnaa-2 succinate baseline exactly. This is the
-    canonical occupancy source for the study figures.
-    PROVENANCE: produced on the Mac mini at ~/code/v2e-invest/out/dnaa3_insim_readonly
-    (6 gens, seed 1, all divided; tau 63/65/64/69/76/56 min). Copied locally to
-    parquet-runs/dnaa3-insim-readonly/ (gitignored — only the *_summary.json is
-    tracked). The parquet history emitted only the first tens of seconds of each
-    generation (see real_insim_numbers.emit_caveat).
-  real_insim_numbers:
+  - name: dnaa4_s06_F05_seed1_12gen
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: true # CANONICAL (2026-06-17): the SHARED dnaa-4 reference lineage (seed 1, 12 gens) — dnaa-3 reports its box-binding observables, dnaa-4 reports the autoregulation observables, from the SAME run. Backs BOTH the dnaa-3 tests and charts (no seed mismatch). See docs/conventions/staged-investigation-config-propagation.md.
+    run_dir: out/dnaa4_s06_F05_seed1_12gen
+    emitter: {kind: parquet, store: out/dnaa4_s06_F05_seed1_12gen/dnaa4_s06_F05_seed1_12gen}
+    cache_dir: out/cache_dnaa4_s06_F05
+    seed: 1
+    generations: 12
+    description: |
+      Box binding OBSERVED ON the dnaa-4 autoregulation-stabilized lineage (the reference run,
+      linear s=0.6 + F-05, V=1.5e-3, k_h=0.025/min, K_d 3/100 nM, RIDA/DDAH/DARS off; commit eb4ea39).
+      This is the run the dnaa-3 charts (dnaa3_box_occupancy / dnaa3_readouts) render from, so tests
+      and figures now share one seed-1/12-gen lineage — closing the prior seed-0(tests)/seed-1(charts)
+      mismatch. It is the SAME run dnaa-4 uses for its autoregulation outcomes (one composite carries
+      both mechanisms); the two studies report different observables from it.
+    outcomes:
+      cycles-divided-8-of-8: {result: PASS, measured_value: 12, detail: '12/12 generations divided'}
+      oric-pattern-1-or-2: {result: PASS, measured_value: 2, detail: 'oriC range 1-2 (one initiation/gen)'}
+      re-init-events-zero: {result: PASS, measured_value: 0, detail: '0 ticks with oriC>2'}
+      dnaa-atp-fraction-in-band-gen3: {result: PASS, measured_value: 0.254, detail: 'gen3+ mean 0.254 in [0.2,0.5] (clean on the reference seed 1)'}
+      dnaa-pool-within-band: {result: PASS, measured_value: {3: 395, 4: 391, 5: 435, 6: 376, 7: 417, 8: 354, 9: 376, 10: 387, 11: 326, 12: 307}, detail: 'every STEADY gen g3-12 mean in [300,800]; the truncated final gen 13 (214) is a partial-generation artifact, not a steady-state excursion (same caveat as dnaa-4/dnaa-1/2)'}
+      oric-low-gradual-filling: {result: PASS, measured_value: 0.22, detail: 'gen7 oriC-low occ rises 0.02 (birth) -> 0.22 (mid-cycle)'}
+    computed_outcomes:
+      cycles-divided-8-of-8:
+        result: PASS
+        measured_value:
+          1: 2.2711
+          2: 1.7501
+          3: 1.9624
+          4: 2.0907
+          5: 1.852
+          6: 2.1231
+          7: 2.0047
+          8: 1.9584
+          9: 1.9831
+          10: 1.8907
+          11: 1.9153
+          12: 1.9747
+        evaluated_by: code
+        operator: per_generation_mass_ratio/periodic_doubling_every_generation
+        detail: 'all gens: doubling ratio within 0.70 of 2.0'
+        reconcile: agree
+      oric-pattern-1-or-2:
+        result: PASS
+        measured_value: 1.617422
+        evaluated_by: code
+        operator: snapshot_window/in_range
+        detail: 1.617 in [1.0, 2.0]
+        reconcile: agree
+      re-init-events-zero:
+        result: PASS
+        measured_value: 2.0
+        evaluated_by: code
+        operator: snapshot_window/max_le
+        detail: max=2 <= 2.0
+        reconcile: agree
+      dnaa-atp-fraction-in-band-gen3:
+        result: PASS
+        measured_value: 0.25385
+        evaluated_by: code
+        operator: generation_average/range
+        detail: 0.2538 in [0.2, 0.5]
+        reconcile: agree
+      dnaa-pool-within-band:
+        result: PASS
+        measured_value:
+          3: 396.1048
+          4: 391.4981
+          5: 436.1924
+          6: 377.1757
+          7: 419.7781
+          8: 354.3458
+          9: 377.2411
+          10: 386.7194
+          11: 325.7428
+          12: 308.4251
+        evaluated_by: code
+        operator: generation_average/generation_average_in_range
+        detail: all 10 gens in [300.0, 800.0]
+        reconcile: agree
+      oric-low-gradual-filling:
+        result: PASS
+        measured_value:
+          1: 0.2305
+          2: 0.2393
+          3: 0.0975
+          4: 0.1877
+          5: 0.2505
+          6: 0.0831
+          7: 0.2971
+          8: 0.1225
+          9: 0.271
+          10: 0.1515
+          11: 0.2237
+          12: 0.2324
+        evaluated_by: code
+        operator: per_gen/rises_within_cycle
+        detail: 12/12 gens rise >= 0.03 (late-third - early-third); fraction 1.00 >= 0.6
+        reconcile: agree
+  - name: dnaa3_currentcfg_seed0_8gen
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: false # 2026-06-17: demoted to a seed-0 CONFIRMATION of the canonical seed-1 reference run (above). Also all-6-PASS on the dnaa-4 config; kept as the second seed.
+    run_dir: out/dnaa3_currentcfg_seed0_8gen
+    emitter: {kind: parquet, store: out/dnaa3_currentcfg_seed0_8gen/dnaa3_currentcfg_seed0_8gen}
+    cache_dir: out/cache_dnaa4_s06_F05
+    seed: 0
+    description: |
+      Box-binding re-run under the CURRENT dnaa-4 reference configuration (linear autoregulation
+      s=0.6 + F-05 kinetic apo+ATP charging, V=1.5e-3, k_h=0.025/min, K_d 3/100 nM; RIDA/DDAH/DARS
+      OFF), succinate, seed 0, 8 generations (8/8 divided) — answers Rashmi 2026-06-16 ("rerun that
+      study with the current configuration and run the tests"). All charts re-rendered on this run
+      (dnaa3_box_occupancy / dnaa3_binding_analysis / dnaa3_readouts / dnaa3_chromosome_state).
+      Chromosome binding: oriC-low over-binding resolved (occupancy ~0.04-0.17, gradual fill;
+      high-affinity ~0.93-0.97), free DnaA-ATP ~5-11 nM (<< 100 nM low-aff K_d).
+    outcomes:
+      cycles-divided-8-of-8: {result: PASS, measured_value: 8, detail: '8/8 generations divided'}
+      oric-pattern-1-or-2: {result: PASS, measured_value: 2, detail: 'oriC range 1-2 (one initiation/gen)'}
+      re-init-events-zero: {result: PASS, measured_value: 0, detail: '0 ticks with oriC>2'}
+      dnaa-atp-fraction-in-band-gen3: {result: PASS, measured_value: 0.284, detail: 'gen3+ mean 0.284 in [0.2,0.5]'}
+      dnaa-pool-within-band: {result: PASS, measured_value: {3: 457, 4: 389, 5: 392, 6: 404, 7: 358, 8: 413}, detail: 'every gen mean in [300,800] — clean band pass under the current config'}
+      oric-low-gradual-filling: {result: PASS, measured_value: 0.17, detail: 'oriC-low occ rises 0.06 (birth) -> 0.17 (mid-cycle)'}
+    computed_outcomes:
+      cycles-divided-8-of-8:
+        result: PASS
+        measured_value:
+          1: 2.2848
+          2: 1.8441
+          3: 1.898
+          4: 1.9761
+          5: 2.0003
+          6: 1.9159
+          7: 2.0473
+          8: 2.0599
+        evaluated_by: code
+        operator: per_generation_mass_ratio/periodic_doubling_every_generation
+        detail: 'all gens: doubling ratio within 0.70 of 2.0'
+        reconcile: agree
+      oric-pattern-1-or-2:
+        result: PASS
+        measured_value: 1.676627
+        evaluated_by: code
+        operator: snapshot_window/in_range
+        detail: 1.677 in [1.0, 2.0]
+        reconcile: agree
+      re-init-events-zero:
+        result: PASS
+        measured_value: 2.0
+        evaluated_by: code
+        operator: snapshot_window/max_le
+        detail: max=2 <= 2.0
+        reconcile: agree
+      dnaa-atp-fraction-in-band-gen3:
+        result: PASS
+        measured_value: 0.283988
+        evaluated_by: code
+        operator: generation_average/range
+        detail: 0.284 in [0.2, 0.5]
+        reconcile: agree
+      dnaa-pool-within-band:
+        result: PASS
+        measured_value:
+          3: 457.7575
+          4: 390.2732
+          5: 393.5944
+          6: 405.2974
+          7: 359.0826
+          8: 415.0211
+        evaluated_by: code
+        operator: generation_average/generation_average_in_range
+        detail: all 6 gens in [300.0, 800.0]
+        reconcile: agree
+      oric-low-gradual-filling:
+        result: PASS
+        measured_value:
+          1: 0.6113
+          2: 0.0617
+          3: 0.2383
+          4: 0.2528
+          5: 0.2088
+          6: 0.2792
+          7: 0.1289
+          8: 0.2718
+        evaluated_by: code
+        operator: per_gen/rises_within_cycle
+        detail: 8/8 gens rise >= 0.03 (late-third - early-third); fraction 1.00 >= 0.6
+        reconcile: agree
+  - name: dnaa3_binding_under_autoregulation
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: false # re-run source for Rashmi 2026-06-15 ("rerun the binding study with the negative autoregulation in place"); the box-binding plots are re-rendered on this run. The dnaa-3 canonical fixed-V run stays dnaa3_adopt_v0p8e3_seed0.
+    run_dir: out/dnaa4_s07_seed1_16gen_fixed
+    emitter: {kind: parquet, store: out/dnaa4_s07_seed1_16gen_fixed/dnaa4_s07_seed1_16gen_fixed}
+    seed: 1
+    description: |
+      Box binding re-run UNDER negative autoregulation (Rashmi feedback 2026-06-15,
+      rpt-20260615171945). This is the dnaa-4 s=0.7 Hill-autoregulation run (V=1.5e-3,
+      K_d high 3nM / low 100nM, k_h=0.025) — the box-binding composite WITH the dnaA
+      self-autoregulation active. Re-rendered the run-specific dnaa-3 plots on it:
+      dnaa3_box_occupancy, dnaa3_binding_analysis, dnaa3_readouts, dnaa3_chromosome_state.
+      Result: oriC-low over-binding resolves FURTHER (occupancy 0.10-0.15 vs 0.46 at fixed
+      V), high-affinity 0.96-0.98, free DnaA-ATP ~13 nM mean (<< 100 nM oriC-low K_d), and
+      the DnaA-ATP fraction returns to band (~0.33 in [0.2,0.5]) — so binding under
+      autoregulation meets both bands, resolving the dnaa-3 partial's deferred V-tension.
+    computed_outcomes:
+      cycles-divided-8-of-8:
+        result: PASS
+        measured_value:
+          1: 2.318
+          2: 1.7272
+          3: 1.9387
+          4: 1.9855
+          5: 2.0748
+          6: 1.9485
+          7: 2.1873
+          8: 2.1312
+          9: 1.8463
+          10: 1.8783
+          11: 2.2564
+          12: 2.0302
+          13: 1.9441
+          14: 1.778
+          15: 2.0425
+          16: 1.9402
+        evaluated_by: code
+        operator: per_generation_mass_ratio/periodic_doubling_every_generation
+        detail: 'all gens: doubling ratio within 0.70 of 2.0'
+        reconcile: no_authored
+      oric-pattern-1-or-2:
+        result: PASS
+        measured_value: 1.703811
+        evaluated_by: code
+        operator: snapshot_window/in_range
+        detail: 1.704 in [1.0, 2.0]
+        reconcile: no_authored
+      re-init-events-zero:
+        result: PASS
+        measured_value: 2.0
+        evaluated_by: code
+        operator: snapshot_window/max_le
+        detail: max=2 <= 2.0
+        reconcile: no_authored
+      dnaa-atp-fraction-in-band-gen3:
+        result: PASS
+        measured_value: 0.314944
+        evaluated_by: code
+        operator: generation_average/range
+        detail: 0.3149 in [0.2, 0.5]
+        reconcile: no_authored
+      dnaa-pool-within-band:
+        result: PASS
+        measured_value:
+          3: 350.9003
+          4: 334.3484
+          5: 384.6865
+          6: 411.2993
+          7: 378.7387
+          8: 435.9128
+          9: 336.5825
+          10: 373.4662
+          11: 448.8997
+          12: 468.3014
+          13: 488.3677
+          14: 400.551
+          15: 388.4829
+          16: 341.6358
+        evaluated_by: code
+        operator: generation_average/generation_average_in_range
+        detail: all 14 gens in [300.0, 800.0]
+        reconcile: no_authored
+      oric-low-gradual-filling:
+        result: PASS
+        measured_value:
+          1: 0.2697
+          2: 0.1592
+          3: 0.139
+          4: 0.2106
+          5: 0.1472
+          6: 0.2205
+          7: 0.2694
+          8: 0.2304
+          9: 0.0365
+          10: 0.1906
+          11: 0.4217
+          12: 0.2118
+          13: 0.174
+          14: 0.0501
+          15: 0.2319
+          16: 0.06
+        evaluated_by: code
+        operator: per_gen/rises_within_cycle
+        detail: 16/16 gens rise >= 0.03 (late-third - early-third); fraction 1.00 >= 0.6
+        reconcile: no_authored
+  - name: dnaa3-insim-readonly
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: false # superseded 2026-06-10 by dnaa3_adopt_v1e3_seed0 (active mechanism); read-only historical
+    run_dir: parquet-runs/dnaa3-insim-readonly
+    cache_dir: out/cache_dnaa3
+    resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
+    seed: 1
+    description: |
+      REAL IN-SIM read-only binding run, multi-generation (seed 1, >=6 gens). The
+      PROVIDED dnaa_box_binding_listener (4 affinity pools, fast equilibrium, full
+      box set, no box-capacity limit, no DnaA-pool mutation) runs INSIDE the
+      composite on the dnaa-3 ParCa+cache
+      (out/cache_dnaa3, --mode full), emitting per-tick DnaA-box occupancy to
+      listeners.dnaA_binding in the parquet. The listener is strictly READ-ONLY
+      (writes only listeners.dnaA_binding; bulk + DnaA_box + mass are pure reads),
+      so the cell cycle matches the dnaa-2 succinate baseline exactly. This is the
+      canonical occupancy source for the study figures.
+      PROVENANCE: produced on the Mac mini at ~/code/v2e-invest/out/dnaa3_insim_readonly
+      (6 gens, seed 1, all divided; tau 63/65/64/69/76/56 min). Copied locally to
+      parquet-runs/dnaa3-insim-readonly/ (gitignored — only the *_summary.json is
+      tracked). The parquet history emitted only the first tens of seconds of each
+      generation (see real_insim_numbers.emit_caveat).
+    real_insim_numbers:
     # FILLED FROM THE REAL RUN (read straight from the emitted parquet; not fabricated).
     # Steady reference = generation 5 (18 emitted ticks); whole-run = all 6 gens.
-    steady_generation: 5
-    free_DnaA_ATP_nM: {mean: 341.7, median: 343.6, whole_run_mean: 238, whole_run_median: 248}
-    free_DnaA_ADP_nM: {mean: 1053.2}
-    dnaA_ATP_fraction:          # ATP / (ATP + ADP + apo) from the bulk nucleotide forms
-      gen5_mean: 0.229
-      gen6_mean: 0.307
-      in_band_0p2_0p5: true     # at the LOW edge of Rashmi's [0.2,0.5] band, inside it
-    oriC_low_affinity_occupancy:
-      gen5_mean: 0.774          # ~12/14 oriC boxes bound — NOT saturated (clearly < 1)
-      gen6_mean: 0.819
-      whole_run_early: 0.65
-      whole_run_late: 0.72
-    oriC_high_affinity_occupancy: {gen5_mean: 0.999}  # near-saturated, as expected
-    chromosome_occupancy: {gen5_mean: 0.999}
-    dnaA_promoter_occupancy: {gen5_mean: 0.999}
-    total_DnaA_bound: {gen5_mean: 313}
-    number_of_oric_emitted: 1   # oriC stayed at 1 in the emitted window (see emit_caveat)
-    emit_caveat: |
-      The parquet history emitted only the FIRST ~24/36/56/52/18/1 seconds of each
-      of the 6 generations (gen N = N-row file at 1 s cadence), not the full 56-76 min
-      cycles (the dills hold only the division-point snapshot). So every emitted tick
-      is early-cycle and oriC = 1 throughout the emitted data; the 1<->2 oriC pattern
-      and division (tau 63/65/64/69/76/56 min, 6/6 divided) come from the run summary +
-      dills, matching the dnaa-2 baseline. The occupancy / free-DnaA numbers above are
-      therefore early-cell-cycle steady-state values.
-  outcomes:
-    cycle-preserved-vs-dnaa2:
-      result: PASS
-      detail: read-only listener; cell cycle matches the dnaa-2 succinate baseline
-    oric-pattern-1-or-2:
-      result: PASS
-      detail: oriC in {1,2} across generations
-    binding-columns-populate:
-      result: PASS
-      detail: listeners.dnaA_binding columns emit real per-tick values
+      steady_generation: 5
+      free_DnaA_ATP_nM: {mean: 341.7, median: 343.6, whole_run_mean: 238, whole_run_median: 248}
+      free_DnaA_ADP_nM: {mean: 1053.2}
+      dnaA_ATP_fraction:        # ATP / (ATP + ADP + apo) from the bulk nucleotide forms
+        gen5_mean: 0.229
+        gen6_mean: 0.307
+        in_band_0p2_0p5: true   # at the LOW edge of Rashmi's [0.2,0.5] band, inside it
+      oriC_low_affinity_occupancy:
+        gen5_mean: 0.774        # ~12/14 oriC boxes bound — NOT saturated (clearly < 1)
+        gen6_mean: 0.819
+        whole_run_early: 0.65
+        whole_run_late: 0.72
+      oriC_high_affinity_occupancy: {gen5_mean: 0.999} # near-saturated, as expected
+      chromosome_occupancy: {gen5_mean: 0.999}
+      dnaA_promoter_occupancy: {gen5_mean: 0.999}
+      total_DnaA_bound: {gen5_mean: 313}
+      number_of_oric_emitted: 1 # oriC stayed at 1 in the emitted window (see emit_caveat)
+      emit_caveat: |
+        The parquet history emitted only the FIRST ~24/36/56/52/18/1 seconds of each
+        of the 6 generations (gen N = N-row file at 1 s cadence), not the full 56-76 min
+        cycles (the dills hold only the division-point snapshot). So every emitted tick
+        is early-cycle and oriC = 1 throughout the emitted data; the 1<->2 oriC pattern
+        and division (tau 63/65/64/69/76/56 min, 6/6 divided) come from the run summary +
+        dills, matching the dnaa-2 baseline. The occupancy / free-DnaA numbers above are
+        therefore early-cell-cycle steady-state values.
+    outcomes:
+      cycle-preserved-vs-dnaa2:
+        result: PASS
+        detail: read-only listener; cell cycle matches the dnaa-2 succinate baseline
+      oric-pattern-1-or-2:
+        result: PASS
+        detail: oriC in {1,2} across generations
+      binding-columns-populate:
+        result: PASS
+        detail: listeners.dnaA_binding columns emit real per-tick values
 
-  computed_outcomes:
-    _status: store_unresolved
-- name: dnaa3-readonly-artifact
-  status: completed
-  kind: single-gen-full-cycle-observer-artifact
-  canonical: false   # 2026-06-17: demoted — read-only-era historical artifact, NOT the canonical run (that is dnaa3_currentcfg_seed0_8gen, the dnaa-4-reference re-run). Only one canonical run per study.
-  run_dir: parquet-runs/dnaa3-readonly-artifact
-  cache_dir: out/cache_dnaa3
-  resume_dill: out/dnaa3_insim_readonly/gen_dills/gen5.dill
-  seed: 1
-  description: |
-    FULL-WITHIN-CYCLE read-only binding artifact. The multigen run
-    (dnaa3-insim-readonly) wiped the parquet history at each division, so only the
-    first tens of seconds of each generation survived (see that run's emit_caveat).
-    To observe a COMPLETE cell cycle, this run resumes from a steady-state
-    generation's dill (gen5.dill) and runs a SINGLE generation for 55 min with the
-    SAME strictly read-only dnaa_box_binding_listener — long enough that the cell
-    does NOT divide, so the entire per-tick history is retained. Because the
-    listener is read-only (writes only listeners.dnaA_binding), this is a valid
-    observer artifact: it does not perturb the biology, it just lets us watch a
-    whole cycle without division truncating the emit.
-    PROVENANCE: produced on the Mac mini at ~/code/v2e-invest/out/dnaa3_readonly_artifact
-    (1 gen, seed 1, start-gen 6, max-min 55; divided=False; dry mass 182.8 -> 370.2 fg
-    over 55 min). Copied locally to parquet-runs/dnaa3-readonly-artifact/ (gitignored —
-    only this metadata is tracked). 3301 ticks at 1 s cadence, t = 0..3300 s.
-  real_insim_numbers:
+    computed_outcomes:
+      _status: store_unresolved
+  - name: dnaa3-readonly-artifact
+    status: completed
+    kind: single-gen-full-cycle-observer-artifact
+    canonical: false # 2026-06-17: demoted — read-only-era historical artifact, NOT the canonical run (that is dnaa3_currentcfg_seed0_8gen, the dnaa-4-reference re-run). Only one canonical run per study.
+    run_dir: parquet-runs/dnaa3-readonly-artifact
+    cache_dir: out/cache_dnaa3
+    resume_dill: out/dnaa3_insim_readonly/gen_dills/gen5.dill
+    seed: 1
+    description: |
+      FULL-WITHIN-CYCLE read-only binding artifact. The multigen run
+      (dnaa3-insim-readonly) wiped the parquet history at each division, so only the
+      first tens of seconds of each generation survived (see that run's emit_caveat).
+      To observe a COMPLETE cell cycle, this run resumes from a steady-state
+      generation's dill (gen5.dill) and runs a SINGLE generation for 55 min with the
+      SAME strictly read-only dnaa_box_binding_listener — long enough that the cell
+      does NOT divide, so the entire per-tick history is retained. Because the
+      listener is read-only (writes only listeners.dnaA_binding), this is a valid
+      observer artifact: it does not perturb the biology, it just lets us watch a
+      whole cycle without division truncating the emit.
+      PROVENANCE: produced on the Mac mini at ~/code/v2e-invest/out/dnaa3_readonly_artifact
+      (1 gen, seed 1, start-gen 6, max-min 55; divided=False; dry mass 182.8 -> 370.2 fg
+      over 55 min). Copied locally to parquet-runs/dnaa3-readonly-artifact/ (gitignored —
+      only this metadata is tracked). 3301 ticks at 1 s cadence, t = 0..3300 s.
+    real_insim_numbers:
     # FILLED FROM THE REAL RUN — read straight from the emitted parquet
     # (listeners.dnaA_binding), 3301 ticks over one full ~55-min cycle. NOT fabricated.
-    cycle_minutes: 55.0
-    n_ticks: 3301
-    free_DnaA_ATP_nM: {min: 341.7, mean: 413.8, max: 491.3}
-    free_DnaA_ADP_nM: {min: 1014.3, mean: 1044.3, max: 1069.3}
-    fraction_of_cycle_ATP_above_Kd_low: 1.0   # free DnaA-ATP > 100 nM K_d for 100% of the cycle
-    Kd_low_nM: 100.0
-    ATP_over_Kd_low_ratio: {min: 3.4, mean: 4.1, max: 4.9}
-    oriC_low_affinity_occupancy: {min: 0.774, mean: 0.804, max: 0.831}   # HIGH and flat all cycle
-    oriC_high_affinity_occupancy: {min: 0.999, mean: 0.999, max: 0.999}  # saturated (K_d 1 nM)
-    chromosome_occupancy: {mean: 0.999}
-    dnaA_promoter_occupancy: {mean: 0.999}
-    oriC_n_total: {min: 14, max: 20}   # boxes duplicate as replication proceeds
-    oriC_n_bound: {min: 12, max: 19}
-    total_DnaA_bound: {mean: 425}
-    honest_observation: |
-      Over a full cell cycle, with ONLY the provided fast-equilibrium binding
-      mechanism + the dnaa-2 nucleotide balance (no cap, no sink), free DnaA-ATP
-      sits at 342-491 nM (mean 414) — i.e. ~3.4-4.9x the 100 nM oriC-low K_d —
-      and exceeds the K_d for 100% of the cycle. Consequently oriC LOW-affinity
-      occupancy stays HIGH (0.77-0.83) the WHOLE cycle, not just near initiation;
-      there is no early->late low-affinity switch in this run. This over-binding is
-      an OPEN observation within the provided mechanisms; it is NOT resolved here by
-      a chromosomal box-capacity cap or a DnaA sink (both removed per Rashmi). The
-      earlier multigen run's lower early-cycle figures (free DnaA-ATP ~342 nM, oriC-low
-      ~0.77 at gen 5) were the early-cycle slice; the full cycle reaches higher.
-  outcomes:
-    full-cycle-history-retained:
-      result: PASS
-      detail: single non-dividing gen; 3301 ticks (0..3300 s) of listeners.dnaA_binding retained
-    cycle-preserved-read-only:
-      result: PASS
-      detail: read-only listener; growth (182.8->370.2 fg over 55 min) matches the dnaa-2 baseline
-    over-binding-throughout-cycle:
-      result: PARTIAL
-      detail: |
-        HONEST open observation — free DnaA-ATP > 100 nM K_d for 100% of the cycle and
-        oriC low-affinity occupancy 0.77-0.83 throughout. Within the provided mechanism;
-        not resolved by a cap or sink.
+      cycle_minutes: 55.0
+      n_ticks: 3301
+      free_DnaA_ATP_nM: {min: 341.7, mean: 413.8, max: 491.3}
+      free_DnaA_ADP_nM: {min: 1014.3, mean: 1044.3, max: 1069.3}
+      fraction_of_cycle_ATP_above_Kd_low: 1.0 # free DnaA-ATP > 100 nM K_d for 100% of the cycle
+      Kd_low_nM: 100.0
+      ATP_over_Kd_low_ratio: {min: 3.4, mean: 4.1, max: 4.9}
+      oriC_low_affinity_occupancy: {min: 0.774, mean: 0.804, max: 0.831} # HIGH and flat all cycle
+      oriC_high_affinity_occupancy: {min: 0.999, mean: 0.999, max: 0.999} # saturated (K_d 1 nM)
+      chromosome_occupancy: {mean: 0.999}
+      dnaA_promoter_occupancy: {mean: 0.999}
+      oriC_n_total: {min: 14, max: 20} # boxes duplicate as replication proceeds
+      oriC_n_bound: {min: 12, max: 19}
+      total_DnaA_bound: {mean: 425}
+      honest_observation: |
+        Over a full cell cycle, with ONLY the provided fast-equilibrium binding
+        mechanism + the dnaa-2 nucleotide balance (no cap, no sink), free DnaA-ATP
+        sits at 342-491 nM (mean 414) — i.e. ~3.4-4.9x the 100 nM oriC-low K_d —
+        and exceeds the K_d for 100% of the cycle. Consequently oriC LOW-affinity
+        occupancy stays HIGH (0.77-0.83) the WHOLE cycle, not just near initiation;
+        there is no early->late low-affinity switch in this run. This over-binding is
+        an OPEN observation within the provided mechanisms; it is NOT resolved here by
+        a chromosomal box-capacity cap or a DnaA sink (both removed per Rashmi). The
+        earlier multigen run's lower early-cycle figures (free DnaA-ATP ~342 nM, oriC-low
+        ~0.77 at gen 5) were the early-cycle slice; the full cycle reaches higher.
+    outcomes:
+      full-cycle-history-retained:
+        result: PASS
+        detail: single non-dividing gen; 3301 ticks (0..3300 s) of listeners.dnaA_binding retained
+      cycle-preserved-read-only:
+        result: PASS
+        detail: read-only listener; growth (182.8->370.2 fg over 55 min) matches the dnaa-2 baseline
+      over-binding-throughout-cycle:
+        result: PARTIAL
+        detail: |
+          HONEST open observation — free DnaA-ATP > 100 nM K_d for 100% of the cycle and
+          oriC low-affinity occupancy 0.77-0.83 throughout. Within the provided mechanism;
+          not resolved by a cap or sink.
 
-  computed_outcomes:
-    _status: store_unresolved
-- name: dnaa3-fullhist
-  status: completed
-  kind: single-seed-multigen-lineage
-  canonical: false   # 2026-06-17: demoted — pre-autoregulation fixed-V lineage (superseded by dnaa3_currentcfg_seed0_8gen on the dnaa-4 reference). Only one canonical run per study.
-  run_dir: out/dnaa3_fullhist        # gitignored; only the summary jsons are tracked
-  cache_dir: out/cache_dnaa3
-  resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
-  seed: 1
-  tracked_summaries:
-  - parquet-runs/dnaa3-fullhist/dnaa3_fullhist_summary.json   # pipeline summary (per-gen tau + dry mass)
-  - parquet-runs/dnaa3-fullhist/dnaa3_fullhist_pergen.json    # per-gen plotted numbers (read off the parquet)
-  description: |
-    FULL-HISTORY multi-generation read-only binding run: 7 complete generations
-    (seed 1), each run as its own subprocess from a resumed steady-state dill so the
-    ENTIRE per-tick cell-cycle history of every generation is retained (the earlier
-    dnaa3-insim-readonly multigen run truncated each gen at division; this one keeps
-    the full ~50-min cycles, 2939-3563 ticks/gen). The SAME strictly read-only
-    dnaa_box_binding_listener (4 affinity pools, fast equilibrium, full box set, no
-    cap, no sink, no DnaA-pool mutation) fires inside the composite on the dnaa-3
-    ParCa+cache (out/cache_dnaa3, --mode full) and emits per-tick occupancy to
-    listeners.dnaA_binding. Read the CANONICAL all-zeros agent_id chain (gen N =
-    agent_id "0"*N); 1-tick config + 3-tick gen-8 sentinel partitions are filtered
-    (>100-tick partitions only). This is the canonical full-cycle, multi-generation
-    source for the study figures.
-    PROVENANCE: produced on the Mac mini at ~/code/v2e-invest/out/dnaa3_fullhist
-    (7 gens, seed 1, all divided; tau 60/48/54/50/53/54/49 min; final dry mass
-    367-407 fg/gen; pipeline wall ~1824 s). Gitignored locally; only the two
-    summary jsons under parquet-runs/dnaa3-fullhist/ are tracked.
-  real_insim_numbers:
+    computed_outcomes:
+      _status: store_unresolved
+  - name: dnaa3-fullhist
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: false # 2026-06-17: demoted — pre-autoregulation fixed-V lineage (superseded by dnaa3_currentcfg_seed0_8gen on the dnaa-4 reference). Only one canonical run per study.
+    run_dir: out/dnaa3_fullhist      # gitignored; only the summary jsons are tracked
+    cache_dir: out/cache_dnaa3
+    resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
+    seed: 1
+    tracked_summaries:
+      - parquet-runs/dnaa3-fullhist/dnaa3_fullhist_summary.json # pipeline summary (per-gen tau + dry mass)
+      - parquet-runs/dnaa3-fullhist/dnaa3_fullhist_pergen.json # per-gen plotted numbers (read off the parquet)
+    description: |
+      FULL-HISTORY multi-generation read-only binding run: 7 complete generations
+      (seed 1), each run as its own subprocess from a resumed steady-state dill so the
+      ENTIRE per-tick cell-cycle history of every generation is retained (the earlier
+      dnaa3-insim-readonly multigen run truncated each gen at division; this one keeps
+      the full ~50-min cycles, 2939-3563 ticks/gen). The SAME strictly read-only
+      dnaa_box_binding_listener (4 affinity pools, fast equilibrium, full box set, no
+      cap, no sink, no DnaA-pool mutation) fires inside the composite on the dnaa-3
+      ParCa+cache (out/cache_dnaa3, --mode full) and emits per-tick occupancy to
+      listeners.dnaA_binding. Read the CANONICAL all-zeros agent_id chain (gen N =
+      agent_id "0"*N); 1-tick config + 3-tick gen-8 sentinel partitions are filtered
+      (>100-tick partitions only). This is the canonical full-cycle, multi-generation
+      source for the study figures.
+      PROVENANCE: produced on the Mac mini at ~/code/v2e-invest/out/dnaa3_fullhist
+      (7 gens, seed 1, all divided; tau 60/48/54/50/53/54/49 min; final dry mass
+      367-407 fg/gen; pipeline wall ~1824 s). Gitignored locally; only the two
+      summary jsons under parquet-runs/dnaa3-fullhist/ are tracked.
+    real_insim_numbers:
     # FILLED FROM THE REAL RUN — read straight off the emitted parquet over the
     # CANONICAL all-zeros lineage, full per-tick history, >100-tick partitions only.
     # Per-gen detail in parquet-runs/dnaa3-fullhist/dnaa3_fullhist_pergen.json.
-    generations_full_cycle: 7
-    Kd_low_nM: 100.0
-    per_gen_free_DnaA_ATP_nM:   # {min, mean, max} per generation, nM
-      gen1: {min: 106, mean: 426, max: 600}
-      gen2: {min: 240, mean: 382, max: 501}
-      gen3: {min: 257, mean: 436, max: 630}
-      gen4: {min: 485, mean: 554, max: 655}
-      gen5: {min: 316, mean: 392, max: 475}
-      gen6: {min: 354, mean: 478, max: 645}
-      gen7: {min: 270, mean: 415, max: 509}
-    free_DnaA_ATP_above_Kd_low_fraction_per_gen: 1.0   # > 100 nM for 100% of EVERY cycle
-    oriC_low_affinity_occupancy_per_gen:               # mean per generation
-      gen1: 0.79
-      gen2: 0.79
-      gen3: 0.81
-      gen4: 0.85
-      gen5: 0.80
-      gen6: 0.82
-      gen7: 0.80
-    oriC_low_affinity_occupancy_range_all_gens: [0.79, 0.85]   # ~0.8 throughout every cycle
-    oriC_high_affinity_occupancy: {all_gens_mean: 0.999}        # saturated (K_d 1 nM)
-    chromosome_occupancy: {all_gens_mean: 0.999}
-    dnaA_ATP_fraction_mean_per_gen:    # ATP / (ATP+ADP+apo) from the bulk nucleotide forms
-      gen1: 0.657   # startup generation — not burned in; high, as in the dnaa-2 baseline
-      gen2: 0.316
-      gen3: 0.305
-      gen4: 0.315
-      gen5: 0.229
-      gen6: 0.276
-      gen7: 0.253
-    dnaA_ATP_fraction_in_band_gens_2_7: true    # gens 2-7 all inside [0.2,0.5]; gen1 startup is high
-    cell_cycle:
-      generations_divided: 7
-      oriC_pattern: "1<->2 every generation"
-      tau_min_per_gen: [60, 48, 54, 50, 53, 54, 49]
-      cell_mass_fg_range: [593, 1356]    # periodic doubling each generation
-  outcomes:
-    full-history-7-generations-retained:
-      result: PASS
-      detail: 7 complete cycles, 2939-3563 ticks/gen, canonical all-zeros lineage; full per-tick history retained
-    cycle-preserved-vs-dnaa2:
-      result: PASS
-      detail: read-only listener; 7/7 divisions, oriC 1<->2 every gen, mass doubles each cycle — matches dnaa-2 baseline
-    dnaa-atp-fraction-in-band:
-      result: PASS
-      detail: gens 2-7 DnaA-ATP fraction 0.23-0.32 (inside [0.2,0.5]); gen1 is the non-burned-in startup gen (0.66)
-    over-binding-throughout-every-cycle:
-      result: PARTIAL
-      detail: |
-        HONEST open observation, now over 7 full cycles — free DnaA-ATP > 100 nM K_d
-        for 100% of EVERY cycle (per-gen means 382-554 nM) and oriC low-affinity
-        occupancy ~0.8 (0.79-0.85) throughout every generation. Within the provided
-        mechanism; NOT resolved by a cap or sink.
-  computed_outcomes:
-    _status: store_unresolved
-- name: dnaa3_adopt_v0p8e3_seed0
-  status: completed
-  kind: single-seed-multigen-lineage
-  canonical: false  # SUPERSEDED 2026-06-16 by dnaa3_currentcfg_seed0_8gen (re-run under the current linear-s=0.6+F-05 config); kept as the prior fixed-V adopted run
-  run_dir: out/dnaa3_adopt_v0p8e3_seed0
-  emitter: {kind: parquet, store: out/dnaa3_adopt_v0p8e3_seed0/dnaa3_adopt_v0p8e3_seed0}   # RunReader-openable level (has history/); the spine evaluator reads this
-  cache_dir: out/cache_dnaa3_adopt_v0p8e3
-  seed: 0
-  description: |
-    CURRENT canonical run (2026-06-10, per Rashmi's 15:31 feedback "tune the RNA
-    expression to get DnaA within 300-800"): the ADOPTED active box-binding mechanism
-    (PR #162) at V=0.8e-3 — tuned DOWN from the overshooting 1e-3 to dnaa-1's in-band
-    value. Succinate, seed 0, 8 generations (8/8 divided). The DnaA steady-gen MEAN
-    drops to 630 (from 837 at 1e-3) — comfortably in-band; transient pre-division peaks
-    fall to ~1035 (from 1450). Current canonical figure set (all on the dnaa-4 reference
-    run, time-in-minutes, division lines, no gridlines): dnaa3_box_occupancy (gradual
-    oriC-low fill), dnaa3_readouts (6 per-gen readouts), dnaa3_binding_analysis (free-vs-K_d
-    + bound-by-pool + per-pool occupancy), dnaa3_chromosome_state. (The pre-autoregulation
-    historical figures were retired 2026-06-17; see the visualizations note.)
-  outcomes:   # keys MUST match the tests[].name above for the pill strip to render them
-    cycles-divided-8-of-8:
-      result: PASS
-      detail: 8/8 generations divided (cell cycle preserved under the active mechanism)
-    oric-pattern-1-or-2:
-      result: PASS
-      detail: oriC oscillates 1<->2 every generation
-    re-init-events-zero:
-      result: PASS
-      detail: one initiation per generation, no re-initiation
-    dnaa-atp-fraction-in-band-gen3:
-      result: FAIL
-      detail: "evaluator-computed at V=0.8e-3: free/bulk DnaA-ATP fraction 0.127 (from gen 3) is BELOW the [0.2,0.5] band — and LOWER than V=1e-3's 0.186: tuning V down to fix the pool worsens the ATP fraction (the V-tension). Active binding also sequesters DnaA-ATP onto boxes. The inherited bulk-fraction test should be re-formulated to the TOTAL fraction; the V-tension itself is resolved by autoregulation (dnaa-4). reconcile: agree with code."
-    dnaa-pool-within-band:
-      result: PASS
-      detail: "evaluator-computed at V=0.8e-3 (gen_steady_state per-gen averages): total DnaA (bulk+bound) IN-BAND all gens — 365/348/382/393/... across gens, all comfortably within [300,800] (steady-gen mean 630, down from 837 at V=1e-3). Tuned down per Rashmi's overshoot feedback. Transient pre-division peaks ~1035 (the inherent accumulate-then-halve), not a band violation. reconcile: agree with code."
-    oric-low-gradual-filling:
-      result: PASS
-      detail: "gen-5 oriC-low occupancy starts ~0.3 at cell birth and fills GRADUALLY to ~0.7 toward initiation (chart dnaa3_box_occupancy) — not pre-filled, exactly the expected biology"
+      generations_full_cycle: 7
+      Kd_low_nM: 100.0
+      per_gen_free_DnaA_ATP_nM: # {min, mean, max} per generation, nM
+        gen1: {min: 106, mean: 426, max: 600}
+        gen2: {min: 240, mean: 382, max: 501}
+        gen3: {min: 257, mean: 436, max: 630}
+        gen4: {min: 485, mean: 554, max: 655}
+        gen5: {min: 316, mean: 392, max: 475}
+        gen6: {min: 354, mean: 478, max: 645}
+        gen7: {min: 270, mean: 415, max: 509}
+      free_DnaA_ATP_above_Kd_low_fraction_per_gen: 1.0 # > 100 nM for 100% of EVERY cycle
+      oriC_low_affinity_occupancy_per_gen:             # mean per generation
+        gen1: 0.79
+        gen2: 0.79
+        gen3: 0.81
+        gen4: 0.85
+        gen5: 0.80
+        gen6: 0.82
+        gen7: 0.80
+      oriC_low_affinity_occupancy_range_all_gens: [0.79, 0.85] # ~0.8 throughout every cycle
+      oriC_high_affinity_occupancy: {all_gens_mean: 0.999}      # saturated (K_d 1 nM)
+      chromosome_occupancy: {all_gens_mean: 0.999}
+      dnaA_ATP_fraction_mean_per_gen:  # ATP / (ATP+ADP+apo) from the bulk nucleotide forms
+        gen1: 0.657 # startup generation — not burned in; high, as in the dnaa-2 baseline
+        gen2: 0.316
+        gen3: 0.305
+        gen4: 0.315
+        gen5: 0.229
+        gen6: 0.276
+        gen7: 0.253
+      dnaA_ATP_fraction_in_band_gens_2_7: true  # gens 2-7 all inside [0.2,0.5]; gen1 startup is high
+      cell_cycle:
+        generations_divided: 7
+        oriC_pattern: "1<->2 every generation"
+        tau_min_per_gen: [60, 48, 54, 50, 53, 54, 49]
+        cell_mass_fg_range: [593, 1356]  # periodic doubling each generation
+    outcomes:
+      full-history-7-generations-retained:
+        result: PASS
+        detail: 7 complete cycles, 2939-3563 ticks/gen, canonical all-zeros lineage; full per-tick history retained
+      cycle-preserved-vs-dnaa2:
+        result: PASS
+        detail: read-only listener; 7/7 divisions, oriC 1<->2 every gen, mass doubles each cycle — matches dnaa-2 baseline
+      dnaa-atp-fraction-in-band:
+        result: PASS
+        detail: gens 2-7 DnaA-ATP fraction 0.23-0.32 (inside [0.2,0.5]); gen1 is the non-burned-in startup gen (0.66)
+      over-binding-throughout-every-cycle:
+        result: PARTIAL
+        detail: |
+          HONEST open observation, now over 7 full cycles — free DnaA-ATP > 100 nM K_d
+          for 100% of EVERY cycle (per-gen means 382-554 nM) and oriC low-affinity
+          occupancy ~0.8 (0.79-0.85) throughout every generation. Within the provided
+          mechanism; NOT resolved by a cap or sink.
+    computed_outcomes:
+      _status: store_unresolved
+  - name: dnaa3_adopt_v0p8e3_seed0
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: false # SUPERSEDED 2026-06-16 by dnaa3_currentcfg_seed0_8gen (re-run under the current linear-s=0.6+F-05 config); kept as the prior fixed-V adopted run
+    run_dir: out/dnaa3_adopt_v0p8e3_seed0
+    emitter: {kind: parquet, store: out/dnaa3_adopt_v0p8e3_seed0/dnaa3_adopt_v0p8e3_seed0} # RunReader-openable level (has history/); the spine evaluator reads this
+    cache_dir: out/cache_dnaa3_adopt_v0p8e3
+    seed: 0
+    description: |
+      CURRENT canonical run (2026-06-10, per Rashmi's 15:31 feedback "tune the RNA
+      expression to get DnaA within 300-800"): the ADOPTED active box-binding mechanism
+      (PR #162) at V=0.8e-3 — tuned DOWN from the overshooting 1e-3 to dnaa-1's in-band
+      value. Succinate, seed 0, 8 generations (8/8 divided). The DnaA steady-gen MEAN
+      drops to 630 (from 837 at 1e-3) — comfortably in-band; transient pre-division peaks
+      fall to ~1035 (from 1450). Current canonical figure set (all on the dnaa-4 reference
+      run, time-in-minutes, division lines, no gridlines): dnaa3_box_occupancy (gradual
+      oriC-low fill), dnaa3_readouts (6 per-gen readouts), dnaa3_binding_analysis (free-vs-K_d
+      + bound-by-pool + per-pool occupancy), dnaa3_chromosome_state. (The pre-autoregulation
+      historical figures were retired 2026-06-17; see the visualizations note.)
+    outcomes: # keys MUST match the tests[].name above for the pill strip to render them
+      cycles-divided-8-of-8:
+        result: PASS
+        detail: 8/8 generations divided (cell cycle preserved under the active mechanism)
+      oric-pattern-1-or-2:
+        result: PASS
+        detail: oriC oscillates 1<->2 every generation
+      re-init-events-zero:
+        result: PASS
+        detail: one initiation per generation, no re-initiation
+      dnaa-atp-fraction-in-band-gen3:
+        result: FAIL
+        detail: "evaluator-computed at V=0.8e-3: free/bulk DnaA-ATP fraction 0.127 (from gen 3) is BELOW the [0.2,0.5] band — and LOWER than V=1e-3's 0.186: tuning V down to fix the pool worsens the ATP fraction (the V-tension). Active binding also sequesters DnaA-ATP onto boxes. The inherited bulk-fraction test should be re-formulated to the TOTAL fraction; the V-tension itself is resolved by autoregulation (dnaa-4). reconcile: agree with code."
+      dnaa-pool-within-band:
+        result: PASS
+        detail: "evaluator-computed at V=0.8e-3 (gen_steady_state per-gen averages): total DnaA (bulk+bound) IN-BAND all gens — 365/348/382/393/... across gens, all comfortably within [300,800] (steady-gen mean 630, down from 837 at V=1e-3). Tuned down per Rashmi's overshoot feedback. Transient pre-division peaks ~1035 (the inherent accumulate-then-halve), not a band violation. reconcile: agree with code."
+      oric-low-gradual-filling:
+        result: PASS
+        detail: "gen-5 oriC-low occupancy starts ~0.3 at cell birth and fills GRADUALLY to ~0.7 toward initiation (chart dnaa3_box_occupancy) — not pre-filled, exactly the expected biology"
 
-  computed_outcomes:
-    _status: store_unresolved
-  generations: 9
-  sim_minutes: 424
-  n_readouts: 196
+    computed_outcomes:
+      _status: store_unresolved
+    generations: 9
+    sim_minutes: 424
+    n_readouts: 196
 tests:
-- name: cycles-divided-8-of-8
-  status: passed
-  classification: primary
-  description: All 8 generations divide (cell cycle preserved vs dnaa-2 baseline).
+  - name: cycles-divided-8-of-8
+    status: passed
+    classification: primary
+    description: All 8 generations divide (cell cycle preserved vs dnaa-2 baseline).
   # Spine-computable proxy for "every generation divides": cell mass doubles each
   # cycle (peak/birth ~ 2). 2026-06-17: was {count_over_lineage, divisions} which has
   # no backing observable (agent-only).
-  measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
-  pass_if: {op: periodic_doubling_every_generation, tolerance: 0.35}
-  baseline_value: 8
-- name: oric-pattern-1-or-2
-  status: passed
-  classification: primary
-  description: oriC oscillates 1↔2 (unchanged from dnaa-2) — mean oriC stays in [1,2], no over-initiation.
-  measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
-  pass_if: {op: in_range, low: 1, high: 2}
-  baseline_value: "1↔2"
-  cites:
-  - initiator-titration-nat-comm-s41467-022-33886-6
-  - initiator-titration-prxlife-1-013011
-  cites_note: |
-    The oriC 1↔2 band is the once-per-cell-cycle initiation-control phenotype: oriC
-    copy number oscillates between 1 (pre-initiation) and 2 (post-initiation, before
-    division), i.e. exactly one initiation per cycle. This is the behaviour the
-    initiator-titration models (Study 3 references in workspace/references/papers.bib)
-    are built to reproduce — DnaA titration to the boxes setting initiation timing.
-- name: re-init-events-zero
-  status: passed
-  classification: primary
-  description: No re-initiation events (unchanged from dnaa-2).
+    measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
+    pass_if: {op: periodic_doubling_every_generation, tolerance: 0.35}
+    baseline_value: 8
+  - name: oric-pattern-1-or-2
+    status: passed
+    classification: primary
+    description: oriC oscillates 1↔2 (unchanged from dnaa-2) — mean oriC stays in [1,2], no over-initiation.
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+    pass_if: {op: in_range, low: 1, high: 2}
+    baseline_value: "1↔2"
+    cites:
+      - initiator-titration-nat-comm-s41467-022-33886-6
+      - initiator-titration-prxlife-1-013011
+    cites_note: |
+      The oriC 1↔2 band is the once-per-cell-cycle initiation-control phenotype: oriC
+      copy number oscillates between 1 (pre-initiation) and 2 (post-initiation, before
+      division), i.e. exactly one initiation per cycle. This is the behaviour the
+      initiator-titration models (Study 3 references in workspace/references/papers.bib)
+      are built to reproduce — DnaA titration to the boxes setting initiation timing.
+  - name: re-init-events-zero
+    status: passed
+    classification: primary
+    description: No re-initiation events (unchanged from dnaa-2).
   # Spine-computable: oriC copy number NEVER exceeds 2 (a re-initiation would push
   # it to 4). Uses the max-reduction op (mean-based ops can't catch a transient
   # spike). 2026-06-17: was {count_over_lineage, reinit_events} (no observable).
-  measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
-  pass_if: {op: max_le, value: 2}
-  baseline_value: 0
-- name: dnaa-atp-fraction-in-band-gen3
-  status: partial   # NOT met on the ADOPTED active-binding run: evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound) < the [0.2,0.5] band. Inherited from dnaa-2 (where bulk==total, no binding); under active binding DnaA-ATP is sequestered onto boxes + V is tuned down to hold the pool band, depressing the fraction. The documented V-tension — no constitutive V meets both bands; scoped to dnaa-4. Honestly recorded FAIL on the canonical run (computed==authored, reconcile: agree); not forced to pass.
-  classification: primary
-  description: DnaA-ATP fraction at gen 3 in the [0.2,0.5] band (inherited from dnaa-2).
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+    pass_if: {op: max_le, value: 2}
+    baseline_value: 0
+  - name: dnaa-atp-fraction-in-band-gen3
+    status: partial # NOT met on the ADOPTED active-binding run: evaluator-computed 0.127 (bulk) / 0.187 (total incl. box-bound) < the [0.2,0.5] band. Inherited from dnaa-2 (where bulk==total, no binding); under active binding DnaA-ATP is sequestered onto boxes + V is tuned down to hold the pool band, depressing the fraction. The documented V-tension — no constitutive V meets both bands; scoped to dnaa-4. Honestly recorded FAIL on the canonical run (computed==authored, reconcile: agree); not forced to pass.
+    classification: primary
+    description: DnaA-ATP fraction at gen 3 in the [0.2,0.5] band (inherited from dnaa-2).
   # TOTAL DnaA-ATP fraction = (free + box-bound DnaA-ATP) / (all free + all box-bound DnaA).
   # Under active box-binding most DnaA is bound, so the free-bulk-only fraction (the dnaa-2
   # form, valid there because free==total) under-reads badly (~0.05). The Boesen band is on
   # the TOTAL fraction, so the bound forms must be included (2026-06-17, reconfig).
-  measure: {kind: generation_average, path: "(MONOMER0-160[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp) / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.chromosomal_high_bound_adp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_high_bound_adp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp + listeners.replication_data.promoter_high_bound_adp)", window: from_generation_3}
-  pass_if: {op: range, low: 0.2, high: 0.5}
-  baseline_value: "~0.26 (dnaa-2)"
-  cites:
-  - pnas-pnas-2322772121
-  cites_note: |
-    The [0.2,0.5] DnaA-ATP / total-DnaA fraction band is the Boesen et al. 2024 PNAS
-    value (DnaA-ATP fraction observed in Delta4 cells), inherited from dnaa-2. Same
-    bib_key the sibling studies cite for this band.
-- name: dnaa-pool-within-band
-  status: partial
-  classification: primary
-  description: (Rashmi 2026-06-10, test #1) Total DnaA pool (bulk+bound) within the literature [300,800] band across the steady-state generations, with the active binding adopted on the in-band V=1e-3.
-  measure: {kind: generation_average, path: "MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.chromosomal_high_bound_adp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_high_bound_adp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp + listeners.replication_data.promoter_high_bound_adp", window: gen_steady_state}
-  pass_if: {op: generation_average_in_range, low: 300, high: 800}
-  baseline_value: "in-band gens 1-5 (336-687); drifts >800 gens 6-8 (V-tension -> dnaa-4)"
-  cites:
-  - dnaa-abundance-jb-1991
-  cites_note: |
-    The [300,800] total-DnaA band is the original DnaA protein abundance measurement
-    (J. Bacteriol. 1991), the same literature anchor dnaa-1 tunes V to and dnaa-2
-    reports against.
-- name: oric-low-gradual-filling
-  status: passed
-  classification: primary
-  description: (Rashmi 2026-06-10, test #2) The 8 oriC low-affinity boxes are NOT all occupied at cell birth — they fill GRADUALLY over the cycle as free DnaA-ATP accumulates toward initiation.
+    measure: {kind: generation_average, path: "(MONOMER0-160[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp) / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.chromosomal_high_bound_adp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_high_bound_adp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp + listeners.replication_data.promoter_high_bound_adp)", window: from_generation_3}
+    pass_if: {op: range, low: 0.2, high: 0.5}
+    baseline_value: "~0.26 (dnaa-2)"
+    cites:
+      - pnas-pnas-2322772121
+    cites_note: |
+      The [0.2,0.5] DnaA-ATP / total-DnaA fraction band is the Boesen et al. 2024 PNAS
+      value (DnaA-ATP fraction observed in Delta4 cells), inherited from dnaa-2. Same
+      bib_key the sibling studies cite for this band.
+  - name: dnaa-pool-within-band
+    status: partial
+    classification: primary
+    description: (Rashmi 2026-06-10, test #1) Total DnaA pool (bulk+bound) within the literature [300,800] band across the steady-state generations, with the active binding adopted on the in-band V=1e-3.
+    measure: {kind: generation_average, path: "MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.chromosomal_high_bound_adp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_high_bound_adp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp + listeners.replication_data.promoter_high_bound_adp", window: gen_steady_state}
+    pass_if: {op: generation_average_in_range, low: 300, high: 800}
+    baseline_value: "in-band gens 1-5 (336-687); drifts >800 gens 6-8 (V-tension -> dnaa-4)"
+    cites:
+      - dnaa-abundance-jb-1991
+    cites_note: |
+      The [300,800] total-DnaA band is the original DnaA protein abundance measurement
+      (J. Bacteriol. 1991), the same literature anchor dnaa-1 tunes V to and dnaa-2
+      reports against.
+  - name: oric-low-gradual-filling
+    status: passed
+    classification: primary
+    description: (Rashmi 2026-06-10, test #2) The 8 oriC low-affinity boxes are NOT all occupied at cell birth — they fill GRADUALLY over the cycle as free DnaA-ATP accumulates toward initiation.
   # Spine-computable: oriC-low occupancy = bound/(bound+free), and it RISES within
   # each cycle (low at birth -> higher toward initiation). Uses the within-cycle
   # trend op. 2026-06-17: was {trajectory_over_cycle, gradual_rise} (no run-data kind/op).
-  measure: {kind: per_gen, path: "listeners.replication_data.oriC_low_bound_atp / (listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.oriC_low_free)", window: every_generation}
-  pass_if: {op: rises_within_cycle, min_rise: 0.03, min_fraction: 0.6}
-  baseline_value: "gen-5 ~0.3 at birth -> ~0.7 toward init"
+    measure: {kind: per_gen, path: "listeners.replication_data.oriC_low_bound_atp / (listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.oriC_low_free)", window: every_generation}
+    pass_if: {op: rises_within_cycle, min_rise: 0.03, min_fraction: 0.6}
+    baseline_value: "gen-5 ~0.3 at birth -> ~0.7 toward init"
 
 # ── Visualizations — the chromosome box-map is REAL (WCM genome data); the 4 ──
 #    trajectory panels below are PLANNED (built once the mechanism runs).
 visualizations:
-- name: chromosome_dnaa_boxes
-  address: image:charts/chromosome_dnaa_boxes.png
-  config:
-    title: >-
-      E. coli K-12 chromosome — all 307 consensus DnaA boxes (TTWTNCACA,
-      Schaper-Messer 1995), extracted from the v2ecoli whole-cell-model genome
-      exactly as Replication._build_motifs() computes them. oriC and the dnaA
-      promoter marked (non-provided regulatory sites out of scope at this stage).
-      These 307 are the dnaa-3 chromosomal-high pool substrate; the 8 oriC
-      low-affinity + 2 promoter-high sites are added on top.
-  chart: charts/chromosome_dnaa_boxes.svg
-  render: cd ../.. && python scripts/render_dnaa3_boxmap.py
-- name: chromosome_replication_animation
-  address: image:charts/chromosome_replication.gif
-  config:
-    title: >-
-      ANIMATED full succinate cell cycle (seed 1, ~71 min, 123 frames) — the live
-      chromosome context dnaa-3's DnaA boxes sit on. Three phases: (1) pre-initiation
-      — single chromosome, RNAPs on the rim; (2) replication bubble EXTENDING — a
-      green bubble grows from oriC as the two replisomes (gold triangles) travel
-      toward Ter, RNAPs on both the mother rim AND the bubble arcs; (3) the chromosome
-      DIVIDES INTO TWO complete chromosomes at replication completion. oriC green,
-      Ter red, RNAPs blue. Rendered from per-timestep unique-molecule coordinates
-      (V2ECOLI_EMIT_UNIQUE) via the _draw_replication_bubbles renderer.
-  render: cd ../.. && python scripts/render_chromosome_gif.py --run out/dnaa_gifdata --seed 1 --every 30 --out studies/dnaa-3-box-binding/charts/chromosome_replication.gif
+  - name: chromosome_dnaa_boxes
+    address: image:charts/chromosome_dnaa_boxes.png
+    config:
+      title: >-
+        E. coli K-12 chromosome — all 307 consensus DnaA boxes (TTWTNCACA,
+        Schaper-Messer 1995), extracted from the v2ecoli whole-cell-model genome
+        exactly as Replication._build_motifs() computes them. oriC and the dnaA
+        promoter marked (non-provided regulatory sites out of scope at this stage).
+        These 307 are the dnaa-3 chromosomal-high pool substrate; the 8 oriC
+        low-affinity + 2 promoter-high sites are added on top.
+    chart: charts/chromosome_dnaa_boxes.svg
+    render: cd ../.. && python scripts/render_dnaa3_boxmap.py
+  - name: chromosome_replication_animation
+    address: image:charts/chromosome_replication.gif
+    config:
+      title: >-
+        ANIMATED full succinate cell cycle (seed 1, ~71 min, 123 frames) — the live
+        chromosome context dnaa-3's DnaA boxes sit on. Three phases: (1) pre-initiation
+        — single chromosome, RNAPs on the rim; (2) replication bubble EXTENDING — a
+        green bubble grows from oriC as the two replisomes (gold triangles) travel
+        toward Ter, RNAPs on both the mother rim AND the bubble arcs; (3) the chromosome
+        DIVIDES INTO TWO complete chromosomes at replication completion. oriC green,
+        Ter red, RNAPs blue. Rendered from per-timestep unique-molecule coordinates
+        (V2ECOLI_EMIT_UNIQUE) via the _draw_replication_bubbles renderer.
+    render: cd ../.. && python scripts/render_chromosome_gif.py --run out/dnaa_gifdata --seed 1 --every 30 --out studies/dnaa-3-box-binding/charts/chromosome_replication.gif
 # ── Adopted active-binding result charts (PR #162; current, on the canonical runs) ──
-- name: dnaa3_box_occupancy
-  address: image:charts/dnaa3_box_occupancy.png
-  chart: charts/dnaa3_box_occupancy.png
-  source_run: dnaa4_s06_F05_seed1_12gen (dnaa-4 reference config — linear s=0.6 + F-05, V=1.5e-3), generation 5
-  config:
-    title: >-
-      DnaA-box occupancy BY REGION across the cell cycle, on the dnaa-4 REFERENCE config
-      (linear s=0.6 + F-05) per Rashmi 2026-06-16. oriC has 11 boxes at birth (one
-      chromosome) and DOUBLES to 22 at replication — corrected from the prior 22-at-t=0.
-      oriC-LOW and oriC-HIGH occupancy are tracked SEPARATELY (bottom panel, right axis):
-      low-aff fills gradually then de-occupies as free DnaA-ATP drops below the 100 nM K_d.
-  render: cd ../.. && python scripts/render_dnaa3_occupancy.py --active-run out/dnaa4_s06_F05_seed1_12gen --generation 5 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
-- name: dnaa3_binding_analysis
-  address: image:charts/dnaa3_binding_analysis.png
-  chart: charts/dnaa3_binding_analysis.png
-  source_run: dnaa4_s06_F05_seed1_12gen (dnaa-4 reference config — linear s=0.6 + F-05, V=1.5e-3)
-  config:
-    title: >-
-      Binding analysis (4 panels, time in MINUTES, division lines) on the dnaa-4 REFERENCE
-      config: free DnaA-ATP/ADP (nM, via cell volume) vs the 100 nM oriC-low K_d (mean ~18 nM,
-      << K_d); bound DnaA by pool; per-pool oriC occupancy; oriC-low occupancy (mean 0.12,
-      gradual fill to a mid-cycle peak ~0.8, not pinned). High-affinity pools ~0.95.
-  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa4_s06_F05_seed1_12gen --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
-- name: dnaa3_readouts
-  address: image:charts/dnaa3_readouts.png
-  chart: charts/dnaa3_readouts.png
-  source_run: dnaa4_s06_F05_seed1_12gen (dnaa-4 reference config — linear s=0.6 + F-05, V=1.5e-3)
-  config:
-    title: >-
-      dnaa-3 readouts reproduced on the dnaa-4 REFERENCE config (linear s=0.6 + F-05) per
-      Rashmi 2026-06-16: total DnaA (bulk+bound) vs the [300,800] band, DnaA-ATP/ADP
-      fraction vs [0.2,0.5], oriC 1↔2, DnaA forms, total boxes, cell mass. Under
-      autoregulation the pool self-stabilizes (no fixed-V drift) — replaces the stale
-      fixed-V readouts and the retired dnaa3_fullhist_pergen.
-  render: cd ../.. && python scripts/render_dnaa3_readouts.py --run out/dnaa4_s06_F05_seed1_12gen --gens all --out studies/dnaa-3-box-binding/charts/dnaa3_readouts
+  - name: dnaa3_box_occupancy
+    address: image:charts/dnaa3_box_occupancy.png
+    chart: charts/dnaa3_box_occupancy.png
+    source_run: dnaa4_s06_F05_seed1_12gen (dnaa-4 reference config — linear s=0.6 + F-05, V=1.5e-3), generation 5
+    config:
+      title: >-
+        DnaA-box occupancy BY REGION across the cell cycle, on the dnaa-4 REFERENCE config
+        (linear s=0.6 + F-05) per Rashmi 2026-06-16. oriC has 11 boxes at birth (one
+        chromosome) and DOUBLES to 22 at replication — corrected from the prior 22-at-t=0.
+        oriC-LOW and oriC-HIGH occupancy are tracked SEPARATELY (bottom panel, right axis):
+        low-aff fills gradually then de-occupies as free DnaA-ATP drops below the 100 nM K_d.
+    render: cd ../.. && python scripts/render_dnaa3_occupancy.py --active-run out/dnaa4_s06_F05_seed1_12gen --generation 5 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
+  - name: dnaa3_binding_analysis
+    address: image:charts/dnaa3_binding_analysis.png
+    chart: charts/dnaa3_binding_analysis.png
+    source_run: dnaa4_s06_F05_seed1_12gen (dnaa-4 reference config — linear s=0.6 + F-05, V=1.5e-3)
+    config:
+      title: >-
+        Binding analysis (4 panels, time in MINUTES, division lines) on the dnaa-4 REFERENCE
+        config: free DnaA-ATP/ADP (nM, via cell volume) vs the 100 nM oriC-low K_d (mean ~18 nM,
+        << K_d); bound DnaA by pool; per-pool oriC occupancy; oriC-low occupancy (mean 0.12,
+        gradual fill to a mid-cycle peak ~0.8, not pinned). High-affinity pools ~0.95.
+    render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa4_s06_F05_seed1_12gen --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
+  - name: dnaa3_readouts
+    address: image:charts/dnaa3_readouts.png
+    chart: charts/dnaa3_readouts.png
+    source_run: dnaa4_s06_F05_seed1_12gen (dnaa-4 reference config — linear s=0.6 + F-05, V=1.5e-3)
+    config:
+      title: >-
+        dnaa-3 readouts reproduced on the dnaa-4 REFERENCE config (linear s=0.6 + F-05) per
+        Rashmi 2026-06-16: total DnaA (bulk+bound) vs the [300,800] band, DnaA-ATP/ADP
+        fraction vs [0.2,0.5], oriC 1↔2, DnaA forms, total boxes, cell mass. Under
+        autoregulation the pool self-stabilizes (no fixed-V drift) — replaces the stale
+        fixed-V readouts and the retired dnaa3_fullhist_pergen.
+    render: cd ../.. && python scripts/render_dnaa3_readouts.py --run out/dnaa4_s06_F05_seed1_12gen --gens all --out studies/dnaa-3-box-binding/charts/dnaa3_readouts
 # The pre-autoregulation historical charts (read-only-era occupancy_haochen, the
 # fixed-V active_binding_adopted / box_occupancy_trend, and the V-sweep panels) were
 # RETIRED 2026-06-17 in the beautify/cleanup pass — the binding journey (read-only ->
@@ -1304,27 +1294,27 @@ visualizations:
 # all on the dnaa-4 reference run) carry the result. Git history preserves the removed
 # figures.
 planned_visualizations:
-- name: dnaa-atp-partition-across-cell
-  units: concentration (count / cell_mass)
-  traces:
-  - DnaA-ATP bound to high-affinity boxes (chromosomal_high + oriC_high + promoter_high bound-ATP)
-  - DnaA-ATP bound to low-affinity boxes (oriC_low bound)
-  - DnaA-ATP free in cytoplasm (free bulk pool)
-  invariant: traces sum to total DnaA-ATP concentration at every tick.
-- name: dnaa-adp-partition-across-cell
-  units: concentration (count / cell_mass)
-  traces:
-  - DnaA-ADP bound to high-affinity boxes (chromosomal_high + oriC_high + promoter_high bound-ADP)
-  - DnaA-ADP free in cytoplasm (free bulk pool)
-  invariant: traces sum to total DnaA-ADP concentration (no low-aff trace — low-aff is ATP-only).
-- name: total-dnaa-boxes-over-time
-  units: raw count
-  traces: [total boxes = free + bound across all 4 pools]
-  note: 315 at birth → 630 at replication termination → 315 per daughter; raw count so the doubling is visible.
-- name: total-dnaa-bound-concentration
-  units: concentration (count / cell_mass)
-  traces: [sum of all bound (high-aff ATP+ADP across 3 pools + low-aff ATP) / cell_mass]
-  note: dominated by the chromosomal_high pool across the cycle.
+  - name: dnaa-atp-partition-across-cell
+    units: concentration (count / cell_mass)
+    traces:
+      - DnaA-ATP bound to high-affinity boxes (chromosomal_high + oriC_high + promoter_high bound-ATP)
+      - DnaA-ATP bound to low-affinity boxes (oriC_low bound)
+      - DnaA-ATP free in cytoplasm (free bulk pool)
+    invariant: traces sum to total DnaA-ATP concentration at every tick.
+  - name: dnaa-adp-partition-across-cell
+    units: concentration (count / cell_mass)
+    traces:
+      - DnaA-ADP bound to high-affinity boxes (chromosomal_high + oriC_high + promoter_high bound-ADP)
+      - DnaA-ADP free in cytoplasm (free bulk pool)
+    invariant: traces sum to total DnaA-ADP concentration (no low-aff trace — low-aff is ATP-only).
+  - name: total-dnaa-boxes-over-time
+    units: raw count
+    traces: [total boxes = free + bound across all 4 pools]
+    note: 315 at birth → 630 at replication termination → 315 per daughter; raw count so the doubling is visible.
+  - name: total-dnaa-bound-concentration
+    units: concentration (count / cell_mass)
+    traces: [sum of all bound (high-aff ATP+ADP across 3 pools + low-aff ATP) / cell_mass]
+    note: dominated by the chromosomal_high pool across the cycle.
 
 # ── Build plan (codebase map, 2026-06-03) ─────────────────────────────────────
 # What ALREADY exists in v2ecoli (reuse, don't rebuild):
@@ -1347,79 +1337,79 @@ planned_visualizations:
 #
 # What must be CREATED (the dnaa-3 mechanism):
 build_plan:
-- step: partition-catalog-into-4-pools
-  detail: |
-    Split the single "DnaA_box" catalog into chromosomal_high (302), oriC_high
-    (3: R1/R2/R4), oriC_low (8), promoter_high (2: box1/box2). High-aff = the
-    302 chromosomal consensus matches minus the 5 broken-out sites; oriC_high +
-    promoter_high are the 5 named consensus sites; oriC_low is the 8 supplied
-    coordinates (extract-low-aff-coords). Carry a per-box affinity tier + pool tag.
-  touches: [sequence_motifs.tsv or new dnaa_box_tiers.tsv, replication.py (_build_motifs), DNAA_BOX_ARRAY schema]
-- step: extract-low-aff-coords
-  detail: |
-    8 low-aff oriC boxes are NON-consensus → not in the consensus catalog; supply
-    explicitly. Align literature box sequences to the oriC window of
-    flat/sequence.fasta (which MATCHES oric_sequence.pdf), using R1/R2/R4 consensus
-    hits to fix the frame. Order: R5M·τ2·I1·I2 (between R1 & R2) · C3·C2·I3·C1
-    (between R2 & R4). Replaces inputs_to_supply.provisional_coords_signed.
-- step: add-box-binding-equilibria
-  detail: |
-    Add fast-equilibrium binding reactions (integrate_dt=false) to
-    equilibrium_reactions.tsv + _rates.tsv: per pool, DnaA-ATP(+ADP for high-aff)
-    + free-site ⇌ bound-site, K_d = 1 nM (high) / 100 nM (low). Convert K_d →
-    forward/reverse rates (degenerate magnitudes; pick on-rate ~1e8 /M/s scale).
-    Hydrolysis k=0.046/min applies to bound DnaA-ATP too (uniform).
-  touches: [flat/equilibrium_reactions.tsv, flat/equilibrium_reaction_rates.tsv]
-- step: register-bound-pool-species-and-state
-  detail: |
-    High-aff pools need free/bound-ATP/bound-ADP counts; low-aff free/bound-ATP.
-    Either as bulk species pools or as DnaA_bound→(bound-ATP|bound-ADP) state on
-    the unique boxes. Box count must double across replication (315→630→315) — the
-    existing chromosome_structure.py fork logic already duplicates boxes.
-  touches: [internal_state.py / bulkMolecules.py, chromosome_structure.py]
-- step: listener-and-viz
-  detail: |
-    Emit per-pool free/bound-ATP/bound-ADP on replication_data; build the 4
-    visualizations (ATP partition, ADP partition, total boxes raw count, total
-    bound conc) with the sum-invariant checks.
-  touches: [replication_data.py, v2ecoli/visualizations/]
-- step: validate
-  detail: |
-    Run V=1e-3 succinate 8-gen seed=1 burned-in (Rashmi's directed dnaa-2 reproduction, ~35 min). Check
-    the 4 tests: 8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction gen-3 in
-    [0.2,0.5]. The binding observer is read-only, so it cannot perturb the cycle.
+  - step: partition-catalog-into-4-pools
+    detail: |
+      Split the single "DnaA_box" catalog into chromosomal_high (302), oriC_high
+      (3: R1/R2/R4), oriC_low (8), promoter_high (2: box1/box2). High-aff = the
+      302 chromosomal consensus matches minus the 5 broken-out sites; oriC_high +
+      promoter_high are the 5 named consensus sites; oriC_low is the 8 supplied
+      coordinates (extract-low-aff-coords). Carry a per-box affinity tier + pool tag.
+    touches: [sequence_motifs.tsv or new dnaa_box_tiers.tsv, replication.py (_build_motifs), DNAA_BOX_ARRAY schema]
+  - step: extract-low-aff-coords
+    detail: |
+      8 low-aff oriC boxes are NON-consensus → not in the consensus catalog; supply
+      explicitly. Align literature box sequences to the oriC window of
+      flat/sequence.fasta (which MATCHES oric_sequence.pdf), using R1/R2/R4 consensus
+      hits to fix the frame. Order: R5M·τ2·I1·I2 (between R1 & R2) · C3·C2·I3·C1
+      (between R2 & R4). Replaces inputs_to_supply.provisional_coords_signed.
+  - step: add-box-binding-equilibria
+    detail: |
+      Add fast-equilibrium binding reactions (integrate_dt=false) to
+      equilibrium_reactions.tsv + _rates.tsv: per pool, DnaA-ATP(+ADP for high-aff)
+      + free-site ⇌ bound-site, K_d = 1 nM (high) / 100 nM (low). Convert K_d →
+      forward/reverse rates (degenerate magnitudes; pick on-rate ~1e8 /M/s scale).
+      Hydrolysis k=0.046/min applies to bound DnaA-ATP too (uniform).
+    touches: [flat/equilibrium_reactions.tsv, flat/equilibrium_reaction_rates.tsv]
+  - step: register-bound-pool-species-and-state
+    detail: |
+      High-aff pools need free/bound-ATP/bound-ADP counts; low-aff free/bound-ATP.
+      Either as bulk species pools or as DnaA_bound→(bound-ATP|bound-ADP) state on
+      the unique boxes. Box count must double across replication (315→630→315) — the
+      existing chromosome_structure.py fork logic already duplicates boxes.
+    touches: [internal_state.py / bulkMolecules.py, chromosome_structure.py]
+  - step: listener-and-viz
+    detail: |
+      Emit per-pool free/bound-ATP/bound-ADP on replication_data; build the 4
+      visualizations (ATP partition, ADP partition, total boxes raw count, total
+      bound conc) with the sum-invariant checks.
+    touches: [replication_data.py, v2ecoli/visualizations/]
+  - step: validate
+    detail: |
+      Run V=1e-3 succinate 8-gen seed=1 burned-in (Rashmi's directed dnaa-2 reproduction, ~35 min). Check
+      the 4 tests: 8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction gen-3 in
+      [0.2,0.5]. The binding observer is read-only, so it cannot perturb the cycle.
 
 # ── Implementation requirements ───────────────────────────────────────────────
 implementation_requirements:
-- id: REQ-1
-  title: Four-pool DnaA-box binding in the equilibrium process (315 sites)
-  kind: model
-  effort: L
-  status: open
-- id: REQ-2
-  title: Per-pool nucleotide-form state counts (high-aff free/ATP/ADP; low-aff free/ATP)
-  kind: model
-  effort: M
-  status: open
-- id: extract-low-aff-coords
-  title: Extract exact 8 low-affinity oriC box coordinates from the raw oriC sequence
-  kind: tooling
-  effort: S
-  status: open
-  detail: |
-    Replace the provisional figure-interpolated coords (inputs_to_supply) with
-    exact positions by matching the low-aff box motifs against oriC
-    3925744–3925989, anchored on R1/R2/R4.
-- id: REQ-4
-  title: Four box-occupancy visualizations + invariant checks (sums match totals)
-  kind: tooling
-  effort: M
-  status: open
+  - id: REQ-1
+    title: Four-pool DnaA-box binding in the equilibrium process (315 sites)
+    kind: model
+    effort: L
+    status: open
+  - id: REQ-2
+    title: Per-pool nucleotide-form state counts (high-aff free/ATP/ADP; low-aff free/ATP)
+    kind: model
+    effort: M
+    status: open
+  - id: extract-low-aff-coords
+    title: Extract exact 8 low-affinity oriC box coordinates from the raw oriC sequence
+    kind: tooling
+    effort: S
+    status: open
+    detail: |
+      Replace the provisional figure-interpolated coords (inputs_to_supply) with
+      exact positions by matching the low-aff box motifs against oriC
+      3925744–3925989, anchored on R1/R2/R4.
+  - id: REQ-4
+    title: Four box-occupancy visualizations + invariant checks (sums match totals)
+    kind: tooling
+    effort: M
+    status: open
 
 gotchas:
-- Promoter weak boxes (the 5 of boxes a–c / 3,4) are deliberately EXCLUDED — static autorepression (fold_changes_nca.tsv) handles dnaA self-regulation; modelling them here would double-count.
-- Higher-order site interactions deliberately DEFERRED to a later study.
-- Do NOT enable the dormant `dnaa_nucleotide` opt-in feature — it is an alternative partitioning implementation that conflicts with bf8b82e.
+  - Promoter weak boxes (the 5 of boxes a–c / 3,4) are deliberately EXCLUDED — static autorepression (fold_changes_nca.tsv) handles dnaA self-regulation; modelling them here would double-count.
+  - Higher-order site interactions deliberately DEFERRED to a later study.
+  - Do NOT enable the dormant `dnaa_nucleotide` opt-in feature — it is an alternative partitioning implementation that conflicts with bf8b82e.
 
 conclusion_logic:
   if_primary_tests_pass: |
@@ -1453,33 +1443,33 @@ conclusion_logic:
     # lever (dnaa-4 autoregulation) has since RESOLVED it (current-config re-run
     # fraction 0.284 in band), so the verdict is now a clean pass.
     diagnose:
-    - issue: >-
-        Residual calibration item driving the failed/partial roll-up: on the
-        ADOPTED active-binding run (dnaa3_adopt_v0p8e3_seed0) the DnaA-ATP fraction
-        is 0.127 (bulk) / 0.187 (total incl. box-bound), BELOW the inherited
-        [0.2,0.5] band. ESTABLISHED here that active box binding sequesters
-        DnaA-ATP and that no single CONSTITUTIVE V closes BOTH the in-band DnaA
-        pool [300,800] and the ATP-fraction band — so the fraction is not
-        calibratable within this study; it needs a REGULATED / feedback-controlled
-        DnaA synthesis lever.
-      seeded_study: dnaa-4-autoregulation
-      status: seeded
-      note: >-
-        dnaa-4-autoregulation (DnaA negative autoregulation — self-stabilizing the
-        DnaA pool WITHOUT the manual V override) is seeded_from this study and is
-        the diagnostic that dissolves this band-vs-fraction V-tension at its root by
-        wiring DnaA-ATP repression of its own promoter into transcription. The
-        adopted box-binding mechanism is accepted (over-binding resolved,
-        box-doubling fixed, cell cycle clean, pool in band); closing the ATP
-        fraction is deferred to the regulated lever, not outstanding within dnaa-3.
+      - issue: >-
+          Residual calibration item driving the failed/partial roll-up: on the
+          ADOPTED active-binding run (dnaa3_adopt_v0p8e3_seed0) the DnaA-ATP fraction
+          is 0.127 (bulk) / 0.187 (total incl. box-bound), BELOW the inherited
+          [0.2,0.5] band. ESTABLISHED here that active box binding sequesters
+          DnaA-ATP and that no single CONSTITUTIVE V closes BOTH the in-band DnaA
+          pool [300,800] and the ATP-fraction band — so the fraction is not
+          calibratable within this study; it needs a REGULATED / feedback-controlled
+          DnaA synthesis lever.
+        seeded_study: dnaa-4-autoregulation
+        status: seeded
+        note: >-
+          dnaa-4-autoregulation (DnaA negative autoregulation — self-stabilizing the
+          DnaA pool WITHOUT the manual V override) is seeded_from this study and is
+          the diagnostic that dissolves this band-vs-fraction V-tension at its root by
+          wiring DnaA-ATP repression of its own promoter into transcription. The
+          adopted box-binding mechanism is accepted (over-binding resolved,
+          box-doubling fixed, cell cycle clean, pool in band); closing the ATP
+          fraction is deferred to the regulated lever, not outstanding within dnaa-3.
 
 prerequisites:
-- dnaa-2-nucleotide-balance must hold its baseline (V=1e-3 succinate, DnaA-ATP in band).
+  - dnaa-2-nucleotide-balance must hold its baseline (V=1e-3 succinate, DnaA-ATP in band).
 
 pipeline_gate:
   prerequisites:
-  - study: dnaa-2-nucleotide-balance
-    condition: baseline-holds
+    - study: dnaa-2-nucleotide-balance
+      condition: baseline-holds
   # No downstream studies wired yet. Per Rashmi's 2026-05-29 directive the
   # extrinsic-regulation (RIDA/DDAH/DARS) + SeqA studies are OUT of scope for
   # this investigation; bound/free + per-nucleotide partitioning is provided so
@@ -1493,239 +1483,239 @@ pipeline_gate:
     evaluated_by: code
     diverges_from_authored: false
 simulation_set:
-- name: dnaa3-boxbinding-seed1-8gen-succinate
-  kind: single-seed-multigen-lineage
-  status: planned
-  base_model: v2ecoli.composites.baseline.baseline
-  duration_steps: ~7200
-  seeds: [1]
-  metrics: [divisions, number_of_oric, reinit_events, dnaA_ATP_over_total_ratio]
-  pass_fail_tests: [cycles-divided-8-of-8, oric-pattern-1-or-2, re-init-events-zero, dnaa-atp-fraction-in-band-gen3]
-  condition: V=1e-3 succinate burned-in (dnaa-2 baseline) with the 315-box 4-pool binding active
+  - name: dnaa3-boxbinding-seed1-8gen-succinate
+    kind: single-seed-multigen-lineage
+    status: planned
+    base_model: v2ecoli.composites.baseline.baseline
+    duration_steps: ~7200
+    seeds: [1]
+    metrics: [divisions, number_of_oric, reinit_events, dnaA_ATP_over_total_ratio]
+    pass_fail_tests: [cycles-divided-8-of-8, oric-pattern-1-or-2, re-init-events-zero, dnaa-atp-fraction-in-band-gen3]
+    condition: V=1e-3 succinate burned-in (dnaa-2 baseline) with the 315-box 4-pool binding active
 
 planned_runs:
-- name: dnaa3-boxbinding-seed1-8gen-succinate
-  status: planned
-  base_model: v2ecoli.composites.baseline.baseline
-  n_steps: ~7200     # 8 generations × ~70 min succinate cycle at 1 s/step (burned-in resume)
-  seeds: [1]
-  details: |
-    V=1e-3 succinate 8-gen seed=1 burned-in lineage (Rashmi's directed dnaa-2 reproduction) WITH the
-    315-box 4-pool DnaA binding active. Validates that box binding preserves the
-    dnaa-2 cell cycle: 8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction
-    gen-3 in [0.2,0.5]. Run after build-steps 1–5; ~25 min wall + ParCa rebuild.
-  pass_fail_tests:
-  - cycles-divided-8-of-8
-  - oric-pattern-1-or-2
-  - re-init-events-zero
-  - dnaa-atp-fraction-in-band-gen3
+  - name: dnaa3-boxbinding-seed1-8gen-succinate
+    status: planned
+    base_model: v2ecoli.composites.baseline.baseline
+    n_steps: ~7200   # 8 generations × ~70 min succinate cycle at 1 s/step (burned-in resume)
+    seeds: [1]
+    details: |
+      V=1e-3 succinate 8-gen seed=1 burned-in lineage (Rashmi's directed dnaa-2 reproduction) WITH the
+      315-box 4-pool DnaA binding active. Validates that box binding preserves the
+      dnaa-2 cell cycle: 8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction
+      gen-3 in [0.2,0.5]. Run after build-steps 1–5; ~25 min wall + ParCa rebuild.
+    pass_fail_tests:
+      - cycles-divided-8-of-8
+      - oric-pattern-1-or-2
+      - re-init-events-zero
+      - dnaa-atp-fraction-in-band-gen3
 
 findings:
-- id: active-binding-adopted-pass-on-dnaa4-reference
-  kind: computational
-  status: novel
-  statement: |
-    Study 3 PASSES. The read-only DnaA-box occupancy OBSERVER was SUPERSEDED by
-    adopting Rashmi's ACTIVE Langmuir box-binding mechanism (PR #162), which depletes
-    the free DnaA-ATP pool — the physics the observer was missing. This RESOLVES the
-    earlier oriC over-binding (oriC-low now fills GRADUALLY over the cycle instead of
-    pinning ~0.8) and FIXES box-doubling (the 8 low-affinity sites double 8->16 via
-    fork-passage release; all boxes 315<->630). Re-run on the dnaa-4 reference config
-    (linear s=0.6 + F-05), it reproduces the dnaa-4 picture and PASSES all 6 acceptance
-    tests, including the DnaA-ATP fraction IN BAND — computed canonically as
-    (free + bound)/total DnaA (~0.25, matching dnaa-4). Under active binding DnaA-ATP is
-    ~98% bound, so the earlier free-only fraction was the wrong measure (a chart bug
-    fixed 2026-06-20). The read-only-observer findings below are HISTORICAL.
-  evidence:
-    from_run: dnaa4_s06_F05_seed1_12gen (canonical shared dnaa-4 reference lineage; runs[].computed_outcomes all 6 PASS, reconcile agree)
-  provenance:
-    run_ids:
-    - dnaa4_s06_F05_seed1_12gen
-    verified_by: pbg_superpowers.study_evaluator.compute_outcomes (spine-computed; all 6 tests PASS)
-- id: readonly-full-cycle-over-binding-open-observation
-  kind: computational
-  status: novel
-  statement: |
-    HISTORICAL (superseded by active binding):
-    REAL numbers from the FULL-cell-cycle read-only observer artifact
-    (dnaa3-readonly-artifact: a single non-dividing 55-min generation so the entire
-    per-tick history survives; no cap, no sink — only the provided fast-equilibrium
-    binding mechanism plus the dnaa-2 nucleotide balance), read straight from the
-    emitted listeners.dnaA_binding parquet over 3301 ticks:
-      - free DnaA-ATP = 342-491 nM (min/mean/max 341.7 / 413.8 / 491.3); free
-        DnaA-ADP ~1014-1069 nM.
-      - free DnaA-ATP is ~3.4-4.9x the 100 nM oriC-low K_d and is ABOVE the K_d for
-        100% of the cycle.
-      - oriC LOW-affinity occupancy = 0.77-0.83 (min/mean/max 0.774 / 0.804 / 0.831)
-        — HIGH and roughly FLAT across the whole cycle; there is no early->late
-        low-affinity switch in this run.
-      - oriC HIGH-affinity, chromosomal and dnaA-promoter occupancy = ~1.00 (saturated).
-    HONEST OPEN OBSERVATION: within the provided mechanism alone (correct DnaA-ATP
-    fraction included), the low-affinity sites do NOT drop low — free DnaA-ATP stays
-    several-fold above the K_d the whole cycle, so oriC-low sits at ~0.8 throughout.
-    This over-binding is NOT resolved here by a box-capacity cap or a DnaA sink (both
-    removed per Rashmi); it is reported as an open feature of the provided mechanism,
-    not hidden or "fixed."
-    NOTE: the earlier multigen run (dnaa3-insim-readonly) emitted only the first tens
-    of seconds of each generation (its early-cycle slice gave free DnaA-ATP ~342 nM,
-    oriC-low ~0.77 at gen 5); the full cycle reaches higher (up to 491 nM, occ 0.83).
-  evidence:
-    from_run: dnaa3-readonly-artifact (in-sim emitted listeners.dnaA_binding, full single cycle)
-  provenance:
-    run_ids:
-    - dnaa3-readonly-artifact
-    - dnaa3-insim-readonly
-    verified_by: scripts/render_dnaa3_binding_analysis.py
-- id: fullhist-7gen-over-binding-honest-across-every-cycle
-  kind: computational
-  status: novel
-  statement: |
-    HISTORICAL (superseded by active binding):
-    REAL numbers from the FULL-HISTORY 7-generation read-only run (dnaa3-fullhist:
-    each generation run as its own subprocess from a resumed steady-state dill so the
-    ENTIRE per-tick cell-cycle history of every generation is retained — 2939-3563
-    ticks/gen, the full ~50-min cycles; no cap, no sink, only the provided
-    fast-equilibrium binding mechanism + the dnaa-2 nucleotide balance), read
-    straight off the emitted listeners.dnaA_binding parquet on the CANONICAL
-    all-zeros agent_id lineage (1-tick config + 3-tick gen-8 sentinel partitions
-    filtered):
-      - free DnaA-ATP per-generation means 382-554 nM (per-gen ranges, nM:
-        g1 106-600, g2 240-501, g3 257-630, g4 485-655, g5 316-475, g6 354-645,
-        g7 270-509) — i.e. several-fold above the 100 nM oriC-low K_d, ABOVE the
-        K_d for 100% of EVERY cycle, not just at initiation.
-      - oriC LOW-affinity occupancy ~0.8 (per-gen means 0.79-0.85) throughout every
-        one of the 7 generations — HIGH and roughly flat; no early->late switch.
-      - oriC HIGH-affinity, chromosomal and dnaA-promoter occupancy ~1.00 (saturated).
-      - cell cycle PRESERVED over all 7 full generations: 7/7 divisions, oriC 1<->2
-        every gen, cell mass doubles each cycle (593-1356 fg), tau 48-60 min — matches
-        the dnaa-2 succinate baseline (the listener is strictly read-only).
-      - DnaA-ATP fraction in the [0.2,0.5] band for gens 2-7 (means 0.23-0.32); gen 1
-        is the non-burned-in startup generation (0.66), as in the dnaa-2 baseline.
-    HONEST OPEN OBSERVATION: extended now to SEVEN full cell cycles, the over-binding
-    is a stable per-cycle feature of the provided mechanism — within the provided
-    mechanism alone (correct DnaA-ATP fraction included), the oriC low-affinity sites
-    do NOT drop low; free DnaA-ATP stays several-fold above the K_d the whole cycle in
-    every generation, so oriC-low sits at ~0.8 throughout. This is NOT resolved by a
-    box-capacity cap or a DnaA sink (both removed per Rashmi); it is reported as an
-    open feature of the provided mechanism, not hidden or "fixed", and references no
-    outside source. Per-gen numbers in
-    parquet-runs/dnaa3-fullhist/dnaa3_fullhist_pergen.json.
-  evidence:
-    from_run: dnaa3-fullhist (in-sim emitted listeners.dnaA_binding, 7 full cell cycles)
-  provenance:
-    run_ids:
-    - dnaa3-fullhist
-    verified_by: scripts/render_dnaa3_binding_analysis.py + scripts/render_dnaa3_readouts.py
-- id: oric-high-affinity-saturated-low-affinity-high-all-cycle
-  kind: computational
-  status: novel
-  statement: |
-    HISTORICAL (superseded by active binding):
-    Across the full cell cycle the oriC high-affinity boxes (K_d ~1 nM) stay
-    saturated (~1.0) and the 8 oriC low-affinity boxes (K_d ~100 nM) are also high
-    and roughly flat (0.77-0.83), because free DnaA-ATP (342-491 nM) sits well above
-    the 100 nM low-affinity K_d for the entire cycle. The low-affinity pool is NOT a
-    sharp early->late switch under the provided mechanism in this run — it tracks
-    free DnaA-ATP, which never falls below the K_d. The exact free DnaA-ATP and
-    oriC low/high occupancy values are read off the read-only artifact (see
-    runs[dnaa3-readonly-artifact].real_insim_numbers); they are not assumed. Only the
-    provided binding mechanism is modeled.
-  evidence:
-    from_run: dnaa3-readonly-artifact (in-sim emitted listeners.dnaA_binding)
-  provenance:
-    run_ids:
-    - dnaa3-readonly-artifact
-    verified_by: scripts/render_dnaa3_binding_analysis.py
-- id: oric-doubles-at-replication
-  kind: computational
-  status: confirms
-  statement: 'HISTORICAL (superseded by active binding): oriC and its associated boxes double at replication initiation (11->22 low-affinity boxes), reflected in the occupancy figure (read-only run; box-doubling is now confirmed on the active mechanism — see F-08).'
-  evidence:
-    from_run: dnaa3_box_occupancy
-  provenance:
-    run_ids:
-    - dnaa3-insim-readonly
-    verified_by: scripts/render_dnaa3_occupancy.py
-- id: dnaa-pool-within-band-with-active-binding
-  kind: computational
-  status: novel
-  statement: |
-    (Rashmi 2026-06-10, test #1) With the active box-binding mechanism adopted on
-    the in-band V (V=1e-3, the value used before — NOT the overshooting 1.2e-3),
-    the total DnaA pool stays WITHIN the literature [300,800] band across the
-    steady-state generations. Evaluated on the V=1e-3 active-binding lineage.
-  evidence:
-    from_run: dnaa3_adopt_v1e3_seed0 (active binding, V=1e-3)
-  provenance:
-    run_ids:
-    - dnaa3_adopt_v1e3_seed0
-    verified_by: scripts/render_dnaa3_active_binding.py
-- id: oric-low-affinity-gradual-filling-not-prefilled
-  kind: computational
-  status: novel
-  statement: |
-    (Rashmi 2026-06-10, test #2) The 8 oriC low-affinity boxes are NOT all occupied
-    at the start of the cell cycle — they fill GRADUALLY over the cycle as free
-    DnaA-ATP accumulates toward initiation (the active solve depletes the free pool,
-    so early-cycle occupancy is low and rises pre-initiation). Evaluated as the
-    per-cycle oriC-low occupancy trajectory on the V=1e-3 active-binding run.
-  evidence:
-    from_run: dnaa3_adopt_v1e3_seed0 (per-tick oriC-low occupancy over a steady gen)
-  provenance:
-    run_ids:
-    - dnaa3_adopt_v1e3_seed0
-    verified_by: scripts/render_dnaa3_occupancy.py
-- id: F-08
-  statement: Box-doubling 315<->630 confirmed on the adopted run.
-  status: draft
-  from_feedback: fb-443377e0bb123a6a
-  provenance:
+  - id: active-binding-adopted-pass-on-dnaa4-reference
+    kind: computational
+    status: novel
+    statement: |
+      Study 3 PASSES. The read-only DnaA-box occupancy OBSERVER was SUPERSEDED by
+      adopting Rashmi's ACTIVE Langmuir box-binding mechanism (PR #162), which depletes
+      the free DnaA-ATP pool — the physics the observer was missing. This RESOLVES the
+      earlier oriC over-binding (oriC-low now fills GRADUALLY over the cycle instead of
+      pinning ~0.8) and FIXES box-doubling (the 8 low-affinity sites double 8->16 via
+      fork-passage release; all boxes 315<->630). Re-run on the dnaa-4 reference config
+      (linear s=0.6 + F-05), it reproduces the dnaa-4 picture and PASSES all 6 acceptance
+      tests, including the DnaA-ATP fraction IN BAND — computed canonically as
+      (free + bound)/total DnaA (~0.25, matching dnaa-4). Under active binding DnaA-ATP is
+      ~98% bound, so the earlier free-only fraction was the wrong measure (a chart bug
+      fixed 2026-06-20). The read-only-observer findings below are HISTORICAL.
+    evidence:
+      from_run: dnaa4_s06_F05_seed1_12gen (canonical shared dnaa-4 reference lineage; runs[].computed_outcomes all 6 PASS, reconcile agree)
+    provenance:
+      run_ids:
+        - dnaa4_s06_F05_seed1_12gen
+      verified_by: pbg_superpowers.study_evaluator.compute_outcomes (spine-computed; all 6 tests PASS)
+  - id: readonly-full-cycle-over-binding-open-observation
+    kind: computational
+    status: novel
+    statement: |
+      HISTORICAL (superseded by active binding):
+      REAL numbers from the FULL-cell-cycle read-only observer artifact
+      (dnaa3-readonly-artifact: a single non-dividing 55-min generation so the entire
+      per-tick history survives; no cap, no sink — only the provided fast-equilibrium
+      binding mechanism plus the dnaa-2 nucleotide balance), read straight from the
+      emitted listeners.dnaA_binding parquet over 3301 ticks:
+        - free DnaA-ATP = 342-491 nM (min/mean/max 341.7 / 413.8 / 491.3); free
+          DnaA-ADP ~1014-1069 nM.
+        - free DnaA-ATP is ~3.4-4.9x the 100 nM oriC-low K_d and is ABOVE the K_d for
+          100% of the cycle.
+        - oriC LOW-affinity occupancy = 0.77-0.83 (min/mean/max 0.774 / 0.804 / 0.831)
+          — HIGH and roughly FLAT across the whole cycle; there is no early->late
+          low-affinity switch in this run.
+        - oriC HIGH-affinity, chromosomal and dnaA-promoter occupancy = ~1.00 (saturated).
+      HONEST OPEN OBSERVATION: within the provided mechanism alone (correct DnaA-ATP
+      fraction included), the low-affinity sites do NOT drop low — free DnaA-ATP stays
+      several-fold above the K_d the whole cycle, so oriC-low sits at ~0.8 throughout.
+      This over-binding is NOT resolved here by a box-capacity cap or a DnaA sink (both
+      removed per Rashmi); it is reported as an open feature of the provided mechanism,
+      not hidden or "fixed."
+      NOTE: the earlier multigen run (dnaa3-insim-readonly) emitted only the first tens
+      of seconds of each generation (its early-cycle slice gave free DnaA-ATP ~342 nM,
+      oriC-low ~0.77 at gen 5); the full cycle reaches higher (up to 491 nM, occ 0.83).
+    evidence:
+      from_run: dnaa3-readonly-artifact (in-sim emitted listeners.dnaA_binding, full single cycle)
+    provenance:
+      run_ids:
+        - dnaa3-readonly-artifact
+        - dnaa3-insim-readonly
+      verified_by: scripts/render_dnaa3_binding_analysis.py
+  - id: fullhist-7gen-over-binding-honest-across-every-cycle
+    kind: computational
+    status: novel
+    statement: |
+      HISTORICAL (superseded by active binding):
+      REAL numbers from the FULL-HISTORY 7-generation read-only run (dnaa3-fullhist:
+      each generation run as its own subprocess from a resumed steady-state dill so the
+      ENTIRE per-tick cell-cycle history of every generation is retained — 2939-3563
+      ticks/gen, the full ~50-min cycles; no cap, no sink, only the provided
+      fast-equilibrium binding mechanism + the dnaa-2 nucleotide balance), read
+      straight off the emitted listeners.dnaA_binding parquet on the CANONICAL
+      all-zeros agent_id lineage (1-tick config + 3-tick gen-8 sentinel partitions
+      filtered):
+        - free DnaA-ATP per-generation means 382-554 nM (per-gen ranges, nM:
+          g1 106-600, g2 240-501, g3 257-630, g4 485-655, g5 316-475, g6 354-645,
+          g7 270-509) — i.e. several-fold above the 100 nM oriC-low K_d, ABOVE the
+          K_d for 100% of EVERY cycle, not just at initiation.
+        - oriC LOW-affinity occupancy ~0.8 (per-gen means 0.79-0.85) throughout every
+          one of the 7 generations — HIGH and roughly flat; no early->late switch.
+        - oriC HIGH-affinity, chromosomal and dnaA-promoter occupancy ~1.00 (saturated).
+        - cell cycle PRESERVED over all 7 full generations: 7/7 divisions, oriC 1<->2
+          every gen, cell mass doubles each cycle (593-1356 fg), tau 48-60 min — matches
+          the dnaa-2 succinate baseline (the listener is strictly read-only).
+        - DnaA-ATP fraction in the [0.2,0.5] band for gens 2-7 (means 0.23-0.32); gen 1
+          is the non-burned-in startup generation (0.66), as in the dnaa-2 baseline.
+      HONEST OPEN OBSERVATION: extended now to SEVEN full cell cycles, the over-binding
+      is a stable per-cycle feature of the provided mechanism — within the provided
+      mechanism alone (correct DnaA-ATP fraction included), the oriC low-affinity sites
+      do NOT drop low; free DnaA-ATP stays several-fold above the K_d the whole cycle in
+      every generation, so oriC-low sits at ~0.8 throughout. This is NOT resolved by a
+      box-capacity cap or a DnaA sink (both removed per Rashmi); it is reported as an
+      open feature of the provided mechanism, not hidden or "fixed", and references no
+      outside source. Per-gen numbers in
+      parquet-runs/dnaa3-fullhist/dnaa3_fullhist_pergen.json.
+    evidence:
+      from_run: dnaa3-fullhist (in-sim emitted listeners.dnaA_binding, 7 full cell cycles)
+    provenance:
+      run_ids:
+        - dnaa3-fullhist
+      verified_by: scripts/render_dnaa3_binding_analysis.py + scripts/render_dnaa3_readouts.py
+  - id: oric-high-affinity-saturated-low-affinity-high-all-cycle
+    kind: computational
+    status: novel
+    statement: |
+      HISTORICAL (superseded by active binding):
+      Across the full cell cycle the oriC high-affinity boxes (K_d ~1 nM) stay
+      saturated (~1.0) and the 8 oriC low-affinity boxes (K_d ~100 nM) are also high
+      and roughly flat (0.77-0.83), because free DnaA-ATP (342-491 nM) sits well above
+      the 100 nM low-affinity K_d for the entire cycle. The low-affinity pool is NOT a
+      sharp early->late switch under the provided mechanism in this run — it tracks
+      free DnaA-ATP, which never falls below the K_d. The exact free DnaA-ATP and
+      oriC low/high occupancy values are read off the read-only artifact (see
+      runs[dnaa3-readonly-artifact].real_insim_numbers); they are not assumed. Only the
+      provided binding mechanism is modeled.
+    evidence:
+      from_run: dnaa3-readonly-artifact (in-sim emitted listeners.dnaA_binding)
+    provenance:
+      run_ids:
+        - dnaa3-readonly-artifact
+      verified_by: scripts/render_dnaa3_binding_analysis.py
+  - id: oric-doubles-at-replication
+    kind: computational
+    status: confirms
+    statement: 'HISTORICAL (superseded by active binding): oriC and its associated boxes double at replication initiation (11->22 low-affinity boxes), reflected in the occupancy figure (read-only run; box-doubling is now confirmed on the active mechanism — see F-08).'
+    evidence:
+      from_run: dnaa3_box_occupancy
+    provenance:
+      run_ids:
+        - dnaa3-insim-readonly
+      verified_by: scripts/render_dnaa3_occupancy.py
+  - id: dnaa-pool-within-band-with-active-binding
+    kind: computational
+    status: novel
+    statement: |
+      (Rashmi 2026-06-10, test #1) With the active box-binding mechanism adopted on
+      the in-band V (V=1e-3, the value used before — NOT the overshooting 1.2e-3),
+      the total DnaA pool stays WITHIN the literature [300,800] band across the
+      steady-state generations. Evaluated on the V=1e-3 active-binding lineage.
+    evidence:
+      from_run: dnaa3_adopt_v1e3_seed0 (active binding, V=1e-3)
+    provenance:
+      run_ids:
+        - dnaa3_adopt_v1e3_seed0
+      verified_by: scripts/render_dnaa3_active_binding.py
+  - id: oric-low-affinity-gradual-filling-not-prefilled
+    kind: computational
+    status: novel
+    statement: |
+      (Rashmi 2026-06-10, test #2) The 8 oriC low-affinity boxes are NOT all occupied
+      at the start of the cell cycle — they fill GRADUALLY over the cycle as free
+      DnaA-ATP accumulates toward initiation (the active solve depletes the free pool,
+      so early-cycle occupancy is low and rises pre-initiation). Evaluated as the
+      per-cycle oriC-low occupancy trajectory on the V=1e-3 active-binding run.
+    evidence:
+      from_run: dnaa3_adopt_v1e3_seed0 (per-tick oriC-low occupancy over a steady gen)
+    provenance:
+      run_ids:
+        - dnaa3_adopt_v1e3_seed0
+      verified_by: scripts/render_dnaa3_occupancy.py
+  - id: F-08
+    statement: Box-doubling 315<->630 confirmed on the adopted run.
+    status: draft
+    from_feedback: fb-443377e0bb123a6a
+    provenance:
     # All boxes double 315<->630 every cycle (low-aff 8->16 via fork-passage) on the
     # canonical adopted-mechanism run; recorded in report.result (b) + chart
     # dnaa3_active_binding_adopted panel 2.
-    run_ids:
-    - dnaa3_adopt_v0p8e3_seed0
-- id: F-09
-  statement: Box-capacity cap removed; over-binding resolved by the active depleted-pool mechanism (no outside mechanism).
-  status: draft
-  from_feedback: fb-658ef634703b7636
-  provenance:
+      run_ids:
+        - dnaa3_adopt_v0p8e3_seed0
+  - id: F-09
+    statement: Box-capacity cap removed; over-binding resolved by the active depleted-pool mechanism (no outside mechanism).
+    status: draft
+    from_feedback: fb-658ef634703b7636
+    provenance:
     # Over-binding RESOLVED by the active Langmuir solve depleting the free pool (no
     # cap, no sink, no outside mechanism) on the canonical run — report.result (a).
-    run_ids:
-    - dnaa3_adopt_v0p8e3_seed0
-- id: F-10
-  statement: Over-binding resolved — gradual oriC-low fill ~0.3->0.7, not pinned ~0.8.
-  status: draft
-  from_feedback: fb-68f3261b233c880e
-  provenance:
+      run_ids:
+        - dnaa3_adopt_v0p8e3_seed0
+  - id: F-10
+    statement: Over-binding resolved — gradual oriC-low fill ~0.3->0.7, not pinned ~0.8.
+    status: draft
+    from_feedback: fb-68f3261b233c880e
+    provenance:
     # gen-5 oriC-low occupancy ~0.30 at birth -> ~0.62/0.7 toward initiation on the
     # canonical run (chart dnaa3_box_occupancy; outcome oric-low-gradual-filling).
-    run_ids:
-    - dnaa3_adopt_v0p8e3_seed0
-- id: F-11
-  statement: Adopted depleted-pool Langmuir -> oriC-low not prefilled at birth.
-  status: draft
-  from_feedback: fb-6270c4d1496f465e
-  provenance:
+      run_ids:
+        - dnaa3_adopt_v0p8e3_seed0
+  - id: F-11
+    statement: Adopted depleted-pool Langmuir -> oriC-low not prefilled at birth.
+    status: draft
+    from_feedback: fb-6270c4d1496f465e
+    provenance:
     # Same mechanism claim as finding oric-low-affinity-gradual-filling-not-prefilled,
     # evaluated on the V=1e-3 active-binding lineage (per-cycle oriC-low trajectory).
-    run_ids:
-    - dnaa3_adopt_v1e3_seed0
-- id: F-12
-  statement: Free DnaA reported in nM via cell volume, comparable to the nM K_d.
-  status: draft
-  from_feedback: fb-3438ce7b9714d53e
-  provenance:
+      run_ids:
+        - dnaa3_adopt_v1e3_seed0
+  - id: F-12
+    statement: Free DnaA reported in nM via cell volume, comparable to the nM K_d.
+    status: draft
+    from_feedback: fb-3438ce7b9714d53e
+    provenance:
     # Free DnaA-ATP/ADP reported in nM (count / cell volume) vs the 100 nM oriC-low
     # K_d on the canonical run — chart dnaa3_binding_analysis panel 1.
-    run_ids:
-    - dnaa3_adopt_v0p8e3_seed0
+      run_ids:
+        - dnaa3_adopt_v0p8e3_seed0
 discovery_implications:
   resolved_uncertainties:
-  - The oriC low-affinity OVER-BINDING (read-only observer pinned ~0.8) is RESOLVED by Rashmi's adopted active depleted-pool Langmuir mechanism (PR #162) — the active solve depletes the free DnaA-ATP pool, so oriC-low occupancy fills GRADUALLY over the cycle (gen-5 ~0.3 at birth -> ~0.7 toward initiation; chart dnaa3_box_occupancy), not pinned. It is NOT all-filled at the start, matching the expected biology.
-  - ALL DnaA boxes double at replication (315<->630, low-affinity 8->16 per oriC included), via fork-passage release — fixing the read-only deriver's hard-coded low-aff pool (chart dnaa3_active_binding_adopted panel 2).
-  - On the in-band V=1e-3 (the value used before, not the overshooting 1.2e-3) the mechanism keeps a clean cell cycle (8/8 divisions, oriC 1<->2).
+    - The oriC low-affinity OVER-BINDING (read-only observer pinned ~0.8) is RESOLVED by Rashmi's adopted active depleted-pool Langmuir mechanism (PR #162) — the active solve depletes the free DnaA-ATP pool, so oriC-low occupancy fills GRADUALLY over the cycle (gen-5 ~0.3 at birth -> ~0.7 toward initiation; chart dnaa3_box_occupancy), not pinned. It is NOT all-filled at the start, matching the expected biology.
+    - ALL DnaA boxes double at replication (315<->630, low-affinity 8->16 per oriC included), via fork-passage release — fixing the read-only deriver's hard-coded low-aff pool (chart dnaa3_active_binding_adopted panel 2).
+    - On the in-band V=1e-3 (the value used before, not the overshooting 1.2e-3) the mechanism keeps a clean cell cycle (8/8 divisions, oriC 1<->2).
   remaining_uncertainties:
-  - The total DnaA pool DRIFTS above the [300,800] band in later generations (V=1e-3: in-band gens 1-5, 931-1077 in gens 6-8) — the documented dnaa-1/dnaa-2 V-tension. No constitutive V holds it in-band across all gens; the next study (dnaa-4, DnaA negative autoregulation) is scoped to resolve it by making dnaA synthesis feedback-controlled.
-  - The oriC initiation threshold — what DnaA-ATP occupancy robustly triggers initiation — remains for a later study.
+    - The total DnaA pool DRIFTS above the [300,800] band in later generations (V=1e-3: in-band gens 1-5, 931-1077 in gens 6-8) — the documented dnaa-1/dnaa-2 V-tension. No constitutive V holds it in-band across all gens; the next study (dnaa-4, DnaA negative autoregulation) is scoped to resolve it by making dnaA synthesis feedback-controlled.
+    - The oriC initiation threshold — what DnaA-ATP occupancy robustly triggers initiation — remains for a later study.

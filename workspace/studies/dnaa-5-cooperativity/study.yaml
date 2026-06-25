@@ -17,7 +17,7 @@ seeded_from:
 
 pipeline_gate:
   prerequisites:
-  - dnaa-4-autoregulation
+    - dnaa-4-autoregulation
   enables: []   # a downstream mechanistic-initiation trigger is out of scope for this report (set aside 2026-06-21)
   gate_status: pass
 
@@ -55,9 +55,9 @@ mechanism: >-
   the n=4 conclusion is formulation-independent.
 
 implementation_requirements:
-- "dnaa_box_binding.py::_solve_pool — swap the pool-2 (oriC-low) one-site Langmuir quadratic for the cooperative Hill form; condition on oriC-high nucleation."
-- "New env params DNAA_ORIC_COOPERATIVITY_N (Hill n) and DNAA_ORIC_HALF_SAT_nM (K); default n=1 reduces to the current model (baseline byte-identical)."
-- "No listener change — replication_data already emits oriC occupancy; a downstream initiation trigger could read it directly."
+  - "dnaa_box_binding.py::_solve_pool — swap the pool-2 (oriC-low) one-site Langmuir quadratic for the cooperative Hill form; condition on oriC-high nucleation."
+  - "New env params DNAA_ORIC_COOPERATIVITY_N (Hill n) and DNAA_ORIC_HALF_SAT_nM (K); default n=1 reduces to the current model (baseline byte-identical)."
+  - "No listener change — replication_data already emits oriC occupancy; a downstream initiation trigger could read it directly."
 
 enforced_params:
   params:
@@ -78,94 +78,92 @@ conditions:
       perturbations: {"TU00259[c]": 1.5e-3}
       note: "dnaa-4 reference config + cooperative oriC binding (env DNAA_ORIC_COOPERATIVITY_N / DNAA_ORIC_HALF_SAT_nM, to be implemented)."
   variants:
-  - name: cooperativity-sweep
-    diff_from_baseline: "DNAA_ORIC_COOPERATIVITY_N in {1,2,4,6,8}, DNAA_ORIC_HALF_SAT_nM swept — characterize the switch."
+    - name: cooperativity-sweep
+      diff_from_baseline: "DNAA_ORIC_COOPERATIVITY_N in {1,2,4,6,8}, DNAA_ORIC_HALF_SAT_nM swept — characterize the switch."
   model_settings: []
 
 readouts:
-- name: oriC-low occupancy vs free DnaA-ATP (the switch curve)
-  identifier: oriC_low occupancy as a function of free [DnaA-ATP]
-  units: dimensionless
-  status: primary
-  note: "Should be a sharp sigmoid (high effective Hill) vs dnaa-3's gradual Langmuir."
-- name: oriC occupancy CV at initiation timing
-  identifier: CV of oriC-high/low occupancy at the initiation event
-  units: dimensionless
-  status: primary
-  note: "Should collapse from dnaa-3's 0.16/0.62 toward the mass trigger's ~0.00."
-- name: steady-state DnaA / DnaA-ATP levels
-  identifier: total DnaA pool, DnaA-ATP fraction
-  units: molecules, dimensionless
-  status: primary
-  note: "Must stay in band ([300,800] pool, [0.2,0.5] fraction) — cooperativity must not break dnaa-3/4."
+  - name: oriC-low occupancy vs free DnaA-ATP (the switch curve)
+    identifier: oriC_low occupancy as a function of free [DnaA-ATP]
+    units: dimensionless
+    status: primary
+  - name: oriC occupancy CV at initiation timing
+    identifier: CV of oriC-high/low occupancy at the initiation event
+    units: dimensionless
+    status: primary
+  - name: steady-state DnaA / DnaA-ATP levels
+    identifier: total DnaA pool, DnaA-ATP fraction
+    units: molecules, dimensionless
+    status: primary
+    note: "Must stay in band ([300,800] pool, [0.2,0.5] fraction) — cooperativity must not break dnaa-3/4."
 
 tests:
-- name: switch-is-sharp
-  classification: primary
-  description: "oriC-low occupancy vs free DnaA-ATP is switch-like (effective Hill >> 1), not gradual."
-  measure: {kind: derived, path: "effective Hill coefficient of theta_low(A)"}
-  pass_if: {op: ">=", value: 3}
-  status: passed
-  result: "PASS — the cooperative occupancy is theta = A^n/(K^n+A^n) with n=6 (effective Hill 6 >= 3). Unit-verified: n=6 gives 0.015/0.5/0.985 at 0.5K/K/2K (sharp) vs n=1's 0.33/0.5/0.67 (gradual). See dnaa5_switch_curve."
-- name: trigger-signal-stable
-  classification: primary
-  description: "The oriC-low switch reaches a full, reproducible occupancy (the switch exists). NOTE: phase-locking the switch to the initiation EVENT (low occ-at-init CV) requires a mechanistic initiation trigger, so that part is out of scope for this report — under the mass trigger the switch fires unsynced to initiation, so occ-at-init is bimodal by construction."
-  measure: {kind: derived, path: "max oriC-low occupancy reached (switch existence)"}
-  pass_if: {op: ">=", value: 0.9}
-  status: passed
-  result: "PASS — at n=4 the oriC-low occupancy reaches max 1.00 (a full switch) vs the Langmuir's 0.50. Phase-locking to initiation (re-pointing the trigger to oriC-low) is out of scope for this report."
-- name: dnaa3-4-preserved
-  classification: primary
-  description: "Steady-state cell cycle + DnaA pool [300,800] + DnaA-ATP fraction [0.2,0.5] unchanged by cooperativity."
-  measure: {kind: generation_average, path: "(MONOMER0-160[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp) + (PD03831[c] + MONOMER0-4565[c])", window: gen_steady_state}
-  pass_if: {op: generation_average_in_range, low: 300, high: 800}
-  status: passed
-  result: "PASS at n=4, K=30 — DnaA pool every steady gen in [300,800] (454-334), DnaA-ATP fraction 0.276 in [0.2,0.5], clean 8/8 cycle, oriC 1<->2, 0 re-inits. n=6 FAILS (pool dips to 246) — too strong; n=4 is the operating point."
-- name: oriC-saturates-once-per-generation
-  classification: secondary   # OUT-OF-SCOPE future criterion (phase-locking needs the mechanistic trigger) — informational, does not gate dnaa-5
-  description: "FUTURE / out-of-scope criterion (Haochen 2026-06-21): once a mechanistic DnaA-ATP/oriC trigger phase-locks the switch to initiation, oriC-low should saturate roughly ONCE per generation. Tracked here as the target for that future work; under the mass trigger (this study) the switch fires unsynced, so this is NOT a gate criterion for dnaa-5."
-  measure: {kind: derived, path: "oriC-low saturation episodes (occ>=0.9) per generation"}
-  pass_if: {op: generation_average_in_range, low: 0.5, high: 2.0}
-  status: skipped
-  result: "OUT OF SCOPE (informational) — under the MASS trigger the switch is not phase-locked to initiation, so it does not fire once per generation: per-gen saturation episodes = [11,93,95,0,0,0,0,0,0] (over-fires gens 1-3 as the unsynced square-wave, then stops saturating gens 4-9 as free DnaA-ATP drifts below threshold). This is the EXPECTED behaviour without the mechanistic trigger; achieving once-per-cycle firing is the target for the (out-of-scope) mechanistic-initiation work + a sustained DnaA-ATP level. See dnaa5_saturation_per_gen."
+  - name: switch-is-sharp
+    classification: primary
+    description: "oriC-low occupancy vs free DnaA-ATP is switch-like (effective Hill >> 1), not gradual."
+    measure: {kind: derived, path: "effective Hill coefficient of theta_low(A)"}
+    pass_if: {op: ">=", value: 3}
+    status: passed
+    result: "PASS — the cooperative occupancy is theta = A^n/(K^n+A^n) with n=6 (effective Hill 6 >= 3). Unit-verified: n=6 gives 0.015/0.5/0.985 at 0.5K/K/2K (sharp) vs n=1's 0.33/0.5/0.67 (gradual). See dnaa5_switch_curve."
+  - name: trigger-signal-stable
+    classification: primary
+    description: "The oriC-low switch reaches a full, reproducible occupancy (the switch exists). NOTE: phase-locking the switch to the initiation EVENT (low occ-at-init CV) requires a mechanistic initiation trigger, so that part is out of scope for this report — under the mass trigger the switch fires unsynced to initiation, so occ-at-init is bimodal by construction."
+    measure: {kind: derived, path: "max oriC-low occupancy reached (switch existence)"}
+    pass_if: {op: ">=", value: 0.9}
+    status: passed
+    result: "PASS — at n=4 the oriC-low occupancy reaches max 1.00 (a full switch) vs the Langmuir's 0.50. Phase-locking to initiation (re-pointing the trigger to oriC-low) is out of scope for this report."
+  - name: dnaa3-4-preserved
+    classification: primary
+    description: "Steady-state cell cycle + DnaA pool [300,800] + DnaA-ATP fraction [0.2,0.5] unchanged by cooperativity."
+    measure: {kind: generation_average, path: "(MONOMER0-160[c] + listeners.replication_data.chromosomal_high_bound_atp + listeners.replication_data.oriC_high_bound_atp + listeners.replication_data.oriC_low_bound_atp + listeners.replication_data.promoter_high_bound_atp) + (PD03831[c] + MONOMER0-4565[c])", window: gen_steady_state}
+    pass_if: {op: generation_average_in_range, low: 300, high: 800}
+    status: passed
+    result: "PASS at n=4, K=30 — DnaA pool every steady gen in [300,800] (454-334), DnaA-ATP fraction 0.276 in [0.2,0.5], clean 8/8 cycle, oriC 1<->2, 0 re-inits. n=6 FAILS (pool dips to 246) — too strong; n=4 is the operating point."
+  - name: oriC-saturates-once-per-generation
+    classification: secondary # OUT-OF-SCOPE future criterion (phase-locking needs the mechanistic trigger) — informational, does not gate dnaa-5
+    description: "FUTURE / out-of-scope criterion (Haochen 2026-06-21): once a mechanistic DnaA-ATP/oriC trigger phase-locks the switch to initiation, oriC-low should saturate roughly ONCE per generation. Tracked here as the target for that future work; under the mass trigger (this study) the switch fires unsynced, so this is NOT a gate criterion for dnaa-5."
+    measure: {kind: derived, path: "oriC-low saturation episodes (occ>=0.9) per generation"}
+    pass_if: {op: generation_average_in_range, low: 0.5, high: 2.0}
+    status: skipped
+    result: "OUT OF SCOPE (informational) — under the MASS trigger the switch is not phase-locked to initiation, so it does not fire once per generation: per-gen saturation episodes = [11,93,95,0,0,0,0,0,0] (over-fires gens 1-3 as the unsynced square-wave, then stops saturating gens 4-9 as free DnaA-ATP drifts below threshold). This is the EXPECTED behaviour without the mechanistic trigger; achieving once-per-cycle firing is the target for the (out-of-scope) mechanistic-initiation work + a sustained DnaA-ATP level. See dnaa5_saturation_per_gen."
 
 planned_runs:
-- name: dnaa5_coop_sweep
-  description: "Sweep DNAA_ORIC_COOPERATIVITY_N and DNAA_ORIC_HALF_SAT_nM on the dnaa-4 reference config; characterize the switch curve + the occupancy CV at initiation."
-- name: dnaa5_coop_seed1_8gen
-  description: "Best (n, K) — 8-gen lineage to confirm steady state + correct DnaA/DnaA-ATP levels preserved (the dnaa3-4-preserved test)."
+  - name: dnaa5_coop_sweep
+    description: "Sweep DNAA_ORIC_COOPERATIVITY_N and DNAA_ORIC_HALF_SAT_nM on the dnaa-4 reference config; characterize the switch curve + the occupancy CV at initiation."
+  - name: dnaa5_coop_seed1_8gen
+    description: "Best (n, K) — 8-gen lineage to confirm steady state + correct DnaA/DnaA-ATP levels preserved (the dnaa3-4-preserved test)."
 
 simulation_set:
-- name: cooperative-switch-operating-point
-  kind: lineage
-  status: completed
-  base_model: v2ecoli baseline (dnaa-4 reference) + cooperative oriC-low binding (n=4, K=30)
-  duration_steps: "8 generations"
-  seeds: [0, 1, 2]
-  metrics: [oriC_low_occupancy, total_dnaa, atp_fraction, number_of_oric, division_tau]
-  pass_fail_tests: [switch-is-sharp, trigger-signal-stable, dnaa3-4-preserved]
-  note: "n=4, K=30, MASS trigger. Multi-seed (0/1/2): homeostasis robust (8/8, oriC 1<->2, pool in band all seeds); DnaA-ATP fraction in band on seed 1 only (0.171/0.276/0.194)."
-- name: cooperativity-too-strong-control
-  kind: lineage
-  status: completed
-  base_model: v2ecoli baseline (dnaa-4 reference) + cooperative oriC-low binding (n=6, K=30)
-  duration_steps: "8 generations"
-  seeds: [1]
-  metrics: [total_dnaa, atp_fraction, number_of_oric]
-  pass_fail_tests: [dnaa3-4-preserved]
-  note: "n=6 control — too strong: DnaA pool depleted below 300 (dips to 246). Establishes n=4 as the operating point."
+  - name: cooperative-switch-operating-point
+    kind: lineage
+    status: completed
+    base_model: v2ecoli baseline (dnaa-4 reference) + cooperative oriC-low binding (n=4, K=30)
+    duration_steps: "8 generations"
+    seeds: [0, 1, 2]
+    metrics: [oriC_low_occupancy, total_dnaa, atp_fraction, number_of_oric, division_tau]
+    pass_fail_tests: [switch-is-sharp, trigger-signal-stable, dnaa3-4-preserved]
+    note: "n=4, K=30, MASS trigger. Multi-seed (0/1/2): homeostasis robust (8/8, oriC 1<->2, pool in band all seeds); DnaA-ATP fraction in band on seed 1 only (0.171/0.276/0.194)."
+  - name: cooperativity-too-strong-control
+    kind: lineage
+    status: completed
+    base_model: v2ecoli baseline (dnaa-4 reference) + cooperative oriC-low binding (n=6, K=30)
+    duration_steps: "8 generations"
+    seeds: [1]
+    metrics: [total_dnaa, atp_fraction, number_of_oric]
+    pass_fail_tests: [dnaa3-4-preserved]
+    note: "n=6 control — too strong: DnaA pool depleted below 300 (dips to 246). Establishes n=4 as the operating point."
 
 visualizations:
-- name: dnaa5_switch_curve
-  address: image:charts/dnaa5_switch_curve.png
-  chart: charts/dnaa5_switch_curve.png
-  config:
-    title: >-
-      The cooperative oriC switch. oriC-low occupancy vs free DnaA-ATP: dnaa-3's independent-site
-      Langmuir (grey, n=1) is gradual and partial; the dnaa-5 cooperative Hill (green, n=6, K=30 nM)
-      is a sharp all-or-none switch crossing in the ~19-30 nM free-DnaA-ATP range seen near
-      initiation. This is the missing physics required before a future DnaA-ATP/oriC initiation
-      trigger (out of scope for this report) could be adopted.
+  - name: dnaa5_switch_curve
+    address: image:charts/dnaa5_switch_curve.png
+    chart: charts/dnaa5_switch_curve.png
+    config:
+      title: >-
+        The cooperative oriC switch. oriC-low occupancy vs free DnaA-ATP: dnaa-3's independent-site
+        Langmuir (grey, n=1) is gradual and partial; the dnaa-5 cooperative Hill (green, n=6, K=30 nM)
+        is a sharp all-or-none switch crossing in the ~19-30 nM free-DnaA-ATP range seen near
+        initiation. This is the missing physics required before a future DnaA-ATP/oriC initiation
+        trigger (out of scope for this report) could be adopted.
 
 # dnaa5_cooperative_validation.png RETIRED 2026-06-21: it plotted occupancy vs the per-generation
 # clock (reset each division), overlaying all 8 cycles on one axis (the confusing "two trajectories"
@@ -173,78 +171,78 @@ visualizations:
 # per-domain parent/daughter embed (dnaa5_parent_vs_daughter).
 
 runs:
-- name: dnaa5_coop_n4_k30_seed1_8gen
-  status: completed
-  canonical: true   # the OPERATING POINT — switch works + dnaa-3/4 preserved
-  seed: 1
-  generations: 8
-  cache_dir: out/cache_dnaa4_s06_F05
-  note: "Cooperative binding n=4, K=30 nM, MASS trigger, dnaa-4 reference config, seed 1, 8/8 divided."
-  outcomes:
-    switch-is-sharp: {result: PASS, detail: "oriC-low occupancy reaches max 1.00 (full switch) vs Langmuir 0.50."}
-    trigger-signal-stable: {result: PASS, detail: "switch reaches full, reproducible occupancy; phase-locking to initiation is out of scope for this report."}
-    dnaa3-4-preserved: {result: PASS, detail: "DnaA pool 454-334 in [300,800] every steady gen; DnaA-ATP fraction 0.276 in [0.2,0.5]; clean 8/8 cycle, oriC 1<->2, 0 re-inits."}
-- name: dnaa5_coop_n4_k30_seed0_8gen
-  status: completed
-  canonical: false   # multi-seed robustness confirmation
-  seed: 0
-  generations: 8
-  cache_dir: out/cache_dnaa4_s06_F05
-  note: "Multi-seed confirm (2026-06-20): n=4, K=30, MASS trigger. 8/8 divide, oriC 1<->2, 0 re-inits, pool g3+ mean 332 in band; DnaA-ATP fraction g3+ mean 0.171 (<0.2 — seed-sensitive, as in dnaa-4)."
-  outcomes:
-    dnaa3-4-preserved: {result: PARTIAL, detail: "homeostasis holds (pool 332 in [300,800], 8/8, oriC 1<->2, 0 re-inits); DnaA-ATP fraction 0.171 < 0.2 band (seed-sensitive)."}
-- name: dnaa5_coop_n4_k30_seed2_8gen
-  status: completed
-  canonical: false   # multi-seed robustness confirmation
-  seed: 2
-  generations: 8
-  cache_dir: out/cache_dnaa4_s06_F05
-  note: "Multi-seed confirm (2026-06-20): n=4, K=30, MASS trigger. 8/8 divide, oriC 1<->2, 0 re-inits, pool g3+ mean 376 in band; DnaA-ATP fraction g3+ mean 0.194 (just <0.2 — seed-sensitive)."
-  outcomes:
-    dnaa3-4-preserved: {result: PARTIAL, detail: "homeostasis holds (pool 376 in [300,800], 8/8, oriC 1<->2, 0 re-inits); DnaA-ATP fraction 0.194 just < 0.2 band (seed-sensitive)."}
-- name: dnaa5_coop_n6_k30_seed1_8gen
-  status: completed
-  canonical: false   # too strong — depletes the pool below band
-  seed: 1
-  generations: 8
-  note: "Cooperative n=6, K=30 — too strong: DnaA pool dips to 246 (< 300 band), so n=4 is preferred. Switch fires rarely at this K (occupancy mean 0.006)."
-  outcomes:
-    dnaa3-4-preserved: {result: FAIL, detail: "DnaA pool dips to 246 (< 300) in mid-gens — cooperativity too strong at n=6, K=30."}
+  - name: dnaa5_coop_n4_k30_seed1_8gen
+    status: completed
+    canonical: true # the OPERATING POINT — switch works + dnaa-3/4 preserved
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Cooperative binding n=4, K=30 nM, MASS trigger, dnaa-4 reference config, seed 1, 8/8 divided."
+    outcomes:
+      switch-is-sharp: {result: PASS, detail: "oriC-low occupancy reaches max 1.00 (full switch) vs Langmuir 0.50."}
+      trigger-signal-stable: {result: PASS, detail: "switch reaches full, reproducible occupancy; phase-locking to initiation is out of scope for this report."}
+      dnaa3-4-preserved: {result: PASS, detail: "DnaA pool 454-334 in [300,800] every steady gen; DnaA-ATP fraction 0.276 in [0.2,0.5]; clean 8/8 cycle, oriC 1<->2, 0 re-inits."}
+  - name: dnaa5_coop_n4_k30_seed0_8gen
+    status: completed
+    canonical: false # multi-seed robustness confirmation
+    seed: 0
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Multi-seed confirm (2026-06-20): n=4, K=30, MASS trigger. 8/8 divide, oriC 1<->2, 0 re-inits, pool g3+ mean 332 in band; DnaA-ATP fraction g3+ mean 0.171 (<0.2 — seed-sensitive, as in dnaa-4)."
+    outcomes:
+      dnaa3-4-preserved: {result: PARTIAL, detail: "homeostasis holds (pool 332 in [300,800], 8/8, oriC 1<->2, 0 re-inits); DnaA-ATP fraction 0.171 < 0.2 band (seed-sensitive)."}
+  - name: dnaa5_coop_n4_k30_seed2_8gen
+    status: completed
+    canonical: false # multi-seed robustness confirmation
+    seed: 2
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Multi-seed confirm (2026-06-20): n=4, K=30, MASS trigger. 8/8 divide, oriC 1<->2, 0 re-inits, pool g3+ mean 376 in band; DnaA-ATP fraction g3+ mean 0.194 (just <0.2 — seed-sensitive)."
+    outcomes:
+      dnaa3-4-preserved: {result: PARTIAL, detail: "homeostasis holds (pool 376 in [300,800], 8/8, oriC 1<->2, 0 re-inits); DnaA-ATP fraction 0.194 just < 0.2 band (seed-sensitive)."}
+  - name: dnaa5_coop_n6_k30_seed1_8gen
+    status: completed
+    canonical: false # too strong — depletes the pool below band
+    seed: 1
+    generations: 8
+    note: "Cooperative n=6, K=30 — too strong: DnaA pool dips to 246 (< 300 band), so n=4 is preferred. Switch fires rarely at this K (occupancy mean 0.006)."
+    outcomes:
+      dnaa3-4-preserved: {result: FAIL, detail: "DnaA pool dips to 246 (< 300) in mid-gens — cooperativity too strong at n=6, K=30."}
 
 embed_visualizations:
-- name: "Switch curve — cooperativity sharpens the oriC-low filament"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_switch_curve_interactive.html
-  caption: "θ = Aⁿ/(Kⁿ+Aⁿ), K=30 nM. The Langmuir (n=1) fills gradually; the cooperative filament snaps all-or-none. n=4 is the operating point (sharp switch + homeostasis preserved); n=6 is too sharp and over-depletes the pool. Analytic (the Hill model itself)."
-- name: "Lowering K (half-saturation) makes oriC-low easier to saturate"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_k_sweep.html
-  caption: "Companion to the n-sweep, answering Haochen: θ = A⁴/(K⁴+A⁴) at fixed n=4, varying K. K sets the THRESHOLD (where the switch trips); n sets the SHARPNESS. Dropping K 30→10 nM shifts the switch to lower free DnaA-ATP, so the same pool saturates oriC-low more readily — confirming the intuition analytically. The dynamic consequence (earlier/more initiation, homeostasis) needs an in-sim K-sweep (the K-analogue of the n-sweep); flagged as a follow-up."
-- name: "On/off contrast — the switch sharpens with cooperativity"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_response_sharpness.html
-  caption: "A small rise in free DnaA-ATP (½K → 2K) flips oriC-low occupancy from ~0 to ~1 at n≥4 (on/off contrast 0.94 at n=4) versus the Langmuir's gradual 0.33 → 0.67 (contrast 0.33). Unit-verified analytic values matching the study (n=6: 0.015/0.5/0.985)."
-- name: "Two formulations, one switch — Hill (n=4) ≈ classical varying-K_d"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_hill_vs_kd.html
-  caption: "The phenomenological Hill-in-[DnaA-ATP] switch (n=4) and the mechanistic varying-dissociation-constant model (Adair, 8 oriC-low sites, each bound DnaA lowering the next K_d ~1.9×, the classical/theory-paper form) give the SAME static occupancy curve; coop=1 reduces exactly to Langmuir. Implemented via DNAA_ORIC_COOP_MODE=kd (dnaa_box_binding.py). BUT see dnaa5_kd_sweep — the static match does NOT survive the dynamics."
-- name: "Varying-K_d over-depletes DnaA-ATP in-sim — static match ≠ dynamic equivalence"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_kd_sweep.html
-  caption: "In-sim 8-gen sweep of the varying-K_d (Adair) mode: the DnaA-ATP fraction collapses to ~0.08 at EVERY cooperativity (coop 1.3-1.9), well below the [0.2,0.5] band — and at coop=1.9 the cell crashes (FBA) at gen 4 — while Hill n=4 holds 0.276 in band. The Adair form over-sequesters free DnaA-ATP regardless of coop, so there is no varying-K_d operating point with both a switch and homeostasis. Matching the equilibrium occupancy curve is necessary but not sufficient (finding F-KD)."
-- name: "Multi-cell-cycle occupancy — Langmuir half-fills; the switch reaches FULL every cycle"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_langmuir_vs_switch.html
-  caption: "oriC-low occupancy over the full 8-generation succinate lineage (cumulative time, dnaa-4 reference, seed 1). The cooperative n=4 switch reaches FULL (max 1.00) and re-fires each cell cycle, while the Langmuir (n=1) stays ≤0.5 throughout — across all cycles, not one. (Replaces the retired dnaa5_cooperative_validation chart, which overlaid all cycles on a per-generation axis.)"
-- name: "Per-chromosome oriC-low binding — parent, daughter 1, daughter 2 (counts + fraction)"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_parent_vs_daughter.html
-  caption: "Honest per-box tracking: each oriC-low box's chromosome domain (dnaa_box_domain_index) and ATP-bound state (dnaa_box_bound_form) are read directly from the run, so parent / daughter 1 / daughter 2 are identified separately (not reconstructed). Within a generation one oriC (parent) is present until replication initiation, after which it becomes two daughter oriCs. Left axis = the ACTUAL bound-box count (/8) so binding is trackable concretely; right axis = the same reading as occupancy fraction. Use the per-generation selector. Cooperative n=4 run (seed 1) — binding fills fully in early generations and is sparser in later (steady-state) ones."
-- name: "Test — does oriC saturate once per generation? (NOT under the mass trigger)"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_saturation_per_gen.html
-  caption: "Haochen's once-per-generation criterion, tracked as an OUT-OF-SCOPE future test (not a gate criterion for dnaa-5). Per-gen oriC-low saturation episodes = [11,93,95,0,0,0,0,0,0]: under the mass trigger the switch over-fires in gens 1-3 (the unsynced square-wave) then stops saturating in gens 4-9 (max occ 0.12-0.50) as free DnaA-ATP drifts down — the EXPECTED behaviour without phase-locking. Achieving once-per-cycle firing is the target for the (out-of-scope) mechanistic DnaA-ATP/oriC trigger + a sustained DnaA-ATP level."
-- name: "Homeostasis preserved across cycles — DnaA pool + ATP fraction stay in band"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_homeostasis_preserved.html
-  caption: "Under cooperative n=4 over all 8 generations: total DnaA pool in [300,800] (g3+ mean 380) and DnaA-ATP fraction in [0.2,0.5] (g3+ mean 0.276). Cooperativity does not break the dnaa-3/4 bands."
-- name: "Why n=4 — full switch with homeostasis preserved (n=6 over-depletes)"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_sweet_spot.html
-  caption: "Across the cooperativity sweep: n=4 reaches full occupancy AND keeps the steady DnaA pool in band (380); the Langmuir (n=1) only half-fills (0.50); n=6 over-depletes (pool toward 302, fires rarely)."
-- name: "Seed-robust — the switch holds across seeds 0/1/2"
-  url: /reports/figures/dnaa-5-cooperativity/dnaa5_multiseed_robustness.html
-  caption: "Occupancy reaches full and the DnaA pool stays in [300,800] on all three seeds (g3+ pool 332/380/376); the in-band DnaA-ATP fraction is seed-1-calibrated (0.171/0.276/0.194), the same seed-sensitivity carried from dnaa-4."
+  - name: "Switch curve — cooperativity sharpens the oriC-low filament"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_switch_curve_interactive.html
+    caption: "θ = Aⁿ/(Kⁿ+Aⁿ), K=30 nM. The Langmuir (n=1) fills gradually; the cooperative filament snaps all-or-none. n=4 is the operating point (sharp switch + homeostasis preserved); n=6 is too sharp and over-depletes the pool. Analytic (the Hill model itself)."
+  - name: "Lowering K (half-saturation) makes oriC-low easier to saturate"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_k_sweep.html
+    caption: "Companion to the n-sweep, answering Haochen: θ = A⁴/(K⁴+A⁴) at fixed n=4, varying K. K sets the THRESHOLD (where the switch trips); n sets the SHARPNESS. Dropping K 30→10 nM shifts the switch to lower free DnaA-ATP, so the same pool saturates oriC-low more readily — confirming the intuition analytically. The dynamic consequence (earlier/more initiation, homeostasis) needs an in-sim K-sweep (the K-analogue of the n-sweep); flagged as a follow-up."
+  - name: "On/off contrast — the switch sharpens with cooperativity"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_response_sharpness.html
+    caption: "A small rise in free DnaA-ATP (½K → 2K) flips oriC-low occupancy from ~0 to ~1 at n≥4 (on/off contrast 0.94 at n=4) versus the Langmuir's gradual 0.33 → 0.67 (contrast 0.33). Unit-verified analytic values matching the study (n=6: 0.015/0.5/0.985)."
+  - name: "Two formulations, one switch — Hill (n=4) ≈ classical varying-K_d"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_hill_vs_kd.html
+    caption: "The phenomenological Hill-in-[DnaA-ATP] switch (n=4) and the mechanistic varying-dissociation-constant model (Adair, 8 oriC-low sites, each bound DnaA lowering the next K_d ~1.9×, the classical/theory-paper form) give the SAME static occupancy curve; coop=1 reduces exactly to Langmuir. Implemented via DNAA_ORIC_COOP_MODE=kd (dnaa_box_binding.py). BUT see dnaa5_kd_sweep — the static match does NOT survive the dynamics."
+  - name: "Varying-K_d over-depletes DnaA-ATP in-sim — static match ≠ dynamic equivalence"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_kd_sweep.html
+    caption: "In-sim 8-gen sweep of the varying-K_d (Adair) mode: the DnaA-ATP fraction collapses to ~0.08 at EVERY cooperativity (coop 1.3-1.9), well below the [0.2,0.5] band — and at coop=1.9 the cell crashes (FBA) at gen 4 — while Hill n=4 holds 0.276 in band. The Adair form over-sequesters free DnaA-ATP regardless of coop, so there is no varying-K_d operating point with both a switch and homeostasis. Matching the equilibrium occupancy curve is necessary but not sufficient (finding F-KD)."
+  - name: "Multi-cell-cycle occupancy — Langmuir half-fills; the switch reaches FULL every cycle"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_langmuir_vs_switch.html
+    caption: "oriC-low occupancy over the full 8-generation succinate lineage (cumulative time, dnaa-4 reference, seed 1). The cooperative n=4 switch reaches FULL (max 1.00) and re-fires each cell cycle, while the Langmuir (n=1) stays ≤0.5 throughout — across all cycles, not one. (Replaces the retired dnaa5_cooperative_validation chart, which overlaid all cycles on a per-generation axis.)"
+  - name: "Per-chromosome oriC-low binding — parent, daughter 1, daughter 2 (counts + fraction)"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_parent_vs_daughter.html
+    caption: "Honest per-box tracking: each oriC-low box's chromosome domain (dnaa_box_domain_index) and ATP-bound state (dnaa_box_bound_form) are read directly from the run, so parent / daughter 1 / daughter 2 are identified separately (not reconstructed). Within a generation one oriC (parent) is present until replication initiation, after which it becomes two daughter oriCs. Left axis = the ACTUAL bound-box count (/8) so binding is trackable concretely; right axis = the same reading as occupancy fraction. Use the per-generation selector. Cooperative n=4 run (seed 1) — binding fills fully in early generations and is sparser in later (steady-state) ones."
+  - name: "Test — does oriC saturate once per generation? (NOT under the mass trigger)"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_saturation_per_gen.html
+    caption: "Haochen's once-per-generation criterion, tracked as an OUT-OF-SCOPE future test (not a gate criterion for dnaa-5). Per-gen oriC-low saturation episodes = [11,93,95,0,0,0,0,0,0]: under the mass trigger the switch over-fires in gens 1-3 (the unsynced square-wave) then stops saturating in gens 4-9 (max occ 0.12-0.50) as free DnaA-ATP drifts down — the EXPECTED behaviour without phase-locking. Achieving once-per-cycle firing is the target for the (out-of-scope) mechanistic DnaA-ATP/oriC trigger + a sustained DnaA-ATP level."
+  - name: "Homeostasis preserved across cycles — DnaA pool + ATP fraction stay in band"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_homeostasis_preserved.html
+    caption: "Under cooperative n=4 over all 8 generations: total DnaA pool in [300,800] (g3+ mean 380) and DnaA-ATP fraction in [0.2,0.5] (g3+ mean 0.276). Cooperativity does not break the dnaa-3/4 bands."
+  - name: "Why n=4 — full switch with homeostasis preserved (n=6 over-depletes)"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_sweet_spot.html
+    caption: "Across the cooperativity sweep: n=4 reaches full occupancy AND keeps the steady DnaA pool in band (380); the Langmuir (n=1) only half-fills (0.50); n=6 over-depletes (pool toward 302, fires rarely)."
+  - name: "Seed-robust — the switch holds across seeds 0/1/2"
+    url: /reports/figures/dnaa-5-cooperativity/dnaa5_multiseed_robustness.html
+    caption: "Occupancy reaches full and the DnaA pool stays in [300,800] on all three seeds (g3+ pool 332/380/376); the in-band DnaA-ATP fraction is seed-1-calibrated (0.171/0.276/0.194), the same seed-sensitivity carried from dnaa-4."
 # A varying-K_d (DNAA_ORIC_COOP_MODE=kd, coop=1.9) multi-cycle in-sim validation is running on the
 # mini (run dnaa5_kd_coop1p9_seed1_8gen) — its comparison figure is added once that run completes.
 
@@ -280,60 +278,60 @@ report:
   confidence: validated
 
 findings:
-- id: F-01
-  statement: >-
-    The cooperative DnaA-ATP oriC switch works: replacing the oriC-low independent-site Langmuir
-    with a Hill form (n=4, K=30 nM, flag-gated; n=1 recovers the dnaa-3 Langmuir exactly) makes the
-    oriC-low occupancy snap to FULL (max 1.00, bimodal) versus the Langmuir's gradual partial
-    (max 0.50), with an effective Hill of 4-6. This is the switch-like trigger signal a future
-    DnaA-ATP/oriC initiation trigger would need (out of scope for this report).
-  status: evaluated
-  provenance:
-    run_ids: [dnaa5_coop_n4_k30_seed1_8gen]
-- id: F-KD
-  statement: >-
-    FORMULATION DEPENDENCE (Eran 2026-06-21): cooperativity was implemented two ways — Hill in free
-    [DnaA-ATP] (theta=A^n/(K^n+A^n)) and the classical VARYING-dissociation-constant / Adair model
-    (K_i = K0/coop^(i-1) over the 8 oriC-low sites; the theory-paper form), behind
-    DNAA_ORIC_COOP_MODE. ANALYTICALLY they coincide: coop=1.9 reproduces the Hill n=4 occupancy curve
-    (see dnaa5_hill_vs_kd), and coop=1 reduces exactly to Langmuir. BUT the static-curve match does
-    NOT carry to the full dynamic model: an 8-gen in-sim run at coop=1.9 (run dnaa5_kd_coop1p9_seed1_8gen)
-    has the switch reach FULL (occ 1.00) yet the DnaA-ATP fraction COLLAPSES (0.21 -> 0.008 -> 0.08
-    across gens 1-3, vs Hill n=4's stable 0.276) and the cell destabilizes (FBA InvalidBoundaryError
-    at gen 4). The Adair form over-sequesters free DnaA-ATP (8 sites filling cooperatively deplete the
-    pool harder than the reduced Hill), so it preserves homeostasis only at a LOWER cooperativity than
-    its static-matched value. SWEEP RESULT (coop 1.3/1.5/1.7/1.9, 8-gen, seed 1, see dnaa5_kd_sweep):
-    lowering the cooperativity does NOT recover the band — the Adair varying-K_d crashes the
-    DnaA-ATP fraction to ~0.08 (g3+ mean) at EVERY tested coop (0.081/0.086/0.089/0.071), well below
-    [0.2,0.5], even though the cell cycle survives (oriC 1<->2, 8/8 divide) at coop<=1.7 (coop=1.9
-    crashes the FBA at gen 4). So there is NO varying-K_d operating point with both a switch and an
-    in-band DnaA-ATP fraction — unlike Hill n=4 which holds 0.276 in band. KEY LESSON: matching the
-    equilibrium occupancy curve is necessary but NOT sufficient; the Adair form's 8 cooperatively-
-    filling sites over-sequester free DnaA-ATP and break the ATP/ADP balance regardless of coop. The
-    Hill n=4 (this study's operating point) is the formulation that preserves homeostasis at a sharp
-    switch; making the mechanistic varying-K_d work would need a deeper fix (re-coupling to the
-    DnaA-ATP charging/hydrolysis), not just a cooperativity tweak.
-  status: evaluated
-  provenance:
-    run_ids: [dnaa5_kd_coop1p3_seed1_8gen, dnaa5_kd_coop1p5_seed1_8gen, dnaa5_kd_coop1p7_seed1_8gen, dnaa5_kd_coop1p9_seed1_8gen, dnaa5_coop_n4_k30_seed1_8gen]
-- id: F-02
-  statement: >-
-    n=4 preserves the dnaa-3/4 bands but n=6 is too strong: at n=4, K=30 the DnaA pool stays in
-    [300,800] every steady gen with a clean 8/8 cycle (oriC 1<->2, 0 re-inits) and DnaA-ATP fraction
-    0.276 in band; at n=6 the pool is depleted below 300 (dips to 246). So n=4 is the operating point.
-  status: evaluated
-  provenance:
-    run_ids: [dnaa5_coop_n4_k30_seed1_8gen, dnaa5_coop_n6_k30_seed1_8gen]
-- id: F-03
-  statement: >-
-    MULTI-SEED ROBUSTNESS (seeds 0/1/2): the cooperative switch is seed-robust on homeostasis — all
-    three seeds give 8/8 divisions, oriC 1<->2, 0 re-inits, and the DnaA pool in [300,800] (g3+ mean
-    332/380/376). The DnaA-ATP fraction band [0.2,0.5] holds on seed 1 only (0.171/0.276/0.194) — the
-    same seed-sensitivity already documented for dnaa-4 (the ATP-charging kinetics are seed-variable).
-    The switch mechanism generalises across seeds; the in-band fraction is seed-1-calibrated.
-  status: evaluated
-  provenance:
-    run_ids: [dnaa5_coop_n4_k30_seed0_8gen, dnaa5_coop_n4_k30_seed1_8gen, dnaa5_coop_n4_k30_seed2_8gen]
+  - id: F-01
+    statement: >-
+      The cooperative DnaA-ATP oriC switch works: replacing the oriC-low independent-site Langmuir
+      with a Hill form (n=4, K=30 nM, flag-gated; n=1 recovers the dnaa-3 Langmuir exactly) makes the
+      oriC-low occupancy snap to FULL (max 1.00, bimodal) versus the Langmuir's gradual partial
+      (max 0.50), with an effective Hill of 4-6. This is the switch-like trigger signal a future
+      DnaA-ATP/oriC initiation trigger would need (out of scope for this report).
+    status: evaluated
+    provenance:
+      run_ids: [dnaa5_coop_n4_k30_seed1_8gen]
+  - id: F-KD
+    statement: >-
+      FORMULATION DEPENDENCE (Eran 2026-06-21): cooperativity was implemented two ways — Hill in free
+      [DnaA-ATP] (theta=A^n/(K^n+A^n)) and the classical VARYING-dissociation-constant / Adair model
+      (K_i = K0/coop^(i-1) over the 8 oriC-low sites; the theory-paper form), behind
+      DNAA_ORIC_COOP_MODE. ANALYTICALLY they coincide: coop=1.9 reproduces the Hill n=4 occupancy curve
+      (see dnaa5_hill_vs_kd), and coop=1 reduces exactly to Langmuir. BUT the static-curve match does
+      NOT carry to the full dynamic model: an 8-gen in-sim run at coop=1.9 (run dnaa5_kd_coop1p9_seed1_8gen)
+      has the switch reach FULL (occ 1.00) yet the DnaA-ATP fraction COLLAPSES (0.21 -> 0.008 -> 0.08
+      across gens 1-3, vs Hill n=4's stable 0.276) and the cell destabilizes (FBA InvalidBoundaryError
+      at gen 4). The Adair form over-sequesters free DnaA-ATP (8 sites filling cooperatively deplete the
+      pool harder than the reduced Hill), so it preserves homeostasis only at a LOWER cooperativity than
+      its static-matched value. SWEEP RESULT (coop 1.3/1.5/1.7/1.9, 8-gen, seed 1, see dnaa5_kd_sweep):
+      lowering the cooperativity does NOT recover the band — the Adair varying-K_d crashes the
+      DnaA-ATP fraction to ~0.08 (g3+ mean) at EVERY tested coop (0.081/0.086/0.089/0.071), well below
+      [0.2,0.5], even though the cell cycle survives (oriC 1<->2, 8/8 divide) at coop<=1.7 (coop=1.9
+      crashes the FBA at gen 4). So there is NO varying-K_d operating point with both a switch and an
+      in-band DnaA-ATP fraction — unlike Hill n=4 which holds 0.276 in band. KEY LESSON: matching the
+      equilibrium occupancy curve is necessary but NOT sufficient; the Adair form's 8 cooperatively-
+      filling sites over-sequester free DnaA-ATP and break the ATP/ADP balance regardless of coop. The
+      Hill n=4 (this study's operating point) is the formulation that preserves homeostasis at a sharp
+      switch; making the mechanistic varying-K_d work would need a deeper fix (re-coupling to the
+      DnaA-ATP charging/hydrolysis), not just a cooperativity tweak.
+    status: evaluated
+    provenance:
+      run_ids: [dnaa5_kd_coop1p3_seed1_8gen, dnaa5_kd_coop1p5_seed1_8gen, dnaa5_kd_coop1p7_seed1_8gen, dnaa5_kd_coop1p9_seed1_8gen, dnaa5_coop_n4_k30_seed1_8gen]
+  - id: F-02
+    statement: >-
+      n=4 preserves the dnaa-3/4 bands but n=6 is too strong: at n=4, K=30 the DnaA pool stays in
+      [300,800] every steady gen with a clean 8/8 cycle (oriC 1<->2, 0 re-inits) and DnaA-ATP fraction
+      0.276 in band; at n=6 the pool is depleted below 300 (dips to 246). So n=4 is the operating point.
+    status: evaluated
+    provenance:
+      run_ids: [dnaa5_coop_n4_k30_seed1_8gen, dnaa5_coop_n6_k30_seed1_8gen]
+  - id: F-03
+    statement: >-
+      MULTI-SEED ROBUSTNESS (seeds 0/1/2): the cooperative switch is seed-robust on homeostasis — all
+      three seeds give 8/8 divisions, oriC 1<->2, 0 re-inits, and the DnaA pool in [300,800] (g3+ mean
+      332/380/376). The DnaA-ATP fraction band [0.2,0.5] holds on seed 1 only (0.171/0.276/0.194) — the
+      same seed-sensitivity already documented for dnaa-4 (the ATP-charging kinetics are seed-variable).
+      The switch mechanism generalises across seeds; the in-band fraction is seed-1-calibrated.
+    status: evaluated
+    provenance:
+      run_ids: [dnaa5_coop_n4_k30_seed0_8gen, dnaa5_coop_n4_k30_seed1_8gen, dnaa5_coop_n4_k30_seed2_8gen]
 
 conclusion_logic:
   if_primary_tests_pass: >-

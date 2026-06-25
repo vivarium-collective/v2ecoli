@@ -187,64 +187,64 @@ report:
     tuning via Mechanism A on the saved initial condition).
 
   decisions_needed:
-  - question: Did the run reach periodic steady state (oriC periodic 1↔2 from gen 3 onwards, transient overshoot to 4 allowed in gens 1–2, cell_mass periodic from gen-3 onwards)?
-    resolution: |
-      RESOLVED 2026-05-30 (Rashmi review): YES — "this looks correct".
-      The transient oriC=4 in early generations is the expected
-      not-yet-steady-state signature; gen 3 onwards is periodic. Gen-3
-      state selected as the canonical initial condition.
+    - question: Did the run reach periodic steady state (oriC periodic 1↔2 from gen 3 onwards, transient overshoot to 4 allowed in gens 1–2, cell_mass periodic from gen-3 onwards)?
+      resolution: |
+        RESOLVED 2026-05-30 (Rashmi review): YES — "this looks correct".
+        The transient oriC=4 in early generations is the expected
+        not-yet-steady-state signature; gen 3 onwards is periodic. Gen-3
+        state selected as the canonical initial condition.
 
 reviewer_feedback:
-- round: '2026-05-30'
-  reviewer: Rashmi
-  source: feedback-dnaa-replication-2026-05-30-13-11-10.yaml (study-dnaa-0-succinate-baseline-charts)
-  verdict_effect: confirms-pass
-  notes: |
-    "This looks correct." Specific guidance integrated:
-      1. The oriC briefly reaching 4 in the early generations indicates
-         it has NOT yet reached steady state; from generation 3 onwards a
-         periodic pattern emerges which IS the steady state. → corrected
-         the prior "never 4" prose throughout this study; the acceptance
-         criterion is now "periodic 1↔2 at steady state (gen 3+),
-         transient overshoot to 4 allowed".
-      2. Select the generation-3 state as the initial state for
-         subsequent analysis. → already saved at
-         out/steady_state_inputs/succinate_default_gen3_start.dill;
-         dnaa-1 resumes from it.
-    Chart-readability requests (all implemented in
-    v2ecoli/visualizations/dnaa_succinate.py + scripts/render_dnaa_runs.py):
-      3. Add lines to separate lineages → generation-boundary dashed
-         verticals now wired via _generation_boundaries() (derived from
-         the parquet generation= partitions).
-      4. Label the number of generations → "gen 1", "gen 2", … labels
-         centered in each inter-division span.
-      5. Mark the x axis time in minutes → all panels now plot minutes.
-      6. Label the axes with units → oriC count (copies), cell mass (fg),
-         DnaA monomer (count), time (min).
+  - round: '2026-05-30'
+    reviewer: Rashmi
+    source: feedback-dnaa-replication-2026-05-30-13-11-10.yaml (study-dnaa-0-succinate-baseline-charts)
+    verdict_effect: confirms-pass
+    notes: |
+      "This looks correct." Specific guidance integrated:
+        1. The oriC briefly reaching 4 in the early generations indicates
+           it has NOT yet reached steady state; from generation 3 onwards a
+           periodic pattern emerges which IS the steady state. → corrected
+           the prior "never 4" prose throughout this study; the acceptance
+           criterion is now "periodic 1↔2 at steady state (gen 3+),
+           transient overshoot to 4 allowed".
+        2. Select the generation-3 state as the initial state for
+           subsequent analysis. → already saved at
+           out/steady_state_inputs/succinate_default_gen3_start.dill;
+           dnaa-1 resumes from it.
+      Chart-readability requests (all implemented in
+      v2ecoli/visualizations/dnaa_succinate.py + scripts/render_dnaa_runs.py):
+        3. Add lines to separate lineages → generation-boundary dashed
+           verticals now wired via _generation_boundaries() (derived from
+           the parquet generation= partitions).
+        4. Label the number of generations → "gen 1", "gen 2", … labels
+           centered in each inter-division span.
+        5. Mark the x axis time in minutes → all panels now plot minutes.
+        6. Label the axes with units → oriC count (copies), cell mass (fg),
+           DnaA monomer (count), time (min).
 
 assumptions:
-- text: |
-    Succinate is the right baseline media. ParCa default τ ≈ 82 min and
-    C + D = 60 min give B = 22 min > 0, satisfying Rashmi's
-    non-overlapping cycle requirement (replication initiates exactly
-    once per generation).
-  cites:
-  - feedback-2026-05-29-fresh-start/feedback.pdf
-  verified_in_v2ecoli: false
-- text: |
-    v2ecoli is configured for succinate out of the box (saved sim_data
-    state). No new ParCa rebuild from raw inputs is required — just
-    run ParCa with succinate as the growth condition.
-  cites:
-  - feedback-2026-05-29-fresh-start/feedback.pdf
-  verified_in_v2ecoli: false
-- text: |
-    single_daughters=True is the correct mode for steady-state checking.
-    Tracks ONE daughter per division through the full 10-gen lineage so
-    per-cell observables can be compared cycle-to-cycle.
-  cites:
-  - feedback-2026-05-29-fresh-start/feedback.pdf
-  verified_in_v2ecoli: false
+  - text: |
+      Succinate is the right baseline media. ParCa default τ ≈ 82 min and
+      C + D = 60 min give B = 22 min > 0, satisfying Rashmi's
+      non-overlapping cycle requirement (replication initiates exactly
+      once per generation).
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+  - text: |
+      v2ecoli is configured for succinate out of the box (saved sim_data
+      state). No new ParCa rebuild from raw inputs is required — just
+      run ParCa with succinate as the growth condition.
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+  - text: |
+      single_daughters=True is the correct mode for steady-state checking.
+      Tracks ONE daughter per division through the full 10-gen lineage so
+      per-cell observables can be compared cycle-to-cycle.
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
 
 conditions:
   baseline:
@@ -258,164 +258,164 @@ conditions:
   variants:
   # dnaa-0 is a baseline CHARACTERIZATION (no perturbations) — the "variant" axis is
   # the random seed: periodic steady state was confirmed seed-robust across seeds 0-3.
-  - name: seed-robustness
-    diff_from_baseline: "seed in {0,1,2,3}"
-    note: "oriC 1<->2 periodic from gen 3 + sawtooth cell mass hold on every seed (reviewer-confirmed)."
+    - name: seed-robustness
+      diff_from_baseline: "seed in {0,1,2,3}"
+      note: "oriC 1<->2 periodic from gen 3 + sawtooth cell mass hold on every seed (reviewer-confirmed)."
   model_settings: []
 
 visualizations:
-- name: dnaa0_transient_split
-  address: image:charts/dnaa0_transient_split.png
-  config:
-    title: >-
-      dnaa-0 succinate baseline — TRANSIENT vs accepted STEADY-STATE cell cycle
-      (seed 1 COLD-START, single daughters, FULL per-gen history). Background
-      shading separates the transient cold-start generations (gens 1–2, where
-      the initial condition is still relaxing) from the accepted periodic
-      steady-state window (gen 3 onward). A bold divider marks the gen-3
-      boundary, which is also the daughter state saved as the canonical
-      succinate initial condition for dnaa-1. REAL RESULT (honest): in this
-      seed-1 cold-start run oriC is periodic 1↔2 in EVERY generation and NEVER
-      reaches 4 — there is no 4-oriC overshoot in the transient gens. Rendered
-      from the dnaa0_fullhist run after the per-gen-history emit fix, so each
-      generation carries its WHOLE cycle (~3000–5800 ticks/gen).
-    inputs_map:
-      oric_count: listeners.replication_data.number_of_oric
-      cell_mass: listeners.mass.cell_mass
-      dnaa_monomer_total: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
-      time: global_time
-  chart: charts/dnaa0_transient_split.svg
-  source_run: dnaa0_fullhist
-  render: 'cd ../.. && python scripts/render_dnaa0_transient_split.py --run out/dnaa0_fullhist/dnaa0_fullhist --out studies/dnaa-0-succinate-baseline/charts'
-- name: dnaa0_steady_state
-  address: image:charts/dnaa0_steady_state.png
-  config:
-    title: >-
-      dnaa-0 succinate baseline — periodic steady-state cell cycle (seed 0,
-      single daughters): oriC 1↔2 from gen 3, cell-mass sawtooth, total DnaA
-      monomer (all forms). Regenerated from out/dnaa0_seed0_parquet 2026-06-03;
-      x-axis in minutes with generation boundaries (Rashmi's chart conventions).
-      Total DnaA ≈ 9–87 here (UN-tuned baseline) — dnaa-1 expression tuning
-      raises it into the [300,800] band.
-    inputs_map:
-      oric_count: listeners.replication_data.number_of_oric
-      cell_mass: listeners.mass.cell_mass
-      dnaa_monomer_total: listeners.monomer_counts
-      time: global_time
+  - name: dnaa0_transient_split
+    address: image:charts/dnaa0_transient_split.png
+    config:
+      title: >-
+        dnaa-0 succinate baseline — TRANSIENT vs accepted STEADY-STATE cell cycle
+        (seed 1 COLD-START, single daughters, FULL per-gen history). Background
+        shading separates the transient cold-start generations (gens 1–2, where
+        the initial condition is still relaxing) from the accepted periodic
+        steady-state window (gen 3 onward). A bold divider marks the gen-3
+        boundary, which is also the daughter state saved as the canonical
+        succinate initial condition for dnaa-1. REAL RESULT (honest): in this
+        seed-1 cold-start run oriC is periodic 1↔2 in EVERY generation and NEVER
+        reaches 4 — there is no 4-oriC overshoot in the transient gens. Rendered
+        from the dnaa0_fullhist run after the per-gen-history emit fix, so each
+        generation carries its WHOLE cycle (~3000–5800 ticks/gen).
+      inputs_map:
+        oric_count: listeners.replication_data.number_of_oric
+        cell_mass: listeners.mass.cell_mass
+        dnaa_monomer_total: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
+        time: global_time
+    chart: charts/dnaa0_transient_split.svg
+    source_run: dnaa0_fullhist
+    render: 'cd ../.. && python scripts/render_dnaa0_transient_split.py --run out/dnaa0_fullhist/dnaa0_fullhist --out studies/dnaa-0-succinate-baseline/charts'
+  - name: dnaa0_steady_state
+    address: image:charts/dnaa0_steady_state.png
+    config:
+      title: >-
+        dnaa-0 succinate baseline — periodic steady-state cell cycle (seed 0,
+        single daughters): oriC 1↔2 from gen 3, cell-mass sawtooth, total DnaA
+        monomer (all forms). Regenerated from out/dnaa0_seed0_parquet 2026-06-03;
+        x-axis in minutes with generation boundaries (Rashmi's chart conventions).
+        Total DnaA ≈ 9–87 here (UN-tuned baseline) — dnaa-1 expression tuning
+        raises it into the [300,800] band.
+      inputs_map:
+        oric_count: listeners.replication_data.number_of_oric
+        cell_mass: listeners.mass.cell_mass
+        dnaa_monomer_total: listeners.monomer_counts
+        time: global_time
 
-  chart: charts/dnaa0_steady_state.svg
-  source_run: dnaa0_seed0
-  render: 'cd ../.. && python scripts/measure_dnaa_at_steady_state.py --exp-root out/dnaa0_seed0_parquet/dnaa0_seed0 --experiment-id dnaa0_seed0  # (measure; chart authored)'
+    chart: charts/dnaa0_steady_state.svg
+    source_run: dnaa0_seed0
+    render: 'cd ../.. && python scripts/measure_dnaa_at_steady_state.py --exp-root out/dnaa0_seed0_parquet/dnaa0_seed0 --experiment-id dnaa0_seed0  # (measure; chart authored)'
 runs:
   # NB: the report reads the LAST run's `outcomes:` for the test pills, so the
   # canonical run is placed last and carries the per-test PASS/FAIL results.
-- name: dnaa0-6gen-multigen-2026-05-29
-  status: completed
-  kind: single-daughters-multigen-lineage
-  description: |
-    Earlier 6-gen exploratory run (coarser cadence; superseded by the clean
-    run below for the steady-state read — it under-sampled within-cycle oriC
-    peaks, which is why an early draft mis-stated "never 4").
-  parquet: studies/dnaa-0-succinate-baseline/parquet-runs/dnaa0-6gen-multigen-2026-05-29
-  seeds: [0]
-  result: superseded by dnaa0-5gen-clean-2026-05-30
-  computed_outcomes:
-    _status: store_unresolved
-- name: dnaa0-5gen-clean-2026-05-30
-  status: completed
-  kind: single-daughters-multigen-lineage
-  canonical: true
-  run_dir: out/dnaa0_backfill
-  emitter: {kind: parquet, store: out/dnaa0_backfill/dnaa0_backfill}   # faithful baseline backfill (mini, pre-box-binding, 6+ gens); the spine evaluator reads this
-  description: |
-    Canonical 5-generation single-daughters succinate lineage, seed 0,
-    ParCa-default τ/C/D (no overrides), cache out/cache-succinate, rendered
-    with the division-time emitter-partition fix so every generation persists
-    in full (~20,150 ticks at 1 row/s). The lineage reaches periodic steady
-    state by gen 3; gen-3 daughter state saved as the canonical succinate
-    initial condition for dnaa-1.
-  parquet: studies/dnaa-0-succinate-baseline/parquet-runs/dnaa0-5gen-clean-2026-05-30
-  seeds: [0]
-  result: |
-    oriC transient {1,2,4} in gens 1-2 → periodic 1↔2 (no 4) from gen 3;
-    cell_mass periodic sawtooth; DnaA monomer flat ~12 (below-band baseline).
-  note: |
-    The study spec targets 10 generations (n_steps=49200); steady state is
-    reached by gen 3, so this 5-generation run demonstrates the objective
-    (periodic 1↔2 + saved gen-3 init). Rashmi confirmed the trends
-    (2026-05-31): "these trends look correct and the objective has been
-    achieved." A 10-gen extension is optional and would only add more
-    steady-state cycles.
-  outcomes:
-    succinate-oric-periodic-1-or-2-at-steady-state:
-      result: PASS
-      detail: oriC max ≤2 from gen 3, visiting both 1 and 2 (measure_dnaa_at_steady_state.py).
-    succinate-10gen-cell-mass-periodic-after-gen-3:
-      result: PASS
-      detail: cell_mass CV birth 0.021 / peak 0.045 across gens 3–5 (< 0.05).
+  - name: dnaa0-6gen-multigen-2026-05-29
+    status: completed
+    kind: single-daughters-multigen-lineage
+    description: |
+      Earlier 6-gen exploratory run (coarser cadence; superseded by the clean
+      run below for the steady-state read — it under-sampled within-cycle oriC
+      peaks, which is why an early draft mis-stated "never 4").
+    parquet: studies/dnaa-0-succinate-baseline/parquet-runs/dnaa0-6gen-multigen-2026-05-29
+    seeds: [0]
+    result: superseded by dnaa0-5gen-clean-2026-05-30
+    computed_outcomes:
+      _status: store_unresolved
+  - name: dnaa0-5gen-clean-2026-05-30
+    status: completed
+    kind: single-daughters-multigen-lineage
+    canonical: true
+    run_dir: out/dnaa0_backfill
+    emitter: {kind: parquet, store: out/dnaa0_backfill/dnaa0_backfill} # faithful baseline backfill (mini, pre-box-binding, 6+ gens); the spine evaluator reads this
+    description: |
+      Canonical 5-generation single-daughters succinate lineage, seed 0,
+      ParCa-default τ/C/D (no overrides), cache out/cache-succinate, rendered
+      with the division-time emitter-partition fix so every generation persists
+      in full (~20,150 ticks at 1 row/s). The lineage reaches periodic steady
+      state by gen 3; gen-3 daughter state saved as the canonical succinate
+      initial condition for dnaa-1.
+    parquet: studies/dnaa-0-succinate-baseline/parquet-runs/dnaa0-5gen-clean-2026-05-30
+    seeds: [0]
+    result: |
+      oriC transient {1,2,4} in gens 1-2 → periodic 1↔2 (no 4) from gen 3;
+      cell_mass periodic sawtooth; DnaA monomer flat ~12 (below-band baseline).
+    note: |
+      The study spec targets 10 generations (n_steps=49200); steady state is
+      reached by gen 3, so this 5-generation run demonstrates the objective
+      (periodic 1↔2 + saved gen-3 init). Rashmi confirmed the trends
+      (2026-05-31): "these trends look correct and the objective has been
+      achieved." A 10-gen extension is optional and would only add more
+      steady-state cycles.
+    outcomes:
+      succinate-oric-periodic-1-or-2-at-steady-state:
+        result: PASS
+        detail: oriC max ≤2 from gen 3, visiting both 1 and 2 (measure_dnaa_at_steady_state.py).
+      succinate-10gen-cell-mass-periodic-after-gen-3:
+        result: PASS
+        detail: cell_mass CV birth 0.021 / peak 0.045 across gens 3–5 (< 0.05).
 
-  computed_outcomes:
-    succinate-oric-periodic-1-or-2-at-steady-state:
-      evaluated_by: agent
-      reason: "unsupported op: 'periodic_after_generation'"
-      reconcile: no_authored
-    succinate-10gen-cell-mass-periodic-after-gen-3:
-      evaluated_by: agent
-      reason: "unsupported op: 'cv_at_phase_below'"
-      reconcile: no_authored
-  generations: 7
-  sim_minutes: 331
-  n_readouts: 181
+    computed_outcomes:
+      succinate-oric-periodic-1-or-2-at-steady-state:
+        evaluated_by: agent
+        reason: "unsupported op: 'periodic_after_generation'"
+        reconcile: no_authored
+      succinate-10gen-cell-mass-periodic-after-gen-3:
+        evaluated_by: agent
+        reason: "unsupported op: 'cv_at_phase_below'"
+        reconcile: no_authored
+    generations: 7
+    sim_minutes: 331
+    n_readouts: 181
 simulation_set:
-- name: dnaa0-succinate-steady-state
-  kind: single-daughters-multigen-lineage
-  status: ran
-  base_model: v2ecoli.composites.baseline (ParCa-default succinate, no τ/C/D overrides)
-  duration_steps: 7200 s/gen cap × 5 gens (steady state by gen 3)
-  seeds: [0]
-  metrics: [oriC count, cell_mass, DnaA monomer total]
-  pass_fail_tests:
-  - succinate-oric-periodic-1-or-2-at-steady-state
-  - succinate-10gen-cell-mass-periodic-after-gen-3
+  - name: dnaa0-succinate-steady-state
+    kind: single-daughters-multigen-lineage
+    status: ran
+    base_model: v2ecoli.composites.baseline (ParCa-default succinate, no τ/C/D overrides)
+    duration_steps: 7200 s/gen cap × 5 gens (steady state by gen 3)
+    seeds: [0]
+    metrics: [oriC count, cell_mass, DnaA monomer total]
+    pass_fail_tests:
+      - succinate-oric-periodic-1-or-2-at-steady-state
+      - succinate-10gen-cell-mass-periodic-after-gen-3
 
 tests:
-- name: succinate-oric-periodic-1-or-2-at-steady-state
-  classification: primary
-  question: Is oriC count in the followed-daughter lineage periodic 1 → 2 → 1 → 2 from generation 3 onwards (steady state)? A transient overshoot to 4 in generations 1–2 is allowed and expected (pre-steady-state).
-  measure:
-    kind: periodicity_check
-    path: listeners.replication_data.number_of_oric
-    window: from_generation_3
-    detail: From gen 3 onwards the oriC sequence per cycle is [1, ..., 2, ..., 1] with no 4. Transient 4 before gen 3 is not a failure (Rashmi 2026-05-30).
-  pass_if:
-    op: periodic_after_generation
-    generation: 3
-    max_observed: 2
-  status: passed
-  result: |
-    PASS — recomputed from parquet (scripts/measure_dnaa_at_steady_state.py,
-    2026-05-31): oriC max ≤ 2 from gen 3 onwards, visiting both 1 and 2.
-    Per-gen oriC sets: gen1 {1,2,4} (transient overshoot), gen2 {2},
-    gen3 {1,2}, gen4 {1,2}, gen5 {1,2}.
-  verified_by: scripts/measure_dnaa_at_steady_state.py
+  - name: succinate-oric-periodic-1-or-2-at-steady-state
+    classification: primary
+    question: Is oriC count in the followed-daughter lineage periodic 1 → 2 → 1 → 2 from generation 3 onwards (steady state)? A transient overshoot to 4 in generations 1–2 is allowed and expected (pre-steady-state).
+    measure:
+      kind: periodicity_check
+      path: listeners.replication_data.number_of_oric
+      window: from_generation_3
+      detail: From gen 3 onwards the oriC sequence per cycle is [1, ..., 2, ..., 1] with no 4. Transient 4 before gen 3 is not a failure (Rashmi 2026-05-30).
+    pass_if:
+      op: periodic_after_generation
+      generation: 3
+      max_observed: 2
+    status: passed
+    result: |
+      PASS — recomputed from parquet (scripts/measure_dnaa_at_steady_state.py,
+      2026-05-31): oriC max ≤ 2 from gen 3 onwards, visiting both 1 and 2.
+      Per-gen oriC sets: gen1 {1,2,4} (transient overshoot), gen2 {2},
+      gen3 {1,2}, gen4 {1,2}, gen5 {1,2}.
+    verified_by: scripts/measure_dnaa_at_steady_state.py
 
-- name: succinate-10gen-cell-mass-periodic-after-gen-3
-  classification: primary
-  question: Is per-cell cell_mass periodic from gen-3 onwards (each generation's birth/division values within tolerance of the prior generation's)?
-  measure:
-    kind: periodicity_check
-    path: listeners.mass.cell_mass
-    window: from_generation_3
-  pass_if:
-    op: cv_at_phase_below
-    cv_threshold: 0.05
-  status: passed
-  result: |
-    PASS — recomputed from parquet (scripts/measure_dnaa_at_steady_state.py,
-    2026-05-31): across gens 3–5, CV of birth cell_mass = 0.021 and CV of
-    peak cell_mass = 0.045, both below the 0.05 threshold (birth ≈ 628–658 fg,
-    peak ≈ 1131–1250 fg). Periodic sawtooth confirmed.
-  verified_by: scripts/measure_dnaa_at_steady_state.py
+  - name: succinate-10gen-cell-mass-periodic-after-gen-3
+    classification: primary
+    question: Is per-cell cell_mass periodic from gen-3 onwards (each generation's birth/division values within tolerance of the prior generation's)?
+    measure:
+      kind: periodicity_check
+      path: listeners.mass.cell_mass
+      window: from_generation_3
+    pass_if:
+      op: cv_at_phase_below
+      cv_threshold: 0.05
+    status: passed
+    result: |
+      PASS — recomputed from parquet (scripts/measure_dnaa_at_steady_state.py,
+      2026-05-31): across gens 3–5, CV of birth cell_mass = 0.021 and CV of
+      peak cell_mass = 0.045, both below the 0.05 threshold (birth ≈ 628–658 fg,
+      peak ≈ 1131–1250 fg). Periodic sawtooth confirmed.
+    verified_by: scripts/measure_dnaa_at_steady_state.py
 
 conclusion_logic:
   if_primary_tests_pass: |
@@ -432,124 +432,123 @@ conclusion_logic:
     dnaa-1 until the lineage is periodic.
 
 readouts:
-- name: oriC count
-  status: primary
-  identifier: listeners.replication_data.number_of_oric
-  units: count
-  notes: Periodicity check — 1↔2 at steady state (gen 3+), transient 4 allowed gens 1-2.
-- name: cell mass
-  status: primary
-  identifier: listeners.mass.cell_mass
-  units: fg
-  notes: Periodic sawtooth; cross-generation CV < 0.05 from gen 3.
-- name: DnaA monomer total
-  status: measured
-  identifier: listeners.monomer_counts[3861]
-  units: count
-  notes: Low baseline (mean ≈ 24, declining 44→4) — below the [300,800] band, pre-Mechanism-A.
-
+  - name: oriC count
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: cell mass
+    store_path: listeners.mass.cell_mass
+    units: fg
+    status: primary
+  - name: DnaA monomer total
+    index_by:
+      type: literal_index
+      value: 3861
+    store_path: listeners.monomer_counts
+    units: count
+    status: measured
 findings:
-- id: succinate-periodic-steady-state-reached
-  kind: computational
-  summary: |
-    Under ParCa-default succinate (no τ/C/D overrides), the single-daughters
-    lineage reaches a periodic steady state by generation 3: oriC oscillates
-    1↔2 (never 4) from gen 3, and cell_mass is a periodic sawtooth with
-    cross-generation CV ≤ 4.5%. The gen-1–2 transient (oriC overshoot to 4)
-    is the expected pre-steady-state relaxation, reviewer-confirmed.
-  evidence:
-    from_run: dnaa0-5gen-clean-2026-05-30
-  provenance:
-    run_ids: [dnaa0-5gen-clean-2026-05-30]
-    verified_by: scripts/measure_dnaa_at_steady_state.py
-  status: confirms
-  statement: 'The 5-generation succinate baseline (run dnaa0-5gen-clean-2026-05-30) settles into a periodic steady state: division time and final dry mass repeat cycle-to-cycle and every daughter carries chromosomes=2 at division. This stable lineage is the reference against which the DnaA-cycle perturbations in dnaa-1/2/3 are measured.'
-- id: dnaa-below-band-baseline
-  kind: computational
-  summary: |
-    DnaA monomer total sits at a low baseline (per-gen mean declining
-    44→4 across the lineage, overall mean ≈ 24), far BELOW the literature
-    [300, 800] band — establishing the unregulated baseline that dnaa-1's
-    Mechanism A must lift. (Refines the earlier ≈12 estimate with the
-    full-trace recomputation.)
-  evidence:
-    from_run: dnaa0-5gen-clean-2026-05-30
-  provenance:
-    run_ids: [dnaa0-5gen-clean-2026-05-30]
-    verified_by: scripts/measure_dnaa_at_steady_state.py
+  - id: succinate-periodic-steady-state-reached
+    kind: computational
+    summary: |
+      Under ParCa-default succinate (no τ/C/D overrides), the single-daughters
+      lineage reaches a periodic steady state by generation 3: oriC oscillates
+      1↔2 (never 4) from gen 3, and cell_mass is a periodic sawtooth with
+      cross-generation CV ≤ 4.5%. The gen-1–2 transient (oriC overshoot to 4)
+      is the expected pre-steady-state relaxation, reviewer-confirmed.
+    evidence:
+      from_run: dnaa0-5gen-clean-2026-05-30
+    provenance:
+      run_ids: [dnaa0-5gen-clean-2026-05-30]
+      verified_by: scripts/measure_dnaa_at_steady_state.py
+    status: confirms
+    statement: 'The 5-generation succinate baseline (run dnaa0-5gen-clean-2026-05-30) settles into a periodic steady state: division time and final dry mass repeat cycle-to-cycle and every daughter carries chromosomes=2 at division. This stable lineage is the reference against which the DnaA-cycle perturbations in dnaa-1/2/3 are measured.'
+  - id: dnaa-below-band-baseline
+    kind: computational
+    summary: |
+      DnaA monomer total sits at a low baseline (per-gen mean declining
+      44→4 across the lineage, overall mean ≈ 24), far BELOW the literature
+      [300, 800] band — establishing the unregulated baseline that dnaa-1's
+      Mechanism A must lift. (Refines the earlier ≈12 estimate with the
+      full-trace recomputation.)
+    evidence:
+      from_run: dnaa0-5gen-clean-2026-05-30
+    provenance:
+      run_ids: [dnaa0-5gen-clean-2026-05-30]
+      verified_by: scripts/measure_dnaa_at_steady_state.py
 
-  status: novel
-  statement: In the unmodified baseline the DnaA-ATP active fraction sits below the Boesen 2024 [0.2, 0.5] target band, quantifying the calibration gap that the expression (dnaa-1) and nucleotide-balance (dnaa-2) studies are designed to close.
+    status: novel
+    statement: In the unmodified baseline the DnaA-ATP active fraction sits below the Boesen 2024 [0.2, 0.5] target band, quantifying the calibration gap that the expression (dnaa-1) and nucleotide-balance (dnaa-2) studies are designed to close.
 
 discovery_implications:
   resolved_uncertainties:
-  - Under ParCa-default succinate with no τ/C/D overrides, the single-daughters lineage reaches a periodic steady state by generation 3 (oriC 1↔2, cell-mass sawtooth CV ≤ 4.5%) — establishing a valid baseline cell cycle for the DnaA studies.
-  - The gen-1–2 oriC overshoot to 4 is the expected pre-steady-state relaxation (reviewer-confirmed), not a defect; gen 3 is the correct burned-in state to save as the canonical initial condition.
-  - The unregulated baseline DnaA monomer pool sits far below the literature [300,800] band (per-gen mean declining 44→4), quantifying the calibration gap dnaa-1 must close.
+    - Under ParCa-default succinate with no τ/C/D overrides, the single-daughters lineage reaches a periodic steady state by generation 3 (oriC 1↔2, cell-mass sawtooth CV ≤ 4.5%) — establishing a valid baseline cell cycle for the DnaA studies.
+    - The gen-1–2 oriC overshoot to 4 is the expected pre-steady-state relaxation (reviewer-confirmed), not a defect; gen 3 is the correct burned-in state to save as the canonical initial condition.
+    - The unregulated baseline DnaA monomer pool sits far below the literature [300,800] band (per-gen mean declining 44→4), quantifying the calibration gap dnaa-1 must close.
   remaining_uncertainties:
-  - Whether the gen-1–2 transient overshoot to 4 oriC is purely an initial-condition artefact or has any seed/parameter sensitivity — only seed 0 was run, and the 5-gen lineage was accepted in place of the spec's 10 generations.
-  - How robust the periodic 1↔2 steady state is to seed variation, since the canonical run is a single seed.
+    - Whether the gen-1–2 transient overshoot to 4 oriC is purely an initial-condition artefact or has any seed/parameter sensitivity — only seed 0 was run, and the 5-gen lineage was accepted in place of the spec's 10 generations.
+    - How robust the periodic 1↔2 steady state is to seed variation, since the canonical run is a single seed.
   alternate_hypotheses:
-  - id: transient-overshoot-is-resume-artefact
-    statement: The gen-1–2 oriC overshoot to 4 (and the short gen-2 τ of 52 min) is an artefact of the resume-from-gen-1 daughter initial condition, not an intrinsic property of the succinate attractor.
-    mechanism_elements_affected:
-    - cell-cycle-initiation
-    - oriC-count
-    why_plausible: The overshoot appears only in the first generations and disappears from gen 3 onward; gen 2 also has the shortest τ, both consistent with a state not yet aligned with the periodic attractor.
-    evidence_for:
-    - oriC visits {1,2,4} only in gens 1–2 then settles to {1,2}
-    - gen-2 τ (52 min) is an outlier vs the gen 3–5 regime (73–80 min)
-    evidence_against:
-    - only a single seed was run, so an intrinsic-dynamics explanation cannot be excluded
-    discriminating_observables:
-    - oriC-transient-length-vs-seed
-    - tau-of-early-generations
+    - id: transient-overshoot-is-resume-artefact
+      statement: The gen-1–2 oriC overshoot to 4 (and the short gen-2 τ of 52 min) is an artefact of the resume-from-gen-1 daughter initial condition, not an intrinsic property of the succinate attractor.
+      mechanism_elements_affected:
+        - cell-cycle-initiation
+        - oriC-count
+      why_plausible: The overshoot appears only in the first generations and disappears from gen 3 onward; gen 2 also has the shortest τ, both consistent with a state not yet aligned with the periodic attractor.
+      evidence_for:
+        - oriC visits {1,2,4} only in gens 1–2 then settles to {1,2}
+        - gen-2 τ (52 min) is an outlier vs the gen 3–5 regime (73–80 min)
+      evidence_against:
+        - only a single seed was run, so an intrinsic-dynamics explanation cannot be excluded
+      discriminating_observables:
+        - oriC-transient-length-vs-seed
+        - tau-of-early-generations
   mechanism_update_proposals:
-  - mechanism_node_or_edge: succinate-baseline-cell-cycle
-    update_type: strengthen
-    confidence_change: Accepted (both primary tests pass, Rashmi-confirmed)
-    rationale: The periodic 1↔2 steady state with periodic cell mass validates the succinate baseline as the reference cell cycle for the downstream DnaA studies.
-    requires_expert_approval: true
+    - mechanism_node_or_edge: succinate-baseline-cell-cycle
+      update_type: strengthen
+      confidence_change: Accepted (both primary tests pass, Rashmi-confirmed)
+      rationale: The periodic 1↔2 steady state with periodic cell mass validates the succinate baseline as the reference cell cycle for the downstream DnaA studies.
+      requires_expert_approval: true
   followup_study_proposals:
-  - id: succinate-baseline-multi-seed
-    title: Succinate steady-state robustness across seeds
-    study_type: validation
-    source_trigger: ambiguity
-    target_mechanism_elements:
-    - oriC-count
-    - cell-cycle-initiation
-    proposed_experiment: Re-run the succinate single-daughters lineage at several seeds and confirm the periodic 1↔2 steady state (and the transient-overshoot length) is seed-robust.
-    expected_information_gain: medium
-    required_build_changes: []
-    required_inputs: []
-    blocks_or_unblocks: []
-    priority: low
-    expert_gate_required: false
-  - id: succinate-baseline-10gen-extension
-    title: Extend the succinate baseline to the full 10 generations
-    study_type: rerun
-    source_trigger: ambiguity
-    target_mechanism_elements:
-    - oriC-count
-    - cell-mass
-    proposed_experiment: Run the canonical lineage to the spec's 10 generations to confirm the periodic steady state persists beyond gen 5 (the canonical run stopped at gen 5).
-    expected_information_gain: low
-    required_build_changes: []
-    required_inputs: []
-    blocks_or_unblocks: []
-    priority: low
-    expert_gate_required: false
+    - id: succinate-baseline-multi-seed
+      title: Succinate steady-state robustness across seeds
+      study_type: validation
+      source_trigger: ambiguity
+      target_mechanism_elements:
+        - oriC-count
+        - cell-cycle-initiation
+      proposed_experiment: Re-run the succinate single-daughters lineage at several seeds and confirm the periodic 1↔2 steady state (and the transient-overshoot length) is seed-robust.
+      expected_information_gain: medium
+      required_build_changes: []
+      required_inputs: []
+      blocks_or_unblocks: []
+      priority: low
+      expert_gate_required: false
+    - id: succinate-baseline-10gen-extension
+      title: Extend the succinate baseline to the full 10 generations
+      study_type: rerun
+      source_trigger: ambiguity
+      target_mechanism_elements:
+        - oriC-count
+        - cell-mass
+      proposed_experiment: Run the canonical lineage to the spec's 10 generations to confirm the periodic steady state persists beyond gen 5 (the canonical run stopped at gen 5).
+      expected_information_gain: low
+      required_build_changes: []
+      required_inputs: []
+      blocks_or_unblocks: []
+      priority: low
+      expert_gate_required: false
 limitations:
-- First few generations are expected to be transient (initial state not yet aligned with the periodic attractor). Use only gen-3 onwards for steady-state checking.
-- This study deliberately uses NO DnaA-specific Steps beyond the read-only cycle listener. Stage-1 expression tuning + Mechanism A is dnaa-1's job.
+  - First few generations are expected to be transient (initial state not yet aligned with the periodic attractor). Use only gen-3 onwards for steady-state checking.
+  - This study deliberately uses NO DnaA-specific Steps beyond the read-only cycle listener. Stage-1 expression tuning + Mechanism A is dnaa-1's job.
 
 prerequisites:
-- Round 3.7 D-period wiring fix cherry-picked from feat/dnaa-mock-investigation-start commit 8b5d8cd (see setup).
+  - Round 3.7 D-period wiring fix cherry-picked from feat/dnaa-mock-investigation-start commit 8b5d8cd (see setup).
 
 pipeline_gate:
   prerequisites: []
   enables:
-  - dnaa-1-expression
+    - dnaa-1-expression
   gate_status: passed
 claim: v2ecoli reaches a periodic succinate steady state with no imposed τ/C/D — a valid baseline for the DnaA cycle.
 confidence: Accepted

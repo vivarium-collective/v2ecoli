@@ -231,6 +231,53 @@ class VivariumEcoliProcess(Process):
         return {"listeners": {"mass": {k: obs[k] for k in MASS_OBS}}}
 
 
+def build_vivarium_ecoli_composite(
+    *,
+    sim_data_path: str,
+    condition: str = "basal",
+    seed: int = 0,
+    time_step: float = 1.0,
+    exclude_processes: list | None = None,
+    fork_dir: str | None = None,
+    core=None,
+    agent_id: str = "0",
+):
+    """Wrap a single :class:`VivariumEcoliProcess` as a one-node pbg Composite under
+    ``agents/<agent_id>`` — the genuine-vEcoli analogue of the v2ecoli agent composite,
+    so the SAME ``run_multigen_xarray`` / ``XArrayEmitter`` path serves both engines.
+
+    Returns ``(composite, info)``. The process writes ``listeners.mass.*`` (overwrite/
+    set semantics) into the agent store each tick; the standard mass view reads them.
+    """
+    from process_bigraph import Composite
+    if core is None:
+        from v2ecoli.core import build_core
+        core = build_core()
+
+    proc = VivariumEcoliProcess(config={
+        "sim_data_path": sim_data_path, "condition": condition, "seed": int(seed),
+        "time_step": float(time_step),
+        "exclude_processes": list(exclude_processes or []),
+        "fork_dir": fork_dir or "",
+    }, core=core)
+    iface = proc.interface()
+
+    cell_state = {
+        "vivarium_ecoli": {
+            "_type": "process",
+            "instance": proc,
+            "_inputs": iface.get("inputs", {}),
+            "_outputs": iface.get("outputs", {}),
+            "inputs": {},
+            "outputs": {"listeners": ["listeners"]},
+            "interval": float(time_step),
+        }
+    }
+    state = {"agents": {agent_id: cell_state}, "global_time": 0.0}
+    composite = Composite(dict(schema=dict(), state=state), core=core)
+    return composite, {"core": core, "agent_root": "agents", "agent_id": agent_id}
+
+
 # ---------------------------------------------------------------------------
 # Single-lineage multi-generation driver
 # ---------------------------------------------------------------------------

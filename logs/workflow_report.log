@@ -1,0 +1,31 @@
+============================================================
+v2ecoli Workflow Pipeline
+============================================================
+  Step 0: EcoCyc API (skipped, use --fetch-biocyc to refresh)
+  Step 1: Raw Data (cached)
+  Step 2: ParCa (cached)
+  Step 3: Load Modelmodule `v2ecoli.library.parquet_emitter` not found during dynamic import
+module `v2ecoli.library.xarray_emitter` not found during dynamic import
+skipping `v2ecoli.processes.parca.wholecell.utils._netflow.nf_cplex` (missing optional dep `cplex`)
+skipping `v2ecoli.processes.parca.wholecell.utils.toya` (missing optional dep `v2ecoli.processes.parca.ecoli.processes`)
+skipping `wholecell.utils._netflow.nf_cplex` (missing optional dep `cplex`)
+skipping `spatio_flux.experiments.compare_comets` (missing optional dep `cometspy`)
+ (cached metadata, rebuilt composite in 6.50s)
+    44 steps, 1 processes, 16321 bulk molecules, 11 unique types, dry_mass=380.7fg
+  Step 2: Single Cell Simulation (cached)
+  Step 3: Division (cached)
+  Step 4: Daughter Simulations (cached)
+  Diagnostics: Step analysis
+    45 steps analyzed
+  Updating .pbg model files...
+    models/partitioned.pbg updated
+    models/parca.pbg updated
+  Generating interactive network visualization...
+    Skipped ParCa composition diagram: 'ascii' codec can't encode character '\u25b8' in position 4293: ordinal not in range(128)
+  Generating HTML report (via WorkflowVisualization)...
+Traceback (most recent call last):
+  File "/Users/arnabmutsuddy/projects/v2ecoli/reports/workflow_report.py", line 1517, in <module>
+    run_workflow(out_path=args.out, viz_config=study_viz_config)
+  File "/Users/arnabmutsuddy/projects/v2ecoli/reports/workflow_report.py", line 1432, in run_workflow
+    f.write(html_content)
+UnicodeEncodeError: 'ascii' codec can't encode character '\xb7' in position 1118443: ordinal not in range(128)

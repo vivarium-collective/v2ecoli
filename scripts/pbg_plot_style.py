@@ -159,13 +159,17 @@ def house_layout(fig, title: str, subtitle: str, height: int = 480):
         title=dict(
             text=f"<b>{title}</b><br><span style='font-size:12px;color:#475569'>{sub}</span>",
             x=0.5, xanchor="center", font=dict(size=17)),
-        template="plotly_white", height=height + 18 * max(0, nlines - 1),
+        template="plotly_white", height=height + 18 * max(0, nlines - 1) + 70,
         font=dict(family="Inter, system-ui, sans-serif", size=13),
-        # Reserve a wide right margin so the (vertical, one-per-row) legend sitting
-        # just outside the top-right is never clipped on wide renders — the cause of
-        # the "legends partly hidden in the upper-right" report (Haochen 2026-06-23).
-        margin=dict(t=64 + 16 * nlines, b=55, l=70, r=190), hovermode="x unified",
-        legend=dict(yanchor="top", y=1, xanchor="left", x=1.02,
+        # Legend sits HORIZONTALLY BELOW the plot (centered). An outside-top-right
+        # legend gets clipped in the responsive dashboard/report iframe whenever the
+        # labels are long (they overflow the reserved right margin) — the recurring
+        # "legends partly hidden in the upper-right" report. A below-plot horizontal
+        # legend lives inside the figure's own height, so it can't be clipped at any
+        # container width and never overlaps the plotting area. The +70 height and
+        # b=120 margin reserve room for it (wraps to extra rows for many entries).
+        margin=dict(t=64 + 16 * nlines, b=120, l=70, r=50), hovermode="x unified",
+        legend=dict(orientation="h", yanchor="top", y=-0.16, xanchor="center", x=0.5,
                     bgcolor="rgba(255,255,255,0.7)", bordercolor="#e2e8f0", borderwidth=1),
     )
     return fig

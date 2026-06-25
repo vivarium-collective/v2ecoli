@@ -267,9 +267,9 @@ def fig_parent_daughter(domain_path="/tmp/dnaa5_domain_counts.json"):
             "bound-box count (/8); right axis = the same reading as occupancy fraction. Use the selector to "
             "switch generation. Cooperative n=4 run (seed 1) — note binding fills fully in early generations "
             "and is sparser in later ones.")
-    # this figure has a right-hand y2 (fraction) axis — push the legend further
-    # right so it clears the y2 ticks/title, and widen the right margin to fit both.
-    fig.update_layout(margin=dict(r=240), legend=dict(x=1.13, xanchor="left"))
+    # this figure has a right-hand y2 (fraction) axis — widen the right margin a
+    # little so the y2 title fits; the legend stays the house horizontal-below bar.
+    fig.update_layout(margin=dict(r=70))
     _write(fig, "dnaa5_parent_vs_daughter")
 
 

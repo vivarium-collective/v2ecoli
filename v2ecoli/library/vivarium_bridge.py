@@ -132,9 +132,13 @@ def translate_ports(core, ports, key=None, parent=None, in_partition=False):
             # ``(process,)`` in the ('process',) store, or bulk request lists).
             # Map them to a permissive ``node`` instead (fork converter gap).
             if isinstance(value, (list, tuple, set, dict)) and len(value) == 0:
-                if ports.get('_updater') == 'set':
-                    return 'overwrite[node]'
-                return 'node'
+                # Keep the permissive ``node`` TYPE (don't core.infer an empty
+                # collection — it over-specifies), but still carry the empty
+                # ``_default`` so the store is seeded with it. Returning a bare
+                # type string here dropped the default and regressed
+                # test_translate_ports_empty_tuple_default_normalized.
+                type_str = 'overwrite[node]' if ports.get('_updater') == 'set' else 'node'
+                return {'_type': type_str, '_default': value}
             schema = core.infer(value)
             if ports.get('_updater') == 'set':
                 schema = Overwrite(_value=schema)

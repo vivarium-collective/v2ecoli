@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+import xarray as xr
 
 
 def segment_generations(cell_mass: np.ndarray, *, drop_frac: float = 0.6) -> list[tuple[int, int]]:
@@ -70,3 +71,18 @@ def assess_physical(
         per_gen_ratios=ratios,
         reasons=reasons,
     )
+
+
+def load_cell_mass(store_path: str) -> np.ndarray:
+    """Return the time-ordered cell_mass series from a run_multigen_xarray store.
+
+    Searches the dataset's data variables for one named 'cell_mass' (the view in
+    run_upstream_multigen.py emits listeners/mass/cell_mass, which xarray flattens
+    to a 'cell_mass' variable). Concatenates along the leading (time) axis.
+    """
+    ds = xr.open_zarr(store_path)
+    name = next((v for v in ds.data_vars if str(v).split("/")[-1] == "cell_mass"), None)
+    if name is None:
+        raise ValueError(f"no 'cell_mass' variable in {store_path}; vars={list(ds.data_vars)}")
+    arr = np.asarray(ds[name].values, dtype=float).reshape(-1)
+    return arr

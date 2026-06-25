@@ -1,5 +1,6 @@
 import numpy as np
-from scripts._compare.physical_validity import segment_generations, assess_physical
+import xarray as xr
+from scripts._compare.physical_validity import segment_generations, assess_physical, load_cell_mass
 
 
 def _doubling_trajectory(n_gens=3, steps_per_gen=50, m0=5000.0):
@@ -44,3 +45,21 @@ def test_truncated_run_fails_on_generation_count():
     v = assess_physical(cm, min_generations=2)
     assert v.physical is False
     assert any("division" in r.lower() or "generation" in r.lower() for r in v.reasons)
+
+
+def test_load_cell_mass_from_zarr(tmp_path):
+    store = str(tmp_path / "lineage.zarr")
+    cm = np.linspace(5000.0, 10000.0, 30)
+    ds = xr.Dataset({"cell_mass": ("time", cm)}, coords={"time": np.arange(30)})
+    ds.to_zarr(store, mode="w")
+    out = load_cell_mass(store)
+    assert out.shape == (30,)
+    assert np.allclose(out, cm)
+
+
+def test_load_cell_mass_missing_raises(tmp_path):
+    store = str(tmp_path / "empty.zarr")
+    xr.Dataset({"dry_mass": ("time", np.ones(5))}, coords={"time": np.arange(5)}).to_zarr(store, mode="w")
+    import pytest
+    with pytest.raises(ValueError):
+        load_cell_mass(store)

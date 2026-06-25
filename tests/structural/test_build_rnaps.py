@@ -50,6 +50,11 @@ def pack_count_of(pack: dict, name: str) -> int:
     return sum(1 for p in pack["placements"] if p.get("ingredient") == iid)
 
 
+# NOTE: the synthetic snapshot used by this test contains NO flagella
+# (CPLX0-7452), so pack_protrusions does NOT need — and must NOT add — a
+# flagella-exclusion path. The real build injects flagellar whips deliberately
+# outside the envelope post-pack; excluding CPLX0-7452 here would make the
+# helper silently too lenient and let a genuine interior protrusion slip past.
 def pack_protrusions(pack: dict, res: dict) -> int:
     """Count non-surface placements whose center lies outside the recipe capsule.
 
@@ -97,8 +102,12 @@ def pack_protrusions(pack: dict, res: dict) -> int:
 @pytest.fixture
 def rnap_build_env(tmp_path, monkeypatch):
     """Set up the minimal environment for a small RNAP-placement build."""
-    # Locate the parsimony binary.
-    monkeypatch.setenv("PARSIMONY_HOME", "/Users/eranagmon/code/parsimony")
+    # Locate the parsimony binary. Respect an existing PARSIMONY_HOME (so this
+    # test is portable to CI / other machines); the laptop path is only a fallback.
+    monkeypatch.setenv(
+        "PARSIMONY_HOME",
+        os.environ.get("PARSIMONY_HOME", "/Users/eranagmon/code/parsimony"),
+    )
 
     # Synthetic snapshot: 20 RNAPs spread across the genome, single domain,
     # all on the forward strand.
@@ -143,6 +152,7 @@ def rnap_build_env(tmp_path, monkeypatch):
 
 # ── test ────────────────────────────────────────────────────────────────────
 
+@pytest.mark.slow
 def test_build_places_rnaps_and_confines(rnap_build_env):
     """build_model places exactly 20 RNAPs and keeps all centers inside the cell."""
     out = rnap_build_env

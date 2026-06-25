@@ -99,9 +99,15 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     if condition and condition != "basal":
         import pickle
         from v2ecoli.core import save_sim_input
-        cond_cache = os.path.join(cache_dir, f"cond_{condition}_seed{seed:02d}")
+        # ABSOLUTE paths: the regen below does os.chdir(_iso) for emitter isolation,
+        # so a RELATIVE bundle_dir would be written nested under the changed cwd
+        # (".regen_.../out/cache_full/cond_X") and the marker check — back at the
+        # original cwd — would never find it → silent basal fallback for EVERY
+        # condition. (The old comment claimed "bundle_dir (absolute)" but cache_dir
+        # is relative when --cache-dir is relative, as it always is here.)
+        cond_cache = os.path.abspath(os.path.join(cache_dir, f"cond_{condition}_seed{seed:02d}"))
         marker = os.path.join(cond_cache, "sim_data_cache.dill")
-        sd_path = os.path.join(cache_dir, "simData.cPickle")
+        sd_path = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
         if not os.path.exists(marker) and os.path.exists(sd_path):
             with open(sd_path, "rb") as f:
                 sim_data = pickle.load(f)

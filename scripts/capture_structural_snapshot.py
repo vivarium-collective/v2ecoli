@@ -21,7 +21,14 @@ import argparse
 import sys
 from pathlib import Path
 
+# Ensure the worktree's v2ecoli package shadows the installed one so that
+# classify_domains (added in this branch) is found. Same pattern used by
+# scripts/render_chromosome_gif.py.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import numpy as np
+
+from v2ecoli.structural.build import classify_domains as _classify_domains
 
 # ---------------------------------------------------------------------------
 # Genome constants (must match build.py)
@@ -62,16 +69,31 @@ def _extract_snapshot(comp):
     # ── Chromosome state ─────────────────────────────────────────────────────
     unique = cell.get("unique", {})
 
-    # Number of full chromosomes
+    # Number of full chromosomes + their root domain indices (for classify_domains).
     fc = unique.get("full_chromosome")
     n_chromosomes = 0
     division_time_s = 0.0
+    fc_domains: list = []   # root domain_index for each full chromosome
     if fc is not None and hasattr(fc, "dtype") and "_entryState" in fc.dtype.names:
         active_fc = fc[fc["_entryState"].view(bool)]
         n_chromosomes = int(len(active_fc))
         if "division_time" in fc.dtype.names and len(active_fc) > 0:
             # division_time is the absolute sim-time at which division fires
             division_time_s = float(active_fc["division_time"].max())
+        if "domain_index" in fc.dtype.names and len(active_fc) > 0:
+            fc_domains = [int(x) for x in active_fc["domain_index"]]
+
+    # Chromosome-domain tree (parent → children); used to classify per-RNAP domain.
+    domain_children: dict = {}
+    cd_mol = unique.get("chromosome_domain")
+    if cd_mol is not None and hasattr(cd_mol, "dtype") and "_entryState" in cd_mol.dtype.names:
+        active_cd = cd_mol[cd_mol["_entryState"].view(np.bool_)]
+        if {"domain_index", "child_domains"}.issubset(set(active_cd.dtype.names)):
+            for entry in active_cd:
+                parent = int(entry["domain_index"])
+                kids = [int(k) for k in entry["child_domains"] if int(k) >= 0]
+                if kids:
+                    domain_children[parent] = kids
 
     # Fork fraction: mean distance of active replication forks from oriC,
     # expressed as a fraction of the replichore length.
@@ -122,6 +144,19 @@ def _extract_snapshot(comp):
     else:
         print("  WARNING: active_RNAP unique molecule not found in state")
 
+    # ── Per-RNAP chromosome classification ───────────────────────────────────
+    # classify_domains returns (chromosome_index i4, is_daughter bool); guards
+    # absence of chromosome_domain or full_chromosome (→ all zeros / False).
+    if len(rnap_domain_index) > 0 and fc_domains:
+        rnap_chromosome_index, rnap_is_daughter = _classify_domains(
+            domain_children, fc_domains, rnap_domain_index
+        )
+    else:
+        rnap_chromosome_index = np.zeros(len(rnap_domain_index), dtype=np.int32)
+        rnap_is_daughter = np.zeros(len(rnap_domain_index), dtype=bool)
+    print(f"  chromosome_index unique values: {sorted(set(rnap_chromosome_index.tolist()))}  "
+          f"is_daughter True count: {int(rnap_is_daughter.sum())}")
+
     # ── Nascent RNA ──────────────────────────────────────────────────────────
     rna = unique.get("RNA")
     rna_unique_index = np.array([], dtype=np.int64)
@@ -164,6 +199,8 @@ def _extract_snapshot(comp):
         "rnap_domain_index": rnap_domain_index,
         "rnap_is_forward": rnap_is_forward,
         "rnap_unique_index": rnap_unique_index,
+        "rnap_chromosome_index": rnap_chromosome_index,
+        "rnap_is_daughter": rnap_is_daughter,
         "rna_unique_index": rna_unique_index,
         "rna_RNAP_index": rna_RNAP_index,
         "rna_transcript_length": rna_transcript_length,

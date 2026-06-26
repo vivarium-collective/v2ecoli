@@ -34,6 +34,73 @@ REPLICHORE_BP = GENOME_BP // 2  # 2,320,826
 GENOME_BEADS = 34_000
 
 
+def _descendant_domains_set(domain_children: dict, root: int) -> set:
+    """All transitive descendants of ``root`` (excluding root itself).
+
+    Mirrors the logic in ``v2ecoli/visualizations/workflow.py::_descendant_domains``.
+    """
+    seen: set = set()
+    stack = list((domain_children or {}).get(root, []))
+    while stack:
+        d = stack.pop()
+        if d in seen:
+            continue
+        seen.add(d)
+        stack.extend((domain_children or {}).get(d, []))
+    return seen
+
+
+def classify_domains(
+    domain_children: dict,
+    full_chromosome_domains: list,
+    query_domains: "np.ndarray",
+) -> "tuple[np.ndarray, np.ndarray]":
+    """Classify per-RNAP domain indices by chromosome + daughter status.
+
+    Parameters
+    ----------
+    domain_children:
+        Mapping ``parent_domain_index → [child_domain_index, ...]`` (as produced
+        by reading ``chromosome_domain`` unique-molecule fields).
+    full_chromosome_domains:
+        Ordered list of root ``domain_index`` values for each full chromosome
+        (from the ``full_chromosome`` unique molecule).  The *k*-th entry in
+        this list defines chromosome index *k*.
+    query_domains:
+        1-D int32 array of per-RNAP ``domain_index`` values to classify.
+
+    Returns
+    -------
+    chromosome_index : np.ndarray[int32]
+        Per-RNAP chromosome index (0-based).  Unmatched entries → 0.
+    is_daughter : np.ndarray[bool]
+        True when the RNAP is on a replicated (daughter) copy of chromosome *k*
+        (i.e. its domain_index ≠ the root domain of the matched chromosome).
+        Unmatched entries → False.
+    """
+    n = len(query_domains)
+    chromosome_index = np.zeros(n, dtype=np.int32)
+    is_daughter = np.zeros(n, dtype=bool)
+
+    # Build per-chromosome lineage sets once (root + all transitive descendants).
+    lineages: list[tuple[int, set]] = []
+    for root in full_chromosome_domains:
+        lineage = {root} | _descendant_domains_set(domain_children, root)
+        lineages.append((root, lineage))
+
+    # Classify each query domain.
+    for i, dom in enumerate(query_domains):
+        d = int(dom)
+        for k, (root, lineage) in enumerate(lineages):
+            if d in lineage:
+                chromosome_index[i] = k
+                is_daughter[i] = (d != root)
+                break
+        # If not matched: defaults remain (chromosome_index=0, is_daughter=False).
+
+    return chromosome_index, is_daughter
+
+
 def chromosome_state(state_source="snapshot"):
     """Return ``(n_chromosomes, fork_fraction)`` for the given state.
 
@@ -77,6 +144,8 @@ def rnap_state(state_source="snapshot"):
         "domain_index": np.array([], dtype="i4"),
         "is_forward": np.array([], dtype=bool),
         "unique_index": np.array([], dtype="i8"),
+        "chromosome_index": np.array([], dtype="i4"),
+        "is_daughter": np.array([], dtype=bool),
     }
     try:
         st = np.load(npz_path)
@@ -93,6 +162,12 @@ def rnap_state(state_source="snapshot"):
             "unique_index": st["rnap_unique_index"].astype("i8")
             if "rnap_unique_index" in st
             else _empty["unique_index"],
+            "chromosome_index": st["rnap_chromosome_index"].astype("i4")
+            if "rnap_chromosome_index" in st
+            else _empty["chromosome_index"],
+            "is_daughter": st["rnap_is_daughter"].astype(bool)
+            if "rnap_is_daughter" in st
+            else _empty["is_daughter"],
         }
     except Exception:
         return _empty

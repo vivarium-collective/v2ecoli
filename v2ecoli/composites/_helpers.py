@@ -1411,6 +1411,9 @@ def _get_special_step(loader, step_name, core):
             'global_time': ('global_time',),
             'division_threshold': ('division_threshold',),
             'media_id': ('environment', 'media_id'),
+            # D-period flag raised by MarkDPeriod (same store), so the Division
+            # step can divide on the D-period instead of the mass threshold.
+            'divide': ('divide',),
             'agents': ('..',),
         }
         return instance, topo, 'step'

@@ -35,6 +35,10 @@ _VECOLI_ONLY = (
     "fail_at_max_duration",
     "suffix_time",
     "sim_data_path",
+    # resolve_vecoli_config already returns the fully-merged config, so the
+    # generated v2 config must NOT re-inherit (v2ecoli's loader would look for
+    # the vEcoli base files relative to the v2 workdir and fail).
+    "inherit_from",
 )
 
 # v2ecoli keys with defaults applied when the vEcoli config omits them.
@@ -59,6 +63,24 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     }
     for k, default in _V2_DEFAULTS.items():
         v2.setdefault(k, default)
+    # vEcoli's `max_duration` is its PER-GENERATION sim cap (each generation
+    # runs until division OR max_duration). v2ecoli's lineage uses a SEPARATE
+    # key, `max_duration_per_gen`, which DEFAULTS to 3600 s and is otherwise
+    # never set by this translation. For slow-growth media (acetate, succinate,
+    # anaerobic — doubling time > 60 min, i.e. natural cell cycle > 3600 s) the
+    # 3600 s default force-divided v2 cells before their cell cycle completed:
+    # they divided at low mass, never reached the 2nd round of replication
+    # initiation, and so never got the rRNA gene-dosage boost that drives the
+    # growth ramp — making v2 look 15-30% smaller than vEcoli purely as a cap
+    # artifact. Map vEcoli's per-generation cap onto v2's so both engines
+    # truncate generations identically (fast media are unaffected — they divide
+    # well before either cap).
+    if "max_duration" in vecoli:
+        v2.setdefault("max_duration_per_gen", float(vecoli["max_duration"]))
+        # max_duration is RENAMED to max_duration_per_gen, not a v2 key — drop
+        # the source so the v2 config doesn't carry a redundant/confusing twin
+        # (v2ecoli reads only max_duration_per_gen).
+        v2.pop("max_duration", None)
     return v2
 
 
@@ -66,17 +88,18 @@ VECOLI_REPO = "/Users/eranagmon/code/vEcoli"
 VECOLI_PYTHON = f"{VECOLI_REPO}/.venv/bin/python"
 
 
-def resolve_vecoli_config(config_path: str) -> dict[str, Any]:
-    """Resolve a vEcoli config (honoring ``inherit_from``) using vEcoli's
+def resolve_vecoli_config(config_path: str,
+                          vecoli_repo: str = VECOLI_REPO) -> dict[str, Any]:
+    """Resolve a vEcoli config (honoring ``inherit_from``) using the fork's
     own loader, returning the fully-merged dict."""
+    vecoli_python = f"{vecoli_repo}/.venv/bin/python"
     snippet = (
         "import json,sys;"
         "from runscripts.workflow import load_config_with_inheritance;"
         "json.dump(load_config_with_inheritance(sys.argv[1]), sys.stdout)"
     )
     out = subprocess.check_output(
-        [VECOLI_PYTHON, "-c", snippet, config_path],
-        cwd=VECOLI_REPO,
-        text=True,
+        [vecoli_python, "-c", snippet, config_path],
+        cwd=vecoli_repo, text=True,
     )
     return json.loads(out)

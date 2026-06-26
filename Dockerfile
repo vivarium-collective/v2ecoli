@@ -49,6 +49,17 @@ RUN printf 'export PATH="/app/v2ecoli/.venv/bin:$PATH"\n' > /etc/profile.d/10-v2
 # Sanity: the package imports and Ray is present at the locked version.
 RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 
+# vEcoli `composite-softfloor` checkout as a SIBLING of /app/v2ecoli, so the
+# comparison driver (scripts/run_comparison_ensemble.py --composite vecoli) can
+# sys.path-override the installed `ecoli` release with the composite-branch code
+# — i.e. run the ORIGINAL vEcoli model as a process-bigraph composite
+# (`build_composite_native`) WITH the ppGpp soft-floor, on Ray, no Nextflow.
+# Pinned to the soft-floor commit so the image is reproducible.
+ARG VECOLI_COMPOSITE_REF=composite-softfloor
+RUN git clone --depth 1 --branch "${VECOLI_COMPOSITE_REF}" \
+        https://github.com/vivarium-collective/vEcoli.git /app/vEcoli \
+ && python -c "import sys; sys.path.insert(0, '/app/vEcoli'); from ecoli.composites.ecoli_composite import build_composite_native; print('vEcoli composite (soft-floor) importable')"
+
 # ─── AWS Batch multi-node-parallel (Ray) runtime layer ───────────────────────
 # Make the image self-contained for Ray-on-Batch: the AWS CLI (stages the ParCa
 # cache in + the zarr results out, per the entrypoint's RAY_STAGE_*/RAY_OUT_* env)

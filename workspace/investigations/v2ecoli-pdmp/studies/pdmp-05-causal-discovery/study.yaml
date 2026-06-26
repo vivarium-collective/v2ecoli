@@ -5,8 +5,8 @@ title: Phase 5 — Causal Discovery and Functional Annotation
 claim: |
   At ±15% hypothesis spacing the unbiased pseudo-marginal posterior is essentially uniform (log BF
   +0.01, truth 24.4% vs 20% baseline) and replicate count cannot rescue it (kernel-mean gap Δlog +0.011
-  sets an information-theoretic ceiling); wider spacing lifts truth posterior to 61% but log BF tops out
-  at +0.45 (< Jeffreys substantial) — the single remaining lever in the current design space is
+  sets an information-theoretic ceiling). Wider spacing lifts truth posterior to 61% but log BF tops out
+  at +0.45 (< Jeffreys substantial), so the single remaining lever in the current design space is
   observable choice.
 confidence: Investigating
 status: running
@@ -73,9 +73,9 @@ objective: 'Implement the marginal-likelihood estimator (Russian Roulette /
   resource estimate for genome-wide scaling.
 
   '
-description: 'Phase 5 of the v2ecoli → PDMP roadmap. This is the payoff phase
+description: 'Phase 5 of the v2ecoli → PDMP roadmap. This is the final phase,
 
-  — the one that closes the loop on the DUF ARC original goal of
+  pursuing the DUF ARC original goal of
 
   simulation-based causal discovery in WCMs. It depends on every
 
@@ -101,17 +101,15 @@ description: 'Phase 5 of the v2ecoli → PDMP roadmap. This is the payoff phase
   marginals.
 
 
-  Active causal inference (Toth et al. 2022) closes the experiment-
+  Active causal inference (Toth et al. 2022) handles the experiment-
 
   design loop: rather than passively observing, the agent proposes
 
   interventions whose outcomes will most sharply distinguish
 
-  competing annotations. This converts annotation from
+  competing annotations. This makes annotation hypothesis-driven,
 
-  pattern-matching to hypothesis-driven discovery, in the spirit of
-
-  the DUF ARC vision.
+  following the DUF ARC vision.
 
 
   The benchmark gene set should contain ≥20 E. coli genes with
@@ -135,7 +133,7 @@ description: 'Phase 5 of the v2ecoli → PDMP roadmap. This is the payoff phase
 
   with importance weights. The estimator can have unbounded
 
-  variance — we monitor the empirical variance over batches and
+  variance, so we monitor the empirical variance over batches and
 
   require an ESS-equivalent number of likelihood evaluations
 
@@ -178,7 +176,7 @@ description: 'Phase 5 of the v2ecoli → PDMP roadmap. This is the payoff phase
 
   estimated via nested Monte Carlo (outer over experiments, inner
 
-  over (θ, y) pairs). Standard NMC has bias O(1/N_inner) — we use
+  over (θ, y) pairs). Standard NMC has bias O(1/N_inner), so we use
 
   Donsker-Varadhan or DAD-MINE style variational lower bounds
 
@@ -396,29 +394,15 @@ variants:
     K: 500
 interventions: []
 runs: []
-bibliography:
-  bib_keys:
-  - lyne2015
-  - toth2022
-  - vowels2022
-  - peters2022
-  - bongers2022
-  - blom2023
-  - tejada2025
-  - yang2024
-  - gherman2025
-  - bertin2025
-  - dreyfuss2013
 report:
   confidence: design-stage
   evidence_quality: scaffold
   conclusion: Predicted — framing gene-function annotation as Bayesian model comparison with Russian Roulette marginal-likelihood
     estimators (Lyne et al. 2015) plus an active-inference loop (Toth et al. 2022) will recover ≥20 benchmark E. coli gene
     annotations at BH-FDR ≤ 0.1, with credible-interval widths shrinking at the ≥n⁻¹ᐟ² rate.
-  main_insight: Active causal inference closes the experiment-design loop — instead of passively observing, the agent selects
-    in-silico knockouts/overexpression by expected information gain. This is what converts annotation from pattern-matching
-    to hypothesis-driven discovery.
-  caveat: RR estimator variance is unbounded in pathological cases — N_eff ≥ 100 per marginal-likelihood estimate is the floor;
+  main_insight: Active causal inference handles the experiment-design loop. Instead of passively observing, the agent selects
+    in-silico knockouts/overexpression by expected information gain, which makes annotation hypothesis-driven.
+  caveat: RR estimator variance is unbounded in pathological cases. N_eff ≥ 100 per marginal-likelihood estimate is the floor;
     below that, the run is flagged and falls back to thermodynamic integration / nested sampling with documented bias.
   key_metrics:
   - label: RR estimator N_eff per Z
@@ -455,10 +439,10 @@ pipeline_gate:
     BF| > 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p > 0.05. Active-inference EIG MCSE non-zero
     per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4.
 study_card:
-  goal: 'Phase 5 — close the loop on the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate
+  goal: 'Phase 5 — pursue the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate
     marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting
     in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes.'
-  why_before_next: 'This is the payoff phase: use the fast, likelihood-bearing model to compare gene-function hypotheses and
+  why_before_next: 'This is the final phase: use the fast, likelihood-bearing model to compare gene-function hypotheses and
     choose informative perturbations.'
 readouts:
 - name: rr-estimator-trace
@@ -506,23 +490,23 @@ planned_runs:
 - name: pc-recovery-pilot-millard
   status: scaffold-pilot-done
   n_steps: 40 obs + 6 interventions (v1) or 80 obs at mixed times (v2)
-  details: 'PILOT 2026-05-25/26. TWO iterations:
+  details: 'PILOT 2026-05-25/26. Two iterations:
 
     v1 (scripts/run_causal_pc_pilot.py, 2026-05-25): correlation-only skeleton + interventional
-    orientation. 40 obs + 6 knockouts at steady state. Result: 55.6% recall, 13.9% precision —
-    but the "recall" was deceptive. Diagnosis (during v2): Millard reaches a UNIQUE deterministic
+    orientation. 40 obs + 6 knockouts at steady state. Result: 55.6% recall, 13.9% precision,
+    but the "recall" was misleading. Diagnosis (during v2): Millard reaches a unique deterministic
     steady state regardless of IC perturbation; marginal pairwise |r| ≈ 1.0 across all metabolites
     (rank-1 observation matrix). v1 "matched" by chance on rank-1 data, not real causal structure.
 
-    v2 (scripts/run_causal_pc_v2.py, 2026-05-26): proper PC algorithm — partial-correlation
+    v2 (scripts/run_causal_pc_v2.py, 2026-05-26): proper PC algorithm with partial-correlation
     conditional-independence tests (Fisher z-transform p-values) at |S| up to 2, v-structure
-    orientation via sepsets. Data-generation fix: capture at MIXED transient timepoints (200/500/1000s)
+    orientation via sepsets. Data-generation fix: capture at mixed transient timepoints (200/500/1000s)
     + larger per-species IC perturbations (3x noise) so the observation matrix is genuinely
     multi-dimensional. Result on 80 obs: 33% directed recall (3/9), 16% precision.
 
-    Honest finding: PC algorithm DOES work on Millard, but requires transient-state observations.
-    Steady-state observations are rank-1 garbage for deterministic systems. For pdmp-05.tests.
-    pc-recovers-known-edges (80% recall): path forward is either (a) richer time-course observations
+    Finding: the PC algorithm does work on Millard, but requires transient-state observations.
+    Steady-state observations are rank-1 / uninformative for deterministic systems. For pdmp-05.tests.
+    pc-recovers-known-edges (80% recall), the path forward is either (a) richer time-course observations
     (multiple snapshots per replicate, not just one) or (b) more aggressive interventions that drive
     the system to truly distinct attractors.'
 visualizations:
@@ -710,7 +694,7 @@ discovery_implications:
       priors — will recover decisive Bayes factors.'
     why_plausible: 'Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only
       observable richness or sigma can move; Phase 3 showed count vectors give a measurable
-      grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid — a diagnostic, not
+      grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid, a diagnostic, not
       a posterior; the "~100x" framing was a hardcoded literal, not computed).'
     mechanism_elements_affected:
     - inference-observable
@@ -732,7 +716,7 @@ discovery_implications:
     evidence_for:
     - Wider spacing does lift the truth posterior.
     evidence_against:
-    - Even the most favorable 2-way +/-30% subset tops out at log BF +0.45 — below substantial.
+    - Even the most favorable 2-way +/-30% subset tops out at log BF +0.45, below substantial.
   mechanism_update_proposals:
   - mechanism_node_or_edge: phase-5-observable
     update_type: revise
@@ -776,22 +760,13 @@ enforced_params:
 biological_summary: 'Aims to use the inferable PDMP whole-cell model for functional discovery: compare
   candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover
   known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.'
-literature_anchors:
-- key: peters2022
-  relevance: Causal-inference / structure-discovery foundations.
-- key: lyne2015
-  relevance: Russian-roulette / unbiased marginal-likelihood estimation for model comparison.
-- key: vowels2022
-  relevance: Survey of causal-discovery methods framing the approach.
-- key: toth2022
-  relevance: Active / Bayesian experimental design (expected information gain) for intervention selection.
 model_change: 'No change to the cell model — Phase 5 adds an analysis layer (Bayesian model comparison +
   active causal discovery) on top of the inferable PDMP. The annotation-as-causal-model mapping is the new commitment.'
 implementation_requirements:
 - A Russian-roulette marginal-likelihood estimator (N_eff ≥ 100 or thermodynamic-integration fallback).
 - An active-inference loop computing per-intervention expected information gain with MCSE bounds.
 - A benchmark gene set + BH-FDR-calibrated recovery harness; the Phase-4 compiled runtime for genome-wide tractability.
-design_pivot_required: 'No pivot yet — Phase 5 has not started and is the most downstream study. Its
+design_pivot_required: 'No pivot yet. Phase 5 has not started and is the most downstream study. Its
   feasibility is gated on Phases 1–4; the design will be revisited once an inferable, compiled PDMP exists.'
 conclusion_verdicts:
 - claim: PC / causal discovery recovers known edges on the benchmark set.

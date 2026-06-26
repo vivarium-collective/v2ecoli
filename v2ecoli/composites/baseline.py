@@ -602,6 +602,13 @@ def _get_step_config(
                            "sqlite (persistent time-series db), xarray "
                            "(in-memory labelled arrays), or null (global_time only).",
         },
+        "injected_processes": {
+            "type": "map",
+            "default": {},
+            "description": "Fork process-injection spec "
+                           "{fork_repo, add_processes, swap_processes, "
+                           "process_configs, topology, time_step}; empty = none.",
+        },
     },
     default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
@@ -634,6 +641,7 @@ def baseline(
     mass_conservation: bool = False,
     emitter: str = "parquet",
     bundle: dict | None = None,
+    injected_processes: dict | None = None,
 ) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
@@ -904,6 +912,16 @@ def baseline(
             'outputs': {'shape': ['shape']},
         }
         flow_order.append('shape_step')
+
+    if injected_processes and injected_processes.get("add_processes"):
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                        "..", "..", "scripts"))
+        from scripts._compare.inject import (
+            resolve_injections, apply_injected_processes)
+        specs = resolve_injections(injected_processes["fork_repo"],
+                                   injected_processes)
+        apply_injected_processes(cell_state, flow_order, core, specs)
 
     state = {
         'agents': {'0': cell_state},

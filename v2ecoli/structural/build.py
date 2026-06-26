@@ -34,6 +34,73 @@ REPLICHORE_BP = GENOME_BP // 2  # 2,320,826
 GENOME_BEADS = 34_000
 
 
+def _descendant_domains_set(domain_children: dict, root: int) -> set:
+    """All transitive descendants of ``root`` (excluding root itself).
+
+    Mirrors the logic in ``v2ecoli/visualizations/workflow.py::_descendant_domains``.
+    """
+    seen: set = set()
+    stack = list((domain_children or {}).get(root, []))
+    while stack:
+        d = stack.pop()
+        if d in seen:
+            continue
+        seen.add(d)
+        stack.extend((domain_children or {}).get(d, []))
+    return seen
+
+
+def classify_domains(
+    domain_children: dict,
+    full_chromosome_domains: list,
+    query_domains: "np.ndarray",
+) -> "tuple[np.ndarray, np.ndarray]":
+    """Classify per-RNAP domain indices by chromosome + daughter status.
+
+    Parameters
+    ----------
+    domain_children:
+        Mapping ``parent_domain_index → [child_domain_index, ...]`` (as produced
+        by reading ``chromosome_domain`` unique-molecule fields).
+    full_chromosome_domains:
+        Ordered list of root ``domain_index`` values for each full chromosome
+        (from the ``full_chromosome`` unique molecule).  The *k*-th entry in
+        this list defines chromosome index *k*.
+    query_domains:
+        1-D int32 array of per-RNAP ``domain_index`` values to classify.
+
+    Returns
+    -------
+    chromosome_index : np.ndarray[int32]
+        Per-RNAP chromosome index (0-based).  Unmatched entries → 0.
+    is_daughter : np.ndarray[bool]
+        True when the RNAP is on a replicated (daughter) copy of chromosome *k*
+        (i.e. its domain_index ≠ the root domain of the matched chromosome).
+        Unmatched entries → False.
+    """
+    n = len(query_domains)
+    chromosome_index = np.zeros(n, dtype=np.int32)
+    is_daughter = np.zeros(n, dtype=bool)
+
+    # Build per-chromosome lineage sets once (root + all transitive descendants).
+    lineages: list[tuple[int, set]] = []
+    for root in full_chromosome_domains:
+        lineage = {root} | _descendant_domains_set(domain_children, root)
+        lineages.append((root, lineage))
+
+    # Classify each query domain.
+    for i, dom in enumerate(query_domains):
+        d = int(dom)
+        for k, (root, lineage) in enumerate(lineages):
+            if d in lineage:
+                chromosome_index[i] = k
+                is_daughter[i] = (d != root)
+                break
+        # If not matched: defaults remain (chromosome_index=0, is_daughter=False).
+
+    return chromosome_index, is_daughter
+
+
 def chromosome_state(state_source="snapshot"):
     """Return ``(n_chromosomes, fork_fraction)`` for the given state.
 
@@ -56,6 +123,141 @@ def chromosome_state(state_source="snapshot"):
         return n, f
     except Exception:
         return default
+
+
+def rnap_state(state_source="snapshot"):
+    """Return RNAP arrays ``{coordinates, domain_index, is_forward}`` from the snapshot.
+
+    Reads keys ``rnap_coordinates`` (i8), ``rnap_domain_index`` (i4), and
+    ``rnap_is_forward`` (bool) from the saved state npz, mirroring the file
+    selection of :func:`chromosome_state`.  Returns empty arrays with correct
+    dtypes when the keys are absent or the file is missing, so callers can
+    always iterate over the result without guarding for ``None``.
+    """
+    if state_source == "division":
+        npz_path = DATA / "v2ecoli_state_division.npz"
+    else:
+        npz_path = DATA / "v2ecoli_state.npz"
+
+    _empty = {
+        "coordinates": np.array([], dtype="i8"),
+        "domain_index": np.array([], dtype="i4"),
+        "is_forward": np.array([], dtype=bool),
+        "unique_index": np.array([], dtype="i8"),
+        "chromosome_index": np.array([], dtype="i4"),
+        "is_daughter": np.array([], dtype=bool),
+    }
+    try:
+        st = np.load(npz_path)
+        return {
+            "coordinates": st["rnap_coordinates"].astype("i8")
+            if "rnap_coordinates" in st
+            else _empty["coordinates"],
+            "domain_index": st["rnap_domain_index"].astype("i4")
+            if "rnap_domain_index" in st
+            else _empty["domain_index"],
+            "is_forward": st["rnap_is_forward"].astype(bool)
+            if "rnap_is_forward" in st
+            else _empty["is_forward"],
+            "unique_index": st["rnap_unique_index"].astype("i8")
+            if "rnap_unique_index" in st
+            else _empty["unique_index"],
+            "chromosome_index": st["rnap_chromosome_index"].astype("i4")
+            if "rnap_chromosome_index" in st
+            else _empty["chromosome_index"],
+            "is_daughter": st["rnap_is_daughter"].astype(bool)
+            if "rnap_is_daughter" in st
+            else _empty["is_daughter"],
+        }
+    except Exception:
+        return _empty
+
+
+def rna_state(state_source="snapshot"):
+    """Return nascent-RNA arrays from the snapshot.
+
+    Reads keys ``rna_unique_index`` (i8), ``rna_RNAP_index`` (i8),
+    ``rna_transcript_length`` (i8), ``rna_is_mRNA`` (bool),
+    ``rna_is_full_transcript`` (bool), and ``rna_TU_index`` (i8) from the saved
+    state npz, mirroring the file selection of :func:`rnap_state`.  Returns
+    empty arrays with correct dtypes when keys are absent or the file is missing.
+    """
+    if state_source == "division":
+        npz_path = DATA / "v2ecoli_state_division.npz"
+    else:
+        npz_path = DATA / "v2ecoli_state.npz"
+
+    _empty = {
+        "unique_index": np.array([], dtype="i8"),
+        "RNAP_index": np.array([], dtype="i8"),
+        "transcript_length": np.array([], dtype="i8"),
+        "is_mRNA": np.array([], dtype=bool),
+        "is_full_transcript": np.array([], dtype=bool),
+        "TU_index": np.array([], dtype="i8"),
+    }
+    try:
+        st = np.load(npz_path)
+        return {
+            "unique_index": st["rna_unique_index"].astype("i8")
+            if "rna_unique_index" in st
+            else _empty["unique_index"],
+            "RNAP_index": st["rna_RNAP_index"].astype("i8")
+            if "rna_RNAP_index" in st
+            else _empty["RNAP_index"],
+            "transcript_length": st["rna_transcript_length"].astype("i8")
+            if "rna_transcript_length" in st
+            else _empty["transcript_length"],
+            "is_mRNA": st["rna_is_mRNA"].astype(bool)
+            if "rna_is_mRNA" in st
+            else _empty["is_mRNA"],
+            "is_full_transcript": st["rna_is_full_transcript"].astype(bool)
+            if "rna_is_full_transcript" in st
+            else _empty["is_full_transcript"],
+            "TU_index": st["rna_TU_index"].astype("i8")
+            if "rna_TU_index" in st
+            else _empty["TU_index"],
+        }
+    except Exception:
+        return _empty
+
+
+def ribosome_state(state_source="snapshot"):
+    """Return active-ribosome arrays from the snapshot.
+
+    Reads keys ``ribo_mRNA_index`` (i8), ``ribo_pos_on_mRNA`` (i8),
+    ``ribo_peptide_length`` (i8), and ``ribo_protein_index`` (i8) from the
+    saved state npz, mirroring the file selection of :func:`rna_state`.
+    Returns empty i8 arrays when keys are absent or the file is missing.
+    """
+    if state_source == "division":
+        npz_path = DATA / "v2ecoli_state_division.npz"
+    else:
+        npz_path = DATA / "v2ecoli_state.npz"
+
+    _empty = {
+        "mRNA_index": np.array([], dtype="i8"),
+        "pos_on_mRNA": np.array([], dtype="i8"),
+        "peptide_length": np.array([], dtype="i8"),
+        "protein_index": np.array([], dtype="i8"),
+    }
+    try:
+        st = np.load(npz_path)
+        return {
+            "mRNA_index": st["ribo_mRNA_index"].astype("i8")
+            if "ribo_mRNA_index" in st
+            else _empty["mRNA_index"],
+            "pos_on_mRNA": st["ribo_pos_on_mRNA"].astype("i8")
+            if "ribo_pos_on_mRNA" in st
+            else _empty["pos_on_mRNA"],
+            "peptide_length": st["ribo_peptide_length"].astype("i8")
+            if "ribo_peptide_length" in st
+            else _empty["peptide_length"],
+            "protein_index": st["ribo_protein_index"].astype("i8")
+            if "ribo_protein_index" in st
+            else _empty["protein_index"],
+        }
+    except Exception:
+        return _empty
 
 
 def division_progress(state_source="snapshot"):
@@ -94,26 +296,42 @@ CATEGORY_COLOR = {
     "Nucleoid": (0.85, 0.75, 0.45), "Metabolism": (0.45, 0.8, 0.5),
     "Protein folding": (0.95, 0.85, 0.3), "Envelope": (0.8, 0.55, 0.85),
     "Regulation": (0.9, 0.4, 0.5), "Motility": (0.25, 0.78, 0.72),
+    "Replication": (1.0, 0.35, 0.1), "Division": (0.2, 0.85, 0.9),
 }
 
 # Large assemblies whose abundance is best taken as a representative count and
 # whose structure is a curated PDB/mmCIF (AlphaFold gives only monomers).
 CURATED = [
     # id,             gene,  category,           structure,         count_key,       region
-    ("70S_ribosome",  None, "Translation",      ("cif", "4YBB"),   20000,           "interior"),
-    ("rna_polymerase", None, "Transcription",   ("pdb", "4YG2"),   2000,            "fiber"),
+    # count=0 → not randomly packed; placed explicitly by place_translation as ribosome_marker.
+    ("70S_ribosome",  None, "Translation",      ("cif", "4YBB"),   0,               "interior"),
+    # Free 30S / 50S subunits at their real bulk counts (CPLX0-3953 / CPLX0-3962).
+    # If 2AVY / 2AW4 fail to fetch/mesh the build logs a skip — counts still wire correctly.
+    ("30S_subunit",   None, "Translation",      ("pdb", "2AVY"),   "CPLX0-3953",    "interior"),  # free 30S
+    ("50S_subunit",   None, "Translation",      ("pdb", "2AW4"),   "CPLX0-3962",    "interior"),  # free 50S
+    ("rna_polymerase", None, "Transcription",   ("pdb", "4YG2"),   0,               "fiber"),
     ("groel",         None, "Protein folding",  ("pdb", "1AON"),   1500,            "interior"),
     ("EG10367-MONOMER", None, "Metabolism",     "af",              "GAPDH-A-CPLX",  "interior"),  # GAPDH (complex abundance)
 ]
 DISPLAY = {
-    "70S_ribosome": "70S ribosome", "rna_polymerase": "RNA polymerase",
+    "70S_ribosome": "Active ribosome (70S, translating)", "rna_polymerase": "RNA polymerase",
+    "30S_subunit": "30S ribosomal subunit (free)",
+    "50S_subunit": "50S ribosomal subunit (free)",
     "groel": "GroEL/ES chaperonin",
     "EG10367-MONOMER": "glyceraldehyde-3-phosphate dehydrogenase (GAPDH)",
 }
 
 # Large interior assemblies packed in an early stage so they reach true abundance
 # (packed alongside the small-molecule flood they saturate at a few % of count).
-BIG_ASSEMBLIES = {"70S_ribosome", "groel"}
+# Note: 70S_ribosome is no longer randomly packed (count=0; placed via ribosome_marker).
+# Pack-first ingredients: large assemblies + the free ribosomal subunits, which
+# would otherwise be crowded out of the interior by the ~13k active 70S placed on
+# the mRNAs (the subunits are large too, ~2622 each — see Phase C1).
+BIG_ASSEMBLIES = {"groel", "30S_subunit", "50S_subunit"}
+
+# FtsZ Z-ring: how many FtsZ to lay around the septum circle (a visible cyan band
+# at midcell; the real ring is denser but this reads cleanly at whole-cell scale).
+FTSZ_RING_COUNT = 160
 
 # ── assembled complexes from the bulk ───────────────────────────────────────
 # v2ecoli tracks assembled complexes (CPLX*) in the bulk, but AlphaFold only
@@ -125,7 +343,8 @@ BIG_ASSEMBLIES = {"70S_ribosome", "groel"}
 # (Future complexes without an assembled PDB can use a stoichiometry-driven
 #  blob: read subunits from complexation_reactions.tsv + pack their AlphaFolds.)
 COMPLEX_CATALOG = [
-    # complex_id,   display_name,                 category,    arrangement,      region
+    # complex_id,   display_name,   category,    arrangement,      region
+    ("CPLX0-7452", "flagellum", "Motility", "motor+filament", "surface"),
 ]
 
 
@@ -187,57 +406,45 @@ def _align_to_z(coords):
     return c @ R.T
 
 
-def _build_flagellum_pdb(struct_cache, *, motor=("cif", "6SD5"), filament=("pdb", "1UCU"),
-                         contour_len=13000.0, helix_radius=260.0, helix_pitch=4200.0,
-                         strand_radius=30.0, n_strands=1) -> Path:
-    """Assemble a composite flagellum PDB: motor/basal-body at the base (−z, on
-    axis) + a thick, **helical** flagellin filament swept along +z.
-
-    A single flagellin chain stacked straight renders as a thin (~22 Å) needle. To
-    look like a real flagellum we (a) bundle ``n_strands`` flagellin strands for
-    thickness (~2·strand_radius wide), and (b) sweep the bundle along a helix
-    (the characteristic corkscrew waveform). The helix axis is +z, so a ``surface``
-    ingredient with principal_vector (0,0,1) anchors the motor at the envelope with
-    the corkscrew projecting outward."""
-    struct_cache = Path(struct_cache); struct_cache.mkdir(parents=True, exist_ok=True)
-    out = struct_cache / "flagellum.pdb"
-    if out.exists() and out.stat().st_size > 0:
-        return out
-    fil = _parse_pdb_atoms(fetch(StructureRef(*filament), struct_cache))
-    mot = (_parse_cif_atoms if motor[0] == "cif" else _parse_pdb_atoms)(
-        fetch(StructureRef(*motor), struct_cache))
-    fz = _align_to_z(np.array([(x, y, z) for x, y, z, _ in fil])); fe = [e for *_, e in fil]
-    mz = _align_to_z(np.array([(x, y, z) for x, y, z, _ in mot])); me = [e for *_, e in mot]
-    mz = mz * np.array([1.0, -1.0, -1.0])                      # flip motor (arbitrary PCA sign)
-    seg = float(fz[:, 2].max() - fz[:, 2].min()) or 1.0
-    nrep = max(3, int(round(contour_len / seg)))
-    f0 = fz.copy(); f0[:, 2] -= fz[:, 2].min()                 # filament base at z=0
-    # straight bundle, as (local_x, local_y, contour_s, element)
-    offs = [(0.0, 0.0)] + [(strand_radius * np.cos(a), strand_radius * np.sin(a))
-                           for a in np.linspace(0, 2 * np.pi, max(1, n_strands - 1), endpoint=False)]
-    atoms = []
-    mb = mz.copy(); mb[:, 2] -= mz[:, 2].max()                 # motor base below z=0, on axis
-    atoms += [(x, y, z, e) for (x, y, z), e in zip(mb, me)]
+def _flagellum_tube_obj(out_path, *, contour_len=22000.0, helix_radius=1500.0,
+                        helix_pitch=12000.0, base_radius=95.0, tip_radius=55.0,
+                        n_ring=12, ds=70.0):
+    """Write a flagellum DIRECTLY as a watertight OBJ tube swept along a helix (a
+    generalised cylinder), centred at its centroid. No PDB/mesher round-trip — that
+    path fragmented into thousands of pieces AND the PDB writer overflowed its
+    8-col coordinate fields past 9999 Å, mis-scaling the mesh to ~900 µm. Here the
+    coordinates are exact. Radius tapers base→tip; helix axis = +z (so a placement
+    that rotates +z onto the outward normal trails the corkscrew off the pole)."""
     Lturn = float(np.hypot(2 * np.pi * helix_radius, helix_pitch))
-    for ox, oy in offs:
-        for r in range(nrep):
-            for (x, y, z), e in zip(f0, fe):
-                s = z + r * seg                                # contour position
-                th = 2 * np.pi * s / Lturn
-                Reff = helix_radius * min(1.0, s / Lturn)      # ramp radius over 1st turn (hook)
-                c = np.array([Reff * np.cos(th), Reff * np.sin(th), helix_pitch * th / (2 * np.pi)])
-                N = np.array([np.cos(th), np.sin(th), 0.0])    # radial ⟂ tangent
-                T = np.array([-2 * np.pi * helix_radius * np.sin(th),
-                              2 * np.pi * helix_radius * np.cos(th), helix_pitch]); T /= np.linalg.norm(T)
-                B = np.cross(T, N)
-                p = c + (x + ox) * N + (y + oy) * B
-                atoms.append((p[0], p[1], p[2], e))
-    with open(out, "w") as f:
-        for i, (x, y, z, e) in enumerate(atoms, 1):
-            f.write(f"ATOM  {i % 100000:5d}  CA  ALA A{i % 9999:4d}    "
-                    f"{x:8.3f}{y:8.3f}{z:8.3f}  1.00  0.00          {e:>2}\n")
-        f.write("END\n")
-    return out
+    rings, s = [], 0.0
+    while s <= contour_len:
+        f = s / contour_len
+        th = 2 * np.pi * s / Lturn
+        Reff = helix_radius * min(1.0, s / Lturn)              # ramp out over the 1st turn (hook)
+        c = np.array([Reff * np.cos(th), Reff * np.sin(th), helix_pitch * th / (2 * np.pi)])
+        T = np.array([-2 * np.pi * helix_radius * np.sin(th),
+                      2 * np.pi * helix_radius * np.cos(th), helix_pitch]); T /= np.linalg.norm(T)
+        N = np.array([np.cos(th), np.sin(th), 0.0]); N -= T * np.dot(N, T); N /= (np.linalg.norm(N) or 1.0)
+        B = np.cross(T, N)
+        rings.append((c, N, B, base_radius * (1 - f) + tip_radius * f))
+        s += ds
+    verts = []
+    for (c, N, B, r) in rings:
+        for k in range(n_ring):
+            a = 2 * np.pi * k / n_ring
+            verts.append(c + r * (np.cos(a) * N + np.sin(a) * B))
+    verts = np.array(verts); verts -= verts.mean(0)            # centre → A-offset logic works
+    faces = []
+    for i in range(len(rings) - 1):
+        for k in range(n_ring):
+            a = i * n_ring + k + 1; b = i * n_ring + (k + 1) % n_ring + 1
+            cc = (i + 1) * n_ring + (k + 1) % n_ring + 1; dd = (i + 1) * n_ring + k + 1
+            faces.append((a, b, cc)); faces.append((a, cc, dd))
+    with open(out_path, "w") as fo:
+        for p in verts:
+            fo.write(f"v {p[0]:.2f} {p[1]:.2f} {p[2]:.2f}\n")
+        for (a, b, c) in faces:
+            fo.write(f"f {a} {b} {c}\n")
 
 
 def _flat_dir() -> Path:
@@ -387,18 +594,42 @@ def _expand_monomers(cid, rxn, prot, depth=0, acc=None):
     return acc
 
 
-def _cluster_offsets(n, spacing):
-    """n compact 3D-grid offsets (Å), nearest-origin-first, for clustering subunits."""
-    pts, r = [], 0
-    while len(pts) < n:
-        r += 1
-        for x in range(-r, r + 1):
-            for y in range(-r, r + 1):
-                for z in range(-r, r + 1):
-                    if max(abs(x), abs(y), abs(z)) == r:
-                        pts.append((x, y, z))
-    pts.sort(key=lambda p: p[0] ** 2 + p[1] ** 2 + p[2] ** 2)
-    return [(x * spacing, y * spacing, z * spacing) for x, y, z in pts[:n]]
+def _pack_cluster(radii):
+    """Greedy compact sphere-packing: place each subunit (largest first) touching
+    the growing cluster as close to the centre as possible → a globular assembly
+    (subunits in contact), not subunits floating on a sparse grid. ``radii`` are
+    the subunit bounding radii; returns centred [N,3] centre positions (Å)."""
+    n = len(radii)
+    order = sorted(range(n), key=lambda i: -radii[i])
+    pos = np.zeros((n, 3))
+    placed = []
+    ga = np.pi * (3 - np.sqrt(5))
+    C = 128
+    dirs = []
+    for c in range(C):
+        y = 1 - 2 * (c + 0.5) / C; rxy = max(0.0, 1 - y * y) ** 0.5; phi = c * ga
+        dirs.append(np.array([rxy * np.cos(phi), y, rxy * np.sin(phi)]))
+    for i in order:
+        ri = radii[i]
+        if not placed:
+            placed.append(i); continue                  # first subunit at origin
+        best_p, best_score = None, 1e30
+        for dvec in dirs:
+            t = 0.0
+            for j in placed:
+                pj = pos[j]; R = ri + radii[j]
+                dp = float(np.dot(dvec, pj))
+                disc = dp * dp - float(np.dot(pj, pj)) + R * R
+                if disc <= 0:
+                    continue                              # this ray misses subunit j
+                tplus = dp + np.sqrt(disc)                # exit point past subunit j
+                if tplus > t:
+                    t = tplus
+            if t * t < best_score:                        # closest to centre = most compact
+                best_score = t * t; best_p = t * dvec
+        pos[i] = best_p; placed.append(i)
+    pos -= pos.mean(0)
+    return pos
 
 
 def _build_complex_blob(cid, monomers, struct_cache, genes, umap):
@@ -426,15 +657,16 @@ def _build_complex_blob(cid, monomers, struct_cache, genes, umap):
             units.append((xyz, elems, rad))
     if not units:
         return None
-    spacing = 2.0 * max(u[2] for u in units)
-    offsets = _cluster_offsets(len(units), spacing)
+    centers = _pack_cluster([u[2] for u in units])     # compact globular packing
     lines = []
     serial = 1
-    for (xyz, elems, _), off in zip(units, offsets):
-        ox, oy, oz = off
+    for (xyz, elems, _), off in zip(units, centers):
+        ox, oy, oz = float(off[0]), float(off[1]), float(off[2])
         for (x, y, z), e in zip(xyz, elems):
+            # %8.3f overflows past ±9999 Å (mis-parses on read); compact clusters
+            # stay well inside that, but clamp the format defensively.
             lines.append(f"ATOM  {serial % 100000:5d}  CA  ALA A{serial % 9999:4d}    "
-                         f"{x + ox:8.3f}{y + oy:8.3f}{z + oz:8.3f}  1.00  0.00          {e:>2}")
+                         f"{x + ox:8.2f}{y + oy:8.2f}{z + oz:8.2f}  1.00  0.00          {e:>2}")
             serial += 1
     out.write_text("\n".join(lines) + "\nEND\n")
     return out
@@ -463,7 +695,7 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
             ref = StructureRef("alphafold", acc)
         cnt = counts.get(ckey, 0) if isinstance(ckey, str) else int(ckey)
         ingredients.append(Ingredient(
-            id=key, count=max(1, cnt), structure=ref, region=region,
+            id=key, count=(max(1, cnt) if cnt > 0 else 0), structure=ref, region=region,
             display_name=DISPLAY.get(key, prot.get(key, key)), category=cat,
             color=CATEGORY_COLOR[cat],
             proxy_voxel_size=12.0 if isinstance(struct, tuple) else None,
@@ -504,12 +736,11 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000, struct_cache=None
         if cnt <= 0:
             continue
         if arrangement == "motor+filament":
-            pdb = _build_flagellum_pdb(struct_cache)
-            ingredients.append(Ingredient(
-                id=cid, count=cnt, structure=StructureRef("file", str(pdb)),
-                region=region, display_name=disp, category=cat,
-                color=CATEGORY_COLOR[cat], principal_vector=(0, 0, 1),
-                proxy_voxel_size=14.0))
+            # The flagellum is NOT handed to the packer at all: its 19000 Å tube
+            # mesh makes the octree proxy voxeliser explode (it hung for hours).
+            # It's meshed + injected entirely post-pack (_inject_flagellum) as a
+            # rear-pole tuft at the true bulk count. Just reserve the id here so
+            # the generic stoichiometry-blob path below skips it.
             already.add(cid)
         # other arrangements (single PDB, stoichiometry blob) added here later
 
@@ -603,6 +834,206 @@ def _cluster_complex_at_pole(pack_path, mesh_dir, name, mesh_stem, cone_deg=55.0
             p["position"] = [float(pos[0]), float(pos[1]), float(pos[2])]; p["rotation"] = q
     pack_path.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
     return {"placed": n, "offset": A}
+
+
+def _set_sidecar_count(sidecar_path, name, count):
+    side = json.loads(Path(sidecar_path).read_text())
+    ings = side.get("ingredients", side)
+    if name in ings:
+        ings[name]["count"] = int(count)
+    Path(sidecar_path).write_text(json.dumps(side, indent=1))
+
+
+def _quat_z_to(dvec):
+    """Quaternion [w,x,y,z] rotating the mesh +z axis onto unit vector ``dvec``."""
+    z = np.array([0.0, 0.0, 1.0]); c = float(np.dot(z, dvec))
+    if c > 0.999999:
+        return [1.0, 0.0, 0.0, 0.0]
+    if c < -0.999999:
+        return [0.0, 1.0, 0.0, 0.0]
+    ax = np.cross(z, dvec); ax /= np.linalg.norm(ax)
+    half = np.arccos(c) / 2.0; s = np.sin(half)
+    return [float(np.cos(half)), float(ax[0] * s), float(ax[1] * s), float(ax[2] * s)]
+
+
+def _emit(fid, pos, q, arr8):
+    if arr8:
+        return [fid, round(float(pos[0])), round(float(pos[1])), round(float(pos[2])),
+                round(q[0], 3), round(q[1], 3), round(q[2], 3), round(q[3], 3)]
+    return {"ingredient": fid, "position": [float(pos[0]), float(pos[1]), float(pos[2])],
+            "rotation": [float(v) for v in q]}
+
+
+def _place_flagella_tuft(pack_path, sidecar_path, mesh_dir, name, mesh_stem,
+                         count, half_len, radius, cone_deg=50.0):
+    """Place EXACTLY ``count`` flagella as a tuft on the rear (−x) pole — motors on
+    the envelope, helical whips fanning outward. REPLACES whatever the packer
+    placed (flagella are a surface ingredient, so the area-limited packer
+    under-places them) and sets the sidecar count to ``count``, so the rendered
+    number matches the v2ecoli bulk count."""
+    pack_path = Path(pack_path); d = json.loads(pack_path.read_text())
+    ing = next((g for g in d["ingredients"] if g["name"] == name), None)
+    if ing is None or count <= 0:
+        return
+    fid = ing["id"]; arr8 = d.get("placement_format") == "array8"
+    finest = sorted(Path(mesh_dir).glob(f"{mesh_stem}.lod*.obj"))[-1]
+    vs = np.array([[float(x) for x in line.split()[1:4]]
+                   for line in open(finest) if line.startswith("v ")])
+    A = float(-(vs[:, 2] - vs[:, 2].mean()).min())   # motor-end offset from centroid
+    a = np.array([-float(half_len), 0.0, 0.0])        # rear cap centre, axis = x
+    pole = np.array([-1.0, 0.0, 0.0])
+    u, v = np.array([0.0, 1.0, 0.0]), np.array([0.0, 0.0, 1.0])
+    ga = np.pi * (3 - np.sqrt(5)); cos_half = np.cos(np.deg2rad(cone_deg))
+    newpl = []
+    for i in range(int(count)):
+        ct = 1 - (i + 0.5) / count * (1 - cos_half); st = np.sqrt(max(0.0, 1 - ct * ct))
+        phi = i * ga
+        d_ = ct * pole + st * (np.cos(phi) * u + np.sin(phi) * v); d_ /= np.linalg.norm(d_)
+        pos = a + (radius + A) * d_
+        newpl.append(_emit(fid, pos, _quat_z_to(d_), arr8))
+    d["placements"] = [p for p in d["placements"]
+                       if (p[0] if arr8 else p["ingredient"]) != fid] + newpl
+    pack_path.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
+    _set_sidecar_count(sidecar_path, name, count)
+
+
+def _place_flagella_peritrichous(pack_path, sidecar_path, mesh_dir, name, mesh_stem,
+                                 count, half_len, radius, sweep=0.5):
+    """Distribute ``count`` flagella over the WHOLE capsule surface (cylinder body +
+    both caps) — peritrichous, not a polar tuft — each emerging from its surface
+    point and trailing outward with a mild rearward ``sweep`` (the swimming-bundle
+    look). Replaces existing placements + sets the sidecar count."""
+    pack_path = Path(pack_path); d = json.loads(pack_path.read_text())
+    ing = next((g for g in d["ingredients"] if g["name"] == name), None)
+    if ing is None or count <= 0:
+        return
+    fid = ing["id"]; arr8 = d.get("placement_format") == "array8"
+    finest = sorted(Path(mesh_dir).glob(f"{mesh_stem}.lod*.obj"))[-1]
+    vs = np.array([[float(x) for x in ln.split()[1:4]]
+                   for ln in open(finest) if ln.startswith("v ")])
+    A = float(-(vs[:, 2] - vs[:, 2].mean()).min())   # base→centroid offset (centred mesh)
+    L = float(half_len); R = float(radius)
+    cyl_frac = (2 * np.pi * R * 2 * L) / (2 * np.pi * R * 2 * L + 4 * np.pi * R * R)
+    ga = np.pi * (3 - np.sqrt(5))
+    newpl = []
+    for i in range(int(count)):
+        u = (i + 0.5) / count; phi = i * ga
+        if u < cyl_frac:                                   # cylindrical body
+            x = -L + 2 * L * (u / cyl_frac)
+            n = np.array([0.0, np.cos(phi), np.sin(phi)])
+            surf = np.array([x, R * n[1], R * n[2]])
+        else:                                              # the two hemispherical caps
+            uc = (u - cyl_frac) / (1 - cyl_frac)
+            cap = -1.0 if uc < 0.5 else 1.0
+            cz = (uc % 0.5) / 0.5; sr = np.sqrt(max(0.0, 1 - cz * cz))
+            n = np.array([cap * cz, sr * np.cos(phi), sr * np.sin(phi)])
+            surf = np.array([cap * L, 0.0, 0.0]) + R * n
+        # Sweep toward the NEAREST pole (not a single global direction) — so on a
+        # near-dividing dumbbell each daughter's flagella trail off ITS own end,
+        # splitting the bundle evenly between the two daughters.
+        pole = np.array([1.0 if surf[0] >= 0 else -1.0, 0.0, 0.0])
+        wd = n + sweep * pole; wd /= (np.linalg.norm(wd) or 1.0)
+        pos = surf + A * wd                                # base sits on the surface
+        newpl.append(_emit(fid, pos, _quat_z_to(wd), arr8))
+    d["placements"] = [p for p in d["placements"]
+                       if (p[0] if arr8 else p["ingredient"]) != fid] + newpl
+    pack_path.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
+    _set_sidecar_count(sidecar_path, name, count)
+
+
+def _place_septum_ring(pack_path, sidecar_path, name, ring_radius, count, x=0.0, band=420.0):
+    """Place EXACTLY ``count`` copies of ``name`` in a ring at midcell (x≈0, the
+    septum), radius ``ring_radius`` — the FtsZ Z-ring constricting the division
+    site, oriented tangentially in a 2-row band. Replaces the packer's placements
+    + sets the sidecar count."""
+    pack_path = Path(pack_path); d = json.loads(pack_path.read_text())
+    ing = next((g for g in d["ingredients"] if g["name"] == name), None)
+    if ing is None or count <= 0:
+        return
+    fid = ing["id"]; arr8 = d.get("placement_format") == "array8"
+    newpl = []
+    count = int(count)
+    ga = np.pi * (3 - np.sqrt(5))      # golden angle → even coverage of the band
+    for i in range(count):
+        th = i * ga
+        xx = x + band * ((i + 0.5) / count - 0.5)         # spread across the band width
+        pos = np.array([xx, ring_radius * np.cos(th), ring_radius * np.sin(th)])
+        t = np.array([0.0, -np.sin(th), np.cos(th)])      # tangent (protofilament direction)
+        newpl.append(_emit(fid, pos, _quat_z_to(t), arr8))
+    d["placements"] = [p for p in d["placements"]
+                       if (p[0] if arr8 else p["ingredient"]) != fid] + newpl
+    pack_path.write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
+    _set_sidecar_count(sidecar_path, name, count)
+
+
+def _mat_to_quat(R):
+    """3×3 rotation matrix (orthonormal, right-handed cols) → quaternion [w,x,y,z]."""
+    t = R[0, 0] + R[1, 1] + R[2, 2]
+    if t > 0:
+        s = np.sqrt(t + 1.0) * 2
+        return [float(0.25 * s), float((R[2, 1] - R[1, 2]) / s),
+                float((R[0, 2] - R[2, 0]) / s), float((R[1, 0] - R[0, 1]) / s)]
+    if R[0, 0] > R[1, 1] and R[0, 0] > R[2, 2]:
+        s = np.sqrt(1.0 + R[0, 0] - R[1, 1] - R[2, 2]) * 2
+        return [float((R[2, 1] - R[1, 2]) / s), float(0.25 * s),
+                float((R[0, 1] + R[1, 0]) / s), float((R[0, 2] + R[2, 0]) / s)]
+    if R[1, 1] > R[2, 2]:
+        s = np.sqrt(1.0 + R[1, 1] - R[0, 0] - R[2, 2]) * 2
+        return [float((R[0, 2] - R[2, 0]) / s), float((R[0, 1] + R[1, 0]) / s),
+                float(0.25 * s), float((R[1, 2] + R[2, 1]) / s)]
+    s = np.sqrt(1.0 + R[2, 2] - R[0, 0] - R[1, 1]) * 2
+    return [float((R[1, 0] - R[0, 1]) / s), float((R[0, 2] + R[2, 0]) / s),
+            float((R[1, 2] + R[2, 1]) / s), float(0.25 * s)]
+
+
+def _mesh_ellipsoid(verts):
+    """Principal-axis ellipsoid (enclosing_radius, semi_axes, rotation[w,x,y,z])
+    fitted to a vertex cloud — the anisotropic fallback proxy the viewer draws
+    before a mesh's OBJ LODs stream in (so a flagellum reads as a cigar, not a
+    huge ball)."""
+    c = verts.mean(0); X = verts - c
+    _, V = np.linalg.eigh(X.T @ X / max(1, len(X)))
+    V = V[:, ::-1]                                  # eigh ascending → descending
+    if np.linalg.det(V) < 0:
+        V[:, 2] = -V[:, 2]
+    proj = X @ V
+    semi = [float(max(1.0, (proj[:, k].max() - proj[:, k].min()) / 2.0)) for k in range(3)]
+    enclosing = float(np.sqrt((X ** 2).sum(1)).max())
+    return enclosing, semi, _mat_to_quat(V)
+
+
+def _inject_flagellum(pack_path, sidecar_path, out_dir, name, count, half_len, radius,
+                      *, color, category, display_name):
+    """Write the flagellum tube OBJ directly + inject it into the finished pack as a
+    rear-pole tuft of ``count`` placements (kept entirely outside the octree packer,
+    whose proxy voxeliser explodes on the long tube). Idempotent: re-running updates
+    the existing flagellum ingredient + replaces its placements."""
+    out_dir = Path(out_dir); mesh_dir = out_dir / "meshes"; mesh_dir.mkdir(parents=True, exist_ok=True)
+    stem = "flagellum"
+    _flagellum_tube_obj(mesh_dir / f"{stem}.lod0.obj", n_ring=14, ds=70.0)
+    _flagellum_tube_obj(mesh_dir / f"{stem}.lod1.obj", n_ring=9, ds=150.0)
+    verts = np.array([[float(x) for x in ln.split()[1:4]]
+                      for ln in open(mesh_dir / f"{stem}.lod0.obj") if ln.startswith("v ")])
+    enclosing, semi, ell_q = _mesh_ellipsoid(verts)
+    shape = {"kind": "mesh", "enclosing_radius": enclosing,
+             "ellipsoid": {"rotation": ell_q, "semi_axes": semi},
+             "lods": [{"url": f"meshes/{stem}.lod0.obj", "voxel_size": 16.0},
+                      {"url": f"meshes/{stem}.lod1.obj", "voxel_size": 8.0}]}
+    d = json.loads(Path(pack_path).read_text())
+    existing = next((g for g in d["ingredients"] if g["name"] == name), None)
+    if existing is not None:
+        existing["shape"] = shape; existing["color"] = [float(c) for c in color]
+    else:
+        new_id = max((g["id"] for g in d["ingredients"]), default=-1) + 1
+        d["ingredients"].append({"id": new_id, "name": name,
+                                 "color": [float(c) for c in color], "shape": shape})
+    Path(pack_path).write_text(json.dumps(d, separators=(",", ":"), allow_nan=False))
+    side = json.loads(Path(sidecar_path).read_text())
+    ings = side.get("ingredients", side)
+    ings[name] = {"display_name": display_name, "category": category, "count": int(count)}
+    Path(sidecar_path).write_text(json.dumps(side, indent=1))
+    _place_flagella_peritrichous(pack_path, sidecar_path, mesh_dir, name, stem, count,
+                                 half_len, radius)
 
 
 def _constricted_capsule_mesh(half_len, radius, depth, width=None,
@@ -701,15 +1132,15 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # counts = active_replisome / oriC counts); terC is the terminus locus.
     ingredients.append(Ingredient(
         id="replisome", count=0, structure=StructureRef("pdb", "2HPI"),
-        color=(1.0, 0.35, 0.1), category="Replication", proxy_voxel_size=14.0,
+        color=(1.0, 0.35, 0.1), category="Replication", proxy_voxel_size=22.0,
         display_name="Replisome — DNA polymerase III (active_replisome, at fork)"))
     ingredients.append(Ingredient(
-        id="oriC", count=0, sphere_radius=70.0,
-        color=(0.2, 0.9, 0.4), category="Replication",
+        id="oriC", count=0, sphere_radius=130.0,
+        color=(0.95, 0.15, 0.85), category="Replication",  # magenta — distinct from RNA-green/RNAP-blue
         display_name="oriC (origin of replication)"))
     ingredients.append(Ingredient(
-        id="terminus", count=0, sphere_radius=70.0,
-        color=(0.35, 0.5, 1.0), category="Replication",
+        id="terminus", count=0, sphere_radius=130.0,
+        color=(1.0, 0.85, 0.1), category="Replication",  # yellow — distinct from RNAP-blue/replisome-orange
         display_name="terC (replication terminus)"))
     # Cell envelope from the Shape step (Skalnik et al. 2023): fixed width +
     # density, length derived from volume — so a pre-division state yields the
@@ -724,48 +1155,190 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # so size/mass) scales as n_chromosomes×(1+fork_fraction) — matching the
     # state's real total DNA bp.
     n_chrom, fork_fraction = chromosome_state(state_source)
+    rs = rnap_state(state_source)
+    # Coerce chromosome_index / is_daughter to the RNAP count for backward compat:
+    # pre-BF2 snapshots omit these keys → rnap_state returns empty arrays.  Pad
+    # with zeros / False so the zip below always produces one entry per RNAP.
+    n_rnap = len(rs["coordinates"])
+    chr_idx = rs["chromosome_index"]
+    is_dau = rs["is_daughter"]
+    if len(chr_idx) != n_rnap:
+        chr_idx = np.zeros(n_rnap, dtype="i4")
+    if len(is_dau) != n_rnap:
+        is_dau = np.zeros(n_rnap, dtype=bool)
+    rnaps = [
+        {
+            "coordinates": int(c), "domain_index": int(d), "is_forward": bool(f),
+            "chromosome_index": int(ci), "is_daughter": bool(isd),
+        }
+        for c, d, f, ci, isd in zip(
+            rs["coordinates"], rs["domain_index"], rs["is_forward"], chr_idx, is_dau
+        )
+    ]
+    # Nascent RNA wiring: map each active RNAP's unique_index → (coord, domain,
+    # chromosome_index, is_daughter) so each nascent RNA strand can be rooted at
+    # its transcribing polymerase and inherits its chromosome + daughter status.
+    rnas_raw = rna_state(state_source)
+    rnap_uid_to_cd = {
+        int(uid): (int(c), int(d), int(ci), bool(isd))
+        for uid, c, d, ci, isd in zip(
+            rs["unique_index"], rs["coordinates"], rs["domain_index"], chr_idx, is_dau
+        )
+    }
+    rnas = []
+    n_nascent = 0
+    n_free = 0
+    transcript_length = rnas_raw["transcript_length"]
+    is_mRNA = rnas_raw["is_mRNA"]
+    unique_index = rnas_raw["unique_index"]
+    for i in range(len(rnas_raw["RNAP_index"])):
+        uid = int(rnas_raw["RNAP_index"][i])
+        if uid not in rnap_uid_to_cd:
+            # uid == -1 (or any orphaned uid): free / fully-terminated cytoplasmic RNA.
+            # Emit as a confined interior strand (is_free=True → placer seeds inside
+            # the cell envelope via a rejection-sampled random interior point).
+            # Cytoplasmic strands have no chromosome anchor → chromosome_index=0,
+            # is_daughter=False.
+            rnas.append({
+                "root_coordinate": 0,
+                "root_domain": 0,
+                "length_nt": int(transcript_length[i]),
+                "is_mRNA": bool(is_mRNA[i]),
+                "is_free": True,
+                "chromosome_index": 0,
+                "is_daughter": False,
+                "unique_index": int(unique_index[i]),
+            })
+            n_free += 1
+        else:
+            coord, dom, chrom_idx, is_daughter = rnap_uid_to_cd[uid]
+            rnas.append({
+                "root_coordinate": coord,
+                "root_domain": dom,
+                "length_nt": int(transcript_length[i]),
+                "is_mRNA": bool(is_mRNA[i]),
+                "chromosome_index": chrom_idx,
+                "is_daughter": is_daughter,
+                "unique_index": int(unique_index[i]),
+            })
+            n_nascent += 1
+    print(f"  RNAs: {n_nascent} nascent (wired to {len(rnaps)} active RNAPs)"
+          f" + {n_free} free cytoplasmic → {len(rnas)} total")
+    # Active ribosomes: each placed on its mRNA strand at pos_on_mRNA / length_nt.
+    # mRNA_index must match RNA.unique_index for the placer to locate the strand.
+    rs_ribo = ribosome_state(state_source)
+    ribosomes = [
+        {"mRNA_index": int(m), "pos_on_mRNA": int(p), "peptide_length": int(l)}
+        for m, p, l in zip(rs_ribo["mRNA_index"], rs_ribo["pos_on_mRNA"], rs_ribo["peptide_length"])
+    ]
+    print(f"  ribosomes: {len(ribosomes)} active (mRNA_index → strand unique_index)")
+    # RNA segment ingredient: reuse the dsDNA 1BNA mesh with an RNA-green color so
+    # nascent strands render as tiled segments distinct from the chromosome (tan)
+    # and RNAP (blue).  count=0 means the packer does not place it randomly — the
+    # chromosome stage tiles it along each nascent-RNA strand contour.
+    RNA_COLOR = (0.2, 0.85, 0.5)       # emerald green — nascent (transcribing) RNA
+    RNA_FREE_COLOR = (0.15, 0.68, 0.78)  # teal — free (released) cytoplasmic mRNA
+    ingredients.append(Ingredient(
+        id="rna_segment", count=0,
+        structure=StructureRef("pdb", "1BNA"),
+        color=RNA_COLOR, category="Transcription",
+        display_name="Nascent RNA (transcribing, on RNAP)"))
+    ingredients.append(Ingredient(
+        id="rna_segment_free", count=0,
+        structure=StructureRef("pdb", "1BNA"),
+        color=RNA_FREE_COLOR, category="Transcription",
+        display_name="Free mRNA (released, cytoplasmic)"))
+    PEPTIDE_COLOR = (0.95, 0.45, 0.3)   # orange-red — nascent peptide (Translation)
+    ingredients.append(Ingredient(
+        id="peptide_segment", count=0,
+        structure=StructureRef("pdb", "1BNA"),
+        color=PEPTIDE_COLOR, category="Translation",
+        display_name="Nascent peptide"))
     chromosome = Chromosome(
         beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
         segment=StructureRef("pdb", "1BNA"),
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200},
         n_chromosomes=n_chrom, fork_fraction=fork_fraction,
-        fork_marker="replisome", oric_marker="oriC", ter_marker="terminus")
-    # Septum: a constricting pre-division cell gets a pinched-capsule envelope
-    # (the membrane + interior follow it). Depth is state-driven — it tracks the
-    # cell's division progress (D-period) rather than a fixed value, so a newborn
-    # is a smooth rod and a near-division cell has a deep waist.
+        fork_marker="replisome", oric_marker="oriC", ter_marker="terminus",
+        rnaps=rnaps, rnap_marker="rna_polymerase",
+        rnas=rnas, rna_segment="rna_segment", rna_segment_free="rna_segment_free",
+        rna_angstrom_per_nt=2.0,
+        ribosomes=ribosomes, ribosome_marker="70S_ribosome",
+        peptide_segment="peptide_segment", peptide_angstrom_per_aa=3.0)
+    # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
+    # membrane + interior follow it). Depth is state-driven — it tracks the cell's
+    # division progress (D-period), so a newborn is a smooth rod and a near-division
+    # cell has a deep waist — but capped at a ~50% medial neck (a constricted
+    # dumbbell: two full-radius lobes joined by a defined septum, not a sharp pinch).
     if septum_fraction is None:
-        septum_fraction = septum_from_progress(division_progress(state_source))
+        septum_fraction = septum_from_progress(division_progress(state_source), max_depth=0.5)
+    dividing = n_chrom >= 2
+    # FtsZ Z-ring constricting the septum — a dividing-cell feature only. Added as a
+    # curated ingredient (so it's meshed + in the sidecar); placements arranged into
+    # the midcell ring post-pack.
+    if dividing:
+        ingredients.append(Ingredient(
+            id="ftsz_ring", count=FTSZ_RING_COUNT, structure=StructureRef("alphafold", "P0A9A6"),
+            region="interior", display_name="FtsZ (Z-ring at septum)", category="Division",
+            color=CATEGORY_COLOR["Division"], proxy_voxel_size=8.0))
     cell_mesh = (_constricted_capsule_mesh(capsule.half_len, capsule.radius,
-                                           depth=septum_fraction)
+                                           depth=septum_fraction,
+                                           width=0.28 * capsule.radius)
                  if septum_fraction > 0.0 else None)
     res = build_pack(ingredients, capsule, chromosome,
                      out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod,
                      cell_mesh=cell_mesh)
-    # The landmark markers (replisome/oriC/terC) are seated by the packer at the
-    # forks/origins/terminus, so build_pack recorded count=0 for them in the
-    # sidecar. Backfill the real counts from the finished pack so the viewer's
-    # legend shows e.g. "replisome ×4".
-    _backfill_marker_counts(res["pack_path"], res["sidecar_path"],
-                            ("replisome", "oriC", "terminus"))
+    # Flagella: meshed + injected entirely post-pack (kept out of the packer,
+    # whose proxy voxeliser explodes on the 19000 Å tube) as a rear-pole tuft at
+    # the true v2ecoli bulk count.
+    fcount = int(counts.get("CPLX0-7452", 0))
+    if fcount > 0:
+        _inject_flagellum(res["pack_path"], res["sidecar_path"], out_dir,
+                          "CPLX0-7452", fcount, capsule.half_len, capsule.radius,
+                          color=CATEGORY_COLOR["Motility"], category="Motility",
+                          display_name="flagellum")
+    # FtsZ Z-ring at the constricted waist (radius ≈ body·(1−septum_fraction)),
+    # placed at the cell's REAL FtsZ count (EG10347-MONOMER) — during division
+    # most FtsZ localises to the septal ring.
+    if dividing:
+        _place_septum_ring(res["pack_path"], res["sidecar_path"], "ftsz_ring",
+                           ring_radius=capsule.radius * (1.0 - septum_fraction),
+                           count=int(counts.get("EG10347-MONOMER", FTSZ_RING_COUNT)))
+    # Counts enforcement: rewrite EVERY ingredient's sidecar count to the number
+    # actually placed (markers seeded at loci, flagella/FtsZ injected, surface/
+    # fiber species under-placed by area/length limits) so the viewer's "copies
+    # placed" is always truthful. Also reports the under-placed.
+    _backfill_all_counts(res["pack_path"], res["sidecar_path"])
+    res["n_nascent_rnas"] = n_nascent
+    res["n_free_rnas"] = n_free
     return res
 
 
-def _backfill_marker_counts(pack_path, sidecar_path, marker_ids):
-    """Set each marker ingredient's sidecar count to its placement count."""
+def _backfill_all_counts(pack_path, sidecar_path):
+    """Set every sidecar ingredient's count to its ACTUAL placement count in the
+    finished pack, and warn about species the packer under-placed vs requested."""
+    from collections import Counter
     pack = json.loads(Path(pack_path).read_text())
     arr8 = pack.get("placement_format") == "array8"
     id_by_name = {ing["name"]: ing["id"] for ing in pack["ingredients"]}
-    from collections import Counter
-    counts = Counter(p[0] if arr8 else p["ingredient"] for p in pack["placements"])
+    placed = Counter(p[0] if arr8 else p["ingredient"] for p in pack["placements"])
     side = json.loads(Path(sidecar_path).read_text())
     ings = side.get("ingredients", side)
-    for name in marker_ids:
+    under = []
+    for name, meta in ings.items():
         iid = id_by_name.get(name)
-        if iid is not None and name in ings:
-            ings[name]["count"] = int(counts.get(iid, 0))
+        actual = int(placed.get(iid, 0))
+        requested = int(meta.get("count", 0))
+        if requested and actual < 0.9 * requested:
+            under.append((name, requested, actual))
+        meta["count"] = actual
     Path(sidecar_path).write_text(json.dumps(side, indent=1))
+    if under:
+        under.sort(key=lambda r: r[2] - r[1])
+        print(f"  counts: {len(under)} species under-placed (area/length-limited); worst:")
+        for name, req, act in under[:8]:
+            print(f"    {name}: requested {req}, placed {act} ({100 * act / req:.0f}%)")
 
 
 if __name__ == "__main__":
@@ -774,7 +1347,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", default="out/ecoli3d")
     ap.add_argument("--top-n", type=int, default=40)
     ap.add_argument("--scale", type=float, default=1.0)
-    ap.add_argument("--state", choices=["snapshot", "live"], default="snapshot")
+    ap.add_argument("--state", choices=["snapshot", "division", "live"], default="snapshot")
     a = ap.parse_args()
     res = build_model(a.out, top_n=a.top_n, scale=a.scale, state_source=a.state)
     print(f"packed {res['n_placed']} placements · {res['ingredients']} ingredients → {res['pack_path']}")

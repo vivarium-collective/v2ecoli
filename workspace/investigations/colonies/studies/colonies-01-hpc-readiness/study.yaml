@@ -6,9 +6,9 @@ description: |
   Build phase fixed daughter-process hydration so structural _add
   instantiates daughter EcoliWCMs through the engine. Decide phase
   N-sweep (N ∈ {1,2,4,8}) on one machine measured per-tick wall,
-  per-cell cost, peak RSS, and pymunk step — extrapolated to a
+  per-cell cost, peak RSS, and pymunk step, then extrapolated to a
   cells-per-HPC-node budget and identified the GIL as the dominant
-  bottleneck. Output: 384 cells/node sweet spot on 64-core/256GB.
+  bottleneck. Output: 384 cells/node on 64-core/256GB.
 topic: scaling
 tags: [colony, multi-cell, hpc, perf, scaling, requires-pymunk, requires-viva-munk]
 created: '2026-05-16'
@@ -582,7 +582,7 @@ runs:
     per-cell-cost-within-2x-reference:
       result: PASS
       ratio: 0.96
-      note: per-cell 70.4 ms vs reference 73.6 ms (slight DECREASE — Python startup amortization)
+      note: per-cell 70.4 ms vs reference 73.6 ms (slight decrease, Python startup amortization)
 
 # ── Decide conclusion ──────────────────────────────────────────────────────
 conclusion: |
@@ -614,8 +614,8 @@ conclusion: |
   ──────────────────────────────────────────────────────────────────────
   Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window):
 
-  - Per-cell wall is FLAT at 70-74 ms across N=1..8 (slight DECREASE
-    with N — Python/import overhead amortizes). The
+  - Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease
+    with N as Python/import overhead amortizes). The
     per-cell-cost-within-2x-reference test passes at all N.
   - pymunk is essentially free (<0.2 ms/tick even at N=8). All cost
     is in the inner EcoliWCM composite (55 biological steps × N cells,
@@ -641,7 +641,7 @@ conclusion: |
     ~440 ms (~2× realtime).
 
   ──────────────────────────────────────────────────────────────────────
-  What this study does NOT validate (handed to colonies-02):
+  What this study does not validate (handed to colonies-02):
 
   - Cross-node scaling, distributed environment field
   - Process-bigraph composite parallelism within a single process
@@ -736,7 +736,7 @@ findings:
   status: confirms
   statement: |
     Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
-    DECREASE with N as Python/import overhead amortizes). Composite scales
+    decrease with N as Python/import overhead amortizes). Composite scales
     linearly on one machine.
   evidence:
     from_runs: [nsweep-n1, nsweep-n2, nsweep-n4, nsweep-n8]

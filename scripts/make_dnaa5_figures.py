@@ -36,11 +36,26 @@ def _layout(fig, title, subtitle, h=480):
     return ps.house_layout(fig, title, subtitle, height=h)
 
 
+# Force a re-layout after the iframe has its real size + fonts have settled.
+# Chrome measures legend label widths before the srcdoc iframe is sized (and
+# before web fonts resolve), clipping each label to its first glyph ("n=1 …" →
+# "n"); Safari measures later and renders fully. A couple of resize() nudges
+# (and one on fonts.ready) make Chrome re-measure with the correct width.
+_RESIZE_JS = (
+    "var _gd=document.getElementById('{plot_id}');"
+    "function _r(){if(window.Plotly&&_gd){Plotly.Plots.resize(_gd);}}"
+    "setTimeout(_r,60);setTimeout(_r,300);setTimeout(_r,1000);"
+    "window.addEventListener('resize',_r);"
+    "if(document.fonts&&document.fonts.ready){document.fonts.ready.then(_r);}"
+)
+
+
 def _write(fig, name):
     os.makedirs(OUT_DIR, exist_ok=True)
     path = os.path.join(OUT_DIR, name + ".html")
     fig.write_html(path, include_plotlyjs="cdn", full_html=True,
-                   div_id=name, config={"displayModeBar": False, "responsive": True})
+                   div_id=name, config={"displayModeBar": False, "responsive": True},
+                   post_script=_RESIZE_JS)
     print(f"  wrote {path}")
 
 

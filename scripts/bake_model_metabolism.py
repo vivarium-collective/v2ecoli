@@ -5,7 +5,8 @@ baseline sweep parquet, aggregates per cell (time-average within each cell,
 gen >= LB), and writes committed JSON fixtures so the card + tests stay
 independent of the (gitignored) sweep.
 
-Outputs (under docs/report_cards/population_phenotype_basal/vs_literature/):
+Outputs (committed golden fixtures under tests/fixtures/population_phenotype_basal/,
+each carrying a `provenance` block — see scripts/_provenance.py):
   * model_metabolism.json — the G6P/glycolysis branch-point composition
     (EMP/oxPPP/ED + closure residual) and the boundary exchanges
     (O2/CO2/acetate/glucose, absolute + C-mol balance + per-glucose normalized + RQ).
@@ -31,9 +32,30 @@ from pathlib import Path
 import duckdb
 import numpy as np
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # scripts/ for _provenance
+from _provenance import provenance_stamp  # noqa: E402
+
 REPO = Path(__file__).resolve().parent.parent
-OUT = REPO / "docs/report_cards/population_phenotype_basal/vs_literature"
+# Golden model fixtures (committed, sim-derived) -> tests/fixtures; see _provenance.py.
+FIXTURES = REPO / "tests/fixtures/population_phenotype_basal"
 _SWEEP = REPO / "out/population_phenotype_basal"
+_GEN_LB = 3  # generation_lower_bound of the blessed sweep (must match the config)
+
+
+def _parca_inputs_hash():
+    try:
+        return json.load(open(REPO / "out/cache/cache_version.json"))["inputs_hash"]
+    except Exception:
+        return None
+
+
+def _stamp(n_cells):
+    return provenance_stamp(
+        REPO, config="v2ecoli/configs/population_phenotype_basal.json",
+        sweep={"sweep_dir": str(_SWEEP), "parca_inputs_hash": _parca_inputs_hash(),
+               "n_cells": n_cells, "gen_lb": _GEN_LB},
+        bake_script="scripts/bake_model_metabolism.py --from-sweep <dir>")
 _PARCA_STATE = REPO / "out/sim_data_full/parca_state.pkl.gz"
 GEN_LB = 3
 
@@ -408,18 +430,22 @@ def metabolite_pools_from_sweep(sweep_dir: Path) -> dict:
 def main(from_sweep: str | None) -> None:
     sweep = Path(from_sweep) if from_sweep else _SWEEP
     state, sim_data = _load()
-    OUT.mkdir(parents=True, exist_ok=True)
+    FIXTURES.mkdir(parents=True, exist_ok=True)
     met = metabolism_from_sweep(sweep, sim_data)
-    (OUT / "model_metabolism.json").write_text(json.dumps(met, indent=2))
+    met["provenance"] = _stamp(met.get("n_cells"))
+    (FIXTURES / "model_metabolism.json").write_text(json.dumps(met, indent=2))
     pro = proteome_from_sweep(sweep, state)
-    (OUT / "model_proteome.json").write_text(json.dumps(pro, indent=2))
+    pro["provenance"] = _stamp(pro.get("n_cells"))
+    (FIXTURES / "model_proteome.json").write_text(json.dumps(pro, indent=2))
     comp = composition_from_sweep(sweep)
-    (OUT / "model_composition.json").write_text(json.dumps(comp, indent=2))
+    comp["provenance"] = _stamp(comp.get("n_cells"))
+    (FIXTURES / "model_composition.json").write_text(json.dumps(comp, indent=2))
     print(f"model_composition.json: {comp['n_cells']} cells, td {comp['doubling_time_min']:.1f} min, "
           f"protein {comp['fractions']['protein']:.3f} RNA {comp['fractions']['rna']:.3f} "
           f"DNA {comp['fractions']['dna']:.4f} other {comp['fractions']['other']:.3f}")
     pools = metabolite_pools_from_sweep(sweep)
-    (OUT / "model_metabolite_pools.json").write_text(json.dumps(pools, indent=2))
+    pools["provenance"] = _stamp(pools.get("n_cells"))
+    (FIXTURES / "model_metabolite_pools.json").write_text(json.dumps(pools, indent=2))
     print(f"model_metabolite_pools.json: {pools['n_matched']} metabolites, "
           f"model total {pools['model_total']*1000:.0f} mM vs Bennett {pools['bennett_total']*1000:.0f} mM "
           f"(ratio {pools['ratio']:.2f})")

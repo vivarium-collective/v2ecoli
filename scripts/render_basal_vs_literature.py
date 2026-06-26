@@ -43,17 +43,32 @@ import pandas as pd
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # scripts/ for _provenance
 from v2ecoli.library.report_card import grade_card, render_html, verdict_json  # noqa: E402
+from _provenance import provenance_stamp  # noqa: E402
 
 M_GLC = 0.180156  # g/mmol glucose
 M_C = 12.011      # g/mol carbon
+_SWEEP_GEN_LB = 3  # generation_lower_bound of the blessed sweep (must match the config)
 
-OUT = REPO / "docs/report_cards/population_phenotype_basal/vs_literature"
-_MODEL_JSON = OUT / "model_physiology.json"        # baked per-cell model values (committed)
-_MET_JSON = OUT / "model_metabolism.json"          # baked by scripts/bake_model_metabolism.py
-_PRO_JSON = OUT / "model_proteome.json"
-_COMP_JSON = OUT / "model_composition.json"
-_POOLS_JSON = OUT / "model_metabolite_pools.json"
+
+def _parca_inputs_hash():
+    """The ParCa cache identity (out/cache/cache_version.json inputs_hash), or None."""
+    try:
+        return json.load(open(REPO / "out/cache/cache_version.json"))["inputs_hash"]
+    except Exception:
+        return None
+
+OUT = REPO / "docs/report_cards/population_phenotype_basal/vs_literature"  # render OUTPUTS (gitignored)
+# Golden model fixtures: committed per-cell aggregates baked from a blessed sweep
+# (organized sim output, not reference data) — carry a `provenance` block; see
+# scripts/_provenance.py. Read here, re-baked by the two bake paths.
+FIXTURES = REPO / "tests/fixtures/population_phenotype_basal"
+_MODEL_JSON = FIXTURES / "model_physiology.json"   # baked per-cell model values (render --from-sweep)
+_MET_JSON = FIXTURES / "model_metabolism.json"     # baked by scripts/bake_model_metabolism.py
+_PRO_JSON = FIXTURES / "model_proteome.json"
+_COMP_JSON = FIXTURES / "model_composition.json"
+_POOLS_JSON = FIXTURES / "model_metabolite_pools.json"
 _SWEEP = REPO / "out/population_phenotype_basal"   # blessed ensemble (gitignored; --from-sweep)
 
 # Metabolism exchange axes (scalar, graded like physiology against measured bands).
@@ -684,6 +699,13 @@ def main(from_sweep: str | None = None) -> dict:
     OUT.mkdir(parents=True, exist_ok=True)
     if from_sweep:
         model = physiology_from_sweep(Path(from_sweep))
+        model["provenance"] = provenance_stamp(
+            REPO, config="v2ecoli/configs/population_phenotype_basal.json",
+            sweep={"sweep_dir": str(Path(from_sweep)),
+                   "parca_inputs_hash": _parca_inputs_hash(),
+                   "n_cells": model.get("n_cells"), "gen_lb": _SWEEP_GEN_LB},
+            bake_script=f"scripts/render_basal_vs_literature.py --from-sweep {from_sweep}")
+        FIXTURES.mkdir(parents=True, exist_ok=True)
         with open(_MODEL_JSON, "w", encoding="utf-8") as f:
             json.dump(model, f, indent=2)
         print(f"baked {_MODEL_JSON.name}: {model['n_cells']} cells · "

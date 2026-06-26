@@ -55,17 +55,22 @@ by git SHA in `pyproject.toml`.
 ## Regenerate
 
 ```bash
-# re-render from the baked model values + current bundle (no sweep needed):
+# re-render from the committed golden fixtures + current bundle (no sweep needed):
 python scripts/render_basal_vs_literature.py
 
-# recompute the model values by direct mass balance from a blessed sweep:
-python scripts/render_basal_vs_literature.py --from-sweep out/population_phenotype_basal
+# re-bake the model fixtures from a blessed sweep (stamps fresh provenance):
+python scripts/render_basal_vs_literature.py --from-sweep out/population_phenotype_basal  # physiology
+python scripts/bake_model_metabolism.py --from-sweep out/population_phenotype_basal       # metabolism/proteome/composition/pools
 ```
 
-The per-cell model physiology is baked into `model_physiology.json` (committed)
-so the card + tests stay independent of the gitignored sweep; `--from-sweep`
-regenerates it. References come from `ecoli_sources.VALIDATION_BUNDLE_PATH`. No
-new simulation run required.
+The model values are **golden fixtures** — per-cell aggregates baked from one
+blessed sweep (organized sim output, not reference data) — committed under
+**`tests/fixtures/population_phenotype_basal/model_*.json`** so the card + tests
+stay independent of the gitignored sweep. Each carries a `provenance` block
+(commit + dirty/diff-sha + source-sweep identity; see `scripts/_provenance.py`).
+The rendered outputs here (`report_card.html`, `*_reference.json`,
+`report_card_verdict.json`) are **gitignored** — regenerated deterministically
+from the fixtures + `ecoli_sources.VALIDATION_BUNDLE_PATH`. No new run required.
 
 ## Follow-ups (not in this card)
 

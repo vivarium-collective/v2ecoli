@@ -71,5 +71,24 @@
   "implied_biomass_C_gC_per_gDW": 0.4574877853804695,
   "method": "direct mass balance (\u0394DW / \u222bq_glc\u00b7DW dt)",
   "ensemble": "blessed baseline, gen\u22653",
-  "n_cells": 20
+  "n_cells": 20,
+  "provenance": {
+    "code": {
+      "commit": null,
+      "dirty": null,
+      "diff_sha256": null,
+      "untracked": null
+    },
+    "config": "v2ecoli/configs/population_phenotype_basal.json",
+    "sweep": {
+      "sweep_dir": null,
+      "parca_inputs_hash": null,
+      "n_cells": 20,
+      "gen_lb": 3
+    },
+    "bake_script": null,
+    "baked": "unknown",
+    "reconstructed": true,
+    "note": "Backfilled provenance \u2014 the exact source sweep and code commit that produced these values were not recorded (they predate provenance stamping). Re-bake (bake_model_metabolism.py / render_basal_vs_literature.py --from-sweep) for an authoritative stamp."
+  }
 }

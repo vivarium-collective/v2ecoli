@@ -478,5 +478,24 @@
         "model_abs": -0.2143626325609859
       }
     ]
+  },
+  "provenance": {
+    "code": {
+      "commit": null,
+      "dirty": null,
+      "diff_sha256": null,
+      "untracked": null
+    },
+    "config": "v2ecoli/configs/population_phenotype_basal.json",
+    "sweep": {
+      "sweep_dir": null,
+      "parca_inputs_hash": null,
+      "n_cells": 20,
+      "gen_lb": 3
+    },
+    "bake_script": null,
+    "baked": "unknown",
+    "reconstructed": true,
+    "note": "Backfilled provenance \u2014 the exact source sweep and code commit that produced these values were not recorded (they predate provenance stamping). Re-bake (bake_model_metabolism.py / render_basal_vs_literature.py --from-sweep) for an authoritative stamp."
   }
 }

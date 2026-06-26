@@ -65,3 +65,10 @@ reports/assets/*
 # published artefacts.
 docs/superpowers/notes/
 /out
+
+# Report-card render OUTPUTS — regenerated deterministically from the committed
+# golden fixtures (tests/fixtures/<card>/) + the ecoli-sources pin. The model
+# fixtures are tracked; these rendered artifacts are not (the HTML alone is ~1 MB).
+docs/report_cards/**/report_card.html
+docs/report_cards/**/report_card_verdict.json
+docs/report_cards/**/*_reference.json

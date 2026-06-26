@@ -81,6 +81,24 @@ def build_vivarium_ecoli(
     sim.config["seed"] = int(seed)
     sim.config["sim_data_path"] = sim_data_path
     sim.config["time_step"] = float(time_step)
+    # Apply the CONDITION's media. genuine vEcoli's LoadSimData defaults
+    # media_timeline to ((0,'minimal'),) and `condition` alone never updates it
+    # (the "have to change both" footgun), so without this the runner runs every
+    # condition on 'minimal' media — e.g. no_oxygen ran AEROBIC instead of
+    # minimal_minus_oxygen (O2=0). Set the condition's nutrients as fixed_media
+    # (flows through Ecoli(config) -> LoadSimData(**config)). Hand the loaded
+    # sim_data in too so EcoliSim reuses it (skips a 2nd ~300MB load).
+    try:
+        import pickle as _pickle
+        with open(sim_data_path, "rb") as _sdf:
+            _sd_obj = _pickle.load(_sdf)
+        _nutrients = (_sd_obj.conditions.get(condition, {}) or {}).get("nutrients")
+        if _nutrients:
+            sim.config["fixed_media"] = _nutrients
+        sim.config["sim_data"] = _sd_obj
+    except Exception as _mediaerr:  # noqa: BLE001 — never block the build
+        print(f"[build_vivarium_ecoli] media-from-condition skipped: "
+              f"{type(_mediaerr).__name__} {_mediaerr}")
     # Division is handled by THIS module's single-lineage loop (genuine divide_cell
     # between generations), not vivarium's in-Engine Division roundtrip — so each
     # generation is one clean genuine-vEcoli Engine.

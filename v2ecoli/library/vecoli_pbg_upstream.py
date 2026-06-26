@@ -51,8 +51,7 @@ _UPSTREAM: dict = {}
 def _ensure_upstream() -> dict:
     """Import upstream ``EcoliSim`` once; cache its symbols.
 
-    Mirrors ``scripts/run_comparison_ensemble.py::_ensure_vecoli`` but imports
-    ONLY ``EcoliSim`` (the pristine upstream checkout has no
+    Imports ONLY ``EcoliSim`` (the pristine upstream checkout has no
     ``ecoli.composites.ecoli_composite`` and no migrated bigraph processes).
     """
     if _UPSTREAM:

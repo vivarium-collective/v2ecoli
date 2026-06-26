@@ -84,26 +84,6 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     return v2
 
 
-# Keys of a resolved vEcoli config that the PRISTINE upstream wrapper
-# (build_upstream_agents_composite) consumes in its NATIVE form — i.e. the
-# vEcoli side runs on the ORIGINAL config, not a translated one. ``condition``
-# selects the media/initial-state, ``time_step`` the integration step, and
-# ``exclude_processes`` the dropped processes. These are exactly the build_upstream
-# kwargs that mirror what vEcoli's own EcoliSim reads from the same config keys.
-_VECOLI_NATIVE_KEYS = ("condition", "time_step", "exclude_processes")
-
-
-def vecoli_native_kwargs(resolved: dict[str, Any]) -> dict[str, Any]:
-    """Extract the keys the upstream-wrapper consumes from a resolved vEcoli config.
-
-    This is the vEcoli side of "run BOTH engines on the SAME config": where
-    :func:`translate_vecoli_config` produces the v2ecoli overrides, this passes
-    the ORIGINAL vEcoli config's run knobs straight into the upstream wrapper —
-    so both engines are driven from one source config, each in its native form.
-    """
-    return {k: resolved[k] for k in _VECOLI_NATIVE_KEYS if k in resolved}
-
-
 def resolve_vecoli_config_local(config_path: str, fork_dir: str) -> dict[str, Any]:
     """Resolve a vEcoli fork config WITHOUT needing the fork's own venv.
 

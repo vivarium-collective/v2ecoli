@@ -1,117 +1,100 @@
 # v2ecoli ↔ vEcoli comparison pipeline
 
-A deterministic, **AI-agent-free, one-command** pipeline that compares a v2ecoli
-build against **any vEcoli fork + its config**, both run as process-bigraph
-composites on Ray (GovCloud), emitting the same v2ecoli-format zarr so one
-standardized report card reads both sides.
+The canonical, reproducible way to compare a v2ecoli build against genuine
+`CovertLab/vEcoli`. **Both engines run as process-bigraph composites on the same
+runtime**, emitting the same v2ecoli-format zarr, so one report card reads both.
 
-The whole run is pinned by a committed manifest (`comparison_spec.json`). Nothing
-in the run path calls an LLM — re-run the spec to reproduce, edit it to vary.
+## The ONE vEcoli loader (no ambiguity)
 
-## One-command contract
+The genuine-vEcoli side is **always** loaded as a SINGLE process-bigraph node
+with vivarium-core's own Engine inside — `vecoli_source = "vivarium-process"`
+(`v2ecoli.library.vivarium_ecoli_engine`). It is faithful by construction
+(vivarium handles partition / update-reconciliation / division natively) with
+**zero edits** to the upstream checkout.
 
-```bash
-bash scripts/comparison_harness.sh all --spec comparison_spec.json
-```
+This is the only supported loader. The old colony-wrapper (`upstream`) and
+`composite-softfloor` paths — and their standalone runners — were **removed**;
+`--vecoli-source` accepts only `vivarium-process` (and defaults to it). Don't
+reintroduce alternate vEcoli loaders: it was the colony-wrapper path that had the
+mass-explosion / division-handoff bugs the vivarium-process pivot eliminated.
 
-`all` = `register → launch → wait → report`:
-
-1. **register** — register **ONE** v2ecoli image with sms-api. The image bundles
-   the spec's vEcoli fork (cloned at build time, see below), so it serves BOTH
-   engines. No separate vEcoli registration in the default route.
-2. **launch** — per condition, submit **two** Ray jobs on that single
-   `simulator_id`: `composite=v2ecoli` and `composite=vecoli`. Both emit
-   v2ecoli-format zarr to S3 (`v2ecoli_seed*.zarr` / `vecoli_seed*.zarr`).
-3. **wait** — poll S3 until each condition has its expected per-seed zarr stores.
-4. **report** — `comparison_report_card.py --pbg-vs-pbg` reads BOTH engines from
-   S3 via the zarr reader and renders the standardized multi-section report.
-
-Preview the exact requests without sending anything (no creds needed):
+## Reproducible local run (canonical)
 
 ```bash
-bash scripts/comparison_harness.sh launch --dry-run --v2-sim <SIM> --tag demo
+# 1. Build BOTH ParCa caches (idempotent). v2ecoli runs on its own ParCa
+#    (out/cache_full); genuine vEcoli runs on the UPSTREAM ParCa
+#    (out/compare_harness/vecoli_parca). They are SEPARATE — feeding vEcoli v2's
+#    simData makes its FBA go negative (InvalidBoundaryError).
+bash scripts/build_comparison_caches.sh        # --mode full (all conditions)
+
+# 2. Run the comparison: both engines × 5 conditions, matched-initial-state.
+#    Args: SEEDS GENS PER_GEN_STEPS  (4 seeds × 4 generations × 5 conditions).
+bash scripts/run_local_4x4x5.sh 4 4 15000
 ```
 
-## Spec schema (`comparison_spec.json`)
+Output: per-condition zarr stores under `out/local_4x4x5/<condition>/`
+(`v2ecoli_seed<NN>.zarr` / `vecoli_seed<NN>.zarr`) + a multi-seed report at
+`out/local_4x4x5/report/`. Env overrides: `V2E_CACHE`, `V2E_VECOLI_CACHE`,
+`V2E_VECOLI_DIR`, `V2E_CONDITIONS` (subset for a partial run).
 
-```jsonc
-{
-  "v2ecoli": { "repo": "...", "commit": "...", "branch": "..." }, // engine to register
-  "vecoli":  { "repo": "https://github.com/CovertLab/vEcoli",     // the fork to WRAP
-               "commit": "", "branch": "master" },
-  "vecoli_engine": "upstream-wrapper",        // | "nextflow" (legacy). default upstream-wrapper
-  "from_vecoli_config": "configs/default.json", // optional; drives BOTH engines (see below)
-  "defaults": { "seeds": 4, "gens": 2 },
-  "conditions": [ { "name": "basal", "config": "cond_basal.json", "seeds": 4, "gens": 2 }, ... ]
-}
-```
+### Two reproducibility fixes baked into the run (don't remove)
 
-Field resolution for seeds/gens: **per-condition > defaults > CLI** (`--seeds/--gens`).
+Single-seed v2-vs-vEcoli comparisons are dominated by stochastic INITIAL-STATE
+sampling unless controlled. Two complementary mechanisms make rows reflect
+dynamics, not sampling luck (validated: deviations <0.6% on all 5 conditions,
+down from 17–44%):
 
-`scripts/_read_spec.py` (stdlib-only, the spec→bash bridge) exposes:
-`engine {v2ecoli|vecoli}`, `vecoli-fork` (→ `repo<TAB>ref`, commit > branch >
-`master`), `vecoli-engine`, `from-vecoli-config`, `conditions`.
+1. **Matched-initial-state seeding** (`--match-initial-state`, on in the driver).
+   Overlays genuine vEcoli's initial `bulk` onto v2 by molecule name, so both
+   engines start from identical molecule counts. This removes the low-copy
+   regulator divergence — e.g. SpoT (ppGpp hydrolase, ~1–12 molecules): at seed 0
+   v2 drew 12 vs vEcoli's 1, which drained v2's ppGpp, released the elongation
+   throttle, and produced a ~35% acetate FBA divergence that vanished once the
+   counts matched. (Expected SpoT is the SAME in both — it was sampling tails.)
+2. **Basal regen-per-seed** (`_build_v2ecoli`). Non-basal conditions already
+   regenerate the initial state per (condition, seed) from `simData`; basal used
+   a FIXED cache snapshot, so every basal seed started identical (e.g.
+   active_ribosome 12441) while vEcoli resamples (seed2 = 9947). Basal now regens
+   per seed too, reproducing vEcoli's draw to <0.1%.
 
-## How the fork gets into the image
+Unique molecules (ribosomes/RNAP/chromosome) are NOT overlaid (v2's unique arrays
+carry a `pool_label` field vEcoli's lack, so a direct copy raises) — the basal
+regen fix covers the dominant unique-count case instead.
 
-`docker/build-and-push-ecr.sh` reads `vecoli.{repo,commit}` from the spec
-(`_read_spec.py vecoli-fork`) and passes them as Docker build-args:
+### Generations / `max_steps` semantics (important)
 
-```
---build-arg VECOLI_UPSTREAM_REPO=<repo> --build-arg VECOLI_UPSTREAM_REF=<commit-or-branch>
-```
+`--max-steps` means different things to the two runners: v2ecoli's
+`run_multigen_xarray` treats it as a TOTAL across all generations; the vEcoli
+`run_vivarium_ecoli_pbg_multigen` treats it as PER-generation. The driver hides
+this: it passes v2ecoli `GENS × PER_GEN` (total) and vEcoli `PER_GEN` (per-gen),
+so both get the same per-generation budget and divide naturally for `GENS`
+generations (division is mass-driven; the cap is a non-binding safety net).
+Verified: both engines reach 4 real divisions on basal.
 
-The `Dockerfile` clones `$VECOLI_UPSTREAM_REPO` and checks out
-`$VECOLI_UPSTREAM_REF` into `/app/vEcoli` (`V2E_VECOLI_DIR`). It is wrapped, with
-**zero edits**, by `v2ecoli.library.vecoli_pbg_upstream` +
-`upstream_division` (`composite=vecoli`). If the spec omits the fork, the
-Dockerfile defaults clone `CovertLab/vEcoli@master`.
+## Cloud run (sms-api / Ray on GovCloud)
 
-## How one config drives BOTH engines
+The cloud orchestration (`scripts/comparison_harness.sh all --spec ...`:
+register → launch → wait → report) submits `composite=v2ecoli` and
+`composite=vecoli` Ray jobs that run the SAME `run_comparison_ensemble.py`.
+Because `vivarium-process` is now the default `vecoli_source`, the vEcoli jobs
+use it automatically. `--match-initial-state` is threaded through sms-api (router
+query param → config → `_sim_command`), staging the upstream ParCa as a 2nd
+input (`stage_inputs_2`) so the v2 job can build vEcoli's reference initial state;
+it requires the upstream cache to exist in S3 for the commit.
 
-When `from_vecoli_config` is set, `run_comparison_ensemble.py` resolves it from
-the fork (`V2E_VECOLI_DIR`) with v2ecoli's own inheritance loader (no fork venv
-needed) and then:
+> NOTE (pending follow-up): `comparison_harness.sh`'s `vecoli_engine`
+> terminology (`upstream-wrapper` / `nextflow`) predates the loader
+> consolidation and is being cleaned up — the ENGINE is always vivarium-process
+> now; that field only selects the orchestration route. The local path above is
+> the unambiguous reference until the cloud harness is consolidated.
 
-- `--composite v2ecoli` gets the **translated** config
-  (`config_adapter.translate_vecoli_config` → baseline overrides);
-- `--composite vecoli` runs the **original** config — its native run knobs
-  (`condition`, `time_step`, `exclude_processes` via
-  `config_adapter.vecoli_native_kwargs`) are threaded into the upstream wrapper.
-
-The driver resolves the config from, in order: `--from-vecoli-config` flag →
-`$V2E_FROM_VECOLI_CONFIG` → the `from_vecoli_config` field in the
-`comparison_spec.json` **baked into the image** (`COPY . .`). So the default Ray
-route is fully spec-driven — no per-job API parameter, **no sms-api change**.
-
-## To compare a NEW vEcoli fork
-
-1. Edit `comparison_spec.json`: set `vecoli.repo`, `vecoli.commit` (pin for
-   determinism), and `from_vecoli_config`.
-2. Rebuild + push the image: `bash docker/build-and-push-ecr.sh`.
-3. Run: `bash scripts/comparison_harness.sh all --spec comparison_spec.json`.
-
-No code change. No agent.
-
-## Legacy Nextflow route
-
-Set `vecoli_engine: "nextflow"` to register vEcoli separately (its own
-`simulator_id`, Nextflow, parquet output); the report then reads vEcoli parquet
-instead of zarr. Kept for back-compat; the upstream-wrapper route is the default.
-
-## Rendering the report for an existing pbg-vs-pbg run
+## Report card
 
 ```bash
-.venv/bin/python scripts/comparison_report_card.py --pbg-vs-pbg \
-    --out out/4x4x5_compare --only all
+# multi-seed local
+.venv/bin/python scripts/comparison_report_card.py \
+    --local-pbg-dir '{"basal":["out/local_4x4x5/basal","out/local_4x4x5/basal"], ...}' \
+    --local-pbg-seeds 4 --only all -o out/local_4x4x5/report
+# cloud (reads both engines' zarr from S3)
+.venv/bin/python scripts/comparison_report_card.py --pbg-vs-pbg --out <exp_dir> --only all
 ```
-
-reads the condition→[v2_dir, ve_dir] pairs from `<out>/experiments.json` and
-loads `v2ecoli_seed*.zarr` / `vecoli_seed*.zarr` from S3 for both engines.
-
-## Known sms-api dependency (flagged, not changed)
-
-The default route needs **no** sms-api change: it relies only on the existing
-`composite=vecoli` Ray path and the image-baked spec. The only thing that would
-require an sms-api change is passing `from_vecoli_config` as a *per-job request
-parameter* (instead of baking it into the image) — not done here by design.

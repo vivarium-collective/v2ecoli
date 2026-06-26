@@ -16,8 +16,8 @@ from the upstream checkout (NOT a shadow install).
 
 Output: ``<outdir>/kb/simData.cPickle`` (upstream's ``run_parca`` layout). Pass
 ``--copy-to <dir>`` to also drop a flat copy at ``<dir>/simData.cPickle`` — the
-layout the harness ``--cache-dir`` expects (``_build_vecoli`` reads
-``os.path.join(cache_dir, "simData.cPickle")``).
+layout the harness ``--cache-dir`` expects (the vivarium-process vEcoli loader
+reads ``os.path.join(cache_dir, "simData.cPickle")``).
 
 Usage (run on Linux / inside the image; heavy — minutes):
 

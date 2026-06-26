@@ -221,6 +221,45 @@ def rna_state(state_source="snapshot"):
         return _empty
 
 
+def ribosome_state(state_source="snapshot"):
+    """Return active-ribosome arrays from the snapshot.
+
+    Reads keys ``ribo_mRNA_index`` (i8), ``ribo_pos_on_mRNA`` (i8),
+    ``ribo_peptide_length`` (i8), and ``ribo_protein_index`` (i8) from the
+    saved state npz, mirroring the file selection of :func:`rna_state`.
+    Returns empty i8 arrays when keys are absent or the file is missing.
+    """
+    if state_source == "division":
+        npz_path = DATA / "v2ecoli_state_division.npz"
+    else:
+        npz_path = DATA / "v2ecoli_state.npz"
+
+    _empty = {
+        "mRNA_index": np.array([], dtype="i8"),
+        "pos_on_mRNA": np.array([], dtype="i8"),
+        "peptide_length": np.array([], dtype="i8"),
+        "protein_index": np.array([], dtype="i8"),
+    }
+    try:
+        st = np.load(npz_path)
+        return {
+            "mRNA_index": st["ribo_mRNA_index"].astype("i8")
+            if "ribo_mRNA_index" in st
+            else _empty["mRNA_index"],
+            "pos_on_mRNA": st["ribo_pos_on_mRNA"].astype("i8")
+            if "ribo_pos_on_mRNA" in st
+            else _empty["pos_on_mRNA"],
+            "peptide_length": st["ribo_peptide_length"].astype("i8")
+            if "ribo_peptide_length" in st
+            else _empty["peptide_length"],
+            "protein_index": st["ribo_protein_index"].astype("i8")
+            if "ribo_protein_index" in st
+            else _empty["protein_index"],
+        }
+    except Exception:
+        return _empty
+
+
 def division_progress(state_source="snapshot"):
     """Fraction through the D-period (replication termination → division), 0..1.
 

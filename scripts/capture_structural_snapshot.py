@@ -188,6 +188,29 @@ def _extract_snapshot(comp):
     else:
         print("  WARNING: RNA unique molecule not found in state")
 
+    # ── Active ribosome ──────────────────────────────────────────────────────
+    rib = unique.get("active_ribosome")
+    ribo_mRNA_index = np.array([], dtype=np.int64)
+    ribo_pos_on_mRNA = np.array([], dtype=np.int64)
+    ribo_peptide_length = np.array([], dtype=np.int64)
+    ribo_protein_index = np.array([], dtype=np.int64)
+
+    if rib is not None and hasattr(rib, "dtype") and "_entryState" in rib.dtype.names:
+        active = rib[rib["_entryState"].view(bool)]
+        n_rib = len(active)
+        if n_rib > 0:
+            if "mRNA_index" in rib.dtype.names:
+                ribo_mRNA_index = active["mRNA_index"].astype(np.int64)
+            if "pos_on_mRNA" in rib.dtype.names:
+                ribo_pos_on_mRNA = active["pos_on_mRNA"].astype(np.int64)
+            if "peptide_length" in rib.dtype.names:
+                ribo_peptide_length = active["peptide_length"].astype(np.int64)
+            if "protein_index" in rib.dtype.names:
+                ribo_protein_index = active["protein_index"].astype(np.int64)
+        print(f"  Captured {n_rib} active ribosomes")
+    else:
+        print("  WARNING: active_ribosome unique molecule not found in state")
+
     return {
         "ids": ids,
         "counts": counts,
@@ -207,6 +230,10 @@ def _extract_snapshot(comp):
         "rna_is_mRNA": rna_is_mRNA,
         "rna_is_full_transcript": rna_is_full_transcript,
         "rna_TU_index": rna_TU_index,
+        "ribo_mRNA_index": ribo_mRNA_index,
+        "ribo_pos_on_mRNA": ribo_pos_on_mRNA,
+        "ribo_peptide_length": ribo_peptide_length,
+        "ribo_protein_index": ribo_protein_index,
     }
 
 
@@ -239,7 +266,8 @@ def capture_snapshot(cache_dir: str = "out/cache", advance_s: float = 2.0,
           f"fork_fraction={snap['fork_fraction']:.4f}, "
           f"division_progress={snap['division_progress']:.4f}")
     print(f"          RNAP count = {len(snap['rnap_coordinates'])}, "
-          f"RNA count = {len(snap['rna_unique_index'])}")
+          f"RNA count = {len(snap['rna_unique_index'])}, "
+          f"ribosome count = {len(snap['ribo_mRNA_index'])}")
 
     if skip_division:
         print("[capture] Skipping division snapshot (--skip-division).")
@@ -291,7 +319,8 @@ def capture_snapshot(cache_dir: str = "out/cache", advance_s: float = 2.0,
               f"n_chromosomes={snap_div['n_chromosomes']}, "
               f"fork_fraction={snap_div['fork_fraction']:.4f}")
         print(f"          RNAP count = {len(snap_div['rnap_coordinates'])}, "
-              f"RNA count = {len(snap_div['rna_unique_index'])}")
+              f"RNA count = {len(snap_div['rna_unique_index'])}, "
+              f"ribosome count = {len(snap_div['ribo_mRNA_index'])}")
 
     except Exception as exc:
         print(f"[capture] Division snapshot FAILED: {exc!r}")

@@ -43,46 +43,8 @@ def pack_count_of(pack: dict, name: str) -> int:
 
 # ── fixture ─────────────────────────────────────────────────────────────────
 
-@pytest.fixture
-def rna_build_env(tmp_path, monkeypatch):
-    """Set up the minimal environment for a small RNA-placement build."""
-    # Respect an existing PARSIMONY_HOME (portable to CI / other machines).
-    monkeypatch.setenv(
-        "PARSIMONY_HOME",
-        os.environ.get("PARSIMONY_HOME", "/Users/eranagmon/code/parsimony"),
-    )
-
-    # Synthetic snapshot: 1 RNAP (unique_index=7) at coordinate 0, domain 0,
-    # plus 3 nascent RNAs all attached to that RNAP with increasing lengths.
-    np.savez(
-        tmp_path / "v2ecoli_state.npz",
-        ids=np.array(["EG10893-MONOMER[c]"]),
-        counts=np.array([100]),
-        volume=np.array(1.0),
-        n_chromosomes=np.array(1),
-        fork_fraction=np.array(0.0),
-        division_progress=np.array(0.0),
-        rnap_coordinates=np.array([0], dtype="i8"),
-        rnap_domain_index=np.array([0], dtype="i4"),
-        rnap_is_forward=np.array([True]),
-        rnap_unique_index=np.array([7], dtype="i8"),
-        rna_unique_index=np.array([20, 21, 22], dtype="i8"),
-        rna_RNAP_index=np.array([7, 7, 7], dtype="i8"),
-        rna_transcript_length=np.array([300, 900, 1500], dtype="i8"),
-        rna_is_mRNA=np.array([True, True, True]),
-        rna_is_full_transcript=np.array([False, False, False]),
-        rna_TU_index=np.array([1, 2, 3], dtype="i8"),
-    )
-
-    # Reference files needed by build_model (uniprot_map + genome CSV).
-    for fname in ("uniprot_map.json", "ecoli_k12_genes.csv"):
-        src = _REAL_DATA / fname
-        if src.exists():
-            shutil.copy(src, tmp_path / fname)
-
-    # Pre-seed the structures cache so no network downloads occur.
-    out = tmp_path / "pack"
-    struct_cache = out / "structures"
+def _seed_struct_cache(struct_cache: Path) -> None:
+    """Copy the meshable structures the build needs into ``struct_cache``."""
     struct_cache.mkdir(parents=True, exist_ok=True)
     for src_name, dst_name in [
         ("rna_polymerase.pdb", "rna_polymerase.pdb"),
@@ -97,17 +59,75 @@ def rna_build_env(tmp_path, monkeypatch):
         if src.exists():
             shutil.copy(src, struct_cache / dst_name)
 
-    monkeypatch.setattr(build, "DATA", tmp_path)
-    return out
+
+@pytest.fixture
+def rna_build_factory(tmp_path, monkeypatch):
+    """Return a builder: ``build(transcript_lengths) -> build_model result``.
+
+    Each call synthesises a fresh snapshot in its own subdir with 1 RNAP
+    (unique_index=7) and one nascent RNA per supplied transcript length (all
+    rooted at that RNAP), pre-seeds the structures cache, points ``build.DATA``
+    at it, and runs a small ``build_model``.  Lets a test compare two builds
+    that differ only in transcript length.
+    """
+    # The structures cache is a hardcoded laptop path; without it the build
+    # silently downloads nothing and emits 0 rna_segment placements, so skip
+    # cleanly rather than fail with a misleading assertion.
+    if not _STRUCT_CACHE.exists():
+        pytest.skip(f"structure cache not available at {_STRUCT_CACHE}")
+
+    # Respect an existing PARSIMONY_HOME (portable to CI / other machines).
+    monkeypatch.setenv(
+        "PARSIMONY_HOME",
+        os.environ.get("PARSIMONY_HOME", "/Users/eranagmon/code/parsimony"),
+    )
+
+    counter = {"n": 0}
+
+    def _build(transcript_lengths):
+        counter["n"] += 1
+        data_dir = tmp_path / f"data{counter['n']}"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        n = len(transcript_lengths)
+        np.savez(
+            data_dir / "v2ecoli_state.npz",
+            ids=np.array(["EG10893-MONOMER[c]"]),
+            counts=np.array([100]),
+            volume=np.array(1.0),
+            n_chromosomes=np.array(1),
+            fork_fraction=np.array(0.0),
+            division_progress=np.array(0.0),
+            rnap_coordinates=np.array([0], dtype="i8"),
+            rnap_domain_index=np.array([0], dtype="i4"),
+            rnap_is_forward=np.array([True]),
+            rnap_unique_index=np.array([7], dtype="i8"),
+            rna_unique_index=np.arange(20, 20 + n, dtype="i8"),
+            rna_RNAP_index=np.full(n, 7, dtype="i8"),
+            rna_transcript_length=np.array(transcript_lengths, dtype="i8"),
+            rna_is_mRNA=np.ones(n, dtype=bool),
+            rna_is_full_transcript=np.zeros(n, dtype=bool),
+            rna_TU_index=np.arange(1, n + 1, dtype="i8"),
+        )
+        # Reference files needed by build_model (uniprot_map + genome CSV).
+        for fname in ("uniprot_map.json", "ecoli_k12_genes.csv"):
+            src = _REAL_DATA / fname
+            if src.exists():
+                shutil.copy(src, data_dir / fname)
+
+        out = data_dir / "pack"
+        _seed_struct_cache(out / "structures")
+        monkeypatch.setattr(build, "DATA", data_dir)
+        return build.build_model(str(out), state_source="snapshot", top_n=5)
+
+    return _build
 
 
-# ── test ────────────────────────────────────────────────────────────────────
+# ── tests ───────────────────────────────────────────────────────────────────
 
 @pytest.mark.slow
-def test_build_renders_nascent_rna(rna_build_env):
+def test_build_renders_nascent_rna(rna_build_factory):
     """build_model places >0 rna_segment placements for 3 nascent RNAs."""
-    out = rna_build_env
-    res = build.build_model(str(out), state_source="snapshot", top_n=5)
+    res = rna_build_factory([300, 900, 1500])
 
     pack = json.loads(Path(res["pack_path"]).read_text())
     meta = json.loads(Path(res["sidecar_path"]).read_text())["ingredients"]
@@ -119,4 +139,25 @@ def test_build_renders_nascent_rna(rna_build_env):
     assert n_rna > 0, (
         f"expected >0 rna_segment placements, got {n_rna}. "
         f"Ingredients: {[i['name'] for i in pack['ingredients']]}"
+    )
+
+
+@pytest.mark.slow
+def test_rna_segment_count_grows_with_transcript_length(rna_build_factory):
+    """Longer transcripts → more tiled rna_segment placements.
+
+    The only check that ``rna_angstrom_per_nt`` length scaling is actually
+    wired: tripling every transcript length must strictly increase the total
+    rna_segment placement count (more nt → longer strand contour → more
+    tiled segments).
+    """
+    short = rna_build_factory([300, 900, 1500])
+    long = rna_build_factory([900, 2700, 4500])  # ×3 the lengths
+
+    n_short = pack_count_of(json.loads(Path(short["pack_path"]).read_text()), "rna_segment")
+    n_long = pack_count_of(json.loads(Path(long["pack_path"]).read_text()), "rna_segment")
+
+    assert n_long > n_short, (
+        f"expected more rna_segment placements for longer transcripts, "
+        f"got short={n_short}, long={n_long}"
     )

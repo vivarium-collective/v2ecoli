@@ -76,6 +76,7 @@ def rnap_state(state_source="snapshot"):
         "coordinates": np.array([], dtype="i8"),
         "domain_index": np.array([], dtype="i4"),
         "is_forward": np.array([], dtype=bool),
+        "unique_index": np.array([], dtype="i8"),
     }
     try:
         st = np.load(npz_path)
@@ -89,6 +90,57 @@ def rnap_state(state_source="snapshot"):
             "is_forward": st["rnap_is_forward"].astype(bool)
             if "rnap_is_forward" in st
             else _empty["is_forward"],
+            "unique_index": st["rnap_unique_index"].astype("i8")
+            if "rnap_unique_index" in st
+            else _empty["unique_index"],
+        }
+    except Exception:
+        return _empty
+
+
+def rna_state(state_source="snapshot"):
+    """Return nascent-RNA arrays from the snapshot.
+
+    Reads keys ``rna_unique_index`` (i8), ``rna_RNAP_index`` (i8),
+    ``rna_transcript_length`` (i8), ``rna_is_mRNA`` (bool),
+    ``rna_is_full_transcript`` (bool), and ``rna_TU_index`` (i8) from the saved
+    state npz, mirroring the file selection of :func:`rnap_state`.  Returns
+    empty arrays with correct dtypes when keys are absent or the file is missing.
+    """
+    if state_source == "division":
+        npz_path = DATA / "v2ecoli_state_division.npz"
+    else:
+        npz_path = DATA / "v2ecoli_state.npz"
+
+    _empty = {
+        "unique_index": np.array([], dtype="i8"),
+        "RNAP_index": np.array([], dtype="i8"),
+        "transcript_length": np.array([], dtype="i8"),
+        "is_mRNA": np.array([], dtype=bool),
+        "is_full_transcript": np.array([], dtype=bool),
+        "TU_index": np.array([], dtype="i8"),
+    }
+    try:
+        st = np.load(npz_path)
+        return {
+            "unique_index": st["rna_unique_index"].astype("i8")
+            if "rna_unique_index" in st
+            else _empty["unique_index"],
+            "RNAP_index": st["rna_RNAP_index"].astype("i8")
+            if "rna_RNAP_index" in st
+            else _empty["RNAP_index"],
+            "transcript_length": st["rna_transcript_length"].astype("i8")
+            if "rna_transcript_length" in st
+            else _empty["transcript_length"],
+            "is_mRNA": st["rna_is_mRNA"].astype(bool)
+            if "rna_is_mRNA" in st
+            else _empty["is_mRNA"],
+            "is_full_transcript": st["rna_is_full_transcript"].astype(bool)
+            if "rna_is_full_transcript" in st
+            else _empty["is_full_transcript"],
+            "TU_index": st["rna_TU_index"].astype("i8")
+            if "rna_TU_index" in st
+            else _empty["TU_index"],
         }
     except Exception:
         return _empty

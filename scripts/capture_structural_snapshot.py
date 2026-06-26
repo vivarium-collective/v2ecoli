@@ -98,6 +98,8 @@ def _extract_snapshot(comp):
     rnap_domain_index = np.array([], dtype=np.int32)
     rnap_is_forward = np.array([], dtype=bool)
 
+    rnap_unique_index = np.array([], dtype=np.int64)
+
     if rnap is not None and hasattr(rnap, "dtype") and "_entryState" in rnap.dtype.names:
         active_rnap = rnap[rnap["_entryState"].view(bool)]
         n_rnap = len(active_rnap)
@@ -111,12 +113,45 @@ def _extract_snapshot(comp):
             elif "direction" in rnap.dtype.names:
                 # Older schema: direction is +1/-1 or True/False
                 rnap_is_forward = (active_rnap["direction"] > 0).astype(bool)
+            if "unique_index" in rnap.dtype.names:
+                rnap_unique_index = active_rnap["unique_index"].astype(np.int64)
         print(f"  Captured {n_rnap} active RNAPs  "
               f"(coordinates range: "
               f"{int(rnap_coordinates.min()) if n_rnap else 'n/a'} .. "
               f"{int(rnap_coordinates.max()) if n_rnap else 'n/a'} bp)")
     else:
         print("  WARNING: active_RNAP unique molecule not found in state")
+
+    # ── Nascent RNA ──────────────────────────────────────────────────────────
+    rna = unique.get("RNA")
+    rna_unique_index = np.array([], dtype=np.int64)
+    rna_RNAP_index = np.array([], dtype=np.int64)
+    rna_transcript_length = np.array([], dtype=np.int64)
+    rna_is_mRNA = np.array([], dtype=bool)
+    rna_is_full_transcript = np.array([], dtype=bool)
+    rna_TU_index = np.array([], dtype=np.int64)
+
+    if rna is not None and hasattr(rna, "dtype") and "_entryState" in rna.dtype.names:
+        active_rna = rna[rna["_entryState"].view(bool)]
+        n_rna = len(active_rna)
+        if n_rna > 0:
+            if "unique_index" in rna.dtype.names:
+                rna_unique_index = active_rna["unique_index"].astype(np.int64)
+            if "RNAP_index" in rna.dtype.names:
+                rna_RNAP_index = active_rna["RNAP_index"].astype(np.int64)
+            if "transcript_length" in rna.dtype.names:
+                rna_transcript_length = active_rna["transcript_length"].astype(np.int64)
+            if "is_mRNA" in rna.dtype.names:
+                rna_is_mRNA = active_rna["is_mRNA"].astype(bool)
+            if "is_full_transcript" in rna.dtype.names:
+                rna_is_full_transcript = active_rna["is_full_transcript"].astype(bool)
+            if "TU_index" in rna.dtype.names:
+                rna_TU_index = active_rna["TU_index"].astype(np.int64)
+        print(f"  Captured {n_rna} nascent RNAs  "
+              f"(mRNA={int(rna_is_mRNA.sum())}, "
+              f"full_transcript={int(rna_is_full_transcript.sum())})")
+    else:
+        print("  WARNING: RNA unique molecule not found in state")
 
     return {
         "ids": ids,
@@ -128,6 +163,13 @@ def _extract_snapshot(comp):
         "rnap_coordinates": rnap_coordinates,
         "rnap_domain_index": rnap_domain_index,
         "rnap_is_forward": rnap_is_forward,
+        "rnap_unique_index": rnap_unique_index,
+        "rna_unique_index": rna_unique_index,
+        "rna_RNAP_index": rna_RNAP_index,
+        "rna_transcript_length": rna_transcript_length,
+        "rna_is_mRNA": rna_is_mRNA,
+        "rna_is_full_transcript": rna_is_full_transcript,
+        "rna_TU_index": rna_TU_index,
     }
 
 
@@ -159,7 +201,8 @@ def capture_snapshot(cache_dir: str = "out/cache", advance_s: float = 2.0,
           f"n_chromosomes={snap['n_chromosomes']}, "
           f"fork_fraction={snap['fork_fraction']:.4f}, "
           f"division_progress={snap['division_progress']:.4f}")
-    print(f"          RNAP count = {len(snap['rnap_coordinates'])}")
+    print(f"          RNAP count = {len(snap['rnap_coordinates'])}, "
+          f"RNA count = {len(snap['rna_unique_index'])}")
 
     if skip_division:
         print("[capture] Skipping division snapshot (--skip-division).")
@@ -210,7 +253,8 @@ def capture_snapshot(cache_dir: str = "out/cache", advance_s: float = 2.0,
         print(f"          volume={snap_div['volume']:.3f} fL, "
               f"n_chromosomes={snap_div['n_chromosomes']}, "
               f"fork_fraction={snap_div['fork_fraction']:.4f}")
-        print(f"          RNAP count = {len(snap_div['rnap_coordinates'])}")
+        print(f"          RNAP count = {len(snap_div['rnap_coordinates'])}, "
+              f"RNA count = {len(snap_div['rna_unique_index'])}")
 
     except Exception as exc:
         print(f"[capture] Division snapshot FAILED: {exc!r}")

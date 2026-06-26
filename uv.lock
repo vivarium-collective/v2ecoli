@@ -2894,7 +2894,7 @@ dependencies = [
 [[package]]
 name = "pbg-parsimony"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#a1ab6e00c417571c2f2de760f052268102d9bdd8" }
+source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#0d55775e009e704b41977a2d11ea349677d919f8" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "process-bigraph" },
@@ -2903,7 +2903,7 @@ dependencies = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#afac3e930f5a0c9db32f990c6c44eb4c4b698c21" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#1af991a8879c130f9c9a158836a8fa29d855ffe8" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
@@ -4575,7 +4575,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#1d2260a26d4df0f27191c4c6b57b29c274ebbac3" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#3bc3cd5d8d7b6632c39cfc6f0d57e47a74d199f8" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },

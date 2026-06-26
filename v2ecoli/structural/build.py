@@ -1254,6 +1254,14 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         structure=StructureRef("pdb", "1BNA"),
         color=PEPTIDE_COLOR, category="Translation",
         display_name="Nascent peptide"))
+    # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
+    # membrane + interior follow it). Depth is state-driven — it tracks the cell's
+    # division progress (D-period), so a newborn is a smooth rod and a near-division
+    # cell has a deep waist — but capped at a ~50% medial neck (a constricted
+    # dumbbell: two full-radius lobes joined by a defined septum, not a sharp pinch).
+    # Resolve here so the Chromosome constructor can carry it into the recipe.
+    if septum_fraction is None:
+        septum_fraction = septum_from_progress(division_progress(state_source), max_depth=0.5)
     chromosome = Chromosome(
         beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
@@ -1265,14 +1273,9 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         rnas=rnas, rna_segment="rna_segment", rna_segment_free="rna_segment_free",
         rna_angstrom_per_nt=2.0,
         ribosomes=ribosomes, ribosome_marker="70S_ribosome",
-        peptide_segment="peptide_segment", peptide_angstrom_per_aa=3.0)
-    # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
-    # membrane + interior follow it). Depth is state-driven — it tracks the cell's
-    # division progress (D-period), so a newborn is a smooth rod and a near-division
-    # cell has a deep waist — but capped at a ~50% medial neck (a constricted
-    # dumbbell: two full-radius lobes joined by a defined septum, not a sharp pinch).
-    if septum_fraction is None:
-        septum_fraction = septum_from_progress(division_progress(state_source), max_depth=0.5)
+        peptide_segment="peptide_segment", peptide_angstrom_per_aa=3.0,
+        septum_depth=septum_fraction if septum_fraction else 0.0,
+        septum_width=0.28 * capsule.radius)
     dividing = n_chrom >= 2
     # FtsZ Z-ring constricting the septum — a dividing-cell feature only. Added as a
     # curated ingredient (so it's meshed + in the sidecar); placements arranged into

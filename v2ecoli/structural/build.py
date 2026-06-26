@@ -1106,17 +1106,33 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # state's real total DNA bp.
     n_chrom, fork_fraction = chromosome_state(state_source)
     rs = rnap_state(state_source)
+    # Coerce chromosome_index / is_daughter to the RNAP count for backward compat:
+    # pre-BF2 snapshots omit these keys → rnap_state returns empty arrays.  Pad
+    # with zeros / False so the zip below always produces one entry per RNAP.
+    n_rnap = len(rs["coordinates"])
+    chr_idx = rs["chromosome_index"]
+    is_dau = rs["is_daughter"]
+    if len(chr_idx) != n_rnap:
+        chr_idx = np.zeros(n_rnap, dtype="i4")
+    if len(is_dau) != n_rnap:
+        is_dau = np.zeros(n_rnap, dtype=bool)
     rnaps = [
-        {"coordinates": int(c), "domain_index": int(d), "is_forward": bool(f)}
-        for c, d, f in zip(rs["coordinates"], rs["domain_index"], rs["is_forward"])
+        {
+            "coordinates": int(c), "domain_index": int(d), "is_forward": bool(f),
+            "chromosome_index": int(ci), "is_daughter": bool(isd),
+        }
+        for c, d, f, ci, isd in zip(
+            rs["coordinates"], rs["domain_index"], rs["is_forward"], chr_idx, is_dau
+        )
     ]
-    # Nascent RNA wiring: map each active RNAP's unique_index → (coord, domain) so
-    # each nascent RNA strand can be rooted at its transcribing polymerase.
+    # Nascent RNA wiring: map each active RNAP's unique_index → (coord, domain,
+    # chromosome_index, is_daughter) so each nascent RNA strand can be rooted at
+    # its transcribing polymerase and inherits its chromosome + daughter status.
     rnas_raw = rna_state(state_source)
     rnap_uid_to_cd = {
-        int(uid): (int(c), int(d))
-        for uid, c, d in zip(
-            rs["unique_index"], rs["coordinates"], rs["domain_index"]
+        int(uid): (int(c), int(d), int(ci), bool(isd))
+        for uid, c, d, ci, isd in zip(
+            rs["unique_index"], rs["coordinates"], rs["domain_index"], chr_idx, is_dau
         )
     }
     rnas = []
@@ -1130,21 +1146,27 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
             # uid == -1 (or any orphaned uid): free / fully-terminated cytoplasmic RNA.
             # Emit as a confined interior strand (is_free=True → placer seeds inside
             # the cell envelope via a rejection-sampled random interior point).
+            # Cytoplasmic strands have no chromosome anchor → chromosome_index=0,
+            # is_daughter=False.
             rnas.append({
                 "root_coordinate": 0,
                 "root_domain": 0,
                 "length_nt": int(transcript_length[i]),
                 "is_mRNA": bool(is_mRNA[i]),
                 "is_free": True,
+                "chromosome_index": 0,
+                "is_daughter": False,
             })
             n_free += 1
         else:
-            coord, dom = rnap_uid_to_cd[uid]
+            coord, dom, chrom_idx, is_daughter = rnap_uid_to_cd[uid]
             rnas.append({
                 "root_coordinate": coord,
                 "root_domain": dom,
                 "length_nt": int(transcript_length[i]),
                 "is_mRNA": bool(is_mRNA[i]),
+                "chromosome_index": chrom_idx,
+                "is_daughter": is_daughter,
             })
             n_nascent += 1
     print(f"  RNAs: {n_nascent} nascent (wired to {len(rnaps)} active RNAPs)"

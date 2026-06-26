@@ -1246,6 +1246,12 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         structure=StructureRef("pdb", "1BNA"),
         color=RNA_FREE_COLOR, category="Transcription",
         display_name="Free mRNA (released, cytoplasmic)"))
+    PEPTIDE_COLOR = (0.95, 0.45, 0.3)   # orange-red — nascent peptide (Translation)
+    ingredients.append(Ingredient(
+        id="peptide_segment", count=0,
+        structure=StructureRef("pdb", "1BNA"),
+        color=PEPTIDE_COLOR, category="Translation",
+        display_name="Nascent peptide"))
     chromosome = Chromosome(
         beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
@@ -1256,7 +1262,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         rnaps=rnaps, rnap_marker="rna_polymerase",
         rnas=rnas, rna_segment="rna_segment", rna_segment_free="rna_segment_free",
         rna_angstrom_per_nt=2.0,
-        ribosomes=ribosomes, ribosome_marker="70S_ribosome")
+        ribosomes=ribosomes, ribosome_marker="70S_ribosome",
+        peptide_segment="peptide_segment", peptide_angstrom_per_aa=3.0)
     # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
     # membrane + interior follow it). Depth is state-driven — it tracks the cell's
     # division progress (D-period), so a newborn is a smooth rod and a near-division

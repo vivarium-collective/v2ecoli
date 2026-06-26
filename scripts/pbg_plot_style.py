@@ -155,6 +155,23 @@ def house_layout(fig, title: str, subtitle: str, height: int = 480):
     to make_dnaa5_figures._layout. Returns the figure for chaining."""
     sub = wrap(subtitle)
     nlines = sub.count("<br>") + 1
+    # Count the legend entries so we can reserve the right amount of vertical
+    # space below the plot for a VERTICAL legend (one entry per row).
+    #   - horizontal legends crammed long labels on top of each other at narrow
+    #     embed widths (Rashmi 2026-06-24);
+    #   - outside-top-right legends got clipped when labels exceeded the right
+    #     margin (earlier report).
+    # A vertical legend BELOW the plot, left-aligned, can't overlap (one per row)
+    # and can't be right-clipped (it lives within the plot's own width). We size
+    # the bottom margin + height to the actual entry count so nothing is cut off
+    # and simple 2-3 entry plots don't get excess whitespace.
+    n_leg = 0
+    for _t in fig.data:
+        if getattr(_t, "name", None) and getattr(_t, "showlegend", None) is not False:
+            n_leg += 1
+    n_leg = max(1, n_leg)
+    row_px = 22
+    legend_block = 46 + row_px * n_leg          # title-axis gap + one row per entry
     fig.update_layout(
         title=dict(
             text=f"<b>{title}</b><br><span style='font-size:12px;color:#475569'>{sub}</span>",
@@ -162,17 +179,12 @@ def house_layout(fig, title: str, subtitle: str, height: int = 480):
             # pin to the container top so the subtitle grows downward into the
             # reserved top margin (not into the plot / subplot titles below it)
             yref="container", y=0.965, yanchor="top"),
-        template="plotly_white", height=height + 18 * max(0, nlines - 1) + 70,
+        template="plotly_white",
+        height=height + 18 * max(0, nlines - 1) + legend_block,
         font=dict(family="Inter, system-ui, sans-serif", size=13),
-        # Legend sits HORIZONTALLY BELOW the plot (centered). An outside-top-right
-        # legend gets clipped in the responsive dashboard/report iframe whenever the
-        # labels are long (they overflow the reserved right margin) — the recurring
-        # "legends partly hidden in the upper-right" report. A below-plot horizontal
-        # legend lives inside the figure's own height, so it can't be clipped at any
-        # container width and never overlaps the plotting area. The +70 height and
-        # b=120 margin reserve room for it (wraps to extra rows for many entries).
-        margin=dict(t=92 + 22 * nlines, b=120, l=70, r=50), hovermode="x unified",
-        legend=dict(orientation="h", yanchor="top", y=-0.16, xanchor="center", x=0.5,
+        margin=dict(t=92 + 22 * nlines, b=64 + row_px * n_leg, l=70, r=50),
+        hovermode="x unified",
+        legend=dict(yanchor="top", y=-0.16, xanchor="left", x=0,
                     bgcolor="rgba(255,255,255,0.7)", bordercolor="#e2e8f0", borderwidth=1),
     )
     return fig

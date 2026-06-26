@@ -303,7 +303,12 @@ CATEGORY_COLOR = {
 # whose structure is a curated PDB/mmCIF (AlphaFold gives only monomers).
 CURATED = [
     # id,             gene,  category,           structure,         count_key,       region
-    ("70S_ribosome",  None, "Translation",      ("cif", "4YBB"),   20000,           "interior"),
+    # count=0 → not randomly packed; placed explicitly by place_translation as ribosome_marker.
+    ("70S_ribosome",  None, "Translation",      ("cif", "4YBB"),   0,               "interior"),
+    # Free 30S / 50S subunits at their real bulk counts (CPLX0-3953 / CPLX0-3962).
+    # If 2AVY / 2AW4 fail to fetch/mesh the build logs a skip — counts still wire correctly.
+    ("30S_subunit",   None, "Translation",      ("pdb", "2AVY"),   "CPLX0-3953",    "interior"),  # free 30S
+    ("50S_subunit",   None, "Translation",      ("pdb", "2AW4"),   "CPLX0-3962",    "interior"),  # free 50S
     ("rna_polymerase", None, "Transcription",   ("pdb", "4YG2"),   0,               "fiber"),
     ("groel",         None, "Protein folding",  ("pdb", "1AON"),   1500,            "interior"),
     ("EG10367-MONOMER", None, "Metabolism",     "af",              "GAPDH-A-CPLX",  "interior"),  # GAPDH (complex abundance)
@@ -316,7 +321,8 @@ DISPLAY = {
 
 # Large interior assemblies packed in an early stage so they reach true abundance
 # (packed alongside the small-molecule flood they saturate at a few % of count).
-BIG_ASSEMBLIES = {"70S_ribosome", "groel"}
+# Note: 70S_ribosome is no longer randomly packed (count=0; placed via ribosome_marker).
+BIG_ASSEMBLIES = {"groel"}
 
 # FtsZ Z-ring: how many FtsZ to lay around the septum circle (a visible cyan band
 # at midcell; the real ring is denser but this reads cleanly at whole-cell scale).
@@ -1179,6 +1185,7 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     n_free = 0
     transcript_length = rnas_raw["transcript_length"]
     is_mRNA = rnas_raw["is_mRNA"]
+    unique_index = rnas_raw["unique_index"]
     for i in range(len(rnas_raw["RNAP_index"])):
         uid = int(rnas_raw["RNAP_index"][i])
         if uid not in rnap_uid_to_cd:
@@ -1195,6 +1202,7 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
                 "is_free": True,
                 "chromosome_index": 0,
                 "is_daughter": False,
+                "unique_index": int(unique_index[i]),
             })
             n_free += 1
         else:
@@ -1206,10 +1214,19 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
                 "is_mRNA": bool(is_mRNA[i]),
                 "chromosome_index": chrom_idx,
                 "is_daughter": is_daughter,
+                "unique_index": int(unique_index[i]),
             })
             n_nascent += 1
     print(f"  RNAs: {n_nascent} nascent (wired to {len(rnaps)} active RNAPs)"
           f" + {n_free} free cytoplasmic → {len(rnas)} total")
+    # Active ribosomes: each placed on its mRNA strand at pos_on_mRNA / length_nt.
+    # mRNA_index must match RNA.unique_index for the placer to locate the strand.
+    rs_ribo = ribosome_state(state_source)
+    ribosomes = [
+        {"mRNA_index": int(m), "pos_on_mRNA": int(p), "peptide_length": int(l)}
+        for m, p, l in zip(rs_ribo["mRNA_index"], rs_ribo["pos_on_mRNA"], rs_ribo["peptide_length"])
+    ]
+    print(f"  ribosomes: {len(ribosomes)} active (mRNA_index → strand unique_index)")
     # RNA segment ingredient: reuse the dsDNA 1BNA mesh with an RNA-green color so
     # nascent strands render as tiled segments distinct from the chromosome (tan)
     # and RNAP (blue).  count=0 means the packer does not place it randomly — the
@@ -1235,7 +1252,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         fork_marker="replisome", oric_marker="oriC", ter_marker="terminus",
         rnaps=rnaps, rnap_marker="rna_polymerase",
         rnas=rnas, rna_segment="rna_segment", rna_segment_free="rna_segment_free",
-        rna_angstrom_per_nt=2.0)
+        rna_angstrom_per_nt=2.0,
+        ribosomes=ribosomes, ribosome_marker="70S_ribosome")
     # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
     # membrane + interior follow it). Depth is state-driven — it tracks the cell's
     # division progress (D-period), so a newborn is a smooth rod and a near-division

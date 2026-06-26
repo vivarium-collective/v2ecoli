@@ -590,7 +590,12 @@ def main(argv=None):
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
         match_initial_state=args.match_initial_state,
         match_vecoli_simdata=args.match_vecoli_simdata)
-    parallel = run_seeds_parallel(seeds, run_one, mode=args.mode)
+    # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
+    # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen
+    # seed is ~16GB; on the 12-core/69GB mini set 4 → 3 concurrent ≈ 48GB, safe).
+    _ray_threads = int(os.environ.get("V2E_RAY_THREADS", "0") or 0) or None
+    parallel = run_seeds_parallel(seeds, run_one, mode=args.mode,
+                                  num_threads=_ray_threads)
     summaries = getattr(parallel, "results", parallel)
     ensemble = {"composite": args.composite, "condition": args.condition,
                 "n_seeds": len(seeds), "max_generations": args.max_generations,

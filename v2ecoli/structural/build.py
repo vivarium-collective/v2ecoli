@@ -1035,6 +1035,39 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         {"coordinates": int(c), "domain_index": int(d), "is_forward": bool(f)}
         for c, d, f in zip(rs["coordinates"], rs["domain_index"], rs["is_forward"])
     ]
+    # Nascent RNA wiring: map each active RNAP's unique_index → (coord, domain) so
+    # each nascent RNA strand can be rooted at its transcribing polymerase.
+    rnas_raw = rna_state(state_source)
+    rnap_uid_to_cd = {
+        int(uid): (int(c), int(d))
+        for uid, c, d in zip(
+            rs["unique_index"], rs["coordinates"], rs["domain_index"]
+        )
+    }
+    rnas = []
+    for i in range(len(rnas_raw["RNAP_index"])):
+        uid = int(rnas_raw["RNAP_index"][i])
+        if uid not in rnap_uid_to_cd:
+            # uid == -1 means free / fully-terminated RNA (Phase B2); skip here.
+            continue
+        coord, dom = rnap_uid_to_cd[uid]
+        rnas.append({
+            "root_coordinate": coord,
+            "root_domain": dom,
+            "length_nt": int(rnas_raw["transcript_length"][i]),
+            "is_mRNA": bool(rnas_raw["is_mRNA"][i]),
+        })
+    print(f"  nascent RNAs: {len(rnas)} strands wired to {len(rnaps)} active RNAPs")
+    # RNA segment ingredient: reuse the dsDNA 1BNA mesh with an RNA-green color so
+    # nascent strands render as tiled segments distinct from the chromosome (tan)
+    # and RNAP (blue).  count=0 means the packer does not place it randomly — the
+    # chromosome stage tiles it along each nascent-RNA strand contour.
+    RNA_COLOR = (0.2, 0.85, 0.5)   # emerald green — clearly RNA-ish
+    ingredients.append(Ingredient(
+        id="rna_segment", count=0,
+        structure=StructureRef("pdb", "1BNA"),
+        color=RNA_COLOR, category="Transcription",
+        display_name="Nascent RNA (B-form segment proxy)"))
     chromosome = Chromosome(
         beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
@@ -1042,7 +1075,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200},
         n_chromosomes=n_chrom, fork_fraction=fork_fraction,
         fork_marker="replisome", oric_marker="oriC", ter_marker="terminus",
-        rnaps=rnaps, rnap_marker="rna_polymerase")
+        rnaps=rnaps, rnap_marker="rna_polymerase",
+        rnas=rnas, rna_segment="rna_segment", rna_angstrom_per_nt=2.0)
     # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
     # membrane + interior follow it). Depth is state-driven — it tracks the cell's
     # division progress (D-period), so a newborn is a smooth rod and a near-division

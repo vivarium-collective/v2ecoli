@@ -314,7 +314,9 @@ CURATED = [
     ("EG10367-MONOMER", None, "Metabolism",     "af",              "GAPDH-A-CPLX",  "interior"),  # GAPDH (complex abundance)
 ]
 DISPLAY = {
-    "70S_ribosome": "70S ribosome", "rna_polymerase": "RNA polymerase",
+    "70S_ribosome": "Active ribosome (70S, translating)", "rna_polymerase": "RNA polymerase",
+    "30S_subunit": "30S ribosomal subunit (free)",
+    "50S_subunit": "50S ribosomal subunit (free)",
     "groel": "GroEL/ES chaperonin",
     "EG10367-MONOMER": "glyceraldehyde-3-phosphate dehydrogenase (GAPDH)",
 }

@@ -804,12 +804,14 @@ def main(argv=None):
     overview = overview_section(cond_data)
     overview["nav_group"] = "Overall"
     sections = [overview]
-    # 2. ParCa / initial-state comparison — its own nav entry. Skipped in
-    #    pbg-vs-pbg modes (the vecoli side is a pbg zarr, not a Nextflow config).
-    if not skip_nextflow:
-        parca = parca_section(cond_data)
-        parca["nav_group"] = "ParCa comparison"
-        sections.append(parca)
+    # 2. ParCa / initial-state comparison — its own nav entry. Renders for ALL
+    #    modes (incl. pbg-vs-pbg): it reads the t~0 emitted masses straight from
+    #    the loaded trajectories (cond_data), NOT any Nextflow config — and in the
+    #    matched-initial-state comparison it IS the headline evidence (both engines
+    #    start from identical molecule counts → t~0 masses agree).
+    parca = parca_section(cond_data)
+    parca["nav_group"] = "ParCa comparison"
+    sections.append(parca)
     # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
     #    config -> simulation runs -> evaluation. All of a condition's sections
     #    share nav_group=<cond>, so they fold into ONE nav button per condition.

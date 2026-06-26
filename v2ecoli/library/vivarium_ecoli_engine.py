@@ -324,6 +324,42 @@ def build_vivarium_ecoli_composite(
                        "agent_id": agent_id, "process": proc}
 
 
+def _dperiod_should_divide(handle) -> tuple[bool, int]:
+    """Genuine vEcoli's DEFAULT division criterion (``d_period=True``), faithfully:
+    the wcEcoli D-period mechanism (``ecoli.processes.cell_division.MarkDPeriod``).
+
+    Divide as soon as the cell's time reaches a full chromosome's ``division_time``
+    — an attribute set DURING replication (= replication-complete + D_period, where
+    D_period comes from sim_data) — for a chromosome that has not yet triggered
+    division, once there are >= 2 full chromosomes. The dry-mass threshold is NOT
+    used (real vEcoli ignores it under d_period=True; v2's MarkDPeriod is identical).
+
+    Returns ``(should_divide, n_full_chromosomes)``. Reads the genuine-vEcoli inner
+    Engine directly, so ``division_time`` flows straight from sim_data → vEcoli's
+    replication → here — no re-derivation, no mass approximation.
+    """
+    eng = handle.engine
+    gt = float(getattr(eng, "global_time", 0.0) or 0.0)
+    obs = cell_observables(eng)
+    u = obs.get("unique") or {}
+    fc = u.get("full_chromosome") if isinstance(u, dict) else None
+    if fc is None or not hasattr(fc, "dtype") or fc.dtype.names is None:
+        return False, 0
+    names = fc.dtype.names
+    active = (fc["_entryState"].view(np.bool_) if "_entryState" in names
+              else np.ones(len(fc), dtype=bool))
+    nchrom = int(active.sum())
+    if nchrom < 2 or "division_time" not in names:
+        return False, nchrom
+    dt = np.asarray(fc["division_time"])[active]
+    htd = (np.asarray(fc["has_triggered_division"]).astype(bool)[active]
+           if "has_triggered_division" in names else np.zeros(nchrom, dtype=bool))
+    untriggered = dt[~htd]
+    if untriggered.size == 0:
+        return False, nchrom
+    return bool(gt >= float(untriggered.min())), nchrom
+
+
 def run_vivarium_ecoli_pbg_multigen(
     *,
     store_path,
@@ -399,7 +435,6 @@ def run_vivarium_ecoli_pbg_multigen(
             agent_id=partition_agent_id, output_metadata={}, buffer_size=3)
 
         steps = 1
-        threshold = None
         divided = False
         while steps < max_steps_per_gen:
             comp.run(chunk)
@@ -413,16 +448,13 @@ def run_vivarium_ecoli_pbg_multigen(
                        "agents": {partition_agent_id: payload}})
             mass = agent_state["listeners"]["mass"]
             final_cell_mass = float(mass.get("cell_mass", 0.0) or 0.0)
-            dry = float(mass.get("dry_mass", 0.0) or 0.0)
-            if threshold is None and dry > 0:
-                raw = (proc._handle.dry_mass_inc_dict.get(proc._handle.media_id)
-                       or proc._handle.dry_mass_inc_dict.get("minimal"))
-                inc = _inc_to_fg(raw) if raw is not None else dry
-                if not inc or inc <= 0:
-                    inc = dry  # fallback: mass doubling
-                threshold = dry + inc * mass_multiplier
-            _dry, nchrom = proc.division_signals()
-            if threshold is not None and dry >= threshold and nchrom >= 2:
+            # Divide by genuine vEcoli's D-period criterion (the d_period=True
+            # default), NOT a dry-mass threshold. The old mass-based rule diverged
+            # from real vEcoli on fast-growth media (e.g. with_aa, multifork
+            # replication): D-period fires when replication+D_period elapses, well
+            # before the mass threshold, so the mass rule divided ~40% too late.
+            should_divide, _nchrom = _dperiod_should_divide(proc._handle)
+            if should_divide:
                 divided = True
                 break
 

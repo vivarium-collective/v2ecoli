@@ -1078,12 +1078,18 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # nascent strands render as tiled segments distinct from the chromosome (tan)
     # and RNAP (blue).  count=0 means the packer does not place it randomly — the
     # chromosome stage tiles it along each nascent-RNA strand contour.
-    RNA_COLOR = (0.2, 0.85, 0.5)   # emerald green — clearly RNA-ish
+    RNA_COLOR = (0.2, 0.85, 0.5)       # emerald green — nascent (transcribing) RNA
+    RNA_FREE_COLOR = (0.15, 0.68, 0.78)  # teal — free (released) cytoplasmic mRNA
     ingredients.append(Ingredient(
         id="rna_segment", count=0,
         structure=StructureRef("pdb", "1BNA"),
         color=RNA_COLOR, category="Transcription",
-        display_name="Nascent RNA (B-form segment proxy)"))
+        display_name="Nascent RNA (transcribing, on RNAP)"))
+    ingredients.append(Ingredient(
+        id="rna_segment_free", count=0,
+        structure=StructureRef("pdb", "1BNA"),
+        color=RNA_FREE_COLOR, category="Transcription",
+        display_name="Free mRNA (released, cytoplasmic)"))
     chromosome = Chromosome(
         beads=GENOME_BEADS, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
@@ -1092,7 +1098,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         n_chromosomes=n_chrom, fork_fraction=fork_fraction,
         fork_marker="replisome", oric_marker="oriC", ter_marker="terminus",
         rnaps=rnaps, rnap_marker="rna_polymerase",
-        rnas=rnas, rna_segment="rna_segment", rna_angstrom_per_nt=2.0)
+        rnas=rnas, rna_segment="rna_segment", rna_segment_free="rna_segment_free",
+        rna_angstrom_per_nt=2.0)
     # Septum: a constricting pre-division cell gets a pinched-capsule envelope (the
     # membrane + interior follow it). Depth is state-driven — it tracks the cell's
     # division progress (D-period), so a newborn is a smooth rod and a near-division

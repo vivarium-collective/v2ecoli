@@ -134,6 +134,22 @@ stage_inputs() {
   fi
 }
 
+# Optional SECOND input stage. Used for matched-initial-state comparison runs:
+# the v2ecoli engine reads the genuine UPSTREAM vEcoli simData (staged here) to
+# build vEcoli's per-seed initial state and overlay it onto v2 (run_comparison_
+# ensemble.py --match-initial-state --match-vecoli-simdata $RAY_STAGE_DIR_2/...),
+# so both engines start from identical molecule counts. No-op unless both set.
+stage_inputs_2() {
+  [[ -z "${RAY_STAGE_S3_2:-}" || -z "${RAY_STAGE_DIR_2:-}" ]] && return 0
+  command -v aws >/dev/null 2>&1 || { echo "[ray-batch] FATAL: aws CLI needed for input staging" >&2; exit 1; }
+  echo "[ray-batch] node ${NODE_INDEX}: staging(2) ${RAY_STAGE_S3_2} -> ${RAY_STAGE_DIR_2}"
+  mkdir -p "${RAY_STAGE_DIR_2}"
+  if ! aws s3 sync "${RAY_STAGE_S3_2}" "${RAY_STAGE_DIR_2}" --only-show-errors; then
+    echo "[ray-batch] FATAL: second input staging from ${RAY_STAGE_S3_2} failed" >&2
+    exit 1
+  fi
+}
+
 # Output capture (RAY_OUT_DIR -> RAY_OUT_S3), symmetric to stage_inputs().
 #
 # WHY PER-NODE: the workload's tasks run on the WORKERS (the head is --num-cpus=0),
@@ -252,6 +268,7 @@ build_upstream_parca() {
 
 # ── Stage inputs on every node, then head vs. worker ─────────────────────────
 stage_inputs           # all nodes (head + workers) need the data before Ray scheduling
+stage_inputs_2         # optional 2nd stage (e.g. upstream simData for matched-initial-state)
 build_upstream_parca   # optional self-build of the upstream simData (gated; see above)
 
 if [[ "${NODE_INDEX}" == "${MAIN_INDEX}" ]]; then

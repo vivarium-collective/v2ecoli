@@ -96,7 +96,16 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     """
     from v2ecoli import build_composite
     eff_cache = cache_dir
-    if condition and condition != "basal":
+    # Regenerate a per-(condition, seed) initial-state bundle from simData. This
+    # MUST include basal: the base cache_full snapshot is a SINGLE seed's basal
+    # initial state, so without regen every basal seed starts IDENTICAL (e.g.
+    # active_ribosome fixed at 12441) while genuine vEcoli resamples per seed
+    # (seed2=9947). Regenerating basal per seed reproduces vEcoli's seed-specific
+    # draw to <0.1% (9944 vs 9947), so the v2 basal ENSEMBLE varies by seed like
+    # vEcoli's. (Non-basal already regenerated; basal was the lone exception.)
+    # Falls back to the snapshot when simData is absent (e.g. a minimal cache).
+    _sd_probe = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
+    if condition and (condition != "basal" or os.path.exists(_sd_probe)):
         import pickle
         from v2ecoli.core import save_sim_input
         # ABSOLUTE paths: the regen below does os.chdir(_iso) for emitter isolation,
@@ -127,6 +136,10 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                 os.chdir(_prev)
         if os.path.exists(marker):
             eff_cache = cond_cache
+        elif condition == "basal":
+            # The base cache IS basal, so a failed/absent basal regen safely
+            # degrades to the snapshot (seed-fixed) rather than erroring.
+            eff_cache = cache_dir
         else:
             # FAIL LOUD instead of silently falling back to the base (basal) cache.
             # The base ParCa is the shipped --mode FAST fixture (reduced TF condition
@@ -152,6 +165,69 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     if overrides:
         kwargs.update(overrides)
     return build_composite("baseline", **kwargs)
+
+
+# --------------------------------------------------------------------------- #
+# Matched-initial-state seeding.
+#
+# v2ecoli and genuine vEcoli draw their initial bulk molecule counts by
+# independent stochastic sampling, and the two codebases consume their RNG in
+# different order, so the SAME seed yields different draws. For HIGH-copy
+# species this is negligible, but for LOW-copy regulators it is not: SpoT
+# (ppGpp hydrolase, ~1-12 molecules) drove a >35% apparent acetate "divergence"
+# at seed 0 (v2 drew 12, vEcoli drew 1) that vanished once the counts matched —
+# the elongation+ppGpp models are otherwise equivalent. To make single-seed
+# v2-vs-vEcoli comparisons reflect genuine DYNAMICS rather than sampling luck,
+# overlay genuine vEcoli's initial bulk onto v2 so both engines start identical.
+# (Unique molecules — ribosomes/RNAP/chromosome — are NOT overlaid; they are
+# higher-copy and their initial counts already agree to a few percent.)
+# --------------------------------------------------------------------------- #
+def _vecoli_reference_bulk(sim_data_path: str, condition: str, seed: int,
+                           fork_dir: str | None) -> dict[str, int]:
+    """Genuine vEcoli initial bulk ``{molecule_id: count}`` for (condition, seed).
+
+    Builds the real upstream vEcoli vivarium Engine and reads its PRE-run bulk
+    state — the reference the v2ecoli run is seeded from.
+    """
+    import numpy as np
+    from v2ecoli.library.vivarium_ecoli_engine import build_vivarium_ecoli
+    h = build_vivarium_ecoli(
+        sim_data_path=sim_data_path, condition=condition, seed=seed,
+        exclude_processes=["monomer_counts_listener"], fork_dir=fork_dir)
+    bulk = np.asarray(h.engine.state.get_value()["bulk"])
+    return {str(i): int(c) for i, c in zip(bulk["id"], bulk["count"])}
+
+
+def _apply_bulk_overlay(composite, ref_bulk: dict[str, int]) -> dict:
+    """Overwrite the v2 composite's initial bulk counts IN PLACE from
+    ``ref_bulk`` (keyed by molecule id), for molecules present in BOTH engines.
+    Returns a stats dict for logging. Raises if the composite has no bulk.
+    """
+    import numpy as np
+    state = getattr(composite, "state", {}) or {}
+    agents = state.get("agents")
+    if isinstance(agents, dict) and agents:
+        agent = agents.get("0") or next(iter(agents.values()))
+    else:
+        agent = state
+    bulk = agent.get("bulk") if isinstance(agent, dict) else None
+    if bulk is None:
+        raise RuntimeError("matched-initial-state: composite has no 'bulk' to overlay")
+    arr = np.asarray(bulk)
+    ids = [str(x) for x in arr["id"]]
+    counts_new = arr["count"].copy()
+    matched = changed = 0
+    for i, name in enumerate(ids):
+        ref = ref_bulk.get(name)
+        if ref is not None:
+            matched += 1
+            if int(counts_new[i]) != ref:
+                changed += 1
+            counts_new[i] = ref
+    arr["count"][:] = counts_new  # whole-field assign → writes through to composite
+    return {"v2_bulk": len(ids), "ref_bulk": len(ref_bulk), "matched": matched,
+            "changed": changed, "v2_only": len(ids) - matched,
+            "ref_only": len(ref_bulk) - matched}
 
 
 # --------------------------------------------------------------------------- #
@@ -542,7 +618,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  translate_config: bool = False,
                  vecoli_source: str = "upstream",
                  from_vecoli_config: str | None = None,
-                 vecoli_dir: str | None = None):
+                 vecoli_dir: str | None = None,
+                 match_initial_state: bool = False,
+                 match_vecoli_simdata: str | None = None):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
 
@@ -616,6 +694,31 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, condition, cache_dir,
                                        overrides=v2_overrides)
+            # Matched-initial-state seeding (opt-in): overlay genuine vEcoli's
+            # initial bulk onto v2 so both engines start from identical molecule
+            # counts — removing the stochastic low-copy sampling divergence
+            # (e.g. SpoT) that otherwise dominates single-seed comparisons.
+            if match_initial_state:
+                # Resolve the genuine-vEcoli reference simData: explicit flag >
+                # cache_dir/simData.cPickle (present in the cloud image's ParCa,
+                # same as the vivarium-process branch) > upstream local fallback.
+                if match_vecoli_simdata:
+                    ref_sd = os.path.abspath(match_vecoli_simdata)
+                else:
+                    cand = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
+                    ref_sd = cand if os.path.exists(cand) else _UPSTREAM_SIMDATA_FALLBACK
+                if not os.path.exists(ref_sd):
+                    raise RuntimeError(
+                        f"--match-initial-state needs the genuine vEcoli simData; "
+                        f"{ref_sd!r} not found. Pass --match-vecoli-simdata <path>.")
+                ref_bulk = _vecoli_reference_bulk(
+                    ref_sd, condition, seed,
+                    vecoli_dir or os.environ.get("V2E_VECOLI_DIR"))
+                stats = _apply_bulk_overlay(composite, ref_bulk)
+                print(f"[match-initial-state] seed{seed:02d} {condition}: overlaid "
+                      f"vEcoli bulk onto v2 — matched {stats['matched']}/"
+                      f"{stats['v2_bulk']} ({stats['changed']} counts changed); "
+                      f"v2-only {stats['v2_only']}, ref-only {stats['ref_only']}")
             # PART 1: emit the resolved v2ecoli build config ONCE (lowest seed)
             # as a sidecar next to the zarr stores. Best-effort — never crash.
             if seed == seed_start:
@@ -709,6 +812,16 @@ def main(argv=None):
                         "$V2E_FROM_VECOLI_CONFIG then comparison_spec.json's "
                         "from_vecoli_config (baked into the image) — so the default "
                         "Ray route is spec-driven with no per-job flag.")
+    p.add_argument("--match-initial-state", action="store_true",
+                   help="Seed v2ecoli's initial bulk from genuine vEcoli's (same "
+                        "condition+seed) so both engines start from IDENTICAL "
+                        "molecule counts. Removes the stochastic low-copy sampling "
+                        "divergence (e.g. SpoT) that dominates single-seed "
+                        "comparisons. No-op for the vecoli run (it IS the reference).")
+    p.add_argument("--match-vecoli-simdata", default=None,
+                   help="Path to the genuine vEcoli simData.cPickle used as the "
+                        "matched-initial-state reference (default: the upstream "
+                        "fallback). Required when that fallback is absent.")
     args = p.parse_args(argv)
 
     # Resolve --from-vecoli-config: CLI flag > env > baked comparison_spec.json.
@@ -726,7 +839,9 @@ def main(argv=None):
         seed_start=args.seed_start, vecoli_config=args.vecoli_config,
         translate_config=args.translate_vecoli_config,
         vecoli_source=args.vecoli_source,
-        from_vecoli_config=from_vc, vecoli_dir=vecoli_dir)
+        from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
+        match_initial_state=args.match_initial_state,
+        match_vecoli_simdata=args.match_vecoli_simdata)
     parallel = run_seeds_parallel(seeds, run_one, mode=args.mode)
     summaries = getattr(parallel, "results", parallel)
     ensemble = {"composite": args.composite, "condition": args.condition,

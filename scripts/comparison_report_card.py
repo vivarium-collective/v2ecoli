@@ -717,6 +717,13 @@ def main(argv=None):
                         'process-bigraph composites). Reads both via read_pbg_local '
                         'and emits the overview + report-card + per-condition '
                         'trajectory/eval sections (skips the S3/Nextflow-only panels).')
+    p.add_argument("--local-pbg-dir", default=None,
+                   help='MULTI-SEED local pbg-vs-pbg mode: JSON {cond:[v2_dir, ve_dir]} '
+                        'of LOCAL directories each holding per-seed v2ecoli-format zarr '
+                        '(v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr). Reads seeds '
+                        '0..--local-pbg-seeds-1 via read_pbg_local. Use for local 4x4x5.')
+    p.add_argument("--local-pbg-seeds", type=int, default=4,
+                   help="number of seeds (0..N-1) for --local-pbg-dir (default 4).")
     p.add_argument("--pbg-vs-pbg", action="store_true",
                    help='S3 pbg-vs-pbg mode (the default upstream-wrapper route): '
                         'BOTH engines emit v2ecoli-format zarr to S3 — v2 under '
@@ -730,11 +737,14 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     local_pbg = bool(args.local_pbg)
+    local_pbg_dir = bool(args.local_pbg_dir)
     pbg_vs_pbg = bool(args.pbg_vs_pbg)
     # both modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
     # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
-    skip_nextflow = local_pbg or pbg_vs_pbg
-    if local_pbg:                                     # 0. pbg-vs-pbg local zarr
+    skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg
+    if local_pbg_dir:                                 # 0b. multi-seed local dirs
+        conds = json.loads(args.local_pbg_dir)
+    elif local_pbg:                                   # 0. pbg-vs-pbg local zarr
         conds = json.loads(args.local_pbg)
     elif args.conditions_json:                        # 1. explicit override
         conds = json.loads(args.conditions_json)
@@ -752,7 +762,15 @@ def main(argv=None):
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    if local_pbg:
+    if local_pbg_dir:
+        # MULTI-SEED local: each cond maps to [v2_dir, ve_dir]; read per-seed
+        # v2ecoli-format zarr (v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr) for
+        # seeds 0..N-1 through the same local reader. Enables the local 4x4x5.
+        cond_data = build(
+            conds, seeds=list(range(args.local_pbg_seeds)),
+            read_v2=lambda d, s: read_pbg_local(f"{d}/v2ecoli_seed{s:02d}.zarr", OBSERVABLES),
+            read_ve=lambda d, s: read_pbg_local(f"{d}/vecoli_seed{s:02d}.zarr", OBSERVABLES))
+    elif local_pbg:
         # Both engines as process-bigraph composites → both read v2ecoli-format
         # zarr from a LOCAL path; the json maps each cond to a single seed's
         # stores, so the per-seed loop runs once.

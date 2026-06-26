@@ -1045,19 +1045,35 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
         )
     }
     rnas = []
+    n_nascent = 0
+    n_free = 0
+    transcript_length = rnas_raw["transcript_length"]
+    is_mRNA = rnas_raw["is_mRNA"]
     for i in range(len(rnas_raw["RNAP_index"])):
         uid = int(rnas_raw["RNAP_index"][i])
         if uid not in rnap_uid_to_cd:
-            # uid == -1 means free / fully-terminated RNA (Phase B2); skip here.
-            continue
-        coord, dom = rnap_uid_to_cd[uid]
-        rnas.append({
-            "root_coordinate": coord,
-            "root_domain": dom,
-            "length_nt": int(rnas_raw["transcript_length"][i]),
-            "is_mRNA": bool(rnas_raw["is_mRNA"][i]),
-        })
-    print(f"  nascent RNAs: {len(rnas)} strands wired to {len(rnaps)} active RNAPs")
+            # uid == -1 (or any orphaned uid): free / fully-terminated cytoplasmic RNA.
+            # Emit as a confined interior strand (is_free=True → placer seeds inside
+            # the cell envelope via a rejection-sampled random interior point).
+            rnas.append({
+                "root_coordinate": 0,
+                "root_domain": 0,
+                "length_nt": int(transcript_length[i]),
+                "is_mRNA": bool(is_mRNA[i]),
+                "is_free": True,
+            })
+            n_free += 1
+        else:
+            coord, dom = rnap_uid_to_cd[uid]
+            rnas.append({
+                "root_coordinate": coord,
+                "root_domain": dom,
+                "length_nt": int(transcript_length[i]),
+                "is_mRNA": bool(is_mRNA[i]),
+            })
+            n_nascent += 1
+    print(f"  RNAs: {n_nascent} nascent (wired to {len(rnaps)} active RNAPs)"
+          f" + {n_free} free cytoplasmic → {len(rnas)} total")
     # RNA segment ingredient: reuse the dsDNA 1BNA mesh with an RNA-green color so
     # nascent strands render as tiled segments distinct from the chromosome (tan)
     # and RNAP (blue).  count=0 means the packer does not place it randomly — the
@@ -1121,6 +1137,8 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=1.0,
     # fiber species under-placed by area/length limits) so the viewer's "copies
     # placed" is always truthful. Also reports the under-placed.
     _backfill_all_counts(res["pack_path"], res["sidecar_path"])
+    res["n_nascent_rnas"] = n_nascent
+    res["n_free_rnas"] = n_free
     return res
 
 

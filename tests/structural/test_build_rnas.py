@@ -143,6 +143,67 @@ def test_build_renders_nascent_rna(rna_build_factory):
 
 
 @pytest.mark.slow
+def test_build_renders_free_mrnas(tmp_path, monkeypatch):
+    """build_model renders free (non-nascent) RNAs — RNAP_index == -1 must NOT be skipped.
+
+    Synthesises a snapshot with 1 RNAP (uid=7) + 3 RNAs:
+      rna[0] = nascent  (RNAP_index=7  → rooted at the RNAP)
+      rna[1,2] = free   (RNAP_index=-1 → cytoplasmic, is_free=True)
+    Asserts that build_model exposes n_free_rnas==2 and n_nascent_rnas==1
+    in its return dict, proving the two free RNAs are emitted, not dropped.
+    """
+    if not _STRUCT_CACHE.exists():
+        pytest.skip(f"structure cache not available at {_STRUCT_CACHE}")
+
+    monkeypatch.setenv(
+        "PARSIMONY_HOME",
+        os.environ.get("PARSIMONY_HOME", "/Users/eranagmon/code/parsimony"),
+    )
+
+    # 1 RNAP (uid=7); rna[0]=nascent(RNAP 7), rna[1,2]=free(RNAP_index=-1)
+    np.savez(
+        tmp_path / "v2ecoli_state.npz",
+        ids=np.array(["EG10893-MONOMER[c]"]),
+        counts=np.array([100]),
+        volume=np.array(1.0),
+        n_chromosomes=np.array(1),
+        fork_fraction=np.array(0.0),
+        division_progress=np.array(0.0),
+        rnap_coordinates=np.array([0], dtype="i8"),
+        rnap_domain_index=np.array([0], dtype="i4"),
+        rnap_is_forward=np.array([True]),
+        rnap_unique_index=np.array([7], dtype="i8"),
+        rna_unique_index=np.array([20, 21, 22], dtype="i8"),
+        rna_RNAP_index=np.array([7, -1, -1], dtype="i8"),
+        rna_transcript_length=np.array([600, 600, 600], dtype="i8"),
+        rna_is_mRNA=np.array([True, True, True]),
+        rna_is_full_transcript=np.array([False, True, True]),
+        rna_TU_index=np.array([1, 2, 3], dtype="i8"),
+    )
+    for fname in ("uniprot_map.json", "ecoli_k12_genes.csv"):
+        src = _REAL_DATA / fname
+        if src.exists():
+            shutil.copy(src, tmp_path / fname)
+
+    out = tmp_path / "pack"
+    _seed_struct_cache(out / "structures")
+    monkeypatch.setattr(build, "DATA", tmp_path)
+
+    res = build.build_model(str(out), state_source="snapshot", top_n=5)
+
+    # Binding requirement: 2 free RNAs rendered (not skipped by the old `continue`).
+    # If free RNAs are dropped, n_free_rnas == 0 (or key absent) → test fails.
+    assert res.get("n_free_rnas") == 2, (
+        f"expected 2 free RNAs rendered, got {res.get('n_free_rnas')!r}. "
+        "Free RNAs (RNAP_index==-1) must not be skipped — replace `continue` with "
+        "a free spec (is_free=True)."
+    )
+    assert res.get("n_nascent_rnas") == 1, (
+        f"expected 1 nascent RNA, got {res.get('n_nascent_rnas')!r}"
+    )
+
+
+@pytest.mark.slow
 def test_rna_segment_count_grows_with_transcript_length(rna_build_factory):
     """Longer transcripts → more tiled rna_segment placements.
 

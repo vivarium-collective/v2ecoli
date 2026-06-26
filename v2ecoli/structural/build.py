@@ -322,7 +322,10 @@ DISPLAY = {
 # Large interior assemblies packed in an early stage so they reach true abundance
 # (packed alongside the small-molecule flood they saturate at a few % of count).
 # Note: 70S_ribosome is no longer randomly packed (count=0; placed via ribosome_marker).
-BIG_ASSEMBLIES = {"groel"}
+# Pack-first ingredients: large assemblies + the free ribosomal subunits, which
+# would otherwise be crowded out of the interior by the ~13k active 70S placed on
+# the mRNAs (the subunits are large too, ~2622 each — see Phase C1).
+BIG_ASSEMBLIES = {"groel", "30S_subunit", "50S_subunit"}
 
 # FtsZ Z-ring: how many FtsZ to lay around the septum circle (a visible cyan band
 # at midcell; the real ring is denser but this reads cleanly at whole-cell scale).

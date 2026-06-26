@@ -29,6 +29,12 @@ PER_GEN="${3:-15000}"
 OUT="${4:-out/local_4x4x5}"
 V2_MAXSTEPS=$(( GENS * PER_GEN ))   # v2ecoli: total cap
 VE_MAXSTEPS="$PER_GEN"              # vEcoli: per-generation cap
+# Seed execution mode (run_seeds_parallel). Default serial; on a big box like the
+# mini (12 cores / 69GB) prefer V2E_MODE=ray to run seeds CONCURRENTLY — a v2ecoli
+# 4-gen seed is ~16GB RSS, so ~3 fit in 69GB → ~2-3x faster wall time. Ray isolates
+# each seed in its own worker (also dodges the serial cross-seed pint/global-state
+# leak). Cap concurrency to avoid OOM. See memory feedback_mini_ray_parallel_sweeps.
+MODE="${V2E_MODE:-serial}"
 # v2ecoli runs on v2's ParCa; genuine vEcoli runs on the UPSTREAM ParCa. They are
 # SEPARATE caches — feeding the vEcoli engine v2's simData makes its FBA go
 # negative (InvalidBoundaryError). The matched-initial-state reference is the
@@ -43,7 +49,7 @@ PY="$REPO_ROOT/.venv/bin/python"
 # Override with V2E_CONDITIONS="basal acetate" for a partial/smoke run.
 read -r -a CONDITIONS <<< "${V2E_CONDITIONS:-basal with_aa succinate no_oxygen acetate}"
 
-echo "=== local 4x4x5: seeds=$SEEDS gens=$GENS per_gen=$PER_GEN (v2 total=$V2_MAXSTEPS, vE per-gen=$VE_MAXSTEPS) out=$OUT ==="
+echo "=== local 4x4x5: seeds=$SEEDS gens=$GENS per_gen=$PER_GEN mode=$MODE (v2 total=$V2_MAXSTEPS, vE per-gen=$VE_MAXSTEPS) out=$OUT ==="
 echo "    cache=$CACHE  ref_simData=$REF_SD  vecoli_dir=$V2E_VECOLI_DIR"
 mkdir -p "$OUT"
 
@@ -53,7 +59,7 @@ run_engine() {  # composite cache_dir cond maxsteps extra_flags...
   "$PY" scripts/run_comparison_ensemble.py \
     --composite "$composite" --condition "$cond" --cache-dir "$cache" \
     --n-seeds "$SEEDS" --seed-start 0 --max-generations "$GENS" \
-    --max-steps "$maxsteps" --chunk 60 --mode serial \
+    --max-steps "$maxsteps" --chunk 60 --mode "$MODE" \
     --out-root "$OUT/$cond" "$@"
 }
 

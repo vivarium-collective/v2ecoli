@@ -1278,7 +1278,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", default="out/ecoli3d")
     ap.add_argument("--top-n", type=int, default=40)
     ap.add_argument("--scale", type=float, default=1.0)
-    ap.add_argument("--state", choices=["snapshot", "live"], default="snapshot")
+    ap.add_argument("--state", choices=["snapshot", "division", "live"], default="snapshot")
     a = ap.parse_args()
     res = build_model(a.out, top_n=a.top_n, scale=a.scale, state_source=a.state)
     print(f"packed {res['n_placed']} placements · {res['ingredients']} ingredients → {res['pack_path']}")

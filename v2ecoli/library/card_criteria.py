@@ -10,6 +10,21 @@ organism-behavior card and the v1<->v2 equivalence card share one grader:
                    difference is drift/mismatch. (Cell-level n, never timepoints.)
   - ``r2``       — vector (transcriptome/proteome): R^2 of candidate vs
                    reference ensemble-mean vector.
+  - ``literature`` — scalar vs an EXPERIMENTAL reference: a band of measured
+                   values (multiple sources) plus an optional first-principles
+                   ``theoretical_max`` ceiling. Deviation from the measured band
+                   grades within_tol/drift/mismatch; crossing the ceiling is a
+                   mismatch *flagged as a first-principles violation* (the model
+                   exceeds a stoichiometric/thermodynamic limit — wrong, not just
+                   off).
+  - ``pearson`` — vector concordance by log-log Pearson r (proteome/abundance
+                   vs experiment); robust to a systematic scale offset, unlike
+                   the identity-based ``r2``.
+  - ``composition`` — a branch-point flux split (a composition on a simplex,
+                   e.g. the G6P fate EMP/oxPPP/ED) vs a reference composition:
+                   total-variation distance grades the routing, paired with a
+                   closure residual (unaccounted node influx, expected small)
+                   that guards against carbon leaving by an unmodeled route.
   - ``boolean``  — a behavioral assertion that must hold.
 
 Verdicts use a 4-state band (adopted from the vEcoli<->v2ecoli report):
@@ -164,13 +179,21 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         qual_eps = criterion.get("qual_eps", 1e-3)
         r2_min = criterion.get("r2_min", 0.99)
         r2_drift = criterion.get("r2_drift", 0.95)
+        # ``qualitative=False`` (internal fluxes): a near-zero flux is a low value,
+        # not a categorical on/off, so the appeared/disappeared gate is dropped —
+        # every pair active on either side counts toward the identity-R², and the
+        # verdict comes from R² alone (no "lost"/"appeared" callouts).
+        qualitative = criterion.get("qualitative", True)
         cand_vec = measured.get("vector") if isinstance(measured, dict) else None
         if not ref_vec or not cand_vec:
             return _ungraded(f"R² ≥ {r2_min}, no appeared/disappeared")
         appeared, disappeared, matched, sub_floor = [], [], [], []
         for i, (c, r) in enumerate(zip(cand_vec, ref_vec)):
             ca, ra = abs(c) > eps, abs(r) > eps
-            if ca and ra:
+            if not qualitative:
+                if ca or ra:
+                    matched.append((c, r))
+            elif ca and ra:
                 matched.append((c, r))
             elif ca and not ra:  # appeared: active side is the candidate
                 (appeared if abs(c) >= qual_eps else sub_floor).append(i)
@@ -191,6 +214,11 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         else:
             verdict = _band(r2, r2_min, r2_drift, higher_is_better=True)
         sub = f" · {len(sub_floor)} sub-floor" if sub_floor else ""
+        if not qualitative:
+            return {"verdict": verdict, "value": r2,
+                    "criterion_str": f"identity R² ≥ {r2_min} (drift ≥ {r2_drift})",
+                    "meter": f"R² = {r2:.4f} · {len(matched)} reactions",
+                    "detail": {"r2": r2, "n_matched": len(matched)}}
         return {"verdict": verdict, "value": r2,
                 "criterion_str": (f"R² ≥ {r2_min} on matched fluxes; "
                                   f"no appeared/disappeared ≥ {qual_eps:g}"),
@@ -199,6 +227,129 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
                 "detail": {"r2": r2, "appeared": appeared,
                            "disappeared": disappeared, "sub_floor": sub_floor,
                            "n_matched": len(matched), "qual_eps": qual_eps}}
+
+    if ctype == "literature":
+        # Grade a scalar model value against an EXPERIMENTAL reference: a band of
+        # measured values (multiple curated sources) plus an optional
+        # first-principles ceiling. Two deliberately differentiated regimes:
+        #   - deviation from the measured band -> within_tol / drift / mismatch
+        #     (a tracked gap; adequacy is a judgment call).
+        #   - crossing a ``theoretical_max`` -> mismatch, flagged as a
+        #     first-principles violation (the model exceeds a stoichiometric /
+        #     thermodynamic limit — wrong, no judgment required).
+        got = measured.get("mean") if isinstance(measured, dict) else measured
+        meas = criterion.get("measured") or []
+        tmax = criterion.get("theoretical_max")
+        tol = criterion.get("tol_rel", 0.10)
+        if got is None or not meas:
+            return _ungraded("vs measured literature")
+        lo, hi = min(meas), max(meas)
+        mid = sum(meas) / len(meas)
+        if lo * (1 - tol) <= got <= hi * (1 + tol):
+            band = "within_tol"
+        elif lo * (1 - 2 * tol) <= got <= hi * (1 + 2 * tol):
+            band = "drift"
+        else:
+            band = "mismatch"
+        violates = tmax is not None and got > tmax
+        detail = {"measured_lo": lo, "measured_hi": hi, "measured_mid": mid,
+                  "n_sources": len(meas), "theoretical_max": tmax,
+                  "first_principles_violation": bool(violates),
+                  "rel_to_mid": (got - mid) / mid if mid else None}
+        if violates:
+            return {"verdict": "mismatch", "value": got,
+                    "criterion_str": f"≤ theoretical max {tmax:.3g}; within measured {lo:.3g}–{hi:.3g}",
+                    "meter": f"{got:.3g} > theoretical max {tmax:.3g} — first-principles violation",
+                    "detail": detail}
+        return {"verdict": band, "value": got,
+                "criterion_str": (f"within measured {lo:.3g}–{hi:.3g} (±{tol:.0%})"
+                                  + (f"; ≤ max {tmax:.3g}" if tmax is not None else "")),
+                "meter": (f"{got:.4g} vs measured {lo:.3g}–{hi:.3g} "
+                          f"(Δmid {((got - mid) / mid if mid else 0):+.0%})"),
+                "detail": detail}
+
+    if ctype == "pearson":
+        # Concordance of a candidate vector vs a reference vector by log-log
+        # Pearson r — the literature convention for proteome/abundance
+        # comparisons. Unlike identity-R² (the ``r2`` criterion, right for
+        # same-lineage v1↔v2 omics), Pearson r is robust to a systematic scale
+        # offset between model and experiment, which is expected for absolute
+        # protein copy numbers.
+        ref_vec = criterion.get("ref_vector")
+        r_min = criterion.get("r_min", 0.9)
+        r_drift = criterion.get("r_drift", 0.7)
+        cand_vec = measured.get("vector") if isinstance(measured, dict) else None
+        if not ref_vec or not cand_vec:
+            return _ungraded(f"log-log Pearson r ≥ {r_min}")
+        pairs = [(c, r) for c, r in zip(cand_vec, ref_vec) if c > 0 and r > 0]
+        if len(pairs) < 3:
+            return _ungraded(f"log-log Pearson r ≥ {r_min}")
+        xs = [math.log10(r) for _, r in pairs]
+        ys = [math.log10(c) for c, _ in pairs]
+        n = len(xs)
+        mx, my = sum(xs) / n, sum(ys) / n
+        sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+        sxx = sum((x - mx) ** 2 for x in xs)
+        syy = sum((y - my) ** 2 for y in ys)
+        r = sxy / math.sqrt(sxx * syy) if sxx > 0 and syy > 0 else 0.0
+        verdict = _band(r, r_min, r_drift, higher_is_better=True)
+        return {"verdict": verdict, "value": r,
+                "criterion_str": f"log-log Pearson r ≥ {r_min} (drift ≥ {r_drift}; {n} genes)",
+                "meter": f"r = {r:.3f}", "detail": {"r": r, "n": n}}
+
+    if ctype == "composition":
+        # Grade a branch-point flux split — a COMPOSITION on a simplex (e.g. the
+        # glucose-6-P fate: EMP / oxidative-PPP / ED) — against a reference
+        # composition, paired with a closure residual. Two readouts, worst-of
+        # (mirrors flux_scatter's qualitative+quantitative gate):
+        #   (1) ROUTING — total-variation distance TV = ½·Σ|p−q| between the
+        #       model and reference compositions (each renormalized over the
+        #       known branches). TV ∈ [0,1] reads directly as "fraction of flux
+        #       misrouted"; zero-safe (an absent branch, e.g. ED≈0, is fine).
+        #   (2) CLOSURE residual — the fraction of node influx NOT accounted by
+        #       the known branches. Expected small and positive (a biomass
+        #       drain). A residual past its band means carbon leaves the node by
+        #       an unmodeled/unexpected route (or the branch set over-draws), and
+        #       caps the verdict regardless of how well the known branches match
+        #       — the spurious-route guard.
+        #   measured:  {"branches": {name: flux}, "influx": flux_in}
+        #   criterion: {"type":"composition", "ref_fractions": {name: frac},
+        #               "tv_good","tv_warn","residual_max","residual_warn"}
+        branches = measured.get("branches") if isinstance(measured, dict) else None
+        influx = measured.get("influx") if isinstance(measured, dict) else None
+        ref_fr = criterion.get("ref_fractions")
+        if not branches or not ref_fr or not influx:
+            return _ungraded("flux composition vs reference")
+        names = list(ref_fr)
+        ref_sum = sum(ref_fr.values()) or 1.0
+        ref_norm = {n: ref_fr[n] / ref_sum for n in names}
+        of_in = {n: branches.get(n, 0.0) / influx for n in names}
+        catab = sum(of_in.values())
+        residual = 1.0 - catab
+        mod_norm = ({n: of_in[n] / catab for n in names} if catab > 0
+                    else {n: 0.0 for n in names})
+        tv = 0.5 * sum(abs(mod_norm[n] - ref_norm[n]) for n in names)
+        tv_good = criterion.get("tv_good", 0.05)
+        tv_warn = criterion.get("tv_warn", 0.15)
+        routing = _band(tv, tv_good, tv_warn, higher_is_better=False)
+        res_max = criterion.get("residual_max", 0.05)
+        res_warn = criterion.get("residual_warn", 0.10)
+        resid_v = _band(abs(residual), res_max, res_warn, higher_is_better=False)
+        rank = {"within_tol": 0, "drift": 1, "mismatch": 2, "ungraded": 3}
+        verdict = max(routing, resid_v, key=lambda v: rank[v])
+
+        def _pct(d):
+            return ", ".join(f"{n} {100 * d[n]:.0f}%" for n in names)
+
+        return {"verdict": verdict, "value": tv,
+                "criterion_str": (f"routing TV ≤ {tv_good:.2f} (drift ≤ {tv_warn:.2f}); "
+                                  f"closure residual ≤ {res_max:.0%}"),
+                "meter": (f"TV = {tv:.3f} · model [{_pct(mod_norm)}] vs "
+                          f"ref [{_pct(ref_norm)}] · residual {residual:+.0%}"),
+                "detail": {"tv": tv, "residual": residual,
+                           "model_fractions": mod_norm, "ref_fractions": ref_norm,
+                           "routing_verdict": routing, "residual_verdict": resid_v,
+                           "branch_names": names}}
 
     if ctype == "boolean":
         ok = bool(measured) if measured is not None else None

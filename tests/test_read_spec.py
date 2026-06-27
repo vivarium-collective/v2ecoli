@@ -102,7 +102,7 @@ def test_example_manifest_5cond_parses():
     spec = json.loads((ROOT / "comparison.5cond_1x4.json").read_text())
     rows = list(rs.config_rows(spec))
     assert len(rows) == 5
-    assert all(cards == "standard" for _, cards in rows)
+    assert all(cards == "config,parca,standard" for _, cards in rows)
 
 
 def test_example_manifest_baseline_statistical_parses():

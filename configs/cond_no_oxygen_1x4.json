@@ -1,0 +1,7 @@
+{
+  "inherit_from": [
+    "cond_no_oxygen.json"
+  ],
+  "n_init_sims": 1,
+  "generations": 4
+}

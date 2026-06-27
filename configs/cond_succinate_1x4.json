@@ -1,0 +1,7 @@
+{
+  "inherit_from": [
+    "cond_succinate.json"
+  ],
+  "n_init_sims": 1,
+  "generations": 4
+}

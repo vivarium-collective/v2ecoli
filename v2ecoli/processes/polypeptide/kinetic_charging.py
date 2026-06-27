@@ -286,6 +286,26 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         # positions to view per tick.
         self.buffer = self.parameters["reconciliation_buffer"]
 
+        # ---- AA-supply callables + threshold (Phase 3b plumbing) ----
+        # Only needed when include_aa_supply=True (the consensus opt-in),
+        # but unpacked unconditionally — they're cheap reference copies of
+        # closures already in self.parameters. SteadyState unpacks the same
+        # six attrs in its own initialize (polypeptide_elongation.py:923-935);
+        # BasePolypeptideElongation.initialize stops short of these because
+        # Base/Supply don't use the AA-supply ODE coupling. Phase 3b's
+        # run_model uses them to build the supply_function closure that
+        # feeds into the kinetic ODE.
+        self.amino_acid_synthesis = self.parameters["amino_acid_synthesis"]
+        self.amino_acid_import = self.parameters["amino_acid_import"]
+        self.amino_acid_export = self.parameters["amino_acid_export"]
+        self.aa_supply_scaling = self.parameters["aa_supply_scaling"]
+        self.get_pathway_enzyme_counts_per_aa = self.parameters[
+            "get_pathway_enzyme_counts_per_aa"
+        ]
+        self.import_constraint_threshold = float(
+            self.parameters["import_constraint_threshold"]
+        )
+
         # ---- Warm-start the next tick's binary search ----
         # First tick uses the basal elongation rate (~17.3 aa/s, set by
         # base from sim_data); subsequent ticks update from the realized

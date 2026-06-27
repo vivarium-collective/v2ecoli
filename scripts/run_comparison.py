@@ -64,6 +64,9 @@ def main(argv=None) -> int:
     ap.add_argument("--ve-cache", default="out/compare_harness/vecoli_parca", help="upstream vEcoli ParCa cache")
     ap.add_argument("--mode", default="serial", help="run_comparison_ensemble --mode (serial|ray)")
     ap.add_argument("--render-only", action="store_true", help="skip sims; render from existing stores")
+    ap.add_argument("--condition", default=None,
+                    help="run/render only the config whose name or condition "
+                         "matches (used by `v2e-compare study`)")
     args = ap.parse_args(argv)
 
     spec = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
@@ -73,6 +76,12 @@ def main(argv=None) -> int:
     configs = spec.get("configs", [])
     if not configs:
         sys.exit(f"manifest {args.manifest} has no configs")
+
+    if args.condition:
+        configs = [e for e in configs
+                   if (e.get("name") or condition_of(e["config"], fork)) == args.condition]
+        if not configs:
+            sys.exit(f"no config matches condition {args.condition!r}")
 
     max_seeds = 1
     for entry in configs:

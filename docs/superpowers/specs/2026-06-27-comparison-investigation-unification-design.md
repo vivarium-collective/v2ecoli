@@ -8,7 +8,9 @@ authoritative).
 dashboard **investigation** — each condition a **study**, each comparison
 **report card** a **gating test** — so the comparison renders natively in the
 dashboard's investigations view with pass/drift/fail pills, reusing the existing
-`report_card_axis` evaluator with no framework change.
+`report_card_axis` evaluator with no framework change — and triggerable
+end-to-end from one easy CLI (`v2e-compare run` for the whole investigation,
+`v2e-compare study` for a single condition).
 
 ## Settled decisions (brainstorm 2026-06-27)
 
@@ -26,6 +28,12 @@ dashboard's investigations view with pass/drift/fail pills, reusing the existing
    `comparison_report_card.assemble_from_manifest` (render-only) and
    `run_comparison.py` (full run) write `report_card_verdict.json`, so a gating
    verdict exists after either path.
+6. **One easy CLI front door (`v2e-compare`)** with two verbs:
+   `run <manifest>` triggers the **whole investigation** (all conditions);
+   `study <name>` runs a **single study/condition**, resolving its manifest from
+   the study's own `comparison_manifest` back-link. Sims run **serial+local by
+   default**, `--ray` (or `V2E_MODE=ray`) fans conditions out in parallel for
+   the mini.
 
 ## The verdict mapping (why this needs no evaluator change)
 
@@ -49,6 +57,10 @@ card. Study `gate_status` = worst across its card-groups (existing aggregation).
 ## Architecture
 
 ```
+                  v2e-compare run <manifest>      (whole investigation)
+                  v2e-compare study <name>        (one study; reads its manifest)
+        │  drive
+        ▼
 comparison_spec.json  (single source of truth: repos, configs, cards, run-shape)
         │  referenced by
         ▼
@@ -72,6 +84,43 @@ the manifest; the manifest is consumed only by `run_comparison.py` and the
 validator/scaffold.
 
 ## Components
+
+### 0. Unified CLI front door (`scripts/compare_cli.py`, new; console script `v2e-compare`)
+
+One discoverable entry point, exposed as a `v2e-compare` console script in
+`pyproject.toml`, wrapping the existing `run_comparison.py` /
+`comparison_report_card.py` machinery. Two verbs:
+
+```
+v2e-compare run <manifest> [--ray] [--out DIR] [--render-only]
+v2e-compare study <name|path> [--ray] [--manifest OVERRIDE] [--render-only]
+```
+
+**`run <manifest>` — the whole investigation** (full pipeline, in order):
+1. **scaffold studies if missing** (idempotent; never overwrites an existing
+   study — Decision 4);
+2. **run both engines for every condition** in the manifest (serial+local by
+   default; `--ray`/`V2E_MODE=ray` fans conditions out in parallel — Decision 6);
+3. **emit `report_card_verdict.json` per condition** (Component 1);
+4. **validate** studies-vs-manifest (Component 4), failing loudly on drift;
+5. print a **dashboard-ready** summary (investigation path + per-condition
+   gate verdicts).
+
+**`study <name|path>` — a single study/condition.** Locates the study under
+`workspace/investigations/v2ecoli-vecoli-comparison/studies/`, reads its
+`comparison_manifest` + `condition` (Decision 3), and runs the full pipeline for
+**just that condition** (steps 2–4 above for one condition). This *is* the
+study's canonical-run command, so a dashboard "re-run study" maps to it.
+`--manifest` overrides the back-link; `--render-only` reuses existing stores.
+
+Both verbs honor `--ray` by delegating to the existing `V2E_MODE=ray` path
+(`run_local_4x4x5.sh` wiring); the default is serial+local for debuggability.
+`--render-only` is retained from the existing orchestrator (skips sims, rebuilds
+verdicts+report from existing zarr stores).
+
+The CLI is a thin orchestration shell: argument parsing + step sequencing +
+progress logging. All real work lives in Components 1–4 and the existing
+runners, so the CLI stays testable by mocking the step functions.
 
 ### 1. Verdict emission (`scripts/_compare/verdict.py`, new)
 
@@ -157,9 +206,11 @@ card-group pills.
 
 ## Data flow
 
-1. `run_comparison.py <manifest>` (or `--render-only`) runs/loads both engines
-   per condition, assembles cards, and writes
-   `docs/report_cards/v2ecoli-vecoli-comparison/<condition>/report_card_verdict.json`.
+1. `v2e-compare run <manifest>` (whole investigation) or `v2e-compare study
+   <name>` (one condition) drives the pipeline: scaffold-if-missing → run/load
+   both engines per condition → assemble cards → write
+   `docs/report_cards/v2ecoli-vecoli-comparison/<condition>/report_card_verdict.json`
+   → validate. (`--render-only` skips the sims.)
 2. The dashboard scans `workspace/investigations/v2ecoli-vecoli-comparison/`,
    loads each `study.yaml`, and for each `report_card_axis` behavior_test calls
    the evaluator, which reads the verdict JSON's `groups[<card>]`.
@@ -184,10 +235,15 @@ card-group pills.
   malformed card path.
 - `tests/test_scaffold_comparison_studies.py`: scaffold writes expected
   skeletons; refuses overwrite without `--force`.
+- `tests/test_compare_cli.py`: `run` sequences scaffold→run→verdict→validate
+  (step functions mocked) and surfaces non-zero exit on validation failure;
+  `study <name>` resolves `comparison_manifest`+`condition` from the study.yaml
+  and invokes the single-condition path; `--ray` selects the `V2E_MODE=ray`
+  branch; `--render-only` skips the sim step.
 - Integration: render from an existing zarr store (the `out/smoke5` 4×4×5
-  mediafix stores) → assert each condition dir has a verdict JSON whose groups
-  match its assigned cards, and the evaluator returns a non-`ungraded` verdict
-  for the graded card.
+  mediafix stores) via `v2e-compare run --render-only` → assert each condition
+  dir has a verdict JSON whose groups match its assigned cards, and the
+  evaluator returns a non-`ungraded` verdict for the graded card.
 
 ## Out of scope (YAGNI)
 
@@ -202,5 +258,10 @@ card-group pills.
   both paths) + tests. Independently testable (verdict JSON appears, graded).
 - **Phase 2:** scaffold + authored studies + investigation.yaml + validator +
   tests.
-- **Phase 3:** gating — no code; confirmed by the evaluator reading the verdicts.
-- **Phase 4:** dashboard root symlink + manual render verification.
+- **Phase 3:** unified CLI (`compare_cli.py` + `v2e-compare` console script:
+  `run` whole-investigation pipeline, `study` single-study, `--ray`/
+  `--render-only`) + tests. Depends on Phases 1–2 (sequences their step
+  functions).
+- **Phase 4:** gating — no code; confirmed by the evaluator reading the verdicts.
+- **Phase 5:** dashboard root symlink + manual render verification (drive it via
+  `v2e-compare run --render-only`).

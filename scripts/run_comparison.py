@@ -66,7 +66,7 @@ def main(argv=None) -> int:
     ap.add_argument("--render-only", action="store_true", help="skip sims; render from existing stores")
     args = ap.parse_args(argv)
 
-    spec = json.loads(Path(args.manifest).read_text())
+    spec = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
     fork = os.environ.get("V2E_VECOLI_DIR", "")
     py = str(REPO / ".venv/bin/python")
     ref_sd = f"{args.ve_cache}/simData.cPickle"

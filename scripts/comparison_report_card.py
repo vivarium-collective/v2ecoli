@@ -706,7 +706,7 @@ def assemble_from_manifest(manifest, cond_data, conds, config_names):
         # which path resolved.
         for cand in (p, _os.path.join(_repo, p)):
             try:
-                with open(cand) as _fh:
+                with open(cand, encoding="utf-8") as _fh:
                     d = _json.load(_fh)
                 d["_source"] = cand
                 return d
@@ -797,7 +797,7 @@ def main(argv=None):
         import os as _os
         import re as _re
         from scripts._compare.config_adapter import resolve_vecoli_config_local
-        manifest_data = json.loads(Path(args.manifest).read_text())
+        manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
         _fork = _os.environ.get("V2E_VECOLI_DIR", "")
 
         def _cond_name(cfg_path):

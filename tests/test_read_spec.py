@@ -99,7 +99,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def test_example_manifest_5cond_parses():
-    spec = json.loads((ROOT / "comparison.5cond_1x4.json").read_text())
+    spec = json.loads((ROOT / "comparison.5cond_1x4.json").read_text(encoding="utf-8"))
     rows = list(rs.config_rows(spec))
     assert len(rows) == 6
     assert [c for _, c in rows][:5] == ["config,parca,standard"] * 5
@@ -107,6 +107,6 @@ def test_example_manifest_5cond_parses():
 
 
 def test_example_manifest_baseline_statistical_parses():
-    spec = json.loads((ROOT / "comparison.baseline_4x4_statistical.json").read_text())
+    spec = json.loads((ROOT / "comparison.baseline_4x4_statistical.json").read_text(encoding="utf-8"))
     rows = list(rs.config_rows(spec))
     assert rows == [("configs/cond_basal_4x4.json", "statistical")]

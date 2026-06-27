@@ -164,7 +164,7 @@ Two phases do most of the work. They are **independent and can run in parallel a
 | 3a | ODE-merge scaffold | `include_aa_supply` flag + 3 accumulator slices in state vector. No RHS change. | `tests/test_kinetic_aa_supply_ode_scaffold.py` (7) | ✅ committed (774e0c12) |
 | 3b-i | Supply plumbing | Unpack `amino_acid_synthesis`/`_import`/`_export`/`aa_supply_scaling`/`get_pathway_enzyme_counts_per_aa`/`import_constraint_threshold`. Override `inputs()` for `boundary` port + `outputs()` for supply listeners. Fix latent deep_merge nesting bug. | regression net | ✅ committed (db79adfe) |
 | 3b-ii | **ODE merge: AA supply terms** | `_build_supply_function` helper. Plumb closure into `ode_model` via `args=`. Add `+v_syn +v_imp −v_exp` to AA balance. Write 3 accumulator dx_dt rows. Post-solve: extract accumulators → emit listeners + store on self. Fix `aa_count_diff` return. | `tests/test_kinetic_aa_supply_ode.py` (8) | ✅ ODE-merge proof passing; cache-backed listener test passing |
-| 2 | ppGpp coupling on kinetic class | Port `_ppgpp_request` / `_ppgpp_evolve` (Option A). Wire pre-solve `elong_rate_by_ppgpp`. Emit `ppgpp_conc` listeners. | `tests/test_kinetic_ppgpp_coupling.py` | ⏳ pending |
+| 2 | ppGpp coupling on kinetic class | Port `_ppgpp_request` / `_ppgpp_evolve` (Option A). Wire pre-solve `elong_rate_by_ppgpp`. Emit `ppgpp_conc` listeners. | `tests/test_kinetic_ppgpp_coupling.py` (10) | 🟡 implementation landed, sim tests running |
 | 4 | Composite + parity | Optional `consensus_baseline` alias. Parity tests. | `tests/test_consensus_composite.py` | ⏳ pending |
 | 5 | Validation sweep | 5-gen × 3-seed × 4-media. ParCa rerun gate. | `scripts/consensus_validation_sweep.py` | ⏳ pending |
 

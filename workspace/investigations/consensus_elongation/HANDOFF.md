@@ -20,7 +20,7 @@ The design spec (`v2ecoli_consensus_model.md`) calls for "merging two ODE system
 | 3a | ODE-merge scaffold | ✅ committed (774e0c12) |
 | 3b-i | Supply plumbing | ✅ committed (db79adfe) |
 | 3b-ii | **ODE merge — AA supply in kinetic RHS** | ✅ landed; ODE merge gate + listener test passing |
-| 2 | ppGpp coupling | ⏳ ready to start |
+| 2 | ppGpp coupling | 🟡 implementation landed; sim tests pending |
 | 4 | Composite + parity | ⏳ blocked on P2 |
 | 5 | Validation sweep | ⏳ blocked on P4 + ParCa rerun |
 

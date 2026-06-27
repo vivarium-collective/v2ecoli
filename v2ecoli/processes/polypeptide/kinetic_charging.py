@@ -68,11 +68,15 @@ from v2ecoli.library.quantity_helpers import as_quantity, fg_magnitude
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
 from v2ecoli.library.unit_bridge import pint_to_unum
 from v2ecoli.processes.polypeptide import kinetic_charging_kernel as kernel
-from v2ecoli.processes.polypeptide.kinetics import get_charging_supply_function
+from v2ecoli.processes.polypeptide.kinetics import (
+    get_charging_supply_function,
+    ppgpp_metabolite_changes,
+)
 from v2ecoli.processes.polypeptide_elongation import (
     BasePolypeptideElongation,
     MICROMOLAR_UNITS,
     NAME,
+    REMOVED_FROM_CHARGING,
     TOPOLOGY,
 )
 from v2ecoli.types.quantity import ureg as units
@@ -316,6 +320,50 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             self.parameters["import_constraint_threshold"]
         )
 
+        # ---- ppGpp regulation (Phase 2) ----
+        # The kinetic class inherits the ppGpp-parameter scaffold from
+        # BasePolypeptideElongation, but Base doesn't actually build the
+        # ``charging_params`` / ``ppgpp_params`` dicts that
+        # ``_ppgpp_request`` / ``_ppgpp_evolve`` consume — only SteadyState
+        # does. Replicate that here so the kinetic class can call the
+        # same ``ppgpp_metabolite_changes`` math.
+        self.elong_rate_by_ppgpp = self.parameters["elong_rate_by_ppgpp"]
+        self.ppgpp_reaction_metabolites = self.parameters[
+            "ppgpp_reaction_metabolites"
+        ]
+        self.charging_params = {
+            "kS": self.parameters["kS"],
+            "KMaa": self.parameters["KMaa"],
+            "KMtf": self.parameters["KMtf"],
+            "krta": self.parameters["krta"],
+            "krtf": self.parameters["krtf"],
+            "max_elong_rate": float(
+                self.parameters["elongation_max"].to(units.aa / units.s).magnitude
+            ),
+            "charging_mask": np.array(
+                [
+                    aa not in REMOVED_FROM_CHARGING
+                    for aa in self.parameters["amino_acids"]
+                ]
+            ),
+            "unit_conversion": self.parameters["unit_conversion"],
+        }
+        self.ppgpp_params = {
+            "KD_RelA": self.parameters["KD_RelA"],
+            "k_RelA": self.parameters["k_RelA"],
+            "k_SpoT_syn": self.parameters["k_SpoT_syn"],
+            "k_SpoT_deg": self.parameters["k_SpoT_deg"],
+            "KI_SpoT": self.parameters["KI_SpoT"],
+            "ppgpp_reaction_stoich": self.parameters["ppgpp_reaction_stoich"],
+            "synthesis_index": self.parameters["synthesis_index"],
+            "degradation_index": self.parameters["degradation_index"],
+        }
+
+        # Per-tick scratch reused across request → evolve to avoid
+        # recomputing cell_volume / counts_to_molar. Set in :meth:`request`
+        # and consumed by ``_ppgpp_evolve``. None before the first tick.
+        self._counts_to_uM_mag = None
+
         # ---- Warm-start the next tick's binary search ----
         # First tick uses the basal elongation rate (~17.3 aa/s, set by
         # base from sim_data); subsequent ticks update from the realized
@@ -425,6 +473,25 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
                             "_type": "overwrite[array[float]]",
                             "_default": [],
                         },
+                        # ---- ppGpp regulation (Phase 2) ----
+                        # Synthesis/degradation telemetry emitted by
+                        # _ppgpp_evolve when ppgpp_regulation=True.
+                        "rela_syn": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "spot_syn": {
+                            "_type": "overwrite[float]",
+                            "_default": 0.0,
+                        },
+                        "spot_deg": {
+                            "_type": "overwrite[float]",
+                            "_default": 0.0,
+                        },
+                        "spot_deg_inhibited": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
                     },
                 },
             },
@@ -473,6 +540,34 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         target = (
             self.ribosomeElongationRateDict[states["environment"]["media_id"]]
         ).to(units.aa / units.s).magnitude
+
+        # ---- ppGpp inhibition of elongation rate (Phase 2) ----
+        # Mirror of SteadyState's elongation_rate at
+        # polypeptide_elongation.py:1000-1012. When ppGpp regulation is
+        # active and the (rarely-set) inhibition-disable flag is off,
+        # cap the binary-search target at the ppGpp-modulated rate. This
+        # propagates through to ``target_codon_rate = codons / timestep``
+        # inside :meth:`run_model` — codons available to read this tick
+        # shrink in proportion to the elongation slowdown.
+        if (
+            self.ppgpp_regulation
+            and not self.disable_ppgpp_elongation_inhibition
+        ):
+            cell_mass = as_quantity(
+                states["listeners"]["mass"]["cell_mass"], units.fg
+            )
+            cell_volume = cell_mass / self.cell_density
+            counts_to_molar = 1 / (self.n_avogadro * cell_volume)
+            ppgpp_count = counts(states["bulk"], self.ppgpp_idx)
+            ppgpp_conc = ppgpp_count * counts_to_molar
+            inhibited = self.elong_rate_by_ppgpp(
+                ppgpp_conc, self.basal_elongation_rate
+            )
+            # The closure may return either a pint Quantity or a plain
+            # float depending on configuration; normalize to magnitude.
+            if hasattr(inhibited, "to"):
+                inhibited = inhibited.to(units.aa / units.s).magnitude
+            target = min(target, float(inhibited))
 
         rate = kernel.get_elongation_rate(
             self.longer_sequences,
@@ -598,6 +693,64 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             fraction_charged = np.where(
                 total_per_aa > 0, charged_per_aa / total_per_aa, 0.0
             )
+
+        # ---- ppGpp regulation: request side (Phase 2) ----
+        # Mirror of SteadyState's request-side ppGpp block. Requests bulk
+        # for the ppGpp reaction metabolites so :meth:`_ppgpp_evolve` has
+        # them allocated when it realizes the RelA/SpoT events. No-op
+        # when ppgpp_regulation is off (returns []).
+        cell_mass = as_quantity(
+            states["listeners"]["mass"]["cell_mass"], units.fg
+        )
+        cell_volume = cell_mass / self.cell_density
+        counts_to_molar = 1 / (self.n_avogadro * cell_volume)
+        counts_to_uM_mag = counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+        # Cache for _ppgpp_evolve later in this tick.
+        self._counts_to_uM_mag = counts_to_uM_mag
+
+        uncharged_trna_counts_per_aa = self.aa_from_trna @ counts(
+            states["bulk_total"], self.uncharged_trna_idx
+        )
+        charged_trna_counts_per_aa = self.aa_from_trna @ counts(
+            states["bulk_total"], self.charged_trna_idx
+        )
+        ribosome_conc = counts_to_uM_mag * states["active_ribosome"][
+            "_entryState"
+        ].sum()
+        ppgpp_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.ppgpp_idx
+        )
+        rela_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.rela_idx
+        )
+        spot_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.spot_idx
+        )
+        # Per-AA fraction of upcoming AAs in the sequence. Project
+        # monomers_in_sequences (per-codon) onto AAs via
+        # codons_to_amino_acids.
+        aas_in_seq = self.codons_to_amino_acids @ monomers_in_sequences
+        aa_total = aas_in_seq.sum()
+        if aa_total > 0:
+            f = aas_in_seq / aa_total
+        else:
+            f = np.zeros_like(aas_in_seq, dtype=np.float64)
+        # v_rib in μM/s: total AA incorporation rate as a concentration.
+        v_rib = (amino_acids_used.sum() * counts_to_uM_mag) / states["timestep"]
+
+        requests["bulk"] += self._ppgpp_request(
+            states,
+            counts_to_uM_mag,
+            uncharged_trna_counts_per_aa,
+            charged_trna_counts_per_aa,
+            fraction_charged,
+            ribosome_conc,
+            f,
+            rela_conc,
+            spot_conc,
+            ppgpp_conc,
+            v_rib,
+        )
 
         return fraction_charged, amino_acids_used.astype(float), requests
 
@@ -811,6 +964,21 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             self.gtpPerElongation * n_elongations
         )
 
+        # ---- ppGpp regulation: evolve side (Phase 2) ----
+        # Apply RelA/SpoT-driven ppGpp synth/deg AFTER the existing bulk
+        # deltas are merged into update — _ppgpp_evolve appends to
+        # update["bulk"] and writes growth_limits listener fields using
+        # setdefault, so it composes with the writes above.
+        # No-op when ppgpp_regulation is off.
+        self._ppgpp_evolve(
+            states,
+            update,
+            net_charged,
+            n_elongations,
+            aas_used,
+            next_amino_acid_count,
+        )
+
         # ---- Listener emission ----
         curr_elong_rate = (
             sequence_elongations.sum() / n_active_ribosomes
@@ -953,6 +1121,167 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         return net_charged, aa_count_diff, update
 
     # ---------- internal helpers ----------
+
+    def _ppgpp_request(
+        self,
+        states,
+        counts_to_uM_mag,
+        uncharged_trna_counts,
+        charged_trna_counts,
+        fraction_charged,
+        ribosome_conc,
+        f,
+        rela_conc,
+        spot_conc,
+        ppgpp_conc,
+        v_rib,
+    ):
+        """Growth-control module: ppGpp (request side).
+
+        Port of :meth:`SteadyStatePolypeptideElongation._ppgpp_request`
+        (polypeptide_elongation.py:1481-1533). Same RelA/SpoT ODE; same
+        ``ppgpp_metabolite_changes`` math. Returns the extra bulk requests
+        (ppGpp + the ppGpp-reaction metabolites) that the predicted
+        post-charging tRNA split implies for this tick.
+
+        No-op (returns ``[]``) when ``ppgpp_regulation`` is off.
+        """
+        if not self.ppgpp_regulation:
+            return []
+        total_trna_conc = counts_to_uM_mag * (
+            uncharged_trna_counts + charged_trna_counts
+        )
+        updated_charged_trna_conc = total_trna_conc * fraction_charged
+        updated_uncharged_trna_conc = total_trna_conc - updated_charged_trna_conc
+        delta_metabolites, *_ = ppgpp_metabolite_changes(
+            updated_uncharged_trna_conc,
+            updated_charged_trna_conc,
+            ribosome_conc,
+            f,
+            rela_conc,
+            spot_conc,
+            ppgpp_conc,
+            counts_to_uM_mag,
+            v_rib,
+            self.charging_params,
+            self.ppgpp_params,
+            states["timestep"],
+            request=True,
+            random_state=self.random_state,
+        )
+        request_ppgpp_metabolites = -delta_metabolites.astype(int)
+        ppgpp_request = counts(states["bulk"], self.ppgpp_idx)
+        return [
+            (self.ppgpp_idx, ppgpp_request),
+            (self.ppgpp_rxn_metabolites_idx, request_ppgpp_metabolites),
+        ]
+
+    def _ppgpp_evolve(
+        self,
+        states,
+        update,
+        net_charged,
+        n_elongations,
+        aas_used,
+        next_amino_acid_count,
+    ):
+        """Growth-control module: ppGpp (evolve side).
+
+        Port of :meth:`SteadyStatePolypeptideElongation._ppgpp_evolve`
+        (polypeptide_elongation.py:1535-1632) adapted for the kinetic
+        class:
+
+        * ``aas_used`` here is the kinetic class's post-reconcile
+          ``amino_acids_used`` (per-AA ndarray), matching SteadyState's.
+        * Growth-limits listener fields use ``setdefault`` instead of
+          replacing the dict, so other writes to ``growth_limits``
+          (e.g. ``aas_used``, ``aa_count_diff``) survive.
+
+        Same RelA/SpoT ODE math, evaluated at the realized post-elongation
+        tRNA concentrations (``net_charged``-adjusted bulk counts) and
+        clamped by the allocated ppGpp-reaction metabolite limits.
+
+        No-op when ``ppgpp_regulation`` is off.
+        """
+        if not self.ppgpp_regulation:
+            return
+        counts_to_uM_mag = self._counts_to_uM_mag
+        v_rib = (n_elongations * counts_to_uM_mag) / states["timestep"]
+        ribosome_conc = (
+            counts_to_uM_mag * states["active_ribosome"]["_entryState"].sum()
+        )
+        updated_uncharged_trna_counts = (
+            counts(states["bulk_total"], self.uncharged_trna_idx) - net_charged
+        )
+        updated_charged_trna_counts = (
+            counts(states["bulk_total"], self.charged_trna_idx) + net_charged
+        )
+        uncharged_trna_conc = counts_to_uM_mag * np.dot(
+            self.aa_from_trna, updated_uncharged_trna_counts
+        )
+        charged_trna_conc = counts_to_uM_mag * np.dot(
+            self.aa_from_trna, updated_charged_trna_counts
+        )
+        ppgpp_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.ppgpp_idx
+        )
+        rela_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.rela_idx
+        )
+        spot_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.spot_idx
+        )
+
+        # Include the next AA the ribosome sees for the no-elongation edge
+        # case where f would otherwise be NaN.
+        aa_at_ribosome = aas_used + next_amino_acid_count
+        denom = aa_at_ribosome.sum()
+        if denom <= 0:
+            return  # no AAs in scope this tick — skip ppGpp evolve cleanly
+        f = aa_at_ribosome / denom
+        limits = counts(states["bulk"], self.ppgpp_rxn_metabolites_idx)
+        (
+            delta_metabolites,
+            ppgpp_syn,
+            ppgpp_deg,
+            rela_syn,
+            spot_syn,
+            spot_deg,
+            spot_deg_inhibited,
+        ) = ppgpp_metabolite_changes(
+            uncharged_trna_conc,
+            charged_trna_conc,
+            ribosome_conc,
+            f,
+            rela_conc,
+            spot_conc,
+            ppgpp_conc,
+            counts_to_uM_mag,
+            v_rib,
+            self.charging_params,
+            self.ppgpp_params,
+            states["timestep"],
+            random_state=self.random_state,
+            limits=limits,
+        )
+
+        # setdefault so other listener writes in this tick survive.
+        gl = update["listeners"].setdefault("growth_limits", {})
+        gl["rela_syn"] = rela_syn
+        gl["spot_syn"] = spot_syn
+        gl["spot_deg"] = spot_deg
+        gl["spot_deg_inhibited"] = spot_deg_inhibited
+
+        update["bulk"].append(
+            (self.ppgpp_rxn_metabolites_idx, delta_metabolites.astype(int))
+        )
+        # Mirror SteadyState: update the working bulk copy so downstream
+        # reads see post-ppGpp counts. ``states['bulk']`` was already made
+        # writeable at the top of evolve_state (line 660).
+        states["bulk"][self.ppgpp_rxn_metabolites_idx] = (
+            states["bulk"][self.ppgpp_rxn_metabolites_idx]
+            + delta_metabolites.astype(int)
+        )
 
     def _build_supply_function(self, states):
         """Construct the AA-supply closure that feeds the kinetic ODE RHS.

@@ -395,7 +395,11 @@ def test_run_model_uses_ode_and_kernel_constants() -> None:
     )
     src = inspect.getsource(KT.run_model)
     assert "solve_ivp" in src
-    assert "method=\"RK45\"" in src
+    # After the consensus stiffness fix, the integrator is chosen
+    # conditionally: RK45 for legacy path, BDF for consensus path. Both
+    # method names must still appear in source as the candidates.
+    assert "\"RK45\"" in src
+    assert "\"BDF\"" in src
     assert "rtol=1e-4" in src
     assert "atol=1e-7" in src
     assert "self.K_M_amino_acids" in src

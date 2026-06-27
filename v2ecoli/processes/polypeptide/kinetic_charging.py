@@ -1581,6 +1581,15 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         )
 
         # Run ODE.
+        # Integrator choice: RK45 (explicit, non-stiff) for the legacy
+        # kinetic path; BDF (implicit, stiff) when the consensus AA-supply
+        # terms are active. The supply closure's saturation kinetics
+        # introduce fast modes that drive RK45's stability region tiny —
+        # profiling showed RK45 took 1.9M adaptive sub-steps per tick
+        # (one ode_model call each, ~5 min wall) while BDF should take
+        # tens. SteadyState's analogous merged ODE uses BDF for the same
+        # reason (see kinetics.py:404).
+        ode_method = "BDF" if supply_function is not None else "RK45"
         ode_result = solve_ivp(
             ode_model,
             [0, states["timestep"]],
@@ -1595,7 +1604,7 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
                 supply_function,
                 counts_to_uM_mag,
             ),
-            method="RK45",
+            method=ode_method,
             rtol=1e-4,
             atol=1e-7,
         )

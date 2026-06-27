@@ -5,10 +5,12 @@
     "branch": "feat/comparison-harness-config"
   },
   "vecoli": {
-    "repo": "https://github.com/vivarium-collective/vEcoli",
-    "commit": "62924758ee4a3390356082abfe169c75ec442539",
-    "branch": "fix/ppgpp-null-gene-reproducibility"
+    "repo": "https://github.com/CovertLab/vEcoli",
+    "commit": "",
+    "branch": "master"
   },
+  "vecoli_engine": "upstream-wrapper",
+  "from_vecoli_config": "configs/default.json",
   "defaults": {
     "seeds": 4,
     "gens": 2

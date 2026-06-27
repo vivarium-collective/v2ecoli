@@ -84,6 +84,30 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     return v2
 
 
+def resolve_vecoli_config_local(config_path: str, fork_dir: str) -> dict[str, Any]:
+    """Resolve a vEcoli fork config WITHOUT needing the fork's own venv.
+
+    ``resolve_vecoli_config`` shells out to ``<fork>/.venv/bin/python`` to honour
+    the fork's loader. In the v2ecoli image the upstream clone (``V2E_VECOLI_DIR``)
+    is SOURCE-ONLY (no venv), so this resolves the fork's config with v2ecoli's
+    OWN inheritance loader instead (identical merge semantics), keyed off the
+    config's directory inside the fork. ``config_path`` may be absolute or
+    relative to ``fork_dir`` (e.g. ``configs/default.json``).
+    """
+    import os
+    abspath = (config_path if os.path.isabs(config_path)
+               else os.path.join(fork_dir, config_path))
+    config_dir = os.path.dirname(abspath)
+    try:
+        from v2ecoli.workflow.config import load_config_with_inheritance
+        return load_config_with_inheritance(abspath, config_dir=config_dir)
+    except Exception:
+        # Last-resort fallback: a flat read (no inheritance) so a missing v2ecoli
+        # loader / unexpected schema still yields the config body.
+        with open(abspath) as fh:
+            return json.load(fh)
+
+
 VECOLI_REPO = "/Users/eranagmon/code/vEcoli"
 VECOLI_PYTHON = f"{VECOLI_REPO}/.venv/bin/python"
 

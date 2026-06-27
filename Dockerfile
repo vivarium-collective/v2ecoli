@@ -49,16 +49,29 @@ RUN printf 'export PATH="/app/v2ecoli/.venv/bin:$PATH"\n' > /etc/profile.d/10-v2
 # Sanity: the package imports and Ray is present at the locked version.
 RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 
-# vEcoli `composite-softfloor` checkout as a SIBLING of /app/v2ecoli, so the
-# comparison driver (scripts/run_comparison_ensemble.py --composite vecoli) can
-# sys.path-override the installed `ecoli` release with the composite-branch code
-# — i.e. run the ORIGINAL vEcoli model as a process-bigraph composite
-# (`build_composite_native`) WITH the ppGpp soft-floor, on Ray, no Nextflow.
-# Pinned to the soft-floor commit so the image is reproducible.
-ARG VECOLI_COMPOSITE_REF=composite-softfloor
-RUN git clone --depth 1 --branch "${VECOLI_COMPOSITE_REF}" \
-        https://github.com/vivarium-collective/vEcoli.git /app/vEcoli \
- && python -c "import sys; sys.path.insert(0, '/app/vEcoli'); from ecoli.composites.ecoli_composite import build_composite_native; print('vEcoli composite (soft-floor) importable')"
+# PRISTINE upstream CovertLab/vEcoli checkout as a SIBLING of /app/v2ecoli, so
+# the comparison driver (scripts/run_comparison_ensemble.py --composite vecoli)
+# runs the ORIGINAL, UNMODIFIED vEcoli model as a process-bigraph composite via
+# the EXTERNAL wrapper (v2ecoli.library.vecoli_pbg_upstream + upstream_division):
+# upstream EcoliSim is imported from here and each vivarium process wrapped
+# externally, with ZERO edits to the checkout. V2E_VECOLI_DIR points the wrapper
+# at it. The fork to WRAP is spec-driven: docker/build-and-push-ecr.sh reads
+# comparison_spec.json's vecoli.{repo,commit} and passes them as these build-args,
+# so pointing the comparison at a NEW vEcoli fork is a pure spec edit + rebuild —
+# no Dockerfile change. Defaults clone the pristine upstream CovertLab/vEcoli@master.
+# VECOLI_UPSTREAM_REF may be a branch OR a commit sha; we fetch+checkout so either
+# works (a bare `clone --branch <sha>` does not accept a commit).
+ARG VECOLI_UPSTREAM_REPO=https://github.com/CovertLab/vEcoli
+ARG VECOLI_UPSTREAM_REF=master
+RUN git clone "${VECOLI_UPSTREAM_REPO}" /app/vEcoli \
+ && git -C /app/vEcoli checkout "${VECOLI_UPSTREAM_REF}"
+ENV V2E_VECOLI_DIR=/app/vEcoli
+# Verify the clone + that the external upstream wrapper imports and can reach
+# upstream EcoliSim through its sys.path/Cython-pinning shim (does NOT build a
+# composite — that needs an upstream sim_data, staged at job time).
+RUN python -c "import os; os.environ.setdefault('V2E_VECOLI_DIR', '/app/vEcoli'); \
+from v2ecoli.library.vecoli_pbg_upstream import _ensure_upstream; \
+print('upstream EcoliSim importable:', _ensure_upstream()['EcoliSim'].__name__)"
 
 # ─── AWS Batch multi-node-parallel (Ray) runtime layer ───────────────────────
 # Make the image self-contained for Ray-on-Batch: the AWS CLI (stages the ParCa

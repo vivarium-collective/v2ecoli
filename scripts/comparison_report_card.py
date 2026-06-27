@@ -64,7 +64,8 @@ from scripts._compare.report_card_section import build_report_card
 from scripts._compare.vecoli_parquet_reader import read_vecoli_trajectory
 from scripts.compare_matched_trajectories import (
     BUCKET, PREFIX, REGION, OBS_LABEL, _legend_html, overlay_svg_multi,
-    read_v2ecoli_trajectory, read_pbg_local, _gen1_window)
+    read_v2ecoli_trajectory, read_pbg_local, read_vecoli_pbg_trajectory,
+    _gen1_window)
 
 # condition -> (v2ecoli zarr experiment dir, vEcoli parquet experiment dir).
 # v2: sim48-v2-full-* is basal-everywhere for the NON-basal dirs (the old bug);
@@ -255,12 +256,14 @@ def overview_section(cond_data: dict) -> dict:
                 f'{rel*100:.1f}%</td>')
         cv = worst(axis_v)
         cond_verdicts.append(cv)
-        # Link the row to that condition's first sub-section (its vEcoli config
-        # panel). Use the SAME report._slug on the SAME title string the section
-        # is rendered with (f"{cond} — config (vEcoli)") so the anchor resolves
+        # Link the row to that condition's "simulation runs" sub-section — it is
+        # rendered in BOTH modes (the "config (vEcoli)" panel is SKIPPED in
+        # local-pbg / pbg-vs-pbg mode, so anchoring there left the row pointing at
+        # a non-existent id and the click did nothing). Use the SAME report._slug on
+        # the SAME title string the section is rendered with so the anchor resolves
         # exactly. Whole row clickable (onclick) + the condition cell is a real
         # <a> for an accessible, hover-cued link target.
-        anchor = _slug(f"{cond} — config (vEcoli)")
+        anchor = _slug(f"{cond} — simulation runs")
         body_rows.append(
             f'<tr onclick="location.hash=\'#{anchor}\'" style="cursor:pointer">'
             f'<td style="padding:6px 11px;font-weight:650">'
@@ -714,12 +717,34 @@ def main(argv=None):
                         'process-bigraph composites). Reads both via read_pbg_local '
                         'and emits the overview + report-card + per-condition '
                         'trajectory/eval sections (skips the S3/Nextflow-only panels).')
+    p.add_argument("--local-pbg-dir", default=None,
+                   help='MULTI-SEED local pbg-vs-pbg mode: JSON {cond:[v2_dir, ve_dir]} '
+                        'of LOCAL directories each holding per-seed v2ecoli-format zarr '
+                        '(v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr). Reads seeds '
+                        '0..--local-pbg-seeds-1 via read_pbg_local. Use for local 4x4x5.')
+    p.add_argument("--local-pbg-seeds", type=int, default=4,
+                   help="number of seeds (0..N-1) for --local-pbg-dir (default 4).")
+    p.add_argument("--pbg-vs-pbg", action="store_true",
+                   help='S3 pbg-vs-pbg mode (the default upstream-wrapper route): '
+                        'BOTH engines emit v2ecoli-format zarr to S3 — v2 under '
+                        'v2ecoli_seed*.zarr, vecoli under vecoli_seed*.zarr in its '
+                        'own experiment dir. Reads both via the zarr reader from S3 '
+                        '(condition dirs from experiments.json / --conditions-json) '
+                        'and skips the Nextflow-only config panels. Use this to '
+                        'render the standardized report for any pbg-vs-pbg run.')
     p.add_argument("-o", "--out", default="out/full_compare",
                    help="output directory (also read for experiments.json)")
     args = p.parse_args(argv)
 
     local_pbg = bool(args.local_pbg)
-    if local_pbg:                                     # 0. pbg-vs-pbg local zarr
+    local_pbg_dir = bool(args.local_pbg_dir)
+    pbg_vs_pbg = bool(args.pbg_vs_pbg)
+    # both modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
+    # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
+    skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg
+    if local_pbg_dir:                                 # 0b. multi-seed local dirs
+        conds = json.loads(args.local_pbg_dir)
+    elif local_pbg:                                   # 0. pbg-vs-pbg local zarr
         conds = json.loads(args.local_pbg)
     elif args.conditions_json:                        # 1. explicit override
         conds = json.loads(args.conditions_json)
@@ -737,7 +762,15 @@ def main(argv=None):
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    if local_pbg:
+    if local_pbg_dir:
+        # MULTI-SEED local: each cond maps to [v2_dir, ve_dir]; read per-seed
+        # v2ecoli-format zarr (v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr) for
+        # seeds 0..N-1 through the same local reader. Enables the local 4x4x5.
+        cond_data = build(
+            conds, seeds=list(range(args.local_pbg_seeds)),
+            read_v2=lambda d, s: read_pbg_local(f"{d}/v2ecoli_seed{s:02d}.zarr", OBSERVABLES),
+            read_ve=lambda d, s: read_pbg_local(f"{d}/vecoli_seed{s:02d}.zarr", OBSERVABLES))
+    elif local_pbg:
         # Both engines as process-bigraph composites → both read v2ecoli-format
         # zarr from a LOCAL path; the json maps each cond to a single seed's
         # stores, so the per-seed loop runs once.
@@ -745,6 +778,14 @@ def main(argv=None):
             conds, seeds=[0],
             read_v2=lambda d, s: read_pbg_local(d, OBSERVABLES),
             read_ve=lambda d, s: read_pbg_local(d, OBSERVABLES))
+    elif pbg_vs_pbg:
+        # The default upstream-wrapper route: BOTH engines emit v2ecoli-format
+        # zarr to S3 (v2 -> v2ecoli_seed*.zarr, vecoli -> vecoli_seed*.zarr),
+        # each in its own experiment dir. Read both via the zarr reader from S3.
+        cond_data = build(
+            conds,
+            read_v2=lambda d, s: read_v2ecoli_trajectory(d, s, OBSERVABLES),
+            read_ve=lambda d, s: read_vecoli_pbg_trajectory(d, s, OBSERVABLES))
     else:
         cond_data = build(conds)
     graded = list(conds)  # conditions whose data feeds the report card
@@ -763,12 +804,14 @@ def main(argv=None):
     overview = overview_section(cond_data)
     overview["nav_group"] = "Overall"
     sections = [overview]
-    # 2. ParCa / initial-state comparison — its own nav entry. Skipped in
-    #    local-pbg mode (it reads each engine's S3 store attrs / Nextflow config).
-    if not local_pbg:
-        parca = parca_section(cond_data)
-        parca["nav_group"] = "ParCa comparison"
-        sections.append(parca)
+    # 2. ParCa / initial-state comparison — its own nav entry. Renders for ALL
+    #    modes (incl. pbg-vs-pbg): it reads the t~0 emitted masses straight from
+    #    the loaded trajectories (cond_data), NOT any Nextflow config — and in the
+    #    matched-initial-state comparison it IS the headline evidence (both engines
+    #    start from identical molecule counts → t~0 masses agree).
+    parca = parca_section(cond_data)
+    parca["nav_group"] = "ParCa comparison"
+    sections.append(parca)
     # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
     #    config -> simulation runs -> evaluation. All of a condition's sections
     #    share nav_group=<cond>, so they fold into ONE nav button per condition.
@@ -779,7 +822,7 @@ def main(argv=None):
         per_obs, plot_trajs, v2_bounds = cond_data[cond]
         cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
                          eval_section(cond, per_obs)]
-        if not local_pbg:
+        if not skip_nextflow:
             cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
                              + cond_sections)
         for s in cond_sections:
@@ -788,7 +831,7 @@ def main(argv=None):
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     title = (f"vEcoli-pbg ↔ v2ecoli-pbg — process-bigraph comparison ({gen})"
-             if local_pbg
+             if skip_nextflow
              else f"v2ecoli ↔ vEcoli — standardized comparison ({gen})")
     html = report.render_report(sections, title=title)
 

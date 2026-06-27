@@ -564,38 +564,60 @@ def run_multigen_xarray(
         payload = _filter_agent_state(agents_map[key], view)
         if _EMIT_UNIQUE:
             payload = {**payload, **_extract_unique_attrs(agents_map[key])}
+        # CRITICAL: emit the payload under the emitter's OWN agent_id
+        # (``partition_agent_id``), NOT the inner-composite key ``key``
+        # (``followed``). The XArrayEmitter transducer strips the agent prefix
+        # via ``get_in(data, ("agents", partition.agent_id))`` where
+        # ``partition.agent_id`` is the metadata agent_id this generation's
+        # emitter was built with (== ``partition_agent_id``). When the inner
+        # composite REUSES a key so ``followed`` diverges from the true
+        # phylogeny ``partition_agent_id`` (happens at deeper divisions, gen 4+),
+        # emitting under ``followed`` makes ``get_in`` miss → ``dict_to_paths``
+        # yields the empty-tuple path → ``KeyError: 'Unexpected emit path: ()'``.
+        # Relabelling the payload to ``partition_agent_id`` here is exact: the
+        # emitter only uses the key to locate the cell subtree, and the
+        # generation/agent_id partition metadata is already keyed to
+        # ``partition_agent_id``. (``partition_agent_id`` is read by late binding
+        # so each call uses the current generation's value.)
         emitter.update({
             "time": float(done),
             "global_time": float(done),
-            "agents": {key: payload},
+            "agents": {partition_agent_id: payload},
         })
 
     while done < max_steps and gen <= max_generations:
         try:
             composite.run(chunk)
         except Exception as e:
-            # A graceful end-of-run (e.g. a composite that can't divide further)
-            # raises here after emitting real data — stay lenient in that case.
-            # But a failure on the VERY FIRST chunk (done still at the warm-up
-            # value of 1) means the composite never produced any observable
-            # data; silently breaking yields an empty-but-valid zarr and a
-            # misleading success. Fail loud with the full traceback instead.
-            if done <= 1:
-                import traceback as _tb
-                print(f"[multigen_xarray] composite FAILED on first chunk "
-                      f"(no data emitted):\n{_tb.format_exc()}")
-                raise
-            # Past the first chunk we stay lenient (a composite that can no
-            # longer divide legitimately raises here after emitting real data).
-            # But print the FULL traceback, never just a truncated message: an
-            # IOError / emitter crash mid-generation looks identical to a
-            # graceful end-of-lineage in an 80-char snippet, and silently
-            # breaking truncated whole generations (the gen-2-at-780s bug).
+            # FAIL LOUD when a crash TRUNCATES the requested run. A swallowed
+            # ``break`` here returns normally → the process exits 0 → the batch
+            # job reports SUCCESS while having written only partial, often
+            # unreadable data (the 4x4x5 crash that masqueraded as success).
+            #
+            # The ONLY tolerable raise is one that fires AFTER all requested
+            # generations have already completed (``gen >= max_generations`` and
+            # we are past the warm-up tick) — post-run noise, e.g. a cell that
+            # can no longer divide. Everything else — a crash mid-generation,
+            # before the requested generation count — is a real failure that
+            # must surface as a non-zero exit, never a silent truncation.
             import traceback as _tb
-            print(f"[multigen_xarray] composite raised at {done}s; ending "
-                  f"lineage here (full traceback below for diagnosis):\n"
-                  f"{_tb.format_exc()}")
-            break
+            tb = _tb.format_exc()
+            reached_target = gen >= max_generations and done > 1
+            print(f"[multigen_xarray] composite raised at {done}s "
+                  f"(gen {gen}/{max_generations}, target_reached={reached_target}):\n{tb}",
+                  flush=True)
+            if reached_target:
+                break
+            # Finalize whatever data exists (for diagnosis) then re-raise so the
+            # batch job FAILS visibly instead of exiting 0 with a partial zarr.
+            try:
+                em.close(success=False)
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"[multigen_xarray] composite CRASHED at {done}s in generation "
+                f"{gen} (requested {max_generations} generations) — failing loud; "
+                f"see traceback above") from e
         done += chunk
         agents = (composite.state or {}).get("agents") or {}
         curr_ids = set(agents.keys())
@@ -623,7 +645,18 @@ def run_multigen_xarray(
         if inner_next is None:
             break
 
-        em.close(success=True)
+        # Same pbg-emitters quirk as the final close below: flush(final=True)
+        # asserts when the buffer is exactly full at close. This PER-GENERATION
+        # close lands on a buffer multiple for some conditions (alt-media gens
+        # have different step counts), and an unguarded assert here propagates
+        # out of the Ray task → the whole run FAILS (the 4/5 alt-media failures).
+        # The completed generation's buffers are already on disk; swallow the
+        # trailing-buffer assert and keep going, exactly as the final close does.
+        try:
+            em.close(success=True)
+        except AssertionError:
+            print(f"[multigen_xarray] gen-{gen} close hit pbg-emitters final-flush "
+                  "assert (buffer full at division); flushed data retained.")
         followed = inner_next
         partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
         gen += 1

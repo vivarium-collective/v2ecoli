@@ -84,9 +84,11 @@ hundreds of molecular species (ribosomes, RNA polymerase, metabolic enzymes,
 the supercoiled chromosome, flagella) packed at true abundance from a v2ecoli
 cell state. Switch between a **newborn cell** and a **pre-division cell** with
 two segregated chromosomes, toggle/isolate species by functional category, and
-**"View in VR"** on a Meta Quest. Built with
-**[pbg-parsimony](https://github.com/vivarium-collective/pbg-parsimony)** from
-the molecular counts of a simulated cell.
+**"View in VR"** on a Meta Quest. Built by the
+**[3d-ecoli](https://github.com/vivarium-collective/3d-ecoli)** workspace — which
+imports v2ecoli (for the molecular state) +
+**[pbg-parsimony](https://github.com/vivarium-collective/pbg-parsimony)** (the
+packing engine) — from the molecular counts of a simulated cell.
 
 ### 🔬 Model viewers & technical reports — *standalone HTML*
 
@@ -114,7 +116,6 @@ full list + how to regenerate each in **[docs/reports.md](docs/reports.md#3-stan
 - [What changed since vEcoli](#what-changed-since-vecoli)
 - [Performance & validation](#performance--validation)
 - [v2ecoli ↔ vEcoli comparison harness](#v2ecoli--vecoli-comparison-harness)
-- [Known limitations](#known-limitations)
 - [Repository layout](#repository-layout)
 - [Dependencies & ecosystem](#dependencies--ecosystem)
 
@@ -563,22 +564,6 @@ deterministic chain with no hand-editing. Runs land at
 
 ---
 
-## Known limitations
-
-- **Colony throughput** — the `EcoliWCM` bridge runs each cell's internal
-  composite synchronously (~0.7 s/tick), so a colony with one whole-cell runs at
-  ~2.6× realtime.
-- **Daughter state** — daughter `EcoliWCM` processes start from a fresh composite
-  rather than inheriting the mother's internal state at division.
-- **Cell-length transient** — at the WCM's starting volume the capsule-geometry
-  volume→length map gives a shorter cell than expected, so length dips before
-  climbing.
-- **Division mechanism** — the `Division` step fires via exception handling (it
-  attempts a structural modification that crashes; the bridge catches it and
-  applies the handoff). Clean structural division is on the roadmap.
-
----
-
 ## Repository layout
 
 ```
@@ -614,6 +599,7 @@ workspace.yaml     pbg workspace config
 - [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard) — interactive workspace UI (reads `workspace.yaml` + `pbg_v2ecoli/`)
 - [vEcoli](https://github.com/CovertLab/vEcoli) — ParCa reference data & biology
 - [multi-cell](https://github.com/vivarium-collective/pymunk-process) — 2D colony physics
+- [3d-ecoli](https://github.com/vivarium-collective/3d-ecoli) — 3D structural model (imports v2ecoli + pbg-parsimony)
 
 ---
 

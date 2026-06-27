@@ -31,7 +31,11 @@ def test_validate_flags_unknown_condition(tmp_path):
 def test_validate_flags_group_mismatch(tmp_path):
     m, spath = _setup(tmp_path)
     s = yaml.safe_load(spath.read_text(encoding="utf-8"))
-    s["behavior_tests"][0]["measure"]["group"] = "statistical"  # manifest says standard
+    axis_test = next(
+        t for t in s["behavior_tests"]
+        if (t.get("measure") or {}).get("kind") == "report_card_axis"
+    )
+    axis_test["measure"]["group"] = "statistical"  # manifest says standard
     spath.write_text(yaml.safe_dump(s), encoding="utf-8")
     problems = validate(str(m), str(tmp_path))
     assert any("graded cards" in p for p in problems)

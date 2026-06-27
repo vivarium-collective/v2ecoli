@@ -33,7 +33,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from scripts._compare.config_adapter import (  # noqa: E402
-    config_run_shape, resolve_vecoli_config_local)
+    config_run_shape, resolve_vecoli_config_local, store_key)
 
 PER_GEN_STEPS = 15000  # per-generation tick budget (non-binding cap; division-driven)
 
@@ -79,25 +79,26 @@ def main(argv=None) -> int:
 
     if args.condition:
         configs = [e for e in configs
-                   if (e.get("name") or condition_of(e["config"], fork)) == args.condition]
+                   if store_key(e, fork) == args.condition]
         if not configs:
             sys.exit(f"no config matches condition {args.condition!r}")
 
     max_seeds = 1
     for entry in configs:
         cfg = entry["config"]
-        cond = condition_of(cfg, fork)
+        sim_condition = condition_of(cfg, fork)  # biological vEcoli condition (--condition arg)
+        store = store_key(entry, fork)           # store/render/study key (out dir, progress prints)
         seeds, gens = config_run_shape(cfg, fork) if fork else (1, 1)
         max_seeds = max(max_seeds, seeds)
-        out_c = f"{args.out}/{cond}"
+        out_c = f"{args.out}/{store}"
         if args.render_only:
-            print(f"[render-only] {cond}: seeds={seeds} gens={gens}")
+            print(f"[render-only] {store}: seeds={seeds} gens={gens}")
             continue
-        print(f">>> {cond}: seeds={seeds} gens={gens} -> {out_c}", flush=True)
+        print(f">>> {store}: seeds={seeds} gens={gens} -> {out_c}", flush=True)
         cap = str(gens * PER_GEN_STEPS)
         # v2ecoli engine (its own ParCa cache + matched-initial-state)
         subprocess.run([py, "scripts/run_comparison_ensemble.py",
-                        "--composite", "v2ecoli", "--condition", cond,
+                        "--composite", "v2ecoli", "--condition", sim_condition,
                         "--cache-dir", args.v2_cache, "--n-seeds", str(seeds),
                         "--max-generations", str(gens), "--max-steps", cap,
                         "--chunk", "60", "--mode", args.mode,
@@ -105,7 +106,7 @@ def main(argv=None) -> int:
                         "--out-root", out_c], cwd=REPO, check=True)
         # genuine vEcoli engine (upstream ParCa cache, vivarium-process)
         subprocess.run([py, "scripts/run_comparison_ensemble.py",
-                        "--composite", "vecoli", "--condition", cond,
+                        "--composite", "vecoli", "--condition", sim_condition,
                         "--cache-dir", args.ve_cache, "--n-seeds", str(seeds),
                         "--max-generations", str(gens), "--max-steps",
                         str(PER_GEN_STEPS), "--chunk", "60", "--mode", args.mode,

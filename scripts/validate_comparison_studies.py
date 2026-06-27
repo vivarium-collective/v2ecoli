@@ -15,13 +15,15 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import yaml
 
 from scripts.scaffold_comparison_studies import (
     REPO, INVEST, CARD_ROOT, GRADED, condition_name)
 
 
-def validate(manifest_path: str, ws_root: str) -> list:
+def validate(manifest_path: str, ws_root: str) -> list[str]:
     spec = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     default_cards = (spec.get("defaults", {}) or {}).get("cards") or ["standard"]
     manifest_conds = {}

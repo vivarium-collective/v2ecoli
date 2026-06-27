@@ -738,6 +738,7 @@ def assemble_from_manifest(manifest, cond_data, conds, config_names,
                 sec["nav_group"] = name
                 sections.append(sec)
                 if "verdict_axes" in sec:
+                    # last-graded-section-wins; relies on the one-graded-section-per-card invariant
                     cardv = {"verdict": sec.get("verdict", "ungraded"),
                              "axes": sec["verdict_axes"]}
             card_verdicts[card] = cardv or {"verdict": "ungraded", "axes": []}
@@ -807,8 +808,7 @@ def main(argv=None):
     skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
     if manifest_mode:                                 # -1. manifest-driven
         import os as _os
-        import re as _re
-        from scripts._compare.config_adapter import resolve_vecoli_config_local
+        from scripts._compare.config_adapter import resolve_vecoli_config_local, store_key
         manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
         _fork = _os.environ.get("V2E_VECOLI_DIR", "")
 
@@ -823,17 +823,18 @@ def main(argv=None):
                         return cond
                 except Exception:  # noqa: BLE001
                     pass
-            stem = _os.path.splitext(_os.path.basename(cfg_path))[0]
+            import os as _os2, re as _re2
+            stem = _os2.path.splitext(_os2.path.basename(cfg_path))[0]
             if stem.startswith("cond_"):
                 stem = stem[len("cond_"):]
             # strip a trailing scale suffix (e.g. _1x4, _4x4) so an override
             # config like cond_basal_1x4 maps to the 'basal' store dir.
-            return _re.sub(r"_\d+x\d+$", "", stem)
+            return _re2.sub(r"_\d+x\d+$", "", stem)
 
-        # Section/store key: an explicit `name` on the entry (disambiguates two
-        # configs that share a condition, e.g. basal_1x4 vs basal_4x4), else the
-        # config's condition.
-        _config_names = {_entry["config"]: (_entry.get("name") or _cond_name(_entry["config"]))
+        # Section/store key: uses canonical store_key (honors explicit manifest `name`,
+        # then fork-resolved condition, then filename stem) so runner/renderer/scaffold
+        # always agree.
+        _config_names = {_entry["config"]: store_key(_entry, _fork)
                          for _entry in manifest_data.get("configs", [])}
         # In manifest mode both engines' stores (v2ecoli_seed*.zarr and
         # vecoli_seed*.zarr) live in the SAME per-condition dir under args.out —

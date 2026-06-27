@@ -46,3 +46,6 @@ def test_statistical_card_emits_verdict_and_axes():
     assert any(a["verdict"] != "ungraded" for a in sec["verdict_axes"])
     # ~1% rna_mass difference (100 vs 101 mean) -> within_tol.
     assert sec["verdict"] == "within_tol"
+    # Every verdict axis must carry exactly the required 6 keys.
+    assert all({"id", "label", "verdict", "value", "meter", "detail"} <= set(a)
+               for a in sec["verdict_axes"])

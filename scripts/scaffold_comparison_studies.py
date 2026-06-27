@@ -11,27 +11,24 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
 INVEST = "v2ecoli-vecoli-comparison"
 CARD_ROOT = f"docs/report_cards/{INVEST}"
 GRADED = {"standard", "statistical"}   # cards that produce a gating test
 
 
 def condition_name(entry: dict) -> str:
-    """A manifest entry's condition key: its explicit `name`, else the config
-    filename stem with a leading 'cond_' and trailing scale suffix (_NxN) stripped."""
-    if entry.get("name"):
-        return entry["name"]
-    stem = os.path.splitext(os.path.basename(entry["config"]))[0]
-    if stem.startswith("cond_"):
-        stem = stem[len("cond_"):]
-    return re.sub(r"_\d+x\d+$", "", stem)
+    """Canonical condition key (see config_adapter.store_key); honors a manifest
+    entry's explicit `name`, else the fork-resolved condition, else the stem."""
+    import os as _os
+    from scripts._compare.config_adapter import store_key
+    return store_key(entry, _os.environ.get("V2E_VECOLI_DIR", ""))
 
 
 def build_study(cond: str, cards: list, manifest_rel: str) -> dict:

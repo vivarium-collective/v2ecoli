@@ -775,6 +775,7 @@ def main(argv=None):
     skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
     if manifest_mode:                                 # -1. manifest-driven
         import os as _os
+        import re as _re
         from scripts._compare.config_adapter import resolve_vecoli_config_local
         manifest_data = json.loads(Path(args.manifest).read_text())
         _fork = _os.environ.get("V2E_VECOLI_DIR", "")
@@ -791,7 +792,11 @@ def main(argv=None):
                 except Exception:  # noqa: BLE001
                     pass
             stem = _os.path.splitext(_os.path.basename(cfg_path))[0]
-            return stem[len("cond_"):] if stem.startswith("cond_") else stem
+            if stem.startswith("cond_"):
+                stem = stem[len("cond_"):]
+            # strip a trailing scale suffix (e.g. _1x4, _4x4) so an override
+            # config like cond_basal_1x4 maps to the 'basal' store dir.
+            return _re.sub(r"_\d+x\d+$", "", stem)
 
         _config_names = {_entry["config"]: _cond_name(_entry["config"])
                          for _entry in manifest_data.get("configs", [])}

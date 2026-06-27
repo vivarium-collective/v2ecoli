@@ -56,3 +56,4 @@ def render(name: str, ctx: CardContext) -> list[Section]:
 # Built-in card modules (standard/statistical/parca/config_diff) are imported
 # here once they exist (Tasks 4–5) so importing this package registers them.
 from scripts._compare.report_cards import standard, statistical  # noqa: E402,F401
+from scripts._compare.report_cards import parca, config_diff  # noqa: E402,F401

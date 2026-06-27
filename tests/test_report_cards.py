@@ -24,7 +24,7 @@ def _ctx():
 
 
 def test_builtin_cards_registered():
-    for name in ("standard", "statistical"):
+    for name in ("standard", "statistical", "parca", "config_diff"):
         assert name in rc.all_names()
 
 

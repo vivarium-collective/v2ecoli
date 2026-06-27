@@ -688,13 +688,17 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
-def assemble_from_manifest(manifest, cond_data, conds, config_names):
+def assemble_from_manifest(manifest, cond_data, conds, config_names,
+                           verdict_root="docs/report_cards/v2ecoli-vecoli-comparison"):
     """Overview + per-config assigned-card sections, mirroring the manifest.
 
     config_names maps a manifest config path -> the condition key used in
-    cond_data/conds (the runner names stores by condition).
+    cond_data/conds (the runner names stores by condition). When verdict_root is
+    set, also writes one report_card_verdict.json per rendered condition (each
+    report card becomes a group), so the comparison can gate via report_card_axis.
     """
     from scripts._compare import report_cards as rc
+    from scripts._compare.verdict import write_condition_verdict
     default_cards = (manifest.get("defaults", {}) or {}).get("cards") or ["standard"]
     import json as _json
     import os as _os
@@ -727,10 +731,18 @@ def assemble_from_manifest(manifest, cond_data, conds, config_names):
                              ve_dir=ve_dir, seeds=int(_cfg.get("n_init_sims") or 0),
                              gens=int(_cfg.get("generations") or 0), per_obs=per_obs,
                              plot_trajs=plot_trajs, v2_bounds=v2_bounds, config=_cfg)
+        card_verdicts = {}
         for card in (entry.get("cards") or default_cards):
+            cardv = None
             for sec in rc.render(card, ctx):
                 sec["nav_group"] = name
                 sections.append(sec)
+                if "verdict_axes" in sec:
+                    cardv = {"verdict": sec.get("verdict", "ungraded"),
+                             "axes": sec["verdict_axes"]}
+            card_verdicts[card] = cardv or {"verdict": "ungraded", "axes": []}
+        if verdict_root:
+            write_condition_verdict(verdict_root, name, card_verdicts)
     return sections
 
 

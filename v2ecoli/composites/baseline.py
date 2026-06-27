@@ -303,6 +303,22 @@ def _get_step_config(
                 merged_cfg.update(loader.get_config_by_name(cfg_name) or {})
             except (KeyError, AttributeError):
                 pass
+        # Back-compat: caches built before tf_ids was added to the monomer-counts
+        # listener config (pre-2026-06-13) lack it. Source the raw TF ids from the
+        # tf-binding config (always present) and compartment-tag them so the
+        # CountsDeriver can fold bound-TF subunit counts into the monomer total.
+        if 'tf_ids' not in merged_cfg:
+            for _src in ('ecoli-tf-binding', 'ecoli-tf-unbinding',
+                         'rna_synth_prob_listener'):
+                try:
+                    _raw = (loader.get_config_by_name(_src) or {}).get('tf_ids')
+                except (KeyError, AttributeError):
+                    _raw = None
+                if _raw:
+                    merged_cfg['tf_ids'] = [
+                        t if str(t).endswith(']') else f'{t}[c]' for t in _raw]
+                    break
+            merged_cfg.setdefault('tf_ids', [])
         instance = _make_instance(CountsDeriver, merged_cfg, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):

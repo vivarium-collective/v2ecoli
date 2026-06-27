@@ -1,0 +1,13 @@
+{
+  "v2ecoli": { "repo": "https://github.com/vivarium-collective/v2ecoli", "commit": "" },
+  "vecoli":  { "repo": "https://github.com/CovertLab/vEcoli", "commit": "" },
+  "defaults": { "cards": ["standard"] },
+  "configs": [
+    { "config": "configs/cond_basal.json" },
+    { "config": "configs/cond_with_aa.json" },
+    { "config": "configs/cond_succinate.json" },
+    { "config": "configs/cond_no_oxygen.json" },
+    { "config": "configs/cond_acetate.json" }
+  ],
+  "report": { "out": "out/report_5cond_1x4", "title": "v2ecoli ↔ vEcoli — 5 conditions (1×4)" }
+}

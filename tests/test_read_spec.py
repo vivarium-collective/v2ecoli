@@ -91,3 +91,21 @@ def test_config_rows_uses_entry_cards_then_defaults():
 def test_config_rows_defaults_to_standard_when_no_defaults():
     spec = {"configs": [{"config": "c.json"}]}
     assert list(rs.config_rows(spec)) == [("c.json", "standard")]
+
+
+import json
+import pathlib  # noqa: E402
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+
+def test_example_manifest_5cond_parses():
+    spec = json.loads((ROOT / "comparison.5cond_1x4.json").read_text())
+    rows = list(rs.config_rows(spec))
+    assert len(rows) == 5
+    assert all(cards == "standard" for _, cards in rows)
+
+
+def test_example_manifest_baseline_statistical_parses():
+    spec = json.loads((ROOT / "comparison.baseline_4x4_statistical.json").read_text())
+    rows = list(rs.config_rows(spec))
+    assert rows == [("configs/cond_basal_4x4.json", "statistical")]

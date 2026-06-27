@@ -808,28 +808,9 @@ def main(argv=None):
     skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
     if manifest_mode:                                 # -1. manifest-driven
         import os as _os
-        from scripts._compare.config_adapter import resolve_vecoli_config_local, store_key
+        from scripts._compare.config_adapter import store_key
         manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
         _fork = _os.environ.get("V2E_VECOLI_DIR", "")
-
-        def _cond_name(cfg_path):
-            # Config is the source of truth: read its `condition` field when the
-            # vEcoli fork is known (robust to any config filename). Fall back to
-            # the filename stem (strip a leading 'cond_') otherwise.
-            if _fork:
-                try:
-                    cond = resolve_vecoli_config_local(cfg_path, _fork).get("condition")
-                    if cond:
-                        return cond
-                except Exception:  # noqa: BLE001
-                    pass
-            import os as _os2, re as _re2
-            stem = _os2.path.splitext(_os2.path.basename(cfg_path))[0]
-            if stem.startswith("cond_"):
-                stem = stem[len("cond_"):]
-            # strip a trailing scale suffix (e.g. _1x4, _4x4) so an override
-            # config like cond_basal_1x4 maps to the 'basal' store dir.
-            return _re2.sub(r"_\d+x\d+$", "", stem)
 
         # Section/store key: uses canonical store_key (honors explicit manifest `name`,
         # then fork-resolved condition, then filename stem) so runner/renderer/scaffold

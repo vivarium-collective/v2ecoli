@@ -818,7 +818,10 @@ def main(argv=None):
             # config like cond_basal_1x4 maps to the 'basal' store dir.
             return _re.sub(r"_\d+x\d+$", "", stem)
 
-        _config_names = {_entry["config"]: _cond_name(_entry["config"])
+        # Section/store key: an explicit `name` on the entry (disambiguates two
+        # configs that share a condition, e.g. basal_1x4 vs basal_4x4), else the
+        # config's condition.
+        _config_names = {_entry["config"]: (_entry.get("name") or _cond_name(_entry["config"]))
                          for _entry in manifest_data.get("configs", [])}
         # In manifest mode both engines' stores (v2ecoli_seed*.zarr and
         # vecoli_seed*.zarr) live in the SAME per-condition dir under args.out —

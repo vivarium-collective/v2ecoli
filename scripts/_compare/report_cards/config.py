@@ -5,6 +5,7 @@ shape (seeds/gens), and the config's other top-level settings."""
 from __future__ import annotations
 
 import html as _html
+import json as _json
 
 from scripts._compare.report_cards import report_card, CardContext, Section
 
@@ -39,10 +40,20 @@ def config_card(ctx: CardContext) -> Section:
     src = ctx.config.get("_source") if isinstance(ctx.config, dict) else None
     note = (f'<p style="color:#6b7280;font-size:12px">source: '
             f'{_html.escape(str(src))}</p>') if src else ""
+    # Full JSON config in a browsable (collapsible, scrollable) viewer — the
+    # default so every section exposes exactly what was run.
+    full = {k: v for k, v in (ctx.config or {}).items() if k != "_source"}
+    json_viewer = (
+        '<details open style="margin-top:8px"><summary style="cursor:pointer;'
+        'color:#374151;font-weight:600">full JSON config</summary>'
+        '<pre style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;'
+        'padding:10px;font-size:12px;line-height:1.4;max-height:380px;overflow:auto;'
+        'white-space:pre">' + _html.escape(_json.dumps(full, indent=2, sort_keys=True))
+        + '</pre></details>') if full else ""
     return {"title": f"{ctx.config_name} — config",
             "kind": "content",
             "anchor": f"{ctx.config_name}-config",
             "html": f"<p>vEcoli config driving the <b>{_html.escape(ctx.config_name)}</b> "
                     f"run (config = source of truth for the run shape).</p>"
-                    + table + note,
+                    + table + json_viewer + note,
             "verdict": None}

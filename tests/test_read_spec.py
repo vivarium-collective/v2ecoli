@@ -101,8 +101,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 def test_example_manifest_5cond_parses():
     spec = json.loads((ROOT / "comparison.5cond_1x4.json").read_text())
     rows = list(rs.config_rows(spec))
-    assert len(rows) == 5
-    assert all(cards == "config,parca,standard" for _, cards in rows)
+    assert len(rows) == 6
+    assert [c for _, c in rows][:5] == ["config,parca,standard"] * 5
+    assert rows[5][1] == "config,parca,statistical"
 
 
 def test_example_manifest_baseline_statistical_parses():

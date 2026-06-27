@@ -29,6 +29,15 @@
     },
     {
       "config": "configs/cond_acetate_1x4.json"
+    },
+    {
+      "config": "configs/cond_basal_4x4.json",
+      "name": "basal_4x4",
+      "cards": [
+        "config",
+        "parca",
+        "statistical"
+      ]
     }
   ],
   "report": {

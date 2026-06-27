@@ -67,3 +67,27 @@ def test_vecoli_engine_default_and_explicit():
 def test_from_vecoli_config():
     assert rs.from_vecoli_config(FULL) == "configs/default.json"
     assert rs.from_vecoli_config({}) == ""
+
+
+SPEC = {
+    "v2ecoli": {"repo": "r1", "commit": "c1"},
+    "vecoli": {"repo": "r2", "commit": "c2"},
+    "defaults": {"cards": ["standard"]},
+    "configs": [
+        {"config": "configs/cond_basal.json", "cards": ["standard", "statistical"]},
+        {"config": "configs/cond_with_aa.json"},
+    ],
+}
+
+
+def test_config_rows_uses_entry_cards_then_defaults():
+    rows = list(rs.config_rows(SPEC))
+    assert rows == [
+        ("configs/cond_basal.json", "standard,statistical"),
+        ("configs/cond_with_aa.json", "standard"),
+    ]
+
+
+def test_config_rows_defaults_to_standard_when_no_defaults():
+    spec = {"configs": [{"config": "c.json"}]}
+    assert list(rs.config_rows(spec)) == [("c.json", "standard")]

@@ -140,8 +140,7 @@ imports:
     ref: main
     mode: reference
     description: |
-      Parsimony structural-composite tooling (parsimony-ecoli) used by the
-      v2ecoli structural composite views.
+      Capsule cell-geometry primitive used by v2ecoli.cell_shape (ShapeStep).
   pbg_bioreactordesign:
     source: https://github.com/vivarium-collective/pbg-bioreactordesign
     ref: main

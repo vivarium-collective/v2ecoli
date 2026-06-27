@@ -21,8 +21,8 @@ def standard_card(ctx: CardContext) -> list[Section]:
         if v == "not_compared":
             v = "ungraded"
         axes.append({
-            "id": f"standard.{row['label']}",
-            "label": row["label"],
+            "id": f"standard.{row.get('label', '')}",
+            "label": row.get("label", ""),
             "verdict": v,
             "value": row.get("median_rel"),
             "meter": row.get("reason", ""),

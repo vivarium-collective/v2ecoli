@@ -14,8 +14,8 @@ def statistical_card(ctx: CardContext) -> Section:
     right: dict = {}  # v2ecoli (measured)
     for obs in OBSERVABLES:
         ck = CARD_KEY.get(obs, obs)
-        left[ck] = [s["ve_mean"] for s in ctx.per_obs.get(obs, []) if "ve_mean" in s]
-        right[ck] = [s["v2_mean"] for s in ctx.per_obs.get(obs, []) if "v2_mean" in s]
+        left[ck] = [s["ve_mean"] for s in ctx.per_obs.get(obs, [])]
+        right[ck] = [s["v2_mean"] for s in ctx.per_obs.get(obs, [])]
     vjson, html = build_report_card(
         left, right, extra_axes=EXTRA_AXES,
         model_ref=f"v2ecoli @ {ctx.config_name} variant {ctx.variant}", tol_rel=TOL)

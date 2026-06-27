@@ -8,7 +8,7 @@ design_status: designed
 implementation_status: implemented
 simulation_status: ran
 evaluation_status: evaluated
-gate_status: partial   # PAYOFF RE-TEST (after dnaa-5 cooperativity): the mechanistic trigger on the oriC-LOW switch now SUSTAINS the cycle (8/8 divide — first-pass collapse resolved), but OVER-initiates (oriC->4) without a re-init block (SeqA). Viable; needs SeqA/tuning. See verdict.
+gate_status: partial   # UPDATE 2026-06-27 (F-04): on current code the cooperative oriC-low + mechanistic-low trigger gives clean ONCE-PER-CYCLE initiation, oriC strictly 1<->2 (never 4), seed-robust over 8 gens — the over-init below does NOT reproduce (it was a 59e108fb-build property). Cell-cycle criterion now MET; gate stays partial only on the still-open DnaA-ATP-fraction band (seed-variable, carried from dnaa-4/5). Historical (59e108fb): "SUSTAINS the cycle (8/8 divide) but OVER-initiates (oriC->4) without a re-init block (SeqA)". See F-04 + verdict.
 expert_review_status: pending
 
 seeded_from:
@@ -330,6 +330,29 @@ findings:
     status: evaluated
     provenance:
       run_ids: [dnaa6_mech_low_coop_n4_seed1_8gen, dnaa5_mech_diag_seed1_8gen, dnaa4_s06_F05_seed1_12gen]
+  - id: F-04
+    statement: >-
+      OVER-INITIATION RESOLVED + ONCE-PER-CYCLE, SEED-ROBUST (2026-06-27 saturation sweep): a
+      parameter sweep over the initiation-control axes (SeqA eclipse x RIDA x oriC-low threshold x
+      k_h; cooperativity n=4/K=30, autoregulation s=0.6, V=1.5e-3 held at the dnaa-4 reference;
+      cache_dnaa4_s06_F05, succinate) shows the cooperative oriC-low + mechanistic-low trigger now
+      gives CLEAN ONCE-PER-CELL-CYCLE initiation: exactly one fill->fire->reset per generation and
+      oriC strictly 1<->2 (number_of_oric only ever 1 or 2 — NEVER 3/4) over 8 generations, with
+      total bound-DnaA stable (no drift). This holds across seeds 0/1/2 and for BOTH the minimal
+      config (no eclipse, no RIDA) AND the dnaa-7-like config (eclipse=40 + RIDA=0.6) — i.e. the
+      cooperative switch alone enforces one-initiation-per-cycle; SeqA/RIDA are NOT required for it.
+      This RESOLVES the over-initiation (oriC->4) reported in F-03: that over-init does NOT reproduce
+      on current code, so it was a property of the earlier 59e108fb build, not of the mechanism.
+      Threshold 7/8 badly over-fires (reject); eclipse/RIDA/k_h variants are equivalent to the
+      minimal config at this reference. OPEN (carried, not closed by this sweep): the DnaA-ATP
+      FRACTION stays mostly below the [0.2,0.5] band and is seed-variable (the same seed-sensitivity
+      as dnaa-4/5), and firing is a brief fill-spike (oriC_low_bound_atp peaks ~8/16, ~1% of the
+      cycle) rather than a sustained full-saturation plateau — the latter would need the doc's
+      dynamic-kick-with-persistence (unimplemented). Harness: scripts/run_dnaa_saturation_sweep.py +
+      scripts/score_dnaa_saturation.py (commit 7bf18023).
+    status: evaluated
+    provenance:
+      run_ids: [s2_ctrl_s0, s2_ctrl_s1, s2_ctrl_s2, s2_ecl40_rida06_s0, s2_ecl40_rida06_s1, s2_ecl40_rida06_s2]
 
 biological_summary: >-
   Replication initiation in E. coli is triggered when DnaA-ATP assembles into a filament on the

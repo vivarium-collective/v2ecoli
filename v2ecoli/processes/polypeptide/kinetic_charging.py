@@ -144,6 +144,14 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         },
         # ---- reconciliation ----
         "reconciliation_buffer": {"_type": "integer", "_default": 10},
+        # ---- consensus extension: opt-in AA-supply ODE merge (Phase 3) ----
+        # When True, extends the kinetic ODE state vector with three
+        # accumulator slices (total_synthesis, total_import, total_export)
+        # and (Phase 3b) adds AA synthesis/import/export terms to the AA
+        # balance in the RHS. Default False keeps the legacy 6-slice path
+        # bit-identical. See workspace/investigations/consensus_elongation/
+        # audit.md §2.
+        "include_aa_supply": {"_type": "boolean", "_default": False},
     }
 
     # ---------- initialize ----------
@@ -191,17 +199,31 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         self.n_codons = self.parameters["n_codons"]
         n_trna_codon_pairs = self.parameters["n_trna_codon_pairs"]
 
+        # Consensus opt-in: extend ODE state vector with AA-supply
+        # accumulators. Phase 3a scaffold — slices allocated, no RHS writes
+        # yet (those land in Phase 3b). When False the layout is
+        # bit-identical to trna_charging_final@5ffb76de.
+        self.include_aa_supply = self.parameters["include_aa_supply"]
+        n_aas = len(self.parameters["amino_acids"])
+
         # Layout of the flat molecules buffer that run_model returns/consumes.
-        # The six segments are placed contiguously and accessed via Python
-        # slice objects stored on self for cheap per-tick indexing.
+        # Six legacy segments + three accumulator segments (gated). All
+        # placed contiguously and accessed via Python slice objects stored
+        # on self for cheap per-tick indexing.
         slice_lengths = [
             self.n_trnas,  # free_trnas
             self.n_trnas,  # charged_trnas
-            len(self.parameters["amino_acids"]),  # amino_acids
+            n_aas,  # amino_acids
             self.n_trnas,  # chargings (charging counter)
             self.n_trnas,  # reading counter
             n_trna_codon_pairs,  # codons_to_trnas_counter (flattened)
         ]
+        if self.include_aa_supply:
+            slice_lengths.extend([
+                n_aas,  # total_synthesis accumulator
+                n_aas,  # total_import accumulator
+                n_aas,  # total_export accumulator
+            ])
         self.molecules_input_size = sum(slice_lengths)
 
         slices = []
@@ -216,6 +238,14 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         self.slice_charging_counter = slices[3]
         self.slice_reading_counter = slices[4]
         self.slice_codons_to_trnas_counter = slices[5]
+        if self.include_aa_supply:
+            self.slice_total_synthesis = slices[6]
+            self.slice_total_import = slices[7]
+            self.slice_total_export = slices[8]
+        else:
+            self.slice_total_synthesis = None
+            self.slice_total_import = None
+            self.slice_total_export = None
 
         # ---- Mapping arrays ----
         # aa_from_trna is set by base; cast and transpose for our local use.

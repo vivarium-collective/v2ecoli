@@ -818,7 +818,9 @@ def main(argv=None):
         else:                                         # 3. baked-in CONDITIONS default
             conds = {k: list(v) for k, v in CONDITIONS.items()}
     conds = {k: tuple(v) for k, v in conds.items()}
-    if args.only.strip().lower() != "all":
+    # In manifest mode the manifest's `configs` ARE the selection — don't let
+    # --only (default 'basal') silently drop the other configs.
+    if not manifest_mode and args.only.strip().lower() != "all":
         want = [c.strip() for c in args.only.split(",") if c.strip()]
         conds = {k: conds[k] for k in want if k in conds}
     if not conds:

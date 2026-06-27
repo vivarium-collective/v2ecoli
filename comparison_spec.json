@@ -9,6 +9,8 @@
   },
   "defaults": {
     "cards": [
+      "config_diff",
+      "parca",
       "standard"
     ]
   },

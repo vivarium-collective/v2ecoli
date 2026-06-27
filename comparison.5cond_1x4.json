@@ -9,7 +9,7 @@
   },
   "defaults": {
     "cards": [
-      "config_diff",
+      "config",
       "parca",
       "standard"
     ]

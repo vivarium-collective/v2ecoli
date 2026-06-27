@@ -696,6 +696,24 @@ def assemble_from_manifest(manifest, cond_data, conds, config_names):
     """
     from scripts._compare import report_cards as rc
     default_cards = (manifest.get("defaults", {}) or {}).get("cards") or ["standard"]
+    import json as _json
+    import os as _os
+    _repo = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+    def _load_cfg(p):
+        # Read the manifest's config file deterministically (repo-relative or
+        # absolute) so the `config` card is ALWAYS populated. _source records
+        # which path resolved.
+        for cand in (p, _os.path.join(_repo, p)):
+            try:
+                with open(cand) as _fh:
+                    d = _json.load(_fh)
+                d["_source"] = cand
+                return d
+            except (OSError, ValueError):
+                continue
+        return {}
+
     overview = overview_section(cond_data); overview["nav_group"] = "Overall"
     sections = [overview]
     for entry in manifest.get("configs", []):
@@ -704,9 +722,11 @@ def assemble_from_manifest(manifest, cond_data, conds, config_names):
             continue
         per_obs, plot_trajs, v2_bounds = cond_data[name]
         v2_dir, ve_dir = conds.get(name, ("", ""))
+        _cfg = _load_cfg(entry["config"])
         ctx = rc.CardContext(config_name=name, variant=0, v2_dir=v2_dir,
-                             ve_dir=ve_dir, seeds=0, gens=0, per_obs=per_obs,
-                             plot_trajs=plot_trajs, v2_bounds=v2_bounds, config={})
+                             ve_dir=ve_dir, seeds=int(_cfg.get("n_init_sims") or 0),
+                             gens=int(_cfg.get("generations") or 0), per_obs=per_obs,
+                             plot_trajs=plot_trajs, v2_bounds=v2_bounds, config=_cfg)
         for card in (entry.get("cards") or default_cards):
             for sec in rc.render(card, ctx):
                 sec["nav_group"] = name

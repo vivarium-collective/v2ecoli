@@ -10,4 +10,5 @@ def parca_card(ctx: CardContext) -> Section:
     # parca_section takes the cond_data map; build a single-cond slice.
     sec = parca_section({ctx.config_name: (ctx.per_obs, ctx.plot_trajs, ctx.v2_bounds)})
     sec["anchor"] = f"{ctx.config_name}-parca"
+    sec["title"] = f"{ctx.config_name} — ParCa / initial-state match"
     return sec

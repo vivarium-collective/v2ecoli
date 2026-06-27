@@ -1,0 +1,26 @@
+schema_version: 4
+name: no_oxygen
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on no_oxygen
+status: evaluated
+comparison_manifest: comparison.5cond_1x4.json
+condition: no_oxygen
+question: Does v2ecoli reproduce vEcoli on the no_oxygen condition?
+report_cards:
+- docs/report_cards/v2ecoli-vecoli-comparison/no_oxygen/index.html
+behavior_tests:
+- name: standard-vs-vecoli
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/no_oxygen
+    group: standard
+runs:
+- name: no_oxygen-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study no_oxygen
+pipeline_gate:
+  prerequisites: []
+  enables: []

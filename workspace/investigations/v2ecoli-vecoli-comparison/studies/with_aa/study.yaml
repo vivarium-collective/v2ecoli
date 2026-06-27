@@ -1,0 +1,26 @@
+schema_version: 4
+name: with_aa
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on with_aa
+status: evaluated
+comparison_manifest: comparison.5cond_1x4.json
+condition: with_aa
+question: Does v2ecoli reproduce vEcoli on the with_aa condition?
+report_cards:
+- docs/report_cards/v2ecoli-vecoli-comparison/with_aa/index.html
+behavior_tests:
+- name: standard-vs-vecoli
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/with_aa
+    group: standard
+runs:
+- name: with_aa-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study with_aa
+pipeline_gate:
+  prerequisites: []
+  enables: []

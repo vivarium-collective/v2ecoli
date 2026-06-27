@@ -1,0 +1,11 @@
+schema_version: 4
+name: v2ecoli-vecoli-comparison
+title: v2ecoli ↔ vEcoli comparison
+question: Does v2ecoli reproduce vEcoli across nutrient conditions?
+studies:
+- acetate
+- basal
+- basal_4x4
+- no_oxygen
+- succinate
+- with_aa

@@ -1,0 +1,26 @@
+schema_version: 4
+name: succinate
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on succinate
+status: evaluated
+comparison_manifest: comparison.5cond_1x4.json
+condition: succinate
+question: Does v2ecoli reproduce vEcoli on the succinate condition?
+report_cards:
+- docs/report_cards/v2ecoli-vecoli-comparison/succinate/index.html
+behavior_tests:
+- name: standard-vs-vecoli
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on succinate (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/succinate
+    group: standard
+runs:
+- name: succinate-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study succinate
+pipeline_gate:
+  prerequisites: []
+  enables: []

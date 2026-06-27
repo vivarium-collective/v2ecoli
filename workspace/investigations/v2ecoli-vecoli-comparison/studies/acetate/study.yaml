@@ -1,0 +1,26 @@
+schema_version: 4
+name: acetate
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on acetate
+status: evaluated
+comparison_manifest: comparison.5cond_1x4.json
+condition: acetate
+question: Does v2ecoli reproduce vEcoli on the acetate condition?
+report_cards:
+- docs/report_cards/v2ecoli-vecoli-comparison/acetate/index.html
+behavior_tests:
+- name: standard-vs-vecoli
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on acetate (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/acetate
+    group: standard
+runs:
+- name: acetate-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study acetate
+pipeline_gate:
+  prerequisites: []
+  enables: []

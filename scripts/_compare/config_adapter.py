@@ -127,3 +127,15 @@ def resolve_vecoli_config(config_path: str,
         cwd=vecoli_repo, text=True,
     )
     return json.loads(out)
+
+
+def config_run_shape(config_path: str, fork_dir: str) -> tuple[int, int]:
+    """Return (seeds, gens) = (n_init_sims, generations) from a vEcoli config.
+
+    seeds/gens are the config's run shape — the single source of truth. Missing
+    or null values default to 1 (one seed, one generation).
+    """
+    cfg = resolve_vecoli_config_local(config_path, fork_dir)
+    seeds = cfg.get("n_init_sims")
+    gens = cfg.get("generations")
+    return int(seeds) if seeds else 1, int(gens) if gens else 1

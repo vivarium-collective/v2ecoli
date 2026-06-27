@@ -21,6 +21,9 @@ Usage:
   _read_spec.py <spec.json> conditions [cli_seeds] [cli_gens]
         -> one line per condition:  name<TAB>config<TAB>seeds<TAB>gens
         Resolution per field: condition value, else defaults value, else CLI value.
+  _read_spec.py <spec.json> configs
+        -> one line per config:  config_path<TAB>cards_csv
+        cards_csv: entry 'cards' -> defaults.cards -> 'standard'.
 
 This is the unit-testable core of the manifest behaviour (feed it a spec, diff
 the rows). Kept separate from comparison_harness.sh so the parsing has tests.
@@ -34,7 +37,7 @@ DEFAULT_VECOLI_ENGINE = "upstream-wrapper"
 
 
 def load(path):
-    with open(path) as fh:
+    with open(path, encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -106,6 +109,19 @@ def condition_rows(spec, cli_seeds, cli_gens):
         yield name, config, int(seeds), int(gens)
 
 
+def config_rows(spec):
+    """Yield (config_path, cards_csv) per spec['configs'] entry.
+
+    cards: entry 'cards' -> spec defaults.cards -> ['standard'].
+    seeds/gens/variants are NOT here — the runner reads them from each config.
+    """
+    default_cards = (spec.get("defaults", {}) or {}).get("cards") or ["standard"]
+    for entry in spec.get("configs", []):
+        config = entry["config"]
+        cards = entry.get("cards") or default_cards
+        yield config, ",".join(cards)
+
+
 def main(argv):
     if len(argv) < 3:
         sys.exit("usage: _read_spec.py <spec.json> {engine v2ecoli|vecoli | "
@@ -129,6 +145,9 @@ def main(argv):
         cli_gens = int(argv[4]) if len(argv) > 4 else 0
         for name, config, seeds, gens in condition_rows(spec, cli_seeds, cli_gens):
             print("\t".join([name, config, str(seeds), str(gens)]))
+    elif mode == "configs":
+        for config, cards in config_rows(spec):
+            print("\t".join([config, cards]))
     else:
         sys.exit("unknown mode: %s" % mode)
 

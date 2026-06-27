@@ -688,6 +688,52 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
+def assemble_from_manifest(manifest, cond_data, conds, config_names):
+    """Overview + per-config assigned-card sections, mirroring the manifest.
+
+    config_names maps a manifest config path -> the condition key used in
+    cond_data/conds (the runner names stores by condition).
+    """
+    from scripts._compare import report_cards as rc
+    default_cards = (manifest.get("defaults", {}) or {}).get("cards") or ["standard"]
+    import json as _json
+    import os as _os
+    _repo = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+
+    def _load_cfg(p):
+        # Read the manifest's config file deterministically (repo-relative or
+        # absolute) so the `config` card is ALWAYS populated. _source records
+        # which path resolved.
+        for cand in (p, _os.path.join(_repo, p)):
+            try:
+                with open(cand, encoding="utf-8") as _fh:
+                    d = _json.load(_fh)
+                d["_source"] = cand
+                return d
+            except (OSError, ValueError):
+                continue
+        return {}
+
+    overview = overview_section(cond_data); overview["nav_group"] = "Overall"
+    sections = [overview]
+    for entry in manifest.get("configs", []):
+        name = config_names[entry["config"]]
+        if name not in cond_data:
+            continue
+        per_obs, plot_trajs, v2_bounds = cond_data[name]
+        v2_dir, ve_dir = conds.get(name, ("", ""))
+        _cfg = _load_cfg(entry["config"])
+        ctx = rc.CardContext(config_name=name, variant=0, v2_dir=v2_dir,
+                             ve_dir=ve_dir, seeds=int(_cfg.get("n_init_sims") or 0),
+                             gens=int(_cfg.get("generations") or 0), per_obs=per_obs,
+                             plot_trajs=plot_trajs, v2_bounds=v2_bounds, config=_cfg)
+        for card in (entry.get("cards") or default_cards):
+            for sec in rc.render(card, ctx):
+                sec["nav_group"] = name
+                sections.append(sec)
+    return sections
+
+
 def _load_experiments(out_dir: str) -> dict | None:
     """Read condition -> [v2_dir, ve_dir] written by comparison_harness.sh launch.
 
@@ -734,15 +780,55 @@ def main(argv=None):
                         'render the standardized report for any pbg-vs-pbg run.')
     p.add_argument("-o", "--out", default="out/full_compare",
                    help="output directory (also read for experiments.json)")
+    p.add_argument("--manifest", default=None,
+                   help="path to a comparison manifest JSON; when set, loads the "
+                        "manifest and routes assembly through assemble_from_manifest "
+                        "(per-config card assignment). --only still filters configs.")
     args = p.parse_args(argv)
 
     local_pbg = bool(args.local_pbg)
     local_pbg_dir = bool(args.local_pbg_dir)
     pbg_vs_pbg = bool(args.pbg_vs_pbg)
+    manifest_mode = bool(args.manifest)
     # both modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
     # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
-    skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg
-    if local_pbg_dir:                                 # 0b. multi-seed local dirs
+    skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
+    if manifest_mode:                                 # -1. manifest-driven
+        import os as _os
+        import re as _re
+        from scripts._compare.config_adapter import resolve_vecoli_config_local
+        manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
+        _fork = _os.environ.get("V2E_VECOLI_DIR", "")
+
+        def _cond_name(cfg_path):
+            # Config is the source of truth: read its `condition` field when the
+            # vEcoli fork is known (robust to any config filename). Fall back to
+            # the filename stem (strip a leading 'cond_') otherwise.
+            if _fork:
+                try:
+                    cond = resolve_vecoli_config_local(cfg_path, _fork).get("condition")
+                    if cond:
+                        return cond
+                except Exception:  # noqa: BLE001
+                    pass
+            stem = _os.path.splitext(_os.path.basename(cfg_path))[0]
+            if stem.startswith("cond_"):
+                stem = stem[len("cond_"):]
+            # strip a trailing scale suffix (e.g. _1x4, _4x4) so an override
+            # config like cond_basal_1x4 maps to the 'basal' store dir.
+            return _re.sub(r"_\d+x\d+$", "", stem)
+
+        # Section/store key: an explicit `name` on the entry (disambiguates two
+        # configs that share a condition, e.g. basal_1x4 vs basal_4x4), else the
+        # config's condition.
+        _config_names = {_entry["config"]: (_entry.get("name") or _cond_name(_entry["config"]))
+                         for _entry in manifest_data.get("configs", [])}
+        # In manifest mode both engines' stores (v2ecoli_seed*.zarr and
+        # vecoli_seed*.zarr) live in the SAME per-condition dir under args.out —
+        # the same layout as --local-pbg-dir's 4x4x5 run.
+        conds = {_n: (f"{args.out}/{_n}", f"{args.out}/{_n}")
+                 for _n in _config_names.values()}
+    elif local_pbg_dir:                               # 0b. multi-seed local dirs
         conds = json.loads(args.local_pbg_dir)
     elif local_pbg:                                   # 0. pbg-vs-pbg local zarr
         conds = json.loads(args.local_pbg)
@@ -755,17 +841,20 @@ def main(argv=None):
         else:                                         # 3. baked-in CONDITIONS default
             conds = {k: list(v) for k, v in CONDITIONS.items()}
     conds = {k: tuple(v) for k, v in conds.items()}
-    if args.only.strip().lower() != "all":
+    # In manifest mode the manifest's `configs` ARE the selection — don't let
+    # --only (default 'basal') silently drop the other configs.
+    if not manifest_mode and args.only.strip().lower() != "all":
         want = [c.strip() for c in args.only.split(",") if c.strip()]
         conds = {k: conds[k] for k in want if k in conds}
     if not conds:
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    if local_pbg_dir:
+    if local_pbg_dir or manifest_mode:
         # MULTI-SEED local: each cond maps to [v2_dir, ve_dir]; read per-seed
         # v2ecoli-format zarr (v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr) for
-        # seeds 0..N-1 through the same local reader. Enables the local 4x4x5.
+        # seeds 0..N-1 through the same local reader. Enables the local 4x4x5
+        # and manifest-driven runs whose per-config dirs live under args.out.
         cond_data = build(
             conds, seeds=list(range(args.local_pbg_seeds)),
             read_v2=lambda d, s: read_pbg_local(f"{d}/v2ecoli_seed{s:02d}.zarr", OBSERVABLES),
@@ -801,33 +890,38 @@ def main(argv=None):
     # contradictory. The Overview matrix is the high-level view; verdict.json
     # stays as the machine-readable artifact for tooling/dashboard.
     vjson, card_html, _card_section = report_card(cond_data, conditions=graded)
-    overview = overview_section(cond_data)
-    overview["nav_group"] = "Overall"
-    sections = [overview]
-    # 2. ParCa / initial-state comparison — its own nav entry. Renders for ALL
-    #    modes (incl. pbg-vs-pbg): it reads the t~0 emitted masses straight from
-    #    the loaded trajectories (cond_data), NOT any Nextflow config — and in the
-    #    matched-initial-state comparison it IS the headline evidence (both engines
-    #    start from identical molecule counts → t~0 masses agree).
-    parca = parca_section(cond_data)
-    parca["nav_group"] = "ParCa comparison"
-    sections.append(parca)
-    # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
-    #    config -> simulation runs -> evaluation. All of a condition's sections
-    #    share nav_group=<cond>, so they fold into ONE nav button per condition.
-    #    The config panels read S3/Nextflow workflow_config.json, so they are
-    #    omitted in local-pbg mode (both engines are local pbg composites).
-    for cond in conds:
-        v2_dir, ve_dir = conds[cond]
-        per_obs, plot_trajs, v2_bounds = cond_data[cond]
-        cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
-                         eval_section(cond, per_obs)]
-        if not skip_nextflow:
-            cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
-                             + cond_sections)
-        for s in cond_sections:
-            s["nav_group"] = cond
-        sections += cond_sections
+    if manifest_mode:
+        # Manifest-driven: per-config card assignment via assemble_from_manifest.
+        sections = assemble_from_manifest(manifest_data, cond_data, conds,
+                                          _config_names)
+    else:
+        overview = overview_section(cond_data)
+        overview["nav_group"] = "Overall"
+        sections = [overview]
+        # 2. ParCa / initial-state comparison — its own nav entry. Renders for ALL
+        #    modes (incl. pbg-vs-pbg): it reads the t~0 emitted masses straight from
+        #    the loaded trajectories (cond_data), NOT any Nextflow config — and in the
+        #    matched-initial-state comparison it IS the headline evidence (both engines
+        #    start from identical molecule counts → t~0 masses agree).
+        parca = parca_section(cond_data)
+        parca["nav_group"] = "ParCa comparison"
+        sections.append(parca)
+        # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
+        #    config -> simulation runs -> evaluation. All of a condition's sections
+        #    share nav_group=<cond>, so they fold into ONE nav button per condition.
+        #    The config panels read S3/Nextflow workflow_config.json, so they are
+        #    omitted in local-pbg mode (both engines are local pbg composites).
+        for cond in conds:
+            v2_dir, ve_dir = conds[cond]
+            per_obs, plot_trajs, v2_bounds = cond_data[cond]
+            cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
+                             eval_section(cond, per_obs)]
+            if not skip_nextflow:
+                cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
+                                 + cond_sections)
+            for s in cond_sections:
+                s["nav_group"] = cond
+            sections += cond_sections
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     title = (f"vEcoli-pbg ↔ v2ecoli-pbg — process-bigraph comparison ({gen})"

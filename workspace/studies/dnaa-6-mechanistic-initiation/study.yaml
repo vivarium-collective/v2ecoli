@@ -349,7 +349,13 @@ findings:
       as dnaa-4/5), and firing is a brief fill-spike (oriC_low_bound_atp peaks ~8/16, ~1% of the
       cycle) rather than a sustained full-saturation plateau — the latter would need the doc's
       dynamic-kick-with-persistence (unimplemented). Harness: scripts/run_dnaa_saturation_sweep.py +
-      scripts/score_dnaa_saturation.py (commit 7bf18023).
+      scripts/score_dnaa_saturation.py (commit 7bf18023). STAGE-3 (k_h triage, seed 1): lowering the
+      hydrolysis rate (k_h 0.020/0.015/0.010 vs 0.025) does NOT close the ATP-fraction band — steady
+      ATPfr stays ~0.10-0.17 (all below [0.2,0.5]) — and k_h=0.010 induces cluster lock-in /
+      over-initiation (oriC->4). So neither of the two open items is closable by the env-tunable
+      knobs: the ATP-fraction lever is the DnaA-ADP->ATP recharge rate k_r (code-baked at 1e-7/s, not
+      env-exposed), and sustained saturation needs the dynamic kick — both are CODE changes for
+      Haochen, not parameter sweeps.
     status: evaluated
     provenance:
       run_ids: [s2_ctrl_s0, s2_ctrl_s1, s2_ctrl_s2, s2_ecl40_rida06_s0, s2_ecl40_rida06_s1, s2_ecl40_rida06_s2]

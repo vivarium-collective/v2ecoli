@@ -44,6 +44,21 @@ def _gen_shards(out_dir):
     return gens
 
 
+def _read_cols(paths, cols):
+    """Read `cols` from many parquet shards whose schemas may differ (some carry
+    extra listener columns). Polars errors on a column-subset read across a
+    schema union, so read per-file and concatenate the needed columns."""
+    frames = []
+    for p in paths:
+        avail = pl.read_parquet_schema(p)
+        sel = [c for c in cols if c in avail]
+        if sel:
+            frames.append(pl.read_parquet(p, columns=sel))
+    if not frames:
+        return None
+    return pl.concat(frames, how="diagonal")
+
+
 def _occ_oric(series_bound, series_free):
     b = np.asarray(series_bound, float)
     f = np.asarray(series_free, float)
@@ -61,7 +76,15 @@ def score_run(out_dir, sat=SAT_DEFAULT, steady_gen=STEADY_GEN_DEFAULT):
         need = [RD + "oriC_low_bound_atp", RD + "oriC_low_free", RD + "number_of_oric"]
         if any(c not in cols for c in need):
             continue
-        df = pl.read_parquet(paths, columns=need)
+        # ATP-fraction (open band [0.2,0.5]) from the binding listener, if present
+        B = "listeners__dnaA_binding__"
+        atpfr = None
+        if B + "free_DnaA_ATP_nM" in cols and B + "free_DnaA_ADP_nM" in cols:
+            frdf = _read_cols(paths, [B + "free_DnaA_ATP_nM", B + "free_DnaA_ADP_nM"])
+            fa = frdf[B + "free_DnaA_ATP_nM"].to_numpy().astype(float)
+            fd = frdf[B + "free_DnaA_ADP_nM"].to_numpy().astype(float)
+            atpfr = float(np.mean(fa / np.maximum(fa + fd, 1e-9)))
+        df = _read_cols(paths, need)
         bound = df[RD + "oriC_low_bound_atp"].to_numpy().astype(float)
         occ = _occ_oric(df[RD + "oriC_low_bound_atp"], df[RD + "oriC_low_free"])
         oric = df[RD + "number_of_oric"].to_numpy().astype(float)
@@ -91,6 +114,7 @@ def score_run(out_dir, sat=SAT_DEFAULT, steady_gen=STEADY_GEN_DEFAULT):
             "max_bound": int(bound.max()) if len(bound) else 0,
             "max_occ": round(float(occ.max()), 3),
             "max_oric": int(np.nanmax(oric)) if len(oric) else 0,
+            "atpfr": round(atpfr, 3) if atpfr is not None else None,
             "steps": len(occ),
         })
     n_gens = len(per_gen)
@@ -106,6 +130,10 @@ def score_run(out_dir, sat=SAT_DEFAULT, steady_gen=STEADY_GEN_DEFAULT):
     requested = None
     score = sat_dev + reinit_pen + underfill_pen
     once_per_cycle = bool(scored) and all(r["n_sat_events"] == 1 and r["max_oric"] == 2 for r in scored)
+    # ATP-fraction band [0.2,0.5] over steady gens (exclude terminal partial gen)
+    fr_vals = [r["atpfr"] for r in per_gen[:-1] if r["gen"] >= steady_gen and r["atpfr"] is not None]
+    atpfr_steady = round(sum(fr_vals) / len(fr_vals), 3) if fr_vals else None
+    atpfr_in_band = atpfr_steady is not None and 0.2 <= atpfr_steady <= 0.5
     return {
         "out_dir": os.path.basename(out_dir.rstrip("/")),
         "n_gens_emitted": n_gens,
@@ -113,6 +141,8 @@ def score_run(out_dir, sat=SAT_DEFAULT, steady_gen=STEADY_GEN_DEFAULT):
         "steady_from_gen": steady_gen,
         "score": round(score, 3),
         "once_per_cycle": once_per_cycle,
+        "atpfr_steady": atpfr_steady,
+        "atpfr_in_band": atpfr_in_band,
         "per_gen": per_gen,
     }
 
@@ -134,8 +164,10 @@ def main():
             print(f"{r['out_dir']:45s}  ERROR: {r['error']}")
             continue
         tag = "✓ once/cycle" if r["once_per_cycle"] else ""
+        fr = r.get("atpfr_steady")
+        frtag = (f"ATPfr={fr}{'✓band' if r.get('atpfr_in_band') else '✗band'}" if fr is not None else "")
         pg = " ".join(f"g{x['gen']}:{x['n_sat_events']}ev/oc{x['max_oric']}" for x in r["per_gen"])
-        print(f"{r['out_dir']:45s} score={r['score']:6.2f} gens={r['n_gens_emitted']} {tag}")
+        print(f"{r['out_dir']:45s} score={r['score']:6.2f} gens={r['n_gens_emitted']} {tag} {frtag}")
         print(f"    {pg}")
 
 

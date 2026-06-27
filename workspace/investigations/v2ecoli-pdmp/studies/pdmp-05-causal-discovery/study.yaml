@@ -394,19 +394,6 @@ variants:
     K: 500
 interventions: []
 runs: []
-bibliography:
-  bib_keys:
-  - lyne2015
-  - toth2022
-  - vowels2022
-  - peters2022
-  - bongers2022
-  - blom2023
-  - tejada2025
-  - yang2024
-  - gherman2025
-  - bertin2025
-  - dreyfuss2013
 report:
   confidence: design-stage
   evidence_quality: scaffold
@@ -773,15 +760,6 @@ enforced_params:
 biological_summary: 'Aims to use the inferable PDMP whole-cell model for functional discovery: compare
   candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover
   known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.'
-literature_anchors:
-- key: peters2022
-  relevance: Causal-inference / structure-discovery foundations.
-- key: lyne2015
-  relevance: Russian-roulette / unbiased marginal-likelihood estimation for model comparison.
-- key: vowels2022
-  relevance: Survey of causal-discovery methods framing the approach.
-- key: toth2022
-  relevance: Active / Bayesian experimental design (expected information gain) for intervention selection.
 model_change: 'No change to the cell model — Phase 5 adds an analysis layer (Bayesian model comparison +
   active causal discovery) on top of the inferable PDMP. The annotation-as-causal-model mapping is the new commitment.'
 implementation_requirements:

@@ -254,11 +254,6 @@ variants:
     parallelism: 1000
 interventions: []
 runs: []
-bibliography:
-  bib_keys:
-  - loman2023
-  - jumpprocessesjl
-  - xarray2017
 report:
   confidence: design-stage
   evidence_quality: scaffold
@@ -662,13 +657,6 @@ enforced_params:
 biological_summary: 'No biology is added: Phase 4 is a performance/runtime re-implementation of the
   already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3
   parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.'
-literature_anchors:
-- key: loman2023
-  relevance: Catalyst.jl — the symbolic reaction-network compilation toolchain targeted.
-- key: jumpprocessesjl
-  relevance: JumpProcesses.jl — compiled jump-process integration backend.
-- key: xarray2017
-  relevance: XArray/zarr — the column-centric, chunked state representation for compiled output.
 model_change: 'No mechanistic change — a runtime/representation change: compile the PDMP to a fast backend
   and invert the per-step loop to a column-centric layout. Equivalence with Phase 3 must be proven.'
 implementation_requirements:

@@ -125,9 +125,42 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
         cond_cache = os.path.abspath(os.path.join(cache_dir, f"cond_{condition}_seed{seed:02d}"))
         marker = os.path.join(cond_cache, "sim_data_cache.dill")
         sd_path = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
-        if not os.path.exists(marker) and os.path.exists(sd_path):
+
+        # ROBUSTNESS GUARD (all conditions): a per-condition bundle bakes media_id
+        # into its configs at generation. If a STALE bundle (built before a
+        # condition->media fix) baked the wrong media, blindly reusing it runs the
+        # WRONG media — e.g. with_aa on 'minimal' => no amino-acid uptake =>
+        # methionine starvation => RelA/ppGpp runaway (5-13x) => RNAP active
+        # fraction halved => ~14% RNA / ~7% growth-rate deficit that reads as a
+        # bogus "port divergence". The marker-exists-only check never caught this
+        # because the cache fingerprint is computed in a chdir'd dir (all hashes
+        # MISSING) and was never verified here. Derive the REQUIRED media straight
+        # from sim_data (single source of truth) and regenerate any bundle whose
+        # recorded media disagrees, so every condition self-corrects.
+        sim_data = None
+        expected_media = None
+        if os.path.exists(sd_path):
             with open(sd_path, "rb") as f:
                 sim_data = pickle.load(f)
+            expected_media = (sim_data.conditions.get(condition, {}) or {}).get("nutrients")
+
+        def _bundle_media() -> str | None:
+            try:
+                with open(os.path.join(cond_cache, "metadata.json")) as mf:
+                    return json.load(mf).get("media_id")
+            except (OSError, ValueError):
+                return None
+
+        if (os.path.exists(marker) and expected_media is not None
+                and _bundle_media() != expected_media):
+            print(
+                f"  [media-guard] {condition} seed{seed:02d}: bundle media "
+                f"{_bundle_media()!r} != required {expected_media!r}; regenerating",
+                flush=True,
+            )
+            shutil.rmtree(cond_cache, ignore_errors=True)
+
+        if not os.path.exists(marker) and os.path.exists(sd_path):
             # save_sim_input's generate_initial_state spins a default emitter that
             # writes to a FIXED relative path (.pbg/parquet-runs/default/…), so
             # parallel seeds collide → FileExistsError (+ a secondary KeyError
@@ -172,7 +205,24 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     kwargs: dict = {"cache_dir": eff_cache, "seed": seed, "emitter": "null"}
     if overrides:
         kwargs.update(overrides)
-    return build_composite("baseline", **kwargs)
+    comp = build_composite("baseline", **kwargs)
+
+    # FAIL-LOUD media assertion (all conditions): the composite must actually run
+    # on the media the condition requires. Anything else silently mis-models the
+    # whole comparison (see the methionine-starvation chain in the media-guard
+    # note above). Cheap O(1) check straight off the built state — never trust
+    # that the cache plumbing did the right thing.
+    if expected_media is not None:
+        _ag = comp.state.get("agents", {}).get("0", comp.state) if hasattr(comp, "state") else {}
+        _got = (_ag.get("environment", {}) or {}).get("media_id")
+        if _got is not None and _got != expected_media:
+            raise RuntimeError(
+                f"v2ecoli {condition} seed{seed:02d} built on media {_got!r} but "
+                f"the condition requires {expected_media!r}. The per-condition "
+                f"bundle at {eff_cache} is stale/mislabelled — delete it and "
+                f"rebuild (the media-guard should have regenerated it)."
+            )
+    return comp
 
 
 # --------------------------------------------------------------------------- #

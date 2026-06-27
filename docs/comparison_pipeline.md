@@ -37,12 +37,13 @@ Output: per-condition zarr stores under `out/local_4x4x5/<condition>/`
 `out/local_4x4x5/report/`. Env overrides: `V2E_CACHE`, `V2E_VECOLI_CACHE`,
 `V2E_VECOLI_DIR`, `V2E_CONDITIONS` (subset for a partial run).
 
-### Two reproducibility fixes baked into the run (don't remove)
+### Three reproducibility fixes baked into the run (don't remove)
 
 Single-seed v2-vs-vEcoli comparisons are dominated by stochastic INITIAL-STATE
-sampling unless controlled. Two complementary mechanisms make rows reflect
-dynamics, not sampling luck (validated: deviations <0.6% on all 5 conditions,
-down from 17–44%):
+sampling (fixes 1–2) and by which MEDIA each condition actually runs on (fix 3).
+Three complementary mechanisms make rows reflect dynamics on the correct media,
+not sampling luck or a stale cache (validated: deviations <0.6% on all 5
+conditions, down from 17–44%):
 
 1. **Matched-initial-state seeding** (`--match-initial-state`, on in the driver).
    Overlays genuine vEcoli's initial `bulk` onto v2 by molecule name, so both
@@ -56,6 +57,20 @@ down from 17–44%):
    a FIXED cache snapshot, so every basal seed started identical (e.g.
    active_ribosome 12441) while vEcoli resamples (seed2 = 9947). Basal now regens
    per seed too, reproducing vEcoli's draw to <0.1%.
+3. **Per-condition media guard** (`_build_v2ecoli`). A v2ecoli per-condition
+   bundle (`out/cache_full/cond_<name>_seed<NN>/`) bakes its `media_id` into the
+   config at generation time. A bundle built before a condition→media fix could
+   bake the WRONG media (e.g. `with_aa` baked `minimal`), and the old
+   marker-exists-only reuse silently ran it — no amino-acid uptake → methionine
+   starvation → RelA/ppGpp runaway (5–13×) → RNAP active fraction halved → a
+   ~14% RNA / ~7% growth-rate deficit that read as a bogus "port divergence".
+   The guard derives the REQUIRED media from `sim_data.conditions[cond].nutrients`
+   (single source of truth), compares it to the bundle's recorded `media_id`
+   (`metadata.json`), and regenerates any mismatched bundle — so every condition
+   self-corrects. A fail-loud post-build assertion confirms the composite runs on
+   the required media. (The cache-version fingerprint that should have caught this
+   was inert — it hashed source files against a `chdir`'d dir, so every file read
+   as MISSING; now anchored to the package, it busts stale caches for real.)
 
 Unique molecules (ribosomes/RNAP/chromosome) are NOT overlaid (v2's unique arrays
 carry a `pool_label` field vEcoli's lack, so a direct copy raises) — the basal
@@ -70,6 +85,21 @@ this: it passes v2ecoli `GENS × PER_GEN` (total) and vEcoli `PER_GEN` (per-gen)
 so both get the same per-generation budget and divide naturally for `GENS`
 generations (division is mass-driven; the cap is a non-binding safety net).
 Verified: both engines reach 4 real divisions on basal.
+
+### Known limitation: `no_oxygen` vEcoli runs only 1 generation
+
+On `no_oxygen` (anaerobic) media the **genuine vEcoli** engine dies at the
+gen-1→gen-2 boundary (~900 s): its FBA homeostatic objective computes a tiny
+negative target (`BIOTIN[c] = -1e-5`) and, once that's clamped, the GLPK basis
+goes singular (`GLP_ESING`) — the solver is chronically ill-conditioned
+(`cond ≈ 1e12`, warned every step) and tips fully singular on anaerobic media.
+vEcoli's `solve()` only retries the *identical* solve, so it can't recover. This
+is a pre-existing numerical fragility in the **reference** FBA, not the port and
+not the media fix: **v2ecoli runs `no_oxygen` for the full 4 generations.** So the
+`no_oxygen` row is a valid *1-generation* comparison (within_tol on gen 1) against
+v2ecoli's full run. A real fix means basis refactorization/perturbation in the
+shared GLPK solver, which would shift the reference baseline for *every*
+condition — out of scope; the reference is kept pristine.
 
 ## Cloud run (sms-api / Ray on GovCloud)
 

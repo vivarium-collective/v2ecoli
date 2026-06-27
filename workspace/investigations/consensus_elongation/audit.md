@@ -2,7 +2,7 @@
 
 **Branch**: `consensus_elongation` (forked 2026-06-26 from `trna_charging_final` HEAD `5ffb76de`).
 **Design spec**: `v2ecoli_consensus_model.md` (repo root).
-**Status**: Phase 1 audit (revision 2). No code changes yet. Awaiting user approval of phase plan.
+**Status**: Phase 3 in progress. P3a (scaffold) + P3b-i (plumbing) + P3b-ii (ODE merge) landed. Binding ODE-merge proof passing.
 
 This audit is a fresh investigation of the current branch state. A prior attempt on `consensus_elongation_model` (now deleted) reached "Phase 6 complete" — its findings inform but do not constrain this plan. Every claim below is grounded in current-state file reads.
 
@@ -158,13 +158,15 @@ If for some reason §2's ODE merge needs to be split out, an interim fix is `ret
 
 Two phases do most of the work. They are **independent and can run in parallel after Phase 1**.
 
-| # | Phase | Scope | Tests | Est. effort | Depends on |
-|---|---|---|---|---|---|
-| 1 | Audit & Plan | This doc + HANDOFF.md. No code. | — | 1 session | — |
-| 2 | ppGpp coupling on kinetic class | Port `_ppgpp_request` / `_ppgpp_evolve` (Option A) into kinetic class. Wire into `request` and `evolve_state`. Apply `elong_rate_by_ppgpp` to `target_codon_rate` pre-solve. Emit `ppgpp_conc` + growth-limit listeners. | `tests/test_kinetic_ppgpp_coupling.py` | 1–2 sessions | P1 |
-| 3 | **ODE merge: AA supply terms** | Extend kinetic ODE state vector with 3 accumulators. Plumb `get_charging_supply_function` closure into `ode_model`. Add `+v_syn +v_imp −v_exp` to AA balance. Pre-compute supply args. Emit `aa_supply`, `aa_synthesis`, `aa_exchange_rates` listeners. **Fix `aa_count_diff` as tail of this phase** (compute from accumulators, correct sign convention). | `tests/test_kinetic_aa_supply_ode.py`, `tests/test_aa_count_diff_kinetic.py` | 2–3 sessions | P1 (parallel with P2) |
-| 4 | Composite + parity | Optional `consensus_baseline` alias. Parity tests vs pre-consensus kinetic (in ppGpp-off + supply-off degenerate mode) and vs SteadyState (numeric cross-class on shared inputs). | `tests/test_consensus_composite.py` | 1 session | P2 + P3 |
-| 5 | Validation sweep | 5-gen × 3-seed × 4-media. ParCa rerun gate. Final report. | `scripts/consensus_validation_sweep.py` | Variable (hours of compute) | P4; gated on ParCa rerun |
+| # | Phase | Scope | Tests | Status |
+|---|---|---|---|---|
+| 1 | Audit & Plan | This doc + HANDOFF.md. No code. | — | ✅ committed (e9c53dee) |
+| 3a | ODE-merge scaffold | `include_aa_supply` flag + 3 accumulator slices in state vector. No RHS change. | `tests/test_kinetic_aa_supply_ode_scaffold.py` (7) | ✅ committed (774e0c12) |
+| 3b-i | Supply plumbing | Unpack `amino_acid_synthesis`/`_import`/`_export`/`aa_supply_scaling`/`get_pathway_enzyme_counts_per_aa`/`import_constraint_threshold`. Override `inputs()` for `boundary` port + `outputs()` for supply listeners. Fix latent deep_merge nesting bug. | regression net | ✅ committed (db79adfe) |
+| 3b-ii | **ODE merge: AA supply terms** | `_build_supply_function` helper. Plumb closure into `ode_model` via `args=`. Add `+v_syn +v_imp −v_exp` to AA balance. Write 3 accumulator dx_dt rows. Post-solve: extract accumulators → emit listeners + store on self. Fix `aa_count_diff` return. | `tests/test_kinetic_aa_supply_ode.py` (8) | ✅ ODE-merge proof passing; cache-backed listener test passing |
+| 2 | ppGpp coupling on kinetic class | Port `_ppgpp_request` / `_ppgpp_evolve` (Option A). Wire pre-solve `elong_rate_by_ppgpp`. Emit `ppgpp_conc` listeners. | `tests/test_kinetic_ppgpp_coupling.py` | ⏳ pending |
+| 4 | Composite + parity | Optional `consensus_baseline` alias. Parity tests. | `tests/test_consensus_composite.py` | ⏳ pending |
+| 5 | Validation sweep | 5-gen × 3-seed × 4-media. ParCa rerun gate. | `scripts/consensus_validation_sweep.py` | ⏳ pending |
 
 **Total active development**: ~4–6 sessions of code + tests, then a compute-bound validation phase. P2 and P3 can be split across parallel sessions if desired.
 

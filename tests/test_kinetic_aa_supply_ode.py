@@ -353,7 +353,10 @@ def test_aa_count_diff_is_ndarray_after_one_tick() -> None:
     composite.run(interval=1.0)
 
     agent = next(iter(composite.state["agents"].values()))
-    aa_count_diff = agent["polypeptide_elongation"]["aa_count_diff"]
+    # Topology wires the polypeptide_elongation port to
+    # ("process_state", "polypeptide_elongation") in the store —
+    # see TOPOLOGY at polypeptide_elongation.py:91-97.
+    aa_count_diff = agent["process_state"]["polypeptide_elongation"]["aa_count_diff"]
 
     arr = np.asarray(aa_count_diff)
     assert arr.ndim == 1, (
@@ -368,26 +371,36 @@ def test_aa_count_diff_is_ndarray_after_one_tick() -> None:
 def test_aa_count_diff_sign_convention_matches_steady_state() -> None:
     """SteadyState writes ``aa_count_diff = aa_supply - aa_used_trna``
     (positive = over-supplied → metabolism raises the homeostatic
-    target). The kinetic class's fix must use the same sign convention.
+    target). The kinetic class's fix must use the same formula and sign.
 
-    Test rationale: with supply on, in a minimal medium, supply should
-    roughly track consumption — so the sum of aa_count_diff should not
-    be wildly negative (which would indicate a sign flip vs. SteadyState).
-    The exact magnitude depends on the cell state; we assert the loose
-    bound ``sum(aa_count_diff) > -|sum(aa_supply)|`` as a sign-flip guard.
+    Direct equality check: ``aa_count_diff == aa_supply - aas_used``,
+    using the same listener fields. If either component has its sign
+    flipped or unit-converted wrong, the equality breaks.
+
+    Note: ``aa_supply`` can be negative for individual AAs (reverse
+    reactions in ``amino_acid_synthesis`` exceed forward, or export
+    exceeds synthesis+import) — that's biologically valid and not a
+    sign-flip bug. The formula equality is the binding test.
     """
     composite = _build_kinetic_composite_with_supply(include_aa_supply=True)
     composite.run(interval=1.0)
 
     agent = next(iter(composite.state["agents"].values()))
-    aa_count_diff = np.asarray(agent["polypeptide_elongation"]["aa_count_diff"])
+    aa_count_diff = np.asarray(
+        agent["process_state"]["polypeptide_elongation"]["aa_count_diff"]
+    )
     growth_limits = agent["listeners"]["growth_limits"]
     aa_supply = np.asarray(growth_limits["aa_supply"])
+    aas_used = np.asarray(growth_limits["aas_used"])
 
-    # Loose sign-flip guard: aa_count_diff cannot be more negative than
-    # the magnitude of total supply if the sign convention is correct.
-    assert aa_count_diff.sum() > -float(np.abs(aa_supply).sum() + 1.0), (
-        f"aa_count_diff sign convention may be flipped vs SteadyState. "
-        f"sum(aa_count_diff)={aa_count_diff.sum()}, "
-        f"|sum(aa_supply)|={np.abs(aa_supply).sum()}"
+    # aa_count_diff is computed in :meth:`evolve` as
+    # ``aa_supply - amino_acids_used.astype(float64)``. The listener
+    # ``aas_used`` is the same ``amino_acids_used`` value.
+    expected = aa_supply - aas_used.astype(np.float64)
+    np.testing.assert_allclose(
+        aa_count_diff, expected, rtol=1e-6, atol=1e-6,
+        err_msg=(
+            "aa_count_diff does not equal aa_supply - aas_used. "
+            "Sign or formula mismatch vs SteadyState."
+        ),
     )

@@ -17,12 +17,14 @@ The design spec (`v2ecoli_consensus_model.md`) calls for "merging two ODE system
 | # | Phase | Status |
 |---|---|---|
 | 1 | Audit & Plan | ✅ complete (this folder, rev 2) |
-| 2 | ppGpp coupling | ⏳ ready to start (parallel with P3) |
-| 3 | ODE merge: AA supply terms (+ aa_count_diff tail) | ⏳ ready to start (parallel with P2) |
-| 4 | Composite + parity | ⏳ blocked on P2+P3 |
+| 3a | ODE-merge scaffold | ✅ committed (774e0c12) |
+| 3b-i | Supply plumbing | ✅ committed (db79adfe) |
+| 3b-ii | **ODE merge — AA supply in kinetic RHS** | ✅ landed; ODE merge gate + listener test passing |
+| 2 | ppGpp coupling | ⏳ ready to start |
+| 4 | Composite + parity | ⏳ blocked on P2 |
 | 5 | Validation sweep | ⏳ blocked on P4 + ParCa rerun |
 
-P2 and P3 are independent. Recommended order if sequential: **P3 first** — supply-realistic AA pools make P2's ppGpp behavior tests more meaningful.
+Next: commit P3b-ii (after full sim-test pass), then start P2 (ppGpp coupling).
 
 ## Next session prompt
 
@@ -30,32 +32,37 @@ P2 and P3 are independent. Recommended order if sequential: **P3 first** — sup
 Continue consensus elongation model build in v2ecoli.
 Branch: consensus_elongation (see workspace/investigations/consensus_elongation/audit.md).
 
-This session: tackle Phase 3 (the ODE merge) from audit.md §6.
+This session: tackle Phase 2 (ppGpp coupling) from audit.md §6.
 
-Goal: extend the kinetic ODE in
-v2ecoli/processes/polypeptide/kinetic_charging.py (ode_model at line 812)
-to include AA synthesis/import/export terms in the AA balance RHS, mirroring
-the SteadyState ODE at v2ecoli/processes/polypeptide/kinetics.py:330-355.
+Goal: wire ppGpp regulation into KineticTrnaChargingPolypeptideElongation
+so the kinetic_charging_baseline composite (which already passes
+ppgpp_regulation=True) actually exercises ppGpp dynamics on the kinetic
+path. Today the kinetic class has no _ppgpp_request / _ppgpp_evolve
+hooks, so ppGpp is silently a no-op.
 
-Specifics:
-- Extend state vector from 6 to 9 slices: add total_synthesis,
-  total_import, total_export accumulators.
-- Pre-compute supply args before solve_ivp (mirror
-  polypeptide_elongation.py:1056-1095).
-- Plumb get_charging_supply_function closure (kinetics.py:520-627) into
-  ode_model. Convert AA counts → μM at every RK45 step, convert flux back.
-- Add `+v_synthesis + v_import - v_export` to dx_dt[slice_amino_acids].
-- Post-solve: emit aa_supply, aa_synthesis, aa_exchange_rates listeners
-  from accumulators.
-- Tail: replace the `return net_charged, {}, update` at line 775 with
-  `return net_charged, aa_count_diff, update` where aa_count_diff =
-  total_synthesis + total_import - total_export - amino_acids_used
-  (matches SteadyState sign convention).
+Approach (audit.md §3, Option A):
+- Port _ppgpp_request from SteadyStatePolypeptideElongation:1481-1533
+  into the kinetic class. Wire it into the existing request() method —
+  append bulk requests for the ppGpp reaction metabolites alongside the
+  existing AA/ATP/tRNA requests.
+- Port _ppgpp_evolve from SteadyStatePolypeptideElongation:1535-...
+  Add it to evolve() AFTER the existing bulk deltas — ppGpp deltas are
+  independent of tRNA charging deltas.
+- Pre-solve: if ppgpp_regulation and not disable_ppgpp_elongation_inhibition,
+  call self.elong_rate_by_ppgpp(ppgpp_conc, basal_rate) and use the
+  result to scale target_codon_rate passed to ode_model. (This is the
+  ppGpp → elongation-rate inhibition.)
+- Emit ppgpp_conc + rela_conc + spot_conc + rela_syn + spot_syn +
+  spot_deg listeners to growth_limits.
 
-Tests: tests/test_kinetic_aa_supply_ode.py + tests/test_aa_count_diff_kinetic.py.
-Acceptance criteria in audit.md §7.
-Gate Phase 3 behind an opt-in flag `include_aa_supply` (default False) so
-the legacy path stays bit-identical for regression.
+Tests: tests/test_kinetic_ppgpp_coupling.py per audit.md §7 row P2:
+- ppgpp_conc listener non-empty when ppgpp_regulation=True
+- starvation 2-5x rise vs minimal
+- numeric parity with SteadyState's _ppgpp_request on shared inputs
+- target_codon_rate scaled when flag on
+
+P3b-ii's deep_merge nesting fix is already in place — listeners flow
+through the store correctly now.
 ```
 
 ## Pointers (don't re-derive)

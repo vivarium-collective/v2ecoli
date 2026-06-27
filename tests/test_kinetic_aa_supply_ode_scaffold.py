@@ -226,22 +226,24 @@ def test_flag_on_accumulators_remain_zero_in_phase_3a() -> None:
 
 # ------------------------ phase boundary marker ------------------------
 
-def test_phase_3a_marker_no_rhs_writes_to_accumulators() -> None:
-    """Phase 3a must NOT add RHS terms for the supply accumulators. That's
-    Phase 3b. If this test fails, the work has crossed the 3a/3b boundary —
-    update both this test and the audit doc when 3b lands.
+def test_phase_3b_ii_marker_rhs_writes_present() -> None:
+    """Inverse of the original P3a marker: once P3b-ii lands the ODE
+    merge, the three accumulator dx_dt writes MUST appear in source.
+    This test is the boundary marker between the two phases —
+    pre-P3b-ii it failed (forbidden tokens absent); post-P3b-ii it
+    passes (required tokens present).
     """
     from v2ecoli.processes.polypeptide import kinetic_charging
 
     src = inspect.getsource(kinetic_charging)
-    # Substring guards — these tokens are introduced in 3b's RHS edits.
-    forbidden = [
+    required = [
         "dx_dt[self.slice_total_synthesis]",
         "dx_dt[self.slice_total_import]",
         "dx_dt[self.slice_total_export]",
     ]
-    found = [tok for tok in forbidden if tok in src]
-    assert not found, (
-        f"Phase 3b tokens leaked into 3a: {found}. "
-        "Update audit.md and this marker test when transitioning to 3b."
+    missing = [tok for tok in required if tok not in src]
+    assert not missing, (
+        f"P3b-ii RHS writes missing from source: {missing}. "
+        "The ODE merge has not landed — supply terms are not in the kinetic "
+        "ODE RHS."
     )

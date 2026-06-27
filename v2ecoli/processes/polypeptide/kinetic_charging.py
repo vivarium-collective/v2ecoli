@@ -64,10 +64,14 @@ from scipy.integrate import solve_ivp
 from bigraph_schema import deep_merge
 
 from v2ecoli.library.polymerize import buildSequences, computeMassIncrease, polymerize
+from v2ecoli.library.quantity_helpers import as_quantity, fg_magnitude
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
+from v2ecoli.library.unit_bridge import pint_to_unum
 from v2ecoli.processes.polypeptide import kinetic_charging_kernel as kernel
+from v2ecoli.processes.polypeptide.kinetics import get_charging_supply_function
 from v2ecoli.processes.polypeptide_elongation import (
     BasePolypeptideElongation,
+    MICROMOLAR_UNITS,
     NAME,
     TOPOLOGY,
 )
@@ -247,6 +251,12 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             self.slice_total_import = None
             self.slice_total_export = None
 
+        # Per-tick scratch: supply integrals from the most recent "bulk"
+        # ODE solve. Populated by :meth:`run_model` and consumed by
+        # :meth:`evolve` to compute ``aa_count_diff``. None when the flag
+        # is off OR before the first solve of the first tick.
+        self._last_supply_totals: dict | None = None
+
         # ---- Mapping arrays ----
         # aa_from_trna is set by base; cast and transpose for our local use.
         self.trnas_to_amino_acids = self.parameters["aa_from_trna"].astype(
@@ -330,6 +340,95 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         self.ppi_idx = bulk_name_to_idx(["PPI[c]"], bulk_ids)
         self.met_idx = bulk_name_to_idx(["MET[c]"], bulk_ids)
         self.map_idx = bulk_name_to_idx(["EG10570-MONOMER[c]"], bulk_ids)
+
+    # ---------- port schemas ----------
+
+    def inputs(self):
+        """Extend base inputs with the ``boundary`` port for AA-supply.
+
+        The supply closure built in :meth:`_build_supply_function` reads
+        external media concentrations from ``states["boundary"]["external"]``
+        to build the ``aa_in_media`` boolean. Without this port, the
+        boundary store is invisible to the process-bigraph scheduler.
+
+        Always declared (not gated on the flag) so the schema is stable
+        across composites whether or not ``include_aa_supply`` is on —
+        the boundary store is harmless to declare-but-not-read.
+        """
+        base = super().inputs()
+        return deep_merge(base, {"boundary": "node"})
+
+    def outputs(self):
+        """Extend base outputs with the AA-supply listener fields.
+
+        Process-bigraph drops writes to undeclared output paths; these
+        fields must appear in the schema or the consensus listener
+        emission in :meth:`run_model` is silently a no-op. Mirror of
+        SteadyState's outputs at polypeptide_elongation.py:943-983,
+        scoped to just the AA-supply fields the kinetic class emits.
+        """
+        base = super().outputs()
+        return deep_merge(
+            base,
+            {
+                "listeners": {
+                    "growth_limits": {
+                        "aa_synthesis": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_import": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_export": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_supply": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_exchange_rates": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_in_media": {
+                            "_type": "overwrite[array[boolean]]",
+                            "_default": [],
+                        },
+                        "aa_supply_enzymes_fwd": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "aa_supply_enzymes_rev": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "aa_importers": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "aa_exporters": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "synthesis_pre_solve": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "import_rates_pre_solve": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "export_rates_pre_solve": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                    },
+                },
+            },
+        )
 
     # ---------- request side ----------
 
@@ -611,7 +710,14 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         result, aas_used, net_charged, additional_listeners = self.reconcile(
             states, result
         )
-        update = deep_merge(update, additional_listeners)
+        # ``additional_listeners`` is shaped {"growth_limits": ..., "trna_charging":
+        # ...} (the per-tick listeners dict run_model produced). It must be
+        # nested under ``listeners`` to land at the right schema path in the
+        # store. (Pre-P3b the bare deep_merge put it at the top level — a
+        # latent bug that only surfaced when P3b-ii started writing
+        # growth_limits fields that test_kinetic_aa_supply_ode.py actually
+        # asserts on through the store.)
+        update = deep_merge(update, {"listeners": additional_listeners})
 
         sequence_elongations = result.sequenceElongation
         n_elongations = result.nReactions
@@ -654,7 +760,10 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         ) = self.protein_maturation(
             states, did_terminate, terminated_proteins, protein_indexes
         )
-        update = deep_merge(update, additional_listeners)
+        # Same nesting fix as the reconcile merge above — protein_maturation
+        # returns a listeners-shaped dict that must be nested under
+        # ``listeners`` for store paths to resolve correctly.
+        update = deep_merge(update, {"listeners": additional_listeners})
 
         # ---- Apply ribosome updates ----
         (protein_mass,) = attrs(states["active_ribosome"], ["massDiff_protein"])
@@ -822,9 +931,148 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             (self.met_idx, int(initial_methionines_cleaved))
         )
 
-        return net_charged, {}, update
+        # aa_count_diff: kinetic supply minus realized usage. SteadyState
+        # writes ``aa_supply - aa_used_trna`` (positive = over-supplied →
+        # metabolism raises homeostatic target). Mirror that sign on the
+        # kinetic side using the integrated supply accumulators stored on
+        # self by :meth:`run_model` during the "bulk" pass. When
+        # ``include_aa_supply=False`` the accumulators don't exist; emit
+        # zeros so metabolism's homeostatic consumer receives a
+        # shape-correct (but content-empty) array — fixes the latent
+        # ``{}``-return bug at trna_charging_final@5ffb76de:775.
+        n_aas = len(self.amino_acids)
+        if self.include_aa_supply and self._last_supply_totals is not None:
+            totals = self._last_supply_totals
+            aa_supply_counts = (
+                totals["synthesis"] + totals["import"] - totals["export"]
+            )
+            aa_count_diff = aa_supply_counts - amino_acids_used.astype(np.float64)
+        else:
+            aa_count_diff = np.zeros(n_aas, dtype=np.float64)
+
+        return net_charged, aa_count_diff, update
 
     # ---------- internal helpers ----------
+
+    def _build_supply_function(self, states):
+        """Construct the AA-supply closure that feeds the kinetic ODE RHS.
+
+        Returns a tuple ``(supply_function, counts_to_uM_mag,
+        supply_listeners)`` when ``include_aa_supply`` is on, or
+        ``(None, None, None)`` when off. Mirror of the SteadyState
+        ``_supply_args`` block at
+        ``polypeptide_elongation.py:1056-1100`` adapted to the kinetic
+        class:
+
+        * ``aa_in_media`` from ``states["boundary"]["external"]`` vs
+          ``import_constraint_threshold``.
+        * Enzyme / importer / exporter counts from ``bulk_total``.
+        * ``synthesis``, ``import_rates``, ``export_rates`` pre-computed
+          for listener output (the closure recomputes them per RK45 step).
+        * ``supply_function = get_charging_supply_function(...)`` —
+          identical factory call as SteadyState, so the kinetic ODE
+          consumes the same supply math.
+
+        The unit-bridge constant ``counts_to_uM_mag`` (μM per molecule)
+        is required by ``ode_model``: the kinetic state is in counts;
+        ``supply_function`` expects μM. Computed once per tick from
+        ``cell_mass / cellDensity / n_avogadro``.
+        """
+        if not self.include_aa_supply:
+            return None, None, None
+
+        # Unit bridge: counts ↔ μM.
+        cell_mass = as_quantity(
+            states["listeners"]["mass"]["cell_mass"], units.fg
+        )
+        dry_mass = as_quantity(
+            states["listeners"]["mass"]["dry_mass"], units.fg
+        )
+        cell_volume = cell_mass / self.cell_density
+        counts_to_molar = 1 / (self.n_avogadro * cell_volume)
+        counts_to_uM_mag = counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+
+        # External media → aa_in_media boolean per amino acid.
+        aa_in_media = np.array(
+            [
+                states["boundary"]["external"][aa]
+                > self.import_constraint_threshold
+                for aa in self.aa_environment_names
+            ]
+        )
+
+        # Enzyme / importer / exporter counts from the unallocated pool.
+        fwd_enzyme_counts, rev_enzyme_counts = (
+            self.get_pathway_enzyme_counts_per_aa(
+                counts(states["bulk_total"], self.aa_enzyme_idx)
+            )
+        )
+        importer_counts = counts(states["bulk_total"], self.aa_importer_idx)
+        exporter_counts = counts(states["bulk_total"], self.aa_exporter_idx)
+
+        # Pre-strip dry_mass for the unum-native synthesis/import/export
+        # helpers (boundary-conversion convention used by SteadyState at
+        # polypeptide_elongation.py:1052).
+        dry_mass_unum = pint_to_unum(dry_mass)
+
+        # Pre-compute synthesis/import/export at the current aa_conc for
+        # listener output. The ODE RHS recomputes these per RK45 step at
+        # the time-evolving aa_conc.
+        aa_counts_now = counts(states["bulk_total"], self.amino_acid_idx)
+        aa_conc_uM = counts_to_uM_mag * aa_counts_now
+        aa_conc_unum = pint_to_unum(
+            aa_conc_uM * MICROMOLAR_UNITS
+        )
+        synthesis, _, _ = self.amino_acid_synthesis(
+            fwd_enzyme_counts, rev_enzyme_counts, aa_conc_unum
+        )
+        import_rates = self.amino_acid_import(
+            aa_in_media,
+            dry_mass_unum,
+            aa_conc_unum,
+            importer_counts,
+            self.mechanistic_aa_transport,
+        )
+        export_rates = self.amino_acid_export(
+            exporter_counts, aa_conc_unum, self.mechanistic_aa_transport
+        )
+
+        # Build the closure — same factory as SteadyState. We force
+        # ``supply_in_charging=True`` here regardless of the upstream
+        # parameter because, in the kinetic class, the closure is the
+        # ENTIRE point of the consensus merge (supply must be inside the
+        # ODE solve). Likewise ``mechanistic_supply=True`` because the
+        # non-mechanistic supply path is an upstream legacy code branch
+        # that doesn't make biological sense in the kinetic context.
+        supply_function = get_charging_supply_function(
+            True,  # supply_in_charging
+            True,  # mechanistic_supply
+            self.mechanistic_aa_transport,
+            self.amino_acid_synthesis,
+            self.amino_acid_import,
+            self.amino_acid_export,
+            self.aa_supply_scaling,
+            counts_to_uM_mag,
+            self.aa_supply,
+            fwd_enzyme_counts,
+            rev_enzyme_counts,
+            dry_mass_unum,
+            importer_counts,
+            exporter_counts,
+            aa_in_media,
+        )
+
+        supply_listeners = {
+            "aa_in_media": aa_in_media,
+            "aa_supply_enzymes_fwd": fwd_enzyme_counts,
+            "aa_supply_enzymes_rev": rev_enzyme_counts,
+            "aa_importers": importer_counts,
+            "aa_exporters": exporter_counts,
+            "synthesis_pre_solve": synthesis,
+            "import_rates_pre_solve": import_rates,
+            "export_rates_pre_solve": export_rates,
+        }
+        return supply_function, counts_to_uM_mag, supply_listeners
 
     def run_model(self, codons, attr, states):
         """Simulate kinetic charging + codon reading; predict deltas.
@@ -868,6 +1116,8 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             K_M_amino_acids,
             K_M_trnas,
             amino_acid_limit,
+            supply_function,
+            counts_to_uM_mag,
         ):
             # Parse molecules buffer (the slice layout was set up in
             # initialize so we don't pay the dict-lookup cost per-step).
@@ -947,6 +1197,32 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
                 codons_to_trnas, np.tile(adjusted_codon_rate, (self.n_trnas, 1))
             )[self.codons_to_trnas]
 
+            # ---- Consensus ODE merge (Phase 3b-ii) ----
+            # When supply_function is non-None (flag on), evaluate AA
+            # synthesis / import / export at the CURRENT (time-evolving)
+            # aa_conc, add their net flux to the AA balance, and
+            # accumulate per-AA fluxes for post-solve listener emission.
+            # Mirrors kinetics.py:345-355 (SteadyState's dcdt RHS) — same
+            # supply math, in counts/s instead of μM/s via the per-step
+            # unit bridge ``counts_to_uM_mag`` (μM per molecule).
+            if supply_function is not None:
+                aa_conc_uM = counts_to_uM_mag * amino_acids_remaining
+                v_synthesis_uM, v_import_uM, v_export_uM = supply_function(
+                    aa_conc_uM
+                )
+                # μM/s → counts/s; supply terms go into the AA balance
+                # alongside −(trnas_to_amino_acids @ charging_rate).
+                dx_dt[self.slice_amino_acids] = (
+                    dx_dt[self.slice_amino_acids]
+                    + (v_synthesis_uM + v_import_uM - v_export_uM)
+                    / counts_to_uM_mag
+                )
+                dx_dt[self.slice_total_synthesis] = (
+                    v_synthesis_uM / counts_to_uM_mag
+                )
+                dx_dt[self.slice_total_import] = v_import_uM / counts_to_uM_mag
+                dx_dt[self.slice_total_export] = v_export_uM / counts_to_uM_mag
+
             return dx_dt
 
         # Pre-compute cell-volume-scaled K_M and AA saturation. Only on the
@@ -966,6 +1242,15 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         molecules_input[self.slice_charged_trnas] = charged_trnas_input
         molecules_input[self.slice_amino_acids] = amino_acid_availability
 
+        # Consensus ODE merge (Phase 3b-ii): build the supply closure that
+        # ode_model evaluates at every RK45 sub-step. Returns
+        # ``(None, None, None)`` when include_aa_supply=False — the
+        # closure is then a no-op inside the RHS, preserving the legacy
+        # bit-identical path.
+        supply_function, counts_to_uM_mag, supply_listeners = (
+            self._build_supply_function(states)
+        )
+
         # Run ODE.
         ode_result = solve_ivp(
             ode_model,
@@ -978,6 +1263,8 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
                 self.K_M_amino_acids,
                 self.K_M_trnas,
                 amino_acid_availability,
+                supply_function,
+                counts_to_uM_mag,
             ),
             method="RK45",
             rtol=1e-4,
@@ -1042,6 +1329,39 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         molecules_output = ode_result.y[:, -1]
         raw_charging = molecules_output[self.slice_charging_counter]
         raw_codons_to_trnas = molecules_output[self.slice_codons_to_trnas_counter]
+
+        # ---- Consensus accumulators (Phase 3b-ii) ----
+        # Extract the per-AA supply integrals that ode_model accumulated
+        # over the solve. Stored on self for :meth:`evolve` to compute
+        # ``aa_count_diff`` (the metabolism feedback). Emitted to the
+        # growth_limits listener on the "bulk" pass only — the
+        # "bulk_total" pass is for request sizing; its accumulators are
+        # over-estimates by construction.
+        if self.include_aa_supply:
+            total_synthesis = molecules_output[self.slice_total_synthesis]
+            total_import = molecules_output[self.slice_total_import]
+            total_export = molecules_output[self.slice_total_export]
+            if attr == "bulk":
+                self._last_supply_totals = {
+                    "synthesis": total_synthesis,
+                    "import": total_import,
+                    "export": total_export,
+                }
+                growth_limits = listeners.setdefault("growth_limits", {})
+                growth_limits["aa_synthesis"] = total_synthesis
+                growth_limits["aa_import"] = total_import
+                growth_limits["aa_export"] = total_export
+                growth_limits["aa_supply"] = (
+                    total_synthesis + total_import - total_export
+                )
+                # aa_exchange_rates in counts (net import−export over the
+                # timestep). Metabolism's mechanistic_aa_transport
+                # consumer reads this as bulk-delta-equivalent.
+                growth_limits["aa_exchange_rates"] = total_import - total_export
+                # Pre-solve supply listeners (for diagnostics; the
+                # integrated values above are the load-bearing ones).
+                for k, v in (supply_listeners or {}).items():
+                    growth_limits[k] = v
 
         # ---- Discretize charging events ----
         # Resource-sizing (bulk_total): round up so the request envelope

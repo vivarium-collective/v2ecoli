@@ -137,20 +137,24 @@ window.addEventListener('pageshow', function (e) {
 
 /* Workspace switcher (top of the left rail). */
 .viv-workspace-switcher { position: relative; padding: 0; }
-/* One dashboard per repo: the workspace name is a built-in FIXTURE — a quiet
-   caption sitting directly under the Vivarium brand. NOT a control: no box, no
-   background, no border, no hover, default cursor. Just a small status dot + the
-   repo name in muted text. */
+/* The workspace-name chip is the SOURCE SWITCHER trigger: a small status dot +
+   the current source name under the Vivarium brand. Click to switch local
+   workspace / remote build (source-switch.js opens a dropdown below it). */
 .viv-workspace-name {
-  display: flex; align-items: center; gap: 7px;
-  padding: 0 16px 10px;
-  margin: 0;
+  display: flex; align-items: flex-start; gap: 7px;
+  padding: 0 16px 10px; margin: 0;
   font-size: 12.5px; font-weight: 600;
   color: #64748b; cursor: default;
   background: none; border: none; border-radius: 0;
 }
 .viv-workspace-name strong { font-weight: 600; }
-.viv-workspace-name .viv-workspace-switcher-glyph { font-size: 8px; }
+.viv-ws-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.viv-ws-branch { color: #94a3b8; font-weight: 400; font-size: 0.84em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.viv-ws-remote-tag { font-size: 0.7em; font-weight: 600; color: #7c3aed;
+  background: #f3e8ff; padding: 1px 5px; border-radius: 4px; vertical-align: middle; margin-left: 4px; }
+.viv-workspace-name .viv-workspace-switcher-glyph { font-size: 8px; margin-top: 4px; }
+.viv-workspace-switcher-glyph.viv-glyph-remote { color: #7c3aed; }
 .viv-workspace-switcher-glyph { color: #2ea043; font-size: 14px; }
 .viv-glyph-running { color: #2ea043; }
 /* The workspace name links to its GitHub repo; a small mark signals it. */
@@ -309,6 +313,39 @@ window.addEventListener('pageshow', function (e) {
   display: flex; align-items: center; gap: 8px;
 }
 .viv-iset-menu-row-title { flex: 1; font-size: 13px; color: #111827; }
+.viv-branch-source { padding: 4px 0 16px; max-width: 640px; }
+.viv-bs-title { font-size: 15px; margin: 0 0 12px; }
+.viv-bs-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.viv-bs-key { width: 64px; color: #6b7280; font-size: 13px; }
+.viv-bs-select, .viv-bs-commit-select { padding: 4px 8px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; }
+.viv-bs-toggle { padding: 4px 12px; border: 1px solid #d0d7de; background: #fff; cursor: pointer; border-radius: 6px; font-size: 13px; }
+.viv-bs-toggle.active { background: #eef4ff; border-color: #94b4ff; color: #1e40af; }
+.viv-bs-commit { font-family: ui-monospace, monospace; font-size: 13px; }
+.viv-bs-current { color: #1e40af; font-weight: 600; font-size: 12px; }
+.viv-bs-actions { display: flex; gap: 8px; margin: 14px 0; }
+.viv-bs-action { padding: 6px 14px; border: 1px solid #d0d7de; background: #fff; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.viv-bs-action:disabled { opacity: 0.45; cursor: default; }
+.viv-bs-note { color: #b45309; font-size: 12px; margin: 6px 0; }
+.viv-bs-list { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid #f3f4f6; }
+.viv-bs-list-row { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+.viv-bs-list-row.current { background: #eef4ff; }
+.viv-bs-list-label { flex: 1; }
+.viv-bs-list-label:hover { color: #0366d6; }
+.viv-bs-forget { border: none; background: none; cursor: pointer; color: #c0c4cc; }
+.viv-bs-forget:hover { color: #d1242f; }
+.viv-bs-search { width: 100%; max-width: 420px; margin: 10px 0 0; padding: 5px 9px;
+  border: 1px solid #d0d7de; border-radius: 6px; font-size: 13px; box-sizing: border-box; }
+.viv-bs-list-empty { padding: 8px 4px; color: #9ca3af; font-size: 13px; }
+.viv-bs-busy { margin: 8px 0; padding: 6px 10px; font-size: 12px; color: #1e40af;
+  background: #eef4ff; border: 1px solid #c7d7fe; border-radius: 6px; }
+.viv-iset-menu-forget {
+  flex: 0 0 auto; border: none; background: none; cursor: pointer;
+  color: #c0c4cc; font-size: 12px; line-height: 1; padding: 2px 4px;
+  border-radius: 4px; opacity: 0; transition: opacity 0.1s, color 0.1s, background 0.1s;
+}
+.viv-iset-menu-row:hover .viv-iset-menu-forget,
+.viv-iset-menu-row:focus-within .viv-iset-menu-forget { opacity: 1; }
+.viv-iset-menu-forget:hover { color: #d1242f; background: #ffebe9; }
 .viv-iset-menu-row-pill {
   font-size: 0.7em !important;
   padding: 1px 7px !important;
@@ -367,17 +404,19 @@ window.addEventListener('pageshow', function (e) {
     
 
     <div class="viv-workspace-switcher" id="viv-workspace-switcher">
-      <!-- One dashboard per repo: the workspace name IS the link to the
-           associated GitHub repository (git remote origin). -->
-      <div class="viv-workspace-name">
+      <!-- The workspace-name chip opens the Branch page (#github): source,
+           repo/branch/commit, push & build actions. Replaces the old rail
+           dropdown and the standalone Branch rail item. -->
+      <div class="viv-workspace-name" role="button" tabindex="0"
+           title="Open Branch: source, repo · branch · commit, push & build"
+           style="cursor:pointer"
+           onclick="window.location.hash='#github'; if(window._switchPage)_switchPage('github');"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.location.hash='#github'; if(window._switchPage)_switchPage('github');}">
         <span class="viv-workspace-switcher-glyph">●</span>
-        
-        <a class="viv-ws-repo-link" href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener"
-           title="Open v2ecoli on GitHub">
+        <span class="viv-ws-text">
           <strong>v2ecoli</strong>
-          <svg class="viv-ws-gh-mark" width="12" height="12"><use href="#viv-gh-mark"/></svg>
-        </a>
-        
+          
+        </span>
       </div>
     </div>
     <!-- Snapshot mode: static repo label replaces the switcher dropdown. -->
@@ -490,24 +529,9 @@ window.addEventListener('pageshow', function (e) {
         </span>
         <span class="viv-rail-link-label">Analyses</span>
       </a>
-      <!-- Branch: workspace branch + remote (formerly "GitHub"). The icon
-           is a branch-and-node glyph; renaming the label to "Branch"
-           better reflects that this tab is about the local branch state,
-           the workspace repo's remote, and PR/merge actions — not just
-           GitHub-the-product. Hash route #github kept for back-compat
-           with bookmarks. -->
-      <a href="#github"            class="viv-rail-link menu-link" data-page="github">
-        <span class="viv-rail-link-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="viv-rail-link-svg">
-            <circle cx="6" cy="6" r="2"/>
-            <circle cx="6" cy="18" r="2"/>
-            <circle cx="18" cy="12" r="2"/>
-            <path d="M6 8v8"/>
-            <path d="M6 8a6 6 0 0 0 6 6h4"/>
-          </svg>
-        </span>
-        <span class="viv-rail-link-label">Branch</span>
-      </a>
+      <!-- The Branch page (#github) is no longer a rail item — it's reached by
+           clicking the workspace source display at the top of the rail (see
+           #viv-workspace-switcher). Hash route #github kept for back-compat. -->
     </nav>
 
     <!-- Studies of the active investigation, dependency-ordered. -->
@@ -664,7 +688,7 @@ window.addEventListener('pageshow', function (e) {
 
   <!-- Subtab: Modules (catalog grid; workspace + installed entries pinned at top) -->
   <section class="panel registry-subtab-panel active" data-subtab="modules">
-    <p class="panel-lead">Modules active in this workspace appear at the top (the workspace's own first-party package is pinned first, then installed catalog modules). Click Install on any card below to add it. Each installed card carries an Uninstall affordance + its source / path.</p>
+    <p class="panel-lead">Modules active in this workspace appear at the top (the workspace's own first-party package is pinned first, then installed catalog modules). Click Install on any card below to add it. Each installed card shows its install source + path.</p>
     <div class="card-browse-toolbar" id="catalog-toolbar">
       <input type="search" class="card-browse-search" id="catalog-search" placeholder="Filter modules…">
       <div class="card-browse-chips" id="catalog-tag-chips"></div>
@@ -894,6 +918,7 @@ window.addEventListener('pageshow', function (e) {
 <!-- GitHub: in-UI sign-in + (future) org picker. The github-login.js widget
      activates the #viv-gh-chip element on load. No-AI-agent setup path. -->
 <section id="page-github" class="page" data-page="github">
+  <div id="viv-branch-source" class="viv-branch-source"></div>
   <h2 class="page-title">Branch</h2>
 
   <!-- Settings-style single panel: three sections (Account, Workspace
@@ -1060,14 +1085,21 @@ window.addEventListener('pageshow', function (e) {
 <section id="page-simulations" class="page" data-page="simulations">
   <h2 class="page-title">Simulations DB</h2>
   <p class="page-lead">
-    Every persisted run across this workspace, tagged by investigation and
-    study, gathered from each <code>studies/&lt;name&gt;/runs.db</code>.
-    Shows all investigations by default — untoggle to scope to the current one.
+    Persisted runs gathered from each <code>studies/&lt;name&gt;/runs.db</code>,
+    tagged by investigation and study, with the storage location for each run.
+    On a remote build, the deployment's runs for that build's commit are
+    included too (Origin column). Scoped to the current branch's investigation
+    by default and refreshed automatically.
+    <span id="sim-scope-note" style="color:#6b7280;"></span>
   </p>
 
   <div style="margin: 8px 0 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
     <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
-      <input id="sim-all-toggle" type="checkbox" checked /> All investigations
+      Investigation
+      <select id="sim-inv-filter" style="padding:4px 8px; font-size:13px;
+              border:1px solid #d1d5db; border-radius:4px;">
+        <option value="">All</option>
+      </select>
     </label>
     <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
       Study
@@ -1091,17 +1123,18 @@ window.addEventListener('pageshow', function (e) {
     No simulation runs found.
   </div>
 
-  <table id="sim-table" style="width:100%; border-collapse: collapse; font-size: 13px; display: none;">
+  <table id="sim-table" style="width:100%; table-layout:fixed; border-collapse: collapse; font-size: 13px; display: none;">
     <thead>
       <tr style="background:#f3f4f6;">
-        <th style="text-align:left; padding:6px 8px;">Investigation</th>
-        <th style="text-align:left; padding:6px 8px;">Study</th>
+        <th style="text-align:left; padding:6px 8px; width:130px;">Investigation</th>
+        <th style="text-align:left; padding:6px 8px; width:130px;">Study</th>
         <th style="text-align:left; padding:6px 8px;">Run</th>
-        <th style="text-align:left; padding:6px 8px; width:120px;">Origin</th>
-        <th style="text-align:left; padding:6px 8px; width:90px;">Emitter</th>
-        <th style="text-align:left; padding:6px 8px; width:140px;">Time</th>
-        <th style="text-align:left; padding:6px 8px; width:90px;">Status</th>
-        <th style="text-align:center; padding:6px 8px; width:120px;">Actions</th>
+        <th style="text-align:left; padding:6px 8px; width:150px;">Location</th>
+        <th style="text-align:left; padding:6px 8px; width:90px;">Origin</th>
+        <th style="text-align:left; padding:6px 8px; width:80px;">Emitter</th>
+        <th style="text-align:left; padding:6px 8px; width:104px;">Time</th>
+        <th style="text-align:left; padding:6px 8px; width:84px;">Status</th>
+        <th style="text-align:center; padding:6px 8px; width:96px;">Actions</th>
       </tr>
     </thead>
     <tbody id="sim-tbody"></tbody>
@@ -1610,6 +1643,7 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
      (investigation-switcher.js). The /api/workspaces endpoints remain available
      for CLI tooling. -->
 <script src="/v2ecoli/dashboard/assets/investigation-switcher.js"></script>
+<script src="/v2ecoli/dashboard/assets/branch-source.js"></script>
 <script>
 // Initialize drop zones once walkthrough.js is loaded.
 document.addEventListener("DOMContentLoaded", function() {

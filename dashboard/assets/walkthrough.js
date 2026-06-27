@@ -484,6 +484,7 @@
     // before activating a new page. _ceLoadRunFromId will restart polling if
     // the next page is the explorer with a still-running run.
     if (typeof _ceStopRunPoll === 'function') _ceStopRunPoll();
+    if (typeof _stopSimAutoRefresh === 'function') _stopSimAutoRefresh();
 
     // Initialize composite explorer when switching to that page.
     if (pageId === 'composite-explore') {
@@ -492,6 +493,7 @@
     if (pageId === 'simulations') {
       _wireSimulationsUiOnce();
       _initSimulations();
+      _startSimAutoRefresh();
     }
     if (pageId === 'studies') {
       // Always retry if we don't have any studies in memory yet — the prior
@@ -2308,30 +2310,25 @@
         //   venv      — present in venv via another package's transitive
         //               dep; cannot be uninstalled directly (the user has
         //               to remove the parent). Show "via X, Y" hint instead.
+        // Uninstall from the dashboard is intentionally NOT offered — module
+        // removal is a workspace/venv edit best done deliberately outside the
+        // UI. Installed cards show only their install-source badge.
         var src = m.install_source || 'imports';
         var srcBadge = '';
-        var action = '';
         if (src === 'venv') {
           var via = (m.installed_via || []);
           if (via.length === 0) {
-            // No parent claims it — orphaned editable / hand-installed pkg.
-            // Workspace.yaml doesn't declare it and no installed dep requires
-            // it. User can uninstall directly from the dashboard.
-            srcBadge = '<span class="install-src-pill install-src-unmanaged" title="Installed in the venv but not declared in workspace.yaml.imports and not required by any installed package. Safe to uninstall.">📦 unmanaged</span>';
-            action = '<button class="action-btn action-btn--secondary js-authoring" onclick="_uninstallFromCatalog(\'' + _esc(m.name) + '\')">Uninstall</button>';
+            srcBadge = '<span class="install-src-pill install-src-unmanaged" title="Installed in the venv but not declared in workspace.yaml.imports and not required by any installed package.">📦 unmanaged</span>';
           } else {
             var viaText = 'via ' + via.slice(0, 3).map(_esc).join(', ') + (via.length > 3 ? ' +' + (via.length - 3) : '');
-            srcBadge = '<span class="install-src-pill install-src-venv" title="Brought in by another installed package; cannot be uninstalled directly.">📦 ' + viaText + '</span>';
-            action = '<span class="muted" style="font-size:0.78em" title="Remove the parent package to drop this transitive dependency.">(remove parent to uninstall)</span>';
+            srcBadge = '<span class="install-src-pill install-src-venv" title="Brought in by another installed package.">📦 ' + viaText + '</span>';
           }
         } else if (src === 'pyproject') {
-          srcBadge = '<span class="install-src-pill install-src-pyproject" title="Declared in pyproject.toml [project.dependencies]; workspace.yaml.imports does not have an explicit entry.">📋 via pyproject</span>';
-          action = '<button class="action-btn action-btn--secondary js-authoring" onclick="_uninstallFromCatalog(\'' + _esc(m.name) + '\')">Uninstall</button>';
+          srcBadge = '<span class="install-src-pill install-src-pyproject" title="Declared in pyproject.toml [project.dependencies].">📋 via pyproject</span>';
         } else {
           srcBadge = '<span class="status-pill installed">installed</span>';
-          action = '<button class="action-btn action-btn--secondary js-authoring" onclick="_uninstallFromCatalog(\'' + _esc(m.name) + '\')">Uninstall</button>';
         }
-        return srcBadge + ' ' + action;
+        return srcBadge;
       }
       return '<button class="action-btn js-authoring" onclick="_installFromCatalog(\'' + _esc(m.name) + '\')">Install</button>';
     }
@@ -2472,7 +2469,7 @@
         '<td><code>' + source + '</code> @ <code>' + ref + '</code></td>' +
         '<td><code>' + path + '</code></td>' +
         '<td><span class="status-pill installed">installed</span></td>' +
-        '<td><button class="action-btn action-btn--secondary" onclick="_uninstallFromInstalled(\'' + name + '\')">Uninstall</button>' + sysDepsBtn + '</td>' +
+        '<td>' + (sysDepsBtn.trim() || '<span style="color:#9ca3af;font-size:0.85em">—</span>') + '</td>' +
         '</tr>';
     }).join('');
 
@@ -4684,12 +4681,10 @@
         : '<span class="status-pill ' + pillClass + '" style="font-size:0.78em">' + _esc(effStatus) + '</span>';
       var cardStyle = 'background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;cursor:pointer;transition:box-shadow 0.1s,border-color 0.1s;' +
         (closed ? 'opacity:0.6;' : '');
-      var actionLabel = closed ? 'Reopen' : 'Close';
-      var actionStatus = closed ? 'in-progress' : 'archived';
-      var actionBtn = '<button type="button" class="js-authoring" onclick="event.stopPropagation();_setInvestigationStatus(this,\'' +
-        _esc(iset.name) + '\',\'' + actionStatus + '\')" ' +
-        'style="font-size:0.78em;padding:3px 10px;border:1px solid #cbd5e1;border-radius:6px;background:#f8fafc;color:#334155;cursor:pointer">' +
-        actionLabel + '</button>';
+      // Close/Reopen is intentionally NOT offered from the dashboard — an
+      // investigation's lifecycle is managed via its branch/PR, not the UI.
+      // The status pill (incl. a gray "Closed") still displays above.
+      var actionBtn = '';
       return '<div class="investigation-set-card" onclick="_openInvestigationDetail(\'' + _esc(iset.name) + '\')" ' +
              'style="' + cardStyle + '">' +
         '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">' +
@@ -8143,7 +8138,7 @@
       }
       var decisionHtml = '<div id="' + sid.decision + '" class="decision-box decision-' + decision.cls + '">'
         + '<div class="decision-header">'
-        +   '<h3 class="decision-title">Can we move to the next study?</h3>'
+        +   '<h3 class="decision-title">Pipeline-gate decision</h3>'
         +   '<span class="decision-status">' + _h(decision.label) + '</span>'
         + '</div>'
         + '<div class="decision-grid">'
@@ -8536,21 +8531,14 @@
       // ── CHARTS (visualisations from runs.db) ─────────────────────────
       var chartsHtml = charts.length
         ? '<div id="' + sid.charts + '">'
-          + '<h3 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
-          + '<span>Visualisations from the latest run</span>'
-          + '<button type="button" class="chart-refresh-btn" data-study="' + _h(s.name) + '"'
-          + ' onclick="window._refreshStudyViz(this)"'
-          + ' style="font-size:12px;padding:2px 10px;border-radius:6px;border:1px solid #cbd5e1;'
-          + 'background:#f8fafc;color:#334155;cursor:pointer;">↻ Refresh visualizations</button>'
-          + '<span class="chart-refresh-status muted small" style="margin-left:4px;"></span>'
-          + '</h3>'
+          + '<h3>Visualisations from the latest run</h3>'
           + _renderChartCardsHtml(charts, slug)
           + '</div>'
         : '';
 
       // ── WHAT DID/WILL WE MEASURE? (Readouts) ─────────────────────────
       var readoutsHtml = readouts.length
-        ? '<div id="' + sid.readouts + '"><h3>What did/will we measure? <span class="muted small">(' + readouts.length + ' readouts)</span></h3>'
+        ? '<div id="' + sid.readouts + '"><h3>Measurements <span class="muted small">(' + readouts.length + ' readouts)</span></h3>'
           + '<p class="muted small" style="margin:0 0 8px 0">Quantities we extract from each simulation run to evaluate the study\'s tests.</p>'
           + '<table class="readout-table"><thead><tr><th>Readout</th><th>Status</th><th>Path</th><th>Description</th></tr></thead><tbody>'
           + readouts.map(function(r) {
@@ -8610,7 +8598,7 @@
         if (_tc.SKIP) _tcParts.push(_tc.SKIP + ' ⏭ skipped');
         if (_tc.PENDING) _tcParts.push(_tc.PENDING + ' ⏳ pending');
         var _tcSummary = _tcParts.length ? (' — ' + _tcParts.join(' · ')) : '';
-        testsHtml = '<div id="' + sid.tests + '"><h3>How do we judge success? <span class="muted small">(' + tests.length + ' tests' + _tcSummary + ')</span></h3>'
+        testsHtml = '<div id="' + sid.tests + '"><h3>Success criteria <span class="muted small">(' + tests.length + ' tests' + _tcSummary + ')</span></h3>'
           + '<p class="muted small" style="margin:0 0 8px 0">Each test makes a specific scientific claim with a machine-checkable criterion (<code>measure</code> + <code>pass_if</code>). Tests are now <strong>evaluated by code against the run</strong> (the run/outcome spine: RunReader → evaluator): the pill shows the result, and the evidence line shows the <em>measured value</em>, whether it was computed by <em>code</em> or routed to an <em>agent</em>, and whether the code verdict <em>agrees</em> with the authored one (reconcile). <span class="muted">⏳ pending = the study hasn\'t run yet.</span> Technical assertion + the exact evaluator are under "Technical details".</p>'
           + tests.map(function(t) {
               var name = t.name || '(unnamed)';
@@ -8738,13 +8726,13 @@
           ? '<h4 style="margin:12px 0 4px 0">Key assumptions</h4>'
           + '<ul>' + assumptions.map(function(a){return '<li>' + _multiline(typeof a === 'string' ? a : (a.text || JSON.stringify(a))) + '</li>';}).join('') + '</ul>'
           : '';
-        buildHtml = '<div id="' + sid.build + '"><h3>What changes in the model?</h3>' + mcHtml + asmHtml + '</div>';
+        buildHtml = '<div id="' + sid.build + '"><h3>Model changes</h3>' + mcHtml + asmHtml + '</div>';
       }
 
       // ── WHAT NEEDS TO BE BUILT OR FIXED? (Implementation reqs) ───────
       var reqsHtml = '';
       if (reqs.length) {
-        reqsHtml = '<div id="' + sid.reqs + '"><h3>What needs to be built or fixed? <span class="muted small">(' + reqs.length + ')</span></h3>'
+        reqsHtml = '<div id="' + sid.reqs + '"><h3>Build / fix list <span class="muted small">(' + reqs.length + ')</span></h3>'
           + '<p class="muted small" style="margin:0 0 8px 0">Concrete engineering work to fully exercise this study.</p>'
           + reqs.map(function(r) {
               // Prose-form requirement (authored as a single `| ` block): render
@@ -9039,7 +9027,7 @@
         if (_bioProse) {
           bgsBits.push(
             '<div class="biology-summary-callout">'
-            + '<h3 class="biology-glance-label">Biology — what this study is about</h3>'
+            + '<h3 class="biology-glance-label">Biology</h3>'
             + '<p class="biology-prose">' + _multiline(_bioProse) + '</p>'
             + '</div>'
           );
@@ -14191,6 +14179,19 @@
   function _simStudy(row) {
     return row.study_slug || (row.studies && row.studies.length ? row.studies[0] : '');
   }
+  // Where the run's data lives: the native store (zarr/parquet dir or s3 uri)
+  // when present, else the runs.db SQLite at db_path. Shows a compact tail with
+  // the full path on hover.
+  function _simLocation(row) {
+    var loc = row.store_path || row.db_path || '';
+    if (!loc) return '<span style="color:#9ca3af;">—</span>';
+    var norm = String(loc).replace(/\\/g, '/');
+    var parts = norm.split('/');
+    var tail = parts.length > 2 ? '…/' + parts.slice(-2).join('/') : norm;
+    return '<code style="font-size:11px; color:#6b7280; display:block; ' +
+      'overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="' +
+      _escSim(loc) + '">' + _escSim(tail) + '</code>';
+  }
 
   /** Open the Composite Explorer for a specific past simulation.
    *
@@ -14246,10 +14247,12 @@
       'onclick="_deleteSimulationRun(\'' + _escSim(runId) + '\')">🗑</button>';
     return (
       '<tr data-run-id="' + _escSim(runId) + '" style="border-bottom:1px solid #f3f4f6;">' +
-      '<td style="padding:6px 8px;">' + invCell + '</td>' +
-      '<td style="padding:6px 8px;">' + studyCell + '</td>' +
-      '<td style="padding:6px 8px;"><code style="font-size:11px; color:#6b7280;"' +
+      '<td style="padding:6px 8px; overflow-wrap:anywhere;">' + invCell + '</td>' +
+      '<td style="padding:6px 8px; overflow-wrap:anywhere;">' + studyCell + '</td>' +
+      '<td style="padding:6px 8px; overflow:hidden;"><code style="font-size:11px; color:#6b7280; ' +
+        'display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"' +
         runTitle + '>' + _escSim(runLabel) + '</code></td>' +
+      '<td style="padding:6px 8px; overflow:hidden;">' + _simLocation(row) + '</td>' +
       '<td style="padding:6px 8px;">' + _simOriginPill(row) + '</td>' +
       '<td style="padding:6px 8px;">' + _simEmitterPill(row.emitter_type) + '</td>' +
       '<td style="padding:6px 8px; color:#6b7280;">' + _escSim(_simFmtTime(timeSec)) + '</td>' +
@@ -14264,16 +14267,16 @@
   // current selection), then render rows through the active filters.
   function _applySimFilter() {
     var rows = window._simRows || [];
-    var allToggle = document.getElementById('sim-all-toggle');
+    var invSel    = document.getElementById('sim-inv-filter');
     var studySel  = document.getElementById('sim-study-filter');
     var emitterSel = document.getElementById('sim-emitter-filter');
 
-    var showAll = allToggle ? allToggle.checked : false;
+    var invVal = invSel ? invSel.value : '';
     var studyVal = studySel ? studySel.value : '';
     var emitterVal = emitterSel ? emitterSel.value : '';
 
     var visible = rows.filter(function (r) {
-      if (!showAll && window._simCurrent && _simInvestigation(r) !== window._simCurrent) return false;
+      if (invVal && _simInvestigation(r) !== invVal) return false;
       if (studyVal && _simStudy(r) !== studyVal) return false;
       if (emitterVal && (r.emitter_type || 'SQLite') !== emitterVal) return false;
       return true;
@@ -14285,16 +14288,30 @@
     if (tbody) tbody.innerHTML = visible.map(_renderSimRow).join('');
     if (table) table.style.display = visible.length ? '' : 'none';
     if (empty) empty.style.display = visible.length ? 'none' : '';
+
+    var note = document.getElementById('sim-scope-note');
+    if (note) {
+      if (invVal) {
+        var isCurrent = (invVal === window._simCurrent);
+        note.textContent = 'Scoped to ' + invVal +
+          (isCurrent ? ' (current branch)' : '') +
+          ' — ' + visible.length + ' runs. Pick "All" to widen.';
+      } else {
+        note.textContent = 'Showing all investigations — ' + visible.length + ' runs.';
+      }
+    }
   }
 
   // Rebuild the Study + Emitter <select> option lists from the current data.
   function _populateSimFilters() {
     var rows = window._simRows || [];
-    var studies = {}, emitters = {};
+    var studies = {}, emitters = {}, invs = {};
     rows.forEach(function (r) {
       var st = _simStudy(r);
       if (st) studies[st] = true;
       emitters[r.emitter_type || 'SQLite'] = true;
+      var inv = _simInvestigation(r);
+      if (inv) invs[inv] = true;
     });
     function fill(sel, values) {
       if (!sel) return;
@@ -14308,19 +14325,45 @@
     }
     fill(document.getElementById('sim-study-filter'), Object.keys(studies));
     fill(document.getElementById('sim-emitter-filter'), Object.keys(emitters));
+
+    // Investigation dropdown: same fill, but on first load default to the
+    // current investigation (branch slug or dashboard focus) when it has runs.
+    // Once the user picks one (window._simInvChosen), preserve their choice
+    // across auto-refreshes instead of snapping back to current.
+    var invSel = document.getElementById('sim-inv-filter');
+    if (invSel) {
+      var invKeys = Object.keys(invs);
+      var prev = invSel.value;
+      var opts = ['<option value="">All</option>'];
+      invKeys.sort().forEach(function (v) {
+        opts.push('<option value="' + _escSim(v) + '">' + _escSim(v) + '</option>');
+      });
+      invSel.innerHTML = opts.join('');
+      if (window._simInvChosen) {
+        if (invKeys.indexOf(prev) >= 0) invSel.value = prev;
+      } else {
+        var def = window._simCurrent;
+        invSel.value = (def && invs[def]) ? def : '';
+      }
+    }
   }
 
-  function _initSimulations() {
+  // quiet=true → background auto-refresh: skip the "Loading…" flash and leave
+  // the existing table in place on transient errors (don't clobber good data).
+  function _initSimulations(quiet) {
     var loading = document.getElementById('sim-loading');
     var empty   = document.getElementById('sim-empty');
     var table   = document.getElementById('sim-table');
-    if (loading) loading.style.display = '';
-    if (empty)   empty.style.display = 'none';
-    if (table)   table.style.display = 'none';
+    if (!quiet) {
+      if (loading) loading.style.display = '';
+      if (empty)   empty.style.display = 'none';
+      if (table)   table.style.display = 'none';
+    }
 
     window.DataSource.loadSimulations()
       .then(function (data) {
         if (data.error) {
+          if (quiet) return;
           if (loading) loading.innerHTML =
             '<span style="color:#c00;">Could not load simulations: ' +
             _escSim(data.error) + ' <button class="action-btn" ' +
@@ -14328,12 +14371,15 @@
           return;
         }
         window._simRows = data.simulations || [];
-        window._simCurrent = data.current || null;
+        // Scope target: the git-branch investigation slug, else whatever
+        // investigation the dashboard is currently focused on. Null → All.
+        window._simCurrent = data.current || window._currentInvestigation || null;
         if (loading) loading.style.display = 'none';
         _populateSimFilters();
         _applySimFilter();
       })
       .catch(function (err) {
+        if (quiet) return;
         if (loading) loading.innerHTML =
           '<span style="color:#c00;">Network error: ' + _escSim(String(err)) +
           ' <button class="action-btn" onclick="_initSimulations()">Retry</button></span>';
@@ -14341,10 +14387,37 @@
   }
   window._initSimulations = _initSimulations;
 
-  // Wire the toggle + dropdown filters + refresh button (once, on first init).
+  // Auto-refresh: while the Simulations DB page is open, re-pull every 15s so
+  // the table stays current with newly persisted / remote-landed runs without
+  // a manual Refresh. Stopped on page switch (see _switchPage).
+  function _startSimAutoRefresh() {
+    _stopSimAutoRefresh();
+    window._simRefreshTimer = setInterval(function () {
+      var page = document.getElementById('page-simulations');
+      if (!page || !page.classList.contains('active')) { _stopSimAutoRefresh(); return; }
+      if (document.hidden) return;   // skip while tab is backgrounded
+      _initSimulations(true);
+    }, 15000);
+  }
+  function _stopSimAutoRefresh() {
+    if (window._simRefreshTimer) { clearInterval(window._simRefreshTimer); window._simRefreshTimer = null; }
+  }
+  window._startSimAutoRefresh = _startSimAutoRefresh;
+  window._stopSimAutoRefresh = _stopSimAutoRefresh;
+
+  // Wire the investigation/study/emitter filters + refresh button (once).
   function _wireSimulationsUiOnce() {
-    [['sim-all-toggle', 'change'],
-     ['sim-study-filter', 'change'],
+    // The investigation filter is special: a user pick is sticky (survives
+    // auto-refresh) instead of snapping back to the current-branch default.
+    var invSel = document.getElementById('sim-inv-filter');
+    if (invSel && !invSel.dataset.wired) {
+      invSel.addEventListener('change', function () {
+        window._simInvChosen = true;
+        _applySimFilter();
+      });
+      invSel.dataset.wired = '1';
+    }
+    [['sim-study-filter', 'change'],
      ['sim-emitter-filter', 'change']].forEach(function (pair) {
       var el = document.getElementById(pair[0]);
       if (el && !el.dataset.wired) {
@@ -14354,7 +14427,7 @@
     });
     var r = document.getElementById('sim-refresh');
     if (r && !r.dataset.wired) {
-      r.addEventListener('click', _initSimulations);
+      r.addEventListener('click', function () { _initSimulations(); });
       r.dataset.wired = '1';
     }
     var cancel = document.getElementById('sim-delete-cancel');
@@ -15061,11 +15134,11 @@
       // Legacy single-string box (still populated for any consumer that
       // reads it). The GitHub-tab settings page renders the same data into
       // individual rows via _renderGitStatusRows below.
+      // Legacy single-line banner is superseded by the per-row "Workspace
+      // repository" detail (_renderGitStatusRows); keep it permanently hidden
+      // so it doesn't duplicate that section.
       var box = document.getElementById('viv-git-status');
-      if (box) {
-        if (!s.branch) { box.hidden = true; }
-        else { box.hidden = false; }
-      }
+      if (box) { box.hidden = true; }
       if (!s.branch) {
         _renderGitStatusRows(null);
         return;

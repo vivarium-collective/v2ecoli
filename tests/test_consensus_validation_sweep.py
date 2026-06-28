@@ -162,23 +162,26 @@ def _synth_history_row(t: float, cell_mass: float, fc: list[float] | None = None
 
 
 def _make_synth_db(db_path: Path, sim_id: str, rows: list[tuple]) -> None:
-    """Build a minimal sqlite db with a history table matching the columns
-    compute_metrics reads. Mirrors the SQLiteEmitter's schema enough for
-    the metric extraction logic without dragging in the real emitter.
+    """Build a minimal sqlite db whose ``history`` schema matches the real
+    ``SQLiteEmitter`` (``step`` + ``global_time`` columns). Lets the
+    metric/trajectory extractors run against a synthetic fixture without
+    dragging in the real emitter.
     """
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     try:
         conn.execute(
             "CREATE TABLE history ("
-            "simulation_id TEXT, time REAL, state TEXT, generation INTEGER"
-            ")"
+            "simulation_id TEXT NOT NULL, step INTEGER NOT NULL, "
+            "global_time REAL, state TEXT NOT NULL, generation INTEGER, "
+            "PRIMARY KEY (simulation_id, step))"
         )
-        for t, state_json in rows:
+        for i, (t, state_json) in enumerate(rows):
             conn.execute(
-                "INSERT INTO history (simulation_id, time, state, generation) "
-                "VALUES (?, ?, ?, ?)",
-                (sim_id, t, state_json, 1),
+                "INSERT INTO history "
+                "(simulation_id, step, global_time, state, generation) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (sim_id, i, t, state_json, 1),
             )
         conn.commit()
     finally:
@@ -340,3 +343,144 @@ def test_main_preflight_only_short_circuits_with_missing_cache(
     assert rc == 1  # pre-flight failure exit code
     out = capsys.readouterr().out
     assert "PRE-FLIGHT FAILED" in out
+
+
+# ============================================================
+# §E — stage presets + trajectory dump + summary
+# ============================================================
+
+def test_stage_presets_exist() -> None:
+    from consensus_validation_sweep import STAGE_PRESETS
+
+    assert "smoke" in STAGE_PRESETS
+    assert "cell-cycle" in STAGE_PRESETS
+    assert "cross-media" in STAGE_PRESETS
+    assert "full" in STAGE_PRESETS
+    # Smoke is the canonical first-step — must be small.
+    assert STAGE_PRESETS["smoke"]["max_steps_per_gen"] <= 200
+    assert len(STAGE_PRESETS["smoke"]["media"]) == 1
+    assert len(STAGE_PRESETS["smoke"]["seeds"]) == 1
+
+
+def test_stage_smoke_resolves_to_tiny_scope() -> None:
+    from consensus_validation_sweep import _parse_args
+
+    args = _parse_args(["--stage", "smoke"])
+    assert args.stage == "smoke"
+    assert args.media == ["minimal"]
+    assert args.seeds == [0]
+    assert args.max_generations == 1
+    assert args.max_steps_per_gen == 100
+    assert args.chunk == 10
+
+
+def test_cli_flag_overrides_stage_preset() -> None:
+    from consensus_validation_sweep import _parse_args
+
+    args = _parse_args(["--stage", "smoke", "--max-steps-per-gen", "50"])
+    assert args.max_steps_per_gen == 50  # explicit override wins
+    assert args.media == ["minimal"]  # unspecified, take from preset
+
+
+def test_extract_trajectory_returns_empty_for_missing_db(tmp_path: Path) -> None:
+    from consensus_validation_sweep import extract_trajectory
+
+    out = extract_trajectory(tmp_path / "missing.db", "consensus-x-seed0")
+    assert out == []
+
+
+def test_extract_trajectory_parses_listener_arrays(tmp_path: Path) -> None:
+    from consensus_validation_sweep import extract_trajectory
+
+    db = tmp_path / "run.db"
+    sim_id = "consensus-minimal-seed0"
+    rows = []
+    for i in range(5):
+        state = {
+            "listeners": {
+                "mass": {"cell_mass": 1.0 + i * 0.01},
+                "growth_limits": {
+                    "fraction_trna_charged": [0.9, 0.85, 0.88],
+                    "aa_supply": [10.0, 20.0, 30.0],
+                    "rela_syn": [0.1, 0.2, 0.15],
+                    "spot_syn": 0.5,
+                },
+            },
+        }
+        rows.append((float(i), json.dumps(state)))
+    _make_synth_db(db, sim_id, rows)
+
+    traj = extract_trajectory(db, sim_id)
+    assert len(traj) == 5
+    assert traj[0]["t"] == 0.0
+    assert traj[0]["cell_mass"] == 1.0
+    assert abs(traj[0]["fraction_trna_charged_mean"] - (0.9 + 0.85 + 0.88) / 3) < 1e-9
+    assert traj[0]["aa_supply_sum"] == 60.0
+    assert traj[0]["spot_syn"] == 0.5
+
+
+def test_extract_trajectory_unwraps_agents_wrapped_state(tmp_path: Path) -> None:
+    """Real SQLite emitter wraps state under ``agents.<id>``. The
+    extractor must walk down to the first agent's listeners. Caught by
+    the Stage A smoke run where trajectory.json came out empty before
+    this fix.
+    """
+    from consensus_validation_sweep import extract_trajectory
+
+    db = tmp_path / "run.db"
+    sim_id = "consensus-minimal-seed0"
+    state = {
+        "global_time": 10.0,
+        "agents": {
+            "0": {
+                "listeners": {
+                    "mass": {"cell_mass": 1.42},
+                    "growth_limits": {
+                        "fraction_trna_charged": [0.9, 0.85, 0.88],
+                        "rela_syn": [0.1, 0.2, 0.15],
+                    },
+                },
+            },
+        },
+    }
+    _make_synth_db(db, sim_id, [(10.0, json.dumps(state))])
+
+    traj = extract_trajectory(db, sim_id)
+    assert len(traj) == 1
+    assert traj[0]["t"] == 10.0
+    assert traj[0]["cell_mass"] == 1.42
+    assert abs(traj[0]["fraction_trna_charged_mean"] - 0.876666666) < 1e-6
+    assert "rela_syn_mean" in traj[0]
+
+
+def test_write_trajectory_json_round_trips(tmp_path: Path) -> None:
+    from consensus_validation_sweep import write_trajectory_json
+
+    traj = [{"t": 0.0, "cell_mass": 1.0}, {"t": 1.0, "cell_mass": 1.01}]
+    out = tmp_path / "trajectory.json"
+    write_trajectory_json(traj, out, "minimal", 0)
+    payload = json.loads(out.read_text())
+    assert payload["media"] == "minimal"
+    assert payload["seed"] == 0
+    assert payload["n_ticks"] == 2
+    assert payload["trajectory"][1]["cell_mass"] == 1.01
+
+
+def test_write_summary_txt_is_readable(tmp_path: Path) -> None:
+    from consensus_validation_sweep import write_summary_txt
+
+    traj = [
+        {"t": 0.0, "cell_mass": 1.0, "fraction_trna_charged_mean": 0.9},
+        {"t": 1.0, "cell_mass": 1.05, "fraction_trna_charged_mean": 0.88},
+    ]
+    out = tmp_path / "summary.txt"
+    write_summary_txt(traj, out, "minimal", seed=0, wall_seconds=42.5)
+    text = out.read_text()
+    # Header + key sections must be there.
+    assert "minimal" in text
+    assert "Ticks completed: 2" in text
+    assert "Wall time: 42.5s" in text
+    assert "Per-tick wall cost:" in text
+    assert "cell_mass" in text
+    assert "fraction_trna_charged_mean" in text
+    assert "Consensus sanity checks" in text

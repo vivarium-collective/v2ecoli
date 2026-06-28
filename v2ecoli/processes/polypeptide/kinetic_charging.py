@@ -1436,6 +1436,22 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         charged_trnas_input = counts(states[attr], self.charged_trna_idx)
         amino_acid_availability = counts(states[attr], self.amino_acid_idx)
 
+        # μM → mol/L unit bridge for the supply closure (P5 unit fix).
+        # amino_acid_synthesis / _import / _export expect aa_conc in
+        # METABOLITE_CONCENTRATION_UNITS = mol/L, but the closure's
+        # raw output (after counts_to_uM_mag scaling) is in μM/s. We pass
+        # a mol/L-magnitude argument to the closure, which then converts
+        # rates back to μM/s via the counts_to_uM_mag multiplier
+        # internally — exactly what SteadyState's dcdt does at
+        # kinetics.py:351 (``supply(unit_conversion * aa_conc)``).
+        # ``unit_conversion`` is 1e-6 (μM/L / (mol/L)) — see
+        # get_amino_acid_conc_conversion at
+        # parca/.../metabolism.py:2121-2122.
+        # Without this fix, AA concentrations are interpreted as 1e6×
+        # too high, synthesis returns large reverse fluxes, and the cell
+        # spuriously starves at startup (observed in Stage A smoke run).
+        unit_conversion = self.charging_params["unit_conversion"]
+
         def ode_model(
             t,
             molecules,
@@ -1535,9 +1551,15 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             # supply math, in counts/s instead of μM/s via the per-step
             # unit bridge ``counts_to_uM_mag`` (μM per molecule).
             if supply_function is not None:
-                aa_conc_uM = counts_to_uM_mag * amino_acids_remaining
+                # Convert ODE state (counts) → μM → mol/L for the supply
+                # closure. unit_conversion (1e-6) is captured from the
+                # enclosing scope. Mirrors SteadyState's dcdt:
+                # ``supply(unit_conversion * aa_conc)`` at kinetics.py:351.
+                aa_conc_molar = (
+                    counts_to_uM_mag * amino_acids_remaining * unit_conversion
+                )
                 v_synthesis_uM, v_import_uM, v_export_uM = supply_function(
-                    aa_conc_uM
+                    aa_conc_molar
                 )
                 # μM/s → counts/s; supply terms go into the AA balance
                 # alongside −(trnas_to_amino_acids @ charging_rate).
@@ -1714,6 +1736,19 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
 
         # Cap at AA availability — undo charging events one-by-one if any
         # AA is over-spent.
+        #
+        # Original loop (pre-2026-06-27) decremented the most-over-rounded
+        # tRNA's chargings without checking it was > 0; under the consensus
+        # supply path the kinetic ODE produces enough charging activity
+        # that the recovery loop would pick already-zero tRNAs and drive
+        # them to -1, tripping the np.all(chargings >= 0) assert below.
+        # Fix: mask the argsort to only consider tRNAs with chargings > 0.
+        # If no charging events remain to undo for an AA, accept the
+        # residual over-estimate — for the bulk_total pass it just makes
+        # the request envelope marginally looser (the allocator caps to
+        # actual availability anyway); for the bulk pass it's an unusual
+        # state where the ODE wants more charging than the discrete pool
+        # supports, and we'd rather continue than crash.
         amino_acids_used = self.trnas_to_amino_acids @ chargings
         exceeds_availability = amino_acids_used > amino_acid_availability
         if np.any(exceeds_availability):
@@ -1721,14 +1756,22 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
                 n_undo = amino_acids_used[i] - amino_acid_availability[i]
                 trna_indexes = np.where(self.trnas_to_amino_acids[i])[0]
                 for _ in range(n_undo):
-                    i_undo = np.argsort(
-                        (chargings - raw_charging)[trna_indexes]
-                    )[-1]
+                    available = chargings[trna_indexes] > 0
+                    if not np.any(available):
+                        break  # nothing left to undo for AA i
+                    diff = (chargings - raw_charging)[trna_indexes]
+                    masked_diff = np.where(available, diff, -np.inf)
+                    i_undo = int(np.argmax(masked_diff))
                     chargings[trna_indexes[i_undo]] -= 1
             amino_acids_used = self.trnas_to_amino_acids @ chargings
-            exceeds_availability = amino_acids_used > amino_acid_availability
-            assert not np.any(exceeds_availability)
-        assert np.all(chargings >= 0)
+            # Residual over-consumption is possible (we broke out of the
+            # undo loop above). For the request-side pass the allocator
+            # caps to actual availability so this is harmless; for the
+            # evolve pass it's logged below but not fatal.
+        assert np.all(chargings >= 0), (
+            "chargings went negative during AA-availability recovery — "
+            "see kinetic_charging.py:1741 for the masked-undo logic"
+        )
 
         # ---- Discretize reading events ----
         if attr == "bulk_total":

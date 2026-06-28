@@ -95,6 +95,63 @@ DEFAULT_MAX_GENERATIONS = 5
 DEFAULT_MAX_STEPS_PER_GEN = 4000  # ~67 minutes of sim per gen at 1s ticks
 DEFAULT_CHUNK = 100
 
+# Staged scope presets. Each --stage maps to a (media, seeds, max_gens,
+# max_steps_per_gen, chunk) tuple. CLI flags override these. Driven by
+# the 2026-06-27 rescope discussion in HANDOFF.md after profiling
+# revealed ~42s/tick post-BDF — the full 4×3×5 sweep is multi-week, so
+# we incrementally validate from smoke → cell-cycle → cross-media.
+STAGE_PRESETS = {
+    "smoke": {
+        "description": (
+            "100-tick stability smoke. 1 condition × 1 seed × 1 gen × 100 "
+            "ticks. ~1-2 hours wall. Validates consensus model doesn't "
+            "crash, ppGpp dynamics visible, AA pools stay positive."
+        ),
+        "media": ["minimal"],
+        "seeds": [0],
+        "max_generations": 1,
+        "max_steps_per_gen": 100,
+        "chunk": 10,
+    },
+    "cell-cycle": {
+        "description": (
+            "Single E. coli cell cycle in minimal media. 1 condition × "
+            "1 seed × 1 gen × 3500 ticks (allows ~60 min of sim time, "
+            "enough for one division). ~25-40 hours wall depending on "
+            "mid-run tick cost."
+        ),
+        "media": ["minimal"],
+        "seeds": [0],
+        "max_generations": 1,
+        "max_steps_per_gen": 3500,
+        "chunk": 100,
+    },
+    "cross-media": {
+        "description": (
+            "Behavioral differentiation across media. 4 conditions × "
+            "1 seed × 1 gen × 1500 ticks each. Multi-day wall; defer "
+            "until cell-cycle stage is green."
+        ),
+        "media": DEFAULT_MEDIA,
+        "seeds": [0],
+        "max_generations": 1,
+        "max_steps_per_gen": 1500,
+        "chunk": 100,
+    },
+    "full": {
+        "description": (
+            "Original design-spec scope: 4 media × 3 seeds × 5 gens. "
+            "Multi-week wall; not currently feasible without further "
+            "optimization (jac_sparsity hint, parallel execution)."
+        ),
+        "media": DEFAULT_MEDIA,
+        "seeds": DEFAULT_SEEDS,
+        "max_generations": DEFAULT_MAX_GENERATIONS,
+        "max_steps_per_gen": DEFAULT_MAX_STEPS_PER_GEN,
+        "chunk": DEFAULT_CHUNK,
+    },
+}
+
 # Paths the SQLite emitter captures for the consensus metrics.
 EMIT_PATHS = [
     "global_time",
@@ -279,7 +336,9 @@ def needs_run(spec: RunSpec, output_dir: Path, force: bool) -> bool:
     return not db.exists()
 
 
-def execute_run(spec: RunSpec, cache_dir: str, output_dir: Path) -> dict:
+def execute_run(
+    spec: RunSpec, cache_dir: str, output_dir: Path, chunk: int = DEFAULT_CHUNK,
+) -> dict:
     """Run one (media, seed) condition through ``max_generations``.
 
     Builds a ``consensus_baseline`` composite with ``media_id``
@@ -314,11 +373,201 @@ def execute_run(spec: RunSpec, cache_dir: str, output_dir: Path) -> dict:
         emit_paths=EMIT_PATHS,
         max_steps=spec.max_steps,
         max_generations=spec.max_generations,
-        chunk=DEFAULT_CHUNK,
+        chunk=chunk,
         single_daughters=True,  # bound peak memory at one-cell footprint
         core=core,
     )
     return result
+
+
+# ============================================================
+# Trajectory dump + human-readable summary (per run)
+# ============================================================
+
+def extract_trajectory(db_file: str | Path, sim_id: str) -> list[dict]:
+    """Read every history row and return a per-tick trajectory dict list.
+
+    Each dict has ``t`` + a flat set of key listener values. Designed to
+    be opened in any JSON viewer or loaded into pandas for plotting.
+    Missing fields are skipped silently (not all listeners are emitted
+    every tick).
+    """
+    import sqlite3
+
+    db_file = Path(db_file)
+    if not db_file.exists():
+        return []
+
+    conn = sqlite3.connect(str(db_file))
+    try:
+        rows = conn.execute(
+            "SELECT global_time, state FROM history "
+            "WHERE simulation_id = ? ORDER BY step",
+            (sim_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    trajectory = []
+    for t, state_json in rows:
+        try:
+            state = json.loads(state_json)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        # The SQLite emitter wraps state under agents.<id> (the composite
+        # is single-cell-by-design but the schema still nests an agents
+        # store). Walk down to the first agent's listeners.
+        agent_state = state
+        if isinstance(state.get("agents"), dict) and state["agents"]:
+            agent_state = next(iter(state["agents"].values()))
+
+        entry: dict = {"t": float(t) if t is not None else None}
+        listeners = agent_state.get("listeners", {})
+        mass = listeners.get("mass", {})
+        for k in ("cell_mass", "dry_mass"):
+            if k in mass:
+                try:
+                    entry[k] = float(mass[k])
+                except (TypeError, ValueError):
+                    pass
+
+        gl = listeners.get("growth_limits", {})
+        # Per-AA arrays: take per-AA mean for compact dump; raw arrays
+        # are still in the source state column for deeper analysis.
+        for k in (
+            "fraction_trna_charged", "aa_supply", "aa_synthesis",
+            "aa_import", "aa_export", "aa_exchange_rates", "rela_syn",
+        ):
+            v = gl.get(k)
+            if isinstance(v, list) and v:
+                try:
+                    arr = [float(x) for x in v]
+                    entry[f"{k}_mean"] = sum(arr) / len(arr)
+                    entry[f"{k}_sum"] = sum(arr)
+                except (TypeError, ValueError):
+                    pass
+        # Scalar listeners.
+        for k in ("spot_syn", "spot_deg"):
+            v = gl.get(k)
+            if v is not None:
+                try:
+                    entry[k] = float(v)
+                except (TypeError, ValueError):
+                    pass
+
+        rd = listeners.get("ribosome_data", {})
+        er = rd.get("effective_elongation_rate")
+        if er is not None:
+            try:
+                entry["effective_elongation_rate_aa_per_s"] = float(
+                    getattr(er, "magnitude", er)
+                )
+            except (TypeError, ValueError):
+                pass
+
+        trajectory.append(entry)
+    return trajectory
+
+
+def write_trajectory_json(
+    trajectory: list[dict], out_path: Path, media: str, seed: int,
+) -> None:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "media": media,
+        "seed": seed,
+        "n_ticks": len(trajectory),
+        "trajectory": trajectory,
+    }
+    out_path.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+
+
+def write_summary_txt(
+    trajectory: list[dict], out_path: Path, media: str, seed: int,
+    wall_seconds: float,
+) -> None:
+    """Human-readable per-run summary. Captures key trajectory statistics
+    + a tiny ASCII trend so the file is openable without tools.
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    lines: list[str] = []
+    lines.append(f"=== Consensus validation run: {media} seed={seed} ===")
+    lines.append(f"Ticks completed: {len(trajectory)}")
+    lines.append(f"Wall time: {wall_seconds:.1f}s ({wall_seconds / 60:.1f} min)")
+    if trajectory:
+        per_tick = wall_seconds / max(len(trajectory), 1)
+        lines.append(f"Per-tick wall cost: {per_tick:.1f}s")
+        lines.append("")
+
+        # Per-field statistics.
+        fields = sorted({k for entry in trajectory for k in entry if k != "t"})
+        col_w = max(len(f) for f in fields) if fields else 4
+        lines.append(f"{'field'.ljust(col_w)}  {'first':>12}  {'last':>12}  {'min':>12}  {'max':>12}  {'mean':>12}")
+        lines.append("-" * (col_w + 2 + 12 * 5 + 8))
+        for f in fields:
+            values = [e.get(f) for e in trajectory if e.get(f) is not None]
+            if not values:
+                continue
+            try:
+                values = [float(v) for v in values]
+            except (TypeError, ValueError):
+                continue
+            first = values[0]
+            last = values[-1]
+            lo = min(values)
+            hi = max(values)
+            mu = sum(values) / len(values)
+            lines.append(
+                f"{f.ljust(col_w)}  {first:12.4g}  {last:12.4g}  "
+                f"{lo:12.4g}  {hi:12.4g}  {mu:12.4g}"
+            )
+
+        # Consensus sanity checks (preview of acceptance criteria scope).
+        lines.append("")
+        lines.append("=== Consensus sanity checks ===")
+        charging_vals = [
+            e["fraction_trna_charged_mean"] for e in trajectory
+            if "fraction_trna_charged_mean" in e
+        ]
+        if charging_vals:
+            mean_fc = sum(charging_vals) / len(charging_vals)
+            verdict = "PASS" if mean_fc >= 0.85 else "below target"
+            lines.append(
+                f"  tRNA charging fraction mean: {mean_fc:.4f} "
+                f"(target ≥ 0.85) [{verdict}]"
+            )
+        supply_vals = [
+            e["aa_supply_mean"] for e in trajectory if "aa_supply_mean" in e
+        ]
+        if supply_vals:
+            n_nonzero = sum(1 for v in supply_vals if v != 0)
+            lines.append(
+                f"  aa_supply listener: {n_nonzero}/{len(supply_vals)} ticks "
+                f"non-zero (consensus ODE merge active)"
+            )
+        rela_vals = [
+            e["rela_syn_mean"] for e in trajectory if "rela_syn_mean" in e
+        ]
+        if rela_vals:
+            n_nonzero = sum(1 for v in rela_vals if v != 0)
+            lines.append(
+                f"  rela_syn listener: {n_nonzero}/{len(rela_vals)} ticks "
+                f"non-zero (ppGpp regulation firing)"
+            )
+        mass_vals = [
+            e["cell_mass"] for e in trajectory if "cell_mass" in e
+        ]
+        if len(mass_vals) >= 2:
+            growth = (mass_vals[-1] / mass_vals[0] - 1) * 100
+            lines.append(
+                f"  cell_mass: {mass_vals[0]:.4g} → {mass_vals[-1]:.4g} "
+                f"({growth:+.2f}% over {len(mass_vals)} ticks)"
+            )
+
+    # encoding=utf-8 because we use ≥ in the summary; the default ASCII
+    # encoder under some launch environments fails on non-ASCII chars.
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 # ============================================================
@@ -348,7 +597,8 @@ def compute_metrics(db_file: str | Path, media: str, seed: int) -> Metrics:
         cur = conn.cursor()
         try:
             rows = cur.execute(
-                "SELECT time, state FROM history WHERE simulation_id = ?",
+                "SELECT global_time, state FROM history "
+                "WHERE simulation_id = ? ORDER BY step",
                 (f"consensus-{media}-seed{seed}",),
             ).fetchall()
         except sqlite3.OperationalError as e:
@@ -372,7 +622,11 @@ def compute_metrics(db_file: str | Path, media: str, seed: int) -> Metrics:
             except (json.JSONDecodeError, TypeError):
                 continue
             time_s.append(float(t))
-            listeners = state.get("listeners", {})
+            # Same agents-store unwrap as extract_trajectory.
+            agent_state = state
+            if isinstance(state.get("agents"), dict) and state["agents"]:
+                agent_state = next(iter(state["agents"].values()))
+            listeners = agent_state.get("listeners", {})
             mass = listeners.get("mass", {})
             if "cell_mass" in mass:
                 try:
@@ -566,6 +820,13 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    stage_help = "Staged scope preset (overridden by individual CLI flags):\n"
+    for name, cfg in STAGE_PRESETS.items():
+        stage_help += f"  {name}: {cfg['description']}\n"
+    p.add_argument(
+        "--stage", choices=list(STAGE_PRESETS.keys()), default=None,
+        help=stage_help,
+    )
     p.add_argument(
         "--cache-dir", default="out/cache",
         help="ParCa cache dir (default: out/cache)",
@@ -575,20 +836,24 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Output dir for per-run dbs + report (default: out/consensus_validation)",
     )
     p.add_argument(
-        "--media", nargs="+", default=DEFAULT_MEDIA,
-        help=f"Media ids to sweep (default: {DEFAULT_MEDIA})",
+        "--media", nargs="+", default=None,
+        help=f"Media ids to sweep (default per stage; --stage full = {DEFAULT_MEDIA})",
     )
     p.add_argument(
-        "--seeds", type=int, nargs="+", default=DEFAULT_SEEDS,
-        help=f"RNG seeds (default: {DEFAULT_SEEDS})",
+        "--seeds", type=int, nargs="+", default=None,
+        help=f"RNG seeds (default per stage; --stage full = {DEFAULT_SEEDS})",
     )
     p.add_argument(
-        "--max-generations", type=int, default=DEFAULT_MAX_GENERATIONS,
-        help=f"Generations per run (default: {DEFAULT_MAX_GENERATIONS})",
+        "--max-generations", type=int, default=None,
+        help=f"Generations per run (default per stage; --stage full = {DEFAULT_MAX_GENERATIONS})",
     )
     p.add_argument(
-        "--max-steps-per-gen", type=int, default=DEFAULT_MAX_STEPS_PER_GEN,
-        help=f"Max ticks per generation (default: {DEFAULT_MAX_STEPS_PER_GEN})",
+        "--max-steps-per-gen", type=int, default=None,
+        help=f"Max ticks per generation (default per stage; --stage full = {DEFAULT_MAX_STEPS_PER_GEN})",
+    )
+    p.add_argument(
+        "--chunk", type=int, default=None,
+        help="Ticks between SQLite emitter flushes (default per stage)",
     )
     p.add_argument(
         "--preflight-only", action="store_true",
@@ -602,7 +867,23 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--report-only", action="store_true",
         help="Skip sims; just aggregate existing dbs into a report",
     )
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+
+    # Apply stage preset, then let explicit CLI flags override.
+    stage = args.stage or "full"
+    preset = STAGE_PRESETS[stage]
+    if args.media is None:
+        args.media = preset["media"]
+    if args.seeds is None:
+        args.seeds = preset["seeds"]
+    if args.max_generations is None:
+        args.max_generations = preset["max_generations"]
+    if args.max_steps_per_gen is None:
+        args.max_steps_per_gen = preset["max_steps_per_gen"]
+    if args.chunk is None:
+        args.chunk = preset["chunk"]
+    args.stage = stage
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -641,18 +922,51 @@ def main(argv: list[str] | None = None) -> int:
                       f"{spec.media} seed={spec.seed} (db exists)")
                 continue
             print(f"[sweep] [{i}/{len(specs)}] RUN "
-                  f"{spec.media} seed={spec.seed}")
+                  f"{spec.media} seed={spec.seed} "
+                  f"(max_steps={spec.max_steps}, chunk={args.chunk})",
+                  flush=True)
             t0 = time.time()
+            elapsed = 0.0
+            result: dict = {}
             try:
-                result = execute_run(spec, args.cache_dir, output_dir)
+                result = execute_run(
+                    spec, args.cache_dir, output_dir, chunk=args.chunk,
+                )
                 elapsed = time.time() - t0
-                print(f"[sweep]   completed in {elapsed:.1f}s — "
-                      f"{result.get('steps', '?')} steps, "
-                      f"{len(result.get('generations', []))} generations")
+                steps = result.get("steps", "?")
+                gens = len(result.get("generations", []))
+                per_tick = elapsed / max(int(steps or 1), 1) if isinstance(steps, int) else None
+                msg = (f"[sweep]   completed in {elapsed:.1f}s — "
+                       f"{steps} steps, {gens} generations")
+                if per_tick is not None:
+                    msg += f" ({per_tick:.1f}s/tick)"
+                print(msg, flush=True)
             except Exception as e:
                 elapsed = time.time() - t0
                 print(f"[sweep]   FAILED after {elapsed:.1f}s — "
-                      f"{type(e).__name__}: {e}")
+                      f"{type(e).__name__}: {e}", flush=True)
+
+            # Dump human-readable artifacts for THIS run, regardless of
+            # success/failure (partial run might still have writable data).
+            try:
+                traj = extract_trajectory(
+                    spec.db_path(output_dir), spec.run_id(),
+                )
+                write_trajectory_json(
+                    traj,
+                    spec.out_subdir(output_dir) / "trajectory.json",
+                    spec.media, spec.seed,
+                )
+                write_summary_txt(
+                    traj,
+                    spec.out_subdir(output_dir) / "summary.txt",
+                    spec.media, spec.seed, elapsed,
+                )
+                print(f"[sweep]   wrote trajectory.json + summary.txt "
+                      f"({len(traj)} ticks)", flush=True)
+            except Exception as e:
+                print(f"[sweep]   trajectory dump failed: "
+                      f"{type(e).__name__}: {e}", flush=True)
 
     print("[sweep] computing metrics…")
     metrics_list: list[Metrics] = []

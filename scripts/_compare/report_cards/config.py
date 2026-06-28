@@ -7,7 +7,10 @@ from __future__ import annotations
 import html as _html
 import json as _json
 
-from scripts._compare.report_cards import report_card, CardContext, Section
+from process_bigraph.composite import as_step
+
+from scripts._compare.report_cards import (
+    report_card, CardContext, Section, CARD_INPUTS, CARD_OUTPUTS, REPORT_CARD_STEPS)
 
 # Keys surfaced first, in this order; everything else follows alphabetically.
 _PRIORITY = ["condition", "n_init_sims", "generations", "time_step",
@@ -15,14 +18,13 @@ _PRIORITY = ["condition", "n_init_sims", "generations", "time_step",
 _LABEL = {"n_init_sims": "seeds (n_init_sims)", "generations": "generations"}
 
 
-@report_card("config")
-def config_card(ctx: CardContext) -> Section:
-    cfg = dict(ctx.config or {})
-    cfg.setdefault("condition", ctx.config_name)
-    if ctx.seeds:
-        cfg.setdefault("n_init_sims", ctx.seeds)
-    if ctx.gens:
-        cfg.setdefault("generations", ctx.gens)
+def _config_html(name: str, seeds: int, gens: int, config: dict) -> str:
+    cfg = dict(config or {})
+    cfg.setdefault("condition", name)
+    if seeds:
+        cfg.setdefault("n_init_sims", seeds)
+    if gens:
+        cfg.setdefault("generations", gens)
     keys = [k for k in _PRIORITY if k in cfg] + sorted(
         k for k in cfg if k not in _PRIORITY and not k.startswith("_"))
     rows = []
@@ -36,13 +38,13 @@ def config_card(ctx: CardContext) -> Section:
             f'{vs}</td></tr>')
     table = ('<table style="border-collapse:collapse;font-size:13px">'
              + "".join(rows) + "</table>") if rows else (
-        f"<p>config for '{_html.escape(ctx.config_name)}' (no fields resolved)</p>")
-    src = ctx.config.get("_source") if isinstance(ctx.config, dict) else None
+        f"<p>config for '{_html.escape(name)}' (no fields resolved)</p>")
+    src = config.get("_source") if isinstance(config, dict) else None
     note = (f'<p style="color:#6b7280;font-size:12px">source: '
             f'{_html.escape(str(src))}</p>') if src else ""
     # Full JSON config in a browsable (collapsible, scrollable) viewer — the
     # default so every section exposes exactly what was run.
-    full = {k: v for k, v in (ctx.config or {}).items() if k != "_source"}
+    full = {k: v for k, v in (config or {}).items() if k != "_source"}
     json_viewer = (
         '<details open style="margin-top:8px"><summary style="cursor:pointer;'
         'color:#374151;font-weight:600">full JSON config</summary>'
@@ -50,10 +52,25 @@ def config_card(ctx: CardContext) -> Section:
         'padding:10px;font-size:12px;line-height:1.4;max-height:380px;overflow:auto;'
         'white-space:pre">' + _html.escape(_json.dumps(full, indent=2, sort_keys=True))
         + '</pre></details>') if full else ""
-    return {"title": f"{ctx.config_name} — config",
-            "kind": "content",
+    return (f"<p>vEcoli config driving the <b>{_html.escape(name)}</b> "
+            f"run (config = source of truth for the run shape).</p>"
+            + table + json_viewer + note)
+
+
+@as_step(inputs=CARD_INPUTS, outputs=CARD_OUTPUTS, name="config_report_card",
+         aliases=["config"])
+def update_config_report_card(state):
+    return {"card_html": _config_html(state["name"], state["seeds"],
+                                      state["generations"], state["config"]),
+            "verdict": "ungraded", "axes": []}
+
+
+REPORT_CARD_STEPS["config_report_card"] = update_config_report_card
+
+
+@report_card("config")
+def config_card(ctx: CardContext) -> Section:
+    return {"title": f"{ctx.config_name} — config", "kind": "content",
             "anchor": f"{ctx.config_name}-config",
-            "html": f"<p>vEcoli config driving the <b>{_html.escape(ctx.config_name)}</b> "
-                    f"run (config = source of truth for the run shape).</p>"
-                    + table + json_viewer + note,
+            "html": _config_html(ctx.config_name, ctx.seeds, ctx.gens, ctx.config),
             "verdict": None}

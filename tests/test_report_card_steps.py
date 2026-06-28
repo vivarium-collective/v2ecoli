@@ -61,3 +61,15 @@ def test_parca_step_grades_initial_state():
     out = _run_card("parca", _state(_PO))
     assert out["verdict"] == "within_tol"
     assert any(a["id"].startswith("parca.") for a in out["axes"])
+
+
+def test_statistical_step_grades():
+    out = _run_card("statistical", _state(_PO, name="statistical", seeds=4))
+    assert out["verdict"] == "within_tol"
+    assert out["axes"]
+
+
+def test_config_step_is_ungraded_and_renders_config():
+    out = _run_card("config", _state({}, name="basal", config={"condition": "basal"}))
+    assert out["verdict"] == "ungraded" and out["axes"] == []
+    assert "basal" in out["card_html"]

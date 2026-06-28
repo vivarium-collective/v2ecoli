@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><title>v2ecoli</title>
-<link rel="stylesheet" href="assets/style.css?v=1782439284_1782439284">
+<link rel="stylesheet" href="assets/style.css?v=1782613890_1782613890">
 <link rel="stylesheet" href="assets/snapshot-readonly.css">
 <script>
 // Per-workspace branding (rail logo, title, brand text) is resolved
@@ -391,7 +391,7 @@ window.addEventListener('pageshow', function (e) {
 
     <!-- Brand: fixed Vivarium logo + name (no per-workspace icon/name override). -->
     <div class="viv-rail-header">
-      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1782439284_1782439284" alt="Vivarium" loading="lazy">
+      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1782613890_1782613890" alt="Vivarium" loading="lazy">
       <div class="viv-rail-brand">
         <strong>Vivarium</strong>
         <small>dashboard</small>
@@ -420,11 +420,16 @@ window.addEventListener('pageshow', function (e) {
       </div>
     </div>
     <!-- Snapshot mode: static repo label replaces the switcher dropdown. -->
-    <div class="viv-repo-label" id="snapshot-repo-label" style="display:none">
+    <div class="viv-repo-label" id="snapshot-repo-label" style="display:none;cursor:pointer"
+         role="button" tabindex="0"
+         title="Open Source — switch workspace"
+         onclick="window.location.hash='#github'; if(window._switchPage)_switchPage('github');"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); window.location.hash='#github'; if(window._switchPage)_switchPage('github');}">
       <span class="viv-workspace-switcher-glyph">●</span>
+      <strong>v2ecoli</strong>
       
       <a class="viv-ws-repo-link" href="https://github.com/vivarium-collective/v2ecoli" target="_blank" rel="noopener"
-         title="Open v2ecoli on GitHub"><strong>v2ecoli</strong>
+         title="Open v2ecoli on GitHub" onclick="event.stopPropagation()">
         <svg class="viv-ws-gh-mark" width="12" height="12"><use href="#viv-gh-mark"/></svg></a>
       
     </div>
@@ -723,13 +728,8 @@ window.addEventListener('pageshow', function (e) {
     <button class="action-btn" onclick="_loadRegistry(true)">Refresh registry</button>
     <div id="registry-status" class="muted" style="margin:8px 0"></div>
 
-    <!-- Imported repositories (workspace.yaml::imports) + the processes/steps
-         each one contributes. Populated by _renderImportedRepos. -->
-    <div id="registry-imports-section" hidden>
-      <h3 style="margin:14px 0 2px">Imported repositories <span class="count-badge" id="registry-imports-count"></span></h3>
-      <p class="panel-lead" style="margin:2px 0 10px">External pbg-* repositories this workspace declares in <code>workspace.yaml: imports</code>, and the Processes / Steps / Emitters / Visualizations each contributes.</p>
-      <div id="registry-imports-container" class="module-grid"></div>
-    </div>
+    <!-- "Imported repositories" was removed: those repos are already shown in
+         the Modules tab, so duplicating them under Discovered registry was noise. -->
 
     <div class="registry-tabs">
       <button class="registry-tab active" data-kind="process"       onclick="_setRegistryTab('process')">Processes <span class="count-badge" id="registry-process-count"></span></button>
@@ -1638,16 +1638,16 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
 <script src="assets/data-source.js"></script>
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/walkthrough.js?v=1782439284_1782439284" onerror="/* walkthrough unavailable */"></script>
-<script src="assets/explorer.js?v=1782439284_1782439284" onerror="/* explorer unavailable */"></script>
-<script src="assets/explorer-views.js?v=1782439284_1782439284" onerror="/* explorer views unavailable */"></script>
-<script src="assets/github-login.js?v=1782439284_1782439284" onerror="/* github-login unavailable */"></script>
+<script src="assets/walkthrough.js?v=1782613890_1782613890" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/explorer.js?v=1782613890_1782613890" onerror="/* explorer unavailable */"></script>
+<script src="assets/explorer-views.js?v=1782613890_1782613890" onerror="/* explorer views unavailable */"></script>
+<script src="assets/github-login.js?v=1782613890_1782613890" onerror="/* github-login unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher
      (investigation-switcher.js). The /api/workspaces endpoints remain available
      for CLI tooling. -->
 <script src="assets/investigation-switcher.js"></script>
-<script src="assets/branch-source.js?v=1782439284_1782439284"></script>
+<script src="assets/branch-source.js?v=1782613890_1782613890"></script>
 <script>
 // Initialize drop zones once walkthrough.js is loaded.
 document.addEventListener("DOMContentLoaded", function() {

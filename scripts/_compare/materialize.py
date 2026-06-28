@@ -27,16 +27,21 @@ def card_root(spec: StudySpec) -> str:
 
 
 def materialized_fields(spec: StudySpec) -> dict:
-    """The report_cards + behavior_tests derived from a study's graded cards."""
-    card_dir = f"{card_root(spec)}/{spec.name}"
-    return {
-        "report_cards": [f"{card_dir}/index.html"],
-        "behavior_tests": [
-            {"name": f"{c}-vs-vecoli",
+    """report_cards (viz embeds) + a modular `tests` list of report_card modules
+    (one per assigned card). Graded cards carry a report_card_axis measure so the
+    gate aggregates; config/parca are informational (no measure)."""
+    cdir = f"{card_root(spec)}/{spec.name}"          # docs/report_cards/<invest>/<name>
+    tests = []
+    for c in spec.cards:
+        t = {"name": f"{c}-vs-vecoli", "kind": "report_card", "card": c,
              "classification": "primary",
-             "question": f"Does v2ecoli reproduce vEcoli on {spec.name} ({c} card)?",
-             "measure": {"kind": "report_card_axis", "card": card_dir, "group": c}}
-            for c in spec.graded_cards],
+             "question": f"Does v2ecoli reproduce vEcoli on {spec.name} ({c} card)?"}
+        if c in spec.graded_cards:
+            t["measure"] = {"kind": "report_card_axis", "card": cdir, "group": c}
+        tests.append(t)
+    return {
+        "report_cards": [f"viz/report_card/{c}.html" for c in spec.cards],
+        "tests": tests,
     }
 
 
@@ -47,6 +52,7 @@ def materialize_study(spec: StudySpec) -> Path:
     path = Path(spec.study_path)
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     data.update(materialized_fields(spec))
+    data.pop("behavior_tests", None)   # replaced by the modular `tests` list
     data.setdefault("pipeline_gate", {"prerequisites": [], "enables": []})
     # Canonical run + per-test outcomes from the study's verdict JSON (when it
     # exists) so the dashboard pill strip shows the REAL result per card.
@@ -57,8 +63,10 @@ def materialize_study(spec: StudySpec) -> Path:
         verdict = json.loads(vpath.read_text(encoding="utf-8"))
         groups = verdict.get("groups") or {}
         outcomes = {}
-        for bt in data.get("behavior_tests") or []:
+        for bt in data.get("tests") or []:
             grp = (bt.get("measure") or {}).get("group")
+            if grp is None:
+                continue
             gv = (groups.get(grp) or {}).get("verdict", "ungraded")
             outcomes[bt["name"]] = {"result": _OUTCOME.get(gv, "PENDING"),
                                     "detail": f"report card '{grp}': {gv}"}

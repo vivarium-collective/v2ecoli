@@ -46,7 +46,7 @@ def materialized_fields(spec: StudySpec) -> dict:
 
 
 def materialize_study(spec: StudySpec) -> Path:
-    """Rewrite the study.yaml's report_cards + behavior_tests from its cards,
+    """Rewrite the study.yaml's report_cards + the modular `tests` list from its cards,
     preserving every other key; ensure an independent pipeline_gate. Returns the
     study path."""
     path = Path(spec.study_path)

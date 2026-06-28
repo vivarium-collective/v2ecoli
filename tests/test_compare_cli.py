@@ -47,7 +47,6 @@ def test_study_render_only_propagates(monkeypatch):
 
 
 def test_scaffold_materializes_all_studies(monkeypatch):
-    import scripts.compare_cli as cli
     seen = []
     fake_specs = [type("S", (), {"name": "basal"})(), type("S", (), {"name": "with_aa"})()]
     monkeypatch.setattr(cli.runner, "load_investigation",

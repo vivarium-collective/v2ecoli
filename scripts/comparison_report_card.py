@@ -697,7 +697,6 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
     verdict_root is None it is derived from the studies' investigation."""
     from scripts._compare import report_cards as rc
     from scripts._compare.verdict import write_condition_verdict
-    from scripts._compare.viz_cards import write_report_cards
 
     if verdict_root is None and specs:
         verdict_root = f"docs/report_cards/{specs[0].invest_name}"
@@ -734,6 +733,7 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
         if verdict_root:
             write_condition_verdict(verdict_root, name, card_verdicts)
         if studies_root:
+            from scripts._compare.viz_cards import write_report_cards
             study_dir = Path(studies_root) / spec.invest_name / "studies" / name
             write_report_cards(study_dir, viz_cards)
     return sections

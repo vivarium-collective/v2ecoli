@@ -21,3 +21,6 @@ def test_writes_html_and_verdict_per_card(tmp_path):
     assert vd["overall"] == "drift"
     assert vd["groups"]["standard"]["verdict"] == "drift"
     assert {p.name for p in paths} >= {"standard.html", "config.html"}
+    assert (rc / "config.verdict.json").is_file()
+    cvd = json.loads((rc / "config.verdict.json").read_text(encoding="utf-8"))
+    assert cvd["overall"] == "ungraded"

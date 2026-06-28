@@ -23,7 +23,7 @@ def _card_html(name: str, sections: list) -> str:
     return _DOC.format(title=_html.escape(name), body="".join(parts))
 
 
-def write_report_cards(study_dir, cards: list) -> list:
+def write_report_cards(study_dir, cards: list) -> list[Path]:
     """Write <study_dir>/viz/report_card/<name>.{html,verdict.json} per card."""
     out = Path(study_dir) / "viz" / "report_card"
     out.mkdir(parents=True, exist_ok=True)

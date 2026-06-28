@@ -240,12 +240,15 @@ executive:
   decisions_needed:
   - question: "Haochen H1 — does lowering K (oriC half-saturation) increase the chance of oriC saturation? Show the in-sim K-scan result."
     status: |
-      In progress (2026-06-27): scanning K=15/20/25/30/40 at n=4, 8 gens, under the MASS trigger
-      (the dnaa-5 regime where late gens under-saturated: [11,93,95,0,0,0,0,0,0]). n was already
-      scanned (dnaa-5 n=1/2/4/6/8). NOTE the question is largely moot under the MECHANISTIC trigger
-      (dnaa-6 F-04): firing on oriC saturation already gives reliable once-per-cycle saturation
-      regardless of K. The K-scan quantifies whether lower K alone rescues saturation under the mass
-      clock. Result to be folded here + into dnaa-5/dnaa-6.
+      ANSWERED 2026-06-27 — YES, monotonically. In-sim K scan (K=15/20/25/30/40, n=4, 8 gens, mass
+      trigger; gens that saturate oriC-low): K40 2/8, K30(ref) 3/8, K25 5/8, K20 5/6, K15 6/8. At the
+      reference K=30 most late gens fail to saturate (free DnaA-ATP drifts below the midpoint — the
+      dnaa-5 [...,0,0,0,0] tail); lowering K to 15-25 trips the switch each cycle. Does NOT close the
+      ATP-fraction band (all K ~0.08-0.13, below [0.2,0.5] — that is the recharge-rate k_r / code
+      item). n was already scanned (dnaa-5 n=1/2/4/6/8). Caveat: brief gen-1 oriC->4 transients at
+      K=20/30 and the K=20 lineage stopped at gen 6 — multi-seed check before fixing an operating K.
+      Largely moot under the MECHANISTIC trigger (dnaa-6 F-04), which already saturates reliably once
+      per cycle regardless of K. See feedback-2026-06-27-haochen/response.md.
     context: |
       Haochen's report question + comment H1 (feedback-2026-06-27-haochen). He wants the in-sim
       K-lowering result shown, not just the analytic dnaa5_k_sweep curve.

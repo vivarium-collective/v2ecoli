@@ -747,6 +747,45 @@ def assemble_from_manifest(manifest, cond_data, conds, config_names,
     return sections
 
 
+def assemble_from_studies(specs, cond_data, conds,
+                          verdict_root="docs/report_cards/v2ecoli-vecoli-comparison"):
+    """Overview + per-study assigned-card sections, driven by study specs (the
+    study-YAML-only model — no manifest). Each StudySpec carries name (store key),
+    condition, seeds/gens and cards; the `config` card renders the study's run
+    spec. Writes one report_card_verdict.json per study (each card a group)."""
+    from scripts._compare import report_cards as rc
+    from scripts._compare.verdict import write_condition_verdict
+
+    overview = overview_section(cond_data); overview["nav_group"] = "Overall"
+    sections = [overview]
+    for spec in specs:
+        name = spec.name
+        if name not in cond_data:
+            continue
+        per_obs, plot_trajs, v2_bounds = cond_data[name]
+        v2_dir, ve_dir = conds.get(name, ("", ""))
+        ctx = rc.CardContext(
+            config_name=name, variant=0, v2_dir=v2_dir, ve_dir=ve_dir,
+            seeds=spec.seeds, gens=spec.gens, per_obs=per_obs,
+            plot_trajs=plot_trajs, v2_bounds=v2_bounds,
+            config={"condition": spec.condition, "seeds": spec.seeds,
+                    "generations": spec.gens, "cards": spec.cards})
+        card_verdicts = {}
+        for card in spec.cards:
+            cardv = None
+            for sec in rc.render(card, ctx):
+                sec["nav_group"] = name
+                sections.append(sec)
+                if "verdict_axes" in sec:
+                    # last-graded-section-wins; one graded section per card
+                    cardv = {"verdict": sec.get("verdict", "ungraded"),
+                             "axes": sec["verdict_axes"]}
+            card_verdicts[card] = cardv or {"verdict": "ungraded", "axes": []}
+        if verdict_root:
+            write_condition_verdict(verdict_root, name, card_verdicts)
+    return sections
+
+
 def _load_experiments(out_dir: str) -> dict | None:
     """Read condition -> [v2_dir, ve_dir] written by comparison_harness.sh launch.
 
@@ -797,16 +836,33 @@ def main(argv=None):
                    help="path to a comparison manifest JSON; when set, loads the "
                         "manifest and routes assembly through assemble_from_manifest "
                         "(per-config card assignment). --only still filters configs.")
+    p.add_argument("--investigation", default=None,
+                   help="path or name of an investigation (study-YAML-only mode): "
+                        "renders each study's assigned cards and writes one "
+                        "report_card_verdict.json per study.")
+    p.add_argument("--study", default=None,
+                   help="with --investigation, render only this study (by name).")
     args = p.parse_args(argv)
 
     local_pbg = bool(args.local_pbg)
     local_pbg_dir = bool(args.local_pbg_dir)
     pbg_vs_pbg = bool(args.pbg_vs_pbg)
     manifest_mode = bool(args.manifest)
-    # both modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
+    investigation_mode = bool(args.investigation)
+    # these modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
     # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
-    skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
-    if manifest_mode:                                 # -1. manifest-driven
+    skip_nextflow = (local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
+                     or investigation_mode)
+    if investigation_mode:                            # -2. study-YAML-only
+        from scripts._compare.study_spec import load_investigation as _load_inv
+        _ctx, _specs = _load_inv(args.investigation)
+        if args.study:
+            _specs = [s for s in _specs if s.name == args.study]
+            if not _specs:
+                raise SystemExit(f"study {args.study!r} not in investigation")
+        conds = {s.name: (f"{args.out}/{s.name}", f"{args.out}/{s.name}")
+                 for s in _specs}
+    elif manifest_mode:                               # -1. manifest-driven
         import os as _os
         from scripts._compare.config_adapter import store_key
         manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
@@ -837,14 +893,14 @@ def main(argv=None):
     conds = {k: tuple(v) for k, v in conds.items()}
     # In manifest mode the manifest's `configs` ARE the selection — don't let
     # --only (default 'basal') silently drop the other configs.
-    if not manifest_mode and args.only.strip().lower() != "all":
+    if not (manifest_mode or investigation_mode) and args.only.strip().lower() != "all":
         want = [c.strip() for c in args.only.split(",") if c.strip()]
         conds = {k: conds[k] for k in want if k in conds}
     if not conds:
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    if local_pbg_dir or manifest_mode:
+    if local_pbg_dir or manifest_mode or investigation_mode:
         # MULTI-SEED local: each cond maps to [v2_dir, ve_dir]; read per-seed
         # v2ecoli-format zarr (v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr) for
         # seeds 0..N-1 through the same local reader. Enables the local 4x4x5
@@ -884,7 +940,10 @@ def main(argv=None):
     # contradictory. The Overview matrix is the high-level view; verdict.json
     # stays as the machine-readable artifact for tooling/dashboard.
     vjson, card_html, _card_section = report_card(cond_data, conditions=graded)
-    if manifest_mode:
+    if investigation_mode:
+        # Study-YAML-only: per-study card assignment via assemble_from_studies.
+        sections = assemble_from_studies(_specs, cond_data, conds)
+    elif manifest_mode:
         # Manifest-driven: per-config card assignment via assemble_from_manifest.
         sections = assemble_from_manifest(manifest_data, cond_data, conds,
                                           _config_names)

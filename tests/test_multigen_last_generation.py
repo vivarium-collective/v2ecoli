@@ -105,6 +105,43 @@ def _gens_in_partitions(out_dir: str, experiment_id: str) -> dict[int, dict]:
     return out
 
 
+def test_xarray_runner_every_generation_ends_at_its_division(tmp_path):
+    """The XArray runner (used by the comparison harness) must also run the
+    LAST generation to its division, not truncate it.
+
+    Regression for the "v2ecoli runs one generation fewer than vEcoli" artifact:
+    without sibling pruning the kept daughters keep dividing and surface new
+    agent ids that the division detector reads as a division — which, once
+    ``gen == max_generations``, breaks the loop and truncates the final
+    generation to a few ticks. With ``single_daughters=True`` only the followed
+    lineage survives, so every generation (incl. the last) runs to its own
+    division.
+    """
+    from v2ecoli.library.xarray_run import (
+        run_multigen_xarray, view_from_emit_paths)
+    from v2ecoli.core import build_core
+    comp = _FakeComposite(divide_period=200, dry0=350.0)
+    comp.core = build_core()      # the xarray runner reads core from composite.core
+    res = run_multigen_xarray(
+        comp,
+        store_path=str(tmp_path / "regress-xr.zarr"),
+        view=view_from_emit_paths(["listeners.mass.dry_mass"]),
+        metadata_base={"experiment_id": "regress-xr", "engine": "fake",
+                       "condition": "test", "variant": 0, "lineage_seed": 0,
+                       "time_step": 1.0, "max_duration": 900.0, "agent_id": "0"},
+        max_steps=900,            # crosses 4 divisions (at 200/400/600/800)
+        max_generations=4,
+        chunk=20,
+        single_daughters=True,
+    )
+    # All four generations reached, and the run advanced to the 4th division
+    # (~800 ticks) rather than breaking at the start of gen 4 (~620 ticks).
+    assert res["generations"] == [1, 2, 3, 4], res["generations"]
+    assert res["steps"] >= 800, (
+        f"final generation truncated: ran only {res['steps']} ticks "
+        f"(expected ~800 = 4 divisions)")
+
+
 def test_every_generation_ends_at_its_division(tmp_path):
     """PASS criteria: each generation partition holds exactly ONE cell — a
     monotonic dry_mass ramp with NO mid-partition fold-change reset — and the

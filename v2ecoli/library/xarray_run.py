@@ -448,6 +448,7 @@ def run_multigen_xarray(
     initial_agent_id: str = "0",
     overwrite: bool = True,
     buffer_size: int = 3,
+    single_daughters: bool = False,
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
 ) -> dict:
     """Run a v2ecoli composite past divisions, swapping XArrayEmitters per generation.
@@ -658,6 +659,22 @@ def run_multigen_xarray(
             print(f"[multigen_xarray] gen-{gen} close hit pbg-emitters final-flush "
                   "assert (buffer full at division); flushed data retained.")
         followed = inner_next
+        # Prune the non-followed daughters so ONLY the followed lineage survives
+        # in the inner composite. Kept siblings keep growing and dividing, each
+        # surfacing a NEW agent id that the division detector reads as a division
+        # — and once gen == max_generations the very next such signal hits the
+        # `gen >= max_generations` break below, TRUNCATING the last generation to
+        # a few ticks (the "v2ecoli runs one generation fewer than vEcoli"
+        # artifact). With pruning, only the followed cell's own division ends a
+        # generation, so the last generation runs to completion like vEcoli.
+        # Mirrors run_multigen_parquet / sqlite_run's single_daughters prune.
+        if single_daughters:
+            import gc
+            from v2ecoli.library.sqlite_run import prune_to_followed_lineage
+            dropped = prune_to_followed_lineage(composite, followed)
+            gc.collect()
+            print(f"[multigen_xarray] gen {gen + 1} → following {followed!r} at "
+                  f"tick {done} (single_daughters: dropped {dropped} sibling(s))")
         partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
         gen += 1
         gens_seen.append(gen)

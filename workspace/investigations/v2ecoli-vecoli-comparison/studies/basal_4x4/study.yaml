@@ -1,11 +1,16 @@
 schema_version: 4
 name: basal_4x4
 investigation: v2ecoli-vecoli-comparison
-title: v2ecoli reproduces vEcoli on basal_4x4
-status: evaluated
-comparison_manifest: comparison.5cond_1x4.json
-condition: basal_4x4
+title: v2ecoli reproduces vEcoli on basal across 4 seeds
+condition: basal
 question: Does v2ecoli reproduce vEcoli on the basal_4x4 condition?
+comparison:
+  seeds: 4
+  generations: 4
+  cards:
+  - config
+  - parca
+  - statistical
 report_cards:
 - docs/report_cards/v2ecoli-vecoli-comparison/basal_4x4/index.html
 behavior_tests:
@@ -16,11 +21,6 @@ behavior_tests:
     kind: report_card_axis
     card: docs/report_cards/v2ecoli-vecoli-comparison/basal_4x4
     group: statistical
-runs:
-- name: basal_4x4-comparison
-  kind: analysis
-  canonical: true
-  description: v2e-compare study basal_4x4
 pipeline_gate:
   prerequisites: []
   enables: []

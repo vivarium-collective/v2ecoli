@@ -2,10 +2,11 @@ schema_version: 4
 name: basal
 investigation: v2ecoli-vecoli-comparison
 title: v2ecoli reproduces vEcoli on basal
-status: evaluated
-comparison_manifest: comparison.5cond_1x4.json
 condition: basal
 question: Does v2ecoli reproduce vEcoli on the basal condition?
+comparison:
+  seeds: 1
+  generations: 4
 report_cards:
 - docs/report_cards/v2ecoli-vecoli-comparison/basal/index.html
 behavior_tests:
@@ -16,11 +17,6 @@ behavior_tests:
     kind: report_card_axis
     card: docs/report_cards/v2ecoli-vecoli-comparison/basal
     group: standard
-runs:
-- name: basal-comparison
-  kind: analysis
-  canonical: true
-  description: v2e-compare study basal
 pipeline_gate:
   prerequisites: []
   enables: []

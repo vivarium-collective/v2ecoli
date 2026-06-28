@@ -1,43 +1,23 @@
-import pytest
-from scripts._compare import report_cards as rc
-
-
-def test_register_and_get():
-    @rc.report_card("dummy_card_xyz")
-    def _c(ctx):
-        return {"title": "T", "kind": "content", "html": "<p>x</p>", "anchor": "a"}
-    assert "dummy_card_xyz" in rc.all_names()
-    fn = rc.get("dummy_card_xyz")
-    out = rc.render("dummy_card_xyz", _ctx())
-    assert out[0]["title"] == "T" and out[0]["html"]
-
-
-def test_get_unknown_raises():
-    with pytest.raises(KeyError):
-        rc.get("does_not_exist")
-
-
-def _ctx():
-    return rc.CardContext(config_name="basal", variant=0, v2_dir="", ve_dir="",
-                          seeds=1, gens=1, per_obs={}, plot_trajs={}, v2_bounds={},
-                          config={})
+from scripts._compare.report_cards import REPORT_CARD_STEPS
+from _card_helpers import _state, _run_card
 
 
 def test_builtin_cards_registered():
-    for name in ("standard", "statistical", "parca", "config_diff"):
-        assert name in rc.all_names()
+    for name in ("standard", "statistical", "parca", "config_diff", "config"):
+        assert f"{name}_report_card" in REPORT_CARD_STEPS
 
 
 def test_statistical_card_returns_graded_section():
-    ctx = rc.CardContext(config_name="basal", variant=0, v2_dir="", ve_dir="",
-                         seeds=2, gens=1,
-                         per_obs={"cell_mass": [{"ve_mean": 1.0, "v2_mean": 1.0},
-                                                {"ve_mean": 1.1, "v2_mean": 1.05}],
-                                  "growth_rate": [{"ve_mean": 2e-4, "v2_mean": 2e-4},
-                                                  {"ve_mean": 2.1e-4, "v2_mean": 2.05e-4}]},
-                         plot_trajs={}, v2_bounds={}, config={})
-    secs = rc.render("statistical", ctx)
-    assert secs[0]["html"] and secs[0]["verdict"] in (
+    per_obs = {"cell_mass": [{"ve_mean": 1.0, "v2_mean": 1.0, "median_rel": 0.0,
+                               "max_rel": 0.0, "init_ve": 1.0, "init_v2": 1.0, "init_t": 0.0},
+                              {"ve_mean": 1.1, "v2_mean": 1.05, "median_rel": 0.05,
+                               "max_rel": 0.05, "init_ve": 1.1, "init_v2": 1.05, "init_t": 0.0}],
+               "growth_rate": [{"ve_mean": 2e-4, "v2_mean": 2e-4, "median_rel": 0.0,
+                                 "max_rel": 0.0, "init_ve": 2e-4, "init_v2": 2e-4, "init_t": 0.0},
+                                {"ve_mean": 2.1e-4, "v2_mean": 2.05e-4, "median_rel": 0.05,
+                                 "max_rel": 0.05, "init_ve": 2.1e-4, "init_v2": 2.05e-4, "init_t": 0.0}]}
+    out = _run_card("statistical", _state(per_obs, name="basal", seeds=2))
+    assert out["card_html"] and out["verdict"] in (
         "within_tol", "drift", "mismatch", "ungraded")
 
 

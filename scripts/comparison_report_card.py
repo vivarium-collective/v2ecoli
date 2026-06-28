@@ -61,6 +61,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts._compare import report
 from scripts._compare.report_card_section import build_report_card
+from v2ecoli.core import build_core
 from scripts._compare.vecoli_parquet_reader import read_vecoli_trajectory
 from scripts.compare_matched_trajectories import (
     BUCKET, PREFIX, REGION, OBS_LABEL, _legend_html, overlay_svg_multi,
@@ -695,9 +696,9 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
     condition, seeds/gens and cards; the `config` card renders the study's run
     spec. Writes one report_card_verdict.json per study (each card a group). When
     verdict_root is None it is derived from the studies' investigation."""
-    from scripts._compare import report_cards as rc
     from scripts._compare.verdict import write_condition_verdict
-
+    from scripts._compare.viz_cards import write_report_cards
+    core = build_core()
     if verdict_root is None and specs:
         verdict_root = f"docs/report_cards/{specs[0].invest_name}"
     overview = overview_section(cond_data); overview["nav_group"] = "Overall"
@@ -709,33 +710,27 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
             continue
         per_obs, plot_trajs, v2_bounds = cond_data[name]
         v2_dir, ve_dir = conds.get(name, ("", ""))
-        ctx = rc.CardContext(
-            config_name=name, variant=0, v2_dir=v2_dir, ve_dir=ve_dir,
-            seeds=spec.seeds, gens=spec.gens, per_obs=per_obs,
-            plot_trajs=plot_trajs, v2_bounds=v2_bounds,
-            config={"condition": spec.condition, "seeds": spec.seeds,
-                    "generations": spec.gens, "cards": spec.cards})
-        card_verdicts = {}
-        viz_cards = []
+        state = {"name": name, "condition": spec.condition, "seeds": spec.seeds,
+                 "generations": spec.gens, "variant": 0, "observables": per_obs,
+                 "plot_trajs": plot_trajs, "v2_bounds": v2_bounds,
+                 "config": {"condition": spec.condition, "seeds": spec.seeds,
+                            "generations": spec.gens, "cards": spec.cards},
+                 "v2_dir": v2_dir, "ve_dir": ve_dir}
+        card_verdicts, viz = {}, []
         for card in spec.cards:
-            cardv, secs = None, []
-            for sec in rc.render(card, ctx):
-                sec["nav_group"] = name
-                sections.append(sec)
-                secs.append(sec)
-                if "verdict_axes" in sec:
-                    cardv = {"verdict": sec.get("verdict", "ungraded"),
-                             "axes": sec["verdict_axes"]}
-            card_verdicts[card] = cardv or {"verdict": "ungraded", "axes": []}
-            viz_cards.append({"name": card, "sections": secs,
-                              "verdict": card_verdicts[card]["verdict"],
-                              "axes": card_verdicts[card]["axes"]})
+            step = core.link_registry[f"{card}_report_card"](config={}, core=core)
+            out = step.update(state)
+            sections.append({"title": f"{name} — {card}", "kind": "content",
+                             "html": out["card_html"], "nav_group": name})
+            card_verdicts[card] = {"verdict": out.get("verdict", "ungraded"),
+                                   "axes": out.get("axes") or []}
+            viz.append({"name": card, "html": out["card_html"],
+                        "verdict": card_verdicts[card]["verdict"],
+                        "axes": card_verdicts[card]["axes"]})
         if verdict_root:
             write_condition_verdict(verdict_root, name, card_verdicts)
         if studies_root:
-            from scripts._compare.viz_cards import write_report_cards
-            study_dir = Path(studies_root) / spec.invest_name / "studies" / name
-            write_report_cards(study_dir, viz_cards)
+            write_report_cards(Path(studies_root) / spec.invest_name / "studies" / name, viz)
     return sections
 
 

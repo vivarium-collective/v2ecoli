@@ -96,6 +96,12 @@ def build_core():
         core.register_link("BiRDTransportHours", BiRDTransportHours)
     except Exception:
         pass
+    # Report-card Steps (resolved by name in the comparison harness).
+    try:
+        from scripts._compare.report_cards import REPORT_CARD_STEPS
+        core.register_links(REPORT_CARD_STEPS)
+    except Exception:  # noqa: BLE001 — never let card registration break build_core
+        pass
     return core
 
 

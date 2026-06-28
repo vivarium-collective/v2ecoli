@@ -6,17 +6,16 @@ def test_writes_html_and_verdict_per_card(tmp_path):
     cards = [
         {"name": "standard", "verdict": "drift",
          "axes": [{"id": "standard.rna", "verdict": "drift"}],
-         "sections": [{"title": "basal — evaluation", "html": "<table>rows</table>"}]},
+         "html": "<!DOCTYPE html><b>standard card</b>"},
         {"name": "config", "verdict": "ungraded", "axes": [],
-         "sections": [{"title": "basal — config", "html": "<pre>cfg</pre>"}]},
+         "html": "<b>config card</b>"},
     ]
     paths = write_report_cards(tmp_path, cards)
     rc = tmp_path / "viz" / "report_card"
     assert (rc / "standard.html").is_file() and (rc / "standard.verdict.json").is_file()
     assert (rc / "config.html").is_file()
     html = (rc / "standard.html").read_text(encoding="utf-8")
-    assert "<table>rows</table>" in html and "basal — evaluation" in html
-    assert html.lstrip().startswith("<!DOCTYPE html>")
+    assert html == "<!DOCTYPE html><b>standard card</b>"
     vd = json.loads((rc / "standard.verdict.json").read_text(encoding="utf-8"))
     assert vd["overall"] == "drift"
     assert vd["groups"]["standard"]["verdict"] == "drift"

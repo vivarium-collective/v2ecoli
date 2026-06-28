@@ -688,7 +688,8 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
-def assemble_from_studies(specs, cond_data, conds, verdict_root=None):
+def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
+                          studies_root="workspace/investigations"):
     """Overview + per-study assigned-card sections, driven by study specs (the
     study-YAML-only model — no manifest). Each StudySpec carries name (store key),
     condition, seeds/gens and cards; the `config` card renders the study's run
@@ -696,6 +697,7 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None):
     verdict_root is None it is derived from the studies' investigation."""
     from scripts._compare import report_cards as rc
     from scripts._compare.verdict import write_condition_verdict
+    from scripts._compare.viz_cards import write_report_cards
 
     if verdict_root is None and specs:
         verdict_root = f"docs/report_cards/{specs[0].invest_name}"
@@ -715,18 +717,25 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None):
             config={"condition": spec.condition, "seeds": spec.seeds,
                     "generations": spec.gens, "cards": spec.cards})
         card_verdicts = {}
+        viz_cards = []
         for card in spec.cards:
-            cardv = None
+            cardv, secs = None, []
             for sec in rc.render(card, ctx):
                 sec["nav_group"] = name
                 sections.append(sec)
+                secs.append(sec)
                 if "verdict_axes" in sec:
-                    # last-graded-section-wins; one graded section per card
                     cardv = {"verdict": sec.get("verdict", "ungraded"),
                              "axes": sec["verdict_axes"]}
             card_verdicts[card] = cardv or {"verdict": "ungraded", "axes": []}
+            viz_cards.append({"name": card, "sections": secs,
+                              "verdict": card_verdicts[card]["verdict"],
+                              "axes": card_verdicts[card]["axes"]})
         if verdict_root:
             write_condition_verdict(verdict_root, name, card_verdicts)
+        if studies_root:
+            study_dir = Path(studies_root) / spec.invest_name / "studies" / name
+            write_report_cards(study_dir, viz_cards)
     return sections
 
 

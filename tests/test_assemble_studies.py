@@ -47,3 +47,23 @@ def test_assemble_from_studies_config_card_sees_study_spec(tmp_path, monkeypatch
     # the config card receives the study's run spec (no manifest config file)
     assert seen["config"] == {"condition": "basal", "seeds": 1,
                               "generations": 4, "cards": ["config"]}
+
+
+def test_assemble_from_studies_writes_viz_cards(tmp_path, monkeypatch):
+    import scripts.comparison_report_card as crc
+    from scripts._compare import report_cards as rc
+    monkeypatch.setattr(crc, "overview_section",
+                        lambda cond_data: {"title": "o", "kind": "content", "html": ""})
+    monkeypatch.setattr(rc, "render", lambda name, ctx: [
+        {"title": f"{ctx.config_name}-{name}", "kind": "content", "html": "<b>card</b>",
+         "verdict": "drift", "verdict_axes": [{"id": "x", "verdict": "drift"}]}])
+    spec = _spec("basal", "basal", ["standard"])
+    crc.assemble_from_studies([spec], {"basal": ({}, {}, [])},
+                              {"basal": ("v2", "ve")}, verdict_root=str(tmp_path / "vr"),
+                              studies_root=str(tmp_path / "ws/investigations"))
+    card = (tmp_path / "ws/investigations/v2ecoli-vecoli-comparison/studies/basal"
+            / "viz/report_card/standard.html")
+    assert card.is_file() and "<b>card</b>" in card.read_text(encoding="utf-8")
+    import json
+    vd = json.loads(card.with_name("standard.verdict.json").read_text(encoding="utf-8"))
+    assert vd["overall"] == "drift"

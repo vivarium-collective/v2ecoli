@@ -1,9 +1,0 @@
-{
-  "v2ecoli": { "repo": "https://github.com/vivarium-collective/v2ecoli", "commit": "" },
-  "vecoli":  { "repo": "https://github.com/CovertLab/vEcoli", "commit": "" },
-  "defaults": { "cards": ["standard"] },
-  "configs": [
-    { "config": "configs/cond_basal_4x4.json", "cards": ["statistical"] }
-  ],
-  "report": { "out": "out/report_baseline_4x4", "title": "v2ecoli ↔ vEcoli — baseline (4×4) statistical" }
-}

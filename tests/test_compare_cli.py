@@ -1,63 +1,46 @@
 import scripts.compare_cli as cli
 
 
-def test_run_sequences_scaffold_then_run_then_validate(monkeypatch):
-    seq = []
-    monkeypatch.setattr(cli.scaffold_mod, "scaffold",
-                        lambda m, r, force=False: seq.append("scaffold"))
-    monkeypatch.setattr(cli.run_comparison, "main",
-                        lambda argv: seq.append(("run", argv)) or 0)
-    monkeypatch.setattr(cli.validate_mod, "validate",
-                        lambda m, r: seq.append("validate") or [])
-    rc = cli.main(["run", "comparison_spec.json"])
+def test_run_invokes_run_investigation_with_defaults(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(cli.runner, "run_investigation",
+                        lambda inv, out, mode, render_only: captured.update(
+                            inv=inv, out=out, mode=mode, render_only=render_only) or 0)
+    rc = cli.main(["run"])
     assert rc == 0
-    assert seq[0] == "scaffold"
-    assert seq[1][0] == "run"
-    assert seq[2] == "validate"
+    assert captured == {"inv": "v2ecoli-vecoli-comparison", "out": "out/report",
+                        "mode": "serial", "render_only": False}
 
 
-def test_run_returns_nonzero_on_drift(monkeypatch):
-    monkeypatch.setattr(cli.scaffold_mod, "scaffold", lambda *a, **k: None)
-    monkeypatch.setattr(cli.run_comparison, "main", lambda argv: 0)
-    monkeypatch.setattr(cli.validate_mod, "validate", lambda m, r: ["basal: drift"])
-    assert cli.main(["run", "comparison_spec.json"]) == 1
-
-
-def test_run_ray_selects_ray_mode(monkeypatch):
+def test_run_ray_and_explicit_investigation(monkeypatch):
     captured = {}
-    monkeypatch.setattr(cli.scaffold_mod, "scaffold", lambda *a, **k: None)
-    monkeypatch.setattr(cli.run_comparison, "main",
-                        lambda argv: captured.update(argv=argv) or 0)
-    monkeypatch.setattr(cli.validate_mod, "validate", lambda m, r: [])
-    cli.main(["run", "spec.json", "--ray"])
-    assert "ray" in captured["argv"]
-    assert "serial" not in captured["argv"]
+    monkeypatch.setattr(cli.runner, "run_investigation",
+                        lambda inv, out, mode, render_only: captured.update(
+                            inv=inv, mode=mode, render_only=render_only) or 0)
+    cli.main(["run", "my-investigation", "--ray", "--render-only"])
+    assert captured == {"inv": "my-investigation", "mode": "ray", "render_only": True}
 
 
-def test_render_only_skips_scaffold(monkeypatch):
-    seq = []
+def test_study_loads_spec_then_runs_it(monkeypatch):
     captured = {}
-    monkeypatch.setattr(cli.scaffold_mod, "scaffold",
-                        lambda *a, **k: seq.append("scaffold"))
-    monkeypatch.setattr(cli.run_comparison, "main",
-                        lambda argv: captured.update(argv=argv) or 0)
-    monkeypatch.setattr(cli.validate_mod, "validate", lambda m, r: [])
-    cli.main(["run", "spec.json", "--render-only"])
-    assert "scaffold" not in seq
-    assert "--render-only" in captured["argv"]
-
-
-def test_study_resolves_manifest_and_condition(tmp_path, monkeypatch):
-    sdir = tmp_path / "basal"
-    sdir.mkdir()
-    (sdir / "study.yaml").write_text(
-        "comparison_manifest: comparison_spec.json\ncondition: basal\nname: basal\n",
-        encoding="utf-8")
-    captured = {}
-    monkeypatch.setattr(cli.run_comparison, "main",
-                        lambda argv: captured.update(argv=argv) or 0)
-    rc = cli._run_study(str(sdir), None, "out/x", False, False)
+    sentinel = object()
+    monkeypatch.setattr(cli.runner, "load_study",
+                        lambda name: captured.update(loaded=name) or sentinel)
+    monkeypatch.setattr(cli.runner, "run_study",
+                        lambda spec, out, mode, render_only: captured.update(
+                            spec=spec, out=out, mode=mode) or 0)
+    rc = cli.main(["study", "basal_4x4", "--ray", "--out", "out/x"])
     assert rc == 0
-    argv = captured["argv"]
-    assert "--condition" in argv and "basal" in argv
-    assert any(a.endswith("comparison_spec.json") for a in argv)
+    assert captured["loaded"] == "basal_4x4"
+    assert captured["spec"] is sentinel
+    assert captured["mode"] == "ray" and captured["out"] == "out/x"
+
+
+def test_study_render_only_propagates(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(cli.runner, "load_study", lambda name: object())
+    monkeypatch.setattr(cli.runner, "run_study",
+                        lambda spec, out, mode, render_only: captured.update(
+                            render_only=render_only) or 0)
+    cli.main(["study", "basal", "--render-only"])
+    assert captured["render_only"] is True

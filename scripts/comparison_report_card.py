@@ -688,65 +688,6 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
-def assemble_from_manifest(manifest, cond_data, conds, config_names,
-                           verdict_root="docs/report_cards/v2ecoli-vecoli-comparison"):
-    """Overview + per-config assigned-card sections, mirroring the manifest.
-
-    config_names maps a manifest config path -> the condition key used in
-    cond_data/conds (the runner names stores by condition). When verdict_root is
-    set, also writes one report_card_verdict.json per rendered condition (each
-    report card becomes a group), so the comparison can gate via report_card_axis.
-    """
-    from scripts._compare import report_cards as rc
-    from scripts._compare.verdict import write_condition_verdict
-    default_cards = (manifest.get("defaults", {}) or {}).get("cards") or ["standard"]
-    import json as _json
-    import os as _os
-    _repo = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
-
-    def _load_cfg(p):
-        # Read the manifest's config file deterministically (repo-relative or
-        # absolute) so the `config` card is ALWAYS populated. _source records
-        # which path resolved.
-        for cand in (p, _os.path.join(_repo, p)):
-            try:
-                with open(cand, encoding="utf-8") as _fh:
-                    d = _json.load(_fh)
-                d["_source"] = cand
-                return d
-            except (OSError, ValueError):
-                continue
-        return {}
-
-    overview = overview_section(cond_data); overview["nav_group"] = "Overall"
-    sections = [overview]
-    for entry in manifest.get("configs", []):
-        name = config_names[entry["config"]]
-        if name not in cond_data:
-            continue
-        per_obs, plot_trajs, v2_bounds = cond_data[name]
-        v2_dir, ve_dir = conds.get(name, ("", ""))
-        _cfg = _load_cfg(entry["config"])
-        ctx = rc.CardContext(config_name=name, variant=0, v2_dir=v2_dir,
-                             ve_dir=ve_dir, seeds=int(_cfg.get("n_init_sims") or 0),
-                             gens=int(_cfg.get("generations") or 0), per_obs=per_obs,
-                             plot_trajs=plot_trajs, v2_bounds=v2_bounds, config=_cfg)
-        card_verdicts = {}
-        for card in (entry.get("cards") or default_cards):
-            cardv = None
-            for sec in rc.render(card, ctx):
-                sec["nav_group"] = name
-                sections.append(sec)
-                if "verdict_axes" in sec:
-                    # last-graded-section-wins; relies on the one-graded-section-per-card invariant
-                    cardv = {"verdict": sec.get("verdict", "ungraded"),
-                             "axes": sec["verdict_axes"]}
-            card_verdicts[card] = cardv or {"verdict": "ungraded", "axes": []}
-        if verdict_root:
-            write_condition_verdict(verdict_root, name, card_verdicts)
-    return sections
-
-
 def assemble_from_studies(specs, cond_data, conds,
                           verdict_root="docs/report_cards/v2ecoli-vecoli-comparison"):
     """Overview + per-study assigned-card sections, driven by study specs (the
@@ -832,10 +773,6 @@ def main(argv=None):
                         'render the standardized report for any pbg-vs-pbg run.')
     p.add_argument("-o", "--out", default="out/full_compare",
                    help="output directory (also read for experiments.json)")
-    p.add_argument("--manifest", default=None,
-                   help="path to a comparison manifest JSON; when set, loads the "
-                        "manifest and routes assembly through assemble_from_manifest "
-                        "(per-config card assignment). --only still filters configs.")
     p.add_argument("--investigation", default=None,
                    help="path or name of an investigation (study-YAML-only mode): "
                         "renders each study's assigned cards and writes one "
@@ -847,11 +784,10 @@ def main(argv=None):
     local_pbg = bool(args.local_pbg)
     local_pbg_dir = bool(args.local_pbg_dir)
     pbg_vs_pbg = bool(args.pbg_vs_pbg)
-    manifest_mode = bool(args.manifest)
     investigation_mode = bool(args.investigation)
     # these modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
     # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
-    skip_nextflow = (local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
+    skip_nextflow = (local_pbg or local_pbg_dir or pbg_vs_pbg
                      or investigation_mode)
     if investigation_mode:                            # -2. study-YAML-only
         from scripts._compare.study_spec import load_investigation as _load_inv
@@ -862,22 +798,6 @@ def main(argv=None):
                 raise SystemExit(f"study {args.study!r} not in investigation")
         conds = {s.name: (f"{args.out}/{s.name}", f"{args.out}/{s.name}")
                  for s in _specs}
-    elif manifest_mode:                               # -1. manifest-driven
-        import os as _os
-        from scripts._compare.config_adapter import store_key
-        manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
-        _fork = _os.environ.get("V2E_VECOLI_DIR", "")
-
-        # Section/store key: uses canonical store_key (honors explicit manifest `name`,
-        # then fork-resolved condition, then filename stem) so runner/renderer/scaffold
-        # always agree.
-        _config_names = {_entry["config"]: store_key(_entry, _fork)
-                         for _entry in manifest_data.get("configs", [])}
-        # In manifest mode both engines' stores (v2ecoli_seed*.zarr and
-        # vecoli_seed*.zarr) live in the SAME per-condition dir under args.out —
-        # the same layout as --local-pbg-dir's 4x4x5 run.
-        conds = {_n: (f"{args.out}/{_n}", f"{args.out}/{_n}")
-                 for _n in _config_names.values()}
     elif local_pbg_dir:                               # 0b. multi-seed local dirs
         conds = json.loads(args.local_pbg_dir)
     elif local_pbg:                                   # 0. pbg-vs-pbg local zarr
@@ -893,14 +813,14 @@ def main(argv=None):
     conds = {k: tuple(v) for k, v in conds.items()}
     # In manifest mode the manifest's `configs` ARE the selection — don't let
     # --only (default 'basal') silently drop the other configs.
-    if not (manifest_mode or investigation_mode) and args.only.strip().lower() != "all":
+    if not investigation_mode and args.only.strip().lower() != "all":
         want = [c.strip() for c in args.only.split(",") if c.strip()]
         conds = {k: conds[k] for k in want if k in conds}
     if not conds:
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    if local_pbg_dir or manifest_mode or investigation_mode:
+    if local_pbg_dir or investigation_mode:
         # MULTI-SEED local: each cond maps to [v2_dir, ve_dir]; read per-seed
         # v2ecoli-format zarr (v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr) for
         # seeds 0..N-1 through the same local reader. Enables the local 4x4x5
@@ -943,10 +863,6 @@ def main(argv=None):
     if investigation_mode:
         # Study-YAML-only: per-study card assignment via assemble_from_studies.
         sections = assemble_from_studies(_specs, cond_data, conds)
-    elif manifest_mode:
-        # Manifest-driven: per-config card assignment via assemble_from_manifest.
-        sections = assemble_from_manifest(manifest_data, cond_data, conds,
-                                          _config_names)
     else:
         overview = overview_section(cond_data)
         overview["nav_group"] = "Overall"

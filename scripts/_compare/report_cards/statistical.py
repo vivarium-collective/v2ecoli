@@ -19,6 +19,9 @@ def statistical_card(ctx: CardContext) -> Section:
     vjson, html = build_report_card(
         left, right, extra_axes=EXTRA_AXES,
         model_ref=f"v2ecoli @ {ctx.config_name} variant {ctx.variant}", tol_rel=TOL)
+    axes = [ax for g in (vjson.get("groups") or {}).values()
+            for ax in (g.get("axes") or [])]
     return {"title": f"{ctx.config_name} — statistical equivalence",
             "kind": "content", "anchor": f"{ctx.config_name}-statistical",
-            "html": html, "verdict": vjson.get("overall")}
+            "html": html, "verdict": vjson.get("overall"),
+            "verdict_axes": axes}

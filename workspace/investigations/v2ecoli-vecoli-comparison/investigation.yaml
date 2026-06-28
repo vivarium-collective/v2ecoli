@@ -1,0 +1,26 @@
+schema_version: 4
+name: v2ecoli-vecoli-comparison
+title: v2ecoli ↔ vEcoli comparison
+question: Does v2ecoli reproduce vEcoli across nutrient conditions?
+comparison:
+  v2ecoli:
+    repo: https://github.com/vivarium-collective/v2ecoli
+    commit: ''
+  vecoli:
+    repo: https://github.com/CovertLab/vEcoli
+    commit: ''
+  vecoli_dir_env: V2E_VECOLI_DIR
+  v2_cache: out/cache_full
+  ve_cache: out/compare_harness/vecoli_parca
+  defaults:
+    cards:
+    - config
+    - parca
+    - standard
+studies:
+- basal
+- with_aa
+- succinate
+- no_oxygen
+- acetate
+- basal_4x4

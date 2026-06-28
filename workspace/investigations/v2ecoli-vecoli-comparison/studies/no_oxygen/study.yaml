@@ -1,0 +1,53 @@
+schema_version: 4
+name: no_oxygen
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on no_oxygen
+condition: no_oxygen
+question: Does v2ecoli reproduce vEcoli on the no_oxygen condition?
+comparison:
+  seeds: 1
+  generations: 4
+report_cards:
+- viz/report_card/config.html
+- viz/report_card/parca.html
+- viz/report_card/standard.html
+pipeline_gate:
+  prerequisites: []
+  enables: []
+runs:
+- name: no_oxygen-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study no_oxygen
+  status: completed
+  result: PARTIAL
+  outcomes:
+    standard-vs-vecoli:
+      result: PARTIAL
+      detail: 'report card ''standard'': drift'
+baseline:
+- name: v2ecoli-baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    condition: no_oxygen
+status: evaluated
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (config card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (parca card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/no_oxygen
+    group: standard

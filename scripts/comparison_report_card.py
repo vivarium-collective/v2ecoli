@@ -688,49 +688,54 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
-def assemble_from_manifest(manifest, cond_data, conds, config_names):
-    """Overview + per-config assigned-card sections, mirroring the manifest.
-
-    config_names maps a manifest config path -> the condition key used in
-    cond_data/conds (the runner names stores by condition).
-    """
+def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
+                          studies_root="workspace/investigations"):
+    """Overview + per-study assigned-card sections, driven by study specs (the
+    study-YAML-only model — no manifest). Each StudySpec carries name (store key),
+    condition, seeds/gens and cards; the `config` card renders the study's run
+    spec. Writes one report_card_verdict.json per study (each card a group). When
+    verdict_root is None it is derived from the studies' investigation."""
     from scripts._compare import report_cards as rc
-    default_cards = (manifest.get("defaults", {}) or {}).get("cards") or ["standard"]
-    import json as _json
-    import os as _os
-    _repo = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    from scripts._compare.verdict import write_condition_verdict
 
-    def _load_cfg(p):
-        # Read the manifest's config file deterministically (repo-relative or
-        # absolute) so the `config` card is ALWAYS populated. _source records
-        # which path resolved.
-        for cand in (p, _os.path.join(_repo, p)):
-            try:
-                with open(cand, encoding="utf-8") as _fh:
-                    d = _json.load(_fh)
-                d["_source"] = cand
-                return d
-            except (OSError, ValueError):
-                continue
-        return {}
-
+    if verdict_root is None and specs:
+        verdict_root = f"docs/report_cards/{specs[0].invest_name}"
     overview = overview_section(cond_data); overview["nav_group"] = "Overall"
     sections = [overview]
-    for entry in manifest.get("configs", []):
-        name = config_names[entry["config"]]
+    for spec in specs:
+        name = spec.name
         if name not in cond_data:
+            print(f"[assemble] skip study {name!r}: no store under --out", flush=True)
             continue
         per_obs, plot_trajs, v2_bounds = cond_data[name]
         v2_dir, ve_dir = conds.get(name, ("", ""))
-        _cfg = _load_cfg(entry["config"])
-        ctx = rc.CardContext(config_name=name, variant=0, v2_dir=v2_dir,
-                             ve_dir=ve_dir, seeds=int(_cfg.get("n_init_sims") or 0),
-                             gens=int(_cfg.get("generations") or 0), per_obs=per_obs,
-                             plot_trajs=plot_trajs, v2_bounds=v2_bounds, config=_cfg)
-        for card in (entry.get("cards") or default_cards):
+        ctx = rc.CardContext(
+            config_name=name, variant=0, v2_dir=v2_dir, ve_dir=ve_dir,
+            seeds=spec.seeds, gens=spec.gens, per_obs=per_obs,
+            plot_trajs=plot_trajs, v2_bounds=v2_bounds,
+            config={"condition": spec.condition, "seeds": spec.seeds,
+                    "generations": spec.gens, "cards": spec.cards})
+        card_verdicts = {}
+        viz_cards = []
+        for card in spec.cards:
+            cardv, secs = None, []
             for sec in rc.render(card, ctx):
                 sec["nav_group"] = name
                 sections.append(sec)
+                secs.append(sec)
+                if "verdict_axes" in sec:
+                    cardv = {"verdict": sec.get("verdict", "ungraded"),
+                             "axes": sec["verdict_axes"]}
+            card_verdicts[card] = cardv or {"verdict": "ungraded", "axes": []}
+            viz_cards.append({"name": card, "sections": secs,
+                              "verdict": card_verdicts[card]["verdict"],
+                              "axes": card_verdicts[card]["axes"]})
+        if verdict_root:
+            write_condition_verdict(verdict_root, name, card_verdicts)
+        if studies_root:
+            from scripts._compare.viz_cards import write_report_cards
+            study_dir = Path(studies_root) / spec.invest_name / "studies" / name
+            write_report_cards(study_dir, viz_cards)
     return sections
 
 
@@ -780,54 +785,31 @@ def main(argv=None):
                         'render the standardized report for any pbg-vs-pbg run.')
     p.add_argument("-o", "--out", default="out/full_compare",
                    help="output directory (also read for experiments.json)")
-    p.add_argument("--manifest", default=None,
-                   help="path to a comparison manifest JSON; when set, loads the "
-                        "manifest and routes assembly through assemble_from_manifest "
-                        "(per-config card assignment). --only still filters configs.")
+    p.add_argument("--investigation", default=None,
+                   help="path or name of an investigation (study-YAML-only mode): "
+                        "renders each study's assigned cards and writes one "
+                        "report_card_verdict.json per study.")
+    p.add_argument("--study", default=None,
+                   help="with --investigation, render only this study (by name).")
     args = p.parse_args(argv)
 
     local_pbg = bool(args.local_pbg)
     local_pbg_dir = bool(args.local_pbg_dir)
     pbg_vs_pbg = bool(args.pbg_vs_pbg)
-    manifest_mode = bool(args.manifest)
-    # both modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
+    investigation_mode = bool(args.investigation)
+    # these modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
     # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
-    skip_nextflow = local_pbg or local_pbg_dir or pbg_vs_pbg or manifest_mode
-    if manifest_mode:                                 # -1. manifest-driven
-        import os as _os
-        import re as _re
-        from scripts._compare.config_adapter import resolve_vecoli_config_local
-        manifest_data = json.loads(Path(args.manifest).read_text(encoding="utf-8"))
-        _fork = _os.environ.get("V2E_VECOLI_DIR", "")
-
-        def _cond_name(cfg_path):
-            # Config is the source of truth: read its `condition` field when the
-            # vEcoli fork is known (robust to any config filename). Fall back to
-            # the filename stem (strip a leading 'cond_') otherwise.
-            if _fork:
-                try:
-                    cond = resolve_vecoli_config_local(cfg_path, _fork).get("condition")
-                    if cond:
-                        return cond
-                except Exception:  # noqa: BLE001
-                    pass
-            stem = _os.path.splitext(_os.path.basename(cfg_path))[0]
-            if stem.startswith("cond_"):
-                stem = stem[len("cond_"):]
-            # strip a trailing scale suffix (e.g. _1x4, _4x4) so an override
-            # config like cond_basal_1x4 maps to the 'basal' store dir.
-            return _re.sub(r"_\d+x\d+$", "", stem)
-
-        # Section/store key: an explicit `name` on the entry (disambiguates two
-        # configs that share a condition, e.g. basal_1x4 vs basal_4x4), else the
-        # config's condition.
-        _config_names = {_entry["config"]: (_entry.get("name") or _cond_name(_entry["config"]))
-                         for _entry in manifest_data.get("configs", [])}
-        # In manifest mode both engines' stores (v2ecoli_seed*.zarr and
-        # vecoli_seed*.zarr) live in the SAME per-condition dir under args.out —
-        # the same layout as --local-pbg-dir's 4x4x5 run.
-        conds = {_n: (f"{args.out}/{_n}", f"{args.out}/{_n}")
-                 for _n in _config_names.values()}
+    skip_nextflow = (local_pbg or local_pbg_dir or pbg_vs_pbg
+                     or investigation_mode)
+    if investigation_mode:                            # -2. study-YAML-only
+        from scripts._compare.study_spec import load_investigation as _load_inv
+        _ctx, _specs = _load_inv(args.investigation)
+        if args.study:
+            _specs = [s for s in _specs if s.name == args.study]
+            if not _specs:
+                raise SystemExit(f"study {args.study!r} not in investigation")
+        conds = {s.name: (f"{args.out}/{s.name}", f"{args.out}/{s.name}")
+                 for s in _specs}
     elif local_pbg_dir:                               # 0b. multi-seed local dirs
         conds = json.loads(args.local_pbg_dir)
     elif local_pbg:                                   # 0. pbg-vs-pbg local zarr
@@ -843,14 +825,14 @@ def main(argv=None):
     conds = {k: tuple(v) for k, v in conds.items()}
     # In manifest mode the manifest's `configs` ARE the selection — don't let
     # --only (default 'basal') silently drop the other configs.
-    if not manifest_mode and args.only.strip().lower() != "all":
+    if not investigation_mode and args.only.strip().lower() != "all":
         want = [c.strip() for c in args.only.split(",") if c.strip()]
         conds = {k: conds[k] for k in want if k in conds}
     if not conds:
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    if local_pbg_dir or manifest_mode:
+    if local_pbg_dir or investigation_mode:
         # MULTI-SEED local: each cond maps to [v2_dir, ve_dir]; read per-seed
         # v2ecoli-format zarr (v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr) for
         # seeds 0..N-1 through the same local reader. Enables the local 4x4x5
@@ -890,10 +872,9 @@ def main(argv=None):
     # contradictory. The Overview matrix is the high-level view; verdict.json
     # stays as the machine-readable artifact for tooling/dashboard.
     vjson, card_html, _card_section = report_card(cond_data, conditions=graded)
-    if manifest_mode:
-        # Manifest-driven: per-config card assignment via assemble_from_manifest.
-        sections = assemble_from_manifest(manifest_data, cond_data, conds,
-                                          _config_names)
+    if investigation_mode:
+        # Study-YAML-only: per-study card assignment via assemble_from_studies.
+        sections = assemble_from_studies(_specs, cond_data, conds)
     else:
         overview = overview_section(cond_data)
         overview["nav_group"] = "Overall"

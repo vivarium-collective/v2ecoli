@@ -1,0 +1,53 @@
+schema_version: 4
+name: succinate
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on succinate
+condition: succinate
+question: Does v2ecoli reproduce vEcoli on the succinate condition?
+comparison:
+  seeds: 1
+  generations: 4
+report_cards:
+- viz/report_card/config.html
+- viz/report_card/parca.html
+- viz/report_card/standard.html
+pipeline_gate:
+  prerequisites: []
+  enables: []
+runs:
+- name: succinate-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study succinate
+  status: completed
+  result: FAIL
+  outcomes:
+    standard-vs-vecoli:
+      result: FAIL
+      detail: 'report card ''standard'': mismatch'
+baseline:
+- name: v2ecoli-baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    condition: succinate
+status: evaluated
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on succinate (config card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on succinate (parca card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on succinate (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/succinate
+    group: standard

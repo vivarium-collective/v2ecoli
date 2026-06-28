@@ -76,6 +76,7 @@ v2ecoli-parca = "v2ecoli.cli.parca:main"
 v2ecoli-colony = "v2ecoli.cli.colony:main"
 v2ecoli-workflow = "v2ecoli.workflow.run:main"
 v2ecoli-analyze = "v2ecoli.workflow.analysis_runner:main"
+v2e-compare = "scripts.compare_cli:main"
 
 [tool.setuptools.package-data]
 # Ship the v2ecoli override files; bulk KB data is provided by the ecoli-sources bundle.

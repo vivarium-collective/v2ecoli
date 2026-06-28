@@ -1,5 +1,0 @@
-{
-  "inherit_from": ["cond_basal.json"],
-  "n_init_sims": 4,
-  "generations": 4
-}

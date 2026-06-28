@@ -1,7 +1,0 @@
-{
-  "inherit_from": [
-    "cond_with_aa.json"
-  ],
-  "n_init_sims": 1,
-  "generations": 4
-}

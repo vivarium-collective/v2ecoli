@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from typing import Any
 
@@ -127,6 +128,7 @@ def resolve_vecoli_config(config_path: str,
         cwd=vecoli_repo, text=True,
     )
     return json.loads(out)
+
 
 
 def config_run_shape(config_path: str, fork_dir: str) -> tuple[int, int]:

@@ -2,7 +2,7 @@
 
 **Branch**: `consensus_elongation` (forked 2026-06-26 from `trna_charging_final` HEAD `5ffb76de`).
 **Design spec**: `v2ecoli_consensus_model.md` (repo root).
-**Status**: Phase 3 in progress. P3a (scaffold) + P3b-i (plumbing) + P3b-ii (ODE merge) landed. Binding ODE-merge proof passing.
+**Status**: All phases (1–5) landed. Stage A smoke sweep (100 ticks) ran clean. Model is functional but biology partially-stressed (charging fraction 0.67 vs spec 0.85). See `stage_a_findings.md` for detailed Stage A results, bug history (μM/mol-L unit fix + tRNA recovery-loop guard), and resume options.
 
 This audit is a fresh investigation of the current branch state. A prior attempt on `consensus_elongation_model` (now deleted) reached "Phase 6 complete" — its findings inform but do not constrain this plan. Every claim below is grounded in current-state file reads.
 
@@ -166,7 +166,12 @@ Two phases do most of the work. They are **independent and can run in parallel a
 | 3b-ii | **ODE merge: AA supply terms** | `_build_supply_function` helper. Plumb closure into `ode_model` via `args=`. Add `+v_syn +v_imp −v_exp` to AA balance. Write 3 accumulator dx_dt rows. Post-solve: extract accumulators → emit listeners + store on self. Fix `aa_count_diff` return. | `tests/test_kinetic_aa_supply_ode.py` (8) | ✅ ODE-merge proof passing; cache-backed listener test passing |
 | 2 | ppGpp coupling on kinetic class | Port `_ppgpp_request` / `_ppgpp_evolve` (Option A). Wire pre-solve `elong_rate_by_ppgpp`. Emit `ppgpp_conc` listeners. | `tests/test_kinetic_ppgpp_coupling.py` (10) | 🟡 implementation landed, sim tests running |
 | 4 | Composite + parity | Optional `consensus_baseline` alias. Parity tests. | `tests/test_consensus_composite.py` (9) | 🟡 implementation landed; sim tests running |
-| 5 | Validation sweep | 5-gen × 3-seed × 4-media. ParCa rerun gate. | `scripts/consensus_validation_sweep.py` (16 unit tests) | 🟢 orchestrator + tests landed; multi-hour sweep is user-driven |
+| 5 | Validation sweep — orchestrator | 4-stage CLI (smoke/cell-cycle/cross-media/full) | `scripts/consensus_validation_sweep.py` (24 unit tests) | ✅ committed (`5fcedd5b`) |
+| 5+ | BDF integrator switch | Stiffness fix; 7.3× speedup pre-unit-fix, ~10× after | — | ✅ committed (`9929e5da`) |
+| 5+ | Unit + recovery fixes | μM → mol/L at supply boundary; tRNA recovery loop now masks chargings=0 | — | ✅ committed (`140298c6`) |
+| 5+ | Stage A smoke (100 ticks, 1 cond × 1 seed) | Validates consensus runs cleanly multi-tick; surfaced + caught both bugs | see `stage_a_findings.md` | ✅ ran clean; biology gaps documented |
+| 5+ | Stage B (single cell cycle) | 1500-3500 ticks, single division event | — | ⏳ ready to launch (~3h wall) |
+| 5+ | Stage C (cross-media) | 4 conds × 1 seed × 1 gen | — | ⏳ blocked on Stage B sign-off |
 
 **Total active development**: ~4–6 sessions of code + tests, then a compute-bound validation phase. P2 and P3 can be split across parallel sessions if desired.
 

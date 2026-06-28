@@ -21,6 +21,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from scripts._compare import runner  # noqa: E402
+from scripts._compare.materialize import materialize_study as _materialize  # noqa: E402
 
 DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
 
@@ -43,7 +44,19 @@ def main(argv=None) -> int:
     ps.add_argument("--ray", action="store_true")
     ps.add_argument("--render-only", action="store_true")
 
+    psc = sub.add_parser("scaffold", help="materialize an investigation's studies "
+                                          "(declare report_card modules; no sims)")
+    psc.add_argument("investigation", nargs="?", default=DEFAULT_INVEST)
+
     args = ap.parse_args(argv)
+
+    if args.cmd == "scaffold":
+        _ctx, specs = runner.load_investigation(args.investigation)
+        for spec in specs:
+            _materialize(spec)
+        print(f"scaffolded {len(specs)} studies in {args.investigation}")
+        return 0
+
     mode = "ray" if args.ray else "serial"
     if args.cmd == "run":
         return runner.run_investigation(args.investigation, out=args.out, mode=mode,

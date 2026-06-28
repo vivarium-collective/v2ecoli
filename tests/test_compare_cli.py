@@ -44,3 +44,14 @@ def test_study_render_only_propagates(monkeypatch):
                             render_only=render_only) or 0)
     cli.main(["study", "basal", "--render-only"])
     assert captured["render_only"] is True
+
+
+def test_scaffold_materializes_all_studies(monkeypatch):
+    import scripts.compare_cli as cli
+    seen = []
+    fake_specs = [type("S", (), {"name": "basal"})(), type("S", (), {"name": "with_aa"})()]
+    monkeypatch.setattr(cli.runner, "load_investigation",
+                        lambda ref: ({}, fake_specs))
+    monkeypatch.setattr(cli, "_materialize", lambda spec: seen.append(spec.name))
+    rc = cli.main(["scaffold", "v2ecoli-vecoli-comparison"])
+    assert rc == 0 and seen == ["basal", "with_aa"]

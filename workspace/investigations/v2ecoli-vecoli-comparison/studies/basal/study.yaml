@@ -9,7 +9,6 @@ comparison:
   generations: 4
 report_cards:
 - viz/report_card/config.html
-- viz/report_card/parca.html
 - viz/report_card/standard.html
 pipeline_gate:
   prerequisites: []
@@ -32,11 +31,6 @@ tests:
   card: config
   classification: primary
   question: Does v2ecoli reproduce vEcoli on basal (config card)?
-- name: parca-vs-vecoli
-  kind: report_card
-  card: parca
-  classification: primary
-  question: Does v2ecoli reproduce vEcoli on basal (parca card)?
 - name: standard-vs-vecoli
   kind: report_card
   card: standard

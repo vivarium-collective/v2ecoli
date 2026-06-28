@@ -15,12 +15,12 @@ comparison:
   defaults:
     cards:
     - config
-    - parca
     - standard
 studies:
+- parca
 - basal
 - with_aa
 - succinate
 - no_oxygen
 - acetate
-- basal_4x4
+- statistical

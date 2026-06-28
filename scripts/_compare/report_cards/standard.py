@@ -1,5 +1,5 @@
 """`standard` card — matched-time runs + per-observable evaluation. as_step Step;
-the harness invokes it via core.access('standard_report_card')."""
+the harness invokes it via core.link_registry['standard_report_card']."""
 from __future__ import annotations
 
 from process_bigraph.composite import as_step

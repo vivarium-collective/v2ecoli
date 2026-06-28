@@ -3,7 +3,7 @@ from _card_helpers import _state, _run_card
 
 
 def test_builtin_cards_registered():
-    for name in ("standard", "statistical", "parca", "config_diff"):
+    for name in ("standard", "statistical", "parca", "config_diff", "config"):
         assert f"{name}_report_card" in REPORT_CARD_STEPS
 
 

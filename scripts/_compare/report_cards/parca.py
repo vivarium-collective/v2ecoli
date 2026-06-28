@@ -1,5 +1,5 @@
 """`parca` card — ParCa / initial-state match, graded on per-mass t~0 |Δ|.
-as_step Step invoked via core.access('parca_report_card')."""
+as_step Step invoked via core.link_registry['parca_report_card']."""
 from __future__ import annotations
 
 from process_bigraph.composite import as_step

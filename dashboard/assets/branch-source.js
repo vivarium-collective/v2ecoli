@@ -7,6 +7,37 @@
   var state = { scope: "local", repo: null, branch: null, entries: [], current: null };
   var pollTimer = null;
 
+  // Snapshot (published static bundle): no live backend. The Source panel
+  // becomes a navigator across the SIBLING published workspaces listed in a
+  // static manifest (default ../workspaces.json), and "Switch" navigates to the
+  // chosen bundle instead of an in-process re-point.
+  var SNAP = (window.__DASH_CONFIG__ || {}).mode === "snapshot";
+  function _manifestUrl() {
+    var cfg = window.__DASH_CONFIG__ || {};
+    return cfg.workspacesManifest || "../workspaces.json";
+  }
+  function _currentRepoName() {
+    var bp = (window.__DASH_CONFIG__ || {}).basePath || "";
+    var parts = bp.replace(/\/+$/, "").split("/");
+    return parts[parts.length - 1] || "";
+  }
+  async function _loadSnapshotEntries() {
+    state.error = null;
+    var cur = _currentRepoName();
+    try {
+      var r = await fetch(_manifestUrl());
+      var d = r.ok ? await r.json() : [];
+      var list = Array.isArray(d) ? d : (d.workspaces || []);
+      state.entries = list.map(function (w) {
+        var name = w.name || w.repo;
+        return { repo: name, branch: w.branch || "", commit: w.commit || "",
+                 label: name + (w.branch ? " @ " + w.branch : ""),
+                 url: w.url, current: name === cur };
+      });
+      state.current = state.entries.filter(function (e) { return e.current; })[0] || null;
+    } catch (e) { state.entries = []; }
+  }
+
   function _el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -94,14 +125,23 @@
                  label: w.label || w.name, path: w.path, current: w.status === "current" };
       });
     } else {
-      var rb = await fetch("/api/source/builds");
-      var db = rb.ok ? await rb.json() : { builds: [], error: "unreachable" };
-      state.error = db.error || null;
-      state.entries = (db.builds || []).map(function (b) {
-        return { repo: b.repo, repo_url: b.repo_url, branch: b.branch || "", commit: b.commit || "",
-                 created_at: b.created_at || "", label: b.label, simulator_id: b.simulator_id,
-                 current: b.simulator_id === state.currentSimId };
-      });
+      var rb = await fetch("/api/source/builds").catch(function () { return null; });
+      var db = (rb && rb.ok)
+        ? await rb.json().catch(function () { return { error: "bad response" }; })
+        : { error: "unreachable" };
+      if (db.error) {
+        // Transient outage (the sms-api tunnel reconnecting): ride it out. Keep
+        // the last-known builds on screen instead of blanking the panel —
+        // _render shows a quiet "reconnecting" chip, not the raw error.
+        state.error = db.error;
+      } else {
+        state.error = null;
+        state.entries = (db.builds || []).map(function (b) {
+          return { repo: b.repo, repo_url: b.repo_url, branch: b.branch || "", commit: b.commit || "",
+                   created_at: b.created_at || "", label: b.label, simulator_id: b.simulator_id,
+                   current: b.simulator_id === state.currentSimId };
+        });
+      }
     }
   }
 
@@ -117,11 +157,23 @@
     host.innerHTML = "";
     host.appendChild(_el("h3", "viv-bs-title", "Source"));
 
+    // Read-only (remote-server) mode: the switchable sources are the workspaces
+    // checked out ON the server — these are the "local" workspace-catalog entries
+    // (path-based, switched in-process via /api/source/switch). The "remote"
+    // scope (sms-api repo@commit builds) is a separate capability that needs the
+    // sms-api tunnel; keep it available but do NOT force it (forcing remote routed
+    // the Switch button to the simulator_id path, which on-disk workspaces lack →
+    // the button silently did nothing). Labels are clarified for the remote client.
+    var RO = !!((window._uiConfig || {}).readonly);
+
     // Scope toggle
     var scopeRow = _el("div", "viv-bs-row");
     scopeRow.appendChild(_el("label", "viv-bs-key", "Scope"));
     ["local", "remote"].forEach(function (s) {
-      var b = _el("button", "viv-bs-toggle" + (state.scope === s ? " active" : ""), s === "local" ? "Local" : "Remote");
+      var label = RO
+        ? (s === "local" ? "Workspaces" : "sms-api builds")
+        : (s === "local" ? "Local" : "Remote");
+      var b = _el("button", "viv-bs-toggle" + (state.scope === s ? " active" : ""), label);
       b.addEventListener("click", function () { state.scope = s; state.repo = null; state.branch = null; refresh(); });
       scopeRow.appendChild(b);
     });
@@ -174,13 +226,18 @@
     var switchBtn = _el("button", "viv-bs-action", "Switch"); switchBtn.id = "viv-bs-switch";
     switchBtn.addEventListener("click", function () {
       var s = state.selected || {};
-      if (state.scope === "local" && s.path) _switchLocal(s.path);
-      else if (state.scope === "remote" && s.simulator_id != null) _switchRemote(s.simulator_id, switchBtn);
+      // Prefer an on-disk path (workspace-catalog entry, in-process re-point);
+      // fall back to an sms-api build (simulator_id). Path-first so a misread
+      // scope can never leave the button doing nothing.
+      if (s.path) _switchLocal(s.path);
+      else if (s.simulator_id != null) _switchRemote(s.simulator_id, switchBtn);
+      else alert("Nothing to switch to — pick a repo/branch with a build or workspace.");
     });
     actions.appendChild(switchBtn);
 
     var pushBtn = _el("button", "viv-bs-action", "Commit + Push"); pushBtn.id = "viv-bs-push";
     pushBtn.disabled = state.scope !== "local";
+    if (RO) pushBtn.style.display = "none";   // local git write — gone in remote-only
     pushBtn.addEventListener("click", function () {
       if (pushBtn.disabled) return;
       var msg = window.prompt("Commit message for push:", "dashboard commit");
@@ -225,22 +282,44 @@
     });
     actions.appendChild(buildBtn);
 
+    var syncBtn = _el("button", "viv-bs-action", "Sync to local"); syncBtn.id = "viv-bs-sync";
+    syncBtn.title = "Materialize this exact repo@commit workspace on your machine";
+    syncBtn.addEventListener("click", function () {
+      fetch("/api/source/manifest").then(function (r) { return r.json(); }).then(function (m) {
+        var base = window.location.origin;
+        var cmd = "vivarium-dashboard sync " + base;
+        var note = "Reproduce " + (m.repo || "") + " @ " + String(m.commit || "").slice(0, 7) +
+                   "\n  " + cmd + "\n(verifies uv.lock " + (m.lockfile || "—") + ")";
+        window.prompt("Run this locally to sync + reproduce:", cmd);
+        console.log(note);
+      }).catch(function () { alert("Could not fetch manifest"); });
+    });
+    actions.appendChild(syncBtn);
+
     host.appendChild(actions);
 
     if (state.error) {
-      var errNote = _el("div", "viv-bs-note", "sms-api: " + state.error);
-      var retryBtn = _el("button", "viv-bs-toggle", "Retry");
-      retryBtn.style.marginLeft = "8px";
-      retryBtn.title = "Re-check sms-api now";
-      retryBtn.addEventListener("click", function () { _stopBuildsPoll(); refresh(); });
-      errNote.appendChild(retryBtn);
-      if (state.scope === "remote") {
-        var hint = _el("span", "viv-bs-retry-hint", " · auto-retrying every 5s…");
-        hint.style.opacity = "0.7";
-        errNote.appendChild(hint);
-        _ensureBuildsPoll();   // recover automatically when the tunnel comes back
+      if (state.scope === "remote") _ensureBuildsPoll();  // keep recovering in the background
+      var haveBuilds = state.entries && state.entries.length;
+      if (haveBuilds) {
+        // Builds already on screen → a transient blip (tunnel reconnecting).
+        // Quiet indicator only; the selectors/list above keep the last-known
+        // builds, and this clears itself the moment a poll succeeds.
+        var chip = _el("div", "viv-bs-note", "⟳ sms-api reconnecting… showing last-known builds");
+        chip.style.cssText = "color:#92740e;font-size:0.82em;opacity:0.8;margin-top:6px";
+        host.appendChild(chip);
+      } else {
+        // No builds yet (first-load failure): a calm, actionable message — not
+        // the raw urlopen error.
+        var errNote = _el("div", "viv-bs-note", "sms-api not reachable — is the tunnel up?"
+          + (state.scope === "remote" ? " Auto-retrying every 5s…" : ""));
+        var retryBtn = _el("button", "viv-bs-toggle", "Retry");
+        retryBtn.style.marginLeft = "8px";
+        retryBtn.title = "Re-check sms-api now";
+        retryBtn.addEventListener("click", function () { _stopBuildsPoll(); refresh(); });
+        errNote.appendChild(retryBtn);
+        host.appendChild(errNote);
       }
-      host.appendChild(errNote);
     } else {
       _stopBuildsPoll();
     }
@@ -305,6 +384,76 @@
     return row;
   }
 
+  // Published (snapshot) Source panel: a navigator across the sibling published
+  // workspaces. No scope toggle, no push/build/PR, no live in-process switch —
+  // "Switch" navigates to the chosen bundle. "Sync to local" is kept (it's the
+  // round-trip: clone this exact repo@commit locally via `vivarium-dashboard sync`).
+  function _renderSnapshot() {
+    var host = document.getElementById("viv-branch-source");
+    if (!host) return;
+    host.innerHTML = "";
+    host.appendChild(_el("h3", "viv-bs-title", "Source"));
+
+    var entries = state.entries || [];
+    var names = entries.map(function (e) { return e.repo; });
+    if (!state.selected || names.indexOf(state.selected.repo) < 0) {
+      state.selected = state.current || entries[0] || null;
+    }
+    if (!entries.length) {
+      host.appendChild(_el("p", "viv-bs-note", "No other published workspaces found."));
+      return;
+    }
+    host.appendChild(_selectRow("Repo", "viv-bs-repo", names,
+      state.selected ? state.selected.repo : null, function (v) {
+        state.selected = entries.filter(function (e) { return e.repo === v; })[0] || null;
+        _renderSnapshot();
+      }));
+
+    var sel = state.selected || {};
+    var brRow = _el("div", "viv-bs-row");
+    brRow.appendChild(_el("label", "viv-bs-key", "Branch"));
+    brRow.appendChild(_el("span", "viv-bs-commit", sel.branch || "—"));
+    host.appendChild(brRow);
+    var cRow = _el("div", "viv-bs-row");
+    cRow.appendChild(_el("label", "viv-bs-key", "Commit"));
+    cRow.appendChild(_el("span", "viv-bs-commit", sel.commit ? _short(sel.commit) : "—"));
+    if (sel.current) cRow.appendChild(_el("span", "viv-bs-current", "current ✓"));
+    host.appendChild(cRow);
+
+    var actions = _el("div", "viv-bs-actions");
+    var switchBtn = _el("button", "viv-bs-action", "Switch"); switchBtn.id = "viv-bs-switch";
+    switchBtn.disabled = !!sel.current;
+    switchBtn.title = sel.current ? "Already viewing this workspace" : "Open this workspace";
+    switchBtn.addEventListener("click", function () {
+      if (!sel.current && sel.url) window.location.href = sel.url;
+    });
+    actions.appendChild(switchBtn);
+
+    var syncBtn = _el("button", "viv-bs-action", "Sync to local"); syncBtn.id = "viv-bs-sync";
+    syncBtn.title = "Reproduce this exact repo@commit on your machine";
+    syncBtn.addEventListener("click", function () {
+      var dir = (window.location.origin + window.location.pathname).replace(/[^/]*$/, "");
+      var cmd = "vivarium-dashboard sync " + dir.replace(/\/$/, "");
+      window.prompt("Run this locally to clone + reproduce this workspace:", cmd);
+    });
+    actions.appendChild(syncBtn);
+    host.appendChild(actions);
+
+    var list = _el("ul", "viv-bs-list");
+    entries.forEach(function (e) {
+      var li = _el("li", "viv-bs-list-row" + (e.current ? " current" : ""));
+      var lbl = _el("span", "viv-bs-list-label", e.label + (e.current ? "  (this)" : ""));
+      if (!e.current && e.url) {
+        lbl.style.cursor = "pointer";
+        lbl.title = "Open this workspace";
+        lbl.addEventListener("click", function () { window.location.href = e.url; });
+      }
+      li.appendChild(lbl);
+      list.appendChild(li);
+    });
+    host.appendChild(list);
+  }
+
   function _stopBuildsPoll() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
@@ -326,6 +475,7 @@
   async function refresh() {
     var host = document.getElementById("viv-branch-source");
     if (!host) return;
+    if (SNAP) { await _loadSnapshotEntries(); _renderSnapshot(); return; }
     _stopBuildsPoll();
     var r = await fetch("/api/workspaces").catch(function () { return null; });
     var cur = (r && r.ok) ? ((await r.json()).current || null) : null;

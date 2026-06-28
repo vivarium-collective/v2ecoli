@@ -220,7 +220,14 @@
   // in local mode, leaving the URL unchanged.
   function _studyHref(name) {
     var base = (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.basePath) || "";
-    return base + '/studies/' + encodeURIComponent(name);
+    var href = base + '/studies/' + encodeURIComponent(name);
+    // Static snapshot bundles are served by object storage (e.g. Cloudflare R2)
+    // that does NOT auto-serve index.html for a directory path — so a bare
+    // '/studies/<name>' 404s there. Address the shell file explicitly in snapshot
+    // mode. (The live server's /studies/<name> route is unaffected: mode is not
+    // 'snapshot' there.)
+    if ((window.__DASH_CONFIG__ || {}).mode === 'snapshot') href += '/index.html';
+    return href;
   }
   window._studyHref = _studyHref;
 
@@ -326,6 +333,9 @@
   window._uiConfig = null;
   fetch('/api/ui-config').then(function(r) { return r.json(); }).then(function(cfg) {
     window._uiConfig = cfg || {};
+    // Read-only / remote-only mode: hide authoring controls (.js-authoring) via
+    // CSS; the Source panel reads this flag at render time to go remote-only.
+    if (window._uiConfig.readonly) document.body.classList.add('readonly');
     _applyCompositeViewMode();
   });
 
@@ -453,7 +463,10 @@
     // composite-explore needs live composite resolution (build_core) which is
     // unavailable in a static bundle → redirect to simulation-setup (composites list).
     if (document.body.classList.contains('snapshot')) {
-      if (pageId === 'github' || pageId === 'studies') {
+      // 'github' (Source page) IS available in snapshot now — it's the published
+      // workspace switcher (repo navigator + Sync-to-local). Only 'studies'
+      // (the legacy flat list) redirects to the investigations view.
+      if (pageId === 'studies') {
         pageId = 'investigations';
       }
     }
@@ -524,7 +537,7 @@
     if (focus) {
       var _snapshot = document.body.classList.contains('snapshot');
       var validPages = _snapshot
-        ? ['workspace-inputs', 'simulation-setup', 'registry', 'investigations', 'simulations', 'visualizations', 'composite-explore']
+        ? ['workspace-inputs', 'simulation-setup', 'registry', 'investigations', 'simulations', 'visualizations', 'composite-explore', 'github']
         : ['workspace-inputs', 'simulation-setup', 'visualizations', 'registry', 'investigations', 'studies', 'simulations', 'composite-explore', 'github'];
       if (validPages.indexOf(focus) >= 0) {
         document.body.classList.add('focus-mode', 'focus-' + focus);
@@ -542,7 +555,7 @@
         var h = (window.location.hash || '').replace(/^#/, '');
         var _snap = document.body.classList.contains('snapshot');
         var validPages = _snap
-          ? ['workspace-inputs', 'registry', 'simulation-setup', 'investigations', 'simulations', 'visualizations', 'composite-explore']
+          ? ['workspace-inputs', 'registry', 'simulation-setup', 'investigations', 'simulations', 'visualizations', 'composite-explore', 'github']
           : ['workspace-inputs', 'registry', 'simulation-setup', 'visualizations', 'investigations', 'studies', 'simulations', 'composite-explore', 'github'];
         _switchPage(validPages.indexOf(h) >= 0 ? h : 'workspace-inputs');
       }
@@ -595,7 +608,7 @@
     // Also load the investigation list so the panel can offer a picker when no
     // investigation is branch-current — the user chooses which investigation to
     // load sources INTO (its own sources, not the repo-wide shared sources).
-    var _pList = fetch('/api/iset-list')
+    var _pList = fetch('/api/investigation-summaries')
       .then(function(r) { return r.json(); })
       .then(function(d) { return (d && d.investigations) || []; })
       .catch(function() { return []; });
@@ -1387,14 +1400,22 @@
         var cards = [];
         // Comparison report cards lead the gallery (no viewer dependency).
         cards = cards.concat(reportCards.map(_renderReportCardCard));
-        cards.push(_renderPtoolsCard(ptools));
-        cards.push(_renderExplorerCard());
+        // Pathway Tools (E. coli metabolic map) and the Data Explorer
+        // (timeseries / allocation / flux maps) are E. coli / metabolic-model
+        // analyses. Only show them for workspaces set up as such — detected via
+        // ui.ptools_server_url being configured (currently v2ecoli). They don't
+        // apply to e.g. agent-based colony workspaces (viva-munk).
+        var _ecoliAnalyses = !!(ptools && (ptools.configured || (ptools.studies || []).length));
+        if (_ecoliAnalyses) {
+          cards.push(_renderPtoolsCard(ptools));
+          cards.push(_renderExplorerCard());
+        }
         if (!cards.length) {
           container.innerHTML = '<p class="empty-state">No saved visualizations yet. Run a parsimony packing composite or a PTools analysis to populate this gallery.</p>';
         } else {
           container.innerHTML = cards.join('');
         }
-        if (window.Explorer) {
+        if (_ecoliAnalyses && window.Explorer) {
           var _em = document.getElementById('explorer-mount');
           if (_em) window.Explorer.mount(_em, {
             basePath: (window.DataSource && window.DataSource.basePath) ? window.DataSource.basePath() : '',
@@ -1773,9 +1794,8 @@
           byKind[k].push(p);
         });
 
-        // Imported repositories (workspace.yaml::imports) + their contributed
-        // processes/steps — rendered above the kind tabs.
-        _renderImportedRepos(data.imports || [], processes, types);
+        // ("Imported repositories" panel removed — those repos live in the
+        // Modules tab; see _renderImportedRepos (now unused) for the old render.)
 
         // Render tabbed Registry browser (Registry page).
         _renderRegistryGrid('registry-processes-container', byKind.process);
@@ -2258,6 +2278,13 @@
         if (!match) return false;
       }
       return true;
+    });
+
+    // Registry shows only what is IN this workspace — the workspace's own
+    // package plus installed modules. The browse-everything "Available to
+    // install" catalog is intentionally not shown.
+    modules = modules.filter(function (m) {
+      return m.kind === 'workspace' || m.installed;
     });
 
     // Sort: workspace package first (anchor), then installed modules
@@ -3353,7 +3380,7 @@
       : fetch('/api/investigations').then(function(r) { return r.json(); })
     ).catch(function() { return {investigations: []}; });
     var p2 = hasIsetUI
-      ? fetch('/api/iset-list').then(function(r) { return r.json(); }).catch(function() { return {investigations: []}; })
+      ? fetch('/api/investigation-summaries').then(function(r) { return r.json(); }).catch(function() { return {investigations: []}; })
       : Promise.resolve({investigations: []});
     Promise.all([p1, p2]).then(function(arr) {
       window._investigations = arr[0].investigations || [];
@@ -3480,6 +3507,20 @@
     _vivRefreshInvestigationsRail();
   }
   window._vivOpenInvestigationFromRail = _vivOpenInvestigationFromRail;
+
+  // Open an investigation's DETAIL view (summary + DAG) from the rail, from any
+  // page. Activates the Investigations page directly rather than via
+  // _switchPage('investigations') — that path calls _loadInvestigationSets(),
+  // which async-re-renders the LIST over the detail we just opened.
+  window._railOpenInvestigationDetail = function (name) {
+    document.querySelectorAll('.page').forEach(function (s) { s.classList.remove('active'); });
+    document.querySelectorAll('.menu-link').forEach(function (a) { a.classList.remove('active'); });
+    var page = document.getElementById('page-investigations');
+    var link = document.querySelector('.menu-link[data-page="investigations"]');
+    if (page) page.classList.add('active');
+    if (link) link.classList.add('active');
+    if (typeof _openInvestigationDetail === 'function') _openInvestigationDetail(name);
+  };
 
   // -------------------------------------------------------------------------
   // Internal helpers
@@ -3722,7 +3763,7 @@
     var name = id.indexOf('.') >= 0 ? id.split('.').pop() : id;
     var btn = document.getElementById('ce-begin-study-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'Starting study…'; }
-    fetch('/api/investigation-create-from-composite', {
+    fetch('/api/study-create-from-composite', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({composite_name: name}),
@@ -4130,6 +4171,9 @@
       p = fetch(url).then(function(r) { return r.json(); });
     }
     p.then(function(data) {
+        // Guard: a null/empty response (e.g. an unexpected miss) is treated as
+        // unresolved instead of crashing on ``data.unresolved``.
+        data = data || { unresolved: true, ref: id };
         if (data.unresolved) {
           // Honest degrade: the ref doesn't resolve to a registered composite.
           // Don't render a bare "error composite" node — explain it plainly.
@@ -4588,7 +4632,7 @@
     if (list) list.innerHTML = '<p class="empty-state">Loading…</p>';
     var _p = window.DataSource
       ? window.DataSource.loadIsetList()
-      : fetch('/api/iset-list', {headers: {Accept: 'application/json'}})
+      : fetch('/api/investigation-summaries', {headers: {Accept: 'application/json'}})
           .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     _p
       .then(function(j) {
@@ -4695,9 +4739,15 @@
         intentLine +
         '<div class="muted" style="font-size:0.78em;font-family:monospace;margin-bottom:6px">' + _esc(iset.name) + '</div>' +
         (desc ? '<p style="margin:0 0 8px 0;font-size:0.9em;color:#475569">' + _esc(desc) + (iset.description.length > 240 ? '…' : '') + '</p>' : '') +
-        '<div style="display:flex;align-items:center;gap:10px;font-size:0.85em;color:#64748b">' +
+        '<div style="display:flex;align-items:center;gap:12px;font-size:0.85em;color:#64748b">' +
           '<span style="flex:1"><strong>' + iset.n_studies + '</strong> stud' + (iset.n_studies === 1 ? 'y' : 'ies') +
           ' &nbsp;·&nbsp; click to open DAG</span>' +
+          '<a href="#" title="Download the rendered HTML report for this investigation" ' +
+            'onclick="window._vivReportFromCard(event,\'' + _esc(iset.name) + '\');return false;" ' +
+            'style="color:#3b82f6;text-decoration:none;white-space:nowrap">↓ report</a>' +
+          '<a href="#" title="Download the runnable notebook for this investigation" ' +
+            'onclick="window._vivNotebookFromCard(event,\'' + _esc(iset.name) + '\');return false;" ' +
+            'style="color:#3b82f6;text-decoration:none;white-space:nowrap">↓ notebook</a>' +
           actionBtn +
         '</div>' +
       '</div>';
@@ -4816,7 +4866,7 @@
     btn.textContent = 'Creating…';
     errEl.style.display = 'none';
 
-    fetch('/api/iset-create', {
+    fetch('/api/investigation-create', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', Accept: 'application/json'},
       body: JSON.stringify(body),
@@ -4896,7 +4946,7 @@
     btn.textContent = 'Cloning…';
     errEl.style.display = 'none';
 
-    fetch('/api/iset-clone', {
+    fetch('/api/investigation-clone', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', Accept: 'application/json'},
       body: JSON.stringify(body),
@@ -5122,6 +5172,10 @@
 
   function _openInvestigationDetail(name) {
     window._currentIset = name;
+    // Opening an investigation is an explicit context switch → re-scope the
+    // Simulations DB to it. Clearing the sticky manual pick lets the next visit
+    // default to this investigation (see _populateSimFilters / _simCurrent).
+    window._simInvChosen = false;
     // Sync the left-rail STUDIES section to the selected investigation
     // (the top-left now switches repos, so selection drives the sidebar).
     if (window._currentIsetSlug !== name) {
@@ -5135,13 +5189,13 @@
     document.getElementById('investigation-detail-title').textContent = name;
     document.getElementById('investigation-detail-description').textContent = 'Loading…';
 
-    // Route through DataSource so snapshot mode reads api/iset/<name>.json from
-    // the static bundle instead of hitting the live /api/iset/<name> endpoint
+    // Route through DataSource so snapshot mode reads api/investigation/<name>.json from
+    // the static bundle instead of hitting the live /api/investigation/<name> endpoint
     // (which would 404 in a hosted read-only bundle). Direct-fetch fallback keeps
     // local-server mode identical — the ternary branch only triggers under snapshot.
     var _isetDetailFetch = (window.DataSource && window.DataSource.loadInvestigation)
       ? window.DataSource.loadInvestigation(name)
-      : fetch('/api/iset/' + encodeURIComponent(name), {headers: {Accept: 'application/json'}})
+      : fetch('/api/investigation/' + encodeURIComponent(name), {headers: {Accept: 'application/json'}})
           .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     _isetDetailFetch
       .then(function(d) {
@@ -5380,7 +5434,7 @@
                     + '<div class="inv-run-list">' + items + '</div>';
   }
 
-  // Manual refresh: re-fetch /api/iset/<current> + re-render. Use after editing
+  // Manual refresh: re-fetch /api/investigation/<current> + re-render. Use after editing
   // investigation.yaml / study.yaml files directly on disk (which the dashboard
   // has no other way to learn about — there's no file watcher or auto-poll).
   function _refreshInvestigationDetail() {
@@ -5946,7 +6000,7 @@
     // sub-project #1).  Falls back to a direct fetch so local mode is unchanged.
     var _isetFetch = (window.DataSource && window.DataSource.loadInvestigation)
       ? window.DataSource.loadInvestigation(name)
-      : fetch('/api/iset/' + encodeURIComponent(name), {headers: {Accept: 'application/json'}})
+      : fetch('/api/investigation/' + encodeURIComponent(name), {headers: {Accept: 'application/json'}})
           .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
     _isetFetch
       .then(function(iset) {
@@ -6071,6 +6125,27 @@
       });
   }
   window._generateInvestigationReport = _generateInvestigationReport;
+
+  // Per-card actions on the Investigations LIST (don't require opening the
+  // investigation). _generateInvestigationReport captures the name synchronously
+  // from _currentIset, so we set/restore it around the call.
+  window._vivReportFromCard = function (ev, name) {
+    if (ev) ev.stopPropagation();
+    var prev = window._currentIset;
+    window._currentIset = name;
+    try { _generateInvestigationReport(); } finally { window._currentIset = prev; }
+  };
+  window._vivNotebookFromCard = function (ev, name) {
+    if (ev) ev.stopPropagation();
+    var c = window.__DASH_CONFIG__ || {};
+    var base = c.basePath || '';
+    var url = (c.mode === 'snapshot')
+      ? base + '/investigation-notebooks/' + encodeURIComponent(name) + '.ipynb'
+      : '/api/investigation-notebook/' + encodeURIComponent(name);
+    var a = document.createElement('a');
+    a.href = url; a.download = name + '.ipynb';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  };
 
   // Download the coder-facing notebook for the current investigation. In a
   // published (snapshot) bundle this is a static file under
@@ -8364,22 +8439,10 @@
       }
       function _compositeCell(composite) {
         if (!composite) return '<span class="muted">—</span>';
-        // In the read-only snapshot a composite is navigable only if its wiring
-        // was exported at publish time (has_wiring). When we positively know it
-        // was NOT (e.g. a composite that can't resolve without the on-disk ParCa
-        // cache), render plain text — a pop-out would 404 in bigraph-loom.
-        var cfg = (typeof window !== 'undefined' && window.__DASH_CONFIG__) || {};
-        if (cfg.mode === 'snapshot') {
-          var known = (window._compositesById || {})[composite];
-          if (known && known.has_wiring === false) {
-            return '<code title="static wiring not available in the read-only snapshot">'
-              + _h(_short(composite)) + '</code>';
-          }
-        }
-        return '<a href="#" class="composite-loom-link" '
-          + 'title="Open a static view of this composite in bigraph-loom" '
-          + 'onclick="event.preventDefault(); ' + _loomStaticPopout(composite) + '">'
-          + '<code>' + _h(_short(composite)) + '</code> <span aria-hidden="true">↗</span></a>';
+        // Standalone reports: render the composite as plain text — no link out
+        // to the bigraph-loom explorer. Those live-only pop-outs are not worth
+        // maintaining and break a self-contained / shared report.
+        return '<code>' + _h(_short(composite)) + '</code>';
       }
       function _paramsCell(params) {
         if (!params || typeof params !== 'object' || !Object.keys(params).length)
@@ -8438,7 +8501,7 @@
             + '</tr>';
         }).join('');
         simsHtml = '<div id="' + sid.sims + '"><h3>What we ran <span class="muted small">(' + sims.length + ' simulation' + (sims.length === 1 ? '' : 's') + ')</span></h3>'
-          + '<p class="muted small" style="margin:0 0 8px 0">One row per concrete run: the model composite (click ↗ to open it in the bigraph-loom explorer), what changes vs the reference baseline, the condition / length, and its status.</p>'
+          + '<p class="muted small" style="margin:0 0 8px 0">One row per concrete run: the model composite, what changes vs the reference baseline, the condition / length, and its status.</p>'
           + '<table class="sim-table"><thead><tr><th>Simulation</th><th>Composite</th><th>Changes vs baseline</th><th>Run</th><th>Status</th></tr></thead>'
           + '<tbody>' + rows + '</tbody></table>'
           + '</div>';
@@ -8472,7 +8535,7 @@
               + '</tr>';
           }).join('');
           simsHtml = '<div id="' + sid.sims + '"><h3>What we ran <span class="muted small">(composite + parameters)</span></h3>'
-            + '<p class="muted small" style="margin:0 0 8px 0">The composite(s) and parameter settings actually simulated for this study (from its baseline). Click a composite ↗ to open it in the bigraph-loom explorer.</p>'
+            + '<p class="muted small" style="margin:0 0 8px 0">The composite(s) and parameter settings actually simulated for this study (from its baseline).</p>'
             + '<table class="sim-table"><thead><tr><th>Run</th><th>Composite</th><th>Parameters</th><th>Replication</th><th>Status</th></tr></thead>'
             + '<tbody>' + brows + '</tbody></table>'
             + '</div>';
@@ -8512,10 +8575,8 @@
             ? Object.keys(e.params).map(function(k) { return '<code>' + _h(k) + '=' + _h(JSON.stringify(e.params[k])) + '</code>'; }).join(' ')
             : '<span class="muted">default parameters</span>';
           var btn = e.composite
-            ? '<button class="model-explore-btn" onclick="' + _loomStaticPopout(e.composite) + '" '
-              + 'style="font-size:0.92em;font-weight:600;padding:5px 12px;border:1px solid #2563eb;background:#eff6ff;'
-              + 'color:#1e40af;border-radius:6px;cursor:pointer;white-space:nowrap">🧬 ' + _h(_short(e.composite))
-              + ' — explore in bigraph-loom ↗</button>'
+            ? '<span style="font-size:0.92em;font-weight:600;color:#1e40af;white-space:nowrap">🧬 <code>'
+              + _h(_short(e.composite)) + '</code></span>'
             : '<span class="muted">(no composite)</span>';
           return '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">'
             + btn + '<span style="font-size:0.88em;color:#475569">' + params + '</span></div>';
@@ -8523,8 +8584,7 @@
         return '<div class="study-model-banner" style="margin:10px 0;padding:12px 16px;'
           + 'background:#f0f9ff;border:1px solid #bae6fd;border-left:5px solid #2563eb;border-radius:8px">'
           + '<div style="font-weight:700;color:#0c4a6e">Model</div>'
-          + '<div class="muted small" style="margin-top:2px">The composite(s) this study runs and their parameters — '
-          + 'click to open a static view in the bigraph-loom explorer.</div>'
+          + '<div class="muted small" style="margin-top:2px">The composite(s) this study runs and their parameters.</div>'
           + rows + '</div>';
       })();
 
@@ -11498,15 +11558,18 @@
 
   // Back-compat shim for any old callers (sidebar groups still use this).
   function _openStudyEmbeddedNewTab(name) {
-    // If we're inside the Investigations tab, use the in-place embed.
-    if (window._currentIset) {
+    // Use the in-place embed ONLY when the investigation detail view is actually
+    // on screen. ``_currentIset`` stays set after you leave the investigation
+    // tab, so keying on it alone made rail study clicks from other tabs (e.g.
+    // Analyses) try to embed into a hidden panel and appear to do nothing.
+    var detail = document.getElementById('investigation-detail-view');
+    var onInvestigationView = window._currentIset && detail && detail.offsetParent !== null;
+    if (onInvestigationView) {
       _openStudyInsideInvestigation(name);
       return;
     }
-    _switchPage('studies');
-    setTimeout(function() {
-      if (typeof _openStudyEmbedded === 'function') _openStudyEmbedded(name);
-    }, 80);
+    // Otherwise navigate straight to the study page (works from any tab).
+    window.location = _studyHref(name);
   }
   window._openStudyEmbeddedNewTab = _openStudyEmbeddedNewTab;
 
@@ -11622,7 +11685,9 @@
     if (groups.length === 1 && groups[0].name !== '__ungrouped__') {
       var g = groups[0];
       var _iset = (window._isetIndex || []).filter(function(i){ return i.name === g.name; })[0] || {};
-      host.innerHTML = '<div class="rail-iset-name" title="' + _esc(_iset.title || g.name) + '">'
+      host.innerHTML = '<div class="rail-iset-name" title="' + _esc(_iset.title || g.name) + '"'
+        + ' onclick="window._railOpenInvestigationDetail(\'' + _esc(g.name) + '\');"'
+        + ' style="cursor:pointer;">'
         + _esc(_iset.title || g.name) + '</div>'
         + g.studies.map(function(s) { return _railStudyItem(s); }).join('');
       return;
@@ -11931,7 +11996,7 @@
   function _submitInvestigationCreate(form) {
     var data = new FormData(form);
     var payload = { name: data.get('name'), composite: data.get('composite'), source: data.get('source') || '' };
-    fetch('/api/investigation-create', {
+    fetch('/api/study-create', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(payload),
     }).then(function(r) { return r.json().then(function(j) { return [r.ok, j]; }); })
@@ -14371,9 +14436,12 @@
           return;
         }
         window._simRows = data.simulations || [];
-        // Scope target: the git-branch investigation slug, else whatever
-        // investigation the dashboard is currently focused on. Null → All.
-        window._simCurrent = data.current || window._currentInvestigation || null;
+        // Scope target, most-specific first: the investigation currently open
+        // in the detail view (_currentIsetSlug, set by _openInvestigationDetail),
+        // else the git-branch investigation slug, else whatever investigation the
+        // dashboard is focused on. Null → All.
+        window._simCurrent = window._currentIsetSlug || data.current ||
+          window._currentInvestigation || null;
         if (loading) loading.style.display = 'none';
         _populateSimFilters();
         _applySimFilter();
@@ -15017,7 +15085,7 @@
     // behaviour unchanged when DataSource is not available.
     var _isetFetch = (window.DataSource && window.DataSource.loadInvestigation)
       ? window.DataSource.loadInvestigation(name)
-      : fetch('/api/iset/' + encodeURIComponent(name)).then(function (r) { return r.json(); });
+      : fetch('/api/investigation/' + encodeURIComponent(name)).then(function (r) { return r.json(); });
     return _isetFetch.then(function (iset) {
         var studyFetches = (iset.studies || []).map(function (s) {
           return ((window.DataSource && window.DataSource.loadStudy)

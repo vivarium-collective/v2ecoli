@@ -83,8 +83,16 @@ body.snapshot #ce-post-run-bar {
 }
 
 /* ── Generic JS-authoring tag (applied by JS at render time) ─────────── */
-body.snapshot .js-authoring {
+/* Hidden in both static snapshot mode and live read-only (remote-only) mode. */
+body.snapshot .js-authoring,
+body.readonly .js-authoring {
   display: none !important;
+}
+
+/* Remote-only (read-only) client: the workspace status dot is purple (remote),
+   not the local green. */
+body.readonly .viv-workspace-switcher-glyph {
+  color: #7c3aed !important;
 }
 
 /* ── Sources add-* modals ────────────────────────────────────────────── */
@@ -93,6 +101,16 @@ body.snapshot #modal-reference,
 body.snapshot #modal-expert-doc,
 body.snapshot #modal-observable,
 body.snapshot #modal-visualization {
+  display: none !important;
+}
+
+/* Published Source page (#github): keep the Source switcher (#viv-branch-source,
+   which in snapshot becomes a navigator across published workspaces + Sync-to-
+   local), but hide the live GitHub authoring section — account identity
+   ("Signed in as"), default org, workspace-repo details, push state, PR. None
+   of that applies to a static published site. */
+body.snapshot #page-github > h2.page-title,
+body.snapshot #page-github .github-settings {
   display: none !important;
 }
 
@@ -132,17 +150,11 @@ body.snapshot .viv-iset-menu-new {
   display: none !important;
 }
 
-/* ── Repo switcher: hidden in snapshot; static label shown instead ───── */
-body.snapshot #viv-workspace-switcher {
-  display: none !important;
-}
+/* ── Repo switcher: in snapshot, keep the live repo + branch chip ──────
+   It opens the Source page (the published workspace switcher) and shows the
+   repo name + branch. The compact static label is superseded. */
 body.snapshot #snapshot-repo-label {
-  display: flex !important;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  font-size: 0.92em;
-  color: #374151;
+  display: none !important;
 }
 
 /* Composite Explorer: Explore button is now available in snapshot mode via
@@ -154,12 +166,10 @@ body.snapshot #modal-viz-preview {
   display: none !important;
 }
 
-/* ── Studies rail section: legacy flat-list Studies page unreachable in
-   snapshot (redirected to Investigations). Hide the rail section so users
-   go to the Investigations tab instead.  ─────────────────────────────────── */
-body.snapshot #viv-rail-studies-section {
-  display: none !important;
-}
+/* ── Studies rail section: SHOWN in snapshot. Opening an investigation syncs
+   its studies into this rail section (they open embedded on click). Only the
+   legacy flat Studies PAGE is redirected to Investigations (see _switchPage);
+   the per-investigation studies rail is useful and now visible. ───────────── */
 
 /* ── Investigation-detail Composites sub-tab: fetches /api/investigation-composites
    which is not exported in snapshot. Hide the tab + its panel.  ─────────── */

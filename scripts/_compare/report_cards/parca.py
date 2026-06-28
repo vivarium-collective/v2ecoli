@@ -1,28 +1,20 @@
-"""`parca` card — ParCa / initial-state match for one config.
-
-Graded: the t~0 (first matched emit) initial masses must agree between v2ecoli
-and vEcoli — both sims start from their engine's ParCa fit, so this is the
-same-initial-state evidence the per-condition dynamics build on. Each mass
-observable's initial |Δ| is graded (5% within / 10% drift); the worst is the
-card verdict, so a ParCa study can gate its follow-ups.
-"""
+"""`parca` card — ParCa / initial-state match, graded on per-mass t~0 |Δ|.
+as_step Step invoked via core.access('parca_report_card')."""
 from __future__ import annotations
 
-from scripts._compare.report_cards import report_card, CardContext, Section
+from process_bigraph.composite import as_step
+
+from scripts._compare.report_cards import (
+    report_card, CardContext, Section, CARD_INPUTS, CARD_OUTPUTS,
+    _sections_to_html, REPORT_CARD_STEPS)
 from scripts._compare.verdict import worst
 
 
-@report_card("parca")
-def parca_card(ctx: CardContext) -> Section:
+def _parca_section_and_axes(name, per_obs, plot_trajs, v2_bounds):
     from scripts.comparison_report_card import parca_section
-    # parca_section takes the cond_data map; build a single-cond slice.
-    sec = parca_section({ctx.config_name: (ctx.per_obs, ctx.plot_trajs, ctx.v2_bounds)})
-    sec["anchor"] = f"{ctx.config_name}-parca"
-    sec["title"] = f"{ctx.config_name} — ParCa / initial-state match"
-    # Grade the per-mass initial-state agreement. parca_section already grades
-    # each mass row (_grade over the init |Δ|); expose those as verdict_axes so
-    # the card produces a verdict the framework can gate on. Rows without a
-    # graded value (condition headers, missing observables) are skipped.
+    sec = parca_section({name: (per_obs, plot_trajs, v2_bounds)})
+    sec["anchor"] = f"{name}-parca"
+    sec["title"] = f"{name} — ParCa / initial-state match"
     axes = []
     for row in sec.get("rows", []):
         if "median_rel" not in row:
@@ -30,14 +22,28 @@ def parca_card(ctx: CardContext) -> Section:
         v = row.get("verdict", "ungraded")
         if v == "not_compared":
             v = "ungraded"
-        axes.append({
-            "id": f"parca.{row['label']}",
-            "label": row["label"],
-            "verdict": v,
-            "value": row.get("median_rel"),
-            "meter": row.get("reason", ""),
-            "detail": {"init_rel": row.get("median_rel")},
-        })
+        axes.append({"id": f"parca.{row['label']}", "label": row["label"], "verdict": v,
+                     "value": row.get("median_rel"), "meter": row.get("reason", ""),
+                     "detail": {"init_rel": row.get("median_rel")}})
+    return sec, axes
+
+
+@as_step(inputs=CARD_INPUTS, outputs=CARD_OUTPUTS, name="parca_report_card",
+         aliases=["parca"])
+def update_parca_report_card(state):
+    sec, axes = _parca_section_and_axes(
+        state["name"], state["observables"], state["plot_trajs"], state["v2_bounds"])
+    return {"card_html": _sections_to_html([sec]),
+            "verdict": worst(a["verdict"] for a in axes), "axes": axes}
+
+
+REPORT_CARD_STEPS["parca_report_card"] = update_parca_report_card
+
+
+@report_card("parca")
+def parca_card(ctx: CardContext) -> Section:
+    sec, axes = _parca_section_and_axes(
+        ctx.config_name, ctx.per_obs, ctx.plot_trajs, ctx.v2_bounds)
     sec["verdict"] = worst(a["verdict"] for a in axes)
     sec["verdict_axes"] = axes
     return sec

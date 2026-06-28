@@ -25,3 +25,15 @@ runs:
   kind: analysis
   canonical: true
   description: v2e-compare study acetate
+  status: completed
+  result: FAIL
+  outcomes:
+    standard-vs-vecoli:
+      result: FAIL
+      detail: 'report card ''standard'': mismatch'
+baseline:
+- name: v2ecoli-baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    condition: acetate
+status: evaluated

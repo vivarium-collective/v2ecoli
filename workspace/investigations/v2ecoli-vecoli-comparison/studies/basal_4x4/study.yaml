@@ -29,3 +29,15 @@ runs:
   kind: analysis
   canonical: true
   description: v2e-compare study basal_4x4
+  status: completed
+  result: PASS
+  outcomes:
+    statistical-vs-vecoli:
+      result: PASS
+      detail: 'report card ''statistical'': within_tol'
+baseline:
+- name: v2ecoli-baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    condition: basal
+status: evaluated

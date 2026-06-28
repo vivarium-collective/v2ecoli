@@ -25,3 +25,15 @@ runs:
   kind: analysis
   canonical: true
   description: v2e-compare study basal
+  status: completed
+  result: PARTIAL
+  outcomes:
+    standard-vs-vecoli:
+      result: PARTIAL
+      detail: 'report card ''standard'': drift'
+baseline:
+- name: v2ecoli-baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    condition: basal
+status: evaluated

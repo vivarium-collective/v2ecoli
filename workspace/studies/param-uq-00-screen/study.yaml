@@ -203,8 +203,10 @@ conclusion_verdicts:
 readouts:
 - name: instantaneous_growth_rate
   notes: "listeners.mass.instantaneous_growth_rate — % change low→high per knob; the screen metric."
+  store_path: listeners.mass.instantaneous_growth_rate
 - name: effective_knob_count
   notes: "Number of the 7 candidates with >2% growth-rate response (measured = 3)."
+  status: derived-needed
 
 enforced_params:
 - ecoli-polypeptide-elongation.basal_elongation_rate

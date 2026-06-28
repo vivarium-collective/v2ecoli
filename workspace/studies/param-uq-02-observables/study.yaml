@@ -242,10 +242,13 @@ conclusion_verdicts:
 readouts:
 - name: dry_mass_cell_mass
   notes: "listeners.mass.dry_mass / cell_mass — accumulate a parameter signal over the 360-step window."
+  store_path: listeners.mass.dry_mass
 - name: instantaneous_growth_rate
   notes: "listeners.mass.instantaneous_growth_rate — the window-dependent ranking probe."
+  store_path: listeners.mass.instantaneous_growth_rate
 - name: per_observable_sobol
   notes: "Per-observable total-order Sobol indices (3 knobs × 3 observables, mean over 2 seeds)."
+  status: derived-needed
 
 enforced_params:
 - ecoli-polypeptide-elongation.basal_elongation_rate

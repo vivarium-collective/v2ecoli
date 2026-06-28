@@ -289,10 +289,13 @@ conclusion_verdicts:
 readouts:
 - name: instantaneous_growth_rate
   notes: "listeners.mass.instantaneous_growth_rate — the responsive growth observable over a 120-step window."
+  store_path: listeners.mass.instantaneous_growth_rate
 - name: sobol_indices
   notes: "Total-order and first-order Sobol indices per knob (analytic, from PCE coefficients)."
+  status: derived-needed
 - name: pce_test_error
   notes: "PCE surrogate test relative error (held-out 10 samples per seed)."
+  status: derived-needed
 
 enforced_params:
 - ecoli-polypeptide-elongation.basal_elongation_rate

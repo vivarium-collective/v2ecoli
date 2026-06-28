@@ -5,8 +5,7 @@ from __future__ import annotations
 from process_bigraph.composite import as_step
 
 from scripts._compare.report_cards import (
-    report_card, CardContext, Section, CARD_INPUTS, CARD_OUTPUTS,
-    _sections_to_html, REPORT_CARD_STEPS)
+    CARD_INPUTS, CARD_OUTPUTS, _sections_to_html, REPORT_CARD_STEPS)
 from scripts._compare.verdict import worst
 
 
@@ -37,14 +36,3 @@ def update_standard_report_card(state):
 
 
 REPORT_CARD_STEPS["standard_report_card"] = update_standard_report_card
-
-
-# --- transitional: keep the old registry wrapper until the Task 5 cutover ---
-@report_card("standard")
-def standard_card(ctx: CardContext) -> list[Section]:
-    sections, axes = _standard_sections_and_axes(
-        ctx.config_name, ctx.per_obs, ctx.plot_trajs, ctx.v2_bounds)
-    ev = sections[1]
-    ev["verdict"] = worst(a["verdict"] for a in axes)
-    ev["verdict_axes"] = axes
-    return sections

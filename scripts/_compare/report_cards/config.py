@@ -10,7 +10,7 @@ import json as _json
 from process_bigraph.composite import as_step
 
 from scripts._compare.report_cards import (
-    report_card, CardContext, Section, CARD_INPUTS, CARD_OUTPUTS, REPORT_CARD_STEPS)
+    CARD_INPUTS, CARD_OUTPUTS, REPORT_CARD_STEPS)
 
 # Keys surfaced first, in this order; everything else follows alphabetically.
 _PRIORITY = ["condition", "n_init_sims", "generations", "time_step",
@@ -66,11 +66,3 @@ def update_config_report_card(state):
 
 
 REPORT_CARD_STEPS["config_report_card"] = update_config_report_card
-
-
-@report_card("config")
-def config_card(ctx: CardContext) -> Section:
-    return {"title": f"{ctx.config_name} — config", "kind": "content",
-            "anchor": f"{ctx.config_name}-config",
-            "html": _config_html(ctx.config_name, ctx.seeds, ctx.gens, ctx.config),
-            "verdict": None}

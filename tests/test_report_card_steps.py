@@ -1,6 +1,7 @@
 from process_bigraph.composite import as_step
 from v2ecoli.core import build_core
 from scripts._compare.report_cards import _sections_to_html, CARD_INPUTS, CARD_OUTPUTS
+from _card_helpers import _state, _run_card
 
 
 def test_sections_to_html_renders_html_and_rows():
@@ -30,24 +31,10 @@ def test_as_step_card_round_trips_through_core():
     assert out["verdict"] == "within_tol" and "basal" in out["card_html"]
 
 
-def _state(per_obs, name="basal", seeds=1, gens=4, variant=0, config=None):
-    return {"name": name, "condition": "basal", "seeds": seeds, "generations": gens,
-            "variant": variant, "observables": per_obs, "plot_trajs": {},
-            "v2_bounds": [], "config": config or {}, "v2_dir": "", "ve_dir": ""}
-
-
 # 5 seeds so the t-test / median have data; one within-tol observable.
 _PO = {"rna_mass": [{"median_rel": 0.02, "max_rel": 0.05, "init_ve": 100.0,
                      "init_v2": 101.0, "init_t": 60.0, "ve_mean": 100.0, "v2_mean": 101.0}
                     for _ in range(5)]}
-
-
-def _run_card(name, state):
-    from v2ecoli.core import build_core
-    from scripts._compare.report_cards import REPORT_CARD_STEPS
-    core = build_core(); core.register_links(REPORT_CARD_STEPS)
-    step = core.link_registry[f"{name}_report_card"](config={}, core=core)
-    return step.update(state)
 
 
 def test_standard_step_grades_and_renders():

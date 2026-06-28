@@ -4,7 +4,7 @@ from __future__ import annotations
 from process_bigraph.composite import as_step
 
 from scripts._compare.report_cards import (
-    report_card, CardContext, Section, CARD_INPUTS, CARD_OUTPUTS, REPORT_CARD_STEPS)
+    CARD_INPUTS, CARD_OUTPUTS, REPORT_CARD_STEPS)
 from scripts._compare.report_card_section import build_report_card
 
 
@@ -30,11 +30,3 @@ def update_statistical_report_card(state):
 
 
 REPORT_CARD_STEPS["statistical_report_card"] = update_statistical_report_card
-
-
-@report_card("statistical")
-def statistical_card(ctx: CardContext) -> Section:
-    html, verdict, axes = _statistical_html_axes(ctx.config_name, ctx.per_obs, ctx.variant)
-    return {"title": f"{ctx.config_name} — statistical equivalence", "kind": "content",
-            "anchor": f"{ctx.config_name}-statistical", "html": html,
-            "verdict": verdict, "verdict_axes": axes}

@@ -5,8 +5,7 @@ from __future__ import annotations
 from process_bigraph.composite import as_step
 
 from scripts._compare.report_cards import (
-    report_card, CardContext, Section, CARD_INPUTS, CARD_OUTPUTS,
-    _sections_to_html, REPORT_CARD_STEPS)
+    CARD_INPUTS, CARD_OUTPUTS, _sections_to_html, REPORT_CARD_STEPS)
 from scripts._compare.verdict import worst
 
 
@@ -38,12 +37,3 @@ def update_parca_report_card(state):
 
 
 REPORT_CARD_STEPS["parca_report_card"] = update_parca_report_card
-
-
-@report_card("parca")
-def parca_card(ctx: CardContext) -> Section:
-    sec, axes = _parca_section_and_axes(
-        ctx.config_name, ctx.per_obs, ctx.plot_trajs, ctx.v2_bounds)
-    sec["verdict"] = worst(a["verdict"] for a in axes)
-    sec["verdict_axes"] = axes
-    return sec

@@ -1,4 +1,4 @@
-from scripts._compare.report_cards import CardContext, render
+from _card_helpers import _state, _run_card
 
 # One within-tol observable; the rest are absent -> 'not_compared' -> 'ungraded'.
 _PER_OBS = {"rna_mass": [
@@ -15,45 +15,33 @@ _PER_OBS = {"rna_mass": [
 ]}
 
 
-def _ctx():
-    return CardContext(config_name="basal", variant=0, v2_dir="", ve_dir="",
-                       seeds=1, gens=1, per_obs=_PER_OBS)
-
-
-def _verdict_section(sections):
-    hits = [s for s in sections if "verdict_axes" in s]
-    assert len(hits) == 1, "exactly one section must carry the verdict"
-    return hits[0]
-
-
 def test_parca_card_emits_verdict_and_axes():
-    sec = render("parca", _ctx())[0]
-    assert "verdict_axes" in sec
+    out = _run_card("parca", _state(_PER_OBS))
     # the t~0 rna_mass init (~1%) is graded -> a parca.* axis, within tolerance
-    assert any(a["id"].startswith("parca.") for a in sec["verdict_axes"])
-    assert sec["verdict"] == "within_tol"
+    assert any(a["id"].startswith("parca.") for a in out["axes"])
+    assert out["verdict"] == "within_tol"
 
 
 def test_standard_card_emits_verdict_and_axes():
-    sec = _verdict_section(render("standard", _ctx()))
-    assert sec["verdict"] in {"within_tol", "drift", "mismatch", "ungraded"}
-    ids = {a["id"] for a in sec["verdict_axes"]}
+    out = _run_card("standard", _state(_PER_OBS))
+    assert out["verdict"] in {"within_tol", "drift", "mismatch", "ungraded"}
+    ids = {a["id"] for a in out["axes"]}
     assert any(i.startswith("standard.") for i in ids)
     # not_compared rows map to 'ungraded', never the literal 'not_compared'.
-    assert all(a["verdict"] != "not_compared" for a in sec["verdict_axes"])
+    assert all(a["verdict"] != "not_compared" for a in out["axes"])
     # the one matched observable is within_tol -> card overall within_tol.
-    assert sec["verdict"] == "within_tol"
+    assert out["verdict"] == "within_tol"
 
 
 def test_statistical_card_emits_verdict_and_axes():
-    sec = render("statistical", _ctx())[0]
-    assert "verdict_axes" in sec and isinstance(sec["verdict_axes"], list)
-    assert sec["verdict"] in {"within_tol", "drift", "mismatch", "ungraded"}
+    out = _run_card("statistical", _state(_PER_OBS))
+    assert isinstance(out["axes"], list)
+    assert out["verdict"] in {"within_tol", "drift", "mismatch", "ungraded"}
     # Fixture has 5 rna_mass seeds -> at least one graded axis.
-    assert len(sec["verdict_axes"]) > 0
-    assert any(a["verdict"] != "ungraded" for a in sec["verdict_axes"])
+    assert len(out["axes"]) > 0
+    assert any(a["verdict"] != "ungraded" for a in out["axes"])
     # ~1% rna_mass difference (100 vs 101 mean) -> within_tol.
-    assert sec["verdict"] == "within_tol"
+    assert out["verdict"] == "within_tol"
     # Every verdict axis must carry exactly the required 6 keys.
     assert all({"id", "label", "verdict", "value", "meter", "detail"} <= set(a)
-               for a in sec["verdict_axes"])
+               for a in out["axes"])

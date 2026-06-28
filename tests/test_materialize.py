@@ -59,7 +59,7 @@ def test_materialize_declares_report_card_test_modules(tmp_path):
     assert "measure" not in tests["config-vs-vecoli"]            # informational
     assert tests["standard-vs-vecoli"]["measure"]["kind"] == "report_card_axis"
     assert "behavior_tests" not in data                          # replaced by tests
-    assert data["baseline"][0]["name"] == "v2ecoli-baseline"
+    assert data["conditions"]["baseline"]["composite"] == "v2ecoli.composites.baseline.baseline"
 
 
 def test_materialize_preserves_narrative_and_is_idempotent(tmp_path):

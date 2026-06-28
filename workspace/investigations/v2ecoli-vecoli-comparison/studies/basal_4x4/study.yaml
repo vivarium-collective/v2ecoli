@@ -29,11 +29,6 @@ runs:
     statistical-vs-vecoli:
       result: PASS
       detail: 'report card ''statistical'': within_tol'
-baseline:
-- name: v2ecoli-baseline
-  composite: v2ecoli.composites.baseline.baseline
-  params:
-    condition: basal
 status: evaluated
 tests:
 - name: config-vs-vecoli
@@ -55,3 +50,8 @@ tests:
     kind: report_card_axis
     card: docs/report_cards/v2ecoli-vecoli-comparison/basal_4x4
     group: statistical
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      condition: basal

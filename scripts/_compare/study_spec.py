@@ -73,11 +73,22 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
     data = yaml.safe_load(study_path.read_text(encoding="utf-8")) or {}
     comp = data.get("comparison") or {}
     name = data.get("name") or study_path.parent.name
+    condition = data.get("condition")
+    if not condition:
+        raise ValueError(f"{study_path}: study has no `condition` (the biological "
+                         f"vEcoli condition to simulate)")
+    raw_seeds = comp.get("seeds", 1)
+    raw_gens = comp.get("generations", 1)
+    seeds = int(raw_seeds) if raw_seeds is not None else 1
+    gens = int(raw_gens) if raw_gens is not None else 1
+    if seeds < 1 or gens < 1:
+        raise ValueError(f"{study_path}: comparison.seeds/generations must be >= 1 "
+                         f"(got seeds={seeds}, generations={gens})")
     return StudySpec(
         name=name,
-        condition=data.get("condition") or name,
-        seeds=int(comp.get("seeds") or 1),
-        gens=int(comp.get("generations") or 1),
+        condition=condition,
+        seeds=seeds,
+        gens=gens,
         cards=list(comp.get("cards") or ctx["default_cards"]),
         invest_name=ctx["invest_name"],
         v2_cache=ctx["v2_cache"],

@@ -8,7 +8,7 @@
 # at v2ecoli:<sha>, so no moving `:latest` is needed. Pass -t to ALSO push a second tag.
 #
 # The upstream vEcoli fork the image WRAPS (cloned into /app/vEcoli) is SPEC-DRIVEN:
-# this script reads comparison_spec.json's vecoli.{repo,commit} via scripts/_read_spec.py
+# this script reads the investigation YAML comparison.vecoli.{repo,commit}
 # (vecoli-fork mode) and passes them as --build-arg VECOLI_UPSTREAM_REPO/REF. So
 # comparing a NEW fork = edit the spec's vecoli block + rerun this — no code change.
 # If the spec is absent/unreadable the Dockerfile defaults (CovertLab/vEcoli@master) win.
@@ -18,7 +18,7 @@
 #   -r: ECR repository name (default: v2ecoli).
 #   -R: AWS region (default: $AWS_DEFAULT_REGION / $AWS_REGION / us-gov-west-1).
 #   -t: OPTIONAL extra tag to also push (e.g. a deploy alias). Default: none.
-#   -s: comparison spec (default: $ROOT/comparison_spec.json) — supplies the fork build-args.
+#   -s: investigation YAML (default: workspace/investigations/v2ecoli-vecoli-comparison/investigation.yaml) — supplies the fork build-args from comparison.vecoli.
 #   -h: help.
 #
 # Build it on (or for) linux/amd64 — the MNP nodes are m5 (x86_64).
@@ -32,7 +32,7 @@ REPO_NAME="v2ecoli"
 AWS_REGION="${AWS_DEFAULT_REGION:-${AWS_REGION:-us-gov-west-1}}"
 EXTRA_TAG=""
 PLATFORM="${V2ECOLI_BUILD_PLATFORM:-linux/amd64}"
-SPEC="${COMPARISON_SPEC:-$ROOT/comparison_spec.json}"
+SPEC="${COMPARISON_SPEC:-$ROOT/workspace/investigations/v2ecoli-vecoli-comparison/investigation.yaml}"
 
 while getopts 'i:r:R:t:s:h' flag; do
   case "${flag}" in
@@ -46,10 +46,18 @@ while getopts 'i:r:R:t:s:h' flag; do
   esac
 done
 
-# Resolve the fork (repo<TAB>ref) from the spec; pass as build-args when available.
+# Resolve the vEcoli fork (repo<TAB>ref) from the investigation YAML's
+# comparison.vecoli block (the study-YAML-only source of truth); pass as
+# build-args when a commit/ref is pinned (empty commit -> Dockerfile defaults).
 BUILD_ARGS=()
 if [[ -f "$SPEC" ]] && command -v python3 >/dev/null 2>&1; then
-  if fork_line="$(python3 "$ROOT/scripts/_read_spec.py" "$SPEC" vecoli-fork 2>/dev/null)"; then
+  if fork_line="$(python3 - "$SPEC" 2>/dev/null <<'PY'
+import sys, yaml
+d = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+ve = (d.get("comparison") or {}).get("vecoli") or {}
+print("%s\t%s" % (ve.get("repo", ""), ve.get("commit", "")))
+PY
+)"; then
     ve_repo="${fork_line%%$'\t'*}"; ve_ref="${fork_line##*$'\t'}"
     if [[ -n "$ve_repo" && -n "$ve_ref" ]]; then
       BUILD_ARGS+=(--build-arg "VECOLI_UPSTREAM_REPO=${ve_repo}" --build-arg "VECOLI_UPSTREAM_REF=${ve_ref}")

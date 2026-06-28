@@ -14,12 +14,15 @@ import yaml
 
 from scripts._compare.study_spec import StudySpec
 
-CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"
+
+def card_root(spec: StudySpec) -> str:
+    """The per-investigation card root the verdict/behavior_tests address."""
+    return f"docs/report_cards/{spec.invest_name}"
 
 
 def materialized_fields(spec: StudySpec) -> dict:
     """The report_cards + behavior_tests derived from a study's graded cards."""
-    card_dir = f"{CARD_ROOT}/{spec.name}"
+    card_dir = f"{card_root(spec)}/{spec.name}"
     return {
         "report_cards": [f"{card_dir}/index.html"],
         "behavior_tests": [
@@ -39,6 +42,9 @@ def materialize_study(spec: StudySpec) -> Path:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     data.update(materialized_fields(spec))
     data.setdefault("pipeline_gate", {"prerequisites": [], "enables": []})
+    data.setdefault("runs", [{"name": f"{spec.name}-comparison", "kind": "analysis",
+                              "canonical": True,
+                              "description": f"v2e-compare study {spec.name}"}])
     path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
                     encoding="utf-8")
     return path

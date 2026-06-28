@@ -3,7 +3,9 @@ import textwrap
 import yaml
 
 from scripts._compare.study_spec import StudySpec
-from scripts._compare.materialize import materialized_fields, materialize_study, CARD_ROOT
+from scripts._compare.materialize import materialized_fields, materialize_study
+
+CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"   # for the test's invest_name
 
 
 def _spec(study_path, name="basal_4x4", cards=("config", "parca", "statistical")):

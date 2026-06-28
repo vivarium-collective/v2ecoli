@@ -20,3 +20,8 @@ behavior_tests:
 pipeline_gate:
   prerequisites: []
   enables: []
+runs:
+- name: basal-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study basal

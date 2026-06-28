@@ -94,3 +94,17 @@ def test_load_investigation_missing_raises(tmp_path):
 def test_load_study_missing_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         load_study(str(tmp_path / "studies/ghost"))
+
+
+def test_study_without_condition_fails_loud(tmp_path):
+    sp = tmp_path / "studies/x/study.yaml"
+    _write(sp, "name: x\ncomparison: {seeds: 1, generations: 4}\n")  # no condition
+    with pytest.raises(ValueError, match="no `condition`"):
+        load_study(str(sp))
+
+
+def test_study_with_nonpositive_seeds_fails_loud(tmp_path):
+    sp = tmp_path / "studies/x/study.yaml"
+    _write(sp, "name: x\ncondition: basal\ncomparison: {seeds: 0, generations: 4}\n")
+    with pytest.raises(ValueError, match=">= 1"):
+        load_study(str(sp))

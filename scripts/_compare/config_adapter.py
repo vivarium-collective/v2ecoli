@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 from typing import Any
 
@@ -130,27 +129,6 @@ def resolve_vecoli_config(config_path: str,
     )
     return json.loads(out)
 
-
-def store_key(entry: dict, fork_dir: str = "") -> str:
-    """Canonical condition key for a manifest entry, used IDENTICALLY by the
-    runner (store dir), renderer, scaffold, and validator so the store path,
-    verdict path, and study card path always agree. Resolution order:
-    explicit manifest `name` -> the fork-resolved vEcoli `condition` field ->
-    the config filename stem (leading 'cond_' and trailing '_NxN' stripped)."""
-    if entry.get("name"):
-        return entry["name"]
-    cfg = entry["config"]
-    if fork_dir:
-        try:
-            cond = resolve_vecoli_config_local(cfg, fork_dir).get("condition")
-            if cond:
-                return cond
-        except Exception:
-            pass
-    stem = os.path.splitext(os.path.basename(cfg))[0]
-    if stem.startswith("cond_"):
-        stem = stem[len("cond_"):]
-    return re.sub(r"_\d+x\d+$", "", stem)
 
 
 def config_run_shape(config_path: str, fork_dir: str) -> tuple[int, int]:

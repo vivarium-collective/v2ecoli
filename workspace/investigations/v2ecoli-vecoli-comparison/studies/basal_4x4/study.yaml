@@ -24,3 +24,8 @@ behavior_tests:
 pipeline_gate:
   prerequisites: []
   enables: []
+runs:
+- name: basal_4x4-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study basal_4x4

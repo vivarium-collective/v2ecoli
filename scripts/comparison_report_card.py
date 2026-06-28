@@ -688,20 +688,23 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
-def assemble_from_studies(specs, cond_data, conds,
-                          verdict_root="docs/report_cards/v2ecoli-vecoli-comparison"):
+def assemble_from_studies(specs, cond_data, conds, verdict_root=None):
     """Overview + per-study assigned-card sections, driven by study specs (the
     study-YAML-only model — no manifest). Each StudySpec carries name (store key),
     condition, seeds/gens and cards; the `config` card renders the study's run
-    spec. Writes one report_card_verdict.json per study (each card a group)."""
+    spec. Writes one report_card_verdict.json per study (each card a group). When
+    verdict_root is None it is derived from the studies' investigation."""
     from scripts._compare import report_cards as rc
     from scripts._compare.verdict import write_condition_verdict
 
+    if verdict_root is None and specs:
+        verdict_root = f"docs/report_cards/{specs[0].invest_name}"
     overview = overview_section(cond_data); overview["nav_group"] = "Overall"
     sections = [overview]
     for spec in specs:
         name = spec.name
         if name not in cond_data:
+            print(f"[assemble] skip study {name!r}: no store under --out", flush=True)
             continue
         per_obs, plot_trajs, v2_bounds = cond_data[name]
         v2_dir, ve_dir = conds.get(name, ("", ""))

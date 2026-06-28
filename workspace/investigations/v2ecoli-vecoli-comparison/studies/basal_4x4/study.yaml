@@ -12,15 +12,9 @@ comparison:
   - parca
   - statistical
 report_cards:
-- docs/report_cards/v2ecoli-vecoli-comparison/basal_4x4/index.html
-behavior_tests:
-- name: statistical-vs-vecoli
-  classification: primary
-  question: Does v2ecoli reproduce vEcoli on basal_4x4 (statistical card)?
-  measure:
-    kind: report_card_axis
-    card: docs/report_cards/v2ecoli-vecoli-comparison/basal_4x4
-    group: statistical
+- viz/report_card/config.html
+- viz/report_card/parca.html
+- viz/report_card/statistical.html
 pipeline_gate:
   prerequisites: []
   enables: []
@@ -41,3 +35,23 @@ baseline:
   params:
     condition: basal
 status: evaluated
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal_4x4 (config card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal_4x4 (parca card)?
+- name: statistical-vs-vecoli
+  kind: report_card
+  card: statistical
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal_4x4 (statistical card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/basal_4x4
+    group: statistical

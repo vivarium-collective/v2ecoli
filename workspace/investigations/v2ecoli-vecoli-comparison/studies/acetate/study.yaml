@@ -8,15 +8,9 @@ comparison:
   seeds: 1
   generations: 4
 report_cards:
-- docs/report_cards/v2ecoli-vecoli-comparison/acetate/index.html
-behavior_tests:
-- name: standard-vs-vecoli
-  classification: primary
-  question: Does v2ecoli reproduce vEcoli on acetate (standard card)?
-  measure:
-    kind: report_card_axis
-    card: docs/report_cards/v2ecoli-vecoli-comparison/acetate
-    group: standard
+- viz/report_card/config.html
+- viz/report_card/parca.html
+- viz/report_card/standard.html
 pipeline_gate:
   prerequisites: []
   enables: []
@@ -37,3 +31,23 @@ baseline:
   params:
     condition: acetate
 status: evaluated
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on acetate (config card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on acetate (parca card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on acetate (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/acetate
+    group: standard

@@ -80,21 +80,23 @@ executive:
     state, DnaA-ATP fraction band). Further mechanistic studies (RIDA/DDAH/DARS, seqA
     sequestration, cooperativity, validation) are scaffolded as a roadmap but not yet worked.
   verdict: |-
-    The succinate DnaA cell cycle is reconstructed mechanistically across six studies (0-5):
+    The succinate DnaA cell cycle is reconstructed mechanistically across seven studies (0-6):
     a periodic baseline, in-band DnaA expression, ATP/ADP nucleotide balance, active DnaA-box
-    binding, DnaA self-autoregulation, and a cooperative oriC switch. Each step meets its gate
-    (or is honestly partial), and each step's tension pinpoints the next mechanism. The cooperative
-    oriC switch (study 5) is the prerequisite for a DnaA-ATP/oriC initiation trigger to eventually
-    replace the inherited cell-mass-per-origin heuristic; that mechanistic-initiation work is in
-    progress and set aside from this report for now.
+    binding, DnaA self-autoregulation, a cooperative oriC switch, and a mechanistic DnaA-ATP/oriC
+    initiation trigger that replaces the inherited cell-mass-per-origin heuristic. Each step meets
+    its gate (or is honestly partial), and each step's tension pinpoints the next mechanism.
 
-    Open item flagged for review (Haochen), out of scope and the clear next requirement: the
-    cooperative switch does not yet saturate once per generation. Under the mass trigger it over-fires
-    early (gens 1-3) then stops saturating later (gens 4-9, as free DnaA-ATP drifts down), the
-    expected behaviour without phase-locking. Clean once-per-cycle firing needs the mechanistic
-    DnaA-ATP/oriC trigger (phase-locked to initiation) plus a sustained DnaA-ATP level. dnaa-5 passes
-    its in-scope gate (switch + homeostasis); once-per-cycle firing is tracked as a secondary
-    out-of-scope test (dnaa5_saturation_per_gen) for that future work.
+    Headline update (dnaa-6, 2026-06-27): the mechanistic trigger built on the cooperative oriC-low
+    switch now gives CLEAN ONCE-PER-CELL-CYCLE initiation — exactly one fill->fire->reset per
+    generation, oriC strictly 1<->2 (never 4), seed-robust across seeds 0/1/2 over 8 generations,
+    with the cooperative switch alone (SeqA eclipse / RIDA not required). This closes the once-per-
+    cycle item that dnaa-5 had flagged as out-of-scope future work: under the inherited mass trigger
+    the cooperative switch fired un-phase-locked (the dnaa5_saturation_per_gen [11,93,95,0,...]
+    signature); the mechanistic trigger phase-locks it. The earlier "over-initiates to oriC->4"
+    concern was a property of the older 59e108fb build and does not reproduce on current code.
+    Remaining open (both now CODE-level, not parameter sweeps): the DnaA-ATP-fraction band stays
+    seed-variable / mostly below [0.2,0.5] (lever = the code-baked recharge rate k_r), and firing is
+    a brief fill-spike rather than a sustained full-saturation plateau (needs a dynamic-kick).
 
     The arc, step by step:
       (0) succinate baseline: v2ecoli reaches periodic steady state (oriC 1↔2 from gen 3).
@@ -108,13 +110,15 @@ executive:
           dnaa-1/2/3 V-tension at the root. Homeostasis is robust across 3 seeds; the DnaA-ATP
           fraction band is seed-1-specific (honest partial).
       (5) cooperative oriC switch: a Hill filament makes oriC-low occupancy switch-like (reaches
-          full) while preserving the dnaa-3/4 bands (pass). This is the prerequisite a mechanistic
-          initiation trigger needs. Out-of-scope future criterion: once-per-generation firing (needs
-          the mechanistic trigger + sustained DnaA-ATP), flagged for review and tracked as a
-          secondary test.
+          full) while preserving the dnaa-3/4 bands (pass). This is the prerequisite the mechanistic
+          initiation trigger needs.
+      (6) mechanistic initiation trigger: firing initiation on the cooperative oriC-low switch
+          (DnaA-ATP/oriC) in place of the cell-mass heuristic gives clean once-per-cell-cycle
+          initiation, oriC 1<->2, seed-robust over 8 gens (partial only on the open ATP-fraction band).
 
-    Next (in progress, set aside from this report): wire the cooperative switch into a DnaA-ATP/oriC
-    initiation trigger to replace the inherited cell-mass-per-origin heuristic. Detail per step follows.
+    Next (code-level, for Haochen): close the DnaA-ATP-fraction band (expose/tune the recharge rate
+    k_r) and add a dynamic-kick so the oriC cluster holds a sustained full-saturation plateau. Detail
+    per step follows.
 
     dnaa-0 pass (succinate periodic steady state, oriC 1↔2 from gen 3). dnaa-1 pass at V=0.8e-3
     on the expert's in-band + steady criterion (steady-gen cycle-mean ~362, peaks <800, troughs
@@ -532,11 +536,10 @@ studies:
 - dnaa-3-box-binding        # added 2026-06-03 (DnaA-box occupancy); 2026-06-10 Rashmi's active binding mechanism adopted (PR #162), over-binding resolved and box-doubling fixed
 - dnaa-4-autoregulation     # added 2026-06-10 — DnaA negative autoregulation: wire DnaA-ATP→dnaA-promoter repression (coupled to the adopted box occupancy) so DnaA self-stabilizes without the V override; dissolves the dnaa-1/dnaa-2 V tension and drift at the root. Scoped, first diagnostic done (promoter-occupancy feedback signal confirmed present).
 - dnaa-5-cooperativity      # added 2026-06-18 (Rashmi ordering) — cooperative DnaA-ATP filament assembly at oriC: turn the gradual, partial oriC occupancy (dnaa-3, correct as-is) into a sharp switch. Prerequisite for the mechanistic initiation swap. Designed; build pending.
-# Set aside 2026-06-21 (not in the report for now): dnaa-6-mechanistic-initiation and
-# dnaa-7-seqa-sequestration use the mechanistic DnaA-ATP/oriC initiation trigger + RIDA,
-# which are exploratory and risk being conflated with study 5's cooperative-binding
-# mechanism (which uses the MASS trigger). The study.yaml files remain on disk under
-# workspace/studies/ and can be re-added here once they're ready to present.
+- dnaa-6-mechanistic-initiation  # re-added 2026-06-27: the DnaA-ATP/oriC initiation trigger replaces the mass heuristic. F-04 — the cooperative oriC-low + mechanistic-low trigger gives CLEAN once-per-cell-cycle initiation (oriC 1<->2, seed-robust over 8 gens); the over-init (oriC->4) was a 59e108fb-build artifact and does not reproduce. Gate partial only on the open DnaA-ATP-fraction band.
+# Still set aside (not in the report): dnaa-7-seqa-sequestration. F-04 shows SeqA eclipse + RIDA are
+# NOT required for once-per-cycle firing, so dnaa-7's premise is weakened; keep it on disk under
+# workspace/studies/ until/if there's a reason to present it.
 
 # Reference materials supporting the DnaA arc. Files staged under
 # workspace/references/dnaa/ and registered in workspace.yaml expert_docs.

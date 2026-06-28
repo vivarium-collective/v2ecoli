@@ -29,7 +29,8 @@ tests:
     card: docs/report_cards/v2ecoli-vecoli-comparison/statistical
     group: statistical
 pipeline_gate:
-  prerequisites: []
+  prerequisites:
+  - basal
   enables: []
 runs:
 - name: statistical-comparison
@@ -41,3 +42,5 @@ conditions:
     composite: v2ecoli.composites.baseline.baseline
     params:
       condition: basal
+depends_on:
+- basal

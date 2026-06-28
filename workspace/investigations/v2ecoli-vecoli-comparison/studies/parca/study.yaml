@@ -17,6 +17,10 @@ tests:
   card: parca
   classification: primary
   question: Does v2ecoli reproduce vEcoli on parca (parca card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/parca
+    group: parca
 pipeline_gate:
   prerequisites: []
   enables: []

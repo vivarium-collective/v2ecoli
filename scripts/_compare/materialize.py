@@ -53,7 +53,12 @@ def materialize_study(spec: StudySpec) -> Path:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     data.update(materialized_fields(spec))
     data.pop("behavior_tests", None)   # replaced by the modular `tests` list
-    data.setdefault("pipeline_gate", {"prerequisites": [], "enables": []})
+    # Pipeline DAG: the study's authored `depends_on` (a list of prerequisite
+    # study names) becomes pipeline_gate.prerequisites — the prerequisites must
+    # pass before this study's gate is evaluated (parca gates the per-condition
+    # studies; the single-seed basal gates the statistical study).
+    data["pipeline_gate"] = {"prerequisites": list(data.get("depends_on") or []),
+                             "enables": []}
     # Canonical run + per-test outcomes from the study's verdict JSON (when it
     # exists) so the dashboard pill strip shows the REAL result per card.
     run = {"name": f"{spec.name}-comparison", "kind": "analysis", "canonical": True,

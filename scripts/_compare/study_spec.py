@@ -17,7 +17,7 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent.parent
 INVEST_ROOT = REPO / "workspace" / "investigations"
 DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
-GRADED = {"standard", "statistical"}   # cards that produce a gating test
+GRADED = {"standard", "statistical", "parca"}   # cards that produce a gating test
 _DEFAULT_CARDS = ["config", "parca", "standard"]
 _DEFAULT_V2_CACHE = "out/cache_full"
 _DEFAULT_VE_CACHE = "out/compare_harness/vecoli_parca"

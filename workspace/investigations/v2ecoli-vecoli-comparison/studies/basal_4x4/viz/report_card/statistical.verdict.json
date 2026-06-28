@@ -1,0 +1,15 @@
+{
+  "schema": "report_card_verdict/v1",
+  "overall": "drift",
+  "groups": {
+    "statistical": {
+      "verdict": "drift",
+      "axes": [
+        {
+          "id": "x",
+          "verdict": "drift"
+        }
+      ]
+    }
+  }
+}

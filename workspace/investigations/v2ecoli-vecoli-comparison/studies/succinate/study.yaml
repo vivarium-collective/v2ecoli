@@ -11,7 +11,8 @@ report_cards:
 - viz/report_card/config.html
 - viz/report_card/standard.html
 pipeline_gate:
-  prerequisites: []
+  prerequisites:
+  - parca
   enables: []
 runs:
 - name: succinate-comparison
@@ -45,3 +46,5 @@ conditions:
     composite: v2ecoli.composites.baseline.baseline
     params:
       condition: succinate
+depends_on:
+- parca

@@ -1031,7 +1031,6 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1052,7 +1051,6 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1114,7 +1112,6 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
             data-spec-id="showcase-2-baseline-figures"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="showcase2-baseline-ensemble"></td>
           <td>
             baseline
             
@@ -1214,10 +1211,14 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
     
     
     <li class="expected-behavior-item" id="bt-doubling-time-in-band"
+        data-test-kind="behavioral"
+        
         data-pytest-node="doubling-time-in-band"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1242,6 +1243,7 @@ expect:  {"high": 55, "low": 35, "op": "in_range"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1252,10 +1254,14 @@ expect:  {"high": 55, "low": 35, "op": "in_range"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-mass-fraction-physiological"
+        data-test-kind="behavioral"
+        
         data-pytest-node="mass-fraction-physiological"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1280,6 +1286,7 @@ expect:  {"high": 0.55, "low": 0.4, "op": "in_range"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1290,10 +1297,14 @@ expect:  {"high": 0.55, "low": 0.4, "op": "in_range"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-fba-flux-correlates-toya2010"
+        data-test-kind="behavioral"
+        
         data-pytest-node="fba-flux-correlates-toya2010"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1318,6 +1329,7 @@ expect:  {"op": "correlates"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1328,10 +1340,14 @@ expect:  {"op": "correlates"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-proteome-correlates-schmidt-wisniewski"
+        data-test-kind="behavioral"
+        
         data-pytest-node="proteome-correlates-schmidt-wisniewski"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1353,6 +1369,7 @@ expect:  {"op": "correlates"}</pre>
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Correlate baseline protein abundances against the Schmidt/Wisniewski measured proteome.", "kind": "proteome_correlation", "reference": "Schmidt 2016 / Wisniewski"}
 expect:  {"op": "correlates"}</pre>
       </details>
+      
       
       
       
@@ -1556,7 +1573,6 @@ expect:  {"op": "correlates"}</pre>
     </div>
   </div>
 
-  
   
   <div class="decide-v3">
     <h2 style="margin:0 0 4px 0">Decide</h2>

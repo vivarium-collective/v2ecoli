@@ -1107,7 +1107,6 @@ from the thin core). Required before this study can run.
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1121,7 +1120,7 @@ from the thin core). Required before this study can run.
       </thead>
       <tbody>
         
-        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
         
       </tbody>
     </table>
@@ -1164,10 +1163,14 @@ from the thin core). Required before this study can run.
     
     
     <li class="expected-behavior-item" id="bt-per-stage-sensitivity-profile"
+        data-test-kind="behavioral"
+        
         data-pytest-node="per-stage-sensitivity-profile"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1184,6 +1187,7 @@ cell-cycle stages (i.e., is sensitivity non-uniform across θ)?
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "PLANNED metric \u2014 per-stage total-order Sobol for basal_elongation_rate across\n10 \u03b8 bins (birth\u2192division); pass if the across-stage range (max \u2212 min) exceeds\n0.1, indicating stage-dependent influence. Not yet computed (study planned).\n", "kind": "authored", "measured_value": null}
 expect:  {"high": 1.0, "low": 0.0, "op": "in_range"}</pre>
       </details>
+      
       
       
       
@@ -1273,33 +1277,26 @@ expect:  {"high": 1.0, "low": 0.0, "op": "in_range"}</pre>
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      <p class="muted">No evidence recorded on findings yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

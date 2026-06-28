@@ -1355,7 +1355,6 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1369,7 +1368,7 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
       </thead>
       <tbody>
         
-        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
         
       </tbody>
     </table>
@@ -1412,10 +1411,14 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
     
     
     <li class="expected-behavior-item" id="bt-natural-division-2-generations"
+        data-test-kind="behavioral"
+        
         data-pytest-node="natural-division-2-generations"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1430,6 +1433,7 @@ Resolves colonies-01&#39;s PASS-narrow (forced-division-only) caveat.
       
       
       
+      
     </li>
     
     
@@ -1440,10 +1444,14 @@ Resolves colonies-01&#39;s PASS-narrow (forced-division-only) caveat.
     
     
     <li class="expected-behavior-item" id="bt-per-cell-wall-drift-within-20pct"
+        data-test-kind="behavioral"
+        
         data-pytest-node="per-cell-wall-drift-within-20pct"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1453,6 +1461,7 @@ Resolves colonies-01&#39;s PASS-narrow (forced-division-only) caveat.
       <div style="margin-top: 6px; font-size: 0.95em;">Per-cell wall (ms/tick/cell) drifts &lt;=20% across generations 0-3 of
 the natural-division colony. Directly resolves F-06 for wall time.
 </div>
+      
       
       
       
@@ -1467,10 +1476,14 @@ the natural-division colony. Directly resolves F-06 for wall time.
     
     
     <li class="expected-behavior-item" id="bt-per-cell-rss-drift-bounded"
+        data-test-kind="behavioral"
+        
         data-pytest-node="per-cell-rss-drift-bounded"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1485,6 +1498,7 @@ not a leak that OOMs a growing colony. Resolves F-06 for RAM.
       
       
       
+      
     </li>
     
     
@@ -1495,10 +1509,14 @@ not a leak that OOMs a growing colony. Resolves F-06 for RAM.
     
     
     <li class="expected-behavior-item" id="bt-ray-lifts-gil-ceiling"
+        data-test-kind="behavioral"
+        
         data-pytest-node="ray-lifts-gil-ceiling"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1513,6 +1531,7 @@ with cores), with division timing + masses consistent vs sequential.
       
       
       
+      
     </li>
     
     
@@ -1523,10 +1542,14 @@ with cores), with division timing + masses consistent vs sequential.
     
     
     <li class="expected-behavior-item" id="bt-ray-biology-consistency"
+        data-test-kind="behavioral"
+        
         data-pytest-node="ray-biology-consistency"
         data-classification="secondary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-secondary">secondary</span>
@@ -1536,6 +1559,7 @@ with cores), with division timing + masses consistent vs sequential.
       <div style="margin-top: 6px; font-size: 0.95em;">Ray and sequential runs produce the same colony trajectory (cell
 count over time, per-cell mass at division) modulo RNG ordering.
 </div>
+      
       
       
       
@@ -1695,128 +1719,26 @@ count over time, per-cell mass at division) modulo RNG ordering.
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li>One whole-cell agent divides naturally (no forced same-tick division)
-through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
-(7 division events) in the sequential run, with all cells advancing on
-subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
-validated FORCED division only). Daughter EcoliWCMs hydrate natively
-via the bridge _remove/_add structural update.
-</li>
-        
-        <li>Per-cell EcoliWCM wall does not drift across generations. The cleanest
-comparison (low-RSS static N-sweep, 60-tick windows): per-cell wall is
-flat at 54-59 ms across N in {1,2,4,8,16} (65-&gt;54 ms, a slight decrease
-as overhead amortizes). In the growing sequential run the 1-cell gen
-(55.3 ms) vs 2-cell gen (56.3 ms/cell) differ by only +1.8%. Apparent
-inflation to ~80 ms/cell at 14 cells is swap pressure (F-03) + O(N)
-pymunk collision cost, not WCM-internal accumulation. Resolves F-06
-for wall time: no per-cell wall drift.
-</li>
-        
-        <li>Per-cell RSS is an unbounded leak, not amortized warmup. A single cell
-climbs ~7.7 MB/sim-s (999 MB -&gt; ~19 GB over the 2338 ticks before its
-first division); the sequential colony peaked at 27.5 GB and was
-OOM-killed at tick 8161 (~136/180 sim-min). Confirmed emitter-independent
-(a no-emitter control run leaks the same ~7.06 MB/tick), so the leak is
-inside the EcoliWCM step itself (most likely inner vEcoli listener /
-history-array accumulation), not the RAMEmitter and not division. RSS
-sawtooths down at each division (the mother&#39;s accumulated state is freed
-on _remove), so each lineage re-accumulates from scratch and the binding
-figure is ~18 GB per cell at end-of-generation. This is the F-06
-resolution for RAM: it is a real leak, and it makes the cells-per-node
-budget a function of generation age, not a constant.
-</li>
-        
-        <li>The process-bigraph Ray protocol (ray:EcoliWCM, parallel_processes=True)
-lifts the single-process GIL ceiling. Static N-sweep median wall (realtime
-ratio): local scales linearly 65/118/237/466/865 ms (ratio 0.07-&gt;0.87)
-for N=1/2/4/8/16, crossing realtime near N~18 (the colonies-01 ceiling).
-Ray scales sub-linearly 54/59/81/115/245 ms (ratio 0.05-&gt;0.25): per-cell
-wall drops 54-&gt;15 ms as cells solve concurrently across cores. At N=16
-Ray is 3.5x faster and only 0.25 realtime, with headroom to ~50-60 cells
-before realtime. Confirmed in the growing colony too: 2 cells cost the
-same total wall (~59 ms) as 1 cell.
-</li>
-        
-        <li>Under Ray the binding constraint flips from CPU/GIL to aggregate RAM,
-and RAM is worse than sequential. The ~7.7 MB/sim-s per-cell leak (F-03)
-is transport-independent: it moves into the actor process (one actor
-reached ~19 GB by tick 2338, mirroring sequential). The Ray protocol also
-pre-spawns a ~13-actor pool, each carrying a ~590 MB WCM baseline (~7.6 GB
-fixed overhead). At just 2 live cells the two daughter actors were each
-~10 GB and climbing (~34 GB distinct actor RSS), so a growing colony OOMs
-the machine even faster than sequential. The main process stays flat
-~0.7 GB (WCM offloaded). RSS sawtooths at division (mother actor returns
-to pool).
-</li>
-        
-        <li>Ray and sequential produce the same colony trajectory. First division
-occurs at tick 2338 under both transports (exact, not just modulo RNG):
-the EcoliWCM is deterministic given its seed and the transport does not
-alter seeding, so division timing and per-cell mass are transport-
-invariant. Per-cell wall under Ray at 2 cells is 29.7 ms (vs 59.8 ms at
-1 cell): the two cells solve concurrently.
-</li>
-        
-        <li>The colonies-01 excessive-cell-movement artifact has two coupled causes,
-both confirmed by a 12-tick 2-cell diagnostic sweep over
-(jitter_per_second, init_mass): (1) jitter_per_second=0.5 is ~5000x
-viva-munk&#39;s 1e-4 default; (2) build_microbe&#39;s density(0.02)-seeded body
-mass is ~0.04 (tiny), so jitter impulse/mass flings the cell. Legacy
-(0.5, None): mean move 9-10 um/tick. Either fix alone tames it to
-~0.13 um/tick; the chosen (1e-4, 200) fixes both motion and fg-unit
-coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
-</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      
-      <ul class="synthesis-list">
-        
-        <li>from_runs: [&#39;seq-1cell-4div&#39;]; from_test: natural-division-2-generations; observed: {&#39;division_ticks&#39;: [2338, 4706, 4707, 6975, 6976, 7075, 7101], &#39;cells_final&#39;: 14}; units: tick (1 tick = 1 sim-s)</li>
-        
-        <li>from_runs: [&#39;seq-1cell-4div&#39;, &#39;nsweep-local&#39;]; from_test: per-cell-wall-drift-within-20pct; observed: {&#39;seq_gen0_ms&#39;: 55.3, &#39;seq_gen1_per_cell_ms&#39;: 56.3, &#39;drift_pct&#39;: 1.8, &#39;nsweep_local_per_cell_ms&#39;: {&#39;n1&#39;: 65, &#39;n2&#39;: 59, &#39;n4&#39;: 59, &#39;n8&#39;: 58, &#39;n16&#39;: 54}}; units: ms/tick/cell</li>
-        
-        <li>from_runs: [&#39;seq-1cell-4div&#39;]; from_test: per-cell-rss-drift-bounded; observed: {&#39;single_cell_leak_mb_per_s&#39;: 7.7, &#39;single_cell_rss_at_first_division_gb&#39;: 19, &#39;peak_rss_gb&#39;: 27.5, &#39;oom_tick&#39;: 8161, &#39;no_emitter_control_mb_per_tick&#39;: 7.06}; units: MB</li>
-        
-        <li>from_runs: [&#39;nsweep:local&#39;, &#39;nsweep:ray&#39;, &#39;ray-1cell-4div&#39;]; from_test: ray-lifts-gil-ceiling; observed: {&#39;local_wall_ms&#39;: {&#39;n1&#39;: 65, &#39;n2&#39;: 118, &#39;n4&#39;: 237, &#39;n8&#39;: 466, &#39;n16&#39;: 865}, &#39;ray_wall_ms&#39;: {&#39;n1&#39;: 54, &#39;n2&#39;: 59, &#39;n4&#39;: 81, &#39;n8&#39;: 115, &#39;n16&#39;: 245}, &#39;local_realtime_cross_n&#39;: 18, &#39;ray_realtime_cross_n_est&#39;: 55}; units: ms/tick (realtime budget = 1000 ms)</li>
-        
-        <li>from_runs: [&#39;ray-1cell-4div&#39;, &#39;nsweep:ray&#39;]; from_test: ray-biology-consistency; observed: {&#39;single_actor_rss_at_first_division_gb&#39;: 19, &#39;actor_pool_size&#39;: 13, &#39;per_actor_baseline_mb&#39;: 590, &#39;two_cell_distinct_actor_rss_gb&#39;: 34, &#39;main_proc_rss_gb&#39;: 0.7}; units: GB</li>
-        
-        <li>from_runs: [&#39;seq-1cell-4div&#39;, &#39;ray-1cell-4div&#39;]; from_test: ray-biology-consistency; observed: {&#39;seq_first_division_tick&#39;: 2338, &#39;ray_first_division_tick&#39;: 2338, &#39;ray_per_cell_ms_n1&#39;: 59.8, &#39;ray_per_cell_ms_n2&#39;: 29.7}; units: tick</li>
-        
-        <li>from_runs: [&#39;physics-diagnostic&#39;]; from_test: (build_task) jitter-mass-diagnostic; observed: {&#39;legacy_0p5_None_move_um&#39;: 9.0, &#39;fix_1e-4_200_move_um&#39;: 0.13, &#39;fix_body_mass_fg&#39;: 200}; units: um/tick</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

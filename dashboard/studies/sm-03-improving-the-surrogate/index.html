@@ -816,7 +816,6 @@ close the gap to the linear baseline?
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -837,7 +836,6 @@ close the gap to the linear baseline?
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -891,7 +889,6 @@ close the gap to the linear baseline?
             data-spec-id="sm-03-improving-the-surrogate"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="rollout-loss-cv"></td>
           <td>
             baseline
             
@@ -982,10 +979,14 @@ close the gap to the linear baseline?
     
     
     <li class="expected-behavior-item" id="bt-rollout-loss-training-narrows-the-gap"
+        data-test-kind="behavioral"
+        
         data-pytest-node="rollout-loss-training-narrows-the-gap"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1009,6 +1010,7 @@ training — eliminating instability AND lowering rollout error?
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "8-fold CV. Improvement ratio = one-step nRMSE / rollout-loss nRMSE =\n0.069 / 0.053 = 1.30 (\u003e1 means improved); rollout-loss unstable folds = 0\n(vs 1 for one-step).\n", "kind": "authored", "measured_value": 1.3}
 expect:  {"low": 1.0, "op": "gt"}</pre>
       </details>
+      
       
       
       
@@ -1122,33 +1124,38 @@ expect:  {"low": 1.0, "op": "gt"}</pre>
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
       
-      <p class="muted">No evidence recorded on findings yet.</p>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

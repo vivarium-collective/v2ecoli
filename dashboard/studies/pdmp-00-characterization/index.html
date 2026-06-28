@@ -1317,7 +1317,6 @@ contract to validate against?
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1338,7 +1337,6 @@ contract to validate against?
             data-spec-id=""
             data-store-path=""
             data-started-at="2026-06-11">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             v2ecoli.composites.baseline.baseline
             
@@ -1412,7 +1410,6 @@ contract to validate against?
             data-spec-id="pdmp-00-characterization"
             data-store-path=""
             data-started-at="2026-06-11">
-          <td><input type="checkbox" class="run-compare-checkbox" value="phase0-reference-ensemble-N32-3cond"></td>
           <td>
             v2ecoli.composites.baseline.baseline
             
@@ -1517,10 +1514,14 @@ contract to validate against?
     
     
     <li class="expected-behavior-item" id="bt-ensemble-rng-seeding-divergence"
+        data-test-kind="behavioral"
+        
         data-pytest-node="ensemble-rng-seeding-divergence"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1545,6 +1546,7 @@ expect:  {"field": "cv_pct", "operator": "greater-than", "threshold": 0.01}</pre
       
       
       
+      
     </li>
     
     
@@ -1555,10 +1557,14 @@ expect:  {"field": "cv_pct", "operator": "greater-than", "threshold": 0.01}</pre
     
     
     <li class="expected-behavior-item" id="bt-reference-ensemble-N64"
+        data-test-kind="behavioral"
+        
         data-pytest-node="reference-ensemble-N64"
         data-classification="primary"
         data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1583,6 +1589,7 @@ expect:  {"field": "mcse_ratio", "operator": "less-than", "threshold": 0.1}</pre
       
       
       
+      
     </li>
     
     
@@ -1593,10 +1600,14 @@ expect:  {"field": "mcse_ratio", "operator": "less-than", "threshold": 0.1}</pre
     
     
     <li class="expected-behavior-item" id="bt-markov-blanket-covers-all-major-processes"
+        data-test-kind="behavioral"
+        
         data-pytest-node="markov-blanket-covers-all-major-processes"
         data-classification="primary"
         data-result="SKIP"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e">⏭ SKIP</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1621,6 +1632,7 @@ expect:  {"field": "coverage_fraction", "operator": "equal", "threshold": 1.0}</
       
       
       
+      
     </li>
     
     
@@ -1631,10 +1643,14 @@ expect:  {"field": "coverage_fraction", "operator": "equal", "threshold": 1.0}</
     
     
     <li class="expected-behavior-item" id="bt-marshalling-overhead-dominates"
+        data-test-kind="behavioral"
+        
         data-pytest-node="marshalling-overhead-dominates"
         data-classification="supporting"
         data-result="SKIP"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e">⏭ SKIP</span>
         <span class="classification-pill classification-supporting">supporting</span>
@@ -1659,6 +1675,7 @@ expect:  {"field": "marshalling_fraction", "operator": "greater-than", "threshol
       
       
       
+      
     </li>
     
     
@@ -1669,10 +1686,14 @@ expect:  {"field": "marshalling_fraction", "operator": "greater-than", "threshol
     
     
     <li class="expected-behavior-item" id="bt-growth-rate-condition-monotone"
+        data-test-kind="behavioral"
+        
         data-pytest-node="growth-rate-condition-monotone"
         data-classification="diagnostic"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-diagnostic">diagnostic</span>
@@ -1694,6 +1715,7 @@ expect:  {"field": "marshalling_fraction", "operator": "greater-than", "threshol
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "instantaneous_growth_rate", "reduce": "mean over time, sorted by condition", "source": ".pbg/runs/phase0-reference/store.zarr", "units": "1/h"}
 expect:  {"expected": ["M9+acetate", "M9+glucose", "M9+glucose+aa"], "operator": "ordering"}</pre>
       </details>
+      
       
       
       
@@ -1932,57 +1954,38 @@ expect:  {"expected": ["M9+acetate", "M9+glucose", "M9+glucose+aa"], "operator":
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started 2026-06-11
+      </div>
       
-      <ul class="synthesis-list">
-        
-        <li>Per-process RNG seeding (crc32(process_name, master_seed)) makes multi-seed ensembles genuinely diverge; v2ecoli&#39;s bare `seed` only seeded the allocator, leaving ensembles bit-identical.</li>
-        
-        <li>A real 3-condition Phase-0 reference ensemble exists (M9-glucose / acetate / +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim. Scope: N=32, not the N&gt;=64 canonical gating target, so the investigation gate is not met by this ensemble.</li>
-        
-      </ul>
       
     </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      
-      <ul class="synthesis-list">
-        
-        <li>from_test: test_baseline_diverges_under_different_seeds; observed: N=6 x 250s M9-glucose pilot ATP[c] CV ~ 0.029% across seeds (&gt;0); tests/test_seed_diversity.py PASS</li>
-        
-        <li>from_run: phase0-traj{,-acetate,-with_aa} (N=32 x 600s, 96 runs); observed: 96 trajectory runs (N=32 x 3 conditions); cell/dry/water masses finite and ordered by doubling time. Raw per-seed stores are gitignored / NOT committed; the committed artifacts are phase0_ensemble_provenance.json + the phase0_*REAL/AUTO figures.</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li><strong>Multi-generation XArrayEmitter reference ensemble</strong></li>
-        
-        <li><strong>Typed PB Markov-blanket interface schemas for all six subprocesses</strong></li>
-        
-      </ul>
-      
-    </div>
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

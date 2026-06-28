@@ -1146,7 +1146,6 @@ scripts/render_variant_comparison.py.</div>
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1167,7 +1166,6 @@ scripts/render_variant_comparison.py.</div>
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1229,7 +1227,6 @@ scripts/render_variant_comparison.py.</div>
             data-spec-id="showcase-4-variant-comparison"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="showcase4-variant-sweep"></td>
           <td>
             baseline
             
@@ -1329,10 +1326,14 @@ scripts/render_variant_comparison.py.</div>
     
     
     <li class="expected-behavior-item" id="bt-ppgpp-off-perturbs-ppgpp-and-growth"
+        data-test-kind="behavioral"
+        
         data-pytest-node="ppgpp-off-perturbs-ppgpp-and-growth"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1357,6 +1358,7 @@ expect:  {"high": 3.0, "low": 1.5, "op": "in_range"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1367,10 +1369,14 @@ expect:  {"high": 3.0, "low": 1.5, "op": "in_range"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-dnaa-2x-shifts-replication-and-flux"
+        data-test-kind="behavioral"
+        
         data-pytest-node="dnaa-2x-shifts-replication-and-flux"
         data-classification="primary"
         data-result="PARTIAL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fde68a; color: #92400e">◐ partial</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1395,6 +1401,7 @@ expect:  {"high": 0.5, "low": 0.15, "op": "in_range"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1405,10 +1412,14 @@ expect:  {"high": 0.5, "low": 0.15, "op": "in_range"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-elong-down-is-near-null-negative-control"
+        data-test-kind="behavioral"
+        
         data-pytest-node="elong-down-is-near-null-negative-control"
         data-classification="negative_control"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-negative_control">negative_control</span>
@@ -1433,6 +1444,7 @@ expect:  {"high": 3.0, "low": -3.0, "op": "in_range"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1443,10 +1455,14 @@ expect:  {"high": 3.0, "low": -3.0, "op": "in_range"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-media-shifts-central-carbon-flux"
+        data-test-kind="behavioral"
+        
         data-pytest-node="media-shifts-central-carbon-flux"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1468,6 +1484,7 @@ expect:  {"high": 3.0, "low": -3.0, "op": "in_range"}</pre>
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Drop in the Toya-2010 central-carbon flux correlation under succinate (0.727 -\u003e -0.058 = 0.785 drop). Cross-checked against dry mass (halved) and max oriC (2 vs 4).", "kind": "scorecard_delta", "metric": "Toya r (baseline) - Toya r (media-succinate)"}
 expect:  {"high": 1.5, "low": 0.4, "op": "in_range"}</pre>
       </details>
+      
       
       
       
@@ -1664,7 +1681,6 @@ regulation-off 2x2 to confirm the de-repression mechanism.
     </div>
   </div>
 
-  
   
   <div class="decide-v3">
     <h2 style="margin:0 0 4px 0">Decide</h2>

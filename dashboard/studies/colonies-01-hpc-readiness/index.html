@@ -1455,7 +1455,6 @@ so daughters tick normally after division.
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1476,7 +1475,6 @@ so daughters tick normally after division.
             data-spec-id=""
             data-store-path=""
             data-started-at="2026-05-16T22:25Z">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1532,7 +1530,6 @@ so daughters tick normally after division.
             data-spec-id=""
             data-store-path=""
             data-started-at="2026-05-16T22:26Z">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1586,7 +1583,6 @@ so daughters tick normally after division.
             data-spec-id=""
             data-store-path=""
             data-started-at="2026-05-16T22:27Z">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1640,7 +1636,6 @@ so daughters tick normally after division.
             data-spec-id=""
             data-store-path=""
             data-started-at="2026-05-16T22:28Z">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1694,7 +1689,6 @@ so daughters tick normally after division.
             data-spec-id=""
             data-store-path=""
             data-started-at="2026-05-16T22:29Z">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1820,10 +1814,14 @@ so daughters tick normally after division.
     
     
     <li class="expected-behavior-item" id="bt-daughters-hydrated"
+        data-test-kind="behavioral"
+        
         data-pytest-node="daughters-hydrated"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1857,6 +1855,7 @@ pass_if: {"op": "all_daughters_advance"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1867,10 +1866,14 @@ pass_if: {"op": "all_daughters_advance"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-two-generations-complete"
+        data-test-kind="behavioral"
+        
         data-pytest-node="two-generations-complete"
         data-classification="primary"
         data-result="PASS-narrow"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1904,6 +1907,7 @@ pass_if: {"op": "at_least", "threshold": 4}</pre>
       
       
       
+      
     </li>
     
     
@@ -1914,10 +1918,14 @@ pass_if: {"op": "at_least", "threshold": 4}</pre>
     
     
     <li class="expected-behavior-item" id="bt-reference-perf-recorded"
+        data-test-kind="behavioral"
+        
         data-pytest-node="reference-perf-recorded"
         data-classification="supporting"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-supporting">supporting</span>
@@ -1945,6 +1953,7 @@ pass_if: {"op": "row_exists"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1955,10 +1964,14 @@ pass_if: {"op": "row_exists"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-per-cell-cost-within-2x-reference"
+        data-test-kind="behavioral"
+        
         data-pytest-node="per-cell-cost-within-2x-reference"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1987,6 +2000,7 @@ blow-up that would block HPC scaling.
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "per_cell_wall_ratio", "reference_sim": "nsweep-n1", "window": "full"}
 pass_if: {"op": "ratio_at_most", "ratio": 2.0}</pre>
       </details>
+      
       
       
       
@@ -2075,7 +2089,6 @@ pass_if: {"op": "ratio_at_most", "ratio": 2.0}</pre>
     </div>
   </div>
 
-  
   
   <div class="decide-v3">
     <h2 style="margin:0 0 4px 0">Decide</h2>

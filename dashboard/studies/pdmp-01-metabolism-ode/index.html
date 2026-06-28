@@ -1458,7 +1458,6 @@ handover.
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1479,7 +1478,6 @@ handover.
             data-spec-id=""
             data-store-path=""
             data-started-at="2026-06-11">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             v2ecoli.composites.millard2017_metabolism
             
@@ -1542,7 +1540,6 @@ handover.
             data-spec-id="pdmp-01-metabolism-ode"
             data-store-path=""
             data-started-at="2026-06-11">
-          <td><input type="checkbox" class="run-compare-checkbox" value="phase1-pdmp-vs-phase0-and-fba-bridge"></td>
           <td>
             v2ecoli.composites.millard2017_metabolism
             
@@ -1647,10 +1644,14 @@ handover.
     
     
     <li class="expected-behavior-item" id="bt-millard-published-ref-state-reproduced"
+        data-test-kind="behavioral"
+        
         data-pytest-node="millard-published-ref-state-reproduced"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1675,6 +1676,7 @@ expect:  {"field": "max_rel_error", "operator": "less-than", "threshold": 0.05}<
       
       
       
+      
     </li>
     
     
@@ -1685,10 +1687,14 @@ expect:  {"field": "max_rel_error", "operator": "less-than", "threshold": 0.05}<
     
     
     <li class="expected-behavior-item" id="bt-fba-bridge-round-trip-residual"
+        data-test-kind="behavioral"
+        
         data-pytest-node="fba-bridge-round-trip-residual"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1713,6 +1719,7 @@ expect:  {"field": "max_residual_mM", "operator": "less-than", "threshold": 1e-0
       
       
       
+      
     </li>
     
     
@@ -1723,10 +1730,14 @@ expect:  {"field": "max_residual_mM", "operator": "less-than", "threshold": 1e-0
     
     
     <li class="expected-behavior-item" id="bt-fba-bridge-coupled-pilot-runs"
+        data-test-kind="behavioral"
+        
         data-pytest-node="fba-bridge-coupled-pilot-runs"
         data-classification="primary"
         data-result="SKIP"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e">⏭ SKIP</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1751,6 +1762,7 @@ expect:  {"field": "rel_err_ATP", "operator": "less-than", "threshold": 0.2}</pr
       
       
       
+      
     </li>
     
     
@@ -1761,10 +1773,14 @@ expect:  {"field": "rel_err_ATP", "operator": "less-than", "threshold": 0.2}</pr
     
     
     <li class="expected-behavior-item" id="bt-lqr-growth-rate-tracking"
+        data-test-kind="behavioral"
+        
         data-pytest-node="lqr-growth-rate-tracking"
         data-classification="primary"
         data-result="SKIP"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e">⏭ SKIP</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1789,6 +1805,7 @@ expect:  {"field": "rms_tracking_error", "operator": "less-than", "threshold": 0
       
       
       
+      
     </li>
     
     
@@ -1799,10 +1816,14 @@ expect:  {"field": "rms_tracking_error", "operator": "less-than", "threshold": 0
     
     
     <li class="expected-behavior-item" id="bt-interface-statistics-match-phase0-W2"
+        data-test-kind="behavioral"
+        
         data-pytest-node="interface-statistics-match-phase0-W2"
         data-classification="primary"
         data-result="SKIP"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fef3c7; color: #92400e">⏭ SKIP</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1824,6 +1845,7 @@ expect:  {"field": "rms_tracking_error", "operator": "less-than", "threshold": 0
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "all interface observables", "reduce": "W2_distance / inter_condition_effect_size", "source": "compare .pbg/runs/phase0-reference vs .pbg/runs/phase1-millard", "units": "fraction"}
 expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</pre>
       </details>
+      
       
       
       
@@ -2122,61 +2144,38 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started 2026-06-11
+      </div>
       
-      <ul class="synthesis-list">
-        
-        <li>On M9-glucose the PDMP-Phase-1 cell_mass + dry_mass endpoint distributions match the Phase-0 reference within +/-sigma (the W2 acceptance gate) after the closed-loop WATER[c] fix.</li>
-        
-        <li>The FBA-bridge flux-pin integrates the Millard kinetic ODE into the WCM FBA: for the reactions whose pin holds, the resulting FBA flux equals the ODE-pinned bound exactly. The pinnable scope is glycolysis + pentose-phosphate, where Millard&#39;s standalone steady state matches the WCM glucose state. The TCA cycle relaxes because its flux is set by the WCM&#39;s growth/energy demand, not the standalone kinetic model (not a sign/scale bug -- the ODE fluxes are positive and sensible); glyoxylate/gluconeogenic/acetate-uptake reactions are off on glucose and were curated out of the default pin set.</li>
-        
-        <li>The multi-state LQR was silently running at zero gain (a +I linearization bug); fixing it to a real stabilizing gain did not change the cell_mass W2, ruling out control as the gap cause and localizing it to open-loop water injection.</li>
-        
-      </ul>
       
     </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      
-      <ul class="synthesis-list">
-        
-        <li>from_run: pdmp-ensemble-vs-phase0 (N=12 PDMP consumption_matched vs N=32 Phase-0, 600s); observed: cell_mass W2/sigma = 1.00 (was 3.02); dry_mass W2/sigma = 1.09</li>
-        
-        <li>from_run: millard_fba_bridge_harness (full WCM + Millard source + coupler, M9-glucose); observed: held pins (glycolysis+PPP): median |rel err| = 0, 100% within 10%; curating off-on-glucose pathways cut pin-relaxation 57%-&gt;45%; core TCA remains growth-coupled (relaxes); viable. Transformative, not confirmatory: all pinned reactions differ &gt;10% from the unpinned WCM FBA (Millard drives ~2x glycolytic flux; PGK/ENO/PDH near-zero unpinned); the kinetic model genuinely steers the WCM. Bug found and parked: 6 isozyme-split reactions (PFK/FBA/PYK core glycolysis + SDH/PPC/PTA) had base-id pins silently ignored (WCM FBA has 9460 enzyme-resolved variant ids, no single base id); moved to needs_variant_pinning + a guard test. PFK/FBA then restored via variant-level pinning (pin the dominant isozyme variant the WCM uses: PfkA 6PFK-1-CPX, FbaA class-II); they now hold exactly, so core glycolysis (PGI-&gt;FBA-&gt;...-&gt;PDH) is driven by the kinetic ODE. PYK/SDH/PPC/PTA stay parked (PYK only a zero-flux reverse variant; the rest TCA/anaplerotic). Active pins 24, all valid fba ids.</li>
-        
-        <li>from_test: test_multistate_lqr_gain_is_nonzero_and_stabilizing; observed: ||K|| ~ 4.4 (was 0); cell_mass W2/sigma unchanged 3.02 with working LQR</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li><strong>FBA-bridge interface-statistic validation across all Phase-0 conditions</strong></li>
-        
-        <li><strong>LQR weight Sobol sensitivity + FIM-conditioning audit</strong></li>
-        
-      </ul>
-      
-    </div>
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

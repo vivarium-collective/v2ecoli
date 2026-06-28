@@ -963,7 +963,6 @@ unum). Cross-tool parca_compare additionally needs vivarium-ecoli
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -984,7 +983,6 @@ unum). Cross-tool parca_compare additionally needs vivarium-ecoli
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1043,7 +1041,6 @@ unum). Cross-tool parca_compare additionally needs vivarium-ecoli
             data-spec-id="showcase-1-parca"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="showcase1-parca-full-2026-06-09"></td>
           <td>
             baseline
             
@@ -1140,10 +1137,14 @@ unum). Cross-tool parca_compare additionally needs vivarium-ecoli
     
     
     <li class="expected-behavior-item" id="bt-parca-builds-full-51-conditions"
+        data-test-kind="behavioral"
+        
         data-pytest-node="parca-builds-full-51-conditions"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1161,6 +1162,7 @@ expect:  {"op": "==", "value": 51}</pre>
       
       
       
+      
     </li>
     
     
@@ -1171,10 +1173,14 @@ expect:  {"op": "==", "value": 51}</pre>
     
     
     <li class="expected-behavior-item" id="bt-cache-bundle-complete"
+        data-test-kind="behavioral"
+        
         data-pytest-node="cache-bundle-complete"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1192,6 +1198,7 @@ expect:  {"artifacts": ["initial_state.json", "sim_data_cache.dill", "metadata",
       
       
       
+      
     </li>
     
     
@@ -1202,10 +1209,14 @@ expect:  {"artifacts": ["initial_state.json", "sim_data_cache.dill", "metadata",
     
     
     <li class="expected-behavior-item" id="bt-sim_data-reproduces-parca-comparison"
+        data-test-kind="behavioral"
+        
         data-pytest-node="sim_data-reproduces-parca-comparison"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1220,6 +1231,7 @@ expect:  {"artifacts": ["initial_state.json", "sim_data_cache.dill", "metadata",
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Compare the rebuilt sim_data against the parca_compare reference (parca_compare._reach).", "kind": "parca_compare"}
 expect:  {"op": "matches_reference"}</pre>
       </details>
+      
       
       
       
@@ -1378,7 +1390,6 @@ expect:  {"op": "matches_reference"}</pre>
     </div>
   </div>
 
-  
   
   <div class="decide-v3">
     <h2 style="margin:0 0 4px 0">Decide</h2>

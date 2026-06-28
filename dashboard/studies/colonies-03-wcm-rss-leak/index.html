@@ -1092,7 +1092,6 @@ biology unchanged (first division still tick 2338, masses within RNG).
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1106,7 +1105,7 @@ biology unchanged (first division still tick 2338, masses within RNG).
       </thead>
       <tbody>
         
-        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
         
       </tbody>
     </table>
@@ -1149,10 +1148,14 @@ biology unchanged (first division still tick 2338, masses within RNG).
     
     
     <li class="expected-behavior-item" id="bt-leak-localized"
+        data-test-kind="behavioral"
+        
         data-pytest-node="leak-localized"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1162,6 +1165,7 @@ biology unchanged (first division still tick 2338, masses within RNG).
       <div style="margin-top: 6px; font-size: 0.95em;">A profiling run attributes &gt;=~80% of RSS growth to one or two named
 allocation sites (so the fix is targeted, not speculative).
 </div>
+      
       
       
       
@@ -1176,10 +1180,14 @@ allocation sites (so the fix is targeted, not speculative).
     
     
     <li class="expected-behavior-item" id="bt-per-cell-rss-bounded-after-fix"
+        data-test-kind="behavioral"
+        
         data-pytest-node="per-cell-rss-bounded-after-fix"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1194,6 +1202,7 @@ monotonic ~MB/sim-s climb); colonies-02&#39;s seq-1cell-4div completes
       
       
       
+      
     </li>
     
     
@@ -1204,10 +1213,14 @@ monotonic ~MB/sim-s climb); colonies-02&#39;s seq-1cell-4div completes
     
     
     <li class="expected-behavior-item" id="bt-biology-unchanged-by-fix"
+        data-test-kind="behavioral"
+        
         data-pytest-node="biology-unchanged-by-fix"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1217,6 +1230,7 @@ monotonic ~MB/sim-s climb); colonies-02&#39;s seq-1cell-4div completes
       <div style="margin-top: 6px; font-size: 0.95em;">The fix does not alter recorded biology: first division still at tick
 2338, per-cell mass at division within RNG of the colonies-02 run.
 </div>
+      
       
       
       
@@ -1331,113 +1345,26 @@ monotonic ~MB/sim-s climb); colonies-02&#39;s seq-1cell-4div completes
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li>The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
-RAMEmitter, not chromosome_history and not &#34;emitter-independent&#34;. Each
-embedded cell&#39;s inner Composite (built by baseline() in the EcoliWCM
-bridge) gets a default RAMEmitter whose no-override branch
-(_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
-molecule node arrays every tick into an unbounded history list that is
-never read. colonies-02&#39;s no-emitter probe nulled only the outer colony
-emitter, missing the per-cell inner emitters.
-</li>
-        
-        <li>Setting the inner RAMEmitter to &#39;minimal&#39; capture (global_time +
-listeners only) for embedded cells bounds per-cell RSS. A single
-EcoliWCM built through the bridge (set_ram_emitter_capture(&#39;minimal&#39;))
-holds RSS essentially flat.
-</li>
-        
-        <li>The fix only narrows what the inner RAMEmitter records (a read-only
-history sink); the emit_schema does not feed back into simulation state,
-so division timing and masses are unchanged by construction. The full
-colony re-run (first division still tick 2338) is the empirical
-re-confirmation, deferred with the no-OOM run above.
-</li>
-        
-        <li>The inner-RAMEmitter fix (F-01/F-02) is real and bounds a single bare WCM,
-but it is not the dominant leak for a multi-cell colony. Re-running
-colonies-02 on current main with all three contributory fixes live
-(#239 inner emitter, emit_cells=False outer emitter, viva-munk #11 pymunk
-shape churn) still leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
-5.1 -&gt; 22.3 GB at a constant 6 cells and OOMs ~gen 3, unchanged from before
-the fixes.
-</li>
-        
-        <li>The dominant per-tick growth is native and localized to the LLVM/Numba JIT
-layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
-numpy-object bytes flat within each cell-count plateau while native memory
-climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
-the true unreachable leak with stacks in llvmlite&#39;s LLVM pass pipeline
-(LLVMPY_buildFunctionSimplificationPipeline). So the WCM&#39;s JIT compilation
-is the source, not the emitters (#239), the outer emitter (emit_cells), the
-pymunk shapes (viva-munk #11), or a retained numpy array.
-</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      
-      <ul class="synthesis-list">
-        
-        <li>Live profiler measured the inner RAMEmitter history at ~5.15 MB/row,
-growing 1:1 with ticks (9.9 MB @ 2 rows -&gt; 9324 MB @ 1802 rows), tracking
-the RSS climb. Confirmed by reading process_bigraph Emitter.inputs() ==
-config[&#39;emit&#39;] (the emitter only stores its emit_schema ports).
-</li>
-        
-        <li>Bridge-path profile_leak.py (commit bd1a11fe) RSS: 1.3 GB @ 21 min -&gt;
-1.7 GB @ 48 min -&gt; 1.9 GB @ 62 min (~0.25 MB/s, legitimate cell growth),
-vs the unfixed path +24 GB by tick 1800 (~7.7 MB/s). ~30x reduction;
-no monotonic emitter-driven climb.
-</li>
-        
-        <li>tracemalloc(4) over 150 ticks at 2 forced-division cells: RSS climbed
-1396 -&gt; 1586 MB (+1.3 MB/tick), leak reproduced, yet tracemalloc
-accounted for only ~1-2 MB of retained Python allocations (largest single
-site +0.08 MB; all transient WCM compute: counts_deriver/translation_deriver
-np.bincount, scipy-sparse .dot). So the dominant allocator is C-level /
-native (numpy/scipy array buffers or a C-extension retaining or fragmenting
-memory), invisible to tracemalloc (it tracks only CPython&#39;s allocator, not
-numpy&#39;s). gc object-count scans likewise found only small symptoms
-(pymunk Segments -&gt; #11), not the megabytes.
-</li>
-        
-        <li>leaks @2cells/400ticks: ~846 MB live, ~13 MB true leak, top stacks all
-LLVM PassBuilder (GVN/JumpThreading/LoopUnswitch/LICM). numpy-bytes delta
-~0 within plateaus; tracemalloc &lt;2 MB of a +151 MB/300-tick growth.
-Figures: colonies-02 charts/03_memory_decomposition.svg (native vs numpy),
-charts/01_rss_vs_tick_by_ncells.svg (per-tick slope by N).
-</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

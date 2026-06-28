@@ -1129,7 +1129,6 @@ climb by sample index, producing the spurious gtpPerElongation dominance.
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1150,7 +1149,6 @@ climb by sample index, producing the spurious gtpPerElongation dominance.
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1207,7 +1205,6 @@ climb by sample index, producing the spurious gtpPerElongation dominance.
             data-spec-id="param-uq-01-elongation"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="uq-elongation-effective-n30x3seeds"></td>
           <td>
             baseline
             
@@ -1301,10 +1298,14 @@ climb by sample index, producing the spurious gtpPerElongation dominance.
     
     
     <li class="expected-behavior-item" id="bt-forward-uq-pipeline-runs-end-to-end"
+        data-test-kind="behavioral"
+        
         data-pytest-node="forward-uq-pipeline-runs-end-to-end"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1331,6 +1332,7 @@ expect:  {"high": 1.0, "low": 1.0, "op": "in_range"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1341,10 +1343,14 @@ expect:  {"high": 1.0, "low": 1.0, "op": "in_range"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-single-elongation-knob-robustly-dominates"
+        data-test-kind="behavioral"
+        
         data-pytest-node="single-elongation-knob-robustly-dominates"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1368,6 +1374,7 @@ expect:  {"high": 1.0, "low": 1.0, "op": "in_range"}</pre>
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "translation basal_elongation_rate total-order Sobol = 0.966 (range across 3\nseeds 0.955\u20130.987); the dominant knob is identical across all 3 seeds\n(argmax idx [0, 0, 0]). Surrogate test rel-err 1.3\u20132.1%.\n", "kind": "authored", "measured_value": 0.966}
 expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
       </details>
+      
       
       
       
@@ -1456,7 +1463,6 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
     </div>
   </div>
 
-  
   
   <div class="decide-v3">
     <h2 style="margin:0 0 4px 0">Decide</h2>

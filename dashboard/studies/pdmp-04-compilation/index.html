@@ -1255,7 +1255,6 @@ downstream inference?
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1269,7 +1268,7 @@ downstream inference?
       </thead>
       <tbody>
         
-        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
         
       </tbody>
     </table>
@@ -1312,10 +1311,14 @@ downstream inference?
     
     
     <li class="expected-behavior-item" id="bt-jax-compiled-throughput-10x"
+        data-test-kind="behavioral"
+        
         data-pytest-node="jax-compiled-throughput-10x"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1333,6 +1336,7 @@ expect:  {"field": "speedup_ratio", "operator": "greater-than", "threshold": 10.
       
       
       
+      
     </li>
     
     
@@ -1343,10 +1347,14 @@ expect:  {"field": "speedup_ratio", "operator": "greater-than", "threshold": 10.
     
     
     <li class="expected-behavior-item" id="bt-numerical-equivalence-with-phase3"
+        data-test-kind="behavioral"
+        
         data-pytest-node="numerical-equivalence-with-phase3"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1364,6 +1372,7 @@ expect:  {"field": "L_inf_error", "operator": "less-than", "threshold": 0.0001}<
       
       
       
+      
     </li>
     
     
@@ -1374,10 +1383,14 @@ expect:  {"field": "L_inf_error", "operator": "less-than", "threshold": 0.0001}<
     
     
     <li class="expected-behavior-item" id="bt-memory-fits-1024-cells-per-node"
+        data-test-kind="behavioral"
+        
         data-pytest-node="memory-fits-1024-cells-per-node"
         data-classification="supporting"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-supporting">supporting</span>
@@ -1392,6 +1405,7 @@ expect:  {"field": "L_inf_error", "operator": "less-than", "threshold": 0.0001}<
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "RSS at end of 600-step run", "reduce": "GB", "source": "scripts/profile_memory.py --n-cells 1024"}
 expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
       </details>
+      
       
       
       
@@ -1733,39 +1747,26 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      <p class="muted">No evidence recorded on findings yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li><strong>Numerical-equivalence validation of the column-centric runner vs the Phase-2 PDMP</strong></li>
-        
-      </ul>
-      
-    </div>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

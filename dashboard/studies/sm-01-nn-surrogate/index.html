@@ -799,7 +799,6 @@ high-dimensional observables learnable from the observable view at all?
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -820,7 +819,6 @@ high-dimensional observables learnable from the observable view at all?
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -873,7 +871,6 @@ high-dimensional observables learnable from the observable view at all?
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -926,7 +923,6 @@ high-dimensional observables learnable from the observable view at all?
             data-spec-id="sm-01-nn-surrogate"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="kfold-baselines-compact"></td>
           <td>
             baseline
             
@@ -974,7 +970,6 @@ high-dimensional observables learnable from the observable view at all?
             data-spec-id="sm-01-nn-surrogate"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="skill-vs-persistence-broad"></td>
           <td>
             baseline
             
@@ -1074,10 +1069,14 @@ high-dimensional observables learnable from the observable view at all?
     
     
     <li class="expected-behavior-item" id="bt-surrogate-beats-trivial-baselines"
+        data-test-kind="behavioral"
+        
         data-pytest-node="surrogate-beats-trivial-baselines"
         data-classification="primary"
         data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1105,6 +1104,7 @@ expect:  {"low": 1.0, "op": "lt"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1115,10 +1115,14 @@ expect:  {"low": 1.0, "op": "lt"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-high-dim-observables-learnable-from-panel"
+        data-test-kind="behavioral"
+        
         data-pytest-node="high-dim-observables-learnable-from-panel"
         data-classification="primary"
         data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1142,6 +1146,7 @@ persistence one-step (i.e. are they predictable from the observable view)?
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Fraction of 4058 varying broad observables with positive skill vs persistence.", "kind": "authored", "measured_value": 0.0}
 expect:  {"low": 0.05, "op": "gt"}</pre>
       </details>
+      
       
       
       
@@ -1285,33 +1290,38 @@ expect:  {"low": 0.05, "op": "gt"}</pre>
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
       
-      <p class="muted">No evidence recorded on findings yet.</p>
+      
     </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      <p class="muted">No follow-up proposals recorded yet.</p>
-    </div>
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

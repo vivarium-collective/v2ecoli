@@ -1140,7 +1140,6 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1161,7 +1160,6 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1225,7 +1223,6 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1279,7 +1276,6 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
             data-spec-id="showcase-6-equivalence-large"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="v2-16x16-parallel-ensemble"></td>
           <td>
             baseline
             
@@ -1327,7 +1323,6 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
             data-spec-id="showcase-6-equivalence-large"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="vecoli-16x16-reference-ensemble"></td>
           <td>
             baseline
             
@@ -1439,10 +1434,14 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
     
     
     <li class="expected-behavior-item" id="bt-physiology-equivalent-to-vecoli"
+        data-test-kind="behavioral"
+        
         data-pytest-node="physiology-equivalent-to-vecoli"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1467,6 +1466,7 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1477,10 +1477,14 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-composition-equivalent-to-vecoli"
+        data-test-kind="behavioral"
+        
         data-pytest-node="composition-equivalent-to-vecoli"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1505,6 +1509,7 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1515,10 +1520,14 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-ribosomes-equivalent-to-vecoli"
+        data-test-kind="behavioral"
+        
         data-pytest-node="ribosomes-equivalent-to-vecoli"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1543,6 +1552,7 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1553,10 +1563,14 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-exchange-fluxes-equivalent-to-vecoli"
+        data-test-kind="behavioral"
+        
         data-pytest-node="exchange-fluxes-equivalent-to-vecoli"
         data-classification="primary"
         data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1581,6 +1595,7 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1591,10 +1606,14 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-gene-expression-correlates-vecoli"
+        data-test-kind="behavioral"
+        
         data-pytest-node="gene-expression-correlates-vecoli"
         data-classification="primary"
         data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1616,6 +1635,7 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/population_phenotype_basal/vs_vecoli", "detail": "Transcriptome + proteome graded by r2 over ensemble-mean count vectors; companion outlier-gene tables. Group verdict = worst axis: transcriptome R\u00b2=0.946 is below the strict 0.99 band \u2192 mismatch \u2192 FAIL (proteome R\u00b2=0.961 \u2192 drift). The strict-band threshold drives the FAIL; TOST + per-axis \u03b4 margins (see study open question) would express this as an equivalence-margin verdict instead.", "group": "gene_expression", "kind": "report_card_axis"}
 expect:  {"op": "report_card_group_within_tol"}</pre>
       </details>
+      
       
       
       
@@ -1774,7 +1794,6 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
     </div>
   </div>
 
-  
   
   <div class="decide-v3">
     <h2 style="margin:0 0 4px 0">Decide</h2>

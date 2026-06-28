@@ -1288,7 +1288,6 @@ ready substrate that motivated the DUF rescoping?
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1302,7 +1301,7 @@ ready substrate that motivated the DUF rescoping?
       </thead>
       <tbody>
         
-        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
         
       </tbody>
     </table>
@@ -1345,10 +1344,14 @@ ready substrate that motivated the DUF rescoping?
     
     
     <li class="expected-behavior-item" id="bt-sbc-calibration-uniform-rank"
+        data-test-kind="behavioral"
+        
         data-pytest-node="sbc-calibration-uniform-rank"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1366,6 +1369,7 @@ expect:  {"field": "CvM_p_value", "operator": "greater-than", "threshold": 0.05}
       
       
       
+      
     </li>
     
     
@@ -1376,10 +1380,14 @@ expect:  {"field": "CvM_p_value", "operator": "greater-than", "threshold": 0.05}
     
     
     <li class="expected-behavior-item" id="bt-posterior-shrinks-with-data"
+        data-test-kind="behavioral"
+        
         data-pytest-node="posterior-shrinks-with-data"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1397,6 +1405,7 @@ expect:  {"field": "shrinkage_at_N=1000", "operator": "less-than", "threshold": 
       
       
       
+      
     </li>
     
     
@@ -1407,10 +1416,14 @@ expect:  {"field": "shrinkage_at_N=1000", "operator": "less-than", "threshold": 
     
     
     <li class="expected-behavior-item" id="bt-ppc-coverage-95-pct"
+        data-test-kind="behavioral"
+        
         data-pytest-node="ppc-coverage-95-pct"
         data-classification="supporting"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-supporting">supporting</span>
@@ -1425,6 +1438,7 @@ expect:  {"field": "shrinkage_at_N=1000", "operator": "less-than", "threshold": 
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "held-out observation coverage by posterior predictive 95% CI", "reduce": "fraction", "source": "scripts/run_ppc.py"}
 expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper": 0.99}</pre>
       </details>
+      
       
       
       
@@ -1798,57 +1812,26 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li>Phase-3 increment 1: a real ABC-SMC (importance weights + Gaussian perturbation kernel + adaptive-epsilon schedule) recovers a transcription-init rate from count-level observations, validated by Simulation-Based Calibration and a posterior-predictive check. The forward model is a negative-binomial count surrogate calibrated once to real WCM rna_init_event statistics (mu0=12593, Poisson limit). This replaces the prior grid-diagnostic phase3_abc_* scripts with the cited-but-missing run_abc_smc / run_sbc / run_ppc. Scope: validated on the WCM-calibrated count likelihood (single parameter, K=150 SBC), not the full WCM in the ABC loop (deferred to the Phase-4 compiled runtime) and not the K=1000 multi-modality full gate. A methodological result fell out: the WCM Poisson posterior is sharp (~300x tighter than a toy), so ABC needs n_generations=12 to converge; SBC correctly rejected an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).</li>
-        
-        <li>Phase-3 increment 2: the ABC-SMC engine generalizes to vector theta (independent per-dim perturbation kernel + product importance weights; scalar back-compat preserved). A 2-parameter joint inference of (count mean-scale, dispersion-scale) from count data is recovered and per-parameter SBC-validated, with a weak posterior correlation -- i.e. the two parameters are jointly identifiable from the [mean, std] summary. Scope: uses a synthetic overdispersed surrogate (mu0=40, phi0=8) because the real WCM transcription count is Poisson (no dispersion to infer); this validates the multi-parameter machinery for when richer overdispersed/multi-modal WCM observables are added.</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      
-      <ul class="synthesis-list">
-        
-        <li>from_run: phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc); observed: recovery theta_true=1.2 -&gt; post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS). Posterior shrinks with data: CI90 width 0.0068 (n_obs=25) -&gt; 0.0034 (100) -&gt; 0.0019 (400) -&gt; 0.0013 (1600), truth contained at every n; ~1/sqrt(n) through n=400 (ABC eps-resolution floors the shrinkage at the tightest end)</li>
-        
-        <li>from_run: scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom); observed: recovery [1.185, 0.993] vs truth [1.2, 1.0]; posterior corr=+0.12 (weak -&gt; identifiable); 2-param SBC K=80 chi2_p mean-scale=0.78 PASS, disp-scale=0.62 PASS</li>
-        
-      </ul>
-      
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li><strong>SBC rank-uniformity + credible-interval coverage on the count-based pipeline</strong></li>
-        
-        <li><strong>Root-cause fix for the pbg scalar-pruning merger quirk (task</strong></li>
-        
-      </ul>
-      
-    </div>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

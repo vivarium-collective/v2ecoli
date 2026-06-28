@@ -1079,7 +1079,6 @@ for dry_mass, cell_mass, instantaneous_growth_rate.
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1100,7 +1099,6 @@ for dry_mass, cell_mass, instantaneous_growth_rate.
             data-spec-id=""
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value=""></td>
           <td>
             baseline
             
@@ -1157,7 +1155,6 @@ for dry_mass, cell_mass, instantaneous_growth_rate.
             data-spec-id="param-uq-02-observables"
             data-store-path=""
             data-started-at="">
-          <td><input type="checkbox" class="run-compare-checkbox" value="uq-observables-w360-n24x2seeds"></td>
           <td>
             baseline
             
@@ -1251,10 +1248,14 @@ for dry_mass, cell_mass, instantaneous_growth_rate.
     
     
     <li class="expected-behavior-item" id="bt-basal-dominates-mass-observables"
+        data-test-kind="behavioral"
+        
         data-pytest-node="basal-dominates-mass-observables"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1281,6 +1282,7 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
       
       
       
+      
     </li>
     
     
@@ -1291,10 +1293,14 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
     
     
     <li class="expected-behavior-item" id="bt-growth-rate-ranking-is-window-dependent"
+        data-test-kind="behavioral"
+        
         data-pytest-node="growth-rate-ranking-is-window-dependent"
         data-classification="primary"
         data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
@@ -1319,6 +1325,7 @@ window-dependent, as this study claims?
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "CONFIRMED window-dependence \u2014 the igr dominant knob flips: basal_elongation_rate\n(Sobol 0.97 @ 120 steps) \u2192 kS (0.615, edging basal\u0027s 0.511) @ 360 steps.\nmeasured_value = fraction of the compared window pairs that show a DIFFERENT igr\ndominant driver = 1.0 (the single 120\u2194360 pair differs). This is the study\u0027s\nheadline discovery, framed affirmatively (the window-independence hypothesis is\nrefuted; see assumptions).\n", "kind": "authored", "measured_value": 1.0}
 expect:  {"high": 1.0, "low": 0.8, "op": "in_range"}</pre>
       </details>
+      
       
       
       
@@ -1407,7 +1414,6 @@ expect:  {"high": 1.0, "low": 0.8, "op": "in_range"}</pre>
     </div>
   </div>
 
-  
   
   <div class="decide-v3">
     <h2 style="margin:0 0 4px 0">Decide</h2>

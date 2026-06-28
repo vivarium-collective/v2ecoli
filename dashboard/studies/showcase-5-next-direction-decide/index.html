@@ -1078,7 +1078,6 @@ each) — the cost trade-off flagged for reviewers.</div>
     <table id="runs-table">
       <thead>
         <tr>
-          <th></th>
           <th>Variant / Baseline</th>
           <th>Composite</th>
           <th>Steps</th>
@@ -1092,7 +1091,7 @@ each) — the cost trade-off flagged for reviewers.</div>
       </thead>
       <tbody>
         
-        <tr><td colspan="10" class="empty-message">No runs yet.</td></tr>
+        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
         
       </tbody>
     </table>
@@ -1135,10 +1134,14 @@ each) — the cost trade-off flagged for reviewers.</div>
     
     
     <li class="expected-behavior-item" id="bt-reviewer-selects-next-direction"
+        data-test-kind="behavioral"
+        
         data-pytest-node="reviewer-selects-next-direction"
         data-classification="decision"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+      
+        
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-decision">decision</span>
@@ -1153,6 +1156,7 @@ each) — the cost trade-off flagged for reviewers.</div>
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Placeholder decision gate. Resolves when a reviewer picks one (or more) of\nthe four candidate directions (A growth-condition panel, B ppGpp\nsynthesis-vs-regulation 2x2, C dnaA knob deepening, D graded translation\ndose-response). No quantitative pass/fail \u2014 the outcome is the chosen\ndirection, which then becomes a committed follow-up study.\n", "kind": "reviewer_decision"}
 expect:  {"op": "reviewer_selected_variant"}</pre>
       </details>
+      
       
       
       
@@ -1387,45 +1391,26 @@ resolving why the 0.7x elong-down point was a near-null in showcase-4.
   </div>
 
   
-  
-  
-  
-  
-  <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-    Synthesised read-only from canonical fields — edit <code>findings</code>,
-    <code>limitations</code>, and <code>discovery_implications</code> to change
-    this (and the generated report) together.
-  </p>
-  <div class="conclusions-grid conclusions-synthesis">
-    <div class="conclusion-field">
-      <h3>Claims <span class="muted small">(from findings)</span></h3>
-      <p class="muted">No findings recorded yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Evidence <span class="muted small">(from findings)</span></h3>
-      
-      <p class="muted">No evidence recorded on findings yet.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Limitations <span class="muted small">(from limitations)</span></h3>
-      <p class="muted">None recorded.</p>
-    </div>
-    <div class="conclusion-field">
-      <h3>Next steps <span class="muted small">(from discovery implications)</span></h3>
-      
-      <ul class="synthesis-list">
-        
-        <li><strong>A — Growth-condition panel (deepen the strongest contrast)</strong></li>
-        
-        <li><strong>B — ppGpp synthesis vs regulation 2x2 (chase the surprise)</strong></li>
-        
-        <li><strong>C — dnaA init-probability sweep (push the partial)</strong></li>
-        
-        <li><strong>D — graded translation dose-response (rescue the null)</strong></li>
-        
-      </ul>
-      
-    </div>
+  <div class="decide-v3">
+    <h2 style="margin:0 0 4px 0">Decide</h2>
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+
+    
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
   </div>
   
 

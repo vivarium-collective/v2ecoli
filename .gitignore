@@ -72,3 +72,4 @@ docs/superpowers/notes/
 docs/report_cards/**/report_card.html
 docs/report_cards/**/report_card_verdict.json
 docs/report_cards/**/*_reference.json
+workspace/investigations/*/studies/*/viz/report_card/

@@ -44,8 +44,23 @@ contract so both sides agree.
    `kind: behavioral`) = today's Behavioral Test, unchanged. `kind: report_card`
    = a report-card module. Behavioral and report-card modules **mix freely** in
    one Tests section.
-3. **A report-card module's outcome = its `<card>.verdict.json` `overall`**,
-   mapped within_tol→PASS, drift→PARTIAL, mismatch→FAIL, ungraded→PENDING.
+3. **Gate-source precedence (three derived-from-one-render verdicts; they agree
+   at emission).** A render writes all three together, so they never disagree
+   when produced by the same `v2e-compare run`:
+   - **Embed pill (Plan A render):** the dashboard's `report_card` module reads
+     `viz/report_card/<card>.verdict.json`'s `overall` for the card's pill,
+     mapped within_tol→PASS, drift→PARTIAL, mismatch→FAIL, ungraded→PENDING.
+   - **Study gate (default):** the producer pre-materializes `runs[].outcomes`
+     (same mapping); the dashboard's Tests summary + gate read these. No live
+     evaluation needed.
+   - **Live re-evaluation (optional "Run tests"):** a graded module's
+     `measure: {kind: report_card_axis, card: docs/report_cards/<invest>/<name>,
+     group}` lets `compute_outcomes` recompute the gate from the docs
+     condition-verdict. This is the GATE path; the viz sidecar is the RENDER
+     path. Plan A's render MUST NOT read `measure.card`.
+   Because all three are written in one `assemble_from_studies` pass from the
+   same `card_verdicts`, drift is only possible if someone regenerates one file
+   by hand — don't.
 4. **Comparison studies keep a real `baseline:`** (the `v2ecoli-baseline`
    composite for the condition) — it is the genuine v2ecoli side and keeps the
    study re-runnable; no dashboard-schema relaxation needed.
@@ -154,6 +169,17 @@ Dashboard study-detail:
        report_card -> iframe(viz/report_card/<card>.html) + verdict(sidecar.overall)
   -> compute_outcomes report_card branch -> gate from sidecar overall
 ```
+
+## Publish / deploy note
+
+`viz/report_card/<card>.{html,verdict.json}` are **generated render outputs**
+(gitignored), unlike the tracked docs condition-verdicts + materialized
+`runs[].outcomes` (which carry the gate). So on a fresh checkout / CI / the
+published read-only dashboard, the gate pills populate but the **card embeds are
+empty until a render runs**. The publish pipeline must run a render
+(`v2e-compare run` or `--render-only` over the zarr stores) to regenerate
+`viz/report_card/` before publishing — mirroring how the docs render outputs are
+regenerated.
 
 ## Error handling
 

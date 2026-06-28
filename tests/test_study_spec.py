@@ -59,7 +59,7 @@ def test_study_inherits_default_cards_when_omitted(tmp_path):
     _, specs = load_investigation(str(inv))
     basal = next(s for s in specs if s.name == "basal")
     assert basal.cards == ["config", "parca", "standard"]   # from investigation defaults
-    assert basal.graded_cards == ["standard"]
+    assert basal.graded_cards == ["parca", "standard"]      # parca + standard gate; config informational
 
 
 def test_study_card_override_and_graded_subset(tmp_path):
@@ -67,7 +67,7 @@ def test_study_card_override_and_graded_subset(tmp_path):
     _, specs = load_investigation(str(inv))
     s44 = next(s for s in specs if s.name == "basal_4x4")
     assert s44.cards == ["config", "parca", "statistical"]
-    assert s44.graded_cards == ["statistical"]
+    assert s44.graded_cards == ["parca", "statistical"]
 
 
 def test_context_reads_fork_from_named_env(tmp_path, monkeypatch):

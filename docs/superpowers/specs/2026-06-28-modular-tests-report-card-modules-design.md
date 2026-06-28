@@ -48,8 +48,11 @@ contract so both sides agree.
    at emission).** A render writes all three together, so they never disagree
    when produced by the same `v2e-compare run`:
    - **Embed pill (Plan A render):** the dashboard's `report_card` module reads
-     `viz/report_card/<card>.verdict.json`'s `overall` for the card's pill,
-     mapped within_tol→PASS, drift→PARTIAL, mismatch→FAIL, ungraded→PENDING.
+     `viz/report_card/<card>.verdict.json`'s `overall` and shows the card's
+     **native verdict vocabulary** — "within tol" (green) / "drift" (amber) /
+     "mismatch" (red) / "ungraded" (grey) — which is more informative on a
+     report card than a PASS/FAIL pill. The colours align with the gate
+     (green≈PASS, amber≈PARTIAL, red≈FAIL, grey≈PENDING).
    - **Study gate (default):** the producer pre-materializes `runs[].outcomes`
      (same mapping); the dashboard's Tests summary + gate read these. No live
      evaluation needed.
@@ -188,8 +191,13 @@ regenerated.
 - A `report_card` entry without `card:` → a clear payload-time warning, rendered
   as an error chip, not a 500.
 - All reads/writes `encoding="utf-8"`.
-- A behavioral-only study (no `kind` anywhere) renders byte-identically to today
-  (explicit regression guard).
+- A behavioral-only study (no `kind` anywhere) renders **functionally**
+  identically to today: the behavioral markup is verbatim (wrapped in
+  `{% else %}`); each behavioral `<li>` gains one inert `data-test-kind="behavioral"`
+  attribute (no visible change). The gate pill for the comparison studies'
+  report_card modules comes from the pre-materialized `runs[].outcomes`
+  (PASS/PARTIAL/FAIL) — the dashboard's `compute_outcomes` gate branch is NOT
+  required for this feature (out of scope; the embed pill is independent).
 
 ## Testing
 

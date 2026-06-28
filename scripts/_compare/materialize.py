@@ -53,7 +53,12 @@ def materialize_study(spec: StudySpec) -> Path:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     data.update(materialized_fields(spec))
     data.pop("behavior_tests", None)   # replaced by the modular `tests` list
-    data.setdefault("pipeline_gate", {"prerequisites": [], "enables": []})
+    # Pipeline DAG: the study's authored `depends_on` (a list of prerequisite
+    # study names) becomes pipeline_gate.prerequisites — the prerequisites must
+    # pass before this study's gate is evaluated (parca gates the per-condition
+    # studies; the single-seed basal gates the statistical study).
+    data["pipeline_gate"] = {"prerequisites": list(data.get("depends_on") or []),
+                             "enables": []}
     # Canonical run + per-test outcomes from the study's verdict JSON (when it
     # exists) so the dashboard pill strip shows the REAL result per card.
     run = {"name": f"{spec.name}-comparison", "kind": "analysis", "canonical": True,
@@ -76,14 +81,19 @@ def materialize_study(spec: StudySpec) -> Path:
                        outcomes=outcomes)
             data["status"] = "evaluated"
     data["runs"] = [run]
-    # The dashboard's v3 study schema requires a non-empty baseline list of
-    # composites; the v2ecoli baseline (for this study's biological condition)
-    # is the runnable composite the comparison's v2ecoli side is built from.
-    data.setdefault("baseline", [{
-        "name": "v2ecoli-baseline",
-        "composite": "v2ecoli.composites.baseline.baseline",
-        "params": {"condition": spec.condition},
-    }])
+    # Declare the v2ecoli baseline under a top-level `conditions:` block (the
+    # v2ecoli baseline composite for this study's biological condition). The
+    # `conditions:` block is what signals the dashboard's v4-REDESIGN study path,
+    # which PRESERVES a list `tests:` (our report_card modules). A flat
+    # `baseline: [list]` instead routes to the legacy-v4 path, which expects
+    # `tests:` to be a dict and silently drops our module list.
+    data.pop("baseline", None)
+    data.setdefault("conditions", {
+        "baseline": {
+            "composite": "v2ecoli.composites.baseline.baseline",
+            "params": {"condition": spec.condition},
+        },
+    })
     path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
                     encoding="utf-8")
     return path

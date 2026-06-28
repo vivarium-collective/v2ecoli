@@ -26,6 +26,14 @@ def _verdict_section(sections):
     return hits[0]
 
 
+def test_parca_card_emits_verdict_and_axes():
+    sec = render("parca", _ctx())[0]
+    assert "verdict_axes" in sec
+    # the t~0 rna_mass init (~1%) is graded -> a parca.* axis, within tolerance
+    assert any(a["id"].startswith("parca.") for a in sec["verdict_axes"])
+    assert sec["verdict"] == "within_tol"
+
+
 def test_standard_card_emits_verdict_and_axes():
     sec = _verdict_section(render("standard", _ctx()))
     assert sec["verdict"] in {"within_tol", "drift", "mismatch", "ungraded"}

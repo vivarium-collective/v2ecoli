@@ -44,6 +44,13 @@ def shape_from_mass(mass_fg: float, width_um: float = 1.0,
     outer_sa = 4.0 * math.pi * r ** 2 + 2.0 * math.pi * r * (length - w)  # µm²
     inner_sa = outer_sa * (1.0 - periplasm_fraction) ** (2.0 / 3.0)
     cap = Capsule(half_len=(lcyl / 2.0) * 1e4, radius=r * 1e4)    # µm → Å
+    # Inner membrane: scale the outer capsule by (1−f_p)^(1/3) so its volume is
+    # the cytoplasm volume v·(1−f_p) and the shell between the two membranes is
+    # exactly the periplasm volume v·f_p — a gram-negative envelope whose
+    # subvolumes match the Skalnik shape model. Consumers (the parsimony 3D
+    # build) take ``envelope`` directly instead of hardcoding a periplasm width.
+    s = (1.0 - periplasm_fraction) ** (1.0 / 3.0)
+    inner_cap = Capsule(half_len=cap.half_len * s, radius=cap.radius * s)
     return {
         "mass_fg": float(mass_fg),
         "density_g_per_ml": density_g_per_ml,
@@ -52,11 +59,24 @@ def shape_from_mass(mass_fg: float, width_um: float = 1.0,
         "length_um": length,
         "outer_sa_um2": outer_sa,
         "inner_sa_um2": inner_sa,
+        "periplasm_fraction": periplasm_fraction,
         "periplasm_vol_fl": v * periplasm_fraction,
         "cytoplasm_vol_fl": v * (1.0 - periplasm_fraction),
         "radius_A": cap.radius,
         "half_len_A": cap.half_len,
+        "inner_radius_A": inner_cap.radius,
+        "inner_half_len_A": inner_cap.half_len,
         "capsule": cap,
+        "inner_capsule": inner_cap,
+        "envelope": {
+            "outer_membrane": cap,           # cell outer surface (OM)
+            "inner_membrane": inner_cap,     # IM (subvolume-consistent inward)
+            "periplasm_fraction": periplasm_fraction,
+            "periplasm_vol_fl": v * periplasm_fraction,
+            "cytoplasm_vol_fl": v * (1.0 - periplasm_fraction),
+            "outer_sa_um2": outer_sa,
+            "inner_sa_um2": inner_sa,
+        },
     }
 
 
@@ -68,8 +88,9 @@ capsule_from_mass = shape_from_mass
 # 'shape' store must be pre-seeded with these (see zero_shape()).
 SHAPE_KEYS = (
     "mass_fg", "density_g_per_ml", "width_um", "volume_fl", "length_um",
-    "outer_sa_um2", "inner_sa_um2", "periplasm_vol_fl", "cytoplasm_vol_fl",
-    "radius_A", "half_len_A",
+    "outer_sa_um2", "inner_sa_um2", "periplasm_fraction", "periplasm_vol_fl",
+    "cytoplasm_vol_fl", "radius_A", "half_len_A", "inner_radius_A",
+    "inner_half_len_A",
 )
 
 
@@ -115,7 +136,9 @@ class ShapeStep(Step):
         shape = shape_from_mass(
             mass, self.config["width_um"], self.config["density_g_per_ml"],
             self.config["periplasm_fraction"])
-        # Drop the Capsule object so the emitted shape stays serializable; the
-        # capsule's numbers are retained as radius_A / half_len_A.
-        shape.pop("capsule", None)
+        # Drop the Capsule objects + the envelope sub-dict so the emitted shape
+        # stays a flat map[float]; their numbers are retained as radius_A /
+        # half_len_A / inner_radius_A / inner_half_len_A.
+        for k in ("capsule", "inner_capsule", "envelope"):
+            shape.pop(k, None)
         return {"shape": shape}

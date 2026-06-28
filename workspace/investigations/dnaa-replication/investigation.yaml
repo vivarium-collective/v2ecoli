@@ -238,6 +238,17 @@ executive:
 
     dnaa-3 (2026-06-07/08): the in-sim DnaA-box binding fires correctly inside the simulation as the provided read-only occupancy listener (4 affinity pools, fast equilibrium, full box set; three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). It reports free DnaA-ATP and per-pool occupancy with the dnaa-2 cell cycle preserved exactly. Correction (Rashmi 2026-06-08): an earlier pass had added a box-capacity cap=32 justified by outside ChIP-seq (Smith 2024) plus a DnaA sink and abundance/datA literature, none of which were provided. These have been withdrawn; only the provided mechanisms are modeled. The multi-generation read-only run (7 gens, full per-gen history) and the full plot set Rashmi requested are now done (oriC, cell mass, all DnaA forms bound+free, concentrations, ATP/ADP fraction across generations; box occupancy at a steady-state generation). Honest finding: the over-binding persists within the provided model. The DnaA-ATP fraction is in band (0.23), but free DnaA-ATP stays ~380-550 nM, about 4x the 100 nM oriC-low K_d, for 100% of every cycle across all 7 generations, so oriC-low occupancy holds ~0.8 throughout (the high-affinity pools saturate). So, contrary to the 2026-06-08 expectation, the correct DnaA-ATP fraction does not by itself leave the low-affinity sites modestly occupied; the over-binding is a real open question within the provided mechanisms (nothing in the provided read-only model lowers free DnaA-ATP), and we are not re-introducing a cap/sink to force it down. The withdrawn ideas (Smith ChIP-seq, abundance, datA) are recorded as proposed_inputs for Rashmi to accept or decline in the report.
   decisions_needed:
+  - question: "Haochen H1 — does lowering K (oriC half-saturation) increase the chance of oriC saturation? Show the in-sim K-scan result."
+    status: |
+      In progress (2026-06-27): scanning K=15/20/25/30/40 at n=4, 8 gens, under the MASS trigger
+      (the dnaa-5 regime where late gens under-saturated: [11,93,95,0,0,0,0,0,0]). n was already
+      scanned (dnaa-5 n=1/2/4/6/8). NOTE the question is largely moot under the MECHANISTIC trigger
+      (dnaa-6 F-04): firing on oriC saturation already gives reliable once-per-cycle saturation
+      regardless of K. The K-scan quantifies whether lower K alone rescues saturation under the mass
+      clock. Result to be folded here + into dnaa-5/dnaa-6.
+    context: |
+      Haochen's report question + comment H1 (feedback-2026-06-27-haochen). He wants the in-sim
+      K-lowering result shown, not just the analytic dnaa5_k_sweep curve.
   - question: "dnaa-4 — the seed-sensitive DnaA-ATP fraction: is it acceptable, or does it warrant a follow-up? (Seeds 0/2 confirmation done: homeostasis robust 3/3, but the fraction band holds only on seed 1.) And should we advance into the downstream mechanistic roadmap (dnaa-05 RIDA/DDAH/DARS next)?"
     status: |
       Seeds 0/2 confirmed 2026-06-16 (F-08): the homeostasis (clean cell cycle + total-DnaA pool
@@ -429,6 +440,25 @@ glossary:
     per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+- date: '2026-06-27-haochen'
+  reviewer: Haochen
+  artifact: feedback-2026-06-27-haochen/feedback.pdf
+  summary: |
+    Three comments on the oriC-saturation parameter-space plan, plus a major report
+    question. (H1) Scan the SHAPE parameters of each cooperativity form, not just the
+    form — for Hill, scan both n (sharpness) AND K (midpoint); the report mentioned
+    lowering K but did not SHOW the result — he wants to see if lower K raises oriC
+    saturation chance. → n already scanned (dnaa-5 n=1..8); the IN-SIM K scan
+    (K=15/20/25/30/40, n=4, 8 gens) is executing now. (H2) Hydrolysis at oriC is NOT
+    the cluster-reset mechanism — reset happens at initiation (DnaA falls back to
+    cytoplasm) and oriC-bound hydrolysis is negligible vs the DnaA-ATP half-life. →
+    CONFIRMED: dnaa_box_binding is bookkeeping, the pools reset on FORK PASSAGE at
+    initiation (chromosome_structure.py), and the stage-3 k_h triage showed k_h does
+    not drive the reset; k_h dropped as a reset lever. (H3) Do REAL initiation
+    triggering by oriC saturation, not mass — initiation is a feedback that should
+    clamp the over/under-saturation seen under the mass trigger. → ALREADY DONE
+    (dnaa-6 F-04): the mechanistic oriC-saturation trigger gives clean once-per-cycle,
+    seed-robust, confirming the over/under-saturation was a mass-trigger artifact.
 - date: '2026-06-06-1544'
   reviewer: Haochen
   artifact: feedback-2026-06-06-1544/feedback.yaml

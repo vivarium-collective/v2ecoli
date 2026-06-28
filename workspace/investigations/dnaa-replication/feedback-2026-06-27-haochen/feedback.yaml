@@ -1,0 +1,56 @@
+date: '2026-06-27-haochen'
+reviewer: Haochen
+artifact: feedback.pdf
+context: |
+  Comments on the parameter-space plan (dnaa5_oric_saturation_parameter_space.md)
+  for tuning oriC cooperativity to once-per-cycle saturation.
+points:
+  - id: H1
+    topic: cooperativity-form-parameters
+    comment: >-
+      When exploring function forms, also scan the SHAPE parameters of each form.
+      For Hill: scan both the coefficient n (sharpness) AND K (midpoint / where the
+      transition happens), not just n.
+    followup_2026_06_27: >-
+      Major question on the report: it mentioned lowering K but did not SHOW the
+      results — wants to see whether lowering K increases the chance of oriC saturation.
+    response: >-
+      n was already scanned (dnaa-5: n=1/2/4/6/8; n=4 operating point, n=6 over-depletes).
+      K was only scanned ANALYTICALLY (dnaa5_k_sweep figure). Executing the IN-SIM K scan
+      now (K=15/20/25/30/40, n=4, 8 gens) to show whether lower K raises oriC saturation
+      chance — under the mass trigger (the regime where dnaa-5 showed late-gen
+      under-saturation). Result to be folded into dnaa-5/dnaa-6.
+    status: in-progress
+  - id: H2
+    topic: hydrolysis-not-cluster-reset
+    comment: >-
+      Cluster reset should happen right at initiation (all oriC-bound DnaA falls back to
+      cytoplasm); since the oriC-saturation window << DnaA-ATP half-life, oriC-bound
+      hydrolysis should be negligible, NOT the reset mechanism. Double-check the code.
+    response: >-
+      CONFIRMED. dnaa_box_binding.py is "pure bookkeeping — does NOT gate initiation";
+      the oriC pools are reset on FORK PASSAGE at initiation (propagated by
+      chromosome_structure.py), not by k_h hydrolysis (k_h=0.025/min runs uniformly in
+      the background). Empirically corroborated: the stage-3 k_h triage (k_h
+      0.010/0.015/0.020 vs 0.025) did NOT change the once-per-cycle reset, and the
+      observed cluster reset (bound_atp -> 0) coincides with oriC 1->2 (initiation), not a
+      gradual hydrolytic decay. So k_h is NOT a cluster-reset lever; the §5 framing was
+      wrong and is dropped.
+    status: resolved
+  - id: H3
+    topic: real-mechanistic-initiation-trigger
+    comment: >-
+      Do real initiation triggering by oriC saturation, not by mass. Initiation is a
+      feedback on oriC state; without it you get over/under-saturation artifacts (as Eran
+      & I saw) that may be a mass-triggering artifact. Caveat: could perturb cycle length.
+      Try it.
+    response: >-
+      ALREADY DONE (dnaa-6 F-04). Replacing the mass clock with the oriC-saturation gate
+      (DNAA_INITIATION_TRIGGER=mechanistic, DNAA_INIT_TRIGGER_POOL=low, fire when
+      oriC_low_bound_atp >= 6) gives CLEAN once-per-cell-cycle initiation — oriC 1<->2,
+      seed-robust (0/1/2) over 8 gens, no runaway cycle length. This CONFIRMS Haochen's
+      hypothesis: the over/under-saturation seen under the mass trigger (the dnaa-5
+      [11,93,95,0,...] signature) WAS a mass-triggering artifact; the mechanistic feedback
+      clamps it. The earlier "over-init to oriC->4" was a 59e108fb-build artifact, not the
+      mechanism.
+    status: resolved

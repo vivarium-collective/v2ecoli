@@ -565,6 +565,12 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             max_steps=max_steps,
             max_generations=max_generations,
             chunk=chunk,
+            # Follow a single lineage (prune non-followed daughters each
+            # division) so EVERY generation — including the last — runs to its
+            # own division, matching genuine vEcoli. Without this, kept siblings
+            # trigger spurious division signals that truncate the final
+            # generation (v2ecoli would stop one generation short of vEcoli).
+            single_daughters=True,
         )
         return {"seed": seed, "wall_seconds": round(time.time() - t0, 1),
                 "store": str(store_path), **{k: result.get(k) for k in

@@ -20,11 +20,11 @@ runs:
   canonical: true
   description: v2e-compare study with_aa
   status: completed
-  result: PARTIAL
+  result: FAIL
   outcomes:
     standard-vs-vecoli:
-      result: PARTIAL
-      detail: 'report card ''standard'': drift'
+      result: FAIL
+      detail: 'report card ''standard'': mismatch'
 status: evaluated
 tests:
 - name: config-vs-vecoli

@@ -28,37 +28,96 @@ def _criterion_str(pass_if: dict) -> str:
     return op or ""
 
 
+def _axes_from_list(tests: list) -> tuple[dict, dict]:
+    """Build (reference_axes, card_tests) from a list of test dicts."""
+    reference_axes: dict[str, Any] = {}
+    card_tests: dict[str, Any] = {}
+    for t in tests:
+        tname = t.get("name", "test")
+        slug = _slug(tname)
+        path = f"tests.{slug}"
+        status = str(t.get("status", "")).lower()
+        verdict = _STATUS_TO_VERDICT.get(status, "ungraded")
+        group = (t.get("classification") or "tests").capitalize()
+        crit_str = _criterion_str(t.get("pass_if") or {})
+        measure = t.get("measure") or {}
+        value = measure.get("value")
+        detail = t.get("question") or measure.get("detail") or ""
+        reference_axes[path] = {
+            "label": tname, "group": group,
+            "criterion": {"type": "status", "criterion_str": crit_str},
+        }
+        card_tests[slug] = {
+            "verdict": verdict, "value": value,
+            "meter": crit_str, "detail": {"text": detail},
+        }
+    return reference_axes, card_tests
+
+
+def _axes_from_pytest_dict(tests: dict) -> tuple[dict, dict]:
+    """Build (reference_axes, card_tests) from a pytest auto-discover dict."""
+    reference_axes: dict[str, Any] = {}
+    card_tests: dict[str, Any] = {}
+
+    last_results = tests.get("last_results")
+    if last_results:
+        for i, r in enumerate(last_results):
+            if not isinstance(r, dict):
+                continue
+            label = r.get("name") or r.get("nodeid") or f"test_{i}"
+            slug = _slug(label)
+            path = f"tests.{slug}"
+            outcome_raw = str(r.get("outcome") or r.get("status") or "").lower()
+            verdict = _STATUS_TO_VERDICT.get(outcome_raw, "ungraded")
+            reference_axes[path] = {
+                "label": label, "group": "Pytest",
+                "criterion": {"type": "status", "criterion_str": outcome_raw},
+            }
+            card_tests[slug] = {
+                "verdict": verdict, "value": None,
+                "meter": outcome_raw, "detail": {"text": ""},
+            }
+
+    if not reference_axes:
+        # No usable results yet — emit a single placeholder axis
+        n_targets = len(tests.get("pytest_args") or [])
+        meter = f"{n_targets} pytest target(s); no results recorded yet"
+        slug = "pytest_auto_discover"
+        path = f"tests.{slug}"
+        reference_axes[path] = {
+            "label": "pytest auto-discover", "group": "Pytest",
+            "criterion": {"type": "status", "criterion_str": "no results recorded yet"},
+        }
+        card_tests[slug] = {
+            "verdict": "ungraded", "value": None,
+            "meter": meter, "detail": {"text": ""},
+        }
+
+    return reference_axes, card_tests
+
+
 class TestsCard(ReportCardStep):
     name = "tests"
 
     def applies(self, study: StudyContext) -> bool:
-        return bool(study.spec.get("tests"))
+        tests = study.spec.get("tests")
+        return bool(tests)  # None / [] / {} → False; non-empty list or dict → True
 
     def build(self, study: StudyContext):
-        tests = study.spec.get("tests") or []
+        tests = study.spec.get("tests")
         if not tests:
             return None
-        reference_axes: dict[str, Any] = {}
-        card: dict[str, Any] = {"tests": {}}
-        for t in tests:
-            tname = t.get("name", "test")
-            slug = _slug(tname)
-            path = f"tests.{slug}"
-            status = str(t.get("status", "")).lower()
-            verdict = _STATUS_TO_VERDICT.get(status, "ungraded")
-            group = (t.get("classification") or "tests").capitalize()
-            crit_str = _criterion_str(t.get("pass_if") or {})
-            measure = t.get("measure") or {}
-            value = measure.get("value")  # present only if the study recorded one
-            detail = t.get("question") or measure.get("detail") or ""
-            reference_axes[path] = {
-                "label": tname, "group": group,
-                "criterion": {"type": "status", "criterion_str": crit_str},
-            }
-            card["tests"][slug] = {
-                "verdict": verdict, "value": value,
-                "meter": crit_str, "detail": {"text": detail},
-            }
+
+        if isinstance(tests, list):
+            reference_axes, card_tests = _axes_from_list(tests)
+        else:
+            # pytest auto-discover dict schema
+            reference_axes, card_tests = _axes_from_pytest_dict(tests)
+
+        if not reference_axes:
+            return None
+
+        card: dict[str, Any] = {"tests": card_tests}
         reference = {
             "title": f"{study.spec.get('name', study.study_name)} — default tests",
             "stimulus": {"reference_model": "behavioral spec",

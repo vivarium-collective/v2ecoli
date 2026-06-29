@@ -295,9 +295,16 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
     for spec in specs:
         cls = _import_class(spec["module"], spec["qualname"])
         if spec["kind"] == "vivarium_1":
+            # Defer ports wiring to stores the composite already owns: use their
+            # existing types instead of this process's inferred ones (avoids the
+            # unitless-float vs quantity[fg] subtype conflict on shared stores
+            # like listeners.mass that the v2 mass deriver owns).
+            defer_ports = [p for p, path in spec["topology"].items()
+                           if path and path[0] in cell_state]
             wrapped = wrap_vivarium_process(cls, name=spec["name"],
                                             as_step=spec["as_step"],
-                                            output_ports=spec.get("output_ports"))
+                                            output_ports=spec.get("output_ports"),
+                                            defer_ports=defer_ports)
         else:  # pbg_native
             wrapped = cls
         core.register_link(spec["name"], wrapped)

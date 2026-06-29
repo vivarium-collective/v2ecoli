@@ -62,6 +62,35 @@ def test_resolve_builds_default_config_from_fork_sim_data(monkeypatch):
     assert specs[0]["config"] == {"rate": 99.0}
 
 
+def test_wrap_defer_ports_declares_any():
+    """defer_ports makes the bridge declare those ports as the top type 'any', so
+    a swapped process defers to the composite's existing store types (e.g. v2's
+    quantity[fg] mass store) instead of imposing its unitless inferred float."""
+    from v2ecoli.core import build_core
+    from v2ecoli.library.ecoli_step import set_current_core
+    from v2ecoli.library.vivarium_bridge import wrap_vivarium_process
+    core = build_core()
+    set_current_core(core)
+
+    class P:
+        name = "p"
+
+        def __init__(self, parameters=None):
+            self.parameters = parameters or {}
+
+        def ports_schema(self):
+            return {"a": {"_default": 0.0}, "b": {"_default": 0}}
+
+        def next_update(self, timestep, states):
+            return {}
+
+    W = wrap_vivarium_process(P, defer_ports=["a"])
+    inst = W({}, core=core)
+    assert inst.inputs()["a"] == {"_type": "node"}   # defers to the store's type
+    assert inst.inputs()["b"] != {"_type": "node"}
+    assert inst.outputs()["a"] == {"_type": "node"}
+
+
 def test_translate_vivarium_topology_resolves_nested_path():
     """vivarium nested topology ({_path: base, sub: relpath}) auto-translates to
     a process-bigraph store path (the _path base) — not the dict's keys."""

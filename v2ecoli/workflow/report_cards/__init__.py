@@ -150,13 +150,7 @@ def applicable(ctx: StudyContext, core, only: "str | None" = None) -> list:
     return out
 
 
-# Register built-in cards (import for side effect; added in Tasks 4 & 5). Guarded
-# so the package imports cleanly before those modules exist (TDD ordering).
-try:
-    from . import tests_card  # noqa: E402,F401
-except Exception:  # noqa: BLE001
-    pass
-try:
-    from . import vs_vecoli_card  # noqa: E402,F401
-except Exception:  # noqa: BLE001
-    pass
+# Register built-in cards (import for side effect). Both modules exist, so
+# import unconditionally — a real import error must surface, not be masked.
+from . import tests_card  # noqa: E402,F401
+from . import vs_vecoli_card  # noqa: E402,F401

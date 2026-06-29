@@ -41,6 +41,46 @@ from v2ecoli.library.ecoli_step import EcoliProcess, EcoliStep
 from v2ecoli.library.schema_types import UNIQUE_TYPES
 
 
+def _strip_pint_magnitudes(obj):
+    """Recursively replace pint Quantities with their raw magnitude.
+
+    The boundary unit-bridge for wrapped vivarium/vEcoli processes: they read raw
+    numbers from stores and attach their own (unum) units in-process, but v2's
+    stores hold pint Quantities. ndarrays/scalars pass through untouched, so this
+    is a cheap no-op on states that carry no pint Quantities.
+    """
+    from v2ecoli.types.quantity import ureg
+    if isinstance(obj, ureg.Quantity):
+        return obj.magnitude
+    if isinstance(obj, dict):
+        return {k: _strip_pint_magnitudes(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(_strip_pint_magnitudes(v) for v in obj)
+    return obj
+
+
+def _attach_pint_units(obj, unit):
+    """Recursively wrap raw numbers as pint Quantities of ``unit``.
+
+    The reverse of :func:`_strip_pint_magnitudes`: some wrapped vEcoli processes
+    read a store with pint's API (e.g. metabolism_redux's
+    ``boundary.external[x].to("mM")``) but v2 delivers a raw magnitude there.
+    Existing Quantities and non-numbers pass through untouched.
+    """
+    from v2ecoli.types.quantity import ureg
+    if isinstance(obj, ureg.Quantity):
+        return obj
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, (int, float)):
+        return ureg.Quantity(obj, unit)
+    if isinstance(obj, dict):
+        return {k: _attach_pint_units(v, unit) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(_attach_pint_units(v, unit) for v in obj)
+    return obj
+
+
 def _special_type(key):
     """Return the v2ecoli type string for a well-known port name, or None.
 
@@ -185,6 +225,8 @@ def wrap_vivarium_process(
     as_step=False,
     output_ports=None,
     defer_ports=None,
+    strip_pint_ports=None,
+    attach_pint_ports=None,
 ):
     """Build an ``EcoliProcess`` / ``EcoliStep`` subclass from a vivarium-1.0 class.
 
@@ -222,6 +264,17 @@ def wrap_vivarium_process(
     # owns listeners.mass as quantity[fg]; the bridged vEcoli process infers a
     # bare unitless float and the two won't subtype-resolve). ``any`` defers.
     defer = set(defer_ports) if defer_ports is not None else set()
+    # strip_pint_ports: top-level ports whose pint Quantities should be stripped
+    # to raw magnitudes on input. Needed where the wrapped process attaches its
+    # OWN (unum) units to a raw number (e.g. metabolism_redux's
+    # ``listeners.mass.cell_mass * units.fg``). Ports it reads as pint (e.g.
+    # ``boundary.external`` via ``.to("mM")``) must be LEFT pint — so this is
+    # per-port, declared in the injection spec, not a blanket strip.
+    strip_pint = set(strip_pint_ports) if strip_pint_ports is not None else set()
+    # attach_pint_ports: {port: unit} — wrap raw magnitudes as pint Quantities of
+    # that unit for ports the process reads with pint's API (e.g. metabolism_redux
+    # ``boundary.external[x].to("mM")``) where v2 delivers raw numbers.
+    attach_pint = dict(attach_pint_ports) if attach_pint_ports is not None else {}
 
     class _VivariumBridge(base):
         name = proc_name
@@ -245,6 +298,17 @@ def wrap_vivarium_process(
 
         def update(self, state, interval=None):
             v1 = self._v1
+            # Per-port boundary unit-bridge: for ports the wrapped process attaches
+            # its own (unum) units to, strip v2's pint Quantities to raw magnitudes
+            # (e.g. metabolism_redux's ``cell_mass * units.fg``). Ports it reads as
+            # pint (``boundary.external`` via ``.to("mM")``) are left untouched.
+            if (strip_pint or attach_pint) and isinstance(state, dict):
+                state = {
+                    k: (_strip_pint_magnitudes(v) if k in strip_pint
+                        else _attach_pint_units(v, attach_pint[k]) if k in attach_pint
+                        else v)
+                    for k, v in state.items()
+                }
             if hasattr(v1, 'next_update'):
                 return v1.next_update(interval or 0, state)
             return v1.update(state, interval)
@@ -311,6 +375,17 @@ def wrap_vivarium_instance(
 
         def update(self, state, interval=None):
             v1 = self._v1
+            # Per-port boundary unit-bridge: for ports the wrapped process attaches
+            # its own (unum) units to, strip v2's pint Quantities to raw magnitudes
+            # (e.g. metabolism_redux's ``cell_mass * units.fg``). Ports it reads as
+            # pint (``boundary.external`` via ``.to("mM")``) are left untouched.
+            if (strip_pint or attach_pint) and isinstance(state, dict):
+                state = {
+                    k: (_strip_pint_magnitudes(v) if k in strip_pint
+                        else _attach_pint_units(v, attach_pint[k]) if k in attach_pint
+                        else v)
+                    for k, v in state.items()
+                }
             if hasattr(v1, 'next_update'):
                 return v1.next_update(interval or 0, state)
             return v1.update(state, interval)

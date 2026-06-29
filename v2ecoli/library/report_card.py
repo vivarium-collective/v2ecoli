@@ -770,6 +770,66 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 </body></html>"""
 
 
+def render_verdict_html(verdict: dict, *, title: str | None = None) -> str:
+    """Render a stored ``report_card_verdict/v1`` dict into a self-contained HTML
+    card (no external assets): one section per group, one row per axis. Reuses the
+    card colour/glyph vocabulary so it matches grade_card-rendered cards. Emits no
+    timestamp (callers commit the output — keep it deterministic)."""
+    import html as _html
+
+    overall = verdict.get("overall", "ungraded")
+    title = title or verdict.get("title") or "Report card"
+    ref_model = verdict.get("reference_model", "")
+    meas_model = verdict.get("model_ref", "")
+
+    def chip(v: str, label: str | None = None) -> str:
+        c = _COLOR.get(v, _COLOR["ungraded"])
+        g = _GLYPH.get(v, _GLYPH["ungraded"])
+        txt = _html.escape(label or v.replace("_", " "))
+        return (f"<span style='display:inline-block;padding:2px 8px;border-radius:10px;"
+                f"background:{c};color:#fff;font-size:12px'>{g} {txt}</span>")
+
+    def val_str(val) -> str:
+        if val is None:
+            return ""
+        if isinstance(val, bool):
+            return str(val)
+        if isinstance(val, (int, float)):
+            return _html.escape(f"{val:.4g}")
+        return _html.escape(str(val))
+
+    sections = []
+    for gslug, grp in (verdict.get("groups") or {}).items():
+        rows = []
+        for ax in grp.get("axes", []):
+            rows.append(
+                "<tr>"
+                f"<td style='padding:4px 10px'>{_html.escape(str(ax.get('label', ax.get('id', ''))))}</td>"
+                f"<td style='padding:4px 10px'>{chip(ax.get('verdict', 'ungraded'))}</td>"
+                f"<td style='padding:4px 10px;font-variant-numeric:tabular-nums'>{val_str(ax.get('value'))}</td>"
+                f"<td style='padding:4px 10px;color:#555'>{_html.escape(str(ax.get('meter', '') or ''))}</td>"
+                "</tr>")
+        sections.append(
+            f"<h3 style='margin:14px 0 4px'>{_html.escape(gslug.replace('_', ' ').title())} "
+            f"{chip(grp.get('verdict', 'ungraded'))}</h3>"
+            "<table style='border-collapse:collapse;width:100%;font-size:13px'>"
+            "<thead><tr style='text-align:left;color:#888'>"
+            "<th style='padding:4px 10px'>axis</th><th style='padding:4px 10px'>verdict</th>"
+            "<th style='padding:4px 10px'>value</th><th style='padding:4px 10px'>meter</th>"
+            "</tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table>")
+
+    sub = " · ".join(x for x in [
+        f"reference: {_html.escape(ref_model)}" if ref_model else "",
+        f"measured: {_html.escape(meas_model)}" if meas_model else ""] if x)
+    return (
+        "<div style='font-family:system-ui,sans-serif;max-width:900px'>"
+        f"<h2 style='margin:0 0 2px'>{_html.escape(title)} "
+        f"{chip(overall, 'overall: ' + overall.replace('_', ' '))}</h2>"
+        f"<div style='color:#888;font-size:12px;margin-bottom:8px'>{sub}</div>"
+        f"{''.join(sections)}</div>")
+
+
 def load_json(path: str) -> dict:
     with open(path, encoding="utf-8") as f:
         return json.load(f)

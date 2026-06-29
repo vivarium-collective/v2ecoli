@@ -144,6 +144,21 @@ def _restore_ecoli(saved_real: dict, fork_repo: str) -> None:
         pass
 
 
+def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
+    """Build a fork process's config from the FORK's own ``LoadSimData``.
+
+    The faithful, complete config source for a converted/swapped vEcoli process:
+    vEcoli's ``ecoli.library.sim_data.LoadSimData(sim_data_path).get_config_by_name``
+    supplies every parameter the real process needs (where v2ecoli's reimplemented
+    getter can drift). Runs in the resolve subprocess, where the fork's ``ecoli``
+    package is importable. Raises if the fork has no config-getter for ``name``.
+    """
+    import importlib
+    sim_data_mod = importlib.import_module("ecoli.library.sim_data")
+    loader = sim_data_mod.LoadSimData(sim_data_path=sim_data_path)
+    return dict(loader.get_config_by_name(name))
+
+
 def translate_vivarium_topology(topo: dict) -> dict[str, list]:
     """Translate a vivarium-1.0 topology to process-bigraph port→store paths.
 
@@ -216,6 +231,18 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
                 f"{name!r}: process_configs 'sim_data' is unsupported for new "
                 "processes (no ParCa entry). Provide an explicit dict or 'default'.")
         config_dict = None if pcfg in ("default", None) else dict(pcfg)
+        # A 'default' config + a fork_sim_data path → auto-build the FULL, faithful
+        # config from the FORK's own LoadSimData (vEcoli configures its own
+        # process), instead of an empty config. Falls back to default if the fork
+        # has no config-getter for this process (e.g. a brand-new add_process).
+        if config_dict is None and config.get("fork_sim_data"):
+            try:
+                config_dict = build_fork_config(
+                    fork_repo, config["fork_sim_data"], name)
+            except Exception as e:  # noqa: BLE001 — not fork-configurable; use default
+                print(f"[inject] fork config for {name!r} unavailable "
+                      f"({type(e).__name__}); using default. {e}")
+                config_dict = None
 
         topo = topologies.get(name)
         if topo is None:

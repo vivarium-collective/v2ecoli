@@ -38,6 +38,30 @@ def test_remove_processes_ignores_absent_names():
     assert removed == []
 
 
+def test_resolve_builds_default_config_from_fork_sim_data(monkeypatch):
+    """When fork_sim_data is provided, a process with a 'default' config gets its
+    full, faithful config auto-built from the FORK's own LoadSimData (not v2's
+    reimplementation), so a swapped vEcoli process is configured by vEcoli."""
+    captured = {}
+
+    def fake_build(fork_repo, sim_data_path, name):
+        captured["args"] = (fork_repo, sim_data_path, name)
+        return {"rate": 99.0}
+
+    monkeypatch.setattr(inject, "build_fork_config", fake_build)
+    cfg = {
+        "add_processes": ["example-secretion"],
+        "swap_processes": {},
+        "process_configs": {},  # 'default' → should auto-build from the fork
+        "topology": {"example-secretion": {"counts": ["bulk"]}},
+        "fork_sim_data": "/unique/test/path/simData.cPickle",
+        "time_step": 1.0,
+    }
+    specs = inject.resolve_injections(FORK, cfg)
+    assert captured["args"][2] == "example-secretion"
+    assert specs[0]["config"] == {"rate": 99.0}
+
+
 def test_translate_vivarium_topology_resolves_nested_path():
     """vivarium nested topology ({_path: base, sub: relpath}) auto-translates to
     a process-bigraph store path (the _path base) — not the dict's keys."""

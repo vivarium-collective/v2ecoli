@@ -41,3 +41,14 @@ conditions:
     params:
       condition: basal
 status: evaluated
+confidence: Accepted
+findings:
+- id: parca-parca
+  kind: computational
+  status: confirms
+  statement: 'v2ecoli and vEcoli start from the same ParCa-fit initial state on basal:
+    all 4 mass observables within tolerance.'
+  evidence:
+    from_card: parca
+    observed: 4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
+      RNA mass (fg))

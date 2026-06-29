@@ -48,3 +48,14 @@ conditions:
       condition: no_oxygen
 depends_on:
 - parca
+confidence: Investigating
+findings:
+- id: no_oxygen-standard
+  kind: computational
+  status: partial
+  statement: v2ecoli reproduces vEcoli biomass on no_oxygen within tolerance; growth
+    rate (1/s) diverges (drift).
+  evidence:
+    from_card: standard
+    observed: '4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
+      RNA mass (fg); max median |Δ|=4.1%); growth rate (1/s): drift (median |Δ|=7.8%)'

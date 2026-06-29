@@ -48,3 +48,15 @@ conditions:
       condition: acetate
 depends_on:
 - parca
+confidence: Investigating
+findings:
+- id: acetate-standard
+  kind: computational
+  status: contradicts
+  statement: v2ecoli reproduces vEcoli biomass on acetate within tolerance; RNA mass
+    (fg), growth rate (1/s) diverge (mismatch).
+  evidence:
+    from_card: standard
+    observed: '3 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg);
+      max median |Δ|=2.8%); RNA mass (fg): drift (median |Δ|=7.6%); growth rate (1/s):
+      mismatch (median |Δ|=17.0%)'

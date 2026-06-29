@@ -1,14 +1,7 @@
 {
   "schema": "report_card_verdict/v1",
-  "model_ref": "v2ecoli @ no_oxygen",
-  "reference_model": "vEcoli @ no_oxygen",
-  "generated": "",
   "overall": "drift",
   "groups": {
-    "config": {
-      "verdict": "ungraded",
-      "axes": []
-    },
     "standard": {
       "verdict": "drift",
       "axes": [

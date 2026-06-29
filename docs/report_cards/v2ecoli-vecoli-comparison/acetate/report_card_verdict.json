@@ -3,68 +3,68 @@
   "model_ref": "v2ecoli @ acetate",
   "reference_model": "vEcoli @ acetate",
   "generated": "",
-  "overall": "drift",
+  "overall": "mismatch",
   "groups": {
     "config": {
       "verdict": "ungraded",
       "axes": []
     },
     "standard": {
-      "verdict": "drift",
+      "verdict": "mismatch",
       "axes": [
         {
           "id": "standard.cell mass (fg)",
           "label": "cell mass (fg)",
           "verdict": "within_tol",
-          "value": 0.006738335067586629,
-          "meter": "t~60s init Δ=+0.26%; gen-1 matched median |Δ|=0.67% (median of 1 seed)",
+          "value": 0.028056597012994372,
+          "meter": "t~60s init Δ=+0.56%; gen-1 matched median |Δ|=2.81% (median of 1 seed)",
           "detail": {
-            "median_rel": 0.006738335067586629,
-            "max_rel": 0.07396070737712762
+            "median_rel": 0.028056597012994372,
+            "max_rel": 0.08947475109192696
           }
         },
         {
           "id": "standard.dry mass (fg)",
           "label": "dry mass (fg)",
           "verdict": "within_tol",
-          "value": 0.006763391294215052,
-          "meter": "t~60s init Δ=+0.26%; gen-1 matched median |Δ|=0.68% (median of 1 seed)",
+          "value": 0.027852840953131026,
+          "meter": "t~60s init Δ=+0.56%; gen-1 matched median |Δ|=2.79% (median of 1 seed)",
           "detail": {
-            "median_rel": 0.006763391294215052,
-            "max_rel": 0.0742025653983969
+            "median_rel": 0.027852840953131026,
+            "max_rel": 0.08934537593773241
           }
         },
         {
           "id": "standard.protein mass (fg)",
           "label": "protein mass (fg)",
           "verdict": "within_tol",
-          "value": 0.006801273247126157,
-          "meter": "t~60s init Δ=+0.11%; gen-1 matched median |Δ|=0.68% (median of 1 seed)",
+          "value": 0.01303898996128371,
+          "meter": "t~60s init Δ=+0.28%; gen-1 matched median |Δ|=1.30% (median of 1 seed)",
           "detail": {
-            "median_rel": 0.006801273247126157,
-            "max_rel": 0.03920087078860991
+            "median_rel": 0.01303898996128371,
+            "max_rel": 0.043575197863774125
           }
         },
         {
           "id": "standard.RNA mass (fg)",
           "label": "RNA mass (fg)",
-          "verdict": "within_tol",
-          "value": 0.01230258576014922,
-          "meter": "t~60s init Δ=+1.11%; gen-1 matched median |Δ|=1.23% (median of 1 seed)",
+          "verdict": "drift",
+          "value": 0.07575516056351667,
+          "meter": "t~60s init Δ=+2.78%; gen-1 matched median |Δ|=7.58% (median of 1 seed)",
           "detail": {
-            "median_rel": 0.01230258576014922,
-            "max_rel": 0.07582537027143481
+            "median_rel": 0.07575516056351667,
+            "max_rel": 0.15286781391121446
           }
         },
         {
           "id": "standard.growth rate (1/s)",
           "label": "growth rate (1/s)",
-          "verdict": "drift",
-          "value": 0.06943642515601448,
-          "meter": "t~60s init Δ=-13.05%; gen-1 matched median |Δ|=6.94% (median of 1 seed)",
+          "verdict": "mismatch",
+          "value": 0.16980511002186022,
+          "meter": "t~60s init Δ=+16.84%; gen-1 matched median |Δ|=16.98% (median of 1 seed)",
           "detail": {
-            "median_rel": 0.06943642515601448,
-            "max_rel": 0.8612057619618421
+            "median_rel": 0.16980511002186022,
+            "max_rel": 0.9816832561984723
           }
         },
         {

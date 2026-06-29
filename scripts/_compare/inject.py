@@ -266,6 +266,24 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
     return added
 
 
+def remove_processes(cell_state: dict, flow_order: list, names) -> list[str]:
+    """Remove named processes/steps from a cell-state tree + flow order in place.
+
+    The 'remove' half of a swap: a ``swap_processes`` mapping {old: new} adds the
+    converted ``new`` (via :func:`apply_injected_processes`) and removes ``old``
+    here; a config's ``exclude_processes`` list is removed the same way. Names not
+    present are ignored (returns only the names actually removed from cell_state).
+    """
+    removed: list[str] = []
+    for name in names:
+        if name in cell_state:
+            del cell_state[name]
+            removed.append(name)
+        while name in flow_order:
+            flow_order.remove(name)
+    return removed
+
+
 if __name__ == "__main__":
     # argv: <fork_repo> <config_json_path>  -> prints specs JSON to stdout
     fork_repo, cfg_path = sys.argv[1], sys.argv[2]

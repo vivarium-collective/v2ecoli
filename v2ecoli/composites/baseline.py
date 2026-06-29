@@ -913,15 +913,29 @@ def baseline(
         }
         flow_order.append('shape_step')
 
-    if injected_processes and injected_processes.get("add_processes"):
+    if injected_processes and (
+            injected_processes.get("add_processes")
+            or injected_processes.get("swap_processes")
+            or injected_processes.get("exclude_processes")):
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))
         from scripts._compare.inject import (
-            resolve_injections, apply_injected_processes)
-        specs = resolve_injections(injected_processes["fork_repo"],
-                                   injected_processes)
-        apply_injected_processes(cell_state, flow_order, core, specs)
+            resolve_injections, apply_injected_processes, remove_processes)
+        # Add half: convert + inject the new processes (add_processes plus the
+        # TARGETS of swap_processes). resolve_injections needs the fork repo only
+        # when there is something to add.
+        if (injected_processes.get("add_processes")
+                or injected_processes.get("swap_processes")):
+            specs = resolve_injections(injected_processes["fork_repo"],
+                                       injected_processes)
+            apply_injected_processes(cell_state, flow_order, core, specs)
+        # Remove half: drop the swapped-out SOURCES and any exclude_processes, so
+        # a swap is a true replace (not a co-existing add).
+        remove_processes(cell_state, flow_order,
+                         list((injected_processes.get("swap_processes") or {}).keys()))
+        remove_processes(cell_state, flow_order,
+                         list(injected_processes.get("exclude_processes") or []))
 
     state = {
         'agents': {'0': cell_state},

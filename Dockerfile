@@ -49,6 +49,30 @@ RUN printf 'export PATH="/app/v2ecoli/.venv/bin:$PATH"\n' > /etc/profile.d/10-v2
 # Sanity: the package imports and Ray is present at the locked version.
 RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 
+# PRISTINE upstream CovertLab/vEcoli checkout as a SIBLING of /app/v2ecoli, so
+# the comparison driver (scripts/run_comparison_ensemble.py --composite vecoli)
+# runs the ORIGINAL, UNMODIFIED vEcoli model as a process-bigraph composite via
+# the EXTERNAL wrapper (v2ecoli.library.vecoli_pbg_upstream + upstream_division):
+# upstream EcoliSim is imported from here and each vivarium process wrapped
+# externally, with ZERO edits to the checkout. V2E_VECOLI_DIR points the wrapper
+# at it. The fork to WRAP is spec-driven: docker/build-and-push-ecr.sh reads
+# comparison_spec.json's vecoli.{repo,commit} and passes them as these build-args,
+# so pointing the comparison at a NEW vEcoli fork is a pure spec edit + rebuild —
+# no Dockerfile change. Defaults clone the pristine upstream CovertLab/vEcoli@master.
+# VECOLI_UPSTREAM_REF may be a branch OR a commit sha; we fetch+checkout so either
+# works (a bare `clone --branch <sha>` does not accept a commit).
+ARG VECOLI_UPSTREAM_REPO=https://github.com/CovertLab/vEcoli
+ARG VECOLI_UPSTREAM_REF=master
+RUN git clone "${VECOLI_UPSTREAM_REPO}" /app/vEcoli \
+ && git -C /app/vEcoli checkout "${VECOLI_UPSTREAM_REF}"
+ENV V2E_VECOLI_DIR=/app/vEcoli
+# Verify the clone + that the external upstream wrapper imports and can reach
+# upstream EcoliSim through its sys.path/Cython-pinning shim (does NOT build a
+# composite — that needs an upstream sim_data, staged at job time).
+RUN python -c "import os; os.environ.setdefault('V2E_VECOLI_DIR', '/app/vEcoli'); \
+from v2ecoli.library.vecoli_pbg_upstream import _ensure_upstream; \
+print('upstream EcoliSim importable:', _ensure_upstream()['EcoliSim'].__name__)"
+
 # ─── AWS Batch multi-node-parallel (Ray) runtime layer ───────────────────────
 # Make the image self-contained for Ray-on-Batch: the AWS CLI (stages the ParCa
 # cache in + the zarr results out, per the entrypoint's RAY_STAGE_*/RAY_OUT_* env)

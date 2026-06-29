@@ -113,16 +113,62 @@ imports:
       NeuralProcess — a drop-in learned surrogate of the baseline used by
       investigations/surrogate-modeling. Registered into build_core() so it
       appears in the dashboard Registry.
+  # Packages v2ecoli actually imports + uses in its composites. Declaring them
+  # here classifies their registry classes as `in_workspace` so they render in
+  # the PRIMARY registry list (Processes/Steps tabs) rather than the collapsed
+  # "Also available in environment" fold. (They were already in the
+  # dashboard.registry.include allow-list — that controls inclusion in the data;
+  # `imports` controls the in_workspace classification / visibility.)
+  pbg_ketchup:
+    source: https://github.com/vivarium-collective/pbg-ketchup
+    ref: main
+    mode: reference
+    description: |
+      KETCHUP/IPOPT kinetic-parameter estimators (KetchupEstimator,
+      KetchupDynamicEstimator) + the ketchup_baseline / ketchup_dynamic /
+      ketchup_multistart composites used by the ketchup-baseline-comparison
+      investigation.
+  pbg_copasi:
+    source: https://github.com/vivarium-collective/pbg-copasi
+    ref: main
+    mode: reference
+    description: |
+      COPASI ODE / steady-state Steps + composites (utc-process, utc-step,
+      steady-state) used for kinetic-model comparison.
+  pbg_parsimony:
+    source: https://github.com/vivarium-collective/pbg-parsimony
+    ref: main
+    mode: reference
+    description: |
+      Capsule cell-geometry primitive used by v2ecoli.cell_shape (ShapeStep).
+  pbg_bioreactordesign:
+    source: https://github.com/vivarium-collective/pbg-bioreactordesign
+    ref: main
+    mode: reference
+    description: |
+      BiRD reactor transport process (BiRDTransportProcess) coupled to the cell
+      engine in the reactor_bird_coupled composites (mbp-03).
+  viva_munk:
+    source: https://github.com/vivarium-collective/Viva-munk
+    ref: main
+    mode: reference
+    description: |
+      Colony physics base (PymunkProcess, GrowDivide, Chemotaxis,
+      DiffusionAdvection, CellFieldExchange, …) used by the colony composite
+      and the colonies investigation.
 server:
   enabled: true
 dashboard:
-  # Registry tab: show v2ecoli's own classes PLUS the pbg-* packages it actually
+  # Registry tab: show v2ecoli's own classes PLUS the packages it actually
   # imports and uses, while still hiding merely-installed-but-unused pbg-* repos
   # (e.g. pbg-cellpack) that allocate_core() auto-registers. Display-only
   # allow-list by top-level package (dashes/underscores normalized); discovery
-  # is unchanged. Keep in sync with the pbg-* deps in pyproject.toml.
+  # is unchanged. Keep in sync with the deps in pyproject.toml.
+  # viva_munk is the colony-physics base (PymunkProcess, GrowDivide, Chemotaxis,
+  # DiffusionAdvection, CellFieldExchange, …) used by the colony composites —
+  # first-class v2ecoli content, so it belongs in the registry alongside v2ecoli.
   registry:
-    include: [v2ecoli, pbg_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
+    include: [v2ecoli, viva_munk, pbg_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
   # Sources page: surface the ecoli-sources bundle (the ParCa/reconstruction
   # input files) with links — inherited files link to the pinned ecoli-sources
   # GitHub commit, local overrides to this repo. See v2ecoli/dashboard_sources.py.
@@ -157,5 +203,7 @@ ui:
   # ecoli_3d whole-cell pack is served from Cloudflare R2 (free egress, no
   # GitHub Pages 429 rate-limiting on the heavy pack + meshes); the dashboard
   # card links + embeds this instead of the bundled gh-pages viewer.
+  # ?models= loads a manifest so a single card switches between states in-viewer
+  # (birth — 1.8 µm rod; pre-division — 3.06 µm, 2 chromosomes + septum).
   viz_viewer_urls:
-    ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?file=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/ecoli_3d.pack.json"
+    ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json"

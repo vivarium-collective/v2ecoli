@@ -99,9 +99,25 @@ def _hash_file(path: str) -> str:
     return h.hexdigest()
 
 
-def compute_cache_version(repo_root: str = ".",
+def _default_repo_root() -> str:
+    """Repo root resolved from THIS file's location, not the cwd.
+
+    Bundles are generated inside a chdir'd isolation dir (run_comparison_ensemble
+    os.chdir's into ``.regen_*`` so the default emitter's relative side-writes
+    don't collide across parallel seeds). With ``repo_root="."`` every INPUT_FILE
+    then resolves under that throwaway dir, hashes as MISSING, and the fingerprint
+    collapses to a constant that never changes when the source changes — so the
+    whole staleness check silently no-ops. Anchor to the package instead:
+    this file is ``<repo>/v2ecoli/library/cache_version.py``.
+    """
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def compute_cache_version(repo_root: str | None = None,
                           files: Iterable[str] = INPUT_FILES) -> CacheVersion:
     """Compute the fingerprint over all INPUT_FILES under ``repo_root``."""
+    if repo_root is None:
+        repo_root = _default_repo_root()
     per_file: dict[str, str] = {}
     for rel in sorted(files):
         path = os.path.join(repo_root, rel)
@@ -123,7 +139,7 @@ def compute_cache_version(repo_root: str = ".",
 
 
 def write_cache_version(cache_dir: str, version: CacheVersion | None = None,
-                        repo_root: str = ".") -> CacheVersion:
+                        repo_root: str | None = None) -> CacheVersion:
     """Write cache_version.json inside ``cache_dir``.  Called by save_cache."""
     if version is None:
         version = compute_cache_version(repo_root=repo_root)
@@ -143,7 +159,7 @@ def read_cache_version(cache_dir: str) -> CacheVersion | None:
         return CacheVersion.from_dict(json.load(f))
 
 
-def verify_cache_version(cache_dir: str, repo_root: str = ".") -> None:
+def verify_cache_version(cache_dir: str, repo_root: str | None = None) -> None:
     """Raise StaleCacheError if the cache on disk doesn't match current inputs.
 
     Called from the cache load path.  A missing ``cache_version.json`` is a

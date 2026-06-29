@@ -1,0 +1,125 @@
+schema_version: 1
+name: colonies
+title: Colony Composite — HPC Scaling Readiness
+created: '2026-05-16'
+status: in_progress
+
+question: |
+  How many whole-cell E. coli agents can we fit per HPC node, and at what
+  per-cell wall-time + RAM cost, so a colonies-on-HPC workload is realistic to
+  plan against? Does the multi-cell colony composite (each cell embedding the
+  full 55-process WCM via EcoliWCM in one pymunk 2D environment) support
+  parallel growth and division at scale, or are there per-cell-cost or
+  per-cell-RAM cliffs that only show up at N > 1?
+
+hypothesis: |
+  The colony composite scales linearly with N on a single machine (per-cell
+  wall ≈ constant, per-cell RAM ≈ constant), the dominant cost is the inner
+  EcoliWCM, and HPC sizing reduces to scaling single-threaded processes
+  (RAM_per_node / RAM_per_cell). Finding: the wall half holds, but the
+  flat-RAM half was wrong. A multi-cell colony leaks RAM without bound, so
+  the binding constraint is memory, not the GIL.
+
+description: |
+  Three-study investigation certifying the colony composite for HPC deployment.
+  The single-machine foundation passed a static sweep, but testing it with
+  natural division exposed a memory blocker that has to be resolved before HPC
+  sizing can be trusted.
+
+  colonies-01-hpc-readiness (DONE): fix daughter-cell hydration through the
+    engine; static N-sweep (N ∈ {1,2,4,8}, 60-tick windows) gives per-cell wall
+    flat ~73 ms, pymunk free, GIL is the compute ceiling. Projected ~384
+    cells / 64-core-256GB node, under a flat-per-cell-RSS assumption the
+    static sweep flagged (F-06) but did not test.
+
+  colonies-02-parallel-multigen-perf (DONE): the test that was missing. Start
+    from 1 cell, divide naturally (1→2→4…), under sequential and the
+    process-bigraph Ray protocol. Per-cell wall stays flat and Ray lifts the
+    GIL ceiling (~3.5× at N16), but per-cell RSS is not bounded: an unbounded
+    leak OOM-kills the colony around gen 3, so the 384/node budget is
+    untrustworthy. Also fixed the colony physics (jitter 0.5→1e-4 + coherent
+    mass) and two division-correctness bugs (mother-not-removed causes
+    over-counting; daughters jumping off-position). See the colony-animation
+    GIF.
+
+  colonies-03-wcm-rss-leak (DONE, gate BLOCKED): hunt the leak. Three
+    contributory leaks were found and fixed (inner per-cell RAMEmitter, outer
+    colony emitter, viva-munk per-tick pymunk-shape rebuild), all merged, but
+    the dominant leak is native/C (numpy/scipy buffers, invisible to
+    tracemalloc), still open. The colony remains RAM-blocked for multi-gen runs.
+
+  colonies-04-hpc-deployment (PLANNED): cross-node validation, BLOCKED until
+    the native leak is fixed and per-cell RSS is bounded over a lifetime.
+
+executive:
+  what_is_this: |
+    An HPC scaling-readiness investigation for the colony composite: N copies
+    of the full 55-process whole-cell model (EcoliWCM) in one pymunk 2D physics
+    environment. colonies-01 built the single-machine foundation; colonies-02
+    tested it with natural division and the Ray protocol and uncovered an
+    unbounded per-cell RSS leak; colonies-03 fixed three contributing leaks but
+    the dominant one (native/C) is still open; colonies-04 (cross-node HPC) is
+    planned and gated on resolving it.
+  verdict: |
+    Foundation built, HPC deployment blocked on a memory leak. The colony grows
+    and divides correctly (natural division 1→2→4 after fixing mother-removal
+    and daughter placement), per-cell wall is flat (~73 ms/tick), pymunk is
+    free, and the Ray protocol lifts the single-process GIL ceiling (~3.5× at
+    N=16). But the original "HPC-ready, ~384 cells/node" claim is retracted: a
+    naturally-dividing colony leaks per-cell RSS ~0.5–1 MB/tick/cell and OOMs
+    around gen 3. Three contributory leaks were found and fixed (inner per-cell
+    RAMEmitter, outer colony emitter, viva-munk per-tick pymunk-shape rebuild),
+    but the dominant leak is native/C memory (numpy/scipy buffers, invisible to
+    tracemalloc) and remains unidentified. So RAM, not the GIL, is the binding
+    HPC constraint, and a trustworthy cells-per-node budget awaits a native
+    heap profile (colonies-04 is blocked until then).
+
+scientific_argument:
+  main_claim: |
+    The colony composite is single-machine-correct (growth and natural
+    division, flat per-cell wall, Ray lifts the GIL ceiling) but not HPC-ready:
+    a multi-cell colony leaks per-cell RAM without bound, so memory is the
+    binding constraint and the cells-per-node budget cannot be trusted until the
+    leak is fixed.
+  evidence_for:
+  - "Per-cell wall flat ~70–74 ms/tick/cell across N=1,2,4,8 (per-cell-cost-within-2x PASS). [colonies-01 F-01]"
+  - "pymunk physics ≈ free (≤0.2 ms/tick at N=8); cost is the inner EcoliWCM. [colonies-01 F-04]"
+  - "Natural division works after fixing mother-removal (id/key match) + daughter placement (viva-munk daughter_locations, no velocity kick): 1→2→4, daughters replace the mother in place. [colonies-02; colony-animation GIF]"
+  - "The Ray protocol runs cells in separate OS processes — ~3.5× faster at N=16 — lifting the single-process GIL ceiling. [colonies-02 ray-lifts-gil-ceiling PASS]"
+  evidence_against:
+  - "The flat-RSS premise behind '384 cells/node' was unsound: a naturally-dividing colony leaks per-cell RSS ~0.5–1 MB/tick/cell and OOMs ~gen 3. The static 60-tick sweep could not see it. [colonies-02; colonies-03 F-04]"
+  - "Three leaks were fixed (inner emitter #239, outer emitter emit_cells, viva-munk pymunk shape #11) yet the colony still leaks. The dominant allocator is native/C (numpy/scipy), invisible to tracemalloc (only ~1–2 MB of a +1.3 MB/tick growth is Python-visible). Needs a native heap profiler. [colonies-03 F-04]"
+  - "Under Ray the leak moves into the per-cell actors, so RAM (not the GIL) becomes the real HPC ceiling. [colonies-02]"
+  caveats:
+  - "Single-machine, single-seed (0) measurements; cross-node scaling is colonies-04's job and unvalidated."
+  - "The leak-free behavior is verified per-cell for the inner-emitter fix only; the multi-cell colony multi-generation run is still RAM-blocked by the native leak."
+
+biological_story: |
+  The object is a growing microcolony of E. coli, every agent embedding the full
+  whole-cell model (the 55-process baseline that grows, transcribes, translates,
+  replicates its chromosome, and divides) in a 2D pymunk environment that resolves
+  physical packing. The biology is per-cell growth and division at population
+  scale: a cell elongates as its dry mass accumulates to the division threshold
+  (~one cell cycle), then splits into two daughters placed along its long axis
+  that reset and regrow (see the colony-animation GIF). No biological model change
+  was made; the work is infrastructural: daughter hydration, division (counts and
+  placement), realistic physics, and measuring the compute/RAM cost of running
+  many whole cells at once. The blocker that emerged is computational, not
+  biological: a per-cell memory leak that makes multi-generation colonies outgrow
+  RAM. A leak-free colony is the prerequisite for any population- or colony-level
+  E. coli phenotype study on HPC.
+
+studies:
+  - colonies-01-hpc-readiness
+  - colonies-02-parallel-multigen-perf
+  - colonies-03-wcm-rss-leak
+  # - colonies-04-hpc-deployment   # planned; blocked on the native RSS leak
+
+expert_docs: []
+
+acceptance_criteria:
+  - {study: colonies-01-hpc-readiness, behavior: daughters-hydrated}
+  - {study: colonies-01-hpc-readiness, behavior: per-cell-cost-within-2x-reference}
+  - {study: colonies-02-parallel-multigen-perf, behavior: natural-division-2-generations}
+  - {study: colonies-02-parallel-multigen-perf, behavior: ray-lifts-gil-ceiling}
+  - {study: colonies-03-wcm-rss-leak, behavior: per-cell-rss-bounded-after-fix}

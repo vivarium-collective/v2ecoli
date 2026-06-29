@@ -16,6 +16,12 @@ import numpy as np
 from scripts._compare.stats import compare_series
 from scripts.parca_compare import _reach, _as_array
 
+# The named growth conditions whose per-condition fits we diff explicitly.
+# Condition-specific fields (rna_expression, rna_synth_prob, doubling time) are
+# checked for EACH so a drift confined to one medium (e.g. an acetate-only
+# transcription-program regression) can't hide behind a basal-only check.
+_CONDITIONS = ("basal", "with_aa", "succinate", "no_oxygen", "acetate")
+
 # Attr paths mirror scripts/parca_compare.py SCALARS + DISTRIBUTIONS.
 _SCALARS = [
     ("mass.avg_cell_dry_mass_init", ("mass", "avg_cell_dry_mass_init")),
@@ -23,12 +29,29 @@ _SCALARS = [
     ("mass.avg_cell_water_mass_init", ("mass", "avg_cell_water_mass_init")),
     ("mass.fitAvgSolubleTargetMolMass", ("mass", "fitAvgSolubleTargetMolMass")),
     ("constants.darkATP", ("constants", "darkATP")),
+    ("constants.growth_associated_maintenance",
+     ("constants", "growth_associated_maintenance")),
+    ("constants.non_growth_associated_maintenance",
+     ("constants", "non_growth_associated_maintenance")),
+    ("constants.c_period", ("constants", "c_period")),
+    ("constants.d_period", ("constants", "d_period")),
+] + [
+    (f"doubling time — {c}", ("condition_to_doubling_time", c))
+    for c in _CONDITIONS
 ]
 _DISTRIBUTIONS = [
-    ("RNA expression — basal",
-     ("process", "transcription", "rna_expression", "basal")),
-    ("RNA synthesis prob — basal",
-     ("process", "transcription", "rna_synth_prob", "basal")),
+    # Per-condition transcription program — the condition-specific fit that
+    # drives a medium's initial state. Checked for every named condition.
+    *[(f"RNA expression — {c}",
+       ("process", "transcription", "rna_expression", c)) for c in _CONDITIONS],
+    *[(f"RNA synthesis prob — {c}",
+       ("process", "transcription", "rna_synth_prob", c)) for c in _CONDITIONS],
+    # ppGpp-dependent expression endpoints (drive growth-rate regulation).
+    ("RNA expression — free (no ppGpp)",
+     ("process", "transcription", "exp_free")),
+    ("RNA expression — ppGpp-bound",
+     ("process", "transcription", "exp_ppgpp")),
+    # Degradation + translation: the inputs that convert expression to counts.
     ("RNA deg rates",
      ("process", "transcription", "rna_data", "deg_rate")),
     ("Cistron deg rates",

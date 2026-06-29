@@ -144,6 +144,42 @@ def _restore_ecoli(saved_real: dict, fork_repo: str) -> None:
         pass
 
 
+def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
+    """Build a fork process's config from the FORK's own ``LoadSimData``.
+
+    The faithful, complete config source for a converted/swapped vEcoli process:
+    vEcoli's ``ecoli.library.sim_data.LoadSimData(sim_data_path).get_config_by_name``
+    supplies every parameter the real process needs (where v2ecoli's reimplemented
+    getter can drift). Runs in the resolve subprocess, where the fork's ``ecoli``
+    package is importable. Raises if the fork has no config-getter for ``name``.
+    """
+    import importlib
+    sim_data_mod = importlib.import_module("ecoli.library.sim_data")
+    loader = sim_data_mod.LoadSimData(sim_data_path=sim_data_path)
+    return dict(loader.get_config_by_name(name))
+
+
+def translate_vivarium_topology(topo: dict) -> dict[str, list]:
+    """Translate a vivarium-1.0 topology to process-bigraph port→store paths.
+
+    A flat entry ``port: (a, b)`` becomes ``port: [a, b]``. A *nested* vivarium
+    entry ``port: {"_path": base, sub: relpath, ...}`` wires the port to its
+    ``_path`` base store (the subports live under it, matching the bridged
+    process's typed sub-ports) — so a metabolism ``environment`` port declared as
+    ``{"_path": ("environment",), "exchange": ("exchange",)}`` auto-wires to
+    ``["environment"]`` instead of the corrupt ``["_path", "exchange"]`` a plain
+    ``list()`` produced. Ports with no ``_path`` fall back to the port name.
+    """
+    out: dict[str, list] = {}
+    for port, path in dict(topo).items():
+        if isinstance(path, dict):
+            base = path.get("_path", (port,))
+            out[port] = list(base)
+        else:
+            out[port] = list(path)
+    return out
+
+
 def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     """Resolve add_processes/swap_processes -> a list of InjectionSpec dicts.
 
@@ -162,7 +198,9 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         "process_configs": config.get("process_configs") or {},
         "topology": config.get("topology") or {},
         "time_step": config.get("time_step", 1.0),
-    }, sort_keys=True)
+    }, sort_keys=True, default=str)  # default=str: process_configs may hold
+    # sim_data-derived numpy arrays (e.g. a swapped metabolism config) that are
+    # not natively JSON-serializable; stringifying them keeps the memo key stable.
     if key in _RESOLVE_CACHE:
         return [dict(s) for s in _RESOLVE_CACHE[key]]
 
@@ -193,11 +231,23 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
                 f"{name!r}: process_configs 'sim_data' is unsupported for new "
                 "processes (no ParCa entry). Provide an explicit dict or 'default'.")
         config_dict = None if pcfg in ("default", None) else dict(pcfg)
+        # A 'default' config + a fork_sim_data path → auto-build the FULL, faithful
+        # config from the FORK's own LoadSimData (vEcoli configures its own
+        # process), instead of an empty config. Falls back to default if the fork
+        # has no config-getter for this process (e.g. a brand-new add_process).
+        if config_dict is None and config.get("fork_sim_data"):
+            try:
+                config_dict = build_fork_config(
+                    fork_repo, config["fork_sim_data"], name)
+            except Exception as e:  # noqa: BLE001 — not fork-configurable; use default
+                print(f"[inject] fork config for {name!r} unavailable "
+                      f"({type(e).__name__}); using default. {e}")
+                config_dict = None
 
         topo = topologies.get(name)
         if topo is None:
             topo = getattr(cls, "topology", getattr(cls, "TOPOLOGY", {}))
-        topo = {k: list(v) for k, v in dict(topo).items()}
+        topo = translate_vivarium_topology(topo)
 
         # Cache class for apply step (survives sys.modules restore in _fork_registry).
         _fork_class_cache[(cls.__module__, cls.__qualname__)] = cls
@@ -211,6 +261,11 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             "config": config_dict,
             "topology": topo,
             "interval": interval,
+            # Restrict the bridge's write surface to these ports (the bridge
+            # over-declares every port as both input AND output by default; a
+            # swapped process must not re-type stores another process owns, e.g.
+            # the mass deriver's listeners.mass). None = default (all ports).
+            "output_ports": (config.get("output_ports") or {}).get(name),
         })
     _RESOLVE_CACHE[key] = specs
     return [dict(s) for s in specs]
@@ -240,8 +295,16 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
     for spec in specs:
         cls = _import_class(spec["module"], spec["qualname"])
         if spec["kind"] == "vivarium_1":
+            # Defer ports wiring to stores the composite already owns: use their
+            # existing types instead of this process's inferred ones (avoids the
+            # unitless-float vs quantity[fg] subtype conflict on shared stores
+            # like listeners.mass that the v2 mass deriver owns).
+            defer_ports = [p for p, path in spec["topology"].items()
+                           if path and path[0] in cell_state]
             wrapped = wrap_vivarium_process(cls, name=spec["name"],
-                                            as_step=spec["as_step"])
+                                            as_step=spec["as_step"],
+                                            output_ports=spec.get("output_ports"),
+                                            defer_ports=defer_ports)
         else:  # pbg_native
             wrapped = cls
         core.register_link(spec["name"], wrapped)
@@ -264,6 +327,24 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
         flow_order.append(spec["name"])
         added.append(spec["name"])
     return added
+
+
+def remove_processes(cell_state: dict, flow_order: list, names) -> list[str]:
+    """Remove named processes/steps from a cell-state tree + flow order in place.
+
+    The 'remove' half of a swap: a ``swap_processes`` mapping {old: new} adds the
+    converted ``new`` (via :func:`apply_injected_processes`) and removes ``old``
+    here; a config's ``exclude_processes`` list is removed the same way. Names not
+    present are ignored (returns only the names actually removed from cell_state).
+    """
+    removed: list[str] = []
+    for name in names:
+        if name in cell_state:
+            del cell_state[name]
+            removed.append(name)
+        while name in flow_order:
+            flow_order.remove(name)
+    return removed
 
 
 if __name__ == "__main__":

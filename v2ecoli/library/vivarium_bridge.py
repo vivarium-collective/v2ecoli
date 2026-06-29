@@ -184,6 +184,7 @@ def wrap_vivarium_process(
     name=None,
     as_step=False,
     output_ports=None,
+    defer_ports=None,
 ):
     """Build an ``EcoliProcess`` / ``EcoliStep`` subclass from a vivarium-1.0 class.
 
@@ -215,6 +216,12 @@ def wrap_vivarium_process(
     base = EcoliStep if as_step else EcoliProcess
     proc_name = name or getattr(v1_cls, 'name', v1_cls.__name__)
     write_ports = set(output_ports) if output_ports is not None else None
+    # defer_ports: declare these top-level ports as the top type ``any`` so the
+    # composite's EXISTING store type governs. Needed when a swapped/injected
+    # process shares a store another process already types (e.g. v2's mass deriver
+    # owns listeners.mass as quantity[fg]; the bridged vEcoli process infers a
+    # bare unitless float and the two won't subtype-resolve). ``any`` defers.
+    defer = set(defer_ports) if defer_ports is not None else set()
 
     class _VivariumBridge(base):
         name = proc_name
@@ -227,12 +234,14 @@ def wrap_vivarium_process(
             self._typed_ports = translate_ports(self.core, self._v1.ports_schema())
 
         def inputs(self):
-            return dict(self._typed_ports)
+            return {k: ({'_type': 'node'} if k in defer else v)
+                    for k, v in self._typed_ports.items()}
 
         def outputs(self):
-            if write_ports is None:
-                return dict(self._typed_ports)
-            return {k: v for k, v in self._typed_ports.items() if k in write_ports}
+            ports = (self._typed_ports if write_ports is None
+                     else {k: v for k, v in self._typed_ports.items()
+                           if k in write_ports})
+            return {k: ({'_type': 'node'} if k in defer else v) for k, v in ports.items()}
 
         def update(self, state, interval=None):
             v1 = self._v1

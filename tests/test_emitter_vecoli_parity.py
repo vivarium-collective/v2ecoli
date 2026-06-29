@@ -121,6 +121,10 @@ def test_xarray_parity_against_golden(tmp_path, core):
     cfg = {
         "emit": {"global_time": "node"},
         "out_uri": out_uri,
+        # pbg-emitters >=0.2.0: colony/lineage envelope is opt-in (flat default).
+        # This test emits the agents/<id> envelope, so select the colony strategy.
+        "strategy": "colony",
+        "emit_root": ["agents", "1"],
         "transducer": {
             "predicate": [[{"subsample": {"interval": 1}}]],
             "buffer": {"size": 3},

@@ -3,7 +3,9 @@ import textwrap
 import yaml
 
 from scripts._compare.study_spec import StudySpec
-from scripts._compare.materialize import materialized_fields, materialize_study
+from scripts._compare.materialize import (
+    materialized_fields, materialize_study, _graph_fields,
+)
 
 CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"   # for the test's invest_name
 
@@ -73,6 +75,53 @@ def test_materialize_declares_report_card_test_modules(tmp_path):
     assert tests["standard-vs-vecoli"]["measure"]["kind"] == "report_card_axis"
     assert "behavior_tests" not in data                          # replaced by tests
     assert data["conditions"]["baseline"]["composite"] == "v2ecoli.composites.baseline.baseline"
+
+
+def _axis(label, verdict, median_rel):
+    return {"label": label, "verdict": verdict,
+            "detail": {"median_rel": median_rel}}
+
+
+def test_graph_fields_within_tol_is_accepted_and_confirms():
+    verdict = {"overall": "within_tol", "groups": {"standard": {
+        "verdict": "within_tol",
+        "axes": [_axis("cell mass (fg)", "within_tol", 0.018),
+                 _axis("RNA mass (fg)", "within_tol", 0.009)]}}}
+    gf = _graph_fields(verdict, _spec("/x", name="basal", cards=["standard"]))
+    assert gf["confidence"] == "Accepted"
+    assert "claim" not in gf                                  # no top-level claim
+    assert len(gf["findings"]) == 1
+    f = gf["findings"][0]
+    assert f["status"] == "confirms" and f["id"] == "basal-standard"
+    assert "within tolerance" in f["statement"]
+
+
+def test_graph_fields_drift_is_investigating_with_partial_finding():
+    verdict = {"overall": "drift", "groups": {"standard": {
+        "verdict": "drift",
+        "axes": [_axis("cell mass (fg)", "within_tol", 0.02),
+                 _axis("growth rate (1/s)", "drift", 0.067),
+                 {"label": "active_ribosome", "verdict": "ungraded"}]}}}  # skipped
+    gf = _graph_fields(verdict, _spec("/x", name="basal", cards=["standard"]))
+    assert gf["confidence"] == "Investigating"
+    f = gf["findings"][0]
+    assert f["status"] == "partial"
+    assert "growth rate (1/s) diverges" in f["statement"]
+    # evidence cites the diverging axis with its measured delta; ungraded skipped
+    assert "growth rate (1/s): drift (median |Δ|=6.7%)" in f["evidence"]["observed"]
+    assert "active_ribosome" not in f["evidence"]["observed"]
+
+
+def test_graph_fields_mismatch_maps_to_investigating_not_refuted():
+    # masses agree but growth rate mismatches — the port is not "Refuted",
+    # the discrepancy is still under investigation.
+    verdict = {"overall": "mismatch", "groups": {"standard": {
+        "verdict": "mismatch",
+        "axes": [_axis("cell mass (fg)", "within_tol", 0.028),
+                 _axis("growth rate (1/s)", "mismatch", 0.17)]}}}
+    gf = _graph_fields(verdict, _spec("/x", name="acetate", cards=["standard"]))
+    assert gf["confidence"] == "Investigating"
+    assert gf["findings"][0]["status"] == "contradicts"
 
 
 def test_materialize_preserves_narrative_and_is_idempotent(tmp_path):

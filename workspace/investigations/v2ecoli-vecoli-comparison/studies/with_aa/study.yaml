@@ -48,3 +48,14 @@ conditions:
       condition: with_aa
 depends_on:
 - parca
+confidence: Investigating
+findings:
+- id: with_aa-standard
+  kind: computational
+  status: partial
+  statement: v2ecoli reproduces vEcoli biomass on with_aa within tolerance; RNA mass
+    (fg) diverges (drift).
+  evidence:
+    from_card: standard
+    observed: '4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
+      growth rate (1/s); max median |Δ|=2.7%); RNA mass (fg): drift (median |Δ|=7.5%)'

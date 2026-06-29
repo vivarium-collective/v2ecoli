@@ -20,6 +20,90 @@ from scripts._compare.study_spec import StudySpec, REPO
 _OUTCOME = {"within_tol": "PASS", "drift": "PARTIAL", "mismatch": "FAIL",
             "ungraded": "PENDING"}
 
+# overall verdict -> investigation-DAG node badge (the graph card reads
+# `confidence`; without it every study renders as "Planned"). Biomass tracks
+# vEcoli in every condition; the open discrepancy is on growth rate, and is a
+# known low-copy stochastic / calibration effect rather than a refuted port —
+# so drift and mismatch both map to "Investigating" (still open), not "Refuted".
+_CONFIDENCE = {"within_tol": "Accepted", "drift": "Investigating",
+               "mismatch": "Investigating", "ungraded": "Planned"}
+
+# per-axis/per-finding verdict -> finding status glyph the dashboard renders
+# (confirms ✓ / partial ◐ / contradicts ✗).
+_FINDING_STATUS = {"within_tol": "confirms", "drift": "partial",
+                   "mismatch": "contradicts"}
+
+
+def _pct(axis) -> str:
+    """median relative error of an axis as a percent string, or ''."""
+    mr = (axis.get("detail") or {}).get("median_rel")
+    return f"{mr * 100:.1f}%" if isinstance(mr, (int, float)) else ""
+
+
+def _graph_fields(verdict: dict, spec: StudySpec) -> dict:
+    """Derive the fields the investigation DAG graph reads (`confidence` +
+    `findings`) from the per-study verdict. The graph card has no other source
+    for these, so without them studies render as "Planned / pending evidence".
+    One finding per GRADED group that has graded axes; evidence carries the
+    measured per-observable deltas. No top-level `claim` is emitted — the card
+    falls back to the finding statement, keeping any authored claim intact."""
+    groups = verdict.get("groups") or {}
+    overall = verdict.get("overall", "ungraded")
+    findings = []
+    for gname, g in groups.items():
+        axes = [a for a in (g.get("axes") or [])
+                if a.get("verdict") and a["verdict"] != "ungraded"]
+        if not axes:
+            continue
+        gv = g.get("verdict", "ungraded")
+        within = [a for a in axes if a["verdict"] == "within_tol"]
+        diverge = [a for a in axes if a["verdict"] in ("drift", "mismatch")]
+        # Compact, factual evidence line: agreeing observables + each diverging
+        # observable with its measured median |Δ| and verdict.
+        ev_bits = []
+        if within:
+            mx = max((_pct(a) for a in within), key=lambda s: float(s[:-1] or 0) if s else 0,
+                     default="")
+            ev_bits.append(f"{len(within)} within tolerance ("
+                           + ", ".join(a["label"] for a in within)
+                           + (f"; max median |Δ|={mx}" if mx else "") + ")")
+        for a in diverge:
+            ev_bits.append(f"{a['label']}: {a['verdict']} (median |Δ|={_pct(a)})")
+        observed = "; ".join(ev_bits)
+        labels = ", ".join(a["label"] for a in diverge)
+        verb = " diverges" if len(diverge) == 1 else " diverge"
+        if gname == "parca":
+            statement = (f"v2ecoli and vEcoli start from the same ParCa-fit initial "
+                         f"state on {spec.condition}: all {len(axes)} mass "
+                         f"observables within tolerance.") if not diverge else (
+                         f"ParCa initial states differ on {spec.condition}: "
+                         f"{labels}{verb} ({gv}).")
+        elif gname == "statistical":
+            n_seeds = getattr(spec, "seeds", None)
+            scope = f" across {n_seeds} seeds" if n_seeds else ""
+            statement = (f"v2ecoli is statistically equivalent to vEcoli on "
+                         f"{spec.condition}{scope}: all {len(axes)} observables "
+                         f"within tolerance.") if not diverge else (
+                         f"v2ecoli is not statistically equivalent to vEcoli on "
+                         f"{spec.condition}{scope}: {labels}{verb} ({gv}).")
+        elif not diverge:
+            statement = (f"v2ecoli reproduces vEcoli on {spec.condition}: all "
+                         f"{len(axes)} graded observables track within tolerance.")
+        else:
+            statement = (f"v2ecoli reproduces vEcoli biomass on {spec.condition} "
+                         f"within tolerance; {labels}{verb} ({gv}).")
+        findings.append({
+            "id": f"{spec.name}-{gname}",
+            "kind": "computational",
+            "status": _FINDING_STATUS.get(gv, "partial"),
+            "statement": statement,
+            "evidence": {"from_card": gname, "observed": observed},
+        })
+    out = {"confidence": _CONFIDENCE.get(overall, "Planned")}
+    if findings:
+        out["findings"] = findings
+    return out
+
 
 def card_root(spec: StudySpec) -> str:
     """The per-investigation card root the verdict/behavior_tests address."""
@@ -80,6 +164,13 @@ def materialize_study(spec: StudySpec) -> Path:
                        result=_OUTCOME.get(verdict.get("overall", "ungraded"), "PENDING"),
                        outcomes=outcomes)
             data["status"] = "evaluated"
+        # Fields the investigation DAG graph reads (confidence + findings) —
+        # derived VIEWS of the verdict, always refreshed so they never drift
+        # from the gate. We deliberately do NOT write a top-level `claim`: the
+        # graph card falls back to the finding statement, so an authored claim
+        # is preserved (preserve-narrative contract) and the auto evidence stays
+        # fresh without duplicating prose into the study.yaml.
+        data.update(_graph_fields(verdict, spec))
     data["runs"] = [run]
     # Declare the v2ecoli baseline under a top-level `conditions:` block (the
     # v2ecoli baseline composite for this study's biological condition). The

@@ -1468,6 +1468,15 @@ wheels = [
 ]
 
 [[package]]
+name = "investigation-contracts"
+version = "0.2.0"
+source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main#a8db16d54e7a4944d44d29b4eeffced9519d0865" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "pydantic" },
+]
+
+[[package]]
 name = "ipdb"
 version = "0.13.13"
 source = { registry = "https://pypi.org/simple" }
@@ -4393,6 +4402,7 @@ dependencies = [
     { name = "cvxpy" },
     { name = "dill" },
     { name = "ecoli-sources" },
+    { name = "investigation-contracts" },
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
@@ -4433,6 +4443,7 @@ requires-dist = [
     { name = "cvxpy" },
     { name = "dill", specifier = ">=0.3" },
     { name = "ecoli-sources", git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=8d468b17a56a6b062c06d9f74ffc6bbe7e0ec2e4" },
+    { name = "investigation-contracts", git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main" },
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
@@ -4575,11 +4586,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#73d7a4af3487f25e3444423ffbd7345674591ba2" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#5af5ca95f357882ceebb87517f59b34e37546712" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },
     { name = "fastapi" },
+    { name = "investigation-contracts" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
     { name = "numpy" },

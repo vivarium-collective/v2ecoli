@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><title>v2ecoli</title>
-<link rel="stylesheet" href="assets/style.css?v=1782613890_1782613890">
+<link rel="stylesheet" href="assets/style.css?v=1782700482_1782700482">
 <link rel="stylesheet" href="assets/snapshot-readonly.css">
 <script>
 // Per-workspace branding (rail logo, title, brand text) is resolved
@@ -391,7 +391,7 @@ window.addEventListener('pageshow', function (e) {
 
     <!-- Brand: fixed Vivarium logo + name (no per-workspace icon/name override). -->
     <div class="viv-rail-header">
-      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1782613890_1782613890" alt="Vivarium" loading="lazy">
+      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1782700482_1782700482" alt="Vivarium" loading="lazy">
       <div class="viv-rail-brand">
         <strong>Vivarium</strong>
         <small>dashboard</small>
@@ -1283,6 +1283,9 @@ window.addEventListener('pageshow', function (e) {
       <button id="save-as-study-btn" class="action-btn" onclick="_ceOpenSaveAsStudyModal()" style="background:#16a34a;border-color:#16a34a">Save as Study</button>
     </div>
 
+    <!-- Configure & Run widget (SP-C) — mounts when a composite is resolved -->
+    <div id="ce-configure-run"></div>
+
   </div>
 </section>
 
@@ -1498,26 +1501,6 @@ window.addEventListener('pageshow', function (e) {
   </div>
 </div>
 
-<!-- Phase plan modal -->
-<div id="modal-phase-plan" class="modal-overlay">
-  <div class="modal-box" style="max-width:640px">
-    <button class="modal-close" onclick="closeModal('modal-phase-plan')">&times;</button>
-    <h3>Add phase plan</h3>
-    <p style="font-size:0.85em;color:#555">
-      Enter phases as JSON. Each phase needs <code>n</code> (integer) and <code>name</code> (string).
-      Optional: <code>objective</code>, <code>prereq_phases</code>, <code>acceptance_tests</code>.
-    </p>
-    <label>Phases JSON *
-      <textarea id="phase-plan-json" style="width:100%;min-height:180px;font-family:monospace;font-size:0.88em;border:1px solid #ccc;border-radius:4px;padding:8px;box-sizing:border-box"
-        placeholder='[{"n": 1, "name": "Baseline", "objective": "Establish replication initiation baseline"}, {"n": 2, "name": "DnaA accumulation", "objective": "Add DnaA binding dynamics"}]'></textarea>
-    </label>
-    <div class="form-error" id="phase-plan-error"></div>
-    <div style="margin-top:10px;display:flex;gap:8px">
-      <button class="action-btn" style="background:#1976d2;color:#fff;border-color:#1976d2" onclick="submitPhasePlan()">Submit phase plan</button>
-      <button class="action-btn" onclick="closeModal('modal-phase-plan')">Cancel</button>
-    </div>
-  </div>
-</div>
 
 <!-- Modal: Link to upstream branch -->
 <div id="modal-link-branch" class="modal-overlay">
@@ -1638,16 +1621,34 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
 <script src="assets/data-source.js"></script>
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/walkthrough.js?v=1782613890_1782613890" onerror="/* walkthrough unavailable */"></script>
-<script src="assets/explorer.js?v=1782613890_1782613890" onerror="/* explorer unavailable */"></script>
-<script src="assets/explorer-views.js?v=1782613890_1782613890" onerror="/* explorer views unavailable */"></script>
-<script src="assets/github-login.js?v=1782613890_1782613890" onerror="/* github-login unavailable */"></script>
+<script src="assets/walkthrough.js?v=1782700482_1782700482" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/explorer.js?v=1782700482_1782700482" onerror="/* explorer unavailable */"></script>
+<script src="assets/explorer-views.js?v=1782700482_1782700482" onerror="/* explorer views unavailable */"></script>
+<script src="assets/github-login.js?v=1782700482_1782700482" onerror="/* github-login unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher
      (investigation-switcher.js). The /api/workspaces endpoints remain available
      for CLI tooling. -->
 <script src="assets/investigation-switcher.js"></script>
-<script src="assets/branch-source.js?v=1782613890_1782613890"></script>
+<script src="assets/branch-source.js?v=1782700482_1782700482"></script>
+<script src="/configure-run.js"></script>
+<script>
+// Configure & Run widget integration for Composite Explorer.
+// Wraps _initCompositeExplorer (defined in walkthrough.js) to mount the widget
+// once a composite is resolved and the explorer page is shown.
+(function() {
+  var _origInit = window._initCompositeExplorer;
+  window._initCompositeExplorer = function() {
+    if (_origInit) _origInit.apply(this, arguments);
+    var params = new URLSearchParams(window.location.search);
+    var id = params.get('id');
+    var el = document.getElementById("ce-configure-run");
+    if (el && window.ConfigureRun && id) {
+      ConfigureRun.mount(el, { composite: id, target: "adhoc" });
+    }
+  };
+})();
+</script>
 <script>
 // Initialize drop zones once walkthrough.js is loaded.
 document.addEventListener("DOMContentLoaded", function() {
@@ -1787,78 +1788,6 @@ function _submitVisualization(form) {
   });
 }
 
-// Phase plan submission.
-function submitPhasePlan() {
-  var errEl = document.getElementById("phase-plan-error");
-  if (errEl) errEl.textContent = "";
-  var raw = document.getElementById("phase-plan-json").value.trim();
-  var phases;
-  try {
-    phases = JSON.parse(raw);
-  } catch (e) {
-    if (errEl) errEl.textContent = "Invalid JSON: " + e.message;
-    return;
-  }
-  if (!Array.isArray(phases) || !phases.length) {
-    if (errEl) errEl.textContent = "phases must be a non-empty JSON array";
-    return;
-  }
-  fetch("/api/phase-plan", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phases: phases }),
-  })
-    .then(function(res) { return res.json().then(function(j) { return { ok: res.ok, json: j }; }); })
-    .then(function(r) {
-      if (!r.ok) {
-        if (errEl) errEl.textContent = "Error: " + (r.json.error || "unknown");
-        return;
-      }
-      fetch("/api/render", { method: "POST" }).finally(function() {
-        alert("Phase plan created!\nBranch: " + (r.json.branch || "") + "\nMerge it to make phases appear on main.");
-        location.reload();
-      });
-    })
-    .catch(function(err) {
-      if (errEl) errEl.textContent = "Network error: " + String(err);
-    });
-}
-
-// Phase start.
-function phaseStart(n) {
-  fetch("/api/phase-start", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ n: n }),
-  })
-    .then(function(res) { return res.json().then(function(j) { return { ok: res.ok, json: j }; }); })
-    .then(function(r) {
-      if (!r.ok) { alert("Error: " + (r.json.error || "unknown")); return; }
-      fetch("/api/render", { method: "POST" }).finally(function() {
-        alert("Phase " + n + " started!\nBranch: " + (r.json.branch || ""));
-        location.reload();
-      });
-    })
-    .catch(function(err) { alert("Network error: " + err); });
-}
-
-// Phase gate.
-function phaseGate(n) {
-  fetch("/api/phase-gate", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ n: n }),
-  })
-    .then(function(res) { return res.json().then(function(j) { return { ok: res.ok, json: j }; }); })
-    .then(function(r) {
-      if (!r.ok) { alert("Error: " + (r.json.error || "unknown")); return; }
-      fetch("/api/render", { method: "POST" }).finally(function() {
-        alert("Gate evaluated for phase " + n + ": " + (r.json.gate_status || "?") + "\nBranch: " + (r.json.branch || ""));
-        location.reload();
-      });
-    })
-    .catch(function(err) { alert("Network error: " + err); });
-}
 
 // Run tests.
 function runTests() {

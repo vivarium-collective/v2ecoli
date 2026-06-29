@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -472,6 +473,15 @@ def _read_v2ecoli_build_config(v2_dir: str) -> dict | None:
     options) straight from the built Composite document. Returns None if absent
     (older runs that predate the sidecar — the caller falls back to zarr attrs).
     """
+    # Local run dir first (pbg-vs-pbg / local-pbg modes write the sidecar
+    # straight to <v2_dir>); fall back to S3 for cloud runs.
+    local = os.path.join(v2_dir, "v2ecoli_build_config.json")
+    if os.path.exists(local):
+        try:
+            with open(local) as fh:
+                return json.load(fh)
+        except Exception:  # noqa: BLE001
+            return None
     import boto3
     s3 = boto3.client("s3", region_name=REGION)
     key = f"{PREFIX}/{v2_dir}/v2ecoli_build_config.json"
@@ -633,6 +643,46 @@ def config_sections_for(cond: str, v2_dir: str, ve_dir: str) -> list[dict]:
     diff["title"] = f"{cond} — config diff"
     sections.append(diff)
     return sections
+
+
+def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None:
+    """Surface the fork processes converted + injected into the v2ecoli composite.
+
+    Sourced from the build-config sidecar's ``options.overrides.injected_processes``
+    (written by run_comparison_ensemble): the add_processes + swap_processes that
+    the bridge auto-converted from vivarium-1.0 to process-bigraph and wired into
+    baseline. Returns None when the run injected nothing.
+    """
+    inj = (((v2_build or {}).get("options") or {}).get("overrides") or {}).get(
+        "injected_processes")
+    if not inj:
+        return None
+    adds = list(inj.get("add_processes") or [])
+    swaps = dict(inj.get("swap_processes") or {})
+    if not adds and not swaps:
+        return None
+    fork = inj.get("fork_repo", "?")
+    rows = []
+    for name in adds:
+        rows.append(f"<tr><td><code>{name}</code></td><td>add</td>"
+                    f"<td>—</td><td>vivarium-1.0 → process-bigraph</td></tr>")
+    for old, new in swaps.items():
+        rows.append(f"<tr><td><code>{new}</code></td><td>swap</td>"
+                    f"<td>replaces <code>{old}</code></td>"
+                    f"<td>vivarium-1.0 → process-bigraph</td></tr>")
+    table = ("<table><thead><tr><th>process</th><th>mode</th><th>note</th>"
+             "<th>conversion</th></tr></thead><tbody>"
+             + "".join(rows) + "</tbody></table>")
+    return {
+        "title": f"{cond} — converted processes",
+        "kind": "content",
+        "nav_group": "Config",
+        "desc": (f"Fork (vEcoli) processes auto-converted by the v2ecoli bridge "
+                 f"(<code>wrap_vivarium_process</code>) and injected into the "
+                 f"v2ecoli composite for '{cond}', from fork <code>{fork}</code>. "
+                 f"Each ran in the v2ecoli engine of this comparison."),
+        "html": table,
+    }
 
 
 def runs_section(cond: str, per_obs: dict, plot_trajs: dict,
@@ -892,6 +942,12 @@ def main(argv=None):
             per_obs, plot_trajs, v2_bounds = cond_data[cond]
             cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
                              eval_section(cond, per_obs)]
+            # Converted-processes panel renders in EVERY mode (incl. local pbg) —
+            # it reads the v2ecoli build-config sidecar, not any Nextflow config.
+            conv = converted_processes_section(
+                cond, _read_v2ecoli_build_config(v2_dir))
+            if conv is not None:
+                cond_sections = [conv] + cond_sections
             if not skip_nextflow:
                 cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
                                  + cond_sections)

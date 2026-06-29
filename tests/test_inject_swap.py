@@ -91,6 +91,42 @@ def test_wrap_defer_ports_declares_any():
     assert inst.outputs()["a"] == {"_type": "node"}
 
 
+def test_bridge_strips_pint_input_to_magnitude():
+    """A bridged vEcoli process expects RAW numbers from stores (it attaches its
+    own unum units), but v2 stores hold pint Quantities. The bridge must strip
+    pint to magnitude at the input boundary (the converting-doc Units caveat),
+    else e.g. metabolism_redux's `cell_mass * units.fg` corrupts units."""
+    from v2ecoli.core import build_core
+    from v2ecoli.library.ecoli_step import set_current_core
+    from v2ecoli.library.vivarium_bridge import wrap_vivarium_process
+    from v2ecoli.types.quantity import ureg
+    core = build_core()
+    set_current_core(core)
+    seen = {}
+
+    class P:
+        name = "p"
+
+        def __init__(self, parameters=None):
+            self.parameters = parameters or {}
+
+        def ports_schema(self):
+            return {"m": {"_default": 0.0}}
+
+        def next_update(self, timestep, states):
+            seen["m"] = states["m"]
+            return {}
+
+    inst = wrap_vivarium_process(P, strip_pint_ports=["m"])({}, core=core)
+    inst.update({"m": ureg.Quantity(5.0, "fg")}, 1.0)
+    assert seen["m"] == 5.0   # pint Quantity stripped to its raw magnitude
+
+    # A port NOT listed keeps its pint Quantity (e.g. boundary.external .to("mM")).
+    inst2 = wrap_vivarium_process(P, strip_pint_ports=[])({}, core=core)
+    inst2.update({"m": ureg.Quantity(5.0, "fg")}, 1.0)
+    assert hasattr(seen["m"], "magnitude")   # left as a pint Quantity
+
+
 def test_translate_vivarium_topology_resolves_nested_path():
     """vivarium nested topology ({_path: base, sub: relpath}) auto-translates to
     a process-bigraph store path (the _path base) — not the dict's keys."""

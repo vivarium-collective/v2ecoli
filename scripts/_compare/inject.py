@@ -198,6 +198,10 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         "process_configs": config.get("process_configs") or {},
         "topology": config.get("topology") or {},
         "time_step": config.get("time_step", 1.0),
+        "output_ports": config.get("output_ports") or {},
+        "strip_pint_ports": config.get("strip_pint_ports") or {},
+        "defer_ports": config.get("defer_ports") or {},
+        "attach_pint_ports": config.get("attach_pint_ports") or {},
     }, sort_keys=True, default=str)  # default=str: process_configs may hold
     # sim_data-derived numpy arrays (e.g. a swapped metabolism config) that are
     # not natively JSON-serializable; stringifying them keeps the memo key stable.
@@ -266,6 +270,16 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             # swapped process must not re-type stores another process owns, e.g.
             # the mass deriver's listeners.mass). None = default (all ports).
             "output_ports": (config.get("output_ports") or {}).get(name),
+            # Per-port pint→raw stripping for ports the process attaches its own
+            # (unum) units to, e.g. metabolism_redux's listeners.mass.cell_mass.
+            "strip_pint_ports": (config.get("strip_pint_ports") or {}).get(name),
+            # Explicit defer ports (declare as {_type:node}, deferring to the
+            # composite's store type). Overrides the auto-defer-all-shared default
+            # in apply — so ports that need their real type (e.g. boundary's pint
+            # for .to("mM")) are NOT flattened. None = auto.
+            "defer_ports": (config.get("defer_ports") or {}).get(name),
+            # {port: unit} to wrap raw magnitudes as pint for pint-reading ports.
+            "attach_pint_ports": (config.get("attach_pint_ports") or {}).get(name),
         })
     _RESOLVE_CACHE[key] = specs
     return [dict(s) for s in specs]
@@ -298,13 +312,20 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             # Defer ports wiring to stores the composite already owns: use their
             # existing types instead of this process's inferred ones (avoids the
             # unitless-float vs quantity[fg] subtype conflict on shared stores
-            # like listeners.mass that the v2 mass deriver owns).
-            defer_ports = [p for p, path in spec["topology"].items()
-                           if path and path[0] in cell_state]
+            # like listeners.mass that the v2 mass deriver owns). An explicit
+            # spec defer_ports overrides this auto-default, so ports that need
+            # their real type (e.g. boundary's pint for .to("mM")) keep it.
+            if spec.get("defer_ports") is not None:
+                defer_ports = list(spec["defer_ports"])
+            else:
+                defer_ports = [p for p, path in spec["topology"].items()
+                               if path and path[0] in cell_state]
             wrapped = wrap_vivarium_process(cls, name=spec["name"],
                                             as_step=spec["as_step"],
                                             output_ports=spec.get("output_ports"),
-                                            defer_ports=defer_ports)
+                                            defer_ports=defer_ports,
+                                            strip_pint_ports=spec.get("strip_pint_ports"),
+                                            attach_pint_ports=spec.get("attach_pint_ports"))
         else:  # pbg_native
             wrapped = cls
         core.register_link(spec["name"], wrapped)

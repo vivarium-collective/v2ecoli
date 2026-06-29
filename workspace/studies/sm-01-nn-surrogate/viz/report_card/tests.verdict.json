@@ -1,0 +1,35 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "mismatch",
+ "groups": {
+  "primary": {
+   "verdict": "mismatch",
+   "axes": [
+    {
+     "id": "tests.surrogate_beats_trivial_baselines",
+     "label": "surrogate-beats-trivial-baselines",
+     "verdict": "mismatch",
+     "value": null,
+     "meter": "< ",
+     "detail": {
+      "text": "In cross-validated multi-step rollout, does the neural surrogate beat a\nlinear baseline at emulating cell_mass (ratio of surrogate to linear rollout\nnRMSE < 1, i.e. lower error)?\n"
+     }
+    },
+    {
+     "id": "tests.high_dim_observables_learnable_from_panel",
+     "label": "high-dim-observables-learnable-from-panel",
+     "verdict": "mismatch",
+     "value": null,
+     "meter": "> ",
+     "detail": {
+      "text": "On the broad panel, does a meaningful fraction (>5%) of observables beat\npersistence one-step (i.e. are they predictable from the observable view)?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "sm-01-nn-surrogate \u2014 default tests"
+}

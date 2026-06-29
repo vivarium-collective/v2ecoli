@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.cheap_emulator_amortizes_and_is_honest_about_limits",
+     "label": "cheap-emulator-amortizes-and-is-honest-about-limits",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "< ",
+     "detail": {
+      "text": "Does the cheap emulator amortize its training-data cost within a small number\nof evaluations (break-even < 100)?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "sm-02-utility-and-limits \u2014 default tests"
+}

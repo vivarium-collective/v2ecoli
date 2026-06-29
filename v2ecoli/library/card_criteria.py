@@ -94,6 +94,17 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
     """
     ctype = criterion.get("type")
 
+    if ctype == "status":
+        # Verdict is carried by the measured node (pre-decided upstream, e.g. a
+        # study test's recorded pass/fail). No numeric grading is done here.
+        node = measured if isinstance(measured, dict) else {}
+        v = node.get("verdict", "ungraded")
+        if v not in VERDICTS:
+            v = "ungraded"
+        return {"verdict": v, "value": node.get("value"),
+                "criterion_str": criterion.get("criterion_str", ""),
+                "meter": node.get("meter", "—"), "detail": node.get("detail", {})}
+
     if ctype == "rel_tol":
         ref = criterion.get("reference")
         tol = criterion.get("tol_rel", 0.05)

@@ -417,6 +417,20 @@ def build_emitter_config(
     return {
         "emit": {"global_time": "node"},
         "out_uri": str(store_path),
+        # Drive the (pbg-emitters >=0.2.0) generic XArrayEmitter Step with the
+        # v2ecoli colony partition config so the multi-cell/lineage zarr layout
+        # is preserved:
+        #   * ``strategy="colony"`` makes ``extract_partition`` read ``agent_id``
+        #     from metadata (``generation == len(agent_id)``, with a ``parent``
+        #     cell) instead of the degenerate ``"flat"`` single partition.
+        #   * ``emit_root=["agents", <agent_id>]`` tells the transducer to strip
+        #     the ``{"agents": {<id>: ...}}`` envelope from each ``update()``
+        #     payload (the Step default ``emit_root == ()`` would instead try to
+        #     emit the whole wired state and raise ``Unexpected emit path:
+        #     ('agents', <id>, ...)``). Keyed to ``agent_id`` so every
+        #     generation's emitter strips its own lineage key.
+        "strategy": "colony",
+        "emit_root": ["agents", agent_id],
         "transducer": {
             "predicate": predicate or [[{"subsample": {"interval": 1}}]],
             "buffer": {"size": buffer_size},

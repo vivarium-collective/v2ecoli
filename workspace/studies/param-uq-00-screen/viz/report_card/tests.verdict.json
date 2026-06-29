@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.screen_identifies_effective_knobs",
+     "label": "screen-identifies-effective-knobs",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [1.0, 99.0]",
+     "detail": {
+      "text": "Do at least 1 of the 7 screened config-reachable knobs show a >2% response\nin instantaneous_growth_rate (i.e., is the UQ parameter surface non-trivial)?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "param-uq-00-screen \u2014 default tests"
+}

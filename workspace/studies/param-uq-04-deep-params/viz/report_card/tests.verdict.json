@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "ungraded",
+ "groups": {
+  "primary": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.deep_param_injection_feasible_and_ranked",
+     "label": "deep-param-injection-feasible-and-ranked",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "in [0.5, 1.0]",
+     "detail": {
+      "text": "Can the deep sim_data parameters be injected cleanly (ParCa rebuild per sample,\nno simulation crashes), and does a single parameter robustly dominate total-order\nSobol across growth/mass observables?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "param-uq-04-deep-params \u2014 default tests"
+}

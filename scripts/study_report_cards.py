@@ -57,6 +57,22 @@ def generate_study(ws_root: Path, name: str, core, only: "str | None",
     return {"study": name, "written": written}
 
 
+def run_studies(ws_root: Path, study_names: list, core, only: "str | None",
+                do_prune: bool) -> int:
+    """Run report-card generation for each study, skipping on per-study errors.
+
+    Returns the total number of cards written. One study failing (e.g. malformed
+    study.yaml, bad card data) never aborts the remaining studies.
+    """
+    total = 0
+    for s in study_names:
+        try:
+            total += len(generate_study(ws_root, s, core, only, do_prune)["written"])
+        except Exception as e:  # noqa: BLE001 — one study never aborts the run
+            print(f"  ! {s}: skipped ({e})")
+    return total
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--study", default="all", help="study name or 'all'")
@@ -67,9 +83,7 @@ def main(argv=None) -> int:
     studies = _all_studies(REPO_ROOT) if args.study == "all" else [args.study]
     only = None if args.card == "all" else args.card
     core = allocate_core()
-    total = 0
-    for s in studies:
-        total += len(generate_study(REPO_ROOT, s, core, only, args.prune)["written"])
+    total = run_studies(REPO_ROOT, studies, core, only, args.prune)
     print(f"done — {total} cards across {len(studies)} studies")
     return 0
 

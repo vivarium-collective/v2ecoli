@@ -84,3 +84,22 @@ def test_applicable_selects_by_applies_and_allowlist(core, tmp_path):
     # explicit report_cards allowlist excluding demo_card -> not emitted
     excl = _ctx(tmp_path, {"name": "demo", "demo": True, "report_cards": ["tests"]})
     assert applicable(excl, core, only="demo_card") == []
+
+
+class _BoomApplies(ReportCardStep):
+    """Card whose applies() always raises — used to test graceful-skip in applicable()."""
+    name = "boom_applies"
+
+    def applies(self, study):
+        raise RuntimeError("boom")
+
+    def build(self, study):
+        return ({"schema": "report_card_verdict/v1", "overall": "within_tol"}, "<b></b>")
+
+
+def test_applicable_skips_card_whose_applies_raises(core, tmp_path):
+    """applicable() must return [] (not raise) when a card's applies() throws."""
+    ctx = _ctx(tmp_path, {"name": "demo"})
+    # only='boom_applies' targets this card specifically; it raises in applies()
+    result = applicable(ctx, core, only="boom_applies")
+    assert result == []

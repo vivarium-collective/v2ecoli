@@ -144,9 +144,12 @@ def applicable(ctx: StudyContext, core, only: "str | None" = None) -> list:
             continue
         if declared is not None and nm not in declared:
             continue
-        step = cls({}, core=core)
-        if step.applies(ctx):
-            out.append(step)
+        try:
+            step = cls({}, core=core)
+            if step.applies(ctx):
+                out.append(step)
+        except Exception:  # noqa: BLE001 — one broken card never aborts selection
+            continue
     return out
 
 

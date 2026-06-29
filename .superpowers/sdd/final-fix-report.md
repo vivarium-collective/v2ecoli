@@ -1,91 +1,87 @@
-# Final Fix Report — comparison↔investigation unify
-Branch: `feat/comparison-investigation-unify`  
-Date: 2026-06-27
+# Final Fix Report: graceful-skip covers applies()/instantiation and per-study failures
+
+Branch: `feat/study-report-card-modules`
+Date: 2026-06-29
 
 ---
 
-## FIX 1 — Single-source `store_key`
+## Changes
 
-### 1a — `scripts/_compare/config_adapter.py`
-Added `import os` and `import re` at the top. Added `store_key(entry, fork_dir="") -> str` implementing the resolution order: explicit `name` → fork-resolved `condition` → filename-stem (leading `cond_` + trailing `_NxN` stripped).
+### 1. `v2ecoli/workflow/report_cards/__init__.py` — `applicable()` per-card resilience
 
-### 1b — `scripts/run_comparison.py`
-- Imported `store_key` from `scripts._compare.config_adapter`.
-- Separated `sim_condition = condition_of(cfg, fork)` (biological condition passed as `--condition` to subprocesses) from `store = store_key(entry, fork)` (store dir, progress prints).
-- Updated `--condition` filter at the top of main to use `store_key(e, fork)` instead of the old `(e.get("name") or condition_of(...))` expression.
+Wrapped the `step = cls({}, core=core)` + `step.applies(ctx)` block in a try/except inside the loop:
 
-### 1c — `scripts/comparison_report_card.py`
-- In the `manifest_mode` block: imported `store_key` alongside `resolve_vecoli_config_local`.
-- Replaced the `_config_names` dict comprehension from `_entry.get("name") or _cond_name(...)` to `store_key(_entry, _fork)`.
-- Left `_cond_name` defined (still referenced by its own internal fallback logic, removed the dead `import re as _re` module reference by inlining a local `_re2`).
-- Added one-line comment on the `cardv` last-graded-section-wins invariant in `assemble_from_manifest`.
+```python
+try:
+    step = cls({}, core=core)
+    if step.applies(ctx):
+        out.append(step)
+except Exception:  # noqa: BLE001 — one broken card never aborts selection
+    continue
+```
 
-### 1d — `scripts/scaffold_comparison_studies.py`
-- Replaced `condition_name()` body to delegate to `store_key(entry, os.environ.get("V2E_VECOLI_DIR", ""))`.
-- Added `import sys` + `sys.path.insert(0, str(REPO))` so the script is runnable standalone (required for the lazy `from scripts._compare.config_adapter import store_key` inside `condition_name`).
-- Removed unused `import re` and `import sys` (then re-added `sys` for the path bootstrap), leaving `import os` (used by `os.path.relpath`).
+A card whose `__init__` or `applies()` raises is silently skipped (continue to the next); all previously-passing tests are byte-identical in behavior.
+
+### 2. `scripts/study_report_cards.py` — `run_studies()` helper + per-study resilience
+
+Extracted a new `run_studies(ws_root, study_names, core, only, do_prune) -> int` helper that wraps each `generate_study` call in a try/except:
+
+```python
+def run_studies(ws_root, study_names, core, only, do_prune) -> int:
+    total = 0
+    for s in study_names:
+        try:
+            total += len(generate_study(ws_root, s, core, only, do_prune)["written"])
+        except Exception as e:  # noqa: BLE001 — one study never aborts the run
+            print(f"  ! {s}: skipped ({e})")
+    return total
+```
+
+`main()` now delegates to `run_studies()` instead of the inline loop.
 
 ---
 
-## FIX 2 — Validator runnable standalone
+## New Tests
 
-### `scripts/validate_comparison_studies.py`
-Added `sys.path.insert(0, str(Path(__file__).resolve().parent.parent))` before `from scripts.scaffold_comparison_studies import ...`.
+### `tests/test_report_card_step.py`
 
----
+**Added `_BoomApplies` card** (globally registered as `"boom_applies"`) whose `applies()` raises `RuntimeError("boom")`.
 
-## FIX 3 — Minors
+**`test_applicable_skips_card_whose_applies_raises`** — RED → GREEN:
+- Calls `applicable(ctx, core, only="boom_applies")`.
+- Asserts result is `[]` (no raise, card skipped).
 
-### `scripts/validate_comparison_studies.py`
-Changed `validate(...)` return annotation from `-> list` to `-> list[str]`.
+### `tests/test_study_report_cards_cli.py`
 
-### `tests/test_validate_comparison_studies.py`
-`test_validate_flags_group_mismatch`: replaced `s["behavior_tests"][0]` with a `next(...)` lookup finding the first test whose `measure.kind == "report_card_axis"`, so the test is robust to non-axis tests appearing first.
-
-### `tests/test_card_verdicts.py`
-`test_statistical_card_emits_verdict_and_axes`: added assertion that every entry in `sec["verdict_axes"]` has exactly the 6 required keys `{"id","label","verdict","value","meter","detail"}`.
-
-### `scripts/comparison_report_card.py`
-Added comment `# last-graded-section-wins; relies on the one-graded-section-per-card invariant` in `assemble_from_manifest` at the `cardv` collection line. No hard assert added.
+**`test_run_studies_skips_failing_study_and_continues`** — RED → GREEN:
+- Creates two studies: `"good"` (valid `tests:` list) and `"bad"`.
+- Monkeypatches `cli.generate_study` to raise for `"bad"`.
+- Calls `run_studies(tmp_path, ["good", "bad"], core, only=None, do_prune=False)`.
+- Asserts `total >= 1` and `good/viz/report_card/tests.html` exists.
 
 ---
 
-## Verification Results
+## Full Suite Results
 
-### 1. Full feature suite
 ```
-30 passed, 3 warnings in 1.62s
-```
-
-### 2. Standalone validator
-```
-$ .venv/bin/python scripts/validate_comparison_studies.py comparison.5cond_1x4.json
-comparison studies OK (match manifest)
-exit: 0
+26 passed, 4 warnings in 3.68s
 ```
 
-### 3. Scaffold idempotency
-```
-$ .venv/bin/python scripts/scaffold_comparison_studies.py comparison.5cond_1x4.json
-nothing to write (all studies exist; use --force to overwrite)
-$ git status --porcelain workspace/investigations/v2ecoli-vecoli-comparison
-(no output — zero modifications)
-```
+Prior suite: 24 tests. New tests: 2. All 26 green.
 
-### 4. `store_key` sanity
-```
-$ .venv/bin/python -c "from scripts._compare.config_adapter import store_key; ..."
-basal_4x4
-basal
-```
+---
+
+## No-churn Regeneration Check
+
+Ran `python scripts/study_report_cards.py --study all --prune` → 24 cards across 23 studies.
+
+`git status --porcelain workspace/studies/*/viz/report_card/` → **empty** (no modified files).
 
 ---
 
 ## Files Touched
-- `scripts/_compare/config_adapter.py` — added `store_key`
-- `scripts/run_comparison.py` — import + separate sim_condition/store
-- `scripts/comparison_report_card.py` — `_config_names` + cardv comment
-- `scripts/scaffold_comparison_studies.py` — delegate `condition_name`, sys.path bootstrap
-- `scripts/validate_comparison_studies.py` — sys.path bootstrap + return annotation
-- `tests/test_validate_comparison_studies.py` — axis-test lookup fix
-- `tests/test_card_verdicts.py` — verdict_axes key assertion
+
+- `v2ecoli/workflow/report_cards/__init__.py` — try/except guard in `applicable()`
+- `scripts/study_report_cards.py` — `run_studies()` helper + delegating `main()`
+- `tests/test_report_card_step.py` — `_BoomApplies` card + `test_applicable_skips_card_whose_applies_raises`
+- `tests/test_study_report_cards_cli.py` — `run_studies` import + `test_run_studies_skips_failing_study_and_continues`

@@ -144,6 +144,27 @@ def _restore_ecoli(saved_real: dict, fork_repo: str) -> None:
         pass
 
 
+def translate_vivarium_topology(topo: dict) -> dict[str, list]:
+    """Translate a vivarium-1.0 topology to process-bigraph port→store paths.
+
+    A flat entry ``port: (a, b)`` becomes ``port: [a, b]``. A *nested* vivarium
+    entry ``port: {"_path": base, sub: relpath, ...}`` wires the port to its
+    ``_path`` base store (the subports live under it, matching the bridged
+    process's typed sub-ports) — so a metabolism ``environment`` port declared as
+    ``{"_path": ("environment",), "exchange": ("exchange",)}`` auto-wires to
+    ``["environment"]`` instead of the corrupt ``["_path", "exchange"]`` a plain
+    ``list()`` produced. Ports with no ``_path`` fall back to the port name.
+    """
+    out: dict[str, list] = {}
+    for port, path in dict(topo).items():
+        if isinstance(path, dict):
+            base = path.get("_path", (port,))
+            out[port] = list(base)
+        else:
+            out[port] = list(path)
+    return out
+
+
 def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     """Resolve add_processes/swap_processes -> a list of InjectionSpec dicts.
 
@@ -162,7 +183,9 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         "process_configs": config.get("process_configs") or {},
         "topology": config.get("topology") or {},
         "time_step": config.get("time_step", 1.0),
-    }, sort_keys=True)
+    }, sort_keys=True, default=str)  # default=str: process_configs may hold
+    # sim_data-derived numpy arrays (e.g. a swapped metabolism config) that are
+    # not natively JSON-serializable; stringifying them keeps the memo key stable.
     if key in _RESOLVE_CACHE:
         return [dict(s) for s in _RESOLVE_CACHE[key]]
 
@@ -197,7 +220,7 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         topo = topologies.get(name)
         if topo is None:
             topo = getattr(cls, "topology", getattr(cls, "TOPOLOGY", {}))
-        topo = {k: list(v) for k, v in dict(topo).items()}
+        topo = translate_vivarium_topology(topo)
 
         # Cache class for apply step (survives sys.modules restore in _fork_registry).
         _fork_class_cache[(cls.__module__, cls.__qualname__)] = cls

@@ -38,6 +38,20 @@ def test_remove_processes_ignores_absent_names():
     assert removed == []
 
 
+def test_translate_vivarium_topology_resolves_nested_path():
+    """vivarium nested topology ({_path: base, sub: relpath}) auto-translates to
+    a process-bigraph store path (the _path base) — not the dict's keys."""
+    topo = {
+        "bulk": ("bulk",),
+        "environment": {"_path": ("environment",), "exchange": ("exchange",)},
+        "next_update_time": ("next_update_time", "metabolism"),
+    }
+    out = inject.translate_vivarium_topology(topo)
+    assert out["bulk"] == ["bulk"]
+    assert out["environment"] == ["environment"]   # _path base, NOT ['_path','exchange']
+    assert out["next_update_time"] == ["next_update_time", "metabolism"]
+
+
 @pytest.mark.sim
 def test_baseline_swaps_and_excludes_processes():
     """A swap-only injection (no add_processes) must still convert+add the swap

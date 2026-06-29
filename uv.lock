@@ -2861,8 +2861,8 @@ dependencies = [
 
 [[package]]
 name = "pbg-emitters"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#7aab974d4887a391988d29140d5b1ae5b69fec15" }
+version = "0.2.0"
+source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#00c91b2800fe684ac09bb490dfd65a8107c85b17" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -4585,7 +4585,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#bea25f140740466b873a5d359c56d0eb3d194fe6" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#231c166e69e4bfe912b93df40a263e70c144ab14" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },
@@ -4595,13 +4595,15 @@ dependencies = [
     { name = "jsonschema", extra = ["format-nongpl"] },
     { name = "numpy" },
     { name = "pbg-basic-processes" },
-    { name = "pbg-emitters" },
+    { name = "pbg-emitters", extra = ["xarray"] },
     { name = "pbg-superpowers" },
     { name = "process-bigraph" },
     { name = "pydantic" },
     { name = "pypdf" },
     { name = "pyyaml" },
     { name = "uvicorn" },
+    { name = "xarray" },
+    { name = "zarr" },
 ]
 
 [[package]]

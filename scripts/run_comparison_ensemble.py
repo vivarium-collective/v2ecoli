@@ -316,10 +316,23 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
         if ntype not in ("process", "step"):
             continue
         cfg = node.get("config")
+        # The RESULTING process-bigraph schema: the resolved port types the
+        # built process declares (inputs()/outputs()). For converted vEcoli
+        # processes this is what the bridge produced — surfaced in the report's
+        # converted-processes panel. Best-effort: never crash the sidecar.
+        interface = None
+        inst = node.get("instance")
+        if inst is not None:
+            try:
+                interface = {"inputs": dict(inst.inputs()),
+                             "outputs": dict(inst.outputs())}
+            except Exception:  # noqa: BLE001
+                interface = None
         processes.append({
             "name": name, "type": ntype, "address": node.get("address"),
             "interval": node.get("interval"),
             "config_keys": sorted(cfg.keys()) if isinstance(cfg, dict) else [],
+            "interface": interface,
         })
         topology[name] = {"inputs": node.get("inputs") or {},
                           "outputs": node.get("outputs") or {}}
@@ -407,6 +420,37 @@ def _overrides_from_resolved(resolved: dict) -> tuple[dict, dict]:
     return overrides, translated
 
 
+def _injected_from_resolved(resolved: dict, fork_repo: str,
+                            fork_sim_data: str | None) -> dict | None:
+    """Assemble a baseline ``injected_processes`` block from a resolved vEcoli
+    config, so the v2 side converts+injects the fork's add/swap processes.
+
+    Returns None when the config declares no injection. Carries every per-port
+    knob the bridge understands (output/defer/strip/attach), so a swap is fully
+    config-described; ``fork_sim_data`` lets a swapped process pull its full
+    config from the fork's own LoadSimData.
+    """
+    if not (resolved.get("add_processes") or resolved.get("swap_processes")
+            or resolved.get("exclude_processes")):
+        return None
+    inj = {
+        "fork_repo": fork_repo,
+        "add_processes": resolved.get("add_processes") or [],
+        "swap_processes": resolved.get("swap_processes") or {},
+        "exclude_processes": resolved.get("exclude_processes") or [],
+        "process_configs": resolved.get("process_configs") or {},
+        "topology": resolved.get("topology") or {},
+        "time_step": float(resolved.get("time_step", 1.0)),
+        "output_ports": resolved.get("output_ports") or {},
+        "defer_ports": resolved.get("defer_ports") or {},
+        "strip_pint_ports": resolved.get("strip_pint_ports") or {},
+        "attach_pint_ports": resolved.get("attach_pint_ports") or {},
+    }
+    if fork_sim_data:
+        inj["fork_sim_data"] = fork_sim_data
+    return inj
+
+
 def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
     """Resolve+translate a vEcoli config; return (overrides, translated_full).
 
@@ -445,8 +489,18 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 "V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
             resolved = resolve_vecoli_config_local(from_vecoli_config, fork_dir)
             v2_overrides, v2_translated = _overrides_from_resolved(resolved)
+            # Build the injected_processes block so the v2 side actually
+            # converts+injects the fork's add/swap processes (translate alone
+            # passes the raw keys through but never assembles the block).
+            inj = _injected_from_resolved(
+                resolved, fork_dir,
+                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None)
+            if inj:
+                v2_overrides = dict(v2_overrides or {})
+                v2_overrides["injected_processes"] = inj
             print(f"[from-vecoli-config] {from_vecoli_config} → v2 overrides "
-                  f"{sorted(v2_overrides)} ({len(v2_translated)} translated keys)")
+                  f"{sorted(v2_overrides)} ({len(v2_translated)} translated keys"
+                  f"{'; +injected '+str(inj.get('add_processes') or list(inj.get('swap_processes') or {})) if inj else ''})")
         except Exception as e:  # noqa: BLE001
             print(f"[warn] from-vecoli-config resolve failed: {type(e).__name__} {e}")
 
@@ -486,6 +540,19 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
                 variant=0, lineage_seed=seed)
+            # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
+            # the stores, so the report shows the full vEcoli config too. Best-effort.
+            if seed == seed_start and res.get("build_config"):
+                try:
+                    _write_json_sidecar(
+                        f"{out_root.rstrip('/')}/vecoli_build_config.json",
+                        res["build_config"])
+                    print(f"[config] wrote vecoli_build_config.json "
+                          f"({res['build_config'].get('n_processes')} processes) "
+                          f"under {out_root}")
+                except Exception as e:  # noqa: BLE001
+                    print(f"[warn] vecoli build-config sidecar emit failed: "
+                          f"{type(e).__name__} {e}")
             return {"seed": seed, "wall_seconds": round(time.time() - t0, 1),
                     "store": str(store_path), "steps": None,
                     "generations": list(range(1, res.get("generations", 0) + 1))}

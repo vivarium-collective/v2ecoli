@@ -317,7 +317,7 @@ source = { git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=ma
 [[package]]
 name = "bigraph-schema"
 version = "1.4.2"
-source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#1343b86df30715451b0b35c3a9bfc49fda36e8c5" }
+source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#87e6b7cdf5b410064e5245f22cd7138b62f64017" }
 dependencies = [
     { name = "fire" },
     { name = "numpy" },
@@ -1470,7 +1470,7 @@ wheels = [
 [[package]]
 name = "investigation-contracts"
 version = "0.2.0"
-source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main#a8db16d54e7a4944d44d29b4eeffced9519d0865" }
+source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main#65c793fd231d952e49a9cfe4244797dadde1bedc" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "pydantic" },
@@ -2903,7 +2903,7 @@ dependencies = [
 [[package]]
 name = "pbg-parsimony"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#0d55775e009e704b41977a2d11ea349677d919f8" }
+source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#db33aecd05f14fc616e1e441345926476b436ccd" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "process-bigraph" },
@@ -2911,14 +2911,13 @@ dependencies = [
 
 [[package]]
 name = "pbg-superpowers"
-version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#1af991a8879c130f9c9a158836a8fa29d855ffe8" }
+version = "0.15.0"
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#a1c985ce279f4e42843589fd263be69aa15f2c93" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
-    { name = "pbg-basic-processes" },
     { name = "pbg-emitters" },
     { name = "process-bigraph" },
     { name = "pypdf" },
@@ -3099,8 +3098,8 @@ wheels = [
 
 [[package]]
 name = "process-bigraph"
-version = "1.4.18"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#17e078ec9cba7254656c04c5f34a1edd9838e83d" }
+version = "1.5.0"
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#355fa15c7ec44d630c5658f96dbfc94980bb7720" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },
@@ -4586,7 +4585,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#5af5ca95f357882ceebb87517f59b34e37546712" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#bea25f140740466b873a5d359c56d0eb3d194fe6" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },
@@ -4596,6 +4595,7 @@ dependencies = [
     { name = "jsonschema", extra = ["format-nongpl"] },
     { name = "numpy" },
     { name = "pbg-basic-processes" },
+    { name = "pbg-emitters" },
     { name = "pbg-superpowers" },
     { name = "process-bigraph" },
     { name = "pydantic" },

@@ -261,6 +261,11 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             "config": config_dict,
             "topology": topo,
             "interval": interval,
+            # Restrict the bridge's write surface to these ports (the bridge
+            # over-declares every port as both input AND output by default; a
+            # swapped process must not re-type stores another process owns, e.g.
+            # the mass deriver's listeners.mass). None = default (all ports).
+            "output_ports": (config.get("output_ports") or {}).get(name),
         })
     _RESOLVE_CACHE[key] = specs
     return [dict(s) for s in specs]
@@ -291,7 +296,8 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
         cls = _import_class(spec["module"], spec["qualname"])
         if spec["kind"] == "vivarium_1":
             wrapped = wrap_vivarium_process(cls, name=spec["name"],
-                                            as_step=spec["as_step"])
+                                            as_step=spec["as_step"],
+                                            output_ports=spec.get("output_ports"))
         else:  # pbg_native
             wrapped = cls
         core.register_link(spec["name"], wrapped)

@@ -145,12 +145,8 @@
     <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
     <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
     <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
-    
-    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
-    
-    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
-    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
-    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+    <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulate</button>
+    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualize</button>
   </div>
 </nav>
 <style>
@@ -747,8 +743,8 @@ downstream inference?
 
 
 
+<section class="study-tab-panel" data-kind="simulate" id="panel-simulate" hidden>
 
-<section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
 
   
   
@@ -983,34 +979,10 @@ downstream inference?
   
   
   
-</section>
 
-
-<section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
-  <div class="observables-section">
-    <h3 class="section-title">Readouts</h3>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
-    <div id="readouts-table" data-study="pdmp-04-compilation">
-      <p class="empty-message">Loading readouts from the composite emit plan…</p>
-    </div>
-
-    
-    <details style="margin-top: 1.4em;">
-      <summary class="muted">How observables tie to Expected Behavior</summary>
-      <p style="font-size: 0.9em;">Observables can be referenced by name in an
-      <code>expected_behavior[i].measure</code> block (e.g. <code>kind: bulk_count, id:
-      "MONOMER0-160[c]"</code>). When the dashboard validates a study, it cross-checks
-      that every <code>measure</code> resolves to a declared observable, or to a
-      built-in helper.</p>
-    </details>
-    
-  </div>
-</section>
-
-<section class="study-tab-panel" data-kind="runs" id="panel-runs">
   <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
   <div id="study-configure-run" style="margin-bottom:18px"></div>
-  <div class="panel" style="margin-bottom:18px">
+  <div class="panel" id="remote-run-panel" style="margin-bottom:18px">
     <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
     <p class="muted" style="font-size:0.9em">
       Pushes the workspace's current branch, builds a simulator from that commit, and runs
@@ -1028,7 +1000,7 @@ downstream inference?
     <h3 class="section-title">Runs</h3>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Per-run record of what was executed. Visualizations live in the
-      <a href="#" onclick="_setStudyTab('visualizations');return false">Visualizations</a> tab.
+      <a href="#" onclick="_setStudyTab('visualize');return false">Visualize</a> tab.
     </p>
     <table id="runs-table">
       <thead>
@@ -1054,146 +1026,26 @@ downstream inference?
 
 </section>
 
-<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
-  <div class="tests-header">
-    <h3>Behavioral Tests</h3>
-    <p class="muted" style="margin: 0 0 8px 0;">
-      Each prediction below is paired with a precise <code>given / measure / expect</code>
-      rule so one English sentence auto-generates one pytest assertion. The
-      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
-      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
-      against the latest simulation run.
-    </p>
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <button id="run-tests-btn" class="btn-primary">Run tests</button>
-      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+<section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
+  <div class="observables-section">
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <div id="readouts-table" data-study="pdmp-04-compilation">
+      <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
-    <div class="tests-config" style="margin-top: 6px;">
-      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
-      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
-    </div>
+
+    
+    <details style="margin-top: 1.4em;">
+      <summary class="muted">How observables tie to Expected Behavior</summary>
+      <p style="font-size: 0.9em;">Observables can be referenced by name in an
+      <code>expected_behavior[i].measure</code> block (e.g. <code>kind: bulk_count, id:
+      "MONOMER0-160[c]"</code>). When the dashboard validates a study, it cross-checks
+      that every <code>measure</code> resolves to a declared observable, or to a
+      built-in helper.</p>
+    </details>
+    
   </div>
 
-  
-  
-  
-  
-  
-  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-jax-compiled-throughput-10x"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="jax-compiled-throughput-10x"
-        data-classification="primary"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">jax-compiled-throughput-10x</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">jax-compiled-throughput-10x</div>
-      
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "wall_seconds_per_trajectory", "reduce": "v2ecoli_baseline_seconds / jax_seconds", "source": "scripts/benchmark_compiled.py --backend jax"}
-expect:  {"field": "speedup_ratio", "operator": "greater-than", "threshold": 10.0}</pre>
-      </details>
-      
-      
-      
-      
-    </li>
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-numerical-equivalence-with-phase3"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="numerical-equivalence-with-phase3"
-        data-classification="primary"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">numerical-equivalence-with-phase3</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">numerical-equivalence-with-phase3</div>
-      
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "all interface observables(t)", "reduce": "L_inf relative error", "source": "compare jax vs python-reference trajectories at seed=0"}
-expect:  {"field": "L_inf_error", "operator": "less-than", "threshold": 0.0001}</pre>
-      </details>
-      
-      
-      
-      
-    </li>
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-memory-fits-1024-cells-per-node"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="memory-fits-1024-cells-per-node"
-        data-classification="supporting"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-supporting">supporting</span>
-        <strong style="font-size: 0.9em;">memory-fits-1024-cells-per-node</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">memory-fits-1024-cells-per-node</div>
-      
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "RSS at end of 600-step run", "reduce": "GB", "source": "scripts/profile_memory.py --n-cells 1024"}
-expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
-      </details>
-      
-      
-      
-      
-    </li>
-    
-  </ul>
-  
-</section>
-
-<section class="study-tab-panel" data-kind="visualizations" id="panel-visualizations" hidden>
   <div class="viz-section">
 
     
@@ -1365,6 +1217,145 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
     </p>
     <div id="viz-charts-panel" class="charts-panel"></div>
   </div>
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <div class="tests-header">
+    <h3>Behavioral Tests</h3>
+    <p class="muted" style="margin: 0 0 8px 0;">
+      Each prediction below is paired with a precise <code>given / measure / expect</code>
+      rule so one English sentence auto-generates one pytest assertion. The
+      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
+      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
+      against the latest simulation run.
+    </p>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="run-tests-btn" class="btn-primary">Run tests</button>
+      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+    </div>
+    <div class="tests-config" style="margin-top: 6px;">
+      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-jax-compiled-throughput-10x"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="jax-compiled-throughput-10x"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">jax-compiled-throughput-10x</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">jax-compiled-throughput-10x</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "wall_seconds_per_trajectory", "reduce": "v2ecoli_baseline_seconds / jax_seconds", "source": "scripts/benchmark_compiled.py --backend jax"}
+expect:  {"field": "speedup_ratio", "operator": "greater-than", "threshold": 10.0}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-numerical-equivalence-with-phase3"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="numerical-equivalence-with-phase3"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">numerical-equivalence-with-phase3</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">numerical-equivalence-with-phase3</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "all interface observables(t)", "reduce": "L_inf relative error", "source": "compare jax vs python-reference trajectories at seed=0"}
+expect:  {"field": "L_inf_error", "operator": "less-than", "threshold": 0.0001}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-memory-fits-1024-cells-per-node"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="memory-fits-1024-cells-per-node"
+        data-classification="supporting"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-supporting">supporting</span>
+        <strong style="font-size: 0.9em;">memory-fits-1024-cells-per-node</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">memory-fits-1024-cells-per-node</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "RSS at end of 600-step run", "reduce": "GB", "source": "scripts/profile_memory.py --n-cells 1024"}
+expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+  </ul>
+  
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1706,6 +1697,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
   
   var slug = window._studyName || "pdmp-04-compilation";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
+  // Read-only bundle: there's no live backend to run on — hide the remote-run
+  // launcher (the Configure & Run widget already renders a disabled preview).
+  if (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.mode === "snapshot") {
+    var rp = document.getElementById("remote-run-panel");
+    if (rp) rp.style.display = "none";
+  }
 })();
 </script>
 </body>

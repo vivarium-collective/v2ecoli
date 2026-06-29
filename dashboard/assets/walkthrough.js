@@ -4687,12 +4687,11 @@
         var switchBtn = document.getElementById('investigation-switch-btn');
         if (switchBtn) switchBtn.style.display = window._isetIndex.length > 1 ? '' : 'none';
         // List-first: clicking the Investigations menu always returns to the
-        // card list. Auto-open only when there is exactly one investigation;
-        // cards (and deep-links) open a detail explicitly via _openInvestigationDetail.
-        var cur = (window._isetIndex || []).filter(function(i){return i.current;})[0];
-        if (cur) {
-          _openInvestigationDetail(cur.name);
-        } else if (window._isetIndex.length === 1) {
+        // card list. Auto-open ONLY when there is exactly one investigation
+        // (a one-item list is pointless); cards and deep-links open a detail
+        // explicitly via _openInvestigationDetail. (Previously this auto-opened
+        // the "current" investigation, so the menu never returned to the list.)
+        if (window._isetIndex.length === 1) {
           _openInvestigationDetail(window._isetIndex[0].name);
         } else {
           _showInvestigationList();
@@ -5072,68 +5071,9 @@
     return html;
   }
 
-  function _renderInvAtAGlance(d) {
-    var host = document.getElementById('investigation-at-a-glance');
-    if (!host) return;
-    host.innerHTML = '';
-    // Prefer authored at_a_glance; fall back to studies' one-line role
-    // derived from study.question (first sentence) when available.
-    var tiles = [];
-    var authored = Array.isArray(d.at_a_glance) ? d.at_a_glance : [];
-    if (authored.length) {
-      tiles = authored.map(function(t, i) {
-        return { num: i + 1, slug: t.study || '', role: t.role || '' };
-      });
-    } else {
-      var studies = d.studies || [];
-      tiles = studies.map(function(s, i) {
-        var role = '';
-        var q = (s.question || (s.purpose && s.purpose.question) || '').trim();
-        if (q) {
-          role = q.split(/[.!?]\s/)[0]; // first sentence
-          if (role.length > 140) role = role.slice(0, 137) + '…';
-        }
-        return { num: i + 1, slug: s.name, role: role };
-      });
-    }
-    if (!tiles.length) { host.style.display = 'none'; return; }
-    host.innerHTML = tiles.map(function(t) {
-      // Linkable tile: clicking opens the study INLINE (same iframe
-      // panel a DAG-node click uses). Plain-text href is kept so
-      // middle-click / cmd-click still opens the standalone study
-      // detail page in a new tab.
-      var href = t.slug ? _studyHref(t.slug) : '#';
-      var slugAttr = _escInv(t.slug || '');
-      return '<a class="inv-aag-tile" href="' + href + '" '
-        +    'data-study-slug="' + slugAttr + '" '
-        +    'title="Open ' + slugAttr + ' in this view (Cmd-click for new tab)" '
-        +    'onclick="return _vivOpenAagTile(event, \'' + slugAttr.replace(/&amp;/g, '&').replace(/\x27/g, '\\x27') + '\')">'
-        + '<span class="inv-aag-num">' + t.num + '</span>'
-        + '<span class="inv-aag-slug">' + slugAttr + '</span>'
-        + (t.role ? '<span class="inv-aag-role">' + _escInv(t.role) + '</span>' : '')
-        + '</a>';
-    }).join('');
-    host.style.display = '';
-  }
-
-  // Click handler for at-a-glance tiles. Behaves like a DAG-node click
-  // (inline iframe embed) for plain clicks; passes through to default
-  // navigation when the user holds a modifier (Cmd/Ctrl/Shift/middle).
-  function _vivOpenAagTile(ev, slug) {
-    if (!slug) return true;
-    if (ev && (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.button === 1)) {
-      return true;  // let the browser open in a new tab / window
-    }
-    ev.preventDefault();
-    if (typeof _openStudyInsideInvestigation === 'function') {
-      _openStudyInsideInvestigation(slug);
-    } else {
-      // Fallback: navigate to the detail page.
-      window.location.href = '/studies/' + encodeURIComponent(slug);
-    }
-    return false;
-  }
-  window._vivOpenAagTile = _vivOpenAagTile;
+  // (The at-a-glance study-card row was removed — the dependency DAG below shows
+  // the same studies. Its render fn (_renderInvAtAGlance) + tile click handler
+  // (_vivOpenAagTile) are gone with it; DAG nodes use _openStudyInsideInvestigation.)
 
   function _renderInvHowToRead(items) {
     var host = document.getElementById('investigation-how-to-read');
@@ -5255,12 +5195,6 @@
         // Light markdown: paragraph splits, * bullets, `code`, **bold**.
         var leadEl = document.getElementById('investigation-detail-description');
         leadEl.innerHTML = _renderInvOpening(d);
-
-        // At-a-glance study-card row removed (user request 2026-06-07): the
-        // dependency DAG below shows the same studies, so the top row was
-        // redundant. Clear + hide the host so no empty band remains.
-        var _aagHost = document.getElementById('investigation-at-a-glance');
-        if (_aagHost) { _aagHost.innerHTML = ''; _aagHost.style.display = 'none'; }
 
         // How to read: yaml-driven list of evaluator tips. Hidden if absent.
         _renderInvHowToRead(d.how_to_read);

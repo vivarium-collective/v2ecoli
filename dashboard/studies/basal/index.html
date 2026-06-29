@@ -66,12 +66,8 @@
     <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
     <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
     <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
-    
-    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
-    
-    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
-    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
-    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+    <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulate</button>
+    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualize</button>
   </div>
 </nav>
 <style>
@@ -533,8 +529,8 @@
 
 
 
+<section class="study-tab-panel" data-kind="simulate" id="panel-simulate" hidden>
 
-<section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
 
   
   
@@ -595,25 +591,10 @@
   
   
   
-</section>
 
-
-<section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
-  <div class="observables-section">
-    <h3 class="section-title">Readouts</h3>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
-    <div id="readouts-table" data-study="basal">
-      <p class="empty-message">Loading readouts from the composite emit plan…</p>
-    </div>
-
-    
-  </div>
-</section>
-
-<section class="study-tab-panel" data-kind="runs" id="panel-runs">
   <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
   <div id="study-configure-run" style="margin-bottom:18px"></div>
-  <div class="panel" style="margin-bottom:18px">
+  <div class="panel" id="remote-run-panel" style="margin-bottom:18px">
     <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
     <p class="muted" style="font-size:0.9em">
       Pushes the workspace's current branch, builds a simulator from that commit, and runs
@@ -631,7 +612,7 @@
     <h3 class="section-title">Runs</h3>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Per-run record of what was executed. Visualizations live in the
-      <a href="#" onclick="_setStudyTab('visualizations');return false">Visualizations</a> tab.
+      <a href="#" onclick="_setStudyTab('visualize');return false">Visualize</a> tab.
     </p>
     <table id="runs-table">
       <thead>
@@ -754,6 +735,31 @@
 
 </section>
 
+<section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
+  <div class="observables-section">
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <div id="readouts-table" data-study="basal">
+      <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    
+  </div>
+
+  <div class="viz-section">
+
+    
+    
+
+    <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
+    <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+      These charts re-render each time the page loads, against the most recent simulation in the study's <code>runs.db</code>.
+      They are also embedded into the downloadable investigation HTML report.
+    </p>
+    <div id="viz-charts-panel" class="charts-panel"></div>
+  </div>
+</section>
+
 <section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
   <div class="tests-header">
     <h3>Behavioral Tests</h3>
@@ -865,21 +871,6 @@ expect:  null</pre>
     
   </ul>
   
-</section>
-
-<section class="study-tab-panel" data-kind="visualizations" id="panel-visualizations" hidden>
-  <div class="viz-section">
-
-    
-    
-
-    <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
-    <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-      These charts re-render each time the page loads, against the most recent simulation in the study's <code>runs.db</code>.
-      They are also embedded into the downloadable investigation HTML report.
-    </p>
-    <div id="viz-charts-panel" class="charts-panel"></div>
-  </div>
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1140,6 +1131,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
   
   var slug = window._studyName || "basal";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
+  // Read-only bundle: there's no live backend to run on — hide the remote-run
+  // launcher (the Configure & Run widget already renders a disabled preview).
+  if (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.mode === "snapshot") {
+    var rp = document.getElementById("remote-run-panel");
+    if (rp) rp.style.display = "none";
+  }
 })();
 </script>
 </body>

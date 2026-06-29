@@ -141,12 +141,8 @@
     <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
     <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
     <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
-    
-    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
-    
-    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
-    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
-    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+    <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulate</button>
+    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualize</button>
   </div>
 </nav>
 <style>
@@ -869,8 +865,8 @@ ready substrate that motivated the DUF rescoping?
 
 
 
+<section class="study-tab-panel" data-kind="simulate" id="panel-simulate" hidden>
 
-<section class="study-tab-panel" data-kind="simulations" id="panel-simulations" hidden>
 
   
   
@@ -1018,34 +1014,10 @@ ready substrate that motivated the DUF rescoping?
   
   
   
-</section>
 
-
-<section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
-  <div class="observables-section">
-    <h3 class="section-title">Readouts</h3>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
-    <div id="readouts-table" data-study="pdmp-03-inference">
-      <p class="empty-message">Loading readouts from the composite emit plan…</p>
-    </div>
-
-    
-    <details style="margin-top: 1.4em;">
-      <summary class="muted">How observables tie to Expected Behavior</summary>
-      <p style="font-size: 0.9em;">Observables can be referenced by name in an
-      <code>expected_behavior[i].measure</code> block (e.g. <code>kind: bulk_count, id:
-      "MONOMER0-160[c]"</code>). When the dashboard validates a study, it cross-checks
-      that every <code>measure</code> resolves to a declared observable, or to a
-      built-in helper.</p>
-    </details>
-    
-  </div>
-</section>
-
-<section class="study-tab-panel" data-kind="runs" id="panel-runs">
   <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
   <div id="study-configure-run" style="margin-bottom:18px"></div>
-  <div class="panel" style="margin-bottom:18px">
+  <div class="panel" id="remote-run-panel" style="margin-bottom:18px">
     <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
     <p class="muted" style="font-size:0.9em">
       Pushes the workspace's current branch, builds a simulator from that commit, and runs
@@ -1063,7 +1035,7 @@ ready substrate that motivated the DUF rescoping?
     <h3 class="section-title">Runs</h3>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Per-run record of what was executed. Visualizations live in the
-      <a href="#" onclick="_setStudyTab('visualizations');return false">Visualizations</a> tab.
+      <a href="#" onclick="_setStudyTab('visualize');return false">Visualize</a> tab.
     </p>
     <table id="runs-table">
       <thead>
@@ -1089,146 +1061,26 @@ ready substrate that motivated the DUF rescoping?
 
 </section>
 
-<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
-  <div class="tests-header">
-    <h3>Behavioral Tests</h3>
-    <p class="muted" style="margin: 0 0 8px 0;">
-      Each prediction below is paired with a precise <code>given / measure / expect</code>
-      rule so one English sentence auto-generates one pytest assertion. The
-      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
-      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
-      against the latest simulation run.
-    </p>
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <button id="run-tests-btn" class="btn-primary">Run tests</button>
-      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+<section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
+  <div class="observables-section">
+    <h3 class="section-title">Readouts</h3>
+    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <div id="readouts-table" data-study="pdmp-03-inference">
+      <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
-    <div class="tests-config" style="margin-top: 6px;">
-      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
-      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
-    </div>
+
+    
+    <details style="margin-top: 1.4em;">
+      <summary class="muted">How observables tie to Expected Behavior</summary>
+      <p style="font-size: 0.9em;">Observables can be referenced by name in an
+      <code>expected_behavior[i].measure</code> block (e.g. <code>kind: bulk_count, id:
+      "MONOMER0-160[c]"</code>). When the dashboard validates a study, it cross-checks
+      that every <code>measure</code> resolves to a declared observable, or to a
+      built-in helper.</p>
+    </details>
+    
   </div>
 
-  
-  
-  
-  
-  
-  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-sbc-calibration-uniform-rank"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="sbc-calibration-uniform-rank"
-        data-classification="primary"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">sbc-calibration-uniform-rank</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">sbc-calibration-uniform-rank</div>
-      
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "rank of \u03b8_true within N=100 posterior draws, repeated L=200 times", "reduce": "Cram\u00e9r-von Mises test of rank histogram vs Uniform(0, N)", "source": "scripts/run_sbc.py"}
-expect:  {"field": "CvM_p_value", "operator": "greater-than", "threshold": 0.05}</pre>
-      </details>
-      
-      
-      
-      
-    </li>
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-posterior-shrinks-with-data"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="posterior-shrinks-with-data"
-        data-classification="primary"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">posterior-shrinks-with-data</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">posterior-shrinks-with-data</div>
-      
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "posterior 95% interval width per parameter", "reduce": "ratio to prior width", "source": "scripts/run_abc_smc.py --vary-data-size"}
-expect:  {"field": "shrinkage_at_N=1000", "operator": "less-than", "threshold": 0.3}</pre>
-      </details>
-      
-      
-      
-      
-    </li>
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-ppc-coverage-95-pct"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="ppc-coverage-95-pct"
-        data-classification="supporting"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-supporting">supporting</span>
-        <strong style="font-size: 0.9em;">ppc-coverage-95-pct</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">ppc-coverage-95-pct</div>
-      
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "held-out observation coverage by posterior predictive 95% CI", "reduce": "fraction", "source": "scripts/run_ppc.py"}
-expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper": 0.99}</pre>
-      </details>
-      
-      
-      
-      
-    </li>
-    
-  </ul>
-  
-</section>
-
-<section class="study-tab-panel" data-kind="visualizations" id="panel-visualizations" hidden>
   <div class="viz-section">
 
     
@@ -1415,6 +1267,145 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
     </p>
     <div id="viz-charts-panel" class="charts-panel"></div>
   </div>
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <div class="tests-header">
+    <h3>Behavioral Tests</h3>
+    <p class="muted" style="margin: 0 0 8px 0;">
+      Each prediction below is paired with a precise <code>given / measure / expect</code>
+      rule so one English sentence auto-generates one pytest assertion. The
+      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
+      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
+      against the latest simulation run.
+    </p>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="run-tests-btn" class="btn-primary">Run tests</button>
+      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+    </div>
+    <div class="tests-config" style="margin-top: 6px;">
+      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-sbc-calibration-uniform-rank"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="sbc-calibration-uniform-rank"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">sbc-calibration-uniform-rank</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">sbc-calibration-uniform-rank</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "rank of \u03b8_true within N=100 posterior draws, repeated L=200 times", "reduce": "Cram\u00e9r-von Mises test of rank histogram vs Uniform(0, N)", "source": "scripts/run_sbc.py"}
+expect:  {"field": "CvM_p_value", "operator": "greater-than", "threshold": 0.05}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-posterior-shrinks-with-data"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="posterior-shrinks-with-data"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">posterior-shrinks-with-data</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">posterior-shrinks-with-data</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "posterior 95% interval width per parameter", "reduce": "ratio to prior width", "source": "scripts/run_abc_smc.py --vary-data-size"}
+expect:  {"field": "shrinkage_at_N=1000", "operator": "less-than", "threshold": 0.3}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-ppc-coverage-95-pct"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="ppc-coverage-95-pct"
+        data-classification="supporting"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-supporting">supporting</span>
+        <strong style="font-size: 0.9em;">ppc-coverage-95-pct</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">ppc-coverage-95-pct</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "held-out observation coverage by posterior predictive 95% CI", "reduce": "fraction", "source": "scripts/run_ppc.py"}
+expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper": 0.99}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+  </ul>
+  
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1773,6 +1764,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
   
   var slug = window._studyName || "pdmp-03-inference";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
+  // Read-only bundle: there's no live backend to run on — hide the remote-run
+  // launcher (the Configure & Run widget already renders a disabled preview).
+  if (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.mode === "snapshot") {
+    var rp = document.getElementById("remote-run-panel");
+    if (rp) rp.style.display = "none";
+  }
 })();
 </script>
 </body>

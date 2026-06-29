@@ -46,8 +46,7 @@
       p.classList.toggle('active', p.dataset.kind === kind);
     });
     if (kind === 'tests') { loadTestsTab(window._study); }
-    if (kind === 'visualizations') { _loadCharts('viz-charts-panel'); }
-    if (kind === 'observables') { _loadReadouts(); }
+    if (kind === 'visualize') { _loadReadouts(); _loadCharts('viz-charts-panel'); }
   }
   window._setStudyTab = _setStudyTab;
 
@@ -703,8 +702,8 @@
       return;
     }
     // No run identity → fall back to the study-level results view.
-    _setStudyTab('visualizations');
-    var panel = document.getElementById('panel-visualizations');
+    _setStudyTab('visualize');
+    var panel = document.getElementById('panel-visualize');
     if (panel && panel.scrollIntoView) { try { panel.scrollIntoView({block: 'start'}); } catch (e) {} }
   });
 
@@ -971,7 +970,7 @@
 
     var runLink = runIdent
       ? '<div class="muted small" style="margin-top:4px">from run ' +
-        '<a href="#run-' + e(runIdent) + '" onclick="_setStudyTab(\'runs\')" ' +
+        '<a href="#run-' + e(runIdent) + '" onclick="_setStudyTab(\'simulate\')" ' +
         'style="color:#3b82f6">' + e(runIdent) + '</a></div>'
       : '';
 
@@ -1373,7 +1372,7 @@
       _row('Verdict',
         '<strong>' + e(cgv.result) + '</strong> '
         + '<span class="spine-label">code-computed</span> ' + chip + preregChip,
-        '<a href="#" onclick="_setStudyTab(\'overview\');return false">details →</a>');
+        '<a href="#" onclick="_setStudyTab(\'conclusions\');return false">details →</a>');
     }
 
     // ── Why — the primary finding statement + its divergence_factor ────────
@@ -1420,8 +1419,7 @@
                 : 'ℹ ' + fs.length + ' note' + (fs.length === 1 ? '' : 's'));
       _row('Readiness',
         e(head) + ' <span class="spine-label">code-computed by the report linter</span>',
-        '<a href="#" onclick="_setStudyTab(\'overview\');'
-        + 'var el=document.getElementById(\'readiness-panel\');'
+        '<a href="#" onclick="var el=document.getElementById(\'readiness-panel\');'
         + 'if(el)el.scrollIntoView({behavior:\'smooth\',block:\'start\'});return false">readiness →</a>');
       _flush();
     });
@@ -1805,7 +1803,7 @@
   function _applyRunHash() {
     var h = (window.location.hash || '');
     if (h.indexOf('#run-') === 0 || h === '#runs') {
-      _setStudyTab('runs');
+      _setStudyTab('simulate');
       if (h.indexOf('#run-') === 0) {
         var el = document.getElementById(h.slice(1));  // id="run-<runId>"
         if (el && el.scrollIntoView) { try { el.scrollIntoView({block: 'center'}); el.style.outline = '2px solid #2b6cb0'; } catch (e) {} }

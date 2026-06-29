@@ -48,3 +48,14 @@ conditions:
       condition: basal
 depends_on:
 - parca
+confidence: Investigating
+findings:
+- id: basal-standard
+  kind: computational
+  status: partial
+  statement: v2ecoli reproduces vEcoli biomass on basal within tolerance; growth rate
+    (1/s) diverges (drift).
+  evidence:
+    from_card: standard
+    observed: '4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
+      RNA mass (fg); max median |Δ|=2.5%); growth rate (1/s): drift (median |Δ|=6.7%)'

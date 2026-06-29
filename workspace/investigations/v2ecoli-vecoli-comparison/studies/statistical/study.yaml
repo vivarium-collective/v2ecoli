@@ -51,3 +51,14 @@ conditions:
 depends_on:
 - basal
 status: evaluated
+confidence: Accepted
+findings:
+- id: statistical-statistical
+  kind: computational
+  status: confirms
+  statement: 'v2ecoli is statistically equivalent to vEcoli on basal across 4 seeds:
+    all 5 observables within tolerance.'
+  evidence:
+    from_card: statistical
+    observed: 5 within tolerance (Cell mass, Growth rate, Dry mass, Protein mass,
+      RNA mass)

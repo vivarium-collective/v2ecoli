@@ -13,7 +13,7 @@
     
     
     
-    <span class="status-pill status-planned">planned</span>
+    <span class="status-pill status-evaluated" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">evaluated</span>
     
     
     
@@ -186,7 +186,7 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">passed</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
@@ -539,13 +539,13 @@
           <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 baseline.baseline ↗</button></td>
           <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>basal</code></span> </td>
           <td style="vertical-align:top" class="muted small">2 run(s)</td>
-          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">recorded</span></td>
+          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">completed</span></td>
         </tr>
       
       </tbody>
     </table>
     
-    <p class="muted small" style="margin-top:6px">2 recorded run(s): <code>statistical-comparison</code> (—), <code></code> (completed)</p>
+    <p class="muted small" style="margin-top:6px">2 recorded run(s): <code>statistical-comparison</code> (completed), <code></code> (completed)</p>
   </div>
   
 
@@ -692,6 +692,8 @@
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
+  <div id="study-configure-run" style="margin-bottom:18px"></div>
   <div class="panel" style="margin-bottom:18px">
     <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
     <p class="muted" style="font-size:0.9em">
@@ -747,7 +749,7 @@
           <td style="font-size:0.85em;white-space:nowrap"></td>
           <td style="font-size:0.85em;white-space:nowrap"></td>
           <td>
-            <span class="run-status run-status-"></span>
+            <span class="run-status run-status-completed">completed</span>
             
           </td>
           
@@ -756,7 +758,15 @@
             
             
             
-              <span class="muted">—</span>
+              
+              
+                
+                
+              
+              <span class="ok" title="authored pass">✓ 1</span>
+              
+              
+              <span class="muted" style="font-size:0.85em"> (authored)</span>
             
           </td>
           <td>
@@ -851,6 +861,11 @@
   
   
     
+      
+        
+        
+      
+    
   
     
   
@@ -899,17 +914,24 @@
         
         data-pytest-node="statistical-vs-vecoli"
         data-classification="primary"
-        data-result="pending"
+        data-result="PASS"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">statistical-vs-vecoli</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on statistical (statistical card)?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: report card &#39;statistical&#39;: within_tol</code>
+        
+      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1159,6 +1181,7 @@ function _seedFollowupProposal(parent, proposalId) {
 window._seedFollowupStudy = _seedFollowupStudy;
 window._seedFollowupProposal = _seedFollowupProposal;
 </script>
+<script src="/v2ecoli/dashboard/assets/configure-run.js"></script>
 <script src="/v2ecoli/dashboard/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
@@ -1166,6 +1189,17 @@ window._seedFollowupProposal = _seedFollowupProposal;
 // investigation view prefers staying in place over a full navigation.
 window._seedFollowupStudy = _seedFollowupStudy;
 window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script>
+(function () {
+  var el = document.getElementById("study-configure-run");
+  if (!el || !window.ConfigureRun) return;
+  
+  var compositeRef = "v2ecoli.composites.baseline.baseline";
+  
+  var slug = window._studyName || "statistical";
+  ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
+})();
 </script>
 </body>
 </html>

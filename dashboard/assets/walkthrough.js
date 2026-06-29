@@ -501,7 +501,7 @@
 
     // Initialize composite explorer when switching to that page.
     if (pageId === 'composite-explore') {
-      _initCompositeExplorer();
+      window._initCompositeExplorer();
     }
     if (pageId === 'simulations') {
       _wireSimulationsUiOnce();
@@ -2033,7 +2033,8 @@
         prevC = c;
         var exploreBtn = (_isSnapshot && !c.has_wiring)
           ? ''
-          : '<button class="action-btn" onclick="_openCompositeExplorer(\'' + _esc(c.id) + '\')">Explore</button>';
+          : '<button class="action-btn" onclick="_openCompositeExplorer(\'' + _esc(c.id) + '\')">Explore</button>' +
+            '<button class="btn-mini" onclick="_openCompositeExplorer(\'' + _esc(c.id) + '\')">Configure &amp; Run</button>';
         return divider + '<div class="composite-list-row">' +
           '<span class="name">' + _esc(c.name) + ' ' + _wsTag(c) + '</span>' +
           '<span class="desc">' + tagPills + ' ' + _esc(c.description || '(no description)') +
@@ -2071,7 +2072,8 @@
         prevG = c;
         var exploreBtn = (_isSnapshot && !c.has_wiring)
           ? ''
-          : '<button class="action-btn" onclick="_openCompositeExplorer(\'' + _esc(c.id) + '\')">Explore</button>';
+          : '<button class="action-btn" onclick="_openCompositeExplorer(\'' + _esc(c.id) + '\')">Explore</button>' +
+            '<button class="btn-mini" onclick="_openCompositeExplorer(\'' + _esc(c.id) + '\')">Configure &amp; Run</button>';
         return divider + '<div class="module-card' + (c.workspace_local ? ' module-card-workspace' : '') + '">' +
           '<div class="module-card-header"><strong>' + _esc(c.name) + '</strong> ' + _wsTag(c) + '</div>' +
           '<p class="module-desc">' + _esc(c.description || '(no description)') + '</p>' +
@@ -4168,7 +4170,24 @@
       // Live mode: fetch resolve endpoint with overrides.
       var url = '/api/composite-resolve?id=' + encodeURIComponent(id) +
         '&overrides=' + encodeURIComponent(JSON.stringify(window._ceCurrent.overrides));
-      p = fetch(url).then(function(r) { return r.json(); });
+      // Parse defensively: an unguarded r.json() on a non-2xx / non-JSON
+      // response throws "SyntaxError: The string did not match the expected
+      // pattern" (Safari) → a useless "Network error". A remote build can't
+      // resolve generator composites (no local ParCa cache to run build_core)
+      // and unregistered refs 404 — turn both into the {error}/{unresolved}
+      // shapes the loader below already renders gracefully.
+      p = fetch(url).then(function(r) {
+        return r.text().then(function(t) {
+          var d = null;
+          try { d = t ? JSON.parse(t) : null; } catch (e) { d = null; }
+          if (r.ok && d) return d;
+          if (r.status === 404) return { unresolved: true, ref: id };
+          var msg = (d && (d.error || d.detail)) ? (d.error || d.detail)
+            : ('HTTP ' + r.status + ' — could not resolve this composite. A remote '
+               + 'build cannot build generator composites (no local ParCa cache).');
+          return { error: msg };
+        });
+      });
     }
     p.then(function(data) {
         // Guard: a null/empty response (e.g. an unexpected miss) is treated as
@@ -6094,13 +6113,44 @@
               return {name: spec && spec.name, embeds: results.filter(Boolean)};
             });
           });
-          return Promise.all(embedFetches).then(function(embedResults) {
+          // Parallel to the embeds: fetch each study's report-card modules
+          // (viz/report_card/<card>.html, surfaced as spec.report_card_urls)
+          // and inline their HTML so the downloaded report shows them offline
+          // as <iframe srcdoc>. The live study-detail view uses <iframe src=url>
+          // (server-backed); the exported report must inline, like the embeds.
+          var reportCardFetches = specs.map(function(spec) {
+            var rcUrls = (spec && spec.report_card_urls) || {};
+            var perStudy = Object.keys(rcUrls).map(function(card) {
+              var rc = rcUrls[card];
+              if (!rc || !rc.url) return Promise.resolve(null);
+              return fetch(rc.url, {headers: {Accept: 'text/html'}})
+                .then(function(r) { return r.ok ? r.text() : null; })
+                .then(function(text) {
+                  return text ? {
+                    card: card,
+                    verdict: rc.verdict || 'ungraded',
+                    html: text,
+                  } : null;
+                })
+                .catch(function() { return null; });
+            });
+            return Promise.all(perStudy).then(function(results) {
+              return {name: spec && spec.name, cards: results.filter(Boolean)};
+            });
+          });
+          return Promise.all([Promise.all(embedFetches),
+                              Promise.all(reportCardFetches)]).then(function(both) {
             var embedsByStudy = {};
-            embedResults.forEach(function(e) {
+            both[0].forEach(function(e) {
               if (e && e.name) embedsByStudy[e.name] = e.embeds;
+            });
+            var reportCardsByStudy = {};
+            both[1].forEach(function(e) {
+              if (e && e.name) reportCardsByStudy[e.name] = e.cards;
             });
             return {iset: iset, specs: specs, bibEntries: arr[1],
                     chartsByStudy: chartsByStudy, embedsByStudy: embedsByStudy,
+                    reportCardsByStudy: reportCardsByStudy,
                     generation: generation, ghRepo: ghRepo, rigor: rigor,
                     frameworkMetrics: frameworkMetrics, hypotheses: hypotheses};
           });
@@ -6111,7 +6161,8 @@
                                                   bundle.bibEntries, bundle.chartsByStudy,
                                                   bundle.embedsByStudy, bundle.generation,
                                                   bundle.ghRepo, bundle.rigor,
-                                                  bundle.frameworkMetrics, bundle.hypotheses);
+                                                  bundle.frameworkMetrics, bundle.hypotheses,
+                                                  bundle.reportCardsByStudy);
         var dateStr = new Date().toISOString().slice(0, 10);
         var filename = 'investigation-' + name + '-' + dateStr + '.html';
         _triggerDownload(filename, html, 'text/html');
@@ -7065,10 +7116,11 @@
     return html;
   }
 
-  function _buildInvestigationReportHtml(iset, specs, bibEntries, chartsByStudy, embedsByStudy, generation, ghRepo, rigor, frameworkMetrics, hypotheses) {
+  function _buildInvestigationReportHtml(iset, specs, bibEntries, chartsByStudy, embedsByStudy, generation, ghRepo, rigor, frameworkMetrics, hypotheses, reportCardsByStudy) {
     bibEntries = bibEntries || [];
     chartsByStudy = chartsByStudy || {};
     embedsByStudy = embedsByStudy || {};
+    reportCardsByStudy = reportCardsByStudy || {};
     generation = generation || null;
     ghRepo = ghRepo || null;
     // Wave 3b #6/#16 — prefer the report-data-path enriched hypotheses (with the
@@ -8046,7 +8098,10 @@
         }, []);
       })(s.implementation_requirements || s.gaps);
       var readouts = s.readouts || [];
-      var tests = s.behavior_tests || s.expected_behavior || [];
+      // Prefer the modular `tests:` list (which carries `kind: report_card`
+      // modules) over the legacy behavior_tests/expected_behavior, so report
+      // cards render as test modules in the test section below.
+      var tests = _studyTests(s);
       var decide = s.conclusion_logic || {};
       var limitations = s.limitations || [];
       // Tolerate a string (authors sometimes write limitations as prose, not a list).
@@ -8655,10 +8710,45 @@
         if (_tc.SKIP) _tcParts.push(_tc.SKIP + ' ⏭ skipped');
         if (_tc.PENDING) _tcParts.push(_tc.PENDING + ' ⏳ pending');
         var _tcSummary = _tcParts.length ? (' — ' + _tcParts.join(' · ')) : '';
+        // Report-card test modules: a `kind: report_card` test renders its
+        // inlined card + graded verdict pill (the offline analogue of the live
+        // study-detail _fillReportCardModules path). Look the card HTML up by
+        // its `card` name from this study's fetched report cards.
+        var _rcPill = {
+          within_tol: ['#16a34a', 'within tol'], drift: ['#d97706', 'drift'],
+          mismatch: ['#dc2626', 'mismatch'], ungraded: ['#64748b', 'ungraded'],
+        };
+        var _cardByName = {};
+        (reportCardsByStudy[s.name] || []).forEach(function(rc) { _cardByName[rc.card] = rc; });
         testsHtml = '<div id="' + sid.tests + '"><h3>Success criteria <span class="muted small">(' + tests.length + ' tests' + _tcSummary + ')</span></h3>'
           + '<p class="muted small" style="margin:0 0 8px 0">Each test makes a specific scientific claim with a machine-checkable criterion (<code>measure</code> + <code>pass_if</code>). Tests are now <strong>evaluated by code against the run</strong> (the run/outcome spine: RunReader → evaluator): the pill shows the result, and the evidence line shows the <em>measured value</em>, whether it was computed by <em>code</em> or routed to an <em>agent</em>, and whether the code verdict <em>agrees</em> with the authored one (reconcile). <span class="muted">⏳ pending = the study hasn\'t run yet.</span> Technical assertion + the exact evaluator are under "Technical details".</p>'
           + tests.map(function(t) {
               var name = t.name || '(unnamed)';
+              // ── REPORT-CARD TEST MODULE ──────────────────────────────────
+              // A modular `kind: report_card` test renders the card itself
+              // (inlined, self-contained) with its graded verdict pill, in
+              // place of the behavioral claim/evidence layout.
+              if ((t.kind || 'behavioral') === 'report_card') {
+                var rc = _cardByName[t.card];
+                var vp = _rcPill[(rc && rc.verdict) || 'ungraded'] || _rcPill.ungraded;
+                var rcPill = '<span style="display:inline-block;padding:2px 10px;border-radius:9999px;'
+                  + 'font-size:0.78em;font-weight:600;background:' + vp[0] + ';color:#fff">' + _h(vp[1]) + '</span>';
+                var rcBody = (rc && rc.html)
+                  ? '<iframe srcdoc="' + (rc.html || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '" '
+                    + 'class="embed-frame" onload="_wireEmbed(this)" scrolling="no" '
+                    + 'style="width:100%;min-height:560px;border:0;display:block;overflow:hidden;margin-top:8px" '
+                    + 'title="' + _h(t.card) + ' report card"></iframe>'
+                  : '<div class="muted small" style="padding:8px">report card <code>' + _h(t.card)
+                    + '</code> not generated yet — run the comparison.</div>';
+                return '<div class="test-card test-report-card" id="test-' + _h(name) + '">'
+                     +   '<div class="test-header" style="display:flex;align-items:center;gap:8px">'
+                     +     rcPill
+                     +     '<strong>' + _h(t.card) + ' report card</strong>'
+                     +     '<span class="test-id muted small" style="margin-left:auto">' + _h(name) + '</span>'
+                     +   '</div>'
+                     +   rcBody
+                     + '</div>';
+              }
               var cls = t.classification || 'unclassified';
               var out = outcomeByTest[name];
               var result = (out && out.result) || t.result || _testStatusToResult(t.status) || (t.status === 'gated' ? 'GATED' : 'PENDING');
@@ -9278,6 +9368,10 @@
             }).join('')
           + '</div>';
       }
+
+      // (Report cards now render as modules INSIDE the test section — see
+      // `kind: report_card` handling in testsHtml above — not as a separate
+      // block here.)
 
       // ── CONDITIONS (v4: baseline + variants + model_settings) ─────────
       // Renders the actual parameter table the evaluator wants: each

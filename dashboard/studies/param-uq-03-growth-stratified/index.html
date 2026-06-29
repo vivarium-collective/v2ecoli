@@ -1084,6 +1084,8 @@ from the thin core). Required before this study can run.
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
+  <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
+  <div id="study-configure-run" style="margin-bottom:18px"></div>
   <div class="panel" style="margin-bottom:18px">
     <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
     <p class="muted" style="font-size:0.9em">
@@ -1417,6 +1419,7 @@ function _seedFollowupProposal(parent, proposalId) {
 window._seedFollowupStudy = _seedFollowupStudy;
 window._seedFollowupProposal = _seedFollowupProposal;
 </script>
+<script src="/v2ecoli/dashboard/assets/configure-run.js"></script>
 <script src="/v2ecoli/dashboard/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
@@ -1424,6 +1427,17 @@ window._seedFollowupProposal = _seedFollowupProposal;
 // investigation view prefers staying in place over a full navigation.
 window._seedFollowupStudy = _seedFollowupStudy;
 window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script>
+(function () {
+  var el = document.getElementById("study-configure-run");
+  if (!el || !window.ConfigureRun) return;
+  
+  var compositeRef = "baseline";
+  
+  var slug = window._studyName || "param-uq-03-growth-stratified";
+  ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
+})();
 </script>
 </body>
 </html>

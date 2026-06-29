@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Every v2ecoli study shows ≥1 report card on its dashboard detail page, produced by a pluggable card-module registry that reuses the existing `v2ecoli/library/report_card.py` — a universal `tests` card plus a `vs_vecoli` v2ecoli↔vEcoli equivalence card, both run-free.
+**Goal:** Every v2ecoli study shows ≥1 report card on its dashboard detail page, produced by a pluggable registry of report-card Steps that reuses the existing `v2ecoli/library/report_card.py` — a universal `tests` card plus a `vs_vecoli` v2ecoli↔vEcoli equivalence card, both run-free.
 
-**Architecture:** A small registry (`scripts/_cards/`) of card modules, each delegating all grading to the existing library. A generator CLI emits `workspace/studies/<name>/viz/report_card/<module>.{html,verdict.json}`, which the dashboard already auto-discovers (no dashboard changes). The `tests` module renders each study's own `tests:` block (verdict from recorded status); the `vs_vecoli` module stages a pre-generated comparison verdict JSON and renders it. Two new library helpers support this: a `status` criterion type and a `render_verdict_html` renderer.
+**Architecture:** Report cards are **visualization-like process-bigraph Steps** — `ReportCardStep(V2Step)`, a sibling of `v2ecoli/workflow/analysis.py`'s `Analysis`, with output ports `{"view": "string" (HTML), "data": "map" (verdict)}`. Subclasses auto-register in `REPORT_CARD_REGISTRY`. A runner CLI builds a `bigraph_schema` core, runs each applicable Step over a `StudyContext`, and writes its `view`→`<name>.html` + `data`→`<name>.verdict.json` into `workspace/studies/<name>/viz/report_card/`, which the dashboard already auto-discovers (no dashboard changes). The `tests` card renders each study's own `tests:` block (verdict from recorded status); the `vs_vecoli` card stages a pre-generated comparison verdict JSON and renders it. Two library helpers support this: a `status` criterion type and a `render_verdict_html` renderer.
 
-**Tech Stack:** Python 3.12, the v2ecoli card library (`grade_card`/`verdict_json`/`card_criteria.grade_axis`), pytest, PyYAML.
+**Tech Stack:** Python 3.12, process-bigraph Steps (`V2Step`, `bigraph_schema.allocate_core`), the v2ecoli card library (`grade_card`/`verdict_json`/`card_criteria.grade_axis`), pytest, PyYAML.
 
 ## Global Constraints
 
@@ -14,6 +14,7 @@
 - **Test command (worktree has no venv — shadow the main install):** run every test as
   `PYTHONPATH=$PWD /Users/eranagmon/code/v2ecoli/.venv/bin/python -m pytest <path> -v` **from the worktree root**. This makes `import v2ecoli...` and `import scripts...` resolve to the worktree (verified). Define `V2EPY=/Users/eranagmon/code/v2ecoli/.venv/bin/python` for brevity.
 - **Reuse, don't reinvent:** all grading/serialization goes through `v2ecoli/library/report_card.py` (`grade_card`, `verdict_json`) and `card_criteria.grade_axis`. No new grading math.
+- **Report cards are Steps:** each card is a `ReportCardStep(V2Step)` subclass (in `v2ecoli/workflow/report_cards/`) with output ports `{"view": "string", "data": "map"}`, mirroring `v2ecoli/workflow/analysis.py`'s `Analysis`. Steps instantiate as `cls(config_dict, core=core)` where `core = bigraph_schema.allocate_core()` (built once per runner invocation; ~5s). Subclasses auto-register in `REPORT_CARD_REGISTRY` via `__init_subclass__`. Tests use the existing `core` pytest fixture (`tests/conftest.py`).
 - **Dashboard contract (do not change the dashboard):** a card = `viz/report_card/<stem>.html` (required for discovery) + optional `<stem>.verdict.json` whose top-level `overall` drives the verdict pill. Verdict JSON schema is `report_card_verdict/v1` with `{overall, groups: {gslug: {verdict, axes: [{id,label,verdict,value,meter,detail}]}}}`.
 - **Determinism (artifacts are committed):** never write a wall-clock timestamp into a committed card. Pass `generated=""` (the default) to `verdict_json`; `render_verdict_html` emits no timestamp. Re-running the generator on unchanged inputs must produce byte-identical output.
 - **Graceful skip:** a module that cannot build logs a one-line skip and continues; it never aborts the whole generation run.
@@ -241,26 +242,27 @@ git commit -m "feat(card): add render_verdict_html (verdict JSON -> self-contain
 
 ---
 
-### Task 3: Card-module framework (registry + StudyContext + write/prune)
+### Task 3: `ReportCardStep` base + registry + StudyContext (pluggable core)
 
-The pluggable core: a `StudyContext`, a `CardModule` protocol, write/prune helpers, and a registry. Modules register themselves on import.
+Report cards as process-bigraph Steps: a `ReportCardStep(V2Step)` base with `{view, data}` output ports, a `REPORT_CARD_REGISTRY` (auto-registration via `__init_subclass__`), a `StudyContext`, `write_card`/`prune` helpers, and an `applicable()` selector. This mirrors `v2ecoli/workflow/analysis.py`'s `Analysis(V2Step)`.
 
 **Files:**
-- Create: `scripts/_cards/__init__.py`
-- Create: `scripts/_cards/base.py`
-- Test: `tests/test_cards_framework.py`
+- Create: `v2ecoli/workflow/report_cards/__init__.py`
+- Test: `tests/test_report_card_step.py`
 
 **Interfaces:**
+- Consumes: `V2Step` (from `v2ecoli.steps.base`); `bigraph_schema.allocate_core` (in tests, the `core` pytest fixture from `tests/conftest.py`).
 - Produces:
-  - `StudyContext(study_name, study_dir, spec, ws_root)` with classmethod `load(ws_root: Path, study_name: str) -> StudyContext`, method `run_zarr_paths() -> list[Path]`, property `card_dir -> Path` (`study_dir/viz/report_card`).
-  - `CardModule` Protocol: attr `name: str`; `applies(ctx) -> bool`; `build(ctx) -> tuple[dict, str] | None` (returns `(verdict_json_dict, html_str)`).
+  - `StudyContext(study_name, study_dir, spec, ws_root)` — classmethod `load(ws_root: Path, study_name: str) -> StudyContext`; `run_zarr_paths() -> list[Path]`; property `card_dir -> Path` (= `study_dir/viz/report_card`).
+  - `ReportCardStep(V2Step)` — attr `name: str`; `inputs() -> {"study": "any"}`; `outputs() -> {"view": "string", "data": "map"}`; `applies(study) -> bool` (default `True`); `build(study) -> tuple[dict, str] | None`; `update(state, interval=None) -> {"view": html, "data": verdict}`. Any subclass that sets `name` auto-registers in `REPORT_CARD_REGISTRY`.
+  - `REPORT_CARD_REGISTRY: dict[str, type]`.
   - `write_card(ctx, name, verdict, html) -> Path`; `prune(ctx, keep: set[str]) -> list[str]`.
-  - `REGISTRY: dict[str, CardModule]`, `register(module) -> module`, `applicable(ctx, only=None) -> list[CardModule]`.
+  - `applicable(ctx, core, only=None) -> list[ReportCardStep]` — instantiated Steps to emit for the study (honors the study's optional `report_cards:` allowlist and `applies()`).
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# tests/test_cards_framework.py
+# tests/test_report_card_step.py
 import json
 import sys
 from pathlib import Path
@@ -268,7 +270,20 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from scripts._cards.base import StudyContext, write_card, prune
+from v2ecoli.steps.base import V2Step
+from v2ecoli.workflow.report_cards import (
+    REPORT_CARD_REGISTRY, ReportCardStep, StudyContext, applicable, prune, write_card)
+
+
+class _DemoCard(ReportCardStep):
+    name = "demo_card"
+
+    def applies(self, study):
+        return bool(study.spec.get("demo"))
+
+    def build(self, study):
+        return ({"schema": "report_card_verdict/v1", "overall": "drift"},
+                "<div>demo</div>")
 
 
 def _ctx(tmp_path, spec=None):
@@ -276,6 +291,24 @@ def _ctx(tmp_path, spec=None):
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump(spec or {"name": "demo"}))
     return StudyContext.load(tmp_path, "demo")
+
+
+def test_reportcardstep_is_v2step_with_view_data_ports(core):
+    step = _DemoCard({}, core=core)
+    assert isinstance(step, V2Step)
+    assert step.outputs() == {"view": "string", "data": "map"}
+    assert step.inputs() == {"study": "any"}
+
+
+def test_subclass_auto_registers():
+    assert REPORT_CARD_REGISTRY.get("demo_card") is _DemoCard
+
+
+def test_update_returns_view_and_data(core, tmp_path):
+    ctx = _ctx(tmp_path, {"name": "demo", "demo": True})
+    out = _DemoCard({}, core=core).update({"study": ctx})
+    assert out["view"] == "<div>demo</div>"
+    assert out["data"]["overall"] == "drift"
 
 
 def test_studycontext_loads_spec_and_paths(tmp_path):
@@ -286,19 +319,13 @@ def test_studycontext_loads_spec_and_paths(tmp_path):
     assert ctx.run_zarr_paths() == []
 
 
-def test_write_card_writes_both_files(tmp_path):
+def test_write_card_writes_both_files_and_sanitizes(tmp_path):
     ctx = _ctx(tmp_path)
-    p = write_card(ctx, "tests", {"overall": "within_tol"}, "<div>hi</div>")
+    p = write_card(ctx, "tests", {"overall": "drift", "x": float("inf")}, "<i>hi</i>")
     assert p.name == "tests.html"
-    assert p.read_text() == "<div>hi</div>"
+    assert p.read_text() == "<i>hi</i>"
     vj = json.loads((ctx.card_dir / "tests.verdict.json").read_text())
-    assert vj["overall"] == "within_tol"
-
-
-def test_write_card_sanitizes_nonfinite(tmp_path):
-    ctx = _ctx(tmp_path)
-    write_card(ctx, "c", {"overall": "drift", "x": float("inf")}, "<i></i>")
-    vj = json.loads((ctx.card_dir / "c.verdict.json").read_text())
+    assert vj["overall"] == "drift"
     assert vj["x"] is None  # inf -> null (bundle-safe)
 
 
@@ -306,31 +333,59 @@ def test_prune_removes_stale_only(tmp_path):
     ctx = _ctx(tmp_path)
     write_card(ctx, "keep", {"overall": "within_tol"}, "<i></i>")
     write_card(ctx, "stale", {"overall": "within_tol"}, "<i></i>")
-    pruned = prune(ctx, keep={"keep"})
-    assert pruned == ["stale"]
+    assert prune(ctx, keep={"keep"}) == ["stale"]
     assert (ctx.card_dir / "keep.html").is_file()
     assert not (ctx.card_dir / "stale.html").is_file()
     assert not (ctx.card_dir / "stale.verdict.json").is_file()
+
+
+def test_applicable_selects_by_applies_and_allowlist(core, tmp_path):
+    on = _ctx(tmp_path, {"name": "demo", "demo": True})
+    # only='demo_card' isolates from other registered cards; applies() True here
+    assert [s.name for s in applicable(on, core, only="demo_card")] == ["demo_card"]
+    off = _ctx(tmp_path, {"name": "demo"})  # no 'demo' key -> applies() False
+    assert applicable(off, core, only="demo_card") == []
+    # explicit report_cards allowlist excluding demo_card -> not emitted
+    excl = _ctx(tmp_path, {"name": "demo", "demo": True, "report_cards": ["tests"]})
+    assert applicable(excl, core, only="demo_card") == []
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_cards_framework.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'scripts._cards'`.
+Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_report_card_step.py -v`
+Expected: FAIL with `ModuleNotFoundError: No module named 'v2ecoli.workflow.report_cards'`.
 
-- [ ] **Step 3: Create `scripts/_cards/base.py`**
+- [ ] **Step 3: Create `v2ecoli/workflow/report_cards/__init__.py`**
 
 ```python
-# scripts/_cards/base.py
+# v2ecoli/workflow/report_cards/__init__.py
+"""Report cards as visualization-like process-bigraph Steps.
+
+A report card is a ``ReportCardStep`` — a sibling of
+``v2ecoli/workflow/analysis.py``'s ``Analysis(V2Step)`` with the same HTML output
+port. It emits a rendered ``view`` (the card HTML) plus ``data`` (the verdict_json
+map). Unlike ``Analysis`` — which consumes a live DuckDB sim-output connection — a
+report card's input is a ``StudyContext`` (the study's spec + dir), so cards grade
+run-free. Subclasses that set ``name`` auto-register in ``REPORT_CARD_REGISTRY``.
+
+The runner (``scripts/study_report_cards.py``) builds a ``bigraph_schema`` core,
+instantiates each registered card, calls ``applies``/``build``, and writes the
+``view`` → ``viz/report_card/<name>.html`` and ``data`` → ``<name>.verdict.json``
+(the files the dashboard discovers).
+"""
 from __future__ import annotations
 
 import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 import yaml
+
+from v2ecoli.steps.base import V2Step
+
+REPORT_CARD_REGISTRY: dict[str, type] = {}
 
 
 def _sanitize(obj: Any) -> Any:
@@ -368,12 +423,40 @@ class StudyContext:
         return self.study_dir / "viz" / "report_card"
 
 
-class CardModule(Protocol):
-    name: str
+class ReportCardStep(V2Step):
+    """A report card as a visualization-like Step (sibling of ``Analysis``):
+    emits ``view`` (HTML) + ``data`` (verdict map). Subclasses set ``name`` and
+    implement ``applies(study)`` + ``build(study) -> (verdict_dict, html) | None``.
+    """
 
-    def applies(self, ctx: StudyContext) -> bool: ...
+    name: str = ""
+    config_schema: dict = {}
 
-    def build(self, ctx: StudyContext) -> "tuple[dict, str] | None": ...
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.__dict__.get("name"):
+            REPORT_CARD_REGISTRY[cls.name] = cls
+
+    def inputs(self):
+        return {"study": "any"}
+
+    def outputs(self):
+        return {"view": "string", "data": "map"}
+
+    def applies(self, study: "StudyContext") -> bool:
+        return True
+
+    def build(self, study: "StudyContext") -> "tuple[dict, str] | None":
+        """Return ``(verdict_json_dict, html_str)`` or None. Subclasses override."""
+        raise NotImplementedError
+
+    def update(self, state, interval=None):
+        study = state.get("study")
+        res = self.build(study) if study is not None else None
+        if not res:
+            return {"view": "", "data": {}}
+        verdict, html = res
+        return {"view": html, "data": verdict}
 
 
 def write_card(ctx: StudyContext, name: str, verdict: dict, html: str) -> Path:
@@ -405,44 +488,31 @@ def prune(ctx: StudyContext, keep: set[str]) -> list[str]:
                 vf.unlink()
             pruned.append(stem)
     return pruned
-```
-
-- [ ] **Step 4: Create `scripts/_cards/__init__.py`**
-
-```python
-# scripts/_cards/__init__.py
-from __future__ import annotations
-
-from .base import CardModule, StudyContext, prune, write_card  # noqa: F401
-
-REGISTRY: dict[str, CardModule] = {}
 
 
-def register(module: CardModule) -> CardModule:
-    REGISTRY[module.name] = module
-    return module
-
-
-def applicable(ctx: StudyContext, only: str | None = None) -> list[CardModule]:
-    """Modules to emit for a study. If the study spec lists `report_cards:`, only
-    those names are eligible; otherwise every registered module is eligible. A
-    module is emitted when eligible AND its applies(ctx) is True. `only` (a module
-    name, or None/'all') narrows to a single module."""
+def applicable(ctx: StudyContext, core, only: "str | None" = None) -> list:
+    """Instantiated report-card Steps to emit for a study. If the study spec lists
+    `report_cards:`, only those names are eligible; otherwise every registered card
+    is eligible. A card is emitted when eligible AND its applies(ctx) is True.
+    `only` (a name, or None/'all') narrows to a single card. `core` is a
+    bigraph-schema core (built once by the caller) used to instantiate Steps."""
     declared = ctx.spec.get("report_cards")
     want = None if (only in (None, "all")) else {only}
-    out: list[CardModule] = []
-    for nm, mod in REGISTRY.items():
+    out = []
+    for nm, cls in REPORT_CARD_REGISTRY.items():
         if want is not None and nm not in want:
             continue
         if declared is not None and nm not in declared:
             continue
-        if mod.applies(ctx):
-            out.append(mod)
+        step = cls({}, core=core)
+        if step.applies(ctx):
+            out.append(step)
     return out
 
 
-# Register built-in modules (import for side effect; added in Tasks 4 & 5).
-try:  # keep the framework importable before the modules exist (TDD ordering)
+# Register built-in cards (import for side effect; added in Tasks 4 & 5). Guarded
+# so the package imports cleanly before those modules exist (TDD ordering).
+try:
     from . import tests_card  # noqa: E402,F401
 except Exception:  # noqa: BLE001
     pass
@@ -452,31 +522,31 @@ except Exception:  # noqa: BLE001
     pass
 ```
 
-- [ ] **Step 5: Run it to verify it passes**
+- [ ] **Step 4: Run it to verify it passes**
 
-Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_cards_framework.py -v`
-Expected: PASS (4 passed).
+Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_report_card_step.py -v`
+Expected: PASS (7 passed). (The `core` fixture builds a `bigraph_schema` core; expect a few "skipping optional dep" warnings from core allocation — those are pre-existing and not from this code.)
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/_cards/__init__.py scripts/_cards/base.py tests/test_cards_framework.py
-git commit -m "feat(cards): card-module registry + StudyContext + write/prune helpers"
+git add v2ecoli/workflow/report_cards/__init__.py tests/test_report_card_step.py
+git commit -m "feat(cards): ReportCardStep base + REPORT_CARD_REGISTRY + StudyContext"
 ```
 
 ---
 
-### Task 4: `tests` card module (universal, run-free)
+### Task 4: `tests` card Step (universal, run-free)
 
-Renders each study's own `tests:` block as a card; verdict comes from each test's recorded `status`. Applies to every study that has tests → guarantees ≥1 card per study.
+`TestsCard(ReportCardStep)` renders each study's own `tests:` block; verdict comes from each test's recorded `status`. Applies to every study with tests → guarantees ≥1 card per study.
 
 **Files:**
-- Create: `scripts/_cards/tests_card.py`
+- Create: `v2ecoli/workflow/report_cards/tests_card.py`
 - Test: `tests/test_tests_card.py`
 
 **Interfaces:**
-- Consumes: `StudyContext` (Task 3); `grade_card`, `verdict_json` (library); `render_verdict_html` (Task 2); `register` (Task 3).
-- Produces: `TestsCard` (`name = "tests"`), registered. `build` returns `(verdict_json_dict, html_str)`.
+- Consumes: `ReportCardStep`, `StudyContext` (Task 3); `grade_card`, `verdict_json` (library); `render_verdict_html` (Task 2).
+- Produces: `TestsCard(ReportCardStep)` (`name = "tests"`), auto-registered. `build` returns `(verdict_json_dict, html_str)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -488,8 +558,8 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from scripts._cards.base import StudyContext
-from scripts._cards.tests_card import TestsCard
+from v2ecoli.workflow.report_cards import StudyContext
+from v2ecoli.workflow.report_cards.tests_card import TestsCard
 
 
 def _ctx(tmp_path, tests):
@@ -499,14 +569,14 @@ def _ctx(tmp_path, tests):
     return StudyContext.load(tmp_path, "demo")
 
 
-def test_one_axis_per_test_overall_is_worst(tmp_path):
+def test_one_axis_per_test_overall_is_worst(core, tmp_path):
     ctx = _ctx(tmp_path, [
         {"name": "doubling-time-in-band", "classification": "primary",
          "status": "passed", "pass_if": {"op": "in_range", "low": 35, "high": 55}},
         {"name": "mass-fraction", "classification": "primary",
          "status": "failed", "pass_if": {"op": "in_range", "low": 0.40, "high": 0.55}},
     ])
-    m = TestsCard()
+    m = TestsCard({}, core=core)
     assert m.applies(ctx) is True
     vjson, html = m.build(ctx)
     assert vjson["schema"] == "report_card_verdict/v1"
@@ -515,27 +585,26 @@ def test_one_axis_per_test_overall_is_worst(tmp_path):
     assert "in [35, 55]" in html                        # criterion string surfaced
 
 
-def test_absent_when_no_tests(tmp_path):
-    assert TestsCard().applies(_ctx(tmp_path, [])) is False
+def test_absent_when_no_tests(core, tmp_path):
+    assert TestsCard({}, core=core).applies(_ctx(tmp_path, [])) is False
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_tests_card.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'scripts._cards.tests_card'`.
+Expected: FAIL with `ModuleNotFoundError: No module named 'v2ecoli.workflow.report_cards.tests_card'`.
 
-- [ ] **Step 3: Create `scripts/_cards/tests_card.py`**
+- [ ] **Step 3: Create `v2ecoli/workflow/report_cards/tests_card.py`**
 
 ```python
-# scripts/_cards/tests_card.py
+# v2ecoli/workflow/report_cards/tests_card.py
 from __future__ import annotations
 
 import re
 from typing import Any
 
-from scripts._cards import register
-from scripts._cards.base import StudyContext
 from v2ecoli.library.report_card import grade_card, render_verdict_html, verdict_json
+from v2ecoli.workflow.report_cards import ReportCardStep, StudyContext
 
 _STATUS_TO_VERDICT = {
     "passed": "within_tol", "pass": "within_tol", "within_tol": "within_tol",
@@ -558,14 +627,14 @@ def _criterion_str(pass_if: dict) -> str:
     return op or ""
 
 
-class TestsCard:
+class TestsCard(ReportCardStep):
     name = "tests"
 
-    def applies(self, ctx: StudyContext) -> bool:
-        return bool(ctx.spec.get("tests"))
+    def applies(self, study: StudyContext) -> bool:
+        return bool(study.spec.get("tests"))
 
-    def build(self, ctx: StudyContext):
-        tests = ctx.spec.get("tests") or []
+    def build(self, study: StudyContext):
+        tests = study.spec.get("tests") or []
         if not tests:
             return None
         reference_axes: dict[str, Any] = {}
@@ -590,7 +659,7 @@ class TestsCard:
                 "meter": crit_str, "detail": {"text": detail},
             }
         reference = {
-            "title": f"{ctx.spec.get('name', ctx.study_name)} — default tests",
+            "title": f"{study.spec.get('name', study.study_name)} — default tests",
             "stimulus": {"reference_model": "behavioral spec",
                          "measured_model": "v2ecoli"},
             "axes": reference_axes,
@@ -601,10 +670,9 @@ class TestsCard:
         vjson["title"] = reference["title"]
         html = render_verdict_html(vjson, title=reference["title"])
         return vjson, html
-
-
-register(TestsCard())
 ```
+
+(Importing `from v2ecoli.workflow.report_cards import ReportCardStep` while that package's `__init__` is importing this module is safe: `ReportCardStep` is defined before the guarded `from . import tests_card` at the bottom of `__init__`, so the name resolves from the partially-initialized package.)
 
 - [ ] **Step 4: Run it to verify it passes**
 
@@ -614,23 +682,23 @@ Expected: PASS (2 passed).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/_cards/tests_card.py tests/test_tests_card.py
-git commit -m "feat(cards): tests module — study tests -> universal run-free card"
+git add v2ecoli/workflow/report_cards/tests_card.py tests/test_tests_card.py
+git commit -m "feat(cards): TestsCard Step — study tests -> universal run-free card"
 ```
 
 ---
 
-### Task 5: `vs_vecoli` card module (equivalence, run-free staging)
+### Task 5: `vs_vecoli` card Step (equivalence, run-free staging)
 
-Stages a pre-generated v2ecoli↔vEcoli comparison verdict JSON (the `standard`+`config` groups) into the study slot and renders it. Applies only when the study declares `report_card_refs.vs_vecoli`. Phase 2 regenerates the source verdict from fresh GovCloud runs; this module re-stages whatever exists.
+`VsVecoliCard(ReportCardStep)` stages a pre-generated v2ecoli↔vEcoli comparison verdict JSON (the `standard`+`config` groups) and renders it. Applies only when the study declares `report_card_refs.vs_vecoli`. Phase 2 regenerates the source verdict from fresh runs; this Step re-stages whatever exists.
 
 **Files:**
-- Create: `scripts/_cards/vs_vecoli_card.py`
+- Create: `v2ecoli/workflow/report_cards/vs_vecoli_card.py`
 - Test: `tests/test_vs_vecoli_card.py`
 
 **Interfaces:**
-- Consumes: `StudyContext` (Task 3); `render_verdict_html` (Task 2); `register` (Task 3).
-- Produces: `VsVecoliCard` (`name = "vs_vecoli"`), registered. Reads `ctx.spec["report_card_refs"]["vs_vecoli"]` (a path relative to `ws_root`, or absolute) pointing at a `report_card_verdict.json`.
+- Consumes: `ReportCardStep`, `StudyContext` (Task 3); `render_verdict_html` (Task 2).
+- Produces: `VsVecoliCard(ReportCardStep)` (`name = "vs_vecoli"`), auto-registered. Reads `study.spec["report_card_refs"]["vs_vecoli"]` (a path relative to `ws_root`, or absolute) pointing at a `report_card_verdict.json`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -643,8 +711,8 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from scripts._cards.base import StudyContext
-from scripts._cards.vs_vecoli_card import VsVecoliCard
+from v2ecoli.workflow.report_cards import StudyContext
+from v2ecoli.workflow.report_cards.vs_vecoli_card import VsVecoliCard
 
 
 def _ctx(tmp_path, refs=None):
@@ -669,19 +737,19 @@ def _write_verdict(tmp_path):
     return "docs/rc/basal/report_card_verdict.json"
 
 
-def test_absent_without_ref(tmp_path):
-    assert VsVecoliCard().applies(_ctx(tmp_path)) is False
+def test_absent_without_ref(core, tmp_path):
+    assert VsVecoliCard({}, core=core).applies(_ctx(tmp_path)) is False
 
 
-def test_absent_when_ref_missing_file(tmp_path):
+def test_absent_when_ref_missing_file(core, tmp_path):
     ctx = _ctx(tmp_path, refs={"vs_vecoli": "docs/rc/nope.json"})
-    assert VsVecoliCard().applies(ctx) is False
+    assert VsVecoliCard({}, core=core).applies(ctx) is False
 
 
-def test_renders_from_declared_verdict(tmp_path):
+def test_renders_from_declared_verdict(core, tmp_path):
     rel = _write_verdict(tmp_path)
     ctx = _ctx(tmp_path, refs={"vs_vecoli": rel})
-    m = VsVecoliCard()
+    m = VsVecoliCard({}, core=core)
     assert m.applies(ctx) is True
     vjson, html = m.build(ctx)
     assert vjson["overall"] == "drift"
@@ -691,47 +759,43 @@ def test_renders_from_declared_verdict(tmp_path):
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_vs_vecoli_card.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'scripts._cards.vs_vecoli_card'`.
+Expected: FAIL with `ModuleNotFoundError: No module named 'v2ecoli.workflow.report_cards.vs_vecoli_card'`.
 
-- [ ] **Step 3: Create `scripts/_cards/vs_vecoli_card.py`**
+- [ ] **Step 3: Create `v2ecoli/workflow/report_cards/vs_vecoli_card.py`**
 
 ```python
-# scripts/_cards/vs_vecoli_card.py
+# v2ecoli/workflow/report_cards/vs_vecoli_card.py
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from scripts._cards import register
-from scripts._cards.base import StudyContext
 from v2ecoli.library.report_card import render_verdict_html
+from v2ecoli.workflow.report_cards import ReportCardStep, StudyContext
 
 
-class VsVecoliCard:
+class VsVecoliCard(ReportCardStep):
     name = "vs_vecoli"
 
-    def _verdict_path(self, ctx: StudyContext) -> "Path | None":
-        rel = (ctx.spec.get("report_card_refs") or {}).get("vs_vecoli")
+    def _verdict_path(self, study: StudyContext) -> "Path | None":
+        rel = (study.spec.get("report_card_refs") or {}).get("vs_vecoli")
         if not rel:
             return None
-        p = Path(rel) if str(rel).startswith("/") else (ctx.ws_root / rel)
+        p = Path(rel) if str(rel).startswith("/") else (study.ws_root / rel)
         return p if p.is_file() else None
 
-    def applies(self, ctx: StudyContext) -> bool:
-        return self._verdict_path(ctx) is not None
+    def applies(self, study: StudyContext) -> bool:
+        return self._verdict_path(study) is not None
 
-    def build(self, ctx: StudyContext):
-        vp = self._verdict_path(ctx)
+    def build(self, study: StudyContext):
+        vp = self._verdict_path(study)
         if vp is None:
             return None
         vjson = json.loads(vp.read_text(encoding="utf-8"))
         title = vjson.get("title") or (
-            f"vEcoli ↔ v2ecoli — {ctx.spec.get('name', ctx.study_name)}")
+            f"vEcoli ↔ v2ecoli — {study.spec.get('name', study.study_name)}")
         html = render_verdict_html(vjson, title=title)
         return vjson, html
-
-
-register(VsVecoliCard())
 ```
 
 - [ ] **Step 4: Run it to verify it passes**
@@ -742,23 +806,25 @@ Expected: PASS (3 passed).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add scripts/_cards/vs_vecoli_card.py tests/test_vs_vecoli_card.py
-git commit -m "feat(cards): vs_vecoli module — stage+render pre-generated comparison verdict"
+git add v2ecoli/workflow/report_cards/vs_vecoli_card.py tests/test_vs_vecoli_card.py
+git commit -m "feat(cards): VsVecoliCard Step — stage+render pre-generated comparison verdict"
 ```
 
 ---
 
-### Task 6: Generator CLI (`scripts/study_report_cards.py`)
+### Task 6: Runner CLI (`scripts/study_report_cards.py`)
 
-Iterates the registry over one or all studies, writes cards, optionally prunes. The single entry point the workspace/CI calls.
+Builds a core once, runs the registered report-card Steps over one or all studies, writes their `view`/`data` to `viz/report_card/`, optionally prunes. The entry point that makes cards show now.
+
+> **Interim:** this runner is a thin, report-card-only driver so cards appear immediately. The next sub-project — the unified **post-simulation analysis flush** (one extraction over the run's emitters → dispatch to all post-sim Steps: Analyses, Visualizations, ReportCards) — will absorb this runner as its ReportCard dispatch. Keep it small and registry-driven so that absorption is clean; do not grow sim-output/extraction logic here (that belongs to the flush).
 
 **Files:**
 - Create: `scripts/study_report_cards.py`
 - Test: `tests/test_study_report_cards_cli.py`
 
 **Interfaces:**
-- Consumes: `REGISTRY`, `applicable`, `write_card`, `prune`, `StudyContext` (Tasks 3–5).
-- Produces: `generate_study(ws_root: Path, name: str, only: str | None, do_prune: bool) -> dict` (returns `{"study", "written": [stems]}`); `main(argv=None) -> int` with flags `--study {all|<name>}`, `--card {all|<name>}`, `--prune`.
+- Consumes: `REPORT_CARD_REGISTRY`, `applicable`, `write_card`, `prune`, `StudyContext` (Task 3); `bigraph_schema.allocate_core`.
+- Produces: `generate_study(ws_root: Path, name: str, core, only: str | None, do_prune: bool) -> dict` (returns `{"study", "written": [names]}`); `main(argv=None) -> int` with flags `--study {all|<name>}`, `--card {all|<name>}`, `--prune`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -781,32 +847,32 @@ def _study(tmp_path, name, spec):
     return sd
 
 
-def test_generate_study_emits_tests_card(tmp_path):
+def test_generate_study_emits_tests_card(core, tmp_path):
     sd = _study(tmp_path, "demo", {"name": "Demo", "tests": [
         {"name": "t1", "classification": "primary", "status": "passed",
          "pass_if": {"op": "in_range", "low": 1, "high": 2}}]})
-    r = cli.generate_study(tmp_path, "demo", only=None, do_prune=True)
+    r = cli.generate_study(tmp_path, "demo", core, only=None, do_prune=True)
     assert "tests" in r["written"]
     rc = sd / "viz" / "report_card"
     assert (rc / "tests.html").is_file()
     assert json.loads((rc / "tests.verdict.json").read_text())["overall"] == "within_tol"
 
 
-def test_only_filters_to_one_module(tmp_path):
+def test_only_filters_to_one_card(core, tmp_path):
     _study(tmp_path, "demo", {"name": "Demo", "tests": [
         {"name": "t1", "status": "passed", "pass_if": {"op": "in_range", "low": 1, "high": 2}}]})
-    r = cli.generate_study(tmp_path, "demo", only="vs_vecoli", do_prune=False)
-    assert r["written"] == []          # tests excluded by --card vs_vecoli; no ref -> none
+    r = cli.generate_study(tmp_path, "demo", core, only="vs_vecoli", do_prune=False)
+    assert r["written"] == []   # tests excluded by --card vs_vecoli; no ref -> none
 
 
-def test_prune_drops_stale_card(tmp_path):
+def test_prune_drops_stale_card(core, tmp_path):
     sd = _study(tmp_path, "demo", {"name": "Demo", "tests": [
         {"name": "t1", "status": "passed", "pass_if": {"op": "in_range", "low": 1, "high": 2}}]})
     rc = sd / "viz" / "report_card"
     rc.mkdir(parents=True)
     (rc / "old.html").write_text("<i></i>")
-    cli.generate_study(tmp_path, "demo", only=None, do_prune=True)
-    assert not (rc / "old.html").is_file()   # stale pruned
+    cli.generate_study(tmp_path, "demo", core, only=None, do_prune=True)
+    assert not (rc / "old.html").is_file()    # stale pruned
     assert (rc / "tests.html").is_file()
 ```
 
@@ -819,13 +885,14 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'scripts.study_report_
 
 ```python
 # scripts/study_report_cards.py
-"""Generate per-study report cards via the modular card-module registry.
+"""Generate per-study report cards by running the report-card Steps.
 
-Each registered module (tests, vs_vecoli, ...) emits
-``workspace/studies/<name>/viz/report_card/<module>.{html,verdict.json}``, which
-the dashboard auto-discovers (no dashboard changes). The ``tests`` module is
-universal and run-free; ``vs_vecoli`` stages a pre-generated v2ecoli<->vEcoli
-comparison verdict (declared per study via ``report_card_refs.vs_vecoli``).
+Each registered ``ReportCardStep`` (tests, vs_vecoli, ...) emits a ``view`` (HTML)
++ ``data`` (verdict map); this runner writes them to
+``workspace/studies/<name>/viz/report_card/<name>.{html,verdict.json}``, which the
+dashboard auto-discovers (no dashboard changes). The ``tests`` card is universal
+and run-free; ``vs_vecoli`` stages a pre-generated v2ecoli<->vEcoli comparison
+verdict (declared per study via ``report_card_refs.vs_vecoli``).
 
 Usage:
   python scripts/study_report_cards.py --study all [--card all] [--prune]
@@ -840,8 +907,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from scripts._cards import applicable, prune, write_card  # noqa: E402
-from scripts._cards.base import StudyContext  # noqa: E402
+from bigraph_schema import allocate_core  # noqa: E402
+
+from v2ecoli.workflow.report_cards import (  # noqa: E402
+    applicable, prune, write_card)
 
 
 def _all_studies(ws_root: Path) -> list[str]:
@@ -851,22 +920,23 @@ def _all_studies(ws_root: Path) -> list[str]:
     return sorted(p.name for p in sdir.iterdir() if (p / "study.yaml").is_file())
 
 
-def generate_study(ws_root: Path, name: str, only: str | None,
+def generate_study(ws_root: Path, name: str, core, only: "str | None",
                    do_prune: bool) -> dict:
+    from v2ecoli.workflow.report_cards import StudyContext
     ctx = StudyContext.load(ws_root, name)
     written: list[str] = []
-    for mod in applicable(ctx, only=only):
+    for step in applicable(ctx, core, only=only):
         try:
-            res = mod.build(ctx)
-        except Exception as e:  # noqa: BLE001 — one module never aborts the run
-            print(f"  ! {name}/{mod.name}: skip ({e})")
+            res = step.build(ctx)
+        except Exception as e:  # noqa: BLE001 — one card never aborts the run
+            print(f"  ! {name}/{step.name}: skip ({e})")
             continue
         if not res:
             continue
         vjson, html = res
-        write_card(ctx, mod.name, vjson, html)
-        written.append(mod.name)
-        print(f"  ✓ {name}/{mod.name} [{vjson.get('overall', '?')}]")
+        write_card(ctx, step.name, vjson, html)
+        written.append(step.name)
+        print(f"  ✓ {name}/{step.name} [{vjson.get('overall', '?')}]")
     if do_prune:
         for s in prune(ctx, keep=set(written)):
             print(f"  - {name}/{s}: pruned")
@@ -876,15 +946,16 @@ def generate_study(ws_root: Path, name: str, only: str | None,
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--study", default="all", help="study name or 'all'")
-    ap.add_argument("--card", default="all", help="module name or 'all'")
+    ap.add_argument("--card", default="all", help="card name or 'all'")
     ap.add_argument("--prune", action="store_true",
                     help="delete report_card/* not produced this run")
     args = ap.parse_args(argv)
     studies = _all_studies(REPO_ROOT) if args.study == "all" else [args.study]
     only = None if args.card == "all" else args.card
+    core = allocate_core()
     total = 0
     for s in studies:
-        total += len(generate_study(REPO_ROOT, s, only, args.prune)["written"])
+        total += len(generate_study(REPO_ROOT, s, core, only, args.prune)["written"])
     print(f"done — {total} cards across {len(studies)} studies")
     return 0
 
@@ -900,14 +971,14 @@ Expected: PASS (3 passed).
 
 - [ ] **Step 5: Run the whole new suite together**
 
-Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_status_criterion.py tests/test_render_verdict_html.py tests/test_cards_framework.py tests/test_tests_card.py tests/test_vs_vecoli_card.py tests/test_study_report_cards_cli.py -v`
+Run: `PYTHONPATH=$PWD $V2EPY -m pytest tests/test_status_criterion.py tests/test_render_verdict_html.py tests/test_report_card_step.py tests/test_tests_card.py tests/test_vs_vecoli_card.py tests/test_study_report_cards_cli.py -v`
 Expected: PASS (all green).
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add scripts/study_report_cards.py tests/test_study_report_cards_cli.py
-git commit -m "feat(cards): generator CLI (study_report_cards.py)"
+git commit -m "feat(cards): runner CLI (study_report_cards.py) — run report-card Steps"
 ```
 
 ---
@@ -1010,8 +1081,9 @@ exist (no dashboard changes)."
 
 ---
 
-## Out of scope (Phase 2 — not in this plan)
+## Out of scope (later — not in this plan)
 
+- **Unified post-simulation analysis flush (the immediate next sub-project, its own spec+plan).** Formalize an extraction step (emitters → a shared extracted-run context: per-cell records + DuckDB conn + `sim_data`) and a flush orchestrator that, in one pass, dispatches that context to every registered post-sim Step sharing the `view`(HTML)+`data` contract — Analyses, Visualizations, and ReportCards — generalizing `v2ecoli/workflow/analysis_runner.run_analyses`. The Task-6 runner here is the interim ReportCard-only driver the flush will absorb.
 - New GovCloud comparison runs (`comparison_harness.sh` / `launch_full_comparison.sh`) to regenerate the `vs_vecoli` source verdicts across all 5 conditions.
-- Moving card generation into the publish-dashboard CI workflow (so cards regenerate instead of being committed). Phase 1 commits them for immediate visibility.
-- Re-evaluating `tests` cards against live run data (Phase 1 grades from recorded `status`).
+- Moving card generation into the publish-dashboard CI workflow (so cards regenerate instead of being committed). This plan commits them for immediate visibility.
+- Re-evaluating `tests` cards against live run data (this plan grades from recorded `status`).

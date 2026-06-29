@@ -43,48 +43,68 @@ they simply gain populated card slots and room for more.
   5 conditions (`basal with_aa succinate no_oxygen acetate`). That path is
   **Phase 2** (incremental runs), not required for Phase 1.
 
-## Approach (chosen: A — thin adapter over the existing library)
+## Approach (chosen: report cards as visualization-like process-bigraph Steps)
 
-A small **card-module registry** plus a generator CLI. Each module delegates
-all grading and rendering to `v2ecoli/library/report_card.py`; no new grading
-or rendering logic is introduced. This mirrors how
-`scripts/_compare/report_card_section.py` and
-`scripts/pin_vecoli_equivalence_reference.py` already call the library.
+**Revised 2026-06-29 (user steer):** report cards are modeled as
+**process-bigraph Steps** — the same shape as `v2ecoli/workflow/analysis.py`'s
+`Analysis(V2Step)`, whose `outputs()` is `{"view": "string" (HTML), "data":
+"map"}`. A report card is a visualization with an **HTML output port**. Each card
+is a `ReportCardStep` subclass that auto-registers in `REPORT_CARD_REGISTRY` (via
+`__init_subclass__`), exactly as analyses register in `ANALYSIS_REGISTRY`.
+
+`ReportCardStep` is a **sibling of `Analysis`** (both subclass `V2Step`), not a
+subclass of it: `Analysis` consumes a live DuckDB sim-output connection, whereas
+a report card's input is a `StudyContext` (the study's spec + dir), so cards grade
+run-free (from recorded test status, or a pre-generated comparison verdict). This
+keeps the established plug-in mechanism (registry + `view`/`data` ports) while not
+forcing run-free cards through the sim-output contract.
+
+All grading/serialization still goes through `v2ecoli/library/report_card.py`
+(`grade_card`, `verdict_json`, plus the new `render_verdict_html`) — no new
+grading math. This supersedes the earlier "standalone `scripts/_cards/` module
+registry" framing; the registry is now `REPORT_CARD_REGISTRY` and the modules are
+Steps living in the `v2ecoli` package.
 
 Rejected alternatives:
-- **B — extend `comparison_report_card.py` to also emit per-study.** Couples
-  per-study cards to the S3/GovCloud pipeline; heavier; conflates Phase 2 with
-  Phase 1.
-- **C — new standalone renderer.** Duplicates the established method, which we
-  explicitly want to reuse.
+- **Subclass `Analysis` directly** (make `conn`/`sim_data` optional). Stretches
+  Analysis's sim-output-consuming contract onto run-free cards.
+- **Plain standalone generator** (no Steps). Bypasses the established
+  process-bigraph Step/registry pattern the project already uses for analyses.
 
 ## Architecture
 
 ```
-scripts/study_report_cards.py            ← generator CLI
-  └─ uses scripts/_cards/                 ← module registry (new package)
-       ├─ __init__.py     REGISTRY: {name: CardModule}; register(); applicable(study)
-       ├─ base.py         CardModule protocol + StudyContext + write helpers
-       ├─ tests_card.py   "tests" module    (applies to EVERY study)
-       └─ vs_vecoli_card.py "vs_vecoli" module (applies when reference+data exist)
-  emits → workspace/studies/<name>/viz/report_card/<module>.html
-                                          + <module>.verdict.json
+scripts/study_report_cards.py            ← runner CLI (builds a core, runs the Steps)
+  └─ uses v2ecoli/workflow/report_cards/  ← report-card Steps (new subpackage)
+       ├─ __init__.py     ReportCardStep(V2Step) base + REPORT_CARD_REGISTRY
+       │                  + StudyContext + write_card/prune + applicable()
+       ├─ tests_card.py   TestsCard(ReportCardStep)    (applies to EVERY study)
+       └─ vs_vecoli_card.py VsVecoliCard(ReportCardStep) (applies when a ref is declared)
+  each Step emits view (HTML) + data (verdict map); the runner writes
+  view → workspace/studies/<name>/viz/report_card/<name>.html
+  data → workspace/studies/<name>/viz/report_card/<name>.verdict.json
 ```
 
-### Module contract
+### Step contract
 
 ```python
-class CardModule(Protocol):
-    name: str                                   # filename stem (e.g. "tests")
-    def applies(self, ctx: StudyContext) -> bool: ...
-    def build(self, ctx: StudyContext) -> tuple[dict, str] | None:
+class ReportCardStep(V2Step):
+    name: str                                   # filename stem + registry key (e.g. "tests")
+    def inputs(self):  return {"study": "any"}
+    def outputs(self): return {"view": "string", "data": "map"}   # HTML + verdict ports
+    def applies(self, study: StudyContext) -> bool: ...
+    def build(self, study: StudyContext) -> tuple[dict, str] | None:
         """Return (verdict_json_dict, html_str), or None if nothing to emit."""
+    def update(self, state, interval=None) -> dict:
+        # process-bigraph surface: calls build(state["study"]) -> {"view": html, "data": verdict}
 ```
 
-`StudyContext` carries: `study_name`, `study_dir: Path`, `spec: dict` (parsed
-`study.yaml`), and lazy accessors for run data (`run_zarr_paths()`) and the
-workspace root. Modules read what they need; missing data → `applies()` is
-False (skip) rather than an error.
+Subclasses auto-register in `REPORT_CARD_REGISTRY` via `__init_subclass__` (any
+subclass that sets `name`). Steps instantiate with a lightweight
+`bigraph_schema.allocate_core()` core (built once by the runner), as
+`analysis_runner` does. `StudyContext` carries `study_name`, `study_dir: Path`,
+`spec: dict` (parsed `study.yaml`), `ws_root`, `run_zarr_paths()`, and `card_dir`.
+Modules read what they need; missing data → `applies()` is False (skip).
 
 ### Module selection per study
 
@@ -140,11 +160,13 @@ Grades a study's run data against a cached vEcoli reference:
 ## Data flow
 
 ```
+core = allocate_core()                          (runner builds once)
 study.yaml + run zarr ──► StudyContext
-   for each applicable module:
-      module.build(ctx) ──► (verdict_json, html)   [library grade_card/render_html]
-      write viz/report_card/<module>.html
-      write viz/report_card/<module>.verdict.json
+   for each applicable ReportCardStep (instantiated cls({}, core=core)):
+      step.build(ctx) ──► (verdict_json, html)   [library grade_card/render_verdict_html]
+      (equivalently step.update({"study": ctx}) ──► {"view": html, "data": verdict})
+      write view → viz/report_card/<name>.html
+      write data → viz/report_card/<name>.verdict.json
 dashboard (unchanged) auto-discovers the files ──► study-detail page + Tests module
 publish.py (unchanged) stages them into the read-only bundle
 ```

@@ -117,18 +117,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="colonies-02-parallel-multigen-perf"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -230,19 +237,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -291,80 +294,20 @@ via the bridge _remove/_add structural update.
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="colonies-02-parallel-multigen-perf">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
 
     
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
       </h2>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
-        Untested claims, absent controls, uncalibrated metrics, un-excluded
-        alternatives, unexplored regions, and stale visuals — harvested from the
-        rigor scorecard + freshness signals.
-      </p>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-
-    <div class="biology-glance">
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
       
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
-        
-        <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
-          <em>Derived from findings (shown in the report when no override is set):</em>
-          <p style="margin:4px 0 0">One whole-cell agent divides naturally (no forced same-tick division)
+      <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+        <em>Derived from findings (shown in the report when no override is set):</em>
+        <p style="margin:4px 0 0">One whole-cell agent divides naturally (no forced same-tick division)
 through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
 (7 division events) in the sequential run, with all cells advancing on
 subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
@@ -424,68 +367,61 @@ mass is ~0.04 (tiny), so jitter impulse/mass flings the cell. Legacy
 ~0.13 um/tick; the chosen (1e-4, 200) fixes both motion and fg-unit
 coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
 </p>
-        </div>
-        
       </div>
-
-      
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value=""
-                   placeholder="One sentence — the single most important thing this study does.">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="One whole-cell agent divides naturally (no forced same-tick division)
-through &gt;=3 generations: 1 -&gt; 2 -&gt; 4 -&gt; 6 -&gt; 8 -&gt; 10 -&gt; 12 -&gt; 14 cells
-(7 division events) in the sequential run, with all cells advancing on
-subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
-validated FORCED division only). Daughter EcoliWCMs hydrate natively
-via the bridge _remove/_add structural update.
-">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value=""
-                   placeholder="colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
-per_cell_ms / per_cell_rss recorded as projection inputs.
-">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Literature-stated success criterion.">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
-      </div>
-
-      
-
       
     </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Starting from one whole-cell E. coli agent and letting it divide
+naturally through 3-4 generations (1 → 2 → 4 → 8), does per-cell
+compute cost (wall + RSS) stay flat, or does it drift as daughter
+EcoliWCM internal composites accumulate history? And does running
+the growing colony under the process-bigraph Ray protocol (one OS
+process per cell / sharded actor pool) lift the single-process
+GIL ceiling colonies-01 measured (~13 cells/process at realtime)?
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> (H1, drift) Per-cell wall drifts &lt;=20% across gens 0-3 of a natural-
+division colony; if &gt;20%, the inner composite is accumulating dead
+nodes / growing allocations (resolves F-06). (H2, RSS) Per-cell RSS
+stays bounded once startup is amortized; the ~5 MB/sim-s climb is
+pre-division warmup, not an unbounded leak. (H3, Ray) Under Ray,
+total wall for the growing colony stays sub-realtime well past the
+~13-cell single-process ceiling, with biology (masses, division
+timing) consistent vs the sequential run modulo RNG.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> The `colony` composite (v2ecoli/composites/colony.py) wires N copies
+of EcoliWCM (v2ecoli/bridge.py) into one pymunk 2D environment from
+viva-munk. At division the bridge emits a structural update (_remove
+mother, _add two daughter EcoliWCMs) hydrated natively by the engine
+(the colonies-01 daughter-hydration fix). Sequential runs walk all
+inner 55-process WCM steps on one GIL-bound thread. The updated
+process-bigraph Ray protocol (process_bigraph/protocols/ray.py —
+RayProtocol sharded actor pool via `ray:EcoliWCM` + Composite
+parallel_processes=True) runs each cell&#39;s update in its own OS
+process, so independent cells solve concurrently across cores.
+
+      </div>
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
 
     
     <div class="overview-section findings-section">
@@ -880,133 +816,151 @@ coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
 
     
     
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Starting from one whole-cell E. coli agent and letting it divide
-naturally through 3-4 generations (1 → 2 → 4 → 8), does per-cell
-compute cost (wall + RSS) stay flat, or does it drift as daughter
-EcoliWCM internal composites accumulate history? And does running
-the growing colony under the process-bigraph Ray protocol (one OS
-process per cell / sharded actor pool) lift the single-process
-GIL ceiling colonies-01 measured (~13 cells/process at realtime)?
-
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
       </div>
-      
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> The `colony` composite (v2ecoli/composites/colony.py) wires N copies
-of EcoliWCM (v2ecoli/bridge.py) into one pymunk 2D environment from
-viva-munk. At division the bridge emits a structural update (_remove
-mother, _add two daughter EcoliWCMs) hydrated natively by the engine
-(the colonies-01 daughter-hydration fix). Sequential runs walk all
-inner 55-process WCM steps on one GIL-bound thread. The updated
-process-bigraph Ray protocol (process_bigraph/protocols/ray.py —
-RayProtocol sharded actor pool via `ray:EcoliWCM` + Composite
-parallel_processes=True) runs each cell&#39;s update in its own OS
-process, so independent cells solve concurrently across cores.
-
-      </div>
-      
-      
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Expected outcome.</strong> (H1, drift) Per-cell wall drifts &lt;=20% across gens 0-3 of a natural-
-division colony; if &gt;20%, the inner composite is accumulating dead
-nodes / growing allocations (resolves F-06). (H2, RSS) Per-cell RSS
-stays bounded once startup is amortized; the ~5 MB/sim-s climb is
-pre-division warmup, not an unbounded leak. (H3, Ray) Under Ray,
-total wall for the growing colony stays sub-realtime well past the
-~13-cell single-process ceiling, with biology (masses, division
-timing) consistent vs the sequential run modulo RNG.
-
-      </div>
-      
     </div>
     
 
     
     <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>colonies-01-hpc-readiness</code>
-      </div>
-      
-      
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>colonies-03-hpc-deployment</code>
-      </div>
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>colonies-01-hpc-readiness</code>
+        </div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>colonies-03-hpc-deployment</code>
+        </div>
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
 per_cell_ms / per_cell_rss recorded as projection inputs.
 </span></div>
+        
+      </div>
       
+
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>5</strong> tests defined —
+            <span class="classification-pill classification-primary">4 primary</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+
+      
+      
+
+      
+      
+
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     >running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
+      </div>
+
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>3</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
+      </div>
+
     </details>
-    
-
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>5</strong> tests defined —
-          <span class="classification-pill classification-primary">4 primary</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     >running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>3</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -1016,8 +970,11 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -1061,8 +1018,10 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
   
 
   
+  
+  
+  
 </section>
-
 
 
 
@@ -1216,53 +1175,6 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="colony-1cell-natural">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">colony-1cell-natural</h3>
-        <code class="baseline-entry-fqn">v2ecoli.composites.colony.colony</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
-          
-          <tr><td><code>cache_dir</code></td><td><code>out/cache</code></td></tr>
-          
-          <tr><td><code>n_cells</code></td><td><code>1</code></td></tr>
-          
-          <tr><td><code>env_size</code></td><td><code>30</code></td></tr>
-          
-          <tr><td><code>physics_interval</code></td><td><code>1.0</code></td></tr>
-          
-          <tr><td><code>ecoli_interval</code></td><td><code>1.0</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="colony-1cell-natural">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="colony-1cell-natural">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1273,62 +1185,6 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
 
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <p class="empty-message">No variants yet. Add one to perturb a baseline composite's parameters.</p>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="colony-1cell-natural" data-composite-id="v2ecoli.composites.colony.colony">colony-1cell-natural (v2ecoli.composites.colony.colony)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1663,71 +1519,72 @@ count over time, per-cell mass at division) modulo RNG ordering.
   
   
   
-  
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
 
     
     
@@ -1735,13 +1592,35 @@ count over time, per-cell mass at division) modulo RNG ordering.
 
     
     
-
-    
     
 
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

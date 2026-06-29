@@ -133,18 +133,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="pdmp-04-compilation"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -246,19 +253,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -301,13 +304,47 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted — exporting the Phase 2 PDMP to Catalyst.jl + ModelingToolkit with a column-centric Vivarium runtime will achieve ≥10³ parallel trajectories on GPU or multi-core CPU, with 1/√N posterior variance scaling and bit-equivalent trajectory distributions vs. the Phase 2 reference.</textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="pdmp-04-compilation">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">No biology is added: Phase 4 is a performance/runtime re-implementation of the already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3 parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Can the Phase 2 PDMP be exported to a high-performance compiled
+representation (Catalyst.jl / ModelingToolkit with symbolic
+Jacobians and automatic sensitivity equations) running on a
+column-centric Vivarium runtime, and achieve ≥10³ parallel
+single-cell trajectories on a GPU or multi-core CPU with
+near-zero per-step marshalling overhead — turning the throughput
+bottleneck the DUF report identified into a non-issue for
+downstream inference?
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
 
     
     
@@ -386,202 +423,106 @@
     </div>
     
 
-    <div class="biology-glance">
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">No biology is added: Phase 4 is a performance/runtime re-implementation of the already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3 parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.</textarea>
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>{&#39;study&#39;: &#39;pdmp-02-jump-processes&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+        </div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>pdmp-05-causal-discovery</code>
+        </div>
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead &lt; 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.</span></div>
+        
+      </div>
+      
+
+      
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">The PDMP can be compiled (Catalyst.jl/ModelingToolkit or JAX/Diffrax) to a symbolic-Jacobian form that runs ≥10× faster than the Python+glpk baseline.</li><li style="margin:2px 0">A column-centric (struct-of-arrays) state layout removes the marshalling overhead Phase 0 motivates.</li><li style="margin:2px 0">Deterministic floating-point summation (pairwise/Kahan) preserves numerical equivalence with the Phase-3 reference.</li>
+        </ul>
+      </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>3</strong> tests defined —
+            <span class="classification-pill classification-primary">2 primary</span>
+            <span class="classification-pill classification-supporting">1 supporting</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+
+      
+      
+
+      
+      
+
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     selected>running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Design</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
         
       </div>
 
-      
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value="Phase 4 — compile the Phase 2 PDMP to Catalyst.jl + ModelingToolkit (symbolic Jacobians, automatic sensitivity equations, LLVM-optimised), replace v2ecoli&#39;s row-centric nested-dict state with pre-allocated column-centric tensors, and invert the Vivarium API so processes declare local state + ODE vector fields + jump propensities (runtime handles topology + time-stepping)."
-                   placeholder="Implement the PB → Catalyst.jl export; refactor Vivarium&#39;s
-state representation to column-centric pre-allocated tensors;
-invert the Vivarium API so process specifications are
-declarative (local state + ODE vector field + jump
-propensities); deploy the compiled runner on GPU and multi-core
-CPU; benchmark ≥10³ parallel trajectories vs. v2ecoli baseline
-and vs. Phase 2 PDMP runner; report ABC wall-clock time
-improvement (handing off to Phase 3 / Phase 5).
-">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="No biology is added: Phase 4 is a performance/runtime re-implementation of the already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3 parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value="This asks whether the cleaner mathematical structure can be compiled into a much faster simulator for large ensembles of cells."
-                   placeholder="Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead &lt; 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="(a) The PDMP, expressed in Process Bigraph schemas, admits an
-automatic export to Catalyst.jl / ModelingToolkit that produces
-LLVM-optimized simulation with symbolic Jacobians and
-automatic forward-mode sensitivity equations. (b) Replacing
-v2ecoli&#39;s row-centric nested-dictionary state with pre-allocated
-column-centric tensors removes essentially all per-step
-marshalling overhead identified in Phase 0. (c) Vivarium&#39;s API
-can be inverted so processes declare local state, ODE vector
-fields, and jump propensities; the runtime handles topology
-traversal and time-stepping. (d) The combined runtime achieves
-≥10³ parallel single-cell trajectories on GPU or multi-core CPU
-with throughput an order of magnitude or more above the v2ecoli
-baseline.
-">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>6</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>4</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>3</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
       </div>
 
-      
-
-      
-    </div>
-
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Can the Phase 2 PDMP be exported to a high-performance compiled
-representation (Catalyst.jl / ModelingToolkit with symbolic
-Jacobians and automatic sensitivity equations) running on a
-column-centric Vivarium runtime, and achieve ≥10³ parallel
-single-cell trajectories on a GPU or multi-core CPU with
-near-zero per-step marshalling overhead — turning the throughput
-bottleneck the DUF report identified into a non-issue for
-downstream inference?
-
-      </div>
-      
-      
-      
-    </div>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>{&#39;study&#39;: &#39;pdmp-02-jump-processes&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
-      </div>
-      
-      
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>pdmp-05-causal-discovery</code>
-      </div>
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead &lt; 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.</span></div>
-      
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">The PDMP can be compiled (Catalyst.jl/ModelingToolkit or JAX/Diffrax) to a symbolic-Jacobian form that runs ≥10× faster than the Python+glpk baseline.</li><li style="margin:2px 0">A column-centric (struct-of-arrays) state layout removes the marshalling overhead Phase 0 motivates.</li><li style="margin:2px 0">Deterministic floating-point summation (pairwise/Kahan) preserves numerical equivalence with the Phase-3 reference.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>3</strong> tests defined —
-          <span class="classification-pill classification-primary">2 primary</span>
-          <span class="classification-pill classification-supporting">1 supporting</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     selected>running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Design</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>6</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>4</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>3</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -591,8 +532,11 @@ downstream inference?
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -796,8 +740,10 @@ downstream inference?
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -1040,47 +986,6 @@ downstream inference?
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="pdmp-catalyst-runner-tbd">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">pdmp-catalyst-runner-tbd</h3>
-        <code class="baseline-entry-fqn">v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>emitter</code></td><td><code>xarray</code></td></tr>
-          
-          <tr><td><code>backend</code></td><td><code>catalyst-jl</code></td></tr>
-          
-          <tr><td><code>precision</code></td><td><code>fp64</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="pdmp-catalyst-runner-tbd">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="pdmp-catalyst-runner-tbd">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1100,135 +1005,6 @@ downstream inference?
     </details>
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="catalyst-export"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">catalyst-export</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="catalyst-export">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="catalyst-export">Delete</button>
-        <button class="btn-variant-run" data-variant-name="catalyst-export">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="column-centric-runtime"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">column-centric-runtime</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="column-centric-runtime">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="column-centric-runtime">Delete</button>
-        <button class="btn-variant-run" data-variant-name="column-centric-runtime">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="vivarium-api-inversion"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">vivarium-api-inversion</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="vivarium-api-inversion">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="vivarium-api-inversion">Delete</button>
-        <button class="btn-variant-run" data-variant-name="vivarium-api-inversion">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="gpu-parallel-1000"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">gpu-parallel-1000</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="gpu-parallel-1000">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="gpu-parallel-1000">Delete</button>
-        <button class="btn-variant-run" data-variant-name="gpu-parallel-1000">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="multi-core-cpu-parallel"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">multi-core-cpu-parallel</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="multi-core-cpu-parallel">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="multi-core-cpu-parallel">Delete</button>
-        <button class="btn-variant-run" data-variant-name="multi-core-cpu-parallel">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="pdmp-catalyst-runner-tbd" data-composite-id="v2ecoli_pdmp.composites.catalyst.pdmp_catalyst">pdmp-catalyst-runner-tbd (v2ecoli_pdmp.composites.catalyst.pdmp_catalyst)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1598,164 +1374,72 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
   
   
   
-  
-  
-  
-  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-    <h2 class="overview-label">Discovery implications</h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-    
-    <div class="di-uncertainties">
-      
-      <div class="di-unc di-unc-resolved">
-        <h4>✓ Resolved uncertainties</h4>
-        <ul><li>The production composite per-tick wall is ~52 ms (74 ms single-tick), of which ~76% is spent outside process_update (this bucket includes real numpy/scipy numeric work, e.g. Poisson logpmf, not all of it marshalling) — and no single Process dominates.</li><li>The cProfile hotspots are 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine counts); much of the per-tick cost is outside process_update, though that bucket includes real numpy/scipy numeric work, so it is not purely marshalling.</li><li>Column-centric prototypes give constant-in-N per-trajectory wall and a per-tick speedup of 1.5x on a realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys): measured microbenchmarks and an extrapolation not validated on the 55-process WCM. The &#34;~1500x at N=1e3 x 30 ticks (26 min -&gt; ~1 s)&#34; is an illustrative projection = toy factor x N (the script hardcodes 3x -&gt; 3000x; the prose uses the 1.5x recalibration -&gt; ~1500x), not a measured speedup: the column-centric vectorized runtime was never built and never timed; only the pbg sequential side was measured (at N=1,2,4).</li></ul>
-      </div>
-      
-      
-      <div class="di-unc di-unc-remaining">
-        <h4>● Remaining uncertainties</h4>
-        <ul><li>The column-centric runtime is validated as prototypes + a projection, not as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC; numerical equivalence of the vectorized path is unproven.</li><li>Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order needed for reproducible ABC posteriors across hardware is untested.</li></ul>
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card">
-        <div class="di-card-stmt"><strong>Per-Process Catalyst.jl JIT compilation is the main performance lever, recovering most of the per-tick cost.</strong></div>
-        <div class="di-card-why">JIT-compiling reaction propensities is the standard speedup for stochastic chemical kinetics.</div>
-        
-        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
-          <code>runtime-architecture</code>, <code>per-tick-compute</code>
-        </div>
-        
-        
-        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
-          <code>fraction of per-tick wall in per-Process compute vs framework marshalling</code>, <code>measured speedup of per-Process JIT vs column-centric vectorization</code>
-        </div>
-        
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card di-mech-card">
-        <div class="di-mech-head">
-          <code>runtime-architecture</code>
-          <span class="di-update-chip">replace</span>
-          
-          <span class="di-approval-badge">needs expert approval</span>
-        </div>
-        <div class="di-card-why">Adopt a column-centric (pre-allocated per-observable arrays indexed by trajectory x time) vectorized runtime with N-way lockstep stepping; do NOT pursue per-Process Catalyst.jl JIT as the primary lever. Remaining work is engineering, not investigation.</div>
-      </div>
-      
-    </div>
-    
-
-    
-    
-    
-    <div class="di-group">
-      <h3>Follow-up study proposals
-        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-        <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-      <div class="followup-list">
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Numerical-equivalence validation of the column-centric runner vs the Phase-2 PDMP</strong>
-            <span class="di-chip">validation</span>
-            <span class="di-chip">architectural_decision</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Build the column-centric runner and verify W2(p_compiled, p_phase2) &lt;= 5 sigma MC with deterministic pairwise/Kahan summation; confirm 1/sqrt(N) posterior variance scaling on an ABC test posterior.</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-04-compilation', "pdmp-04-column-centric-equivalence")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-  </div>
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
 
     
     
@@ -1763,13 +1447,128 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
 
     
     
-
-    
     
 
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>The production composite per-tick wall is ~52 ms (74 ms single-tick), of which ~76% is spent outside process_update (this bucket includes real numpy/scipy numeric work, e.g. Poisson logpmf, not all of it marshalling) — and no single Process dominates.</li><li>The cProfile hotspots are 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine counts); much of the per-tick cost is outside process_update, though that bucket includes real numpy/scipy numeric work, so it is not purely marshalling.</li><li>Column-centric prototypes give constant-in-N per-trajectory wall and a per-tick speedup of 1.5x on a realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys): measured microbenchmarks and an extrapolation not validated on the 55-process WCM. The &#34;~1500x at N=1e3 x 30 ticks (26 min -&gt; ~1 s)&#34; is an illustrative projection = toy factor x N (the script hardcodes 3x -&gt; 3000x; the prose uses the 1.5x recalibration -&gt; ~1500x), not a measured speedup: the column-centric vectorized runtime was never built and never timed; only the pbg sequential side was measured (at N=1,2,4).</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>The column-centric runtime is validated as prototypes + a projection, not as a built runner that reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC; numerical equivalence of the vectorized path is unproven.</li><li>Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order needed for reproducible ABC posteriors across hardware is untested.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card">
+          <div class="di-card-stmt"><strong>Per-Process Catalyst.jl JIT compilation is the main performance lever, recovering most of the per-tick cost.</strong></div>
+          <div class="di-card-why">JIT-compiling reaction propensities is the standard speedup for stochastic chemical kinetics.</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+            <code>runtime-architecture</code>, <code>per-tick-compute</code>
+          </div>
+          
+          
+          <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+            <code>fraction of per-tick wall in per-Process compute vs framework marshalling</code>, <code>measured speedup of per-Process JIT vs column-centric vectorization</code>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card di-mech-card">
+          <div class="di-mech-head">
+            <code>runtime-architecture</code>
+            <span class="di-update-chip">replace</span>
+            
+            <span class="di-approval-badge">needs expert approval</span>
+          </div>
+          <div class="di-card-why">Adopt a column-centric (pre-allocated per-observable arrays indexed by trajectory x time) vectorized runtime with N-way lockstep stepping; do NOT pursue per-Process Catalyst.jl JIT as the primary lever. Remaining work is engineering, not investigation.</div>
+        </div>
+        
+      </div>
+      
+
+      
+      
+      
+      <div class="di-group">
+        <h3>Follow-up study proposals
+          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+          <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+        <div class="followup-list">
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Numerical-equivalence validation of the column-centric runner vs the Phase-2 PDMP</strong>
+              <span class="di-chip">validation</span>
+              <span class="di-chip">architectural_decision</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Build the column-centric runner and verify W2(p_compiled, p_phase2) &lt;= 5 sigma MC with deterministic pairwise/Kahan summation; confirm 1/sqrt(N) posterior variance scaling on an ABC test posterior.</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-04-compilation', "pdmp-04-column-centric-equivalence")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

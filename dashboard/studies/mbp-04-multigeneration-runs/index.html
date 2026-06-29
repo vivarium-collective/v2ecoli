@@ -124,18 +124,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="mbp-04-multigeneration-runs"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -237,19 +244,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -292,13 +295,70 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="mbp-04-multigeneration-runs">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Carbon ledger: glucose-C in -&gt; biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -&gt; biomass-N (~0.12 gN/gDW). Both residuals expected |&lt;0.02| at every step. Headline observable is the growth-&gt;limitation regime transition.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Does the mbp-03 coupled composite (v2ecoli ↔ pbg-bioreactordesign) stay
+mass-conserving, computationally tractable, and physically coherent
+over multiple v2ecoli generations (3+ doublings) under sustained
+reactor dynamics — capturing the regime transition from glucose-replete
+exponential growth into glucose-limited or DO-limited slowdown as the
+population grows and consumes the batch?
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> Population grows ~exponentially through the first 2 generations, then
+flattens as glucose / DO becomes limiting (regime transition near the
+end of glucose). Carbon and nitrogen mass-balance close to within
+numerical tolerance. Run completes (no NaN, no infinite loops, no
+unbounded memory growth) within a wall-clock budget set by the spec
+PR (target: 3 generations in &lt; 30 min wall time at seed 0).
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> Take the mbp-03 coupled composite, run for ≥ 3 generations starting
+from a defined initial glucose pool. As the population grows, glucose
+drops (via the mbp-01 env hook); as O2 demand grows, DO drops (via the
+mbp-03 coupler). Eventually one of: (a) glucose depletes →
+glucose-limited slowdown; (b) DO drops below v2ecoli&#39;s metabolism
+constraint → oxygen-limited slowdown; (c) both. The regime transition
+is the headline observable.
+
+Mass-balance audit: cumulative glucose decrement = cumulative metabolism
+glucose uptake integrated over the population. Cell-count audit: cell
+count over generations matches the integral of μ × population.
+
+      </div>
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
 
     
     
@@ -365,72 +425,81 @@
     </div>
     
 
-    <div class="biology-glance">
-      
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Carbon ledger: glucose-C in -&gt; biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -&gt; biomass-N (~0.12 gN/gDW). Both residuals expected |&lt;0.02| at every step. Headline observable is the growth-&gt;limitation regime transition.</textarea>
-        
-      </div>
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value=""
-                   placeholder="One sentence — the single most important thing this study does.">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Carbon ledger: glucose-C in -&gt; biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -&gt; biomass-N (~0.12 gN/gDW). Both residuals expected |&lt;0.02| at every step. Headline observable is the growth-&gt;limitation regime transition.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value=""
-                   placeholder="Regime-transition test passes (population growth flattens once a
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>mbp-03-bird-reactor-coupling</code>
+        </div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>mbp-05-palsson-benchmark</code>
+        </div>
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">Regime-transition test passes (population growth flattens once a
 limiting substrate is exhausted); mass-balance audits close; wall-clock
 budget met; no NaN / divergence.
-">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Literature-stated success criterion.">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+</span></div>
+        
       </div>
-
       
 
       
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Batch mode only; no feed addition (pbg-bioreactordesign has no fed-batch support yet).</li><li style="margin:2px 0">Initial glucose 4 g/L is enough for ~3 generations at v2ecoli&#39;s yield; refine with calibration.</li><li style="margin:2px 0">v2ecoli&#39;s metabolism remains stable in glucose-limited regime (no runaway / NaN). If not, that becomes a finding for this phase.</li><li style="margin:2px 0">Wall-clock budget of 30 min for 240-min sim is a placeholder; the spec PR sets the real budget.</li>
+        </ul>
+      </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>5</strong> tests defined —
+            <span class="classification-pill classification-primary">3 primary</span>
+            <span class="classification-pill classification-supporting">1 supporting</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Limitations</h2>
+        <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step — deferred (candidate-future-study; see mbp-06).</li><li style="margin:2px 0">Single seed; stochastic variation across seeds not characterized here (a candidate-future-study). Cells_per_agent scaling further washes per-seed stochastic variance — explicit cost of the mbp-02 architectural choice.</li><li style="margin:2px 0">Bubble column geometry; stirred tank / airlift not validated.</li><li style="margin:2px 0">Acetate (+ lactate / formate / ethanol / pyruvate / succinate) handling depends on v2ecoli&#39;s metabolism; the MassBalanceAuditor explicitly tracks each species (req-1) but biological correctness of the production rates is not separately validated this phase.</li><li style="margin:2px 0">Population uses cells_per_agent scaling (mbp-02) to make 240-min batch dynamics resolvable. At scaling factors k ≥ ~1e6, per-cell stochastic variance washes out at the bulk mean — correct biology at high density, but obscures per-cell heterogeneity that may matter for Beulig&#39;s bistable-expression regimes. Surrogate engine remains the path for the full high-density regime (mbp-06).</li>
+        </ul>
+      </div>
+      
+
+      
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
         <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
           The biological expectations this study tests, mapped to the
           model observable that will measure each one. Full citations
@@ -468,154 +537,44 @@ budget met; no NaN / divergence.
         </ul>
       </div>
       
-    </div>
 
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Does the mbp-03 coupled composite (v2ecoli ↔ pbg-bioreactordesign) stay
-mass-conserving, computationally tractable, and physically coherent
-over multiple v2ecoli generations (3+ doublings) under sustained
-reactor dynamics — capturing the regime transition from glucose-replete
-exponential growth into glucose-limited or DO-limited slowdown as the
-population grows and consumes the batch?
-
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     >running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Simulate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
       </div>
-      
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> Take the mbp-03 coupled composite, run for ≥ 3 generations starting
-from a defined initial glucose pool. As the population grows, glucose
-drops (via the mbp-01 env hook); as O2 demand grows, DO drops (via the
-mbp-03 coupler). Eventually one of: (a) glucose depletes →
-glucose-limited slowdown; (b) DO drops below v2ecoli&#39;s metabolism
-constraint → oxygen-limited slowdown; (c) both. The regime transition
-is the headline observable.
 
-Mass-balance audit: cumulative glucose decrement = cumulative metabolism
-glucose uptake integrated over the population. Cell-count audit: cell
-count over generations matches the integral of μ × population.
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>7</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
+      </div>
 
-      </div>
-      
-      
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Expected outcome.</strong> Population grows ~exponentially through the first 2 generations, then
-flattens as glucose / DO becomes limiting (regime transition near the
-end of glucose). Carbon and nitrogen mass-balance close to within
-numerical tolerance. Run completes (no NaN, no infinite loops, no
-unbounded memory growth) within a wall-clock budget set by the spec
-PR (target: 3 generations in &lt; 30 min wall time at seed 0).
-
-      </div>
-      
-    </div>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>mbp-03-bird-reactor-coupling</code>
-      </div>
-      
-      
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>mbp-05-palsson-benchmark</code>
-      </div>
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">Regime-transition test passes (population growth flattens once a
-limiting substrate is exhausted); mass-balance audits close; wall-clock
-budget met; no NaN / divergence.
-</span></div>
-      
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Batch mode only; no feed addition (pbg-bioreactordesign has no fed-batch support yet).</li><li style="margin:2px 0">Initial glucose 4 g/L is enough for ~3 generations at v2ecoli&#39;s yield; refine with calibration.</li><li style="margin:2px 0">v2ecoli&#39;s metabolism remains stable in glucose-limited regime (no runaway / NaN). If not, that becomes a finding for this phase.</li><li style="margin:2px 0">Wall-clock budget of 30 min for 240-min sim is a placeholder; the spec PR sets the real budget.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>5</strong> tests defined —
-          <span class="classification-pill classification-primary">3 primary</span>
-          <span class="classification-pill classification-supporting">1 supporting</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Limitations</h2>
-      <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step — deferred (candidate-future-study; see mbp-06).</li><li style="margin:2px 0">Single seed; stochastic variation across seeds not characterized here (a candidate-future-study). Cells_per_agent scaling further washes per-seed stochastic variance — explicit cost of the mbp-02 architectural choice.</li><li style="margin:2px 0">Bubble column geometry; stirred tank / airlift not validated.</li><li style="margin:2px 0">Acetate (+ lactate / formate / ethanol / pyruvate / succinate) handling depends on v2ecoli&#39;s metabolism; the MassBalanceAuditor explicitly tracks each species (req-1) but biological correctness of the production rates is not separately validated this phase.</li><li style="margin:2px 0">Population uses cells_per_agent scaling (mbp-02) to make 240-min batch dynamics resolvable. At scaling factors k ≥ ~1e6, per-cell stochastic variance washes out at the bulk mean — correct biology at high density, but obscures per-cell heterogeneity that may matter for Beulig&#39;s bistable-expression regimes. Surrogate engine remains the path for the full high-density regime (mbp-06).</li>
-      </ul>
-    </div>
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     >running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Simulate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>1</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>7</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>1</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -625,8 +584,11 @@ budget met; no NaN / divergence.
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -766,8 +728,10 @@ Both should be |residual| &lt; 0.02 at every emit step over the run.
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -856,47 +820,6 @@ Both should be |residual| &lt; 0.02 at every emit step over the run.
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="multigeneration-coupled-baseline">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">multigeneration-coupled-baseline</h3>
-        <code class="baseline-entry-fqn">v2ecoli.composites.reactor_bird_coupled</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
-          
-          <tr><td><code>cache_dir</code></td><td><code>out/cache</code></td></tr>
-          
-          <tr><td><code>features</code></td><td><code>[&#39;mass_conservation&#39;]</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="multigeneration-coupled-baseline">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="multigeneration-coupled-baseline">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -907,75 +830,6 @@ Both should be |residual| &lt; 0.02 at every emit step over the run.
 
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="three-generation-batch"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">three-generation-batch</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="three-generation-batch">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="three-generation-batch">Delete</button>
-        <button class="btn-variant-run" data-variant-name="three-generation-batch">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="multigeneration-coupled-baseline" data-composite-id="v2ecoli.composites.reactor_bird_coupled">multigeneration-coupled-baseline (v2ecoli.composites.reactor_bird_coupled)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1291,71 +1145,72 @@ cites:   ["agmon2022"]</pre>
   
   
   
-  
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
 
     
     
@@ -1363,13 +1218,35 @@ cites:   ["agmon2022"]</pre>
 
     
     
-
-    
     
 
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

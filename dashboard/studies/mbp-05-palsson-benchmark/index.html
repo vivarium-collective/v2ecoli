@@ -124,18 +124,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="mbp-05-palsson-benchmark"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -237,19 +244,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -292,13 +295,102 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="mbp-05-palsson-benchmark">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Benchmark: Beulig et al. 2025 (mSystems, doi:10.1128/msystems.00323-25; Palsson lab), two-stage batch-&gt;fed-batch to 50-80 gDW/L. mbp-05 scopes to WT, BATCH-PHASE PREFIX (Beulig batch peak ~9.6 g/L). Compared surfaces: OD600/biomass, glucose, acetate + mixed-acid byproducts (lactate/formate/ethanol/pyruvate/succinate), GUR, OTR/CTR, base addition. v2ecoli&#39;s calibration (slow-growth M9, single cell) is OUTSIDE the high-density envelope — divergences are EXPECTED outputs categorized for mbp-06, not failures.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Configured with operating conditions matched to the 2025 Palsson lab
+high-density E. coli study, does the v2ecoli ↔ pbg-bioreactordesign
+coupled model **render a structured comparison report** (sim-vs-
+published overlays + categorized divergences + open questions) on
+the published WT batch-phase prefix trajectories, suitable to feed
+mbp-06&#39;s gap-analysis synthesis?
+
+Investigation-level note: the original question framing (&#34;match within
+tolerance&#34;) was reframed 2026-05-26 to &#34;render a structured comparison.&#34;
+The success definition is whether the comparison was EXECUTED AND
+REPORTED COHERENTLY, not whether biology matched. All biological
+divergences feed mbp-06 unchanged.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> For each entry in `comparison_overlays`, the harness produces a single
+overlay panel + derived comparison metrics. The deliverable is the
+report card: a markdown document with all overlay panels and a
+structured `## Divergence triage` section enumerating divergences
+against the four-category taxonomy, each pointing at the specific
+sim path / published column / observation that drove the categorization.
+
+Pass / fail of each test below is about whether the overlay+triage
+artifact was produced — not whether biology matched. Divergences are
+valuable: each one is a specific mbp-06 gap finding seed.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> The benchmark paper is Beulig et al. 2025 (mSystems 10(7),
+doi:10.1128/msystems.00323-25; senior author B. Palsson), titled
+&#34;Trade-off between resistance and persistence in high cell density
+cultures.&#34; Open access, PDF at
+`references/papers/Beulig_2025_mSystems_high_cell_density.pdf`;
+extracted metadata + scope notes at
+`references/expert/palsson_2025_fed_batch.md`. Digitized trajectories
+at `references/papers/palsson-2025-supp/`.
+
+Two-stage batch → fed-batch fermentation to 50–80 gDW/L in parallel
+well-controlled bioreactors; exponential feeding after batch-to-fed-
+batch transition (t=0 h); &gt;470 transcriptomic samples across five
+strain groups (WT BW25113, 31 SGKO, TRP, TRPp, MEL) and four
+fermentation phases (I–IV).
+
+For mbp-05, scope is WT only and (until fed-batch lands in
+pbg-bioreactordesign) the BATCH PHASE PREFIX. Configure the mbp-03/04
+coupled composite to the published operating profile (reactor geometry,
+aeration, medium, initial conditions). Run; render comparison overlays
+for every sim ↔ published trajectory pair listed in `comparison_overlays`
+below (~8 surfaces); categorize divergences in the report card across
+four categories (v2ecoli metabolic deficiency / coupling-adapter
+limitation / experimental uncertainty / placeholder-induced).
+
+**No new model capability.** model_change is empty. The comparison
+harness (`req-2-comparison-harness`) is generic over the
+`comparison_overlays` config — adding a new comparison = adding one
+YAML entry. Future investigations reuse the harness with their own
+list.
+
+Transcriptional-state matching against the &gt;470 transcriptomes is a
+natural extension (v2ecoli outputs transcript counts) — out of mbp-05
+scope; pre-seeded as mbp-09 candidate-future-study in mbp-06.
+
+      </div>
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
 
     
     
@@ -365,75 +457,80 @@
     </div>
     
 
-    <div class="biology-glance">
-      
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Benchmark: Beulig et al. 2025 (mSystems, doi:10.1128/msystems.00323-25; Palsson lab), two-stage batch-&gt;fed-batch to 50-80 gDW/L. mbp-05 scopes to WT, BATCH-PHASE PREFIX (Beulig batch peak ~9.6 g/L). Compared surfaces: OD600/biomass, glucose, acetate + mixed-acid byproducts (lactate/formate/ethanol/pyruvate/succinate), GUR, OTR/CTR, base addition. v2ecoli&#39;s calibration (slow-growth M9, single cell) is OUTSIDE the high-density envelope — divergences are EXPECTED outputs categorized for mbp-06, not failures.</textarea>
-        
-      </div>
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value=""
-                   placeholder="One sentence — the single most important thing this study does.">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Benchmark: Beulig et al. 2025 (mSystems, doi:10.1128/msystems.00323-25; Palsson lab), two-stage batch-&gt;fed-batch to 50-80 gDW/L. mbp-05 scopes to WT, BATCH-PHASE PREFIX (Beulig batch peak ~9.6 g/L). Compared surfaces: OD600/biomass, glucose, acetate + mixed-acid byproducts (lactate/formate/ethanol/pyruvate/succinate), GUR, OTR/CTR, base addition. v2ecoli&#39;s calibration (slow-growth M9, single cell) is OUTSIDE the high-density envelope — divergences are EXPECTED outputs categorized for mbp-06, not failures.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value=""
-                   placeholder="All comparison overlay panels rendered (one per `comparison_overlays`
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>mbp-04-multigeneration-runs</code>
+        </div>
+        
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">All comparison overlay panels rendered (one per `comparison_overlays`
 entry); report.md committed with `## Divergence triage` section
 populated against the four-category taxonomy. Divergences themselves
 are PASSED to mbp-06 as input — they do not gate this phase. The
 `divergences-categorized-in-report-card` test is the load-bearing
 one (per chris_feedback_2026_05_26 §10).
-">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Literature-stated success criterion.">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+</span></div>
+        
       </div>
-
       
 
       
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Published trajectories are digitizable / available at sufficient resolution to overlay.</li><li style="margin:2px 0">OD600 ↔ gDW conversion factor (od_to_gdw, default 0.34 — Beulig 2025 value; was textbook 0.33; matches mbp-02 default) holds at Palsson&#39;s cell-density regime, or is refit from the paper.</li><li style="margin:2px 0">If Palsson is fed-batch only, this study scopes to the batch-phase prefix until pbg-bioreactordesign gains fed-batch (deferred enhancement).</li><li style="margin:2px 0">0D well-mixed assumption holds at the paper&#39;s reactor scale (bench).</li>
+        </ul>
+      </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>13</strong> tests defined —
+            <span class="classification-pill classification-primary">8 primary</span>
+            <span class="classification-pill classification-diagnostic">5 diagnostic</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Limitations</h2>
+        <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">EVALUATION PHASE (chris_feedback_2026_05_26 §10): mbp-05 deliberately does NOT make tolerance-based biology claims. The original framing (`end-of-run-od-matches-published` etc.) structurally encoded an open-ended menu of model knobs to turn — even with the &#39;no silent tuning&#39; discipline, the impulse to tune to a tolerance-test was built into the test design. The reframe shifts the bound on the AI agent to &#39;execute and report&#39;.</li><li style="margin:2px 0">Single benchmark study; not a multi-dataset validation.</li><li style="margin:2px 0">Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); this study scopes to the BATCH-PHASE PREFIX of the Beulig dataset.</li><li style="margin:2px 0">v2ecoli&#39;s calibration is slow-growth M9-glucose (~60-min doubling, single cell); the high-density 50–80 gDW/L regime is OUTSIDE the calibration envelope. Under the new framing this is no longer a &#39;tolerance must reflect this&#39; caveat — it becomes one of the divergences mbp-06&#39;s gap analysis categorizes.</li><li style="margin:2px 0">Strain scope: WT BW25113 only. SGKO (31 knockouts) / TRP / TRPp / MEL are deferred — natural candidate-future-studies under v2ecoli&#39;s variant scope.</li><li style="margin:2px 0">Transcriptional-state matching against &gt;470 Beulig transcriptomes is a unique benchmark axis (v2ecoli has transcripts; upstream dFBA path does not) — deferred to mbp-09 (pre-seeded in mbp-06).</li>
+        </ul>
+      </div>
+      
+
+      
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
         <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
           The biological expectations this study tests, mapped to the
           model observable that will measure each one. Full citations
@@ -471,185 +568,44 @@ one (per chris_feedback_2026_05_26 §10).
         </ul>
       </div>
       
-    </div>
 
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Configured with operating conditions matched to the 2025 Palsson lab
-high-density E. coli study, does the v2ecoli ↔ pbg-bioreactordesign
-coupled model **render a structured comparison report** (sim-vs-
-published overlays + categorized divergences + open questions) on
-the published WT batch-phase prefix trajectories, suitable to feed
-mbp-06&#39;s gap-analysis synthesis?
-
-Investigation-level note: the original question framing (&#34;match within
-tolerance&#34;) was reframed 2026-05-26 to &#34;render a structured comparison.&#34;
-The success definition is whether the comparison was EXECUTED AND
-REPORTED COHERENTLY, not whether biology matched. All biological
-divergences feed mbp-06 unchanged.
-
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     >running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
       </div>
-      
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> The benchmark paper is Beulig et al. 2025 (mSystems 10(7),
-doi:10.1128/msystems.00323-25; senior author B. Palsson), titled
-&#34;Trade-off between resistance and persistence in high cell density
-cultures.&#34; Open access, PDF at
-`references/papers/Beulig_2025_mSystems_high_cell_density.pdf`;
-extracted metadata + scope notes at
-`references/expert/palsson_2025_fed_batch.md`. Digitized trajectories
-at `references/papers/palsson-2025-supp/`.
 
-Two-stage batch → fed-batch fermentation to 50–80 gDW/L in parallel
-well-controlled bioreactors; exponential feeding after batch-to-fed-
-batch transition (t=0 h); &gt;470 transcriptomic samples across five
-strain groups (WT BW25113, 31 SGKO, TRP, TRPp, MEL) and four
-fermentation phases (I–IV).
-
-For mbp-05, scope is WT only and (until fed-batch lands in
-pbg-bioreactordesign) the BATCH PHASE PREFIX. Configure the mbp-03/04
-coupled composite to the published operating profile (reactor geometry,
-aeration, medium, initial conditions). Run; render comparison overlays
-for every sim ↔ published trajectory pair listed in `comparison_overlays`
-below (~8 surfaces); categorize divergences in the report card across
-four categories (v2ecoli metabolic deficiency / coupling-adapter
-limitation / experimental uncertainty / placeholder-induced).
-
-**No new model capability.** model_change is empty. The comparison
-harness (`req-2-comparison-harness`) is generic over the
-`comparison_overlays` config — adding a new comparison = adding one
-YAML entry. Future investigations reuse the harness with their own
-list.
-
-Transcriptional-state matching against the &gt;470 transcriptomes is a
-natural extension (v2ecoli outputs transcript counts) — out of mbp-05
-scope; pre-seeded as mbp-09 candidate-future-study in mbp-06.
-
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>14</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
       </div>
-      
-      
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Expected outcome.</strong> For each entry in `comparison_overlays`, the harness produces a single
-overlay panel + derived comparison metrics. The deliverable is the
-report card: a markdown document with all overlay panels and a
-structured `## Divergence triage` section enumerating divergences
-against the four-category taxonomy, each pointing at the specific
-sim path / published column / observation that drove the categorization.
 
-Pass / fail of each test below is about whether the overlay+triage
-artifact was produced — not whether biology matched. Divergences are
-valuable: each one is a specific mbp-06 gap finding seed.
-
-      </div>
-      
-    </div>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>mbp-04-multigeneration-runs</code>
-      </div>
-      
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">All comparison overlay panels rendered (one per `comparison_overlays`
-entry); report.md committed with `## Divergence triage` section
-populated against the four-category taxonomy. Divergences themselves
-are PASSED to mbp-06 as input — they do not gate this phase. The
-`divergences-categorized-in-report-card` test is the load-bearing
-one (per chris_feedback_2026_05_26 §10).
-</span></div>
-      
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Published trajectories are digitizable / available at sufficient resolution to overlay.</li><li style="margin:2px 0">OD600 ↔ gDW conversion factor (od_to_gdw, default 0.34 — Beulig 2025 value; was textbook 0.33; matches mbp-02 default) holds at Palsson&#39;s cell-density regime, or is refit from the paper.</li><li style="margin:2px 0">If Palsson is fed-batch only, this study scopes to the batch-phase prefix until pbg-bioreactordesign gains fed-batch (deferred enhancement).</li><li style="margin:2px 0">0D well-mixed assumption holds at the paper&#39;s reactor scale (bench).</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>13</strong> tests defined —
-          <span class="classification-pill classification-primary">8 primary</span>
-          <span class="classification-pill classification-diagnostic">5 diagnostic</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Limitations</h2>
-      <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">EVALUATION PHASE (chris_feedback_2026_05_26 §10): mbp-05 deliberately does NOT make tolerance-based biology claims. The original framing (`end-of-run-od-matches-published` etc.) structurally encoded an open-ended menu of model knobs to turn — even with the &#39;no silent tuning&#39; discipline, the impulse to tune to a tolerance-test was built into the test design. The reframe shifts the bound on the AI agent to &#39;execute and report&#39;.</li><li style="margin:2px 0">Single benchmark study; not a multi-dataset validation.</li><li style="margin:2px 0">Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); this study scopes to the BATCH-PHASE PREFIX of the Beulig dataset.</li><li style="margin:2px 0">v2ecoli&#39;s calibration is slow-growth M9-glucose (~60-min doubling, single cell); the high-density 50–80 gDW/L regime is OUTSIDE the calibration envelope. Under the new framing this is no longer a &#39;tolerance must reflect this&#39; caveat — it becomes one of the divergences mbp-06&#39;s gap analysis categorizes.</li><li style="margin:2px 0">Strain scope: WT BW25113 only. SGKO (31 knockouts) / TRP / TRPp / MEL are deferred — natural candidate-future-studies under v2ecoli&#39;s variant scope.</li><li style="margin:2px 0">Transcriptional-state matching against &gt;470 Beulig transcriptomes is a unique benchmark axis (v2ecoli has transcripts; upstream dFBA path does not) — deferred to mbp-09 (pre-seeded in mbp-06).</li>
-      </ul>
-    </div>
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     >running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>1</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>14</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>2</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -659,8 +615,11 @@ one (per chris_feedback_2026_05_26 §10).
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -789,8 +748,10 @@ candidate (tracked in mbp-06 axis-E gap entry).
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -872,45 +833,6 @@ candidate (tracked in mbp-06 axis-E gap entry).
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="palsson-matched-coupled">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">palsson-matched-coupled</h3>
-        <code class="baseline-entry-fqn">v2ecoli.composites.reactor_bird_coupled</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
-          
-          <tr><td><code>cache_dir</code></td><td><code>out/cache</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="palsson-matched-coupled">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="palsson-matched-coupled">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -921,75 +843,6 @@ candidate (tracked in mbp-06 axis-E gap entry).
 
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="palsson-matched-batch"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">palsson-matched-batch</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="palsson-matched-batch">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="palsson-matched-batch">Delete</button>
-        <button class="btn-variant-run" data-variant-name="palsson-matched-batch">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="palsson-matched-coupled" data-composite-id="v2ecoli.composites.reactor_bird_coupled">palsson-matched-coupled (v2ecoli.composites.reactor_bird_coupled)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1638,71 +1491,72 @@ pass_if: {"op": "report_card_group_within_tol"}</pre>
   
   
   
-  
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
 
     
     
@@ -1710,13 +1564,35 @@ pass_if: {"op": "report_card_group_within_tol"}</pre>
 
     
     
-
-    
     
 
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

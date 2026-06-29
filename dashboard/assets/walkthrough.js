@@ -522,6 +522,9 @@
       }
     }
     if (pageId === 'investigations') {
+      // Clicking the Investigations tab always returns to the top-level list,
+      // even when an investigation detail is currently open.
+      if (typeof _closeInvestigationDetail === 'function') _closeInvestigationDetail();
       _loadInvestigationSets();
     }
     if (pageId === 'workspace-inputs') {
@@ -4172,19 +4175,17 @@
         '&overrides=' + encodeURIComponent(JSON.stringify(window._ceCurrent.overrides));
       // Parse defensively: an unguarded r.json() on a non-2xx / non-JSON
       // response throws "SyntaxError: The string did not match the expected
-      // pattern" (Safari) → a useless "Network error". A remote build can't
-      // resolve generator composites (no local ParCa cache to run build_core)
-      // and unregistered refs 404 — turn both into the {error}/{unresolved}
-      // shapes the loader below already renders gracefully.
+      // pattern" (Safari) → a useless "Network error". Unregistered refs 404;
+      // other errors carry a server {error}/{detail}/{notice} — surface those
+      // rather than a hardcoded local-build message.
       p = fetch(url).then(function(r) {
         return r.text().then(function(t) {
           var d = null;
           try { d = t ? JSON.parse(t) : null; } catch (e) { d = null; }
           if (r.ok && d) return d;
           if (r.status === 404) return { unresolved: true, ref: id };
-          var msg = (d && (d.error || d.detail)) ? (d.error || d.detail)
-            : ('HTTP ' + r.status + ' — could not resolve this composite. A remote '
-               + 'build cannot build generator composites (no local ParCa cache).');
+          var msg = (d && (d.error || d.detail || d.notice)) ? (d.error || d.detail || d.notice)
+            : ('HTTP ' + r.status + ' — could not resolve this composite.');
           return { error: msg };
         });
       });
@@ -4206,6 +4207,19 @@
         if (data.error) {
           document.getElementById('ce-loading').innerHTML =
             '<span style="color:#c00">Error: ' + _esc(data.error) + '</span>';
+          return;
+        }
+        if (data.wiring_status === 'unavailable' || data.state == null) {
+          // Wiring state is not available (e.g. a generator composite on a local
+          // workspace whose build artifact hasn't been produced yet).  Show the
+          // server notice as an amber info banner instead of crashing on null
+          // state.  The Configure & Run panel is handled separately so the user
+          // can still trigger a build run.
+          document.getElementById('ce-loading').innerHTML =
+            '<div style="color:#92400e;background:#fffbeb;border:1px solid #f59e0b;' +
+            'border-radius:6px;padding:10px 14px">ℹ️ ' +
+            _esc(data.notice || 'Wiring diagram unavailable for this composite.') +
+            '</div>';
           return;
         }
         document.getElementById('ce-loading').style.display = 'none';
@@ -5265,7 +5279,19 @@
             storyBox.style.display = 'none';
           }
         }
-        _renderInvestigationDag(d.studies || []);
+        // Phase B4: render today's study graph (unchanged), then layer each
+        // study's typed evidence chain into its card. Falls back to the plain
+        // study graph on any fetch failure (graceful — identical to before).
+        (function () {
+          var slug = d.slug || d.name || name;
+          if (!slug) { _renderInvestigationDag(d.studies || []); return; }
+          fetch('/api/investigation-graph?investigation=' + encodeURIComponent(slug))
+            .then(function (r) { if (!r.ok) throw new Error('graph ' + r.status); return r.json(); })
+            .then(function (graph) {
+              _renderInvestigationDag(d.studies || [], (graph && graph.chains) || {});
+            })
+            .catch(function () { _renderInvestigationDag(d.studies || []); });
+        })();
         // SP5: needs-attention panel (deterministic scan, code-computed, AI-free).
         _renderInvNeedsAttention(name);
       })
@@ -5526,7 +5552,7 @@
   // Layout + render the DAG of study nodes for the active investigation.
   // VERTICAL flow: y = topological depth (top = roots), x = within-depth slot.
   // Cards as absolute-positioned <div>s; edges as SVG cubic-Bezier paths.
-  function _renderInvestigationDag(studies) {
+  function _renderInvestigationDag(studies, chainsBySlug) {
     var nodesHost = document.getElementById('investigation-dag-nodes');
     var edgesSvg  = document.getElementById('investigation-dag-edges');
     nodesHost.innerHTML = '';
@@ -5634,8 +5660,18 @@
 
       var node = document.createElement('div');
       node.className = 'iset-dag-node';
-      node.onclick = function() { _openStudyInsideInvestigation(s.name); };
-      node.title = s.name + ' — ' + confidence + (claim ? '\n\nFinds: ' + claim : '');
+      node.onclick = function() {
+        if (window._openInvestigationDrawer) window._openInvestigationDrawer('study', s);
+        else _openStudyInsideInvestigation(s.name);
+      };
+      // Double-click opens the full study directly (dismisses the quick-look drawer).
+      node.ondblclick = function() {
+        var _drawer = document.getElementById('investigation-detail-drawer');
+        if (_drawer) _drawer.style.display = 'none';
+        _openStudyInsideInvestigation(s.name);
+      };
+      node.title = s.name + ' — ' + confidence + (claim ? '\n\nFinds: ' + claim : '') +
+        '\n\nClick for a quick look · double-click to open the study';
       var x = PAD_X + depth[s.name] * (CARD_W + X_GAP);
       node.style.cssText =
         'position:absolute;left:' + x + 'px;top:0px;' +
@@ -5668,9 +5704,23 @@
           (claim ? _esc(claim) : '<em style="color:#94a3b8">pending evidence</em>') +
         '</div>' +
         (moreN ? '<div style="font-size:0.72em;margin-top:2px;color:#94a3b8">+' + moreN + ' more</div>' : '') +
-        followUpsChip;
+        followUpsChip +
+        ((chainsBySlug && typeof window._chainBlockHtml === 'function')
+          ? window._chainBlockHtml(chainsBySlug[s.name]) : '');
       node._followUps = followUps;
       nodesHost.appendChild(node);
+      if (chainsBySlug && window._groupClaims && window._openInvestigationDrawer) {
+        (function (study, chain) {
+          var claims = window._groupClaims(chain);
+          node.querySelectorAll('.aig-claim-row').forEach(function (row) {
+            row.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              var idx = parseInt(row.getAttribute('data-claim-index'), 10);
+              if (claims[idx]) window._openInvestigationDrawer('claim', { claim: claims[idx], study: study });
+            });
+          });
+        })(s, chainsBySlug[s.name]);
+      }
       pos[s.name] = { x: x, node: node, depth: depth[s.name] };
     });
 
@@ -5958,6 +6008,54 @@
       });
   }
   window._seedFollowupProposal = _seedFollowupProposal;
+
+  function _drawerStudyHtml(s) {
+    var q = (s.question || '').replace(/\s+/g, ' ').trim();
+    return '<div style="font-weight:700;color:#0f172a">' + _esc(s.title || s.name) + '</div>' +
+      '<div style="font-size:0.78em;color:#64748b;margin:2px 0 8px">' + _esc(s.effective_status || s.status || '') + '</div>' +
+      (q ? '<div style="margin:6px 0"><span style="font-weight:600;color:#475569">Asks: </span>' + _esc(q) + '</div>' : '') +
+      '<button class="drawer-open-study" data-study="' + _esc(s.name) + '" style="margin-top:10px;cursor:pointer">Open full study →</button>';
+  }
+
+  function _drawerBlock(label, node, extra) {
+    if (!node) return '';
+    return '<div style="margin:9px 0;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px">' +
+      '<div style="font-size:0.72em;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#64748b">' +
+      label + (node.lifecycle_state ? ' · ' + _esc(node.lifecycle_state) : '') + (extra || '') + '</div>' +
+      '<div style="margin-top:3px;color:#1e293b">' + _esc(node.statement || node.label || '') + '</div></div>';
+  }
+
+  function _drawerClaimHtml(claim, study) {
+    var P = claim.parts || {};
+    var dec = P.decision ? _drawerBlock('▣ Decision', P.decision, P.decision.outcome ? ' · ' + _esc(P.decision.outcome) : '') : '';
+    var prov = claim.source
+      ? 'Derived from ' + _esc(study ? study.name : '') + ' · ' + _esc(claim.source)
+      : 'Authored' + (study ? ' in ' + _esc(study.name) : '');
+    return '<div style="font-weight:700;color:#0f172a;line-height:1.3">' + _esc(claim.claimText) + '</div>' +
+      '<div style="font-size:0.8em;color:#64748b;margin:2px 0 8px">' + _esc(claim.status) + '</div>' +
+      _drawerBlock('● Finding', P.finding) +
+      _drawerBlock('◆ Evidence', P.evidence) +
+      dec +
+      _drawerBlock('★ Conclusion', P.conclusion) +
+      '<div style="margin-top:10px;font-size:0.74em;color:#94a3b8">' + prov + '</div>' +
+      (study ? '<button class="drawer-open-study" data-study="' + _esc(study.name) + '" style="margin-top:10px;cursor:pointer">Open full study →</button>' : '');
+  }
+
+  function _openInvestigationDrawer(kind, data) {
+    var drawer = document.getElementById('investigation-detail-drawer');
+    var body = document.getElementById('investigation-detail-drawer-body');
+    if (!drawer || !body) return;
+    if (kind === 'claim') body.innerHTML = _drawerClaimHtml(data.claim, data.study);
+    else if (kind === 'study') body.innerHTML = _drawerStudyHtml(data);
+    else return;
+    drawer.style.display = 'block';
+    var btn = body.querySelector('.drawer-open-study');
+    if (btn) btn.addEventListener('click', function () {
+      drawer.style.display = 'none';
+      _openStudyInsideInvestigation(btn.getAttribute('data-study'));
+    });
+  }
+  window._openInvestigationDrawer = _openInvestigationDrawer;
 
   // Click a DAG node → load the full study in an in-page iframe BELOW the
   // DAG (no jump to the legacy Studies tab). The iframe is the same
@@ -6364,24 +6462,10 @@
   // Render the Evidence & rigor section from an /api/investigation-rigor payload
   // (deterministic skeptic-feedback). Returns '' when no payload (older server /
   // fetch failure) so the report degrades gracefully.
-  // ── C2 — derived 3-track conclusion verdicts (read-only, computed) ─────
-  // These three rules are kept IDENTICAL to single_study_report.py
-  // (_derive_conclusion_verdicts) and study-detail.js so every surface
-  // shows the same badge.
-  var _GATE_RESULT_NORM = {
-    pass: 'PASS', passed: 'PASS', ok: 'PASS',
-    fail: 'FAIL', failed: 'FAIL',
-    partial: 'PARTIAL', mixed: 'PARTIAL', needs_calibration: 'PARTIAL'
-  };
-  var _RUN_ERRORED = {error: 1, errored: 1, failed: 1, crashed: 1, fail: 1};
-  var _RUN_COMPLETED = {completed: 1, complete: 1, success: 1, succeeded: 1, ok: 1, done: 1, finished: 1};
   var _TRACK_COLORS = {
     PASS: ['#dcfce7', '#166534'], PARTIAL: ['#fef3c7', '#92400e'],
     FAIL: ['#fee2e2', '#991b1b'], GAP: ['#f1f5f9', '#475569'], PENDING: ['#f1f5f9', '#475569']
   };
-  function _normGateResult(v) {
-    return _GATE_RESULT_NORM[String(v == null ? '' : v).trim().toLowerCase()] || 'PENDING';
-  }
   // ── Shared run/outcome helpers (bug-fix: pills + decision read the run that
   // actually CARRIES outcomes, not blindly runs[last]) ───────────────────────
   // A study's recorded test outcomes live on its canonical/grade run, which is
@@ -6595,36 +6679,12 @@
     if (v && typeof v === 'object') return Array.isArray(v.entries) ? v.entries : Object.values(v);
     return [];
   }
-  function _deriveConclusionVerdicts(s) {
-    var authored = s.conclusion_verdicts || {};
-    var ge = (s.pipeline_gate || {}).gate_evaluator || {};
-    var bio = _normGateResult(ge.result || s.gate_status);
-
-    var runs = (s.runs || []).filter(function(r) { return r && typeof r === 'object'; });
-    var reg;
-    if (!runs.length) { reg = 'PENDING'; }
-    else {
-      var statuses = runs.map(function(r) { return String(r.status == null ? '' : r.status).trim().toLowerCase(); });
-      if (statuses.some(function(x) { return _RUN_ERRORED[x]; })) reg = 'FAIL';
-      else if (statuses.every(function(x) { return _RUN_COMPLETED[x]; })) reg = 'PASS';
-      else reg = 'PARTIAL';
-    }
-
-    var findings = _asFindings(s.findings).filter(function(f) { return f && typeof f === 'object'; });
-    var exp;
-    if (!findings.length) exp = 'GAP';
-    else if (findings.some(function(f) { return f.tier === 'interpretation' || f.mechanism_origin; })) exp = 'PASS';
-    else exp = 'PARTIAL';
-
-    function basis(t) { var x = authored[t]; return (x && typeof x === 'object') ? (x.basis || '') : ''; }
-    return {
-      biological_validation:    {result: bio, basis: basis('biological_validation')},
-      regression_compatibility: {result: reg, basis: basis('regression_compatibility')},
-      explanatory_gain:         {result: exp, basis: basis('explanatory_gain')}
-    };
-  }
   function _conclusionVerdictsHtml(s, slug) {
-    var cv = _deriveConclusionVerdicts(s);
+    var cv = (s.derived || {}).conclusion_verdicts || {
+      biological_validation: { result: 'PENDING' },
+      regression_compatibility: { result: 'PENDING' },
+      explanatory_gain: { result: 'GAP' }
+    };
     var tracks = [
       ['biological_validation', 'Biological validation', 'from gate evaluator'],
       ['regression_compatibility', 'Regression compatibility', 'from run status'],

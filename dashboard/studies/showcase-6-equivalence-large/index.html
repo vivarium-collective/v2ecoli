@@ -129,18 +129,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="showcase-6-equivalence-large"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -242,19 +249,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -297,13 +300,55 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="showcase-6-equivalence-large">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Whether v2ecoli is still &#34;the same E. coli&#34; as the upstream vEcoli (v1) at a
+population scale large enough to tighten the omics/flux equivalence axes. The
+report card grades emergent population phenotypes (cell-level aggregation over
+a 16×16 seeds×gens ensemble) on 21 axes / 5 groups, comparing v2&#39;s distribution
+against a matched v1 reference. Equivalence on physiology / composition /
+ribosomes with a localized respiratory-exchange divergence (#143) is the
+honest reading of how faithfully v2 reproduces v1&#39;s wild-type phenotype.
+</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Is the v2ecoli wild-type baseline still &#34;the same E. coli&#34; as vEcoli (v1) when
+measured at LARGE ensemble scale? This study applies the PR #134 behavioral
+report-card approach (population_phenotype_basal in its v1↔v2 *equivalence*
+reference mode) to a large multi-generation baseline ensemble — 16 seeds × 16
+generations — and grades v2&#39;s emergent population phenotype against a matched
+vEcoli 16×16 reference within tolerance. #134 exercised the same loop at 8×16
+as a demo; this study scales it to a population large enough to tighten the
+omics/flux equivalence axes and to read v2&#39;s multi-generation behavior (the
+in-process sawtooth, #142) honestly against v1.
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
 
     
     
@@ -394,83 +439,76 @@
     </div>
     
 
-    <div class="biology-glance">
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Whether v2ecoli is still &#34;the same E. coli&#34; as the upstream vEcoli (v1) at a
-population scale large enough to tighten the omics/flux equivalence axes. The
-report card grades emergent population phenotypes (cell-level aggregation over
-a 16×16 seeds×gens ensemble) on 21 axes / 5 groups, comparing v2&#39;s distribution
-against a matched v1 reference. Equivalence on physiology / composition /
-ribosomes with a localized respiratory-exchange divergence (#143) is the
-honest reading of how faithfully v2 reproduces v1&#39;s wild-type phenotype.
-</textarea>
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>showcase-2-baseline-figures</code>
+        </div>
+        
+        
         
       </div>
+      
 
       
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value=""
-                   placeholder="One sentence — the single most important thing this study does.">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Whether v2ecoli is still &#34;the same E. coli&#34; as the upstream vEcoli (v1) at a
-population scale large enough to tighten the omics/flux equivalence axes. The
-report card grades emergent population phenotypes (cell-level aggregation over
-a 16×16 seeds×gens ensemble) on 21 axes / 5 groups, comparing v2&#39;s distribution
-against a matched v1 reference. Equivalence on physiology / composition /
-ribosomes with a localized respiratory-exchange divergence (#143) is the
-honest reading of how faithfully v2 reproduces v1&#39;s wild-type phenotype.
-">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value=""
-                   placeholder="Why this study must finish before the next one in the DAG.">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Literature-stated success criterion.">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">A matched 16×16 vEcoli reference can be generated from the in-repo vEcoli
+source and pinned with pin_vecoli_equivalence_reference.py; v1 and v2 share
+cistron/monomer/flux ordering exactly, so the omics/flux vectors align
+positionally with no ID remapping (verified at 8×16 in #134).
+</li><li style="margin:2px 0">The population_phenotype_basal report card (PR #134) grades the SAME 21
+axes at 16×16 as at 8×16 — scale changes the population statistics, not the
+axis definitions or criteria — so the equivalence verdict at large scale is
+directly comparable to the #134 8×16 demo.
+</li><li style="margin:2px 0">v2&#39;s single-process multi-generation lineage runner sawtooths (in-process
+state accumulation → degrade → divide-fail → reset-from-cache; #142); at
+16 generations the burn-in (generation_lower_bound=3) and the card&#39;s
+stationarity flag / variance decomposition surface this honestly rather than
+letting it corrupt the graded window.
+</li>
+        </ul>
       </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>5</strong> tests defined —
+            <span class="classification-pill classification-primary">5 primary</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
 
       
 
       
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
         <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
           The biological expectations this study tests, mapped to the
           model observable that will measure each one. Full citations
@@ -490,125 +528,42 @@ honest reading of how faithfully v2 reproduces v1&#39;s wild-type phenotype.
         </ul>
       </div>
       
-    </div>
 
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Is the v2ecoli wild-type baseline still &#34;the same E. coli&#34; as vEcoli (v1) when
-measured at LARGE ensemble scale? This study applies the PR #134 behavioral
-report-card approach (population_phenotype_basal in its v1↔v2 *equivalence*
-reference mode) to a large multi-generation baseline ensemble — 16 seeds × 16
-generations — and grades v2&#39;s emergent population phenotype against a matched
-vEcoli 16×16 reference within tolerance. #134 exercised the same loop at 8×16
-as a demo; this study scales it to a population large enough to tighten the
-omics/flux equivalence axes and to read v2&#39;s multi-generation behavior (the
-in-process sawtooth, #142) honestly against v1.
-
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     >running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
       </div>
-      
-      
-      
-    </div>
-    
 
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>showcase-2-baseline-figures</code>
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>5</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>4</strong>
+          <span class="count-label">runs</span>
+        </div>
       </div>
-      
-      
-      
+
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">A matched 16×16 vEcoli reference can be generated from the in-repo vEcoli
-source and pinned with pin_vecoli_equivalence_reference.py; v1 and v2 share
-cistron/monomer/flux ordering exactly, so the omics/flux vectors align
-positionally with no ID remapping (verified at 8×16 in #134).
-</li><li style="margin:2px 0">The population_phenotype_basal report card (PR #134) grades the SAME 21
-axes at 16×16 as at 8×16 — scale changes the population statistics, not the
-axis definitions or criteria — so the equivalence verdict at large scale is
-directly comparable to the #134 8×16 demo.
-</li><li style="margin:2px 0">v2&#39;s single-process multi-generation lineage runner sawtooths (in-process
-state accumulation → degrade → divide-fail → reset-from-cache; #142); at
-16 generations the burn-in (generation_lower_bound=3) and the card&#39;s
-stationarity flag / variance decomposition surface this honestly rather than
-letting it corrupt the graded window.
-</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>5</strong> tests defined —
-          <span class="classification-pill classification-primary">5 primary</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     >running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>2</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>5</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>1</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>4</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -618,8 +573,11 @@ letting it corrupt the graded window.
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -897,8 +855,10 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -996,45 +956,6 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="showcase-6-equivalence-large">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">showcase-6-equivalence-large</h3>
-        <code class="baseline-entry-fqn">baseline</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
-          
-          <tr><td><code>cache_dir</code></td><td><code>out/cache_full</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="showcase-6-equivalence-large">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="showcase-6-equivalence-large">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1045,75 +966,6 @@ WITH vector extraction (so gene-expression r² + exchange-flux axes are graded).
 
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="vEcoli (v1) reference ensemble"
-             data-base-composite="showcase-6-equivalence-large">
-      <header class="variant-row-header">
-        <h3 class="variant-name">vEcoli (v1) reference ensemble</h3>
-        <span class="variant-base">based on <code>showcase-6-equivalence-large</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="vEcoli (v1) reference ensemble">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="vEcoli (v1) reference ensemble">Delete</button>
-        <button class="btn-variant-run" data-variant-name="vEcoli (v1) reference ensemble">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="showcase-6-equivalence-large" data-composite-id="baseline">showcase-6-equivalence-large (baseline)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1708,119 +1560,74 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
   
   
   
-  
-  
-  
-  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-    <h2 class="overview-label">Discovery implications</h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-    
-    <div class="di-uncertainties">
-      
-      <div class="di-unc di-unc-resolved">
-        <h4>✓ Resolved uncertainties</h4>
-        <ul><li>The #134 8×16 equivalence picture HOLDS at 16×16: Physiology / Composition / Ribosomes within tolerance (12 axes ✓, 6 minor drift), the overall exchange-flux fingerprint near-identical (R²=0.9989), the exchange-flux metabolic divergence (O₂ -40%, CO₂ -20%) persisting (issue #143), and gene expression highly correlated but below the strict 0.99 band (transcriptome R²=0.946, proteome R²=0.961 vs ~0.93–0.94 at 8×16). The larger sample tightened the statistics without changing the qualitative verdict.</li><li>A matched 16×16 vEcoli reference IS feasible from the in-repo sibling vEcoli (CovertLab/vEcoli @ b237873e) via its own Nextflow workflow. It ran to its natural maximum of 185 cells (9/16 single-daughter lineages completed all 16 gens; 7 truncated at deterministic FBA metabolic dead-ends — 256 unreachable for this seed set). 185 cells is a large, valid reference (&gt; the 128-cell 8×16 demo).</li><li>v2&#39;s single-process meta-composite is impractically slow for 16×16 (~4 min/cell sequential → ~17 h); the new parallel-by-default multi-seed path (run_seeds_parallel) cut it to ~3.6 h for the full 256-cell ensemble. v2 completed all 16/16 lineages (256 cells); 24/256 generations hit the duration cap without dividing (the #142 sawtooth), surfaced by the card&#39;s sim-health banner.</li></ul>
-      </div>
-      
-      
-      <div class="di-unc di-unc-remaining">
-        <h4>● Remaining uncertainties</h4>
-        <ul><li>The gene-expression &#39;mismatch&#39; is a strict-band artifact (R²=0.946 vs a 0.99 threshold inherited from the self-pin template). The principled cross-impl form — TOST + per-axis δ equivalence margins — would convert this into an explicit equivalence-margin verdict rather than a hard fail. Nice-to-have, not blocking.</li><li>Root cause of the O₂/CO₂ respiratory-exchange divergence (issue #143) is not resolved here — this study confirms it is stable and localized at scale, it does not explain it.</li></ul>
-      </div>
-      
-    </div>
-    
-
-    
-
-    
-
-    
-    
-    
-  </div>
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
 
-    
-    
-    
-    <div class="decide-section">
-      <h3 class="overview-label">Latest run outcomes</h3>
-      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
-        baseline · seed ? ·
-        ?s simulated ·
-        ? history rows ·
-        started ?
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
       </div>
-      
-      
     </div>
-    
 
+    
     
     
     
@@ -1852,10 +1659,78 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
 
     
     
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
 
     
     
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
+      
+      
+    </div>
+    
+    
+
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>The #134 8×16 equivalence picture HOLDS at 16×16: Physiology / Composition / Ribosomes within tolerance (12 axes ✓, 6 minor drift), the overall exchange-flux fingerprint near-identical (R²=0.9989), the exchange-flux metabolic divergence (O₂ -40%, CO₂ -20%) persisting (issue #143), and gene expression highly correlated but below the strict 0.99 band (transcriptome R²=0.946, proteome R²=0.961 vs ~0.93–0.94 at 8×16). The larger sample tightened the statistics without changing the qualitative verdict.</li><li>A matched 16×16 vEcoli reference IS feasible from the in-repo sibling vEcoli (CovertLab/vEcoli @ b237873e) via its own Nextflow workflow. It ran to its natural maximum of 185 cells (9/16 single-daughter lineages completed all 16 gens; 7 truncated at deterministic FBA metabolic dead-ends — 256 unreachable for this seed set). 185 cells is a large, valid reference (&gt; the 128-cell 8×16 demo).</li><li>v2&#39;s single-process meta-composite is impractically slow for 16×16 (~4 min/cell sequential → ~17 h); the new parallel-by-default multi-seed path (run_seeds_parallel) cut it to ~3.6 h for the full 256-cell ensemble. v2 completed all 16/16 lineages (256 cells); 24/256 generations hit the duration cap without dividing (the #142 sawtooth), surfaced by the card&#39;s sim-health banner.</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>The gene-expression &#39;mismatch&#39; is a strict-band artifact (R²=0.946 vs a 0.99 threshold inherited from the self-pin template). The principled cross-impl form — TOST + per-axis δ equivalence margins — would convert this into an explicit equivalence-margin verdict rather than a hard fail. Nice-to-have, not blocking.</li><li>Root cause of the O₂/CO₂ respiratory-exchange divergence (issue #143) is not resolved here — this study confirms it is stable and localized at scale, it does not explain it.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+
+      
+
+      
+      
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

@@ -129,18 +129,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="pdmp-03-inference"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -242,19 +249,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -297,13 +300,128 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted — per-modality observation likelihoods (neg-binom RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics) feeding an incremental log-likelihood accumulator + Vivarium observe/intervene effects will let ABC-SMC recover posteriors on synthetic data with SBC-validated coverage (≥85% on 90% CIs).</textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="pdmp-03-inference">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Builds the likelihood + Bayesian-inference layer that lets the PDMP whole-cell model be fit to (and questioned by) data: per-modality likelihoods, a streaming log-likelihood accumulator, ABC-SMC posteriors, and SBC/PPC validation. A methodological result fell out: the WCM Poisson count posterior is sharp (~300× tighter than a toy), so ABC needs n_generations=12 to converge, and SBC correctly rejected an under-converged ng=6 run before passing at ng=12.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Can the Phase 2 PDMP support well-formed observation likelihoods
+for the dominant cell-biology measurement modalities (RNA-seq,
+proteomics, growth rate, metabolomics) and recover posteriors
+via ABC-SMC on synthetic data — establishing the inference-
+ready substrate that motivated the DUF rescoping?
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Each card states a finding, links the evidence (run + test + value), shows the literature/expert comparison, and marks whether v2ecoli's behavior <em>confirms</em>, <em>contradicts</em>, <em>partially</em> agrees with, or is <em>novel</em> vs the reference.
+      </p>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">abc-smc-sbc-validated-on-count-surrogate</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">Phase-3 increment 1: a real ABC-SMC (importance weights + Gaussian perturbation kernel + adaptive-epsilon schedule) recovers a transcription-init rate from count-level observations, validated by Simulation-Based Calibration and a posterior-predictive check. The forward model is a negative-binomial count surrogate calibrated once to real WCM rna_init_event statistics (mu0=12593, Poisson limit). This replaces the prior grid-diagnostic phase3_abc_* scripts with the cited-but-missing run_abc_smc / run_sbc / run_ppc. Scope: validated on the WCM-calibrated count likelihood (single parameter, K=150 SBC), not the full WCM in the ABC loop (deferred to the Phase-4 compiled runtime) and not the K=1000 multi-modality full gate. A methodological result fell out: the WCM Poisson posterior is sharp (~300x tighter than a toy), so ABC needs n_generations=12 to converge; SBC correctly rejected an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> recovery theta_true=1.2 -&gt; post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS). Posterior shrinks with data: CI90 width 0.0068 (n_obs=25) -&gt; 0.0034 (100) -&gt; 0.0019 (400) -&gt; 0.0013 (1600), truth contained at every n; ~1/sqrt(n) through n=400 (ABC eps-resolution floors the shrinkage at the tightest end) · 
+          
+          in run <a href="#run-phase3"><code>phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)</code></a>
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-phase3-surrogate-calibration"><code>phase3-surrogate-calibration</code></a>, <a href="#run-phase3-abc-smc-recovery"><code>phase3-abc-smc-recovery</code></a>, <a href="#run-phase3-sbc-k150"><code>phase3-sbc-k150</code></a>, <a href="#run-phase3-ppc"><code>phase3-ppc</code></a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">abc-smc-multiparameter-identifiable</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">Phase-3 increment 2: the ABC-SMC engine generalizes to vector theta (independent per-dim perturbation kernel + product importance weights; scalar back-compat preserved). A 2-parameter joint inference of (count mean-scale, dispersion-scale) from count data is recovered and per-parameter SBC-validated, with a weak posterior correlation -- i.e. the two parameters are jointly identifiable from the [mean, std] summary. Scope: uses a synthetic overdispersed surrogate (mu0=40, phi0=8) because the real WCM transcription count is Poisson (no dispersion to infer); this validates the multi-parameter machinery for when richer overdispersed/multi-modal WCM observables are added.</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> recovery [1.185, 0.993] vs truth [1.2, 1.0]; posterior corr=+0.12 (weak -&gt; identifiable); 2-param SBC K=80 chi2_p mean-scale=0.78 PASS, disp-scale=0.62 PASS · 
+          
+          in run <a href="#run-scripts/run_abc_smc_2d.py"><code>scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom)</code></a>
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-phase3-abc-smc-2d"><code>phase3-abc-smc-2d</code></a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.</div>
+      </div>
+      
+    </div>
+    
 
     
     
@@ -394,90 +512,70 @@
     </div>
     
 
-    <div class="biology-glance">
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Builds the likelihood + Bayesian-inference layer that lets the PDMP whole-cell model be fit to (and questioned by) data: per-modality likelihoods, a streaming log-likelihood accumulator, ABC-SMC posteriors, and SBC/PPC validation. A methodological result fell out: the WCM Poisson count posterior is sharp (~300× tighter than a toy), so ABC needs n_generations=12 to converge, and SBC correctly rejected an under-converged ng=6 run before passing at ng=12.</textarea>
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>{&#39;study&#39;: &#39;pdmp-02-jump-processes&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+        </div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>pdmp-05-causal-discovery</code>
+        </div>
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p &gt; 0.05), 90% credible intervals achieve ≥85% empirical coverage.</span></div>
         
       </div>
+      
 
       
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value="Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference engine validated by Simulation-Based Calibration."
-                   placeholder="Specify and implement an observation likelihood library covering
-the four modalities; build a likelihood accumulator that hooks
-the Phase 2 PDMP runner; extend Vivarium&#39;s algebraic effects
-with observe / intervene; implement a structured-population layer
-above the single-cell PDMP for population-level omics likelihoods;
-deploy ABC-SMC as the baseline inference engine; demonstrate
-posterior recovery on synthetic data with a published
-uncertainty target.
-">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Builds the likelihood + Bayesian-inference layer that lets the PDMP whole-cell model be fit to (and questioned by) data: per-modality likelihoods, a streaming log-likelihood accumulator, ABC-SMC posteriors, and SBC/PPC validation. A methodological result fell out: the WCM Poisson count posterior is sharp (~300× tighter than a toy), so ABC needs n_generations=12 to converge, and SBC correctly rejected an under-converged ng=6 run before passing at ng=12.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value="This asks whether the new model can assign probabilities to observations, which is what makes parameter fitting and Bayesian inference possible."
-                   placeholder="Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p &gt; 0.05), 90% credible intervals achieve ≥85% empirical coverage.">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="(a) Per-modality observation likelihoods — negative binomial for
-RNA-seq, log-normal for proteomics, normal-on-log-growth for
-growth rate, normal/log-normal for metabolite abundances — admit
-a likelihood accumulator that runs alongside the PDMP and
-computes log-likelihood contributions incrementally from ODE
-segments and jump events. (b) Extending Vivarium&#39;s algebraic
-effect system with observe(variable, likelihood) and
-intervene(variable, value) effects (the ChiRho primitives) gives
-a tractable interface for inference workflows. (c) A baseline
-ABC-SMC engine using growth rate, mean mRNA/protein abundances,
-and metabolite concentrations as summary statistics recovers
-known parameter values on synthetic data within published
-precision targets.
-">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">A count-level likelihood (NegBin for RNA-seq, log-normal for proteomics, etc.) is an adequate observation model for Bayesian inference over the PDMP.</li><li style="margin:2px 0">ABC-SMC, Simulation-Based Calibration, and posterior-predictive checks together validate the inference machinery.</li><li style="margin:2px 0">A surrogate forward model calibrated once to real WCM count statistics is a faithful stand-in until the compiled full-WCM-in-the-loop runtime (Phase 4) lands.</li>
+        </ul>
       </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>3</strong> tests defined —
+            <span class="classification-pill classification-primary">2 primary</span>
+            <span class="classification-pill classification-supporting">1 supporting</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
 
       
 
       
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
         <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
           The biological expectations this study tests, mapped to the
           model observable that will measure each one. Full citations
@@ -515,201 +613,44 @@ precision targets.
         </ul>
       </div>
       
-    </div>
 
-    
-    <div class="overview-section findings-section">
-      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
-        Each card states a finding, links the evidence (run + test + value), shows the literature/expert comparison, and marks whether v2ecoli's behavior <em>confirms</em>, <em>contradicts</em>, <em>partially</em> agrees with, or is <em>novel</em> vs the reference.
-      </p>
-      
-      
-      
-      <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">abc-smc-sbc-validated-on-count-surrogate</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">Phase-3 increment 1: a real ABC-SMC (importance weights + Gaussian perturbation kernel + adaptive-epsilon schedule) recovers a transcription-init rate from count-level observations, validated by Simulation-Based Calibration and a posterior-predictive check. The forward model is a negative-binomial count surrogate calibrated once to real WCM rna_init_event statistics (mu0=12593, Poisson limit). This replaces the prior grid-diagnostic phase3_abc_* scripts with the cited-but-missing run_abc_smc / run_sbc / run_ppc. Scope: validated on the WCM-calibrated count likelihood (single parameter, K=150 SBC), not the full WCM in the ABC loop (deferred to the Phase-4 compiled runtime) and not the K=1000 multi-modality full gate. A methodological result fell out: the WCM Poisson posterior is sharp (~300x tighter than a toy), so ABC needs n_generations=12 to converge; SBC correctly rejected an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).</div>
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     selected>running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
         
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Build</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
         
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> recovery theta_true=1.2 -&gt; post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS). Posterior shrinks with data: CI90 width 0.0068 (n_obs=25) -&gt; 0.0034 (100) -&gt; 0.0019 (400) -&gt; 0.0013 (1600), truth contained at every n; ~1/sqrt(n) through n=400 (ABC eps-resolution floors the shrinkage at the tightest end) · 
-          
-          in run <a href="#run-phase3"><code>phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-phase3-surrogate-calibration"><code>phase3-surrogate-calibration</code></a>, <a href="#run-phase3-abc-smc-recovery"><code>phase3-abc-smc-recovery</code></a>, <a href="#run-phase3-sbc-k150"><code>phase3-sbc-k150</code></a>, <a href="#run-phase3-ppc"><code>phase3-ppc</code></a>
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        <div class="finding-next"><strong>→ Next:</strong> Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.</div>
       </div>
-      
-      
-      
-      <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">abc-smc-multiparameter-identifiable</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">Phase-3 increment 2: the ABC-SMC engine generalizes to vector theta (independent per-dim perturbation kernel + product importance weights; scalar back-compat preserved). A 2-parameter joint inference of (count mean-scale, dispersion-scale) from count data is recovered and per-parameter SBC-validated, with a weak posterior correlation -- i.e. the two parameters are jointly identifiable from the [mean, std] summary. Scope: uses a synthetic overdispersed surrogate (mu0=40, phi0=8) because the real WCM transcription count is Poisson (no dispersion to infer); this validates the multi-parameter machinery for when richer overdispersed/multi-modal WCM observables are added.</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> recovery [1.185, 0.993] vs truth [1.2, 1.0]; posterior corr=+0.12 (weak -&gt; identifiable); 2-param SBC K=80 chi2_p mean-scale=0.78 PASS, disp-scale=0.62 PASS · 
-          
-          in run <a href="#run-scripts/run_abc_smc_2d.py"><code>scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom)</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-phase3-abc-smc-2d"><code>phase3-abc-smc-2d</code></a>
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        <div class="finding-next"><strong>→ Next:</strong> Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.</div>
-      </div>
-      
-    </div>
-    
 
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Can the Phase 2 PDMP support well-formed observation likelihoods
-for the dominant cell-biology measurement modalities (RNA-seq,
-proteomics, growth rate, metabolomics) and recover posteriors
-via ABC-SMC on synthetic data — establishing the inference-
-ready substrate that motivated the DUF rescoping?
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>4</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>4</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>3</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
+      </div>
 
-      </div>
-      
-      
-      
-    </div>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>{&#39;study&#39;: &#39;pdmp-02-jump-processes&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
-      </div>
-      
-      
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>pdmp-05-causal-discovery</code>
-      </div>
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p &gt; 0.05), 90% credible intervals achieve ≥85% empirical coverage.</span></div>
-      
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">A count-level likelihood (NegBin for RNA-seq, log-normal for proteomics, etc.) is an adequate observation model for Bayesian inference over the PDMP.</li><li style="margin:2px 0">ABC-SMC, Simulation-Based Calibration, and posterior-predictive checks together validate the inference machinery.</li><li style="margin:2px 0">A surrogate forward model calibrated once to real WCM count statistics is a faithful stand-in until the compiled full-WCM-in-the-loop runtime (Phase 4) lands.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>3</strong> tests defined —
-          <span class="classification-pill classification-primary">2 primary</span>
-          <span class="classification-pill classification-supporting">1 supporting</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     selected>running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Build</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>4</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>4</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>3</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -719,8 +660,11 @@ ready substrate that motivated the DUF rescoping?
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -918,8 +862,10 @@ ready substrate that motivated the DUF rescoping?
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -1075,45 +1021,6 @@ ready substrate that motivated the DUF rescoping?
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="pdmp-with-likelihood-accumulator-tbd">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">pdmp-with-likelihood-accumulator-tbd</h3>
-        <code class="baseline-entry-fqn">v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>emitter</code></td><td><code>xarray</code></td></tr>
-          
-          <tr><td><code>summary_only</code></td><td><code>True</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="pdmp-with-likelihood-accumulator-tbd">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="pdmp-with-likelihood-accumulator-tbd">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1133,135 +1040,6 @@ ready substrate that motivated the DUF rescoping?
     </details>
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="likelihood-library-4-modalities"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">likelihood-library-4-modalities</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="likelihood-library-4-modalities">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="likelihood-library-4-modalities">Delete</button>
-        <button class="btn-variant-run" data-variant-name="likelihood-library-4-modalities">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="likelihood-accumulator"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">likelihood-accumulator</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="likelihood-accumulator">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="likelihood-accumulator">Delete</button>
-        <button class="btn-variant-run" data-variant-name="likelihood-accumulator">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="observe-intervene-effects"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">observe-intervene-effects</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="observe-intervene-effects">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="observe-intervene-effects">Delete</button>
-        <button class="btn-variant-run" data-variant-name="observe-intervene-effects">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="abc-smc-baseline"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">abc-smc-baseline</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="abc-smc-baseline">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="abc-smc-baseline">Delete</button>
-        <button class="btn-variant-run" data-variant-name="abc-smc-baseline">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="sbc-validation-K1000"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">sbc-validation-K1000</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="sbc-validation-K1000">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="sbc-validation-K1000">Delete</button>
-        <button class="btn-variant-run" data-variant-name="sbc-validation-K1000">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="pdmp-with-likelihood-accumulator-tbd" data-composite-id="v2ecoli_pdmp.composites.inference.pdmp_with_likelihood">pdmp-with-likelihood-accumulator-tbd (v2ecoli_pdmp.composites.inference.pdmp_with_likelihood)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1646,181 +1424,72 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
   
   
   
-  
-  
-  
-  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-    <h2 class="overview-label">Discovery implications</h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-    
-    <div class="di-uncertainties">
-      
-      <div class="di-unc di-unc-resolved">
-        <h4>✓ Resolved uncertainties</h4>
-        <ul><li>The inference substrate is built and runs: per-tick emission for both initiation Processes, an aggregate LikelihoodCollector, XArrayEmitter persistence to per-replicate zarr, mean-to-mean epsilon calibration, SMC sequential refinement, and a 2D multi-parameter sweep.</li><li>The emitted aggregate likelihood is self-calibrated log P(simulated | simulated_param), not the ABC-correct log P(observed | proposed); switching to count-based ABC distances is the architectural fix.</li><li>On a self-generated 3x3 (Ts, Ps) toy grid (N=4 replicates, 60 s), count-based distances separate the truth node from its next-nearest cell better than aggregate log-likelihood: the combined count vector reaches a 3.06x grid-separation ratio (vs 2.39x for aggregate log-likelihood). These are grid-separation diagnostics, not a posterior or credible interval. No script computes a &#34;row-separation&#34; metric; the earlier &#34;~150x row-separation&#34; figure was not actually computed.</li></ul>
-      </div>
-      
-      
-      <div class="di-unc di-unc-remaining">
-        <h4>● Remaining uncertainties</h4>
-        <ul><li>SBC rank-uniformity (chi^2 p &gt; 0.05 over &gt;=1000 draws) and &gt;=85% empirical coverage of 90% credible intervals — the gate that converts &#34;we have likelihoods&#34; into &#34;inference-ready likelihoods&#34; — have not been demonstrated on the count-based pipeline.</li><li>The pbg scalar-pruning quirk (task #14) was only worked around (pin-via-consumer declarations in sprints 1 and 13); the root cause at the merger layer is unresolved.</li></ul>
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card">
-        <div class="di-card-stmt"><strong>Aggregate log-likelihood is a sufficient ABC distance, and the apparent superiority of count vectors is an artifact of the 2D sweep&#39;s anti-diagonal ridge rather than a general identifiability win.</strong></div>
-        <div class="di-card-why">Under a 1-parameter sweep the aggregate metric still ranks truth highest; the ridge only appears when Ts and Ps trade off.</div>
-        
-        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
-          <code>abc-distance-metric</code>, <code>parameter-identifiability</code>
-        </div>
-        
-        
-        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
-          <code>truth-vs-next-nearest separation, aggregate-LL vs combined-count-vector, across 1D and 2D sweeps</code>, <code>presence of the anti-diagonal ridge under per-channel distance</code>
-        </div>
-        
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card di-mech-card">
-        <div class="di-mech-head">
-          <code>abc-distance (aggregate-LL -&gt; count-based)</code>
-          <span class="di-update-chip">replace</span>
-          
-          <span class="di-approval-badge">needs expert approval</span>
-        </div>
-        <div class="di-card-why">Adopt the combined count vector sqrt(d_rna^2 + d_ribosome^2) as the candidate ABC distance; on the self-generated 3x3 toy grid it is ~28% better-separated (truth-vs-next-nearest CELL, 3.06x vs 2.39x) than aggregate log-likelihood. Grid-separation diagnostic only — not validated as a posterior or a &#34;canonical&#34; distance.</div>
-      </div>
-      
-    </div>
-    
-
-    
-    
-    
-    <div class="di-group">
-      <h3>Follow-up study proposals
-        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-        <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-      <div class="followup-list">
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">SBC rank-uniformity + credible-interval coverage on the count-based pipeline</strong>
-            <span class="di-chip">calibration</span>
-            <span class="di-chip">open_gate</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Run &gt;=1000 SBC draws through the count-based ABC-SMC pipeline; gate on chi^2 rank-uniformity p &gt; 0.05 and &gt;=85% empirical coverage of the 90% credible intervals.</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-03-inference', "pdmp-03-sbc-coverage")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Root-cause fix for the pbg scalar-pruning merger quirk (task</strong>
-            <span class="di-chip">infrastructure</span>
-            <span class="di-chip">workaround_debt</span>
-            <span class="di-chip di-gain-medium">gain: medium</span>
-            
-          </div>
-          <div class="di-card-why">Fix scalar listener-field pruning at the pbg merger layer so pin-via-consumer workarounds are unnecessary; regression-test against the sprint-1 and sprint-13 cases.</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-03-inference', "pdmp-03-pbg-merger-fix")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-  </div>
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
 
     
     
@@ -1828,13 +1497,145 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
 
     
     
-
-    
     
 
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>The inference substrate is built and runs: per-tick emission for both initiation Processes, an aggregate LikelihoodCollector, XArrayEmitter persistence to per-replicate zarr, mean-to-mean epsilon calibration, SMC sequential refinement, and a 2D multi-parameter sweep.</li><li>The emitted aggregate likelihood is self-calibrated log P(simulated | simulated_param), not the ABC-correct log P(observed | proposed); switching to count-based ABC distances is the architectural fix.</li><li>On a self-generated 3x3 (Ts, Ps) toy grid (N=4 replicates, 60 s), count-based distances separate the truth node from its next-nearest cell better than aggregate log-likelihood: the combined count vector reaches a 3.06x grid-separation ratio (vs 2.39x for aggregate log-likelihood). These are grid-separation diagnostics, not a posterior or credible interval. No script computes a &#34;row-separation&#34; metric; the earlier &#34;~150x row-separation&#34; figure was not actually computed.</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>SBC rank-uniformity (chi^2 p &gt; 0.05 over &gt;=1000 draws) and &gt;=85% empirical coverage of 90% credible intervals — the gate that converts &#34;we have likelihoods&#34; into &#34;inference-ready likelihoods&#34; — have not been demonstrated on the count-based pipeline.</li><li>The pbg scalar-pruning quirk (task #14) was only worked around (pin-via-consumer declarations in sprints 1 and 13); the root cause at the merger layer is unresolved.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card">
+          <div class="di-card-stmt"><strong>Aggregate log-likelihood is a sufficient ABC distance, and the apparent superiority of count vectors is an artifact of the 2D sweep&#39;s anti-diagonal ridge rather than a general identifiability win.</strong></div>
+          <div class="di-card-why">Under a 1-parameter sweep the aggregate metric still ranks truth highest; the ridge only appears when Ts and Ps trade off.</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+            <code>abc-distance-metric</code>, <code>parameter-identifiability</code>
+          </div>
+          
+          
+          <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+            <code>truth-vs-next-nearest separation, aggregate-LL vs combined-count-vector, across 1D and 2D sweeps</code>, <code>presence of the anti-diagonal ridge under per-channel distance</code>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card di-mech-card">
+          <div class="di-mech-head">
+            <code>abc-distance (aggregate-LL -&gt; count-based)</code>
+            <span class="di-update-chip">replace</span>
+            
+            <span class="di-approval-badge">needs expert approval</span>
+          </div>
+          <div class="di-card-why">Adopt the combined count vector sqrt(d_rna^2 + d_ribosome^2) as the candidate ABC distance; on the self-generated 3x3 toy grid it is ~28% better-separated (truth-vs-next-nearest CELL, 3.06x vs 2.39x) than aggregate log-likelihood. Grid-separation diagnostic only — not validated as a posterior or a &#34;canonical&#34; distance.</div>
+        </div>
+        
+      </div>
+      
+
+      
+      
+      
+      <div class="di-group">
+        <h3>Follow-up study proposals
+          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+          <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+        <div class="followup-list">
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">SBC rank-uniformity + credible-interval coverage on the count-based pipeline</strong>
+              <span class="di-chip">calibration</span>
+              <span class="di-chip">open_gate</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Run &gt;=1000 SBC draws through the count-based ABC-SMC pipeline; gate on chi^2 rank-uniformity p &gt; 0.05 and &gt;=85% empirical coverage of the 90% credible intervals.</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-03-inference', "pdmp-03-sbc-coverage")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Root-cause fix for the pbg scalar-pruning merger quirk (task</strong>
+              <span class="di-chip">infrastructure</span>
+              <span class="di-chip">workaround_debt</span>
+              <span class="di-chip di-gain-medium">gain: medium</span>
+              
+            </div>
+            <div class="di-card-why">Fix scalar listener-field pruning at the pbg merger layer so pin-via-consumer workarounds are unnecessary; regression-test against the sprint-1 and sprint-13 cases.</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-03-inference', "pdmp-03-pbg-merger-fix")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

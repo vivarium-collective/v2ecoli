@@ -129,18 +129,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="pdmp-05-causal-discovery"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -242,19 +249,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -297,13 +300,45 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted — framing gene-function annotation as Bayesian model comparison with Russian Roulette marginal-likelihood estimators (Lyne et al. 2015) plus an active-inference loop (Toth et al. 2022) will recover ≥20 benchmark E. coli gene annotations at BH-FDR ≤ 0.1, with credible-interval widths shrinking at the ≥n⁻¹ᐟ² rate.</textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="pdmp-05-causal-discovery">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Aims to use the inferable PDMP whole-cell model for functional discovery: compare candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Can the compiled, likelihood-equipped PDMP WCM support Bayesian
+model comparison for gene-function annotation — recovering known
+E. coli gene functions on a benchmark set with credible intervals
+that shrink with sample size, and driving an active causal-
+inference loop that selects in-silico interventions to maximally
+discriminate between candidate mechanisms?
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
 
     
     
@@ -406,193 +441,102 @@
     </div>
     
 
-    <div class="biology-glance">
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Aims to use the inferable PDMP whole-cell model for functional discovery: compare candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.</textarea>
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>{&#39;study&#39;: &#39;pdmp-03-inference&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code> · <code>{&#39;study&#39;: &#39;pdmp-04-compilation&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+        </div>
+        
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">RR marginal-likelihood estimator achieves N_eff ≥ 100 per estimate. Log BF CIs lie entirely above |log BF| &gt; 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p &gt; 0.05. Active-inference EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4.</span></div>
+        
+      </div>
+      
+
+      
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Functional gene annotations can be cast as competing causal models and discriminated by Bayesian model comparison (Russian-roulette marginal likelihood).</li><li style="margin:2px 0">Active experimental design (expected information gain) selects interventions that recover causal edges more efficiently than observation alone.</li><li style="margin:2px 0">A benchmark gene set with known edges provides ground truth for FDR-calibrated recovery.</li>
+        </ul>
+      </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>3</strong> tests defined —
+            <span class="classification-pill classification-primary">2 primary</span>
+            <span class="classification-pill classification-supporting">1 supporting</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+
+      
+      
+
+      
+      
+
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     selected>running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Design</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
         
       </div>
 
-      
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value="Phase 5 — pursue the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes."
-                   placeholder="Implement the marginal-likelihood estimator (Russian Roulette /
-doubly-intractable methods) on top of the Phase 3 likelihood
-accumulator and Phase 4 compiled runtime; build the active causal
-inference loop (propose intervention, predict outcomes under
-candidate mechanisms, score by expected information gain); curate
-a benchmark set of E. coli genes with well-established functions;
-measure posterior recovery rate, credible-interval width vs.
-sample size, and compute cost per annotation; produce a full
-resource estimate for genome-wide scaling.
-">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Aims to use the inferable PDMP whole-cell model for functional discovery: compare candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value="This is the final phase: use the fast, likelihood-bearing model to compare gene-function hypotheses and choose informative perturbations."
-                   placeholder="RR marginal-likelihood estimator achieves N_eff ≥ 100 per estimate. Log BF CIs lie entirely above |log BF| &gt; 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p &gt; 0.05. Active-inference EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4.">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Framing gene-function annotation as Bayesian model comparison
-with marginal likelihoods estimated via Russian Roulette /
-doubly-intractable estimators, combined with active Bayesian
-causal inference that proposes targeted in-silico interventions
-(knockouts, overexpression) and selects experiments by expected
-information gain, recovers the known functions of a benchmark
-set of E. coli genes with credible-interval widths that decrease
-predictably as sample size grows, at a per-annotation compute
-cost that extrapolates to feasible genome-wide scaling.
-">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>4</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>5</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>3</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
       </div>
 
-      
-
-      
-    </div>
-
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Can the compiled, likelihood-equipped PDMP WCM support Bayesian
-model comparison for gene-function annotation — recovering known
-E. coli gene functions on a benchmark set with credible intervals
-that shrink with sample size, and driving an active causal-
-inference loop that selects in-silico interventions to maximally
-discriminate between candidate mechanisms?
-
-      </div>
-      
-      
-      
-    </div>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>{&#39;study&#39;: &#39;pdmp-03-inference&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code> · <code>{&#39;study&#39;: &#39;pdmp-04-compilation&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
-      </div>
-      
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">RR marginal-likelihood estimator achieves N_eff ≥ 100 per estimate. Log BF CIs lie entirely above |log BF| &gt; 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p &gt; 0.05. Active-inference EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4.</span></div>
-      
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Functional gene annotations can be cast as competing causal models and discriminated by Bayesian model comparison (Russian-roulette marginal likelihood).</li><li style="margin:2px 0">Active experimental design (expected information gain) selects interventions that recover causal edges more efficiently than observation alone.</li><li style="margin:2px 0">A benchmark gene set with known edges provides ground truth for FDR-calibrated recovery.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>3</strong> tests defined —
-          <span class="classification-pill classification-primary">2 primary</span>
-          <span class="classification-pill classification-supporting">1 supporting</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     selected>running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Design</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>4</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>5</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>3</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -602,8 +546,11 @@ discriminate between candidate mechanisms?
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -782,8 +729,10 @@ discriminate between candidate mechanisms?
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -939,45 +888,6 @@ discriminate between candidate mechanisms?
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="pdmp-annotation-comparison-tbd">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">pdmp-annotation-comparison-tbd</h3>
-        <code class="baseline-entry-fqn">v2ecoli_pdmp.composites.annotation.bayes_model_compare</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>emitter</code></td><td><code>xarray</code></td></tr>
-          
-          <tr><td><code>estimator</code></td><td><code>russian-roulette</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="pdmp-annotation-comparison-tbd">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="pdmp-annotation-comparison-tbd">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -997,120 +907,6 @@ discriminate between candidate mechanisms?
     </details>
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="russian-roulette-marginal-likelihood"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">russian-roulette-marginal-likelihood</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="russian-roulette-marginal-likelihood">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="russian-roulette-marginal-likelihood">Delete</button>
-        <button class="btn-variant-run" data-variant-name="russian-roulette-marginal-likelihood">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="active-causal-inference-loop"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">active-causal-inference-loop</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="active-causal-inference-loop">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="active-causal-inference-loop">Delete</button>
-        <button class="btn-variant-run" data-variant-name="active-causal-inference-loop">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="benchmark-gene-set"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">benchmark-gene-set</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="benchmark-gene-set">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="benchmark-gene-set">Delete</button>
-        <button class="btn-variant-run" data-variant-name="benchmark-gene-set">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="sbc-at-model-comparison-level"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">sbc-at-model-comparison-level</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="sbc-at-model-comparison-level">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="sbc-at-model-comparison-level">Delete</button>
-        <button class="btn-variant-run" data-variant-name="sbc-at-model-comparison-level">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="pdmp-annotation-comparison-tbd" data-composite-id="v2ecoli_pdmp.composites.annotation.bayes_model_compare">pdmp-annotation-comparison-tbd (v2ecoli_pdmp.composites.annotation.bayes_model_compare)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1420,196 +1216,72 @@ expect:  {"field": "empirical_FDR", "operator": "less-than", "threshold": 0.05}<
   
   
   
-  
-  
-  
-  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-    <h2 class="overview-label">Discovery implications</h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-    
-    <div class="di-uncertainties">
-      
-      <div class="di-unc di-unc-resolved">
-        <h4>✓ Resolved uncertainties</h4>
-        <ul><li>The Bayes-factor / model-comparison shape works on the Phase-3 ABC infrastructure (a 5-hypothesis transcript_init_prob_scale sweep).</li><li>Sprint 1&#39;s &#34;distance-of-the-mean&#34; estimator was biased and overstated the signal; the unbiased per-replicate pseudo-marginal estimator collapses truth posterior 28.8% -&gt; 24.4% (~ the 20% uniform baseline) and log BF +0.32 -&gt; +0.01.</li><li>Replicate count alone cannot rescue the signal: the truth-vs-runner-up kernel-mean gap is only Delta log +0.011 nats, so as N -&gt; infinity the log-BF CI tightens around a near-zero gap (Jeffreys substantial/decisive never reached even at N=1024).</li><li>Hypothesis spacing IS a lever for the within-grid 1/n_H dilution (truth posterior 24% -&gt; 43% -&gt; 61% as close neighbors are dropped), but log BF maxes at +0.45 even in the most favorable 2-way subset.</li></ul>
-      </div>
-      
-      
-      <div class="di-unc di-unc-remaining">
-        <h4>● Remaining uncertainties</h4>
-        <ul><li>Whether the Phase-3 sprint-13 combined count-vector observable (or a tighter epsilon) raises log BF past the Jeffreys substantial threshold (&gt;1) is untested — this is the open Phase-5 question.</li><li>The full Phase-5 deliverable (&gt;=20 benchmark gene annotations at BH-FDR &lt;= 0.1 with credible intervals) depends on the Phase-4 compiled runtime (per-particle wall &lt; 0.05 s/tick) and is not yet tractable.</li><li>Model-comparison-level SBC (chi^2 rank-uniformity p &gt; 0.05) and RR-estimator N_eff &gt;= 100 per marginal-likelihood estimate have not been demonstrated.</li></ul>
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
-      
-      <div class="di-card">
-        <div class="di-card-stmt"><strong>The Phase-5 identifiability ceiling is set by observable choice (transcript_init counts under the homeostat), and adopting the Phase-3 combined count vector — not more replicates or wider priors — will recover decisive Bayes factors.</strong></div>
-        <div class="di-card-why">Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only observable richness or sigma can move; Phase 3 showed count vectors give a measurable grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid, a diagnostic, not a posterior; the &#34;~100x&#34; framing was a hardcoded literal, not computed).</div>
-        
-        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
-          <code>inference-observable</code>, <code>marginal-likelihood-separation</code>
-        </div>
-        
-        
-        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
-          <code>log BF (truth vs runner-up) under the combined count vector vs distance-of-the-mean</code>, <code>kernel-mean gap Delta log under the richer observable</code>
-        </div>
-        
-      </div>
-      
-      <div class="di-card">
-        <div class="di-card-stmt"><strong>The ceiling is a hypothesis-spacing artifact, and a coarse-enough grid alone yields decisive evidence.</strong></div>
-        <div class="di-card-why">Truth posterior climbs to 61% at 2-way +/-30% spacing.</div>
-        
-        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
-          <code>hypothesis-grid-design</code>
-        </div>
-        
-        
-        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
-          <code>log BF vs spacing (does it cross 1 at any spacing?)</code>
-        </div>
-        
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card di-mech-card">
-        <div class="di-mech-head">
-          <code>phase-5-observable</code>
-          <span class="di-update-chip">revise</span>
-          
-          <span class="di-approval-badge">needs expert approval</span>
-        </div>
-        <div class="di-card-why">Re-run the Bayes-factor sprints against the Phase-3 sprint-13 combined count-vector observable (or a tighter epsilon) before adding replicates or widening priors; N is the least useful lever.</div>
-      </div>
-      
-    </div>
-    
-
-    
-    
-    
-    <div class="di-group">
-      <h3>Follow-up study proposals
-        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-        <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-      <div class="followup-list">
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Re-run Bayes-factor sprints on the Phase-3 combined count-vector observable</strong>
-            <span class="di-chip">mechanism_discrimination</span>
-            <span class="di-chip">information_ceiling</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Replace the distance-of-the-mean observable with sqrt(d_rna^2 + d_ribosome^2) (or wider transcript_init_prob_scale spacing) and re-compute the unbiased pseudo-marginal log BF; gate on clearing Jeffreys substantial (&gt;1).</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-05-causal-discovery', "pdmp-05-count-vector-rerun")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Gene-function recovery benchmark on the compiled runtime</strong>
-            <span class="di-chip">validation</span>
-            <span class="di-chip">downstream_gate</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Once the Phase-4 column-centric runtime hits &lt;0.05 s/tick, run RR marginal- likelihood model comparison over &gt;=20 benchmark E. coli genes; gate on BH-FDR &lt;= 0.1 with shrinking credible intervals.</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-05-causal-discovery', "pdmp-05-gene-function-benchmark")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-  </div>
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
 
     
     
@@ -1617,13 +1289,160 @@ expect:  {"field": "empirical_FDR", "operator": "less-than", "threshold": 0.05}<
 
     
     
-
-    
     
 
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>The Bayes-factor / model-comparison shape works on the Phase-3 ABC infrastructure (a 5-hypothesis transcript_init_prob_scale sweep).</li><li>Sprint 1&#39;s &#34;distance-of-the-mean&#34; estimator was biased and overstated the signal; the unbiased per-replicate pseudo-marginal estimator collapses truth posterior 28.8% -&gt; 24.4% (~ the 20% uniform baseline) and log BF +0.32 -&gt; +0.01.</li><li>Replicate count alone cannot rescue the signal: the truth-vs-runner-up kernel-mean gap is only Delta log +0.011 nats, so as N -&gt; infinity the log-BF CI tightens around a near-zero gap (Jeffreys substantial/decisive never reached even at N=1024).</li><li>Hypothesis spacing IS a lever for the within-grid 1/n_H dilution (truth posterior 24% -&gt; 43% -&gt; 61% as close neighbors are dropped), but log BF maxes at +0.45 even in the most favorable 2-way subset.</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>Whether the Phase-3 sprint-13 combined count-vector observable (or a tighter epsilon) raises log BF past the Jeffreys substantial threshold (&gt;1) is untested — this is the open Phase-5 question.</li><li>The full Phase-5 deliverable (&gt;=20 benchmark gene annotations at BH-FDR &lt;= 0.1 with credible intervals) depends on the Phase-4 compiled runtime (per-particle wall &lt; 0.05 s/tick) and is not yet tractable.</li><li>Model-comparison-level SBC (chi^2 rank-uniformity p &gt; 0.05) and RR-estimator N_eff &gt;= 100 per marginal-likelihood estimate have not been demonstrated.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
+        
+        <div class="di-card">
+          <div class="di-card-stmt"><strong>The Phase-5 identifiability ceiling is set by observable choice (transcript_init counts under the homeostat), and adopting the Phase-3 combined count vector — not more replicates or wider priors — will recover decisive Bayes factors.</strong></div>
+          <div class="di-card-why">Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only observable richness or sigma can move; Phase 3 showed count vectors give a measurable grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid, a diagnostic, not a posterior; the &#34;~100x&#34; framing was a hardcoded literal, not computed).</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+            <code>inference-observable</code>, <code>marginal-likelihood-separation</code>
+          </div>
+          
+          
+          <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+            <code>log BF (truth vs runner-up) under the combined count vector vs distance-of-the-mean</code>, <code>kernel-mean gap Delta log under the richer observable</code>
+          </div>
+          
+        </div>
+        
+        <div class="di-card">
+          <div class="di-card-stmt"><strong>The ceiling is a hypothesis-spacing artifact, and a coarse-enough grid alone yields decisive evidence.</strong></div>
+          <div class="di-card-why">Truth posterior climbs to 61% at 2-way +/-30% spacing.</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+            <code>hypothesis-grid-design</code>
+          </div>
+          
+          
+          <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+            <code>log BF vs spacing (does it cross 1 at any spacing?)</code>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card di-mech-card">
+          <div class="di-mech-head">
+            <code>phase-5-observable</code>
+            <span class="di-update-chip">revise</span>
+            
+            <span class="di-approval-badge">needs expert approval</span>
+          </div>
+          <div class="di-card-why">Re-run the Bayes-factor sprints against the Phase-3 sprint-13 combined count-vector observable (or a tighter epsilon) before adding replicates or widening priors; N is the least useful lever.</div>
+        </div>
+        
+      </div>
+      
+
+      
+      
+      
+      <div class="di-group">
+        <h3>Follow-up study proposals
+          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+          <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+        <div class="followup-list">
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Re-run Bayes-factor sprints on the Phase-3 combined count-vector observable</strong>
+              <span class="di-chip">mechanism_discrimination</span>
+              <span class="di-chip">information_ceiling</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Replace the distance-of-the-mean observable with sqrt(d_rna^2 + d_ribosome^2) (or wider transcript_init_prob_scale spacing) and re-compute the unbiased pseudo-marginal log BF; gate on clearing Jeffreys substantial (&gt;1).</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-05-causal-discovery', "pdmp-05-count-vector-rerun")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Gene-function recovery benchmark on the compiled runtime</strong>
+              <span class="di-chip">validation</span>
+              <span class="di-chip">downstream_gate</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Once the Phase-4 column-centric runtime hits &lt;0.05 s/tick, run RR marginal- likelihood model comparison over &gt;=20 benchmark E. coli genes; gate on BH-FDR &lt;= 0.1 with shrinking credible intervals.</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-05-causal-discovery', "pdmp-05-gene-function-benchmark")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

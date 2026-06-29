@@ -117,18 +117,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="pdmp-01-metabolism-ode"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -230,19 +237,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -285,276 +288,44 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated.">First run confirmed (2026-05-24): Millard 2017 SBML loads + simulates via pbg-copasi and recovers the published reference steady state for central carbon + energy metabolites (G6P, F6P, FDP, PEP, PYR, ATP/ADP, NADH/NADPH, MAL, AKG all match BioModels MODEL1505110000 initial values to solver tolerance). The FBA-bridge flux-pin now integrates the Millard ODE into the WCM FBA (24 active pins) and the LQR was fixed to a real stabilizing gain (||K|| ≈ 4.39, commit cc6a72d); the PDMP-vs-Phase-0 endpoint W₂ comparison is done on M9-glucose (±σ gate met; cell_mass W₂/σ = 1.00, dry_mass 1.09, commit 6a764fc), with acetate / +aa multi-condition still pending.</textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="pdmp-01-metabolism-ode">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
 
     
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
       </h2>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
-        Untested claims, absent controls, uncalibrated metrics, un-excluded
-        alternatives, unexplored regions, and stale visuals — harvested from the
-        rigor scorecard + freshness signals.
-      </p>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">1 alternative(s) listed but none excluded yet</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The +/-sigma cell_mass + dry_mass acceptance gate is now met on M9-glucose (2026-06-11, closed-loop WATER[c] fix, commit 6a764fc). The ~20 fg cell_mass offset was entirely open-loop water drift; the fix regulates WATER[c] closed-loop to hold the birth water fraction (verified flat at 0.70000 over 600 s). Re-run of scripts/compare_pdmp_ensemble_vs_phase0.py (N=12 PDMP reps, consumption_matched, 600 s, seeds 1000-1011, vs the N=32 Phase-0 M9-glucose reference; 12/12 usable, 0 errors, 0 degeneracy) gives endpoint W2: cell_mass = 6.93 fg (W2/sigma = 1.00, 95% CI [5.16, 9.00]); dry_mass = 2.27 fg (W2/sigma = 1.09, 95% CI [1.70, 2.90]). Both &lt;= 2 sigma, so the gate is met (was cell_mass W2/sigma = 3.0 under open-loop water). Notes: closing the loop slightly overshot (PDMP cell_mass 1481.0 -&gt; 1456.8 fg, now ~4.4 fg below Phase-0 1461.1 rather than ~20 fg above) and nudged dry_mass W2/sigma up from 0.86 to 1.09 (still within +/-sigma); the PDMP ensemble remains much tighter than Phase-0 (per-rep sigma ~1.2 fg cell vs 6.9 fg), so the pass rests on a mean offset that now sits within sigma, not on matched variance. This is M9-glucose only; the acetate / +aa PDMP-vs-Phase-0 W2 remains pending and is the gating step before any acceptance. See reports/figures/pdmp-01/RUN_REPORT_2026-06-11.md.</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">Reproducibility caveats surfaced in the just-attempted re-run: (a) the millard_pdmp_baseline composite had a pre-existing broken import (LikelihoodCollector imported from the nonexistent v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*); its likelihood path was unbuildable until fixed in this refresh; (b) in the default &#39;proportional&#39; ref-growth mode the composite crashes mid-run with &#34;ValueError: Negative values at equilibrium steady state&#34; (v2ecoli/processes/equilibrium.py) and runs only in the &#39;consumption_matched&#39; mode; (c) the LQR zero-gain Riccati bug (an A = I + J finite-difference artifact) was root-caused and fixed (commit cc6a72d; true Jacobian + conserved-moiety CARE shift giving ||K|| ≈ 4.39, regression-tested in tests/test_lqr_riccati_stabilizable.py), so the outer controller is no longer degenerate (gain_degenerate=False across 12/12 replicates).</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The FBA-bridge composite has not been shown to hold interface statistics across ANY Phase-0 condition; the M9-glucose, M9-acetate and M9-glucose+aa W2 audits are all pending (no condition is closed).</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The LQR outer-control weights have not passed a Sobol-sensitivity / FIM-conditioning (kappa &lt; 1e8) audit, so the causal/teleonomic parameter partition is asserted but not yet proven free of disguised free parameters.</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">Task #20 — the JAX/Diffrax backend works standalone but fails inside the WCM composite; the in-WCM path is unresolved.</div>
-          </div>
-        </div>
-        
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Replaces v2ecoli&#39;s multi-objective FBA central-carbon metabolism with the Millard 2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble within ±σ; the ~20 fg offset was traced to open-loop water drift, not the kinetics or control.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
+and energy metabolism, wrapped in a linear-quadratic regulator
+(LQR) outer control layer for growth-rate regulation, replace
+v2ecoli&#39;s multi-objective FBA metabolism (biomass + homeostatic +
+kinetic-constraint, via `wholecell.utils.modular_fba`) while
+reproducing the Phase 0 interface statistics within tolerance
+across ≥3 environmental conditions?
+
       </div>
+      
+      
+      
     </div>
     
 
-    <div class="biology-glance">
-      
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Replaces v2ecoli&#39;s multi-objective FBA central-carbon metabolism with the Millard 2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble within ±σ; the ~20 fg offset was traced to open-loop water drift, not the kinetics or control.</textarea>
-        
-      </div>
-
-      
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value="Phase 1 — substitute v2ecoli&#39;s multi-objective FBA (`wholecell.utils.modular_fba`, glpk-linear) with the Millard 2017 kinetic ODE (BioModels MODEL1505110000) wrapped via pbg-copasi, an LQR outer control layer for growth-rate regulation, and an FBA-bridge composite that couples the ODE to the remaining v2ecoli FBA during the incremental handover."
-                   placeholder="Run the Millard 2017 ODE as a standalone Process Bigraph process
-by wrapping the published SBML (BioModels MODEL1505110000) with
-pbg-copasi&#39;s CopasiUTCProcess (basico / COPASI backend). Build
-an FBA-bridge composite that couples the COPASI-driven kinetic
-ODE to v2ecoli&#39;s existing multi-objective FBA solver
-(`wholecell.utils.modular_fba`) so the ODE can take over central-
-carbon flux predictions incrementally while the FBA covers the
-rest of the network (homeostatic targets for non-central
-metabolites, kinetic-constraint coupling to enzyme abundances,
-NGAM maintenance). Wrap with an LQR controller that replaces the
-FBA&#39;s biomass-production objective for growth-rate regulation.
-Validate against the Phase 0 Xarray interface datasets across
-≥3 conditions. Partition every introduced parameter as causal or
-teleonomic, with written justification per parameter. A
-high-performance backend (DifferentialEquations.jl / Diffrax)
-is deferred to Phase 4 compilation; Phase 1 establishes
-correctness through pbg-copasi, Phase 4 takes over performance.
-">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Replaces v2ecoli&#39;s multi-objective FBA central-carbon metabolism with the Millard 2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble within ±σ; the ~20 fg offset was traced to open-loop water drift, not the kinetics or control.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value="This tests whether metabolism can be represented as continuous biochemical dynamics instead of an FBA optimization step, without breaking the rest of the cell model."
-                   placeholder="Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ &lt; 10⁸ on causal parameters.">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Substituting the Millard 2017 kinetic ODE (62 metabolites, 68
-reactions, 255 metabolite–enzyme interactions) for v2ecoli&#39;s
-current multi-objective FBA metabolism, with an LQR outer loop
-driving the system toward a growth-rate reference trajectory,
-matches the Phase 0 interface datasets within tolerance AND admits
-an explicit causal/teleonomic parameter partition: kinetic
-constants and enzyme abundances are causal (inferenceable from
-data); LQR weights, reference trajectories, and the homeostatic
-concentration targets v2ecoli&#39;s FBA currently encodes are
-teleonomic (design-driven, fixed).
-">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
-      </div>
-
-      
-
-      
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-          The biological expectations this study tests, mapped to the
-          model observable that will measure each one. Full citations
-          live in the Tests tab.
-        </p>
-        <ul class="literature-anchor-list">
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-        </ul>
-      </div>
-      
-    </div>
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
 
     
     <div class="overview-section findings-section">
@@ -683,112 +454,276 @@ teleonomic (design-driven, fixed).
 
     
     
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
-and energy metabolism, wrapped in a linear-quadratic regulator
-(LQR) outer control layer for growth-rate regulation, replace
-v2ecoli&#39;s multi-objective FBA metabolism (biomass + homeostatic +
-kinetic-constraint, via `wholecell.utils.modular_fba`) while
-reproducing the Phase 0 interface statistics within tolerance
-across ≥3 environmental conditions?
-
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">replication</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">1 alternative(s) listed but none excluded yet</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The +/-sigma cell_mass + dry_mass acceptance gate is now met on M9-glucose (2026-06-11, closed-loop WATER[c] fix, commit 6a764fc). The ~20 fg cell_mass offset was entirely open-loop water drift; the fix regulates WATER[c] closed-loop to hold the birth water fraction (verified flat at 0.70000 over 600 s). Re-run of scripts/compare_pdmp_ensemble_vs_phase0.py (N=12 PDMP reps, consumption_matched, 600 s, seeds 1000-1011, vs the N=32 Phase-0 M9-glucose reference; 12/12 usable, 0 errors, 0 degeneracy) gives endpoint W2: cell_mass = 6.93 fg (W2/sigma = 1.00, 95% CI [5.16, 9.00]); dry_mass = 2.27 fg (W2/sigma = 1.09, 95% CI [1.70, 2.90]). Both &lt;= 2 sigma, so the gate is met (was cell_mass W2/sigma = 3.0 under open-loop water). Notes: closing the loop slightly overshot (PDMP cell_mass 1481.0 -&gt; 1456.8 fg, now ~4.4 fg below Phase-0 1461.1 rather than ~20 fg above) and nudged dry_mass W2/sigma up from 0.86 to 1.09 (still within +/-sigma); the PDMP ensemble remains much tighter than Phase-0 (per-rep sigma ~1.2 fg cell vs 6.9 fg), so the pass rests on a mean offset that now sits within sigma, not on matched variance. This is M9-glucose only; the acetate / +aa PDMP-vs-Phase-0 W2 remains pending and is the gating step before any acceptance. See reports/figures/pdmp-01/RUN_REPORT_2026-06-11.md.</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">Reproducibility caveats surfaced in the just-attempted re-run: (a) the millard_pdmp_baseline composite had a pre-existing broken import (LikelihoodCollector imported from the nonexistent v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*); its likelihood path was unbuildable until fixed in this refresh; (b) in the default &#39;proportional&#39; ref-growth mode the composite crashes mid-run with &#34;ValueError: Negative values at equilibrium steady state&#34; (v2ecoli/processes/equilibrium.py) and runs only in the &#39;consumption_matched&#39; mode; (c) the LQR zero-gain Riccati bug (an A = I + J finite-difference artifact) was root-caused and fixed (commit cc6a72d; true Jacobian + conserved-moiety CARE shift giving ||K|| ≈ 4.39, regression-tested in tests/test_lqr_riccati_stabilizable.py), so the outer controller is no longer degenerate (gain_degenerate=False across 12/12 replicates).</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The FBA-bridge composite has not been shown to hold interface statistics across ANY Phase-0 condition; the M9-glucose, M9-acetate and M9-glucose+aa W2 audits are all pending (no condition is closed).</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The LQR outer-control weights have not passed a Sobol-sensitivity / FIM-conditioning (kappa &lt; 1e8) audit, so the causal/teleonomic parameter partition is asserted but not yet proven free of disguised free parameters.</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">Task #20 — the JAX/Diffrax backend works standalone but fails inside the WCM composite; the in-WCM path is unresolved.</div>
+          </div>
+        </div>
+        
       </div>
-      
-      
-      
     </div>
     
 
     
     <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>{&#39;study&#39;: &#39;pdmp-00-characterization&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>{&#39;study&#39;: &#39;pdmp-00-characterization&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+        </div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>pdmp-02-jump-processes</code>
+        </div>
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ &lt; 10⁸ on causal parameters.</span></div>
+        
       </div>
       
+
       
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>pdmp-02-jump-processes</code>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Millard 2017 (BioModels MODEL1505110000) is an adequate kinetic model of E. coli central carbon + energy metabolism for the substitution.</li><li style="margin:2px 0">A Wasserstein-2 endpoint match within ±σ of the Phase-0 ensemble is an acceptable interface-fidelity gate (M9-glucose only so far).</li><li style="margin:2px 0">The causal/teleonomic parameter partition (kinetic constants causal; LQR weights/reference teleonomic) is meaningful and auditable via FIM conditioning + Sobol.</li><li style="margin:2px 0">COPASI/basico LSODA at rtol=1e-6/atol=1e-9 keeps numerical error below the Phase-0 MC noise floor.</li>
+        </ul>
       </div>
       
+
       
-      <div><strong>Proceed when:</strong> <span class="muted">Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ &lt; 10⁸ on causal parameters.</span></div>
       
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>5</strong> tests defined —
+            <span class="classification-pill classification-primary">5 primary</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+
+      
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
+      
+
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     selected>running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Decide</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
+      </div>
+
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>6</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>5</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>4</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">runs</span>
+        </div>
+      </div>
+
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Millard 2017 (BioModels MODEL1505110000) is an adequate kinetic model of E. coli central carbon + energy metabolism for the substitution.</li><li style="margin:2px 0">A Wasserstein-2 endpoint match within ±σ of the Phase-0 ensemble is an acceptable interface-fidelity gate (M9-glucose only so far).</li><li style="margin:2px 0">The causal/teleonomic parameter partition (kinetic constants causal; LQR weights/reference teleonomic) is meaningful and auditable via FIM conditioning + Sobol.</li><li style="margin:2px 0">COPASI/basico LSODA at rtol=1e-6/atol=1e-9 keeps numerical error below the Phase-0 MC noise floor.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>5</strong> tests defined —
-          <span class="classification-pill classification-primary">5 primary</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     selected>running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Decide</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>6</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>5</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>4</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>2</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -798,8 +733,11 @@ across ≥3 environmental conditions?
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -1022,8 +960,10 @@ handover.
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -1237,53 +1177,6 @@ handover.
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="millard2017-via-pbg-copasi">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">millard2017-via-pbg-copasi</h3>
-        <code class="baseline-entry-fqn">pbg_copasi.composites.utc-process</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>model_source</code></td><td><code>v2ecoli/models/sbml/millard2017_central_metabolism.xml</code></td></tr>
-          
-          <tr><td><code>step_dt</code></td><td><code>1.0</code></td></tr>
-          
-          <tr><td><code>condition</code></td><td><code>M9-glucose</code></td></tr>
-          
-          <tr><td><code>dilution_rate</code></td><td><code>0.1</code></td></tr>
-          
-          <tr><td><code>pH</code></td><td><code>7.0</code></td></tr>
-          
-          <tr><td><code>temperature_C</code></td><td><code>37.0</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="millard2017-via-pbg-copasi">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="millard2017-via-pbg-copasi">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1303,135 +1196,6 @@ handover.
     </details>
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="millard-with-lqr"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">millard-with-lqr</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="millard-with-lqr">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="millard-with-lqr">Delete</button>
-        <button class="btn-variant-run" data-variant-name="millard-with-lqr">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="millard-fba-bridge"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">millard-fba-bridge</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="millard-fba-bridge">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="millard-fba-bridge">Delete</button>
-        <button class="btn-variant-run" data-variant-name="millard-fba-bridge">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="millard-standalone"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">millard-standalone</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="millard-standalone">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="millard-standalone">Delete</button>
-        <button class="btn-variant-run" data-variant-name="millard-standalone">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="millard-atp-drain-perturbation"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">millard-atp-drain-perturbation</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="millard-atp-drain-perturbation">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="millard-atp-drain-perturbation">Delete</button>
-        <button class="btn-variant-run" data-variant-name="millard-atp-drain-perturbation">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="millard-fba-bridge-3-conditions"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">millard-fba-bridge-3-conditions</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="millard-fba-bridge-3-conditions">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="millard-fba-bridge-3-conditions">Delete</button>
-        <button class="btn-variant-run" data-variant-name="millard-fba-bridge-3-conditions">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="millard2017-via-pbg-copasi" data-composite-id="pbg_copasi.composites.utc-process">millard2017-via-pbg-copasi (pbg_copasi.composites.utc-process)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1978,182 +1742,87 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
   
   
   
-  
-  
-  
-  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-    <h2 class="overview-label">Discovery implications</h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-    
-    <div class="di-uncertainties">
-      
-      <div class="di-unc di-unc-resolved">
-        <h4>✓ Resolved uncertainties</h4>
-        <ul><li>The Millard 2017 SBML loads and integrates via pbg-copasi&#39;s CopasiUTCProcess and recovers the BioModels MODEL1505110000 reference steady state to solver tolerance — ODE re-implementation is NOT needed; Phase-1 effort goes to the LQR + FBA-bridge.</li></ul>
-      </div>
-      
-      
-      <div class="di-unc di-unc-remaining">
-        <h4>● Remaining uncertainties</h4>
-        <ul><li>The +/-sigma cell_mass + dry_mass acceptance gate is now met on M9-glucose (2026-06-11, closed-loop WATER[c] fix, commit 6a764fc). The ~20 fg cell_mass offset was entirely open-loop water drift; the fix regulates WATER[c] closed-loop to hold the birth water fraction (verified flat at 0.70000 over 600 s). Re-run of scripts/compare_pdmp_ensemble_vs_phase0.py (N=12 PDMP reps, consumption_matched, 600 s, seeds 1000-1011, vs the N=32 Phase-0 M9-glucose reference; 12/12 usable, 0 errors, 0 degeneracy) gives endpoint W2: cell_mass = 6.93 fg (W2/sigma = 1.00, 95% CI [5.16, 9.00]); dry_mass = 2.27 fg (W2/sigma = 1.09, 95% CI [1.70, 2.90]). Both &lt;= 2 sigma, so the gate is met (was cell_mass W2/sigma = 3.0 under open-loop water). Notes: closing the loop slightly overshot (PDMP cell_mass 1481.0 -&gt; 1456.8 fg, now ~4.4 fg below Phase-0 1461.1 rather than ~20 fg above) and nudged dry_mass W2/sigma up from 0.86 to 1.09 (still within +/-sigma); the PDMP ensemble remains much tighter than Phase-0 (per-rep sigma ~1.2 fg cell vs 6.9 fg), so the pass rests on a mean offset that now sits within sigma, not on matched variance. This is M9-glucose only; the acetate / +aa PDMP-vs-Phase-0 W2 remains pending and is the gating step before any acceptance. See reports/figures/pdmp-01/RUN_REPORT_2026-06-11.md.</li><li>Reproducibility caveats surfaced in the just-attempted re-run: (a) the millard_pdmp_baseline composite had a pre-existing broken import (LikelihoodCollector imported from the nonexistent v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*); its likelihood path was unbuildable until fixed in this refresh; (b) in the default &#39;proportional&#39; ref-growth mode the composite crashes mid-run with &#34;ValueError: Negative values at equilibrium steady state&#34; (v2ecoli/processes/equilibrium.py) and runs only in the &#39;consumption_matched&#39; mode; (c) the LQR zero-gain Riccati bug (an A = I + J finite-difference artifact) was root-caused and fixed (commit cc6a72d; true Jacobian + conserved-moiety CARE shift giving ||K|| ≈ 4.39, regression-tested in tests/test_lqr_riccati_stabilizable.py), so the outer controller is no longer degenerate (gain_degenerate=False across 12/12 replicates).</li><li>The FBA-bridge composite has not been shown to hold interface statistics across ANY Phase-0 condition; the M9-glucose, M9-acetate and M9-glucose+aa W2 audits are all pending (no condition is closed).</li><li>The LQR outer-control weights have not passed a Sobol-sensitivity / FIM-conditioning (kappa &lt; 1e8) audit, so the causal/teleonomic parameter partition is asserted but not yet proven free of disguised free parameters.</li><li>Task #20 — the JAX/Diffrax backend works standalone but fails inside the WCM composite; the in-WCM path is unresolved.</li></ul>
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card">
-        <div class="di-card-stmt"><strong>The LQR consumption_matched driver reintroduces a teleonomic growth target in disguise, so the ODE only &#34;matches&#34; the Phase-0 ensemble because it is steered there, not because the kinetics reproduce it.</strong></div>
-        <div class="di-card-why">A driver that tracks a growth-rate reference can absorb model error into its control signal, masking ODE inadequacy; the match is currently demonstrated only with the driver engaged.</div>
-        
-        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
-          <code>lqr-control-layer</code>, <code>causal-teleonomic-partition</code>
-        </div>
-        
-        
-        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
-          <code>FIM conditioning kappa on the causal kinetic parameters</code>, <code>Sobol sensitivity indices of interface statistics to LQR weights</code>, <code>open-loop (driver-off) W2 vs the Phase-0 ensemble</code>
-        </div>
-        
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card di-mech-card">
-        <div class="di-mech-head">
-          <code>metabolism (multi-objective FBA -&gt; kinetic ODE)</code>
-          <span class="di-update-chip">replace</span>
-          
-          <span class="di-approval-badge">needs expert approval</span>
-        </div>
-        <div class="di-card-why">Substitute v2ecoli&#39;s multi-objective modular_fba LP with the Millard 2017 kinetic ODE + LQR outer control as the Phase-1-canonical metabolism layer. Not yet accepted as canonical, but the ±σ cell_mass / dry_mass gate is now met on M9-glucose (endpoint W₂/σ = 1.00 / 1.09 after the closed-loop WATER[c] fix, commit 6a764fc); the multi-condition (acetate / +aa) W₂ and the FBA-bridge multi-condition validation remain pending (requires_expert_approval).</div>
-      </div>
-      
-    </div>
-    
-
-    
-    
-    
-    <div class="di-group">
-      <h3>Follow-up study proposals
-        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-        <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-      <div class="followup-list">
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">FBA-bridge interface-statistic validation across all Phase-0 conditions</strong>
-            <span class="di-chip">validation</span>
-            <span class="di-chip">residual_rigor</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Run the FBA-bridge composite under M9-acetate and M9-glucose+aa and compute per-intermediate W2 vs the Phase-0 ensemble; gate on within-tolerance (&lt;=5 sigma MC).</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-01-metabolism-ode', "pdmp-01-fba-bridge-multicondition")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">LQR weight Sobol sensitivity + FIM-conditioning audit</strong>
-            <span class="di-chip">identifiability</span>
-            <span class="di-chip">alternate_hypothesis</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Compute Sobol indices of interface statistics to the LQR weights and FIM conditioning kappa on causal parameters; confirm kappa &lt; 1e8 and that no teleonomic leak inflates the fit.</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-01-metabolism-ode', "pdmp-01-lqr-sobol-fim")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-  </div>
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
 
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
+
+    
+    
+    
+
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
     
     
     
@@ -2169,16 +1838,134 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
       
     </div>
     
-
-    
     
 
-    
-    
-
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>The Millard 2017 SBML loads and integrates via pbg-copasi&#39;s CopasiUTCProcess and recovers the BioModels MODEL1505110000 reference steady state to solver tolerance — ODE re-implementation is NOT needed; Phase-1 effort goes to the LQR + FBA-bridge.</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>The +/-sigma cell_mass + dry_mass acceptance gate is now met on M9-glucose (2026-06-11, closed-loop WATER[c] fix, commit 6a764fc). The ~20 fg cell_mass offset was entirely open-loop water drift; the fix regulates WATER[c] closed-loop to hold the birth water fraction (verified flat at 0.70000 over 600 s). Re-run of scripts/compare_pdmp_ensemble_vs_phase0.py (N=12 PDMP reps, consumption_matched, 600 s, seeds 1000-1011, vs the N=32 Phase-0 M9-glucose reference; 12/12 usable, 0 errors, 0 degeneracy) gives endpoint W2: cell_mass = 6.93 fg (W2/sigma = 1.00, 95% CI [5.16, 9.00]); dry_mass = 2.27 fg (W2/sigma = 1.09, 95% CI [1.70, 2.90]). Both &lt;= 2 sigma, so the gate is met (was cell_mass W2/sigma = 3.0 under open-loop water). Notes: closing the loop slightly overshot (PDMP cell_mass 1481.0 -&gt; 1456.8 fg, now ~4.4 fg below Phase-0 1461.1 rather than ~20 fg above) and nudged dry_mass W2/sigma up from 0.86 to 1.09 (still within +/-sigma); the PDMP ensemble remains much tighter than Phase-0 (per-rep sigma ~1.2 fg cell vs 6.9 fg), so the pass rests on a mean offset that now sits within sigma, not on matched variance. This is M9-glucose only; the acetate / +aa PDMP-vs-Phase-0 W2 remains pending and is the gating step before any acceptance. See reports/figures/pdmp-01/RUN_REPORT_2026-06-11.md.</li><li>Reproducibility caveats surfaced in the just-attempted re-run: (a) the millard_pdmp_baseline composite had a pre-existing broken import (LikelihoodCollector imported from the nonexistent v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*); its likelihood path was unbuildable until fixed in this refresh; (b) in the default &#39;proportional&#39; ref-growth mode the composite crashes mid-run with &#34;ValueError: Negative values at equilibrium steady state&#34; (v2ecoli/processes/equilibrium.py) and runs only in the &#39;consumption_matched&#39; mode; (c) the LQR zero-gain Riccati bug (an A = I + J finite-difference artifact) was root-caused and fixed (commit cc6a72d; true Jacobian + conserved-moiety CARE shift giving ||K|| ≈ 4.39, regression-tested in tests/test_lqr_riccati_stabilizable.py), so the outer controller is no longer degenerate (gain_degenerate=False across 12/12 replicates).</li><li>The FBA-bridge composite has not been shown to hold interface statistics across ANY Phase-0 condition; the M9-glucose, M9-acetate and M9-glucose+aa W2 audits are all pending (no condition is closed).</li><li>The LQR outer-control weights have not passed a Sobol-sensitivity / FIM-conditioning (kappa &lt; 1e8) audit, so the causal/teleonomic parameter partition is asserted but not yet proven free of disguised free parameters.</li><li>Task #20 — the JAX/Diffrax backend works standalone but fails inside the WCM composite; the in-WCM path is unresolved.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card">
+          <div class="di-card-stmt"><strong>The LQR consumption_matched driver reintroduces a teleonomic growth target in disguise, so the ODE only &#34;matches&#34; the Phase-0 ensemble because it is steered there, not because the kinetics reproduce it.</strong></div>
+          <div class="di-card-why">A driver that tracks a growth-rate reference can absorb model error into its control signal, masking ODE inadequacy; the match is currently demonstrated only with the driver engaged.</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+            <code>lqr-control-layer</code>, <code>causal-teleonomic-partition</code>
+          </div>
+          
+          
+          <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+            <code>FIM conditioning kappa on the causal kinetic parameters</code>, <code>Sobol sensitivity indices of interface statistics to LQR weights</code>, <code>open-loop (driver-off) W2 vs the Phase-0 ensemble</code>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card di-mech-card">
+          <div class="di-mech-head">
+            <code>metabolism (multi-objective FBA -&gt; kinetic ODE)</code>
+            <span class="di-update-chip">replace</span>
+            
+            <span class="di-approval-badge">needs expert approval</span>
+          </div>
+          <div class="di-card-why">Substitute v2ecoli&#39;s multi-objective modular_fba LP with the Millard 2017 kinetic ODE + LQR outer control as the Phase-1-canonical metabolism layer. Not yet accepted as canonical, but the ±σ cell_mass / dry_mass gate is now met on M9-glucose (endpoint W₂/σ = 1.00 / 1.09 after the closed-loop WATER[c] fix, commit 6a764fc); the multi-condition (acetate / +aa) W₂ and the FBA-bridge multi-condition validation remain pending (requires_expert_approval).</div>
+        </div>
+        
+      </div>
+      
+
+      
+      
+      
+      <div class="di-group">
+        <h3>Follow-up study proposals
+          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+          <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+        <div class="followup-list">
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">FBA-bridge interface-statistic validation across all Phase-0 conditions</strong>
+              <span class="di-chip">validation</span>
+              <span class="di-chip">residual_rigor</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Run the FBA-bridge composite under M9-acetate and M9-glucose+aa and compute per-intermediate W2 vs the Phase-0 ensemble; gate on within-tolerance (&lt;=5 sigma MC).</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-01-metabolism-ode', "pdmp-01-fba-bridge-multicondition")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">LQR weight Sobol sensitivity + FIM-conditioning audit</strong>
+              <span class="di-chip">identifiability</span>
+              <span class="di-chip">alternate_hypothesis</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Compute Sobol indices of interface statistics to the LQR weights and FIM conditioning kappa on causal parameters; confirm kappa &lt; 1e8 and that no teleonomic leak inflates the fit.</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-01-metabolism-ode', "pdmp-01-lqr-sobol-fim")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

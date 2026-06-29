@@ -11,25 +11,53 @@
   }
 
   // --- Tab navigation ---
+
+  // Map a panel kind -> its pillar by reading the member button's data-pillar
+  // (DOM is the source of truth, so v3/v4 conditional tab sets are always correct).
+  function _pillarForKind(kind) {
+    var btn = document.querySelector('.study-tab[data-kind="' + kind + '"]');
+    return btn ? (btn.dataset.pillar || '') : '';
+  }
+
+  function _showPillarSubnav(pillar) {
+    // pillar buttons
+    document.querySelectorAll('.study-pillar').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.pillar === pillar);
+    });
+    // member buttons: only the active pillar's are visible
+    var members = 0;
+    document.querySelectorAll('#study-subnav .study-tab').forEach(function (b) {
+      var mine = b.dataset.pillar === pillar;
+      b.style.display = mine ? '' : 'none';
+      if (mine) members++;
+    });
+    // Single-member pillar (e.g. Compose) → hide the sub-nav row.
+    var subnav = document.getElementById('study-subnav');
+    if (subnav) subnav.style.display = (members <= 1) ? 'none' : '';
+  }
+
   function _setStudyTab(kind) {
-    document.querySelectorAll('.study-tab').forEach(function(b) {
+    var pillar = _pillarForKind(kind);
+    if (pillar) _showPillarSubnav(pillar);
+    document.querySelectorAll('.study-tab').forEach(function (b) {
       b.classList.toggle('active', b.dataset.kind === kind);
     });
-    document.querySelectorAll('.study-tab-panel').forEach(function(p) {
+    document.querySelectorAll('.study-tab-panel').forEach(function (p) {
       p.classList.toggle('active', p.dataset.kind === kind);
     });
-    if (kind === 'tests') {
-      loadTestsTab(window._study);
-    }
-
-    if (kind === 'visualizations') {
-      _loadCharts('viz-charts-panel');
-    }
-    if (kind === 'observables') {
-      _loadReadouts();
-    }
+    if (kind === 'tests') { loadTestsTab(window._study); }
+    if (kind === 'visualizations') { _loadCharts('viz-charts-panel'); }
+    if (kind === 'observables') { _loadReadouts(); }
   }
   window._setStudyTab = _setStudyTab;
+
+  // Click a pillar -> reveal its member sub-nav and open its first member panel.
+  function _setStudyPillar(pillar) {
+    _showPillarSubnav(pillar);
+    var first = document.querySelector('#study-subnav .study-tab[data-pillar="' + pillar + '"]');
+    if (first) _setStudyTab(first.dataset.kind);
+  }
+  window._setStudyPillar = _setStudyPillar;
 
   // ── Readouts table (emit plan + authored annotations) ───────────────────────
   // Fetch /api/study-readouts and render the table async (the composite build is
@@ -452,26 +480,6 @@
 
   bindAll('.btn-export', function() {
     window.location = '/api/study-export?study=' + encodeURIComponent(studyName());
-  });
-
-  // W24 — "View as skeptic": render the single-study report reordered for a
-  // skeptical reviewer (audit trail → rigor → controls → alternatives →
-  // limitations → open debts → verdicts/biology/viz) and open it. The server
-  // route renders the skeptic view from ?skeptic=1 / body flag; we just open
-  // the resulting HTML file.
-  bindAll('.btn-view-skeptic', function(btn) {
-    btn.disabled = true;
-    api('POST', '/api/study-report-single?skeptic=1',
-        {study: studyName(), skeptic: true})
-      .then(function(res) {
-        btn.disabled = false;
-        if (res.status === 200 && res.body && res.body.html_path) {
-          window.open('/' + res.body.html_path.replace(/^\/+/, ''), '_blank');
-        } else {
-          alert((res.body && res.body.error) || 'Could not render skeptic view.');
-        }
-      })
-      .catch(function() { btn.disabled = false; });
   });
 
   // btn-delete has class "btn-delete danger" — selector ".btn-delete" still matches.
@@ -1288,53 +1296,20 @@
     _renderReadinessPanel();
     _renderSpineSummary();
     _populateConclusionVerdictBadges();
+    // Open Understand/Overview and show only Understand's sub-nav on load.
+    _setStudyTab('overview');
   }
 
-  // ── C2 — derive the 3-track conclusion verdicts (read-only, computed) ───
-  // Rules kept IDENTICAL to single_study_report.py (_derive_conclusion_verdicts)
-  // and walkthrough.js (_deriveConclusionVerdicts) so every surface shows the
-  // same badge. The .basis textareas remain authored inputs.
-  var _GATE_RESULT_NORM = {
-    pass: 'PASS', passed: 'PASS', ok: 'PASS',
-    fail: 'FAIL', failed: 'FAIL',
-    partial: 'PARTIAL', mixed: 'PARTIAL', needs_calibration: 'PARTIAL'
-  };
-  var _RUN_ERRORED = {error: 1, errored: 1, failed: 1, crashed: 1, fail: 1};
-  var _RUN_COMPLETED = {completed: 1, complete: 1, success: 1, succeeded: 1, ok: 1, done: 1, finished: 1};
-  function _normGateResult(v) {
-    return _GATE_RESULT_NORM[String(v == null ? '' : v).trim().toLowerCase()] || 'PENDING';
-  }
-  function _deriveConclusionVerdicts(s) {
-    s = s || {};
-    var ge = (s.pipeline_gate || {}).gate_evaluator || {};
-    var bio = _normGateResult(ge.result || s.gate_status);
-
-    var runs = (s.runs || []).filter(function(r) { return r && typeof r === 'object'; });
-    var reg;
-    if (!runs.length) { reg = 'PENDING'; }
-    else {
-      var statuses = runs.map(function(r) { return String(r.status == null ? '' : r.status).trim().toLowerCase(); });
-      if (statuses.some(function(x) { return _RUN_ERRORED[x]; })) reg = 'FAIL';
-      else if (statuses.every(function(x) { return _RUN_COMPLETED[x]; })) reg = 'PASS';
-      else reg = 'PARTIAL';
-    }
-
-    var findings = (s.findings || []).filter(function(f) { return f && typeof f === 'object'; });
-    var exp;
-    if (!findings.length) exp = 'GAP';
-    else if (findings.some(function(f) { return f.tier === 'interpretation' || f.mechanism_origin; })) exp = 'PASS';
-    else exp = 'PARTIAL';
-
-    return {
-      biological_validation:    {result: bio},
-      regression_compatibility: {result: reg},
-      explanatory_gain:         {result: exp}
-    };
-  }
+  // ── C2 — conclusion verdicts: read precomputed block from window._study.derived ─
+  // Computed server-side by study_derivations.derived_block(). Rendering unchanged.
   function _populateConclusionVerdictBadges() {
     var badges = document.querySelectorAll('[data-verdict-track]');
     if (!badges.length) return;
-    var cv = _deriveConclusionVerdicts(window._study || {});
+    var cv = ((window._study || {}).derived || {}).conclusion_verdicts || {
+      biological_validation: { result: 'PENDING' },
+      regression_compatibility: { result: 'PENDING' },
+      explanatory_gain: { result: 'GAP' }
+    };
     var colors = {
       PASS: ['#dcfce7', '#166534'], PARTIAL: ['#fef3c7', '#92400e'],
       FAIL: ['#fee2e2', '#991b1b'], GAP: ['#f1f5f9', '#475569'], PENDING: ['#f1f5f9', '#475569']

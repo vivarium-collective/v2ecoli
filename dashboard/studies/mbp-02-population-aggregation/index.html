@@ -124,18 +124,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="mbp-02-population-aggregation"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -237,19 +244,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -292,13 +295,111 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="mbp-02-population-aggregation">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Read-only aggregation under the 0D well-mixed assumption: simulating N representative cells and scaling by k=cells_per_agent is mathematically equivalent to N x k literal cells. Per-cell biology (DnaA, mu, cell_mass) is untouched (regression-guarded). od_to_gdw=0.34 (Beulig 2025). OD600 is COSMETIC; biomass_concentration_gL is canonical. At large k per-cell stochastic variance washes out — correct biology at high density but obscures heterogeneity (e.g. Beulig bistable expression).</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Can v2ecoli aggregate single-cell-plus-Division output into population-
+level biomass observables (total gDW, cell count) that are physically
+meaningful at the reactor scale (OD ≫ 1) — using a **representative-
+sampling scaling factor (`cells_per_agent`)** so the simulated lineage
+legitimately stands in for an N-cell population under the 0D
+well-mixed assumption — and consume population-level signals (e.g.
+reactor liquid volume) to maintain correct concentrations?
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> cell_count tracks Division events (1 → 2 → 4 → … on a generational
+cadence ≈ 60 min), scaled by cells_per_agent. total_biomass_gDW grows
+exponentially during glucose-replete growth, scaled by cells_per_agent.
+Per-cell observables (e.g. DnaA count) remain unchanged from the
+unaggregated baseline — aggregation is a read-only view.
+
+Pure consistency invariants hold at every emit step:
+  population.cell_count == len(agents.*) × cells_per_agent
+  population.total_biomass_gDW ==
+      sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15
+
+These checks are decoupled from doubling-time calibration — they
+isolate aggregator bugs from biology drift.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> v2ecoli currently tracks `agents.&lt;id&gt;.listeners.mass.cell_mass` per cell
+and grows the population via the Division Step. There is no built-in
+aggregation of the population into reactor-scale observables. This study
+adds a `PopulationAggregator` Step that, each emit step, walks
+`agents.*.listeners.mass.cell_mass` and writes:
+
+  population.total_biomass_gDW =
+      sum(agents.*.cell_mass) × cells_per_agent × 1e-15 g/fg
+  population.cell_count        = len(agents) × cells_per_agent
+  population.biomass_concentration_gL =
+      total_biomass_gDW / reactor_volume_L
+  population.OD600             = biomass_concentration_gL / od_to_gdw
+      (COSMETIC — for plotting / cross-referencing OD-only published data)
+
+The `cells_per_agent` factor is the load-bearing architectural decision
+in this study (adopted 2026-05-26 per chris_feedback_2026_05_26 §4,
+Eran&#39;s choice between literal-sum and representative-sampling). Under
+the 0D well-mixed assumption (already a key_assumption), every cell
+sees the same environment, so simulating N representative cells and
+scaling by k = cells_per_agent is mathematically equivalent to
+simulating N × k cells. You downsample for compute tractability.
+Cost: per-cell stochastic variance washes out at the bulk mean as k
+grows — at high density this is correct biology (population averages
+dominate over per-cell variance). At low density (small k = 1.0,
+default), behavior is identical to literal-sum.
+
+Production runs choose `cells_per_agent` such that
+`n_simulated_agents × cells_per_agent ≈ target_population_density
+× reactor_volume`. Default 1.0 preserves literal-sum so existing
+single-cell sims and the unaggregated baseline regression test remain
+byte-identical.
+
+A `ReactorVolume` external store (read-only here, written by mbp-03&#39;s
+BiRD coupling) determines concentration units. Concentration-to-count
+conversions in metabolism stay per-cell; only the AGGREGATE view is new.
+
+**`population.OD600` is COSMETIC** — derived from biomass_concentration_gL
+for plotting and for comparisons against published OD-only data (e.g.
+Beulig 2025 OD traces). The canonical biomass observable is
+`population.biomass_concentration_gL` (or `total_biomass_gDW`); downstream
+studies should NOT reach for OD as the primary biomass currency. Static
+od_to_gdw = 0.34 (Beulig&#39;s value, not the textbook 0.33) is acceptable
+under this framing; regime-dependence applies to OD interpretation, not
+to the model&#39;s internal biomass accounting.
+
+      </div>
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
 
     
     
@@ -353,48 +454,26 @@
     </div>
     
 
-    <div class="biology-glance">
-      
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Read-only aggregation under the 0D well-mixed assumption: simulating N representative cells and scaling by k=cells_per_agent is mathematically equivalent to N x k literal cells. Per-cell biology (DnaA, mu, cell_mass) is untouched (regression-guarded). od_to_gdw=0.34 (Beulig 2025). OD600 is COSMETIC; biomass_concentration_gL is canonical. At large k per-cell stochastic variance washes out — correct biology at high density but obscures heterogeneity (e.g. Beulig bistable expression).</textarea>
-        
-      </div>
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value=""
-                   placeholder="One sentence — the single most important thing this study does.">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Read-only aggregation under the 0D well-mixed assumption: simulating N representative cells and scaling by k=cells_per_agent is mathematically equivalent to N x k literal cells. Per-cell biology (DnaA, mu, cell_mass) is untouched (regression-guarded). od_to_gdw=0.34 (Beulig 2025). OD600 is COSMETIC; biomass_concentration_gL is canonical. At large k per-cell stochastic variance washes out — correct biology at high density but obscures heterogeneity (e.g. Beulig bistable expression).">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value=""
-                   placeholder="cell_count and total_biomass_gDW track Division events (with
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>mbp-03-bird-reactor-coupling</code>
+        </div>
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">cell_count and total_biomass_gDW track Division events (with
 cells_per_agent=1.0 default); per-cell observables match the
 unaggregated baseline (regression guard); single-cell-only sim
 (Division disabled) still works; pure consistency invariants hold at
@@ -402,28 +481,57 @@ every emit step (population_count_equals_len_agents,
 total_biomass_equals_sum_cell_mass_times_scale); scaling-factor sweep
 sim at cells_per_agent ∈ {1, 1e6, 1e9} confirms aggregator output
 scales linearly and per-cell observables remain unchanged.
-">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Literature-stated success criterion.">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+</span></div>
+        
       </div>
-
       
 
       
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Population is well-mixed (all agents see the same reactor liquid). This assumption is what makes the cells_per_agent representative-sampling factor mathematically equivalent to literal-N simulation.</li><li style="margin:2px 0">Per-cell stochastic variance becomes negligible at large cells_per_agent (correct biology at high density; explicit cost of the representative-sampling choice — see chris_feedback_2026_05_26 §4).</li><li style="margin:2px 0">od_to_gdw = 0.34 gDW/(L·OD600) per Beulig 2025 (was textbook 0.33).</li><li style="margin:2px 0">cell_mass listener units are fg (femtograms) per v2ecoli convention.</li><li style="margin:2px 0">PopulationAggregator runs as a Step at emit cadence; no need for inter-process synchronization.</li><li style="margin:2px 0">OD600 is a COSMETIC observable (for plotting / OD-only data comparison); biomass_concentration_gL is canonical.</li>
+        </ul>
+      </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>8</strong> tests defined —
+            <span class="classification-pill classification-primary">7 primary</span>
+            <span class="classification-pill classification-supporting">1 supporting</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Limitations</h2>
+        <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">All agents share the same external environment in this phase (no per-cell microenvironment heterogeneity).</li><li style="margin:2px 0">OD600 conversion is a constant factor; physical OD depends on cell size + scattering — may need regime-dependent refit (Beulig 2025 high-density regime). Less load-bearing now that OD600 is cosmetic.</li><li style="margin:2px 0">Aggregator runs at emit cadence; not suitable as a feedback signal to processes that need sub-step granularity (deferred).</li><li style="margin:2px 0">cells_per_agent scaling washes per-cell stochastic variance at large k — correct biology at high density (population averages dominate), but at k ~ 10-100 may obscure biologically-interesting per-cell heterogeneity (e.g. Beulig 2025&#39;s bistable expression states). Setting k is a calibration decision per investigation; see open_question scaling-factor-sets-stochastic-floor.</li><li style="margin:2px 0">Single-cell-with-Division at small cells_per_agent does not scale to reactor densities (~10^13 cells/L at 50–80 gDW/L) by literal-N simulation. The scaling factor lets the SIMULATED N stand in for a larger M = N × k, sufficient for batch-phase work but with the stochastic-floor caveat above. A coarse-grained surrogate engine under the cell-side interface contract remains the path forward for the full high-density regime (mbp-06 scope; see candidate-future-study `mbp-08-surrogate-engine-for-high-density`).</li>
+        </ul>
+      </div>
+      
+
+      
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
         <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
           The biological expectations this study tests, mapped to the
           model observable that will measure each one. Full citations
@@ -461,198 +569,44 @@ scales linearly and per-cell observables remain unchanged.
         </ul>
       </div>
       
-    </div>
 
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Can v2ecoli aggregate single-cell-plus-Division output into population-
-level biomass observables (total gDW, cell count) that are physically
-meaningful at the reactor scale (OD ≫ 1) — using a **representative-
-sampling scaling factor (`cells_per_agent`)** so the simulated lineage
-legitimately stands in for an N-cell population under the 0D
-well-mixed assumption — and consume population-level signals (e.g.
-reactor liquid volume) to maintain correct concentrations?
-
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     >running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
       </div>
-      
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> v2ecoli currently tracks `agents.&lt;id&gt;.listeners.mass.cell_mass` per cell
-and grows the population via the Division Step. There is no built-in
-aggregation of the population into reactor-scale observables. This study
-adds a `PopulationAggregator` Step that, each emit step, walks
-`agents.*.listeners.mass.cell_mass` and writes:
 
-  population.total_biomass_gDW =
-      sum(agents.*.cell_mass) × cells_per_agent × 1e-15 g/fg
-  population.cell_count        = len(agents) × cells_per_agent
-  population.biomass_concentration_gL =
-      total_biomass_gDW / reactor_volume_L
-  population.OD600             = biomass_concentration_gL / od_to_gdw
-      (COSMETIC — for plotting / cross-referencing OD-only published data)
-
-The `cells_per_agent` factor is the load-bearing architectural decision
-in this study (adopted 2026-05-26 per chris_feedback_2026_05_26 §4,
-Eran&#39;s choice between literal-sum and representative-sampling). Under
-the 0D well-mixed assumption (already a key_assumption), every cell
-sees the same environment, so simulating N representative cells and
-scaling by k = cells_per_agent is mathematically equivalent to
-simulating N × k cells. You downsample for compute tractability.
-Cost: per-cell stochastic variance washes out at the bulk mean as k
-grows — at high density this is correct biology (population averages
-dominate over per-cell variance). At low density (small k = 1.0,
-default), behavior is identical to literal-sum.
-
-Production runs choose `cells_per_agent` such that
-`n_simulated_agents × cells_per_agent ≈ target_population_density
-× reactor_volume`. Default 1.0 preserves literal-sum so existing
-single-cell sims and the unaggregated baseline regression test remain
-byte-identical.
-
-A `ReactorVolume` external store (read-only here, written by mbp-03&#39;s
-BiRD coupling) determines concentration units. Concentration-to-count
-conversions in metabolism stay per-cell; only the AGGREGATE view is new.
-
-**`population.OD600` is COSMETIC** — derived from biomass_concentration_gL
-for plotting and for comparisons against published OD-only data (e.g.
-Beulig 2025 OD traces). The canonical biomass observable is
-`population.biomass_concentration_gL` (or `total_biomass_gDW`); downstream
-studies should NOT reach for OD as the primary biomass currency. Static
-od_to_gdw = 0.34 (Beulig&#39;s value, not the textbook 0.33) is acceptable
-under this framing; regime-dependence applies to OD interpretation, not
-to the model&#39;s internal biomass accounting.
-
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>3</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>6</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>10</strong>
+          <span class="count-label">runs</span>
+        </div>
       </div>
-      
-      
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Expected outcome.</strong> cell_count tracks Division events (1 → 2 → 4 → … on a generational
-cadence ≈ 60 min), scaled by cells_per_agent. total_biomass_gDW grows
-exponentially during glucose-replete growth, scaled by cells_per_agent.
-Per-cell observables (e.g. DnaA count) remain unchanged from the
-unaggregated baseline — aggregation is a read-only view.
 
-Pure consistency invariants hold at every emit step:
-  population.cell_count == len(agents.*) × cells_per_agent
-  population.total_biomass_gDW ==
-      sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15
-
-These checks are decoupled from doubling-time calibration — they
-isolate aggregator bugs from biology drift.
-
-      </div>
-      
-    </div>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
-      
-      
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>mbp-03-bird-reactor-coupling</code>
-      </div>
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">cell_count and total_biomass_gDW track Division events (with
-cells_per_agent=1.0 default); per-cell observables match the
-unaggregated baseline (regression guard); single-cell-only sim
-(Division disabled) still works; pure consistency invariants hold at
-every emit step (population_count_equals_len_agents,
-total_biomass_equals_sum_cell_mass_times_scale); scaling-factor sweep
-sim at cells_per_agent ∈ {1, 1e6, 1e9} confirms aggregator output
-scales linearly and per-cell observables remain unchanged.
-</span></div>
-      
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Population is well-mixed (all agents see the same reactor liquid). This assumption is what makes the cells_per_agent representative-sampling factor mathematically equivalent to literal-N simulation.</li><li style="margin:2px 0">Per-cell stochastic variance becomes negligible at large cells_per_agent (correct biology at high density; explicit cost of the representative-sampling choice — see chris_feedback_2026_05_26 §4).</li><li style="margin:2px 0">od_to_gdw = 0.34 gDW/(L·OD600) per Beulig 2025 (was textbook 0.33).</li><li style="margin:2px 0">cell_mass listener units are fg (femtograms) per v2ecoli convention.</li><li style="margin:2px 0">PopulationAggregator runs as a Step at emit cadence; no need for inter-process synchronization.</li><li style="margin:2px 0">OD600 is a COSMETIC observable (for plotting / OD-only data comparison); biomass_concentration_gL is canonical.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>8</strong> tests defined —
-          <span class="classification-pill classification-primary">7 primary</span>
-          <span class="classification-pill classification-supporting">1 supporting</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Limitations</h2>
-      <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">All agents share the same external environment in this phase (no per-cell microenvironment heterogeneity).</li><li style="margin:2px 0">OD600 conversion is a constant factor; physical OD depends on cell size + scattering — may need regime-dependent refit (Beulig 2025 high-density regime). Less load-bearing now that OD600 is cosmetic.</li><li style="margin:2px 0">Aggregator runs at emit cadence; not suitable as a feedback signal to processes that need sub-step granularity (deferred).</li><li style="margin:2px 0">cells_per_agent scaling washes per-cell stochastic variance at large k — correct biology at high density (population averages dominate), but at k ~ 10-100 may obscure biologically-interesting per-cell heterogeneity (e.g. Beulig 2025&#39;s bistable expression states). Setting k is a calibration decision per investigation; see open_question scaling-factor-sets-stochastic-floor.</li><li style="margin:2px 0">Single-cell-with-Division at small cells_per_agent does not scale to reactor densities (~10^13 cells/L at 50–80 gDW/L) by literal-N simulation. The scaling factor lets the SIMULATED N stand in for a larger M = N × k, sufficient for batch-phase work but with the stochastic-floor caveat above. A coarse-grained surrogate engine under the cell-side interface contract remains the path forward for the full high-density regime (mbp-06 scope; see candidate-future-study `mbp-08-surrogate-engine-for-high-density`).</li>
-      </ul>
-    </div>
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     >running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>3</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>6</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>2</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>10</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -662,8 +616,11 @@ scales linearly and per-cell observables remain unchanged.
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -877,8 +834,10 @@ overridden by mbp-03&#39;s coupling composite.
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -1043,45 +1002,6 @@ overridden by mbp-03&#39;s coupling composite.
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="population-aggregation-baseline">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">population-aggregation-baseline</h3>
-        <code class="baseline-entry-fqn">v2ecoli.composites.baseline_population</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
-          
-          <tr><td><code>cache_dir</code></td><td><code>out/cache</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="population-aggregation-baseline">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="population-aggregation-baseline">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1092,105 +1012,6 @@ overridden by mbp-03&#39;s coupling composite.
 
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="cells-per-agent-1"
-             data-base-composite="mbp-02-population-aggregation">
-      <header class="variant-row-header">
-        <h3 class="variant-name">cells-per-agent-1</h3>
-        <span class="variant-base">based on <code>mbp-02-population-aggregation</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="cells-per-agent-1">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="cells-per-agent-1">Delete</button>
-        <button class="btn-variant-run" data-variant-name="cells-per-agent-1">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="cells-per-agent-1e6"
-             data-base-composite="mbp-02-population-aggregation">
-      <header class="variant-row-header">
-        <h3 class="variant-name">cells-per-agent-1e6</h3>
-        <span class="variant-base">based on <code>mbp-02-population-aggregation</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="cells-per-agent-1e6">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="cells-per-agent-1e6">Delete</button>
-        <button class="btn-variant-run" data-variant-name="cells-per-agent-1e6">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="cells-per-agent-1e9"
-             data-base-composite="mbp-02-population-aggregation">
-      <header class="variant-row-header">
-        <h3 class="variant-name">cells-per-agent-1e9</h3>
-        <span class="variant-base">based on <code>mbp-02-population-aggregation</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="cells-per-agent-1e9">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="cells-per-agent-1e9">Delete</button>
-        <button class="btn-variant-run" data-variant-name="cells-per-agent-1e9">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="population-aggregation-baseline" data-composite-id="v2ecoli.composites.baseline_population">population-aggregation-baseline (v2ecoli.composites.baseline_population)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -2068,72 +1889,87 @@ pass_if: {"op": "numerical_match", "tolerance": "1e-12"}</pre>
   
   
   
-  
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
 
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
+
+    
+    
+    
+
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
     
     
     
@@ -2149,16 +1985,24 @@ pass_if: {"op": "numerical_match", "tolerance": "1e-12"}</pre>
       
     </div>
     
-
-    
     
 
-    
-    
-
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

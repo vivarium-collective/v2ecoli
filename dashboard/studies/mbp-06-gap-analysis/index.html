@@ -126,18 +126,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="mbp-06-gap-analysis"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -239,19 +246,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -294,13 +297,140 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="mbp-06-gap-analysis">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Not a biological-mechanism study. It catalogs where the investigation&#39;s biology coverage is incomplete: e.g. v2ecoli PTS transport functional form (axis A), low-GUR mass balance during substrate depletion (axis A), cells_per_agent stochastic-floor at high density vs Beulig&#39;s bistable expression states (axis A), and the v2ecoli-vs-Beulig batch-density gap surfaced by mbp-05 (architectural, not tuning). These are inputs to the triage, not new findings.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> After mbp-01..05 have produced their per-study findings, what are the
+remaining gaps (in v2ecoli&#39;s biology coverage, the coupling layer, the
+pbg-bioreactordesign physics, and the Beulig benchmark scope) that
+prevent the investigation from answering its overarching question, and
+how should those gaps be prioritized as the next investigation
+iteration (mbp-* round 2, or a sibling investigation)?
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> A structured findings document (findings.md + this study&#39;s
+`findings.entries[]`, populated post-impl) that enumerates ≥ 8 named
+gaps across the five axes (with per-axis floors: ≥ 3 on axes A and D
+based on prior known limitations), each with a concrete
+candidate_resolution AND with the extended schema fields below
+(chris_feedback_2026_05_26 §11 concern 2):
+
+  - resolution_type:      model_improvement | scope_decision | upstream_PR | expert_elicitation | further_investigation
+  - resolution_venue:     &lt;repo / sibling investigation / program-level decision&gt;
+  - decision_authority:   &lt;who decides — especially for scope_decision&gt;
+  - provenance:           this_investigation | carried_prior | external_input | expert_elicitation
+  - priority:             1 (top) | 2 | 3
+  - evidence:             [list of upstream test results / limitations / open_questions / mandatory_findings_to_consider entries]
+
+Priorities are assigned INDEPENDENTLY of provenance — a carried prior
+can be priority 1 even if mbp-05 didn&#39;t surface it fresh.
+
+The document feeds the next investigation cycle: roadmap-revision PR
+on references/expert/multiscale_bioprocess_roadmap.md (if upstream) +
+new study scaffolds for the prioritized gaps.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> No new simulation. The study WALKS the prior-study artifacts: every
+behavior_test&#39;s outcome, every recorded finding, every limitation /
+open_question / candidate-future-study pointer. It synthesizes these
+into a structured gap-analysis covering five named axes:
+
+  A. **v2ecoli biology coverage** — places where v2ecoli&#39;s metabolism /
+     regulation / mass machinery is insufficient for the reactor regime
+     (e.g. low-DO acetate overflow strength, high-density maintenance
+     re-allocation per Beulig 2025).
+  B. **Coupling layer** — limitations of the v2ecoli ↔ pbg-bioreactor-
+     design adapter (biomass-ownership disable, timestep mismatch,
+     single-cell-with-Division ceiling).
+  C. **pbg-bioreactordesign physics** — what BiRD doesn&#39;t yet model
+     (fed-batch operations, multi-stream feeds, pH-CO2 coupling).
+  D. **Beulig benchmark scope** — what was deferred from mbp-05 (SGKO /
+     TRP / MEL strain extension, transcriptional-state matching against
+     &gt;470 transcriptomes, fed-batch phases I–IV).
+  E. **Methodology** — places where the biological-BDD discipline (claims
+     → tests → triage) didn&#39;t catch a gap soon enough, or where the
+     cell-side interface contract needs revision based on what was learned.
+
+For each gap, the study records: signature, evidence (which test(s) /
+finding(s) surfaced it), severity (blocks-next-step | reduces-coverage |
+open-question), candidate-resolution (a new study slug, an upstream PR
+to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
+
+      </div>
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Each card states a finding, links the evidence (run + test + value), shows the literature/expert comparison, and marks whether v2ecoli's behavior <em>confirms</em>, <em>contradicts</em>, <em>partially</em> agrees with, or is <em>novel</em> vs the reference.
+      </p>
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id"></span>
+          <span class="finding-kind">other</span>
+          <span class="finding-status-text">novel literature</span>
+        </div>
+        <div class="finding-statement"></div>
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id"></span>
+          <span class="finding-kind">other</span>
+          <span class="finding-status-text">novel literature</span>
+        </div>
+        <div class="finding-statement"></div>
+        
+        
+        
+        
+        
+      </div>
+      
+    </div>
+    
 
     
     
@@ -367,74 +497,79 @@
     </div>
     
 
-    <div class="biology-glance">
-      
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Not a biological-mechanism study. It catalogs where the investigation&#39;s biology coverage is incomplete: e.g. v2ecoli PTS transport functional form (axis A), low-GUR mass balance during substrate depletion (axis A), cells_per_agent stochastic-floor at high density vs Beulig&#39;s bistable expression states (axis A), and the v2ecoli-vs-Beulig batch-density gap surfaced by mbp-05 (architectural, not tuning). These are inputs to the triage, not new findings.</textarea>
-        
-      </div>
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value=""
-                   placeholder="One sentence — the single most important thing this study does.">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Not a biological-mechanism study. It catalogs where the investigation&#39;s biology coverage is incomplete: e.g. v2ecoli PTS transport functional form (axis A), low-GUR mass balance during substrate depletion (axis A), cells_per_agent stochastic-floor at high density vs Beulig&#39;s bistable expression states (axis A), and the v2ecoli-vs-Beulig batch-density gap surfaced by mbp-05 (architectural, not tuning). These are inputs to the triage, not new findings.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value=""
-                   placeholder="Gap-analysis covers all 5 axes (A–E); each gap has a concrete
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>mbp-01-time-varying-environment</code> · <code>mbp-02-population-aggregation</code> · <code>mbp-03-bird-reactor-coupling</code> · <code>mbp-04-multigeneration-runs</code> · <code>mbp-05-palsson-benchmark</code>
+        </div>
+        
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">Gap-analysis covers all 5 axes (A–E); each gap has a concrete
 candidate-resolution; priorities are assigned and reviewed by the
 expert / user. The document is committed to findings.md and the
 candidate-resolution slugs are reified as scaffolded follow-up studies
 OR explicit &#34;deferred&#34; entries in the next roadmap revision.
-">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Literature-stated success criterion.">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+</span></div>
+        
       </div>
-
       
 
       
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">All upstream construction studies (mbp-01..05) have shipped their impl PRs and populated their findings + limitations + open_questions arrays.</li><li style="margin:2px 0">The gap-analysis is a snapshot in time; subsequent iterations may revise the categorization or priority of any gap.</li><li style="margin:2px 0">Gaps unique to v2ecoli (e.g. transcriptional-state matching axis) versus shared with the upstream multiscale-bioprocess plan are explicitly distinguished.</li>
+        </ul>
+      </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>6</strong> tests defined —
+            <span class="classification-pill classification-primary">5 primary</span>
+            <span class="classification-pill classification-supporting">1 supporting</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Limitations</h2>
+        <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Snapshot synthesis; not a continuous-monitoring artifact. Re-run as a new mbp-06 study at the next iteration milestone.</li><li style="margin:2px 0">Gaps are subjective in framing — different syntheses may partition differently. The 5-axis taxonomy is a working hypothesis; revisable.</li><li style="margin:2px 0">Priority assignment is expert-driven; quantifying gap severity beyond a 1–3 scale is future scope.</li>
+        </ul>
+      </div>
+      
+
+      
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
         <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
           The biological expectations this study tests, mapped to the
           model observable that will measure each one. Full citations
@@ -472,222 +607,44 @@ OR explicit &#34;deferred&#34; entries in the next roadmap revision.
         </ul>
       </div>
       
-    </div>
 
-    
-    <div class="overview-section findings-section">
-      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
-        Each card states a finding, links the evidence (run + test + value), shows the literature/expert comparison, and marks whether v2ecoli's behavior <em>confirms</em>, <em>contradicts</em>, <em>partially</em> agrees with, or is <em>novel</em> vs the reference.
-      </p>
-      
-      
-      
-      <div class="finding-card finding-kind-other finding-status-novel">
-        <div class="finding-header">
-          <span class="finding-status-glyph">◆</span>
-          <span class="finding-id"></span>
-          <span class="finding-kind">other</span>
-          <span class="finding-status-text">novel literature</span>
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     >running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
+      </div>
+
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
         </div>
-        <div class="finding-statement"></div>
-        
-        
-        
-        
-        
-      </div>
-      
-      
-      
-      <div class="finding-card finding-kind-other finding-status-novel">
-        <div class="finding-header">
-          <span class="finding-status-glyph">◆</span>
-          <span class="finding-id"></span>
-          <span class="finding-kind">other</span>
-          <span class="finding-status-text">novel literature</span>
+        <div class="count-cell">
+          <strong>7</strong>
+          <span class="count-label">readouts</span>
         </div>
-        <div class="finding-statement"></div>
-        
-        
-        
-        
-        
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">runs</span>
+        </div>
       </div>
-      
-    </div>
-    
 
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> After mbp-01..05 have produced their per-study findings, what are the
-remaining gaps (in v2ecoli&#39;s biology coverage, the coupling layer, the
-pbg-bioreactordesign physics, and the Beulig benchmark scope) that
-prevent the investigation from answering its overarching question, and
-how should those gaps be prioritized as the next investigation
-iteration (mbp-* round 2, or a sibling investigation)?
-
-      </div>
-      
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> No new simulation. The study WALKS the prior-study artifacts: every
-behavior_test&#39;s outcome, every recorded finding, every limitation /
-open_question / candidate-future-study pointer. It synthesizes these
-into a structured gap-analysis covering five named axes:
-
-  A. **v2ecoli biology coverage** — places where v2ecoli&#39;s metabolism /
-     regulation / mass machinery is insufficient for the reactor regime
-     (e.g. low-DO acetate overflow strength, high-density maintenance
-     re-allocation per Beulig 2025).
-  B. **Coupling layer** — limitations of the v2ecoli ↔ pbg-bioreactor-
-     design adapter (biomass-ownership disable, timestep mismatch,
-     single-cell-with-Division ceiling).
-  C. **pbg-bioreactordesign physics** — what BiRD doesn&#39;t yet model
-     (fed-batch operations, multi-stream feeds, pH-CO2 coupling).
-  D. **Beulig benchmark scope** — what was deferred from mbp-05 (SGKO /
-     TRP / MEL strain extension, transcriptional-state matching against
-     &gt;470 transcriptomes, fed-batch phases I–IV).
-  E. **Methodology** — places where the biological-BDD discipline (claims
-     → tests → triage) didn&#39;t catch a gap soon enough, or where the
-     cell-side interface contract needs revision based on what was learned.
-
-For each gap, the study records: signature, evidence (which test(s) /
-finding(s) surfaced it), severity (blocks-next-step | reduces-coverage |
-open-question), candidate-resolution (a new study slug, an upstream PR
-to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
-
-      </div>
-      
-      
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Expected outcome.</strong> A structured findings document (findings.md + this study&#39;s
-`findings.entries[]`, populated post-impl) that enumerates ≥ 8 named
-gaps across the five axes (with per-axis floors: ≥ 3 on axes A and D
-based on prior known limitations), each with a concrete
-candidate_resolution AND with the extended schema fields below
-(chris_feedback_2026_05_26 §11 concern 2):
-
-  - resolution_type:      model_improvement | scope_decision | upstream_PR | expert_elicitation | further_investigation
-  - resolution_venue:     &lt;repo / sibling investigation / program-level decision&gt;
-  - decision_authority:   &lt;who decides — especially for scope_decision&gt;
-  - provenance:           this_investigation | carried_prior | external_input | expert_elicitation
-  - priority:             1 (top) | 2 | 3
-  - evidence:             [list of upstream test results / limitations / open_questions / mandatory_findings_to_consider entries]
-
-Priorities are assigned INDEPENDENTLY of provenance — a carried prior
-can be priority 1 even if mbp-05 didn&#39;t surface it fresh.
-
-The document feeds the next investigation cycle: roadmap-revision PR
-on references/expert/multiscale_bioprocess_roadmap.md (if upstream) +
-new study scaffolds for the prioritized gaps.
-
-      </div>
-      
-    </div>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>mbp-01-time-varying-environment</code> · <code>mbp-02-population-aggregation</code> · <code>mbp-03-bird-reactor-coupling</code> · <code>mbp-04-multigeneration-runs</code> · <code>mbp-05-palsson-benchmark</code>
-      </div>
-      
-      
-      
-      <div><strong>Proceed when:</strong> <span class="muted">Gap-analysis covers all 5 axes (A–E); each gap has a concrete
-candidate-resolution; priorities are assigned and reviewed by the
-expert / user. The document is committed to findings.md and the
-candidate-resolution slugs are reified as scaffolded follow-up studies
-OR explicit &#34;deferred&#34; entries in the next roadmap revision.
-</span></div>
-      
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">All upstream construction studies (mbp-01..05) have shipped their impl PRs and populated their findings + limitations + open_questions arrays.</li><li style="margin:2px 0">The gap-analysis is a snapshot in time; subsequent iterations may revise the categorization or priority of any gap.</li><li style="margin:2px 0">Gaps unique to v2ecoli (e.g. transcriptional-state matching axis) versus shared with the upstream multiscale-bioprocess plan are explicitly distinguished.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>6</strong> tests defined —
-          <span class="classification-pill classification-primary">5 primary</span>
-          <span class="classification-pill classification-supporting">1 supporting</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Limitations</h2>
-      <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Snapshot synthesis; not a continuous-monitoring artifact. Re-run as a new mbp-06 study at the next iteration milestone.</li><li style="margin:2px 0">Gaps are subjective in framing — different syntheses may partition differently. The 5-axis taxonomy is a working hypothesis; revisable.</li><li style="margin:2px 0">Priority assignment is expert-driven; quantifying gap severity beyond a 1–3 scale is future scope.</li>
-      </ul>
-    </div>
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     >running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>1</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>7</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>2</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>2</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -697,8 +654,11 @@ OR explicit &#34;deferred&#34; entries in the next roadmap revision.
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -798,8 +758,10 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -868,45 +830,6 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="no-new-baseline">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">no-new-baseline</h3>
-        <code class="baseline-entry-fqn">v2ecoli.composites.reactor_bird_coupled</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
-          
-          <tr><td><code>cache_dir</code></td><td><code>out/cache</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="no-new-baseline">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="no-new-baseline">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -917,75 +840,6 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
 
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="gap-synthesis-pass"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">gap-synthesis-pass</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="gap-synthesis-pass">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="gap-synthesis-pass">Delete</button>
-        <button class="btn-variant-run" data-variant-name="gap-synthesis-pass">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="no-new-baseline" data-composite-id="v2ecoli.composites.reactor_bird_coupled">no-new-baseline (v2ecoli.composites.reactor_bird_coupled)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1429,88 +1283,74 @@ pass_if: {"op": "all_pass"}</pre>
   
   
   
-  
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
 
-    
-    
-    
-    <div class="decide-section">
-      <h3 class="overview-label">Latest run outcomes</h3>
-      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
-        baseline · seed ? ·
-        ?s simulated ·
-        ? history rows ·
-        started ?
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
       </div>
-      
-      
     </div>
-    
 
+    
     
     
     
@@ -1536,10 +1376,47 @@ pass_if: {"op": "all_pass"}</pre>
 
     
     
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
 
     
     
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
+      
+      
+    </div>
+    
+    
+
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

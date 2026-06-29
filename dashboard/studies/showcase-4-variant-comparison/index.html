@@ -127,18 +127,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="showcase-4-variant-comparison"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -240,19 +247,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -295,13 +298,53 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="showcase-4-variant-comparison">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
+      </h2>
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">A perturbation-response demonstration: each variant is a single mechanistic
+lever (a regulatory toggle, a gene-expression knob, a translation-rate cut, or
+a carbon-source change) applied to the validated wild-type baseline. Measuring
+the delta across five readout classes (growth / replication / regulation /
+central-carbon flux / proteome) shows which perturbation most clearly and
+interpretably moves the whole cell off baseline — converting the showcase-3
+reviewer decision into a measured ranking.
+</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Of the four perturbations proposed in showcase-3 (ppGpp regulation OFF, a
+dnaA 2x expression knob, a slower ribosome elongation rate, and a media /
+condition change to succinate), which one most clearly and interpretably
+moves the v2ecoli whole cell off its wild-type baseline? Run all four as a
+single multivariant sweep against the showcase-2 baseline and quantify each
+variant&#39;s delta across growth, replication, regulation, central-carbon flux,
+and proteome.
+
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
+
+    
 
     
     
@@ -404,83 +447,75 @@
     </div>
     
 
-    <div class="biology-glance">
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">A perturbation-response demonstration: each variant is a single mechanistic
-lever (a regulatory toggle, a gene-expression knob, a translation-rate cut, or
-a carbon-source change) applied to the validated wild-type baseline. Measuring
-the delta across five readout classes (growth / replication / regulation /
-central-carbon flux / proteome) shows which perturbation most clearly and
-interpretably moves the whole cell off baseline — converting the showcase-3
-reviewer decision into a measured ranking.
-</textarea>
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>showcase-2-baseline-figures</code>
+        </div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>showcase-5-next-direction-decide</code>
+        </div>
+        
         
       </div>
+      
 
       
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value=""
-                   placeholder="One sentence — the single most important thing this study does.">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="A perturbation-response demonstration: each variant is a single mechanistic
-lever (a regulatory toggle, a gene-expression knob, a translation-rate cut, or
-a carbon-source change) applied to the validated wild-type baseline. Measuring
-the delta across five readout classes (growth / replication / regulation /
-central-carbon flux / proteome) shows which perturbation most clearly and
-interpretably moves the whole cell off baseline — converting the showcase-3
-reviewer decision into a measured ranking.
-">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value=""
-                   placeholder="Why this study must finish before the next one in the DAG.">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="Literature-stated success criterion.">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">The showcase-2 wild-type baseline (variant 0) is validated, so each
+variant&#39;s delta is a clean contrast against a trusted reference.
+</li><li style="margin:2px 0">The four perturbations are the four candidates proposed in showcase-3
+(ppGpp-off, dnaA knob, elongation-rate sweep point, media change); running
+all four resolves the showcase-3 reviewer decision empirically.
+</li><li style="margin:2px 0">monomer_counts is the corrected SET listener (#185, overwrite[monomer_counts_vec])
+so each row carries the instantaneous proteome (not an accumulating sum);
+the proteome_delta / scorecard Schmidt/Wisniewski correlations rely on this.
+</li>
+        </ul>
       </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>4</strong> tests defined —
+            <span class="classification-pill classification-primary">3 primary</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
 
       
 
       
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
         <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
           The biological expectations this study tests, mapped to the
           model observable that will measure each one. Full citations
@@ -500,122 +535,42 @@ reviewer decision into a measured ranking.
         </ul>
       </div>
       
-    </div>
 
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Of the four perturbations proposed in showcase-3 (ppGpp regulation OFF, a
-dnaA 2x expression knob, a slower ribosome elongation rate, and a media /
-condition change to succinate), which one most clearly and interpretably
-moves the v2ecoli whole cell off its wild-type baseline? Run all four as a
-single multivariant sweep against the showcase-2 baseline and quantify each
-variant&#39;s delta across growth, replication, regulation, central-carbon flux,
-and proteome.
-
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     >running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    selected>complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
       </div>
-      
-      
-      
-    </div>
-    
 
-    
-    <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>showcase-2-baseline-figures</code>
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>6</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">runs</span>
+        </div>
       </div>
-      
-      
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>showcase-5-next-direction-decide</code>
-      </div>
-      
-      
+
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">The showcase-2 wild-type baseline (variant 0) is validated, so each
-variant&#39;s delta is a clean contrast against a trusted reference.
-</li><li style="margin:2px 0">The four perturbations are the four candidates proposed in showcase-3
-(ppGpp-off, dnaA knob, elongation-rate sweep point, media change); running
-all four resolves the showcase-3 reviewer decision empirically.
-</li><li style="margin:2px 0">monomer_counts is the corrected SET listener (#185, overwrite[monomer_counts_vec])
-so each row carries the instantaneous proteome (not an accumulating sum);
-the proteome_delta / scorecard Schmidt/Wisniewski correlations rely on this.
-</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>4</strong> tests defined —
-          <span class="classification-pill classification-primary">3 primary</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     >running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    selected>complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>1</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>6</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>1</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>2</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -625,8 +580,11 @@ the proteome_delta / scorecard Schmidt/Wisniewski correlations rely on this.
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -887,8 +845,10 @@ scripts/render_variant_comparison.py.</div>
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -957,45 +917,6 @@ scripts/render_variant_comparison.py.</div>
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="showcase-4-variant-comparison">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">showcase-4-variant-comparison</h3>
-        <code class="baseline-entry-fqn">baseline</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>seed</code></td><td><code>0</code></td></tr>
-          
-          <tr><td><code>cache_dir</code></td><td><code>out/cache-showcase</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="showcase-4-variant-comparison">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="showcase-4-variant-comparison">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1006,120 +927,6 @@ scripts/render_variant_comparison.py.</div>
 
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="ppgpp-off"
-             data-base-composite="showcase-4-variant-comparison">
-      <header class="variant-row-header">
-        <h3 class="variant-name">ppgpp-off</h3>
-        <span class="variant-base">based on <code>showcase-4-variant-comparison</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="ppgpp-off">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="ppgpp-off">Delete</button>
-        <button class="btn-variant-run" data-variant-name="ppgpp-off">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="dnaA-2x"
-             data-base-composite="showcase-4-variant-comparison">
-      <header class="variant-row-header">
-        <h3 class="variant-name">dnaA-2x</h3>
-        <span class="variant-base">based on <code>showcase-4-variant-comparison</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="dnaA-2x">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="dnaA-2x">Delete</button>
-        <button class="btn-variant-run" data-variant-name="dnaA-2x">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="elong-down"
-             data-base-composite="showcase-4-variant-comparison">
-      <header class="variant-row-header">
-        <h3 class="variant-name">elong-down</h3>
-        <span class="variant-base">based on <code>showcase-4-variant-comparison</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="elong-down">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="elong-down">Delete</button>
-        <button class="btn-variant-run" data-variant-name="elong-down">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="media-succinate"
-             data-base-composite="showcase-4-variant-comparison">
-      <header class="variant-row-header">
-        <h3 class="variant-name">media-succinate</h3>
-        <span class="variant-base">based on <code>showcase-4-variant-comparison</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="media-succinate">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="media-succinate">Delete</button>
-        <button class="btn-variant-run" data-variant-name="media-succinate">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="showcase-4-variant-comparison" data-composite-id="baseline">showcase-4-variant-comparison (baseline)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1542,172 +1349,74 @@ expect:  {"high": 1.5, "low": 0.4, "op": "in_range"}</pre>
   
   
   
-  
-  
-  
-  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-    <h2 class="overview-label">Discovery implications</h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-    
-    <div class="di-uncertainties">
-      
-      <div class="di-unc di-unc-resolved">
-        <h4>✓ Resolved uncertainties</h4>
-        <ul><li>showcase-3&#39;s open reviewer decision is resolved empirically: all four candidate perturbations were run as a 5-variant sweep, and the media / condition change is the most demonstrative single perturbation (moves the cell off baseline on mass, replication, composition, and central-carbon flux simultaneously).</li><li>ppGpp-off does NOT collapse the ppGpp pool — it de-represses it (mean ppGpp 64.8 -&gt; 120.6, 1.86x; trace climbs to ~230). Disabling ppGpp *regulation* removes the feedback the allocation reads but not ppGpp *synthesis*. Growth slows the most (doubling +10.5 min, only 2 gens).</li><li>dnaA-2x advances replication re-initiation TIMING and degrades the central-carbon flux match (Toya r 0.727 -&gt; 0.457) but does NOT raise the discrete max oriC ceiling (both peak at 4).</li><li>media-succinate&#39;s central-carbon FBA flux decorrelates from the glucose-grown Toya-2010 measurements (Toya r collapses to -0.058), with the largest flux shifts on the TCA / succinate-entry reactions — a clean carbon-source signature.</li></ul>
-      </div>
-      
-      
-      <div class="di-unc di-unc-remaining">
-        <h4>● Remaining uncertainties</h4>
-        <ul><li>elong-down is a near-null at the 0.7x magnitude (doubling 49.3 vs 51.1 min) — the steady-state charging + variable-elongation machinery appears to compensate. Whether a larger cut (e.g. 0.4-0.5x) or a different translation knob produces a graded slowdown is open.</li><li>The proteome is the least discriminating axis: all variants stay at Schmidt r 0.70-0.74 / Wisniewski ~0.61. Whether a coarser-grained or pathway-resolved proteome readout would separate the variants is open.</li><li>tRNA charged fraction is pinned at ~0.97 across every variant including ppgpp-off and elong-down — the charging model may be insensitive to these levers, or the readout saturates.</li></ul>
-      </div>
-      
-    </div>
-    
-
-    
-
-    
-
-    
-    
-    
-    <div class="di-group">
-      <h3>Follow-up study proposals
-        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-        <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-      <div class="followup-list">
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Deepen the strongest contrast — media / growth-condition response (dose of carbon sources)</strong>
-            <span class="di-chip">condition-sweep</span>
-            <span class="di-chip">showcase-4-strongest-contrast</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Run a small panel of growth conditions (e.g. glucose, succinate, acetate,
-glycerol, +amino-acids), each with its own full ParCa cache, and chart the
-growth rate / central-carbon flux (Toya-r) / mass-composition response as a
-function of carbon source. Builds directly on media-succinate, the
-strongest showcase-4 contrast.
-</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('showcase-4-variant-comparison', "deepen-media-growth-condition-response")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Chase the ppGpp-off surprise — why does the pool rise, not collapse?</strong>
-            <span class="di-chip">mechanism-probe</span>
-            <span class="di-chip">showcase-4-counterintuitive-result</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Decompose the ppGpp-off result: separate ppGpp *synthesis* (RelA/SpoT)
-from the *regulatory* coupling, and test whether toggling synthesis vs
-regulation independently reproduces the rise. Adds a synthesis-off /
-regulation-off 2x2 to confirm the de-repression mechanism.
-</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('showcase-4-variant-comparison', "chase-ppgpp-off-de-repression")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-  </div>
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
 
-    
-    
-    
-    <div class="decide-section">
-      <h3 class="overview-label">Latest run outcomes</h3>
-      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
-        baseline · seed ? ·
-        ?s simulated ·
-        ? history rows ·
-        started ?
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
       </div>
-      
-      
     </div>
-    
 
+    
     
     
     
@@ -1745,10 +1454,131 @@ regulation-off 2x2 to confirm the de-repression mechanism.
 
     
     
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
 
     
     
+    
+    
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
+      
+      
+    </div>
+    
+    
+
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>showcase-3&#39;s open reviewer decision is resolved empirically: all four candidate perturbations were run as a 5-variant sweep, and the media / condition change is the most demonstrative single perturbation (moves the cell off baseline on mass, replication, composition, and central-carbon flux simultaneously).</li><li>ppGpp-off does NOT collapse the ppGpp pool — it de-represses it (mean ppGpp 64.8 -&gt; 120.6, 1.86x; trace climbs to ~230). Disabling ppGpp *regulation* removes the feedback the allocation reads but not ppGpp *synthesis*. Growth slows the most (doubling +10.5 min, only 2 gens).</li><li>dnaA-2x advances replication re-initiation TIMING and degrades the central-carbon flux match (Toya r 0.727 -&gt; 0.457) but does NOT raise the discrete max oriC ceiling (both peak at 4).</li><li>media-succinate&#39;s central-carbon FBA flux decorrelates from the glucose-grown Toya-2010 measurements (Toya r collapses to -0.058), with the largest flux shifts on the TCA / succinate-entry reactions — a clean carbon-source signature.</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>elong-down is a near-null at the 0.7x magnitude (doubling 49.3 vs 51.1 min) — the steady-state charging + variable-elongation machinery appears to compensate. Whether a larger cut (e.g. 0.4-0.5x) or a different translation knob produces a graded slowdown is open.</li><li>The proteome is the least discriminating axis: all variants stay at Schmidt r 0.70-0.74 / Wisniewski ~0.61. Whether a coarser-grained or pathway-resolved proteome readout would separate the variants is open.</li><li>tRNA charged fraction is pinned at ~0.97 across every variant including ppgpp-off and elong-down — the charging model may be insensitive to these levers, or the readout saturates.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+
+      
+
+      
+      
+      
+      <div class="di-group">
+        <h3>Follow-up study proposals
+          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+          <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+        <div class="followup-list">
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Deepen the strongest contrast — media / growth-condition response (dose of carbon sources)</strong>
+              <span class="di-chip">condition-sweep</span>
+              <span class="di-chip">showcase-4-strongest-contrast</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Run a small panel of growth conditions (e.g. glucose, succinate, acetate,
+glycerol, +amino-acids), each with its own full ParCa cache, and chart the
+growth rate / central-carbon flux (Toya-r) / mass-composition response as a
+function of carbon source. Builds directly on media-succinate, the
+strongest showcase-4 contrast.
+</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('showcase-4-variant-comparison', "deepen-media-growth-condition-response")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Chase the ppGpp-off surprise — why does the pool rise, not collapse?</strong>
+              <span class="di-chip">mechanism-probe</span>
+              <span class="di-chip">showcase-4-counterintuitive-result</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Decompose the ppGpp-off result: separate ppGpp *synthesis* (RelA/SpoT)
+from the *regulatory* coupling, and test whether toggling synthesis vs
+regulation independently reproduces the rise. Adds a synthesis-off /
+regulation-off 2x2 to confirm the de-repression mechanism.
+</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('showcase-4-variant-comparison', "chase-ppgpp-off-de-repression")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

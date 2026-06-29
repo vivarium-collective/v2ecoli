@@ -133,18 +133,25 @@
 <div id="spine-summary" class="spine-summary" data-slug="pdmp-02-jump-processes"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
-  <button class="study-tab active" data-kind="overview"      onclick="_setStudyTab('overview')">Overview</button>
-  
-  <button class="study-tab"        data-kind="build"         onclick="_setStudyTab('build')">Build</button>
-  
-  
-  <button class="study-tab"        data-kind="simulations"   onclick="_setStudyTab('simulations')">Simulations</button>
-  <button class="study-tab"        data-kind="observables"   onclick="_setStudyTab('observables')">Readouts</button>
-  
-  <button class="study-tab"        data-kind="runs"          onclick="_setStudyTab('runs')">Runs</button>
-  <button class="study-tab"        data-kind="tests"         onclick="_setStudyTab('tests')">Tests</button>
-  <button class="study-tab"        data-kind="visualizations" onclick="_setStudyTab('visualizations')">Visualizations</button>
-  <button class="study-tab"        data-kind="conclusions"   onclick="_setStudyTab('conclusions')">Decide</button>
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Understand</button>
+    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Inquire</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Compose</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulate</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualize</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
+    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Compose</button>
+    
+    <button class="study-tab"        data-kind="simulations"   data-pillar="simulate" onclick="_setStudyTab('simulations')">Simulations</button>
+    
+    <button class="study-tab"        data-kind="runs"          data-pillar="simulate" onclick="_setStudyTab('runs')">Runs</button>
+    <button class="study-tab"        data-kind="observables"   data-pillar="visualize" onclick="_setStudyTab('observables')">Readouts</button>
+    <button class="study-tab"        data-kind="visualizations" data-pillar="visualize" onclick="_setStudyTab('visualizations')">Visualizations</button>
+  </div>
 </nav>
 <style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
@@ -246,19 +253,15 @@
   <div class="study-overview">
 
     
+    <h2 class="overview-label">Summary</h2>
+
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
       <h2 class="overview-label">📋 Report — executive summary
         <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
       </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">
-        Verdict + main insight are <strong>computed</strong> from canonical
-        fields (gate evaluator · findings) and shown read-only; the report
-        also derives <code>title</code>, <code>objective</code>, and
-        <code>key_metrics</code> from canonical content. Author only the
-        reviewer-facing notes below (confidence · evidence quality · caveat).
-      </p>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -301,193 +304,43 @@
                     placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted. Replacing scaled-Poisson stochastics with continuous-time jumps from measured kinetic constants (Anderson-Darling Exp(1) verified), plus a first-passage division trigger, will yield a PDMP whose trajectory ensembles match v2ecoli baseline summaries within W₂ tolerance.</textarea>
         </label>
       </div>
-      
-      <div style="margin-top:10px">
-        <button type="button" class="btn-view-skeptic action-btn"
-                style="font-size:0.85em" data-study="pdmp-02-jump-processes">🕵 View as skeptic</button>
-        <span class="muted small" style="margin-left:8px">opens the report reordered for a skeptical reviewer</span>
-      </div>
     </div>
 
     
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about
+        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
       </h2>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
-        Untested claims, absent controls, uncalibrated metrics, un-excluded
-        alternatives, unexplored regions, and stale visuals — harvested from the
-        rigor scorecard + freshness signals.
-      </p>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">1 alternative(s) listed but none excluded yet</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The original Phase-2 gate `pdmp-trajectory-distribution-match` (trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions) FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the wrong gate (cell_mass is the wrong observable), a legitimate negative/structural result, but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The Anderson-Darling Exp(1) exponential-clock verification (&gt;=1e4 inter-event intervals) and the OU first-passage division-trigger validation (KS &lt; 0.02) remain unrun.</div>
-          </div>
-        </div>
-        
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Aims to represent the cell&#39;s discrete molecular events (transcription/translation initiation, division, resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the direct event counts (rna_init) carry ~30× more variance, so the stochasticity lives at the count level.</textarea>
+      
+    </div>
+
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+
+    
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Can v2ecoli&#39;s discrete-time stochastic layer (Poisson gene-
+expression draws scaled by timestep/doubling time, the teleonomic
+division trigger, and the globally-acting resource reallocation
+correction) be replaced by a coherent continuous-time jump
+process that, coupled with the Phase 1 metabolism ODE, satisfies
+the Markov property of a piecewise-deterministic Markov process?
+
       </div>
+      
+      
+      
     </div>
     
 
-    <div class="biology-glance">
-      
-      <div class="biology-summary-callout">
-        <h2 class="biology-glance-label">Biology — what this study is about
-          <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-        </h2>
-        <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                  data-narrative-path="biological_summary"
-                  placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Aims to represent the cell&#39;s discrete molecular events (transcription/translation initiation, division, resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the direct event counts (rna_init) carry ~30× more variance, so the stochasticity lives at the count level.</textarea>
-        
-      </div>
-
-      
-      
-      
-      
-      
-      
-      
-      
-      <div class="study-card">
-        <h2 class="biology-glance-label">Study card
-          <span class="narrative-card-hint">(derived from canonical fields when a slot is blank)</span>
-        </h2>
-        <table class="study-card-table">
-          <tr><th>Goal</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.goal"
-                   value="Phase 2 — replace v2ecoli&#39;s discrete-time scaled-Poisson stochastic layer (transcription, translation), teleonomic division trigger, and global resource reallocation step with continuous-time jump processes driven by propensities from measured kinetic constants. Couple with Phase 1 ODE metabolism to form the full PDMP."
-                   placeholder="Implement transcription_jump, translation_jump, and
-division_threshold as Process Bigraph processes; replace the
-global resource correction with jump-based competition reactions;
-couple all jump processes with the Phase 1 metabolism ODE under
-an integrated PDMP runner in Vivarium; verify the Markov property
-(deterministic between jumps, specified kernels at jumps);
-compare trajectory distributions vs. the v2ecoli baseline across
-the Phase 0 conditions.
-">
-          </td></tr>
-          <tr><th>Mechanism</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.mechanism"
-                   value=""
-                   placeholder="Aims to represent the cell&#39;s discrete molecular events (transcription/translation initiation, division, resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the direct event counts (rna_init) carry ~30× more variance, so the stochasticity lives at the count level.">
-          </td></tr>
-          <tr><th>Why before next</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.why_before_next"
-                   value="This converts random biological events — transcription, translation, division — from timestep-based draws into event-based stochastic dynamics."
-                   placeholder="Continuous-time jump propensities (transcription, translation, division, resource competition) pass the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS distance &lt; 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov property bit-verified.">
-          </td></tr>
-          <tr><th>Expected result</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.expected_result"
-                   value=""
-                   placeholder="(a) Replacing scaled-Poisson gene-expression draws with continuous-
-time jump processes governed by explicit propensity functions
-derived from measured kinetic constants (initiation, elongation,
-degradation rates) reproduces the v2ecoli baseline trajectory
-distribution within tolerance. (b) Replacing the teleonomic
-doubling-time division trigger with a first-passage threshold
-crossing in cell volume or total protein mass reproduces the
-observed division-time distribution. (c) Replacing the global
-resource reallocation step with affinity-based competition jumps
-conserves mass and yields a PDMP: deterministic ODE flow
-between jumps with state-dependent kernels at jumps.
-">
-          </td></tr>
-          <tr><th>Main expert question</th><td>
-            <input type="text" class="narrative-input narrative-card-input"
-                   data-narrative-path="study_card.main_expert_question"
-                   value=""
-                   placeholder="The one question this study most wants an expert to answer.">
-          </td></tr>
-        </table>
-      </div>
-
-      
-
-      
-      <div class="literature-anchors">
-        <h2 class="biology-glance-label">Literature anchors</h2>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-          The biological expectations this study tests, mapped to the
-          model observable that will measure each one. Full citations
-          live in the Tests tab.
-        </p>
-        <ul class="literature-anchor-list">
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-        </ul>
-      </div>
-      
-    </div>
+    
+    <h2 class="overview-label">Findings &amp; open debts</h2>
 
     
     <div class="overview-section findings-section">
@@ -584,112 +437,202 @@ between jumps with state-dependent kernels at jumps.
 
     
     
-    <div class="overview-section">
-      <h2 class="overview-label">Purpose</h2>
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Can v2ecoli&#39;s discrete-time stochastic layer (Poisson gene-
-expression draws scaled by timestep/doubling time, the teleonomic
-division trigger, and the globally-acting resource reallocation
-correction) be replaced by a coherent continuous-time jump
-process that, coupled with the Phase 1 metabolism ODE, satisfies
-the Markov property of a piecewise-deterministic Markov process?
-
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+      </h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Untested claims, absent controls, uncalibrated metrics, un-excluded
+        alternatives, unexplored regions, and stale visuals — harvested from the
+        rigor scorecard + freshness signals.
+      </p>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">1 alternative(s) listed but none excluded yet</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The original Phase-2 gate `pdmp-trajectory-distribution-match` (trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions) FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the wrong gate (cell_mass is the wrong observable), a legitimate negative/structural result, but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <div>
+            <strong style="color:#1e293b">region-unexplored</strong>
+            <code style="font-size:0.82em">remaining_uncertainties</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">The Anderson-Darling Exp(1) exponential-clock verification (&gt;=1e4 inter-event intervals) and the OU first-passage division-trigger validation (KS &lt; 0.02) remain unrun.</div>
+          </div>
+        </div>
+        
       </div>
-      
-      
-      
     </div>
     
 
     
     <details class="overview-section">
-      <summary class="overview-label">Pipeline gate</summary>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
       
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-        <code>{&#39;study&#39;: &#39;pdmp-01-metabolism-ode&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>{&#39;study&#39;: &#39;pdmp-01-metabolism-ode&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
+        </div>
+        
+        
+        <div style="margin-bottom:6px"><strong>Enables:</strong>
+          <code>pdmp-03-inference</code> · <code>pdmp-04-compilation</code>
+        </div>
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">Continuous-time jump propensities (transcription, translation, division, resource competition) pass the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS distance &lt; 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov property bit-verified.</span></div>
+        
       </div>
       
+
       
-      <div style="margin-bottom:6px"><strong>Enables:</strong>
-        <code>pdmp-03-inference</code> · <code>pdmp-04-compilation</code>
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Discrete-time WCM updates can be re-expressed as a continuous-time jump process (transcription, translation, division, competition jumps) with exponential inter-event clocks.</li><li style="margin:2px 0">A trajectory-distribution match (Wasserstein-2) against the baseline ensemble is the right acceptance gate, but the right observable is count-level, not aggregate mass (see findings).</li><li style="margin:2px 0">First-passage-time division and binomial inheritance are the key stochastic structures to reproduce.</li>
+        </ul>
       </div>
       
+
       
-      <div><strong>Proceed when:</strong> <span class="muted">Continuous-time jump propensities (transcription, translation, division, resource competition) pass the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS distance &lt; 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov property bit-verified.</span></div>
       
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>4</strong> tests defined —
+            <span class="classification-pill classification-primary">3 primary</span>
+            <span class="classification-pill classification-supporting">1 supporting</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+
+      
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
+      
+
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        <select id="status-select" data-field="status" class="overview-status-select">
+          <option value="planned"     >planned</option>
+          <option value="draft"       >draft</option>
+          <option value="in-progress" >in-progress</option>
+          <option value="running"     selected>running</option>
+          <option value="ran"         >ran</option>
+          <option value="completed"   >completed</option>
+          <option value="complete"    >complete</option>
+          <option value="archived"    >archived</option>
+        </select>
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Decide</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
+      </div>
+
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>5</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>4</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>3</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
+      </div>
+
     </details>
-    
-
-    
-    <details class="overview-section">
-      <summary class="overview-label">Key assumptions</summary>
-      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">Discrete-time WCM updates can be re-expressed as a continuous-time jump process (transcription, translation, division, competition jumps) with exponential inter-event clocks.</li><li style="margin:2px 0">A trajectory-distribution match (Wasserstein-2) against the baseline ensemble is the right acceptance gate, but the right observable is count-level, not aggregate mass (see findings).</li><li style="margin:2px 0">First-passage-time division and binomial inheritance are the key stochastic structures to reproduce.</li>
-      </ul>
-    </details>
-    
-
-    
-    
-    <div class="overview-section">
-      <h2 class="overview-label">Behavioral tests</h2>
-      
-      
-      
-      
-      
-      <p style="margin:0">
-        <strong>4</strong> tests defined —
-          <span class="classification-pill classification-primary">3 primary</span>
-          <span class="classification-pill classification-supporting">1 supporting</span>
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-      </p>
-    </div>
-    
-
-    
-
-    
-
-    
-    
-
-    <div class="overview-section">
-      <h2 class="overview-label">Status</h2>
-      <select id="status-select" data-field="status" class="overview-status-select">
-        <option value="planned"     >planned</option>
-        <option value="running"     selected>running</option>
-        <option value="ran"         >ran</option>
-        <option value="complete"    >complete</option>
-        <option value="failed"      >failed</option>
-      </select>
-      
-      <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Decide</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-      
-    </div>
-
-    <div class="study-counts-strip">
-      <div class="count-cell">
-        <strong>5</strong>
-        <span class="count-label">simulations</span>
-      </div>
-      <div class="count-cell">
-        <strong>4</strong>
-        <span class="count-label">readouts</span>
-      </div>
-      <div class="count-cell">
-        <strong>3</strong>
-        <span class="count-label">requirements</span>
-      </div>
-      <div class="count-cell">
-        <strong>0</strong>
-        <span class="count-label">runs</span>
-      </div>
-    </div>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -699,8 +642,11 @@ the Markov property of a piecewise-deterministic Markov process?
 
 
 
-
-<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
 
   
   
@@ -892,8 +838,10 @@ the Markov property of a piecewise-deterministic Markov process?
     
   </div>
   
+  
+  
+  
 </section>
-
 
 
 
@@ -1078,43 +1026,6 @@ the Markov property of a piecewise-deterministic Markov process?
 </section>
 
 
-<section class="study-tab-panel" data-kind="baseline" id="panel-baseline">
-  <div class="baseline-list">
-    
-    <article class="baseline-entry" data-baseline-name="pdmp-jump-runner-tbd">
-      <header class="baseline-entry-header">
-        <h3 class="baseline-entry-name">pdmp-jump-runner-tbd</h3>
-        <code class="baseline-entry-fqn">v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner</code>
-      </header>
-      
-      <table class="baseline-params">
-        <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          
-          <tr><td><code>emitter</code></td><td><code>xarray</code></td></tr>
-          
-        </tbody>
-      </table>
-      
-      <div class="baseline-entry-actions">
-        <button class="btn-run-baseline" data-baseline-name="pdmp-jump-runner-tbd">Run</button>
-        <button class="btn-baseline-remove" data-baseline-name="pdmp-jump-runner-tbd">Remove</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="baseline-add-form">
-    <summary class="btn-baseline-add">+ Add composite</summary>
-    <form id="baseline-add-form" onsubmit="return _submitBaselineAdd(event)">
-      <label>Name (short, unique): <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Composite ID: <input name="composite" required placeholder="pkg.composites.foo"></label>
-      <label>Params (JSON, optional): <textarea name="params" placeholder="{}"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
-</section>
-
 <section class="study-tab-panel" data-kind="observables" id="panel-observables" hidden>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
@@ -1134,135 +1045,6 @@ the Markov property of a piecewise-deterministic Markov process?
     </details>
     
   </div>
-</section>
-
-<section class="study-tab-panel" data-kind="variants" id="panel-variants">
-  <div class="variants-list">
-    
-    <article class="variant-row" data-variant-name="transcription-jump-from-kinetics"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">transcription-jump-from-kinetics</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="transcription-jump-from-kinetics">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="transcription-jump-from-kinetics">Delete</button>
-        <button class="btn-variant-run" data-variant-name="transcription-jump-from-kinetics">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="translation-jump-from-kinetics"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">translation-jump-from-kinetics</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="translation-jump-from-kinetics">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="translation-jump-from-kinetics">Delete</button>
-        <button class="btn-variant-run" data-variant-name="translation-jump-from-kinetics">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="division-first-passage"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">division-first-passage</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="division-first-passage">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="division-first-passage">Delete</button>
-        <button class="btn-variant-run" data-variant-name="division-first-passage">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="competition-jumps"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">competition-jumps</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="competition-jumps">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="competition-jumps">Delete</button>
-        <button class="btn-variant-run" data-variant-name="competition-jumps">Run</button>
-      </div>
-    </article>
-    
-    <article class="variant-row" data-variant-name="full-pdmp-coupled"
-             data-base-composite="">
-      <header class="variant-row-header">
-        <h3 class="variant-name">full-pdmp-coupled</h3>
-        <span class="variant-base">based on <code>(none)</code></span>
-        <span class="variant-overrides-count muted">0 override(s)</span>
-      </header>
-      
-      <div class="variant-row-actions">
-        <button class="btn-variant-edit" data-variant-name="full-pdmp-coupled">Edit params</button>
-        <button class="btn-variant-delete" data-variant-name="full-pdmp-coupled">Delete</button>
-        <button class="btn-variant-run" data-variant-name="full-pdmp-coupled">Run</button>
-      </div>
-    </article>
-    
-  </div>
-
-  <details class="variant-add-form-wrapper">
-    <summary class="btn-variant-new">+ New variant</summary>
-    <form id="variant-new-form" onsubmit="return _submitVariantAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Base composite:
-        <select name="base_composite" required onchange="_onBaseCompositeChange(this)">
-          <option value="">— pick a baseline composite —</option>
-          
-          <option value="pdmp-jump-runner-tbd" data-composite-id="v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner">pdmp-jump-runner-tbd (v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner)</option>
-          
-        </select>
-      </label>
-      <div id="variant-new-params" class="param-form">
-        <p class="muted">Pick a base composite to see its parameters.</p>
-      </div>
-      <button type="submit">Save variant</button>
-    </form>
-  </details>
-
-  <!-- Hidden edit form, populated dynamically when "Edit params" is clicked -->
-  <dialog id="variant-edit-dialog">
-    <form id="variant-edit-form" onsubmit="return _submitVariantEdit(event)" method="dialog">
-      <h3>Edit parameter overrides for <code id="variant-edit-name"></code></h3>
-      <div id="variant-edit-params" class="param-form"></div>
-      <menu>
-        <button type="button" onclick="document.getElementById('variant-edit-dialog').close()">Cancel</button>
-        <button type="submit">Save</button>
-      </menu>
-    </form>
-  </dialog>
-</section>
-
-<section class="study-tab-panel" data-kind="interventions" id="panel-interventions">
-  <div class="interventions-list">
-    
-    <p class="empty-message">No interventions yet. Add one to record an experimental condition.</p>
-    
-  </div>
-
-  <details class="intervention-add-form-wrapper">
-    <summary class="btn-intervention-new">+ New intervention</summary>
-    <form id="intervention-new-form" onsubmit="return _submitInterventionAdd(event)">
-      <label>Name: <input name="name" required pattern="[a-zA-Z0-9_-]+"></label>
-      <label>Description: <textarea name="description" placeholder="Describe the experimental condition"></textarea></label>
-      <button type="submit">Add</button>
-    </form>
-  </details>
 </section>
 
 <section class="study-tab-panel" data-kind="runs" id="panel-runs">
@@ -1668,181 +1450,72 @@ expect:  {"conditions": [{"field": "speedup_ratio", "operator": "greater-than", 
   
   
   
-  
-  
-  
-  <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-    <h2 class="overview-label">Discovery implications</h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-    
-    <div class="di-uncertainties">
-      
-      <div class="di-unc di-unc-resolved">
-        <h4>✓ Resolved uncertainties</h4>
-        <ul><li>Continuous-time per-promoter / per-protein Poisson tau-leap samplers were implemented and land in `poisson` mode. The &#34;150 fg&#34; figure is max |Delta cell_mass| = 150 fg between configs, a transient on a single trajectory pair, computed in scripts/trajectory_divergence.py on the cell_mass quantity. It is not measured at the rnap_data listener (a narrative literal absent from the computing script), and it cuts against this study&#39;s own thesis that cell_mass is the wrong observable.</li><li>cell_mass is the wrong observable for jump-process variance: the consumption_matched homeostat (from Phase 1) washes per-tick variance out of cell_mass by construction. Three controller- tuning attempts (tau-EMA, open-loop, sparse injection) all failed to recover mass variance.</li></ul>
-      </div>
-      
-      
-      <div class="di-unc di-unc-remaining">
-        <h4>● Remaining uncertainties</h4>
-        <ul><li>The original Phase-2 gate `pdmp-trajectory-distribution-match` (trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions) FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the wrong gate (cell_mass is the wrong observable), a legitimate negative/structural result, but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</li><li>The Anderson-Darling Exp(1) exponential-clock verification (&gt;=1e4 inter-event intervals) and the OU first-passage division-trigger validation (KS &lt; 0.02) remain unrun.</li></ul>
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card">
-        <div class="di-card-stmt"><strong>It is the consumption_matched homeostat specifically (not jump sampling per se) that erases per-tick variance; loosening or disabling the homeostat would restore cell_mass as a usable variance observable.</strong></div>
-        <div class="di-card-why">The homeostat actively tracks a reference growth trajectory, so any per-tick fluctuation it sees is corrected within a tick.</div>
-        
-        <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
-          <code>consumption_matched-driver</code>, <code>cell_mass-observable</code>, <code>jump-variance-propagation</code>
-        </div>
-        
-        
-        <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
-          <code>cell_mass CV with the homeostat on vs off under identical jump seeds</code>, <code>count-listener variance (rnap_data, ribosome_data) vs cell_mass variance</code>
-        </div>
-        
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="di-group">
-      <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
-      
-      <div class="di-card di-mech-card">
-        <div class="di-mech-head">
-          <code>inference-observable (cell_mass -&gt; count-level listeners)</code>
-          <span class="di-update-chip">revise</span>
-          
-          <span class="di-approval-badge">needs expert approval</span>
-        </div>
-        <div class="di-card-why">Anchor all downstream variance-based inference on count-level listeners (rnap_data, ribosome_data, monomer_counts) rather than cell_mass; the homeostat makes mass variance-blind. This redirected Phase 3.</div>
-      </div>
-      
-    </div>
-    
-
-    
-    
-    
-    <div class="di-group">
-      <h3>Follow-up study proposals
-        <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-        <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-      <div class="followup-list">
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Count-level trajectory-distribution match as the Phase-2 acceptance gate</strong>
-            <span class="di-chip">criterion_redesign</span>
-            <span class="di-chip">negative_finding</span>
-            <span class="di-chip di-gain-high">gain: high</span>
-            
-          </div>
-          <div class="di-card-why">Define and run a trajectory-distribution W2/KS criterion on count-level listeners (transcript/protein initiation counts) vs the v2ecoli baseline, replacing the cell_mass gate the closeout invalidated.</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-02-jump-processes', "pdmp-02-count-trajectory-gate")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-        
-        <div class="di-card di-fup-card">
-          <div class="followup-header">
-            <strong class="followup-title">Anderson-Darling Exp(1) exponential-clock + OU first-passage division validation</strong>
-            <span class="di-chip">validation</span>
-            <span class="di-chip">open_deliverable</span>
-            <span class="di-chip di-gain-medium">gain: medium</span>
-            
-          </div>
-          <div class="di-card-why">Verify the cumulative hazard integral of lambda is Exp(1)-distributed over &gt;=1e4 inter-event intervals (A-D, alpha=0.05) and validate the first-passage division trigger against an OU analytical CDF (KS &lt; 0.02).</div>
-          
-          <div class="followup-actions" style="margin-top:8px">
-            <button class="btn-seed-followup"
-                    onclick="_seedFollowupProposal('pdmp-02-jump-processes', "pdmp-02-exponential-clock-validation")">➕ Add to investigation</button>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-  </div>
-  
-  <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
-    <h2 class="overview-label">⚖️ Verdicts — three-track outcome
-      <span class="narrative-card-hint">(regression / biological / explanatory)</span>
-    </h2>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each track is independent. <em>Regression</em> answers "does the code
-      still build and run cleanly?", <em>biological</em> answers "does the
-      model match the literature?", <em>explanatory</em> answers "did we
-      learn something new?". Each <strong>result is computed</strong> from
-      canonical fields (gate evaluator, run status, finding tiers) — author
-      only the <em>basis</em> (the rationale) for each track.
-    </p>
-    <div class="narrative-grid">
-      <label class="narrative-row">
-        <span class="narrative-label">Regression compatibility</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
-              title="Computed from run status (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from run status</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Regression basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
-                  placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Biological validation</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
-              title="Computed from the gate evaluator (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Biological basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.biological_validation.basis"
-                  placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
-      </label>
-      <label class="narrative-row">
-        <span class="narrative-label">Explanatory gain</span>
-        <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
-              title="Computed from interpretation-tier findings (read-only)"
-              style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
-        <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
-      </label>
-      <label class="narrative-row narrative-row-wide">
-        <span class="narrative-label">Explanatory basis</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
-                  placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
-      </label>
-    </div>
-  </div>
 
   
-  <div class="decide-v3">
-    <h2 style="margin:0 0 4px 0">Decide</h2>
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
     <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
       Synthesises the latest run's outcomes against the pre-stated
       <code>conclusion_logic</code>, then surfaces concrete follow-up actions
       you can either review (existing studies) or seed (new ones).
     </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
 
     
     
@@ -1850,13 +1523,145 @@ expect:  {"conditions": [{"field": "speedup_ratio", "operator": "greater-than", 
 
     
     
-
-    
     
 
-    
-    
   </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>Continuous-time per-promoter / per-protein Poisson tau-leap samplers were implemented and land in `poisson` mode. The &#34;150 fg&#34; figure is max |Delta cell_mass| = 150 fg between configs, a transient on a single trajectory pair, computed in scripts/trajectory_divergence.py on the cell_mass quantity. It is not measured at the rnap_data listener (a narrative literal absent from the computing script), and it cuts against this study&#39;s own thesis that cell_mass is the wrong observable.</li><li>cell_mass is the wrong observable for jump-process variance: the consumption_matched homeostat (from Phase 1) washes per-tick variance out of cell_mass by construction. Three controller- tuning attempts (tau-EMA, open-loop, sparse injection) all failed to recover mass variance.</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>The original Phase-2 gate `pdmp-trajectory-distribution-match` (trajectory-distribution W2 match to the v2ecoli baseline on cell_mass across all Phase-0 conditions) FAILED: the Poisson cell_mass W2 grows monotonically 9.73 → 15.35 → 49.46. Per the closeout this is the wrong gate (cell_mass is the wrong observable), a legitimate negative/structural result, but the gate status is FAILED, not passed/accepted. A replacement count-level trajectory-distribution criterion has not yet been formally specified or passed.</li><li>The Anderson-Darling Exp(1) exponential-clock verification (&gt;=1e4 inter-event intervals) and the OU first-passage division-trigger validation (KS &lt; 0.02) remain unrun.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Alternate hypotheses <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card">
+          <div class="di-card-stmt"><strong>It is the consumption_matched homeostat specifically (not jump sampling per se) that erases per-tick variance; loosening or disabling the homeostat would restore cell_mass as a usable variance observable.</strong></div>
+          <div class="di-card-why">The homeostat actively tracks a reference growth trajectory, so any per-tick fluctuation it sees is corrected within a tick.</div>
+          
+          <div class="di-card-line"><span class="di-lbl">Mechanism elements:</span>
+            <code>consumption_matched-driver</code>, <code>cell_mass-observable</code>, <code>jump-variance-propagation</code>
+          </div>
+          
+          
+          <div class="di-card-line"><span class="di-lbl">Discriminating observables:</span>
+            <code>cell_mass CV with the homeostat on vs off under identical jump seeds</code>, <code>count-listener variance (rnap_data, ribosome_data) vs cell_mass variance</code>
+          </div>
+          
+        </div>
+        
+      </div>
+      
+
+      
+      <div class="di-group">
+        <h3>Mechanism update proposals <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></h3>
+        
+        <div class="di-card di-mech-card">
+          <div class="di-mech-head">
+            <code>inference-observable (cell_mass -&gt; count-level listeners)</code>
+            <span class="di-update-chip">revise</span>
+            
+            <span class="di-approval-badge">needs expert approval</span>
+          </div>
+          <div class="di-card-why">Anchor all downstream variance-based inference on count-level listeners (rnap_data, ribosome_data, monomer_counts) rather than cell_mass; the homeostat makes mass variance-blind. This redirected Phase 3.</div>
+        </div>
+        
+      </div>
+      
+
+      
+      
+      
+      <div class="di-group">
+        <h3>Follow-up study proposals
+          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+          <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+        <div class="followup-list">
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Count-level trajectory-distribution match as the Phase-2 acceptance gate</strong>
+              <span class="di-chip">criterion_redesign</span>
+              <span class="di-chip">negative_finding</span>
+              <span class="di-chip di-gain-high">gain: high</span>
+              
+            </div>
+            <div class="di-card-why">Define and run a trajectory-distribution W2/KS criterion on count-level listeners (transcript/protein initiation counts) vs the v2ecoli baseline, replacing the cell_mass gate the closeout invalidated.</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-02-jump-processes', "pdmp-02-count-trajectory-gate")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Anderson-Darling Exp(1) exponential-clock + OU first-passage division validation</strong>
+              <span class="di-chip">validation</span>
+              <span class="di-chip">open_deliverable</span>
+              <span class="di-chip di-gain-medium">gain: medium</span>
+              
+            </div>
+            <div class="di-card-why">Verify the cumulative hazard integral of lambda is Exp(1)-distributed over &gt;=1e4 inter-event intervals (A-D, alpha=0.05) and validate the first-passage division trigger against an OU analytical CDF (KS &lt; 0.02).</div>
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('pdmp-02-jump-processes', "pdmp-02-exponential-clock-validation")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
   
 
 </section>

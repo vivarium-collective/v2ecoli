@@ -316,10 +316,23 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
         if ntype not in ("process", "step"):
             continue
         cfg = node.get("config")
+        # The RESULTING process-bigraph schema: the resolved port types the
+        # built process declares (inputs()/outputs()). For converted vEcoli
+        # processes this is what the bridge produced — surfaced in the report's
+        # converted-processes panel. Best-effort: never crash the sidecar.
+        interface = None
+        inst = node.get("instance")
+        if inst is not None:
+            try:
+                interface = {"inputs": dict(inst.inputs()),
+                             "outputs": dict(inst.outputs())}
+            except Exception:  # noqa: BLE001
+                interface = None
         processes.append({
             "name": name, "type": ntype, "address": node.get("address"),
             "interval": node.get("interval"),
             "config_keys": sorted(cfg.keys()) if isinstance(cfg, dict) else [],
+            "interface": interface,
         })
         topology[name] = {"inputs": node.get("inputs") or {},
                           "outputs": node.get("outputs") or {}}
@@ -527,6 +540,19 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
                 variant=0, lineage_seed=seed)
+            # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
+            # the stores, so the report shows the full vEcoli config too. Best-effort.
+            if seed == seed_start and res.get("build_config"):
+                try:
+                    _write_json_sidecar(
+                        f"{out_root.rstrip('/')}/vecoli_build_config.json",
+                        res["build_config"])
+                    print(f"[config] wrote vecoli_build_config.json "
+                          f"({res['build_config'].get('n_processes')} processes) "
+                          f"under {out_root}")
+                except Exception as e:  # noqa: BLE001
+                    print(f"[warn] vecoli build-config sidecar emit failed: "
+                          f"{type(e).__name__} {e}")
             return {"seed": seed, "wall_seconds": round(time.time() - t0, 1),
                     "store": str(store_path), "steps": None,
                     "generations": list(range(1, res.get("generations", 0) + 1))}

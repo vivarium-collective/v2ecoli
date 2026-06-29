@@ -21,6 +21,7 @@ one-knob change: point ``V2E_VECOLI_DIR`` at a different checkout + its matching
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 from dataclasses import dataclass, field
@@ -378,6 +379,47 @@ def _dperiod_should_divide(handle) -> tuple[bool, int]:
     return bool(gt >= float(untriggered.min())), nchrom
 
 
+def _vecoli_config_summary(handle, *, condition: str, seed: int,
+                           time_step: float, exclude_processes) -> dict:
+    """JSON-able summary of the resolved vEcoli config the run actually used.
+
+    Pulls the process/step NAMES the genuine-vEcoli Engine built plus a sanitized
+    copy of ``EcoliSim.config`` (scalars/lists/small dicts only — the ~300MB
+    ``sim_data`` object and other non-serializable values are dropped). Written
+    next to the vEcoli zarr as ``vecoli_build_config.json`` so the comparison
+    report shows vEcoli's OWN full config alongside v2ecoli's. Best-effort."""
+    sim = getattr(handle, "sim", None)
+    ecoli = getattr(sim, "ecoli", None) if sim is not None else None
+    processes = sorted((getattr(ecoli, "processes", {}) or {}).keys()) if ecoli else []
+    steps = sorted((getattr(ecoli, "steps", {}) or {}).keys()) if ecoli else []
+    safe: dict = {}
+    for k, v in (getattr(sim, "config", {}) or {}).items():
+        if k in ("sim_data",):                 # huge object — never serialize
+            continue
+        if isinstance(v, (str, int, float, bool, type(None))):
+            safe[k] = v
+        elif isinstance(v, (list, tuple)) and len(v) <= 64:
+            try:
+                json.dumps(list(v))
+                safe[k] = list(v)
+            except Exception:  # noqa: BLE001
+                safe[k] = f"<{type(v).__name__}[{len(v)}]>"
+        elif isinstance(v, dict) and len(v) <= 32:
+            try:
+                json.dumps(v)
+                safe[k] = v
+            except Exception:  # noqa: BLE001
+                safe[k] = f"<dict[{len(v)} keys]>"
+    return {
+        "engine": "vecoli", "source": "EcoliSim.config",
+        "condition": condition, "seed": int(seed), "time_step": float(time_step),
+        "media_id": getattr(handle, "media_id", None),
+        "n_processes": len(processes), "processes": processes, "steps": steps,
+        "exclude_processes": list(exclude_processes or []),
+        "config": safe,
+    }
+
+
 def run_vivarium_ecoli_pbg_multigen(
     *,
     store_path,
@@ -436,6 +478,7 @@ def run_vivarium_ecoli_pbg_multigen(
     divisions = 0
     gens_done = 0
     final_cell_mass = None
+    build_config = None
 
     for gen in range(max_generations):
         # gen 0 is a fresh founder (overlay=None); later generations seed the inner
@@ -447,6 +490,14 @@ def run_vivarium_ecoli_pbg_multigen(
             initial_overlay=overlay)
         proc = info["process"]
         comp.run(1)  # warm-up tick so listeners materialise
+        if gen == 0:                       # capture vEcoli's OWN resolved config once
+            try:
+                build_config = _vecoli_config_summary(
+                    proc._handle, condition=condition, seed=seed,
+                    time_step=time_step, exclude_processes=exclude_processes)
+            except Exception as _cfgerr:  # noqa: BLE001 — never block the run
+                print(f"[vecoli-config] summary skipped: "
+                      f"{type(_cfgerr).__name__} {_cfgerr}")
         em = _build_emitter(
             core=core, store_path=store_path, view=view, metadata_base=metadata_base,
             generation=gen + 1,  # 1-indexed to match run_multigen_xarray (v2ecoli side)
@@ -488,7 +539,8 @@ def run_vivarium_ecoli_pbg_multigen(
         divisions += 1
 
     return {"generations": gens_done, "divisions": divisions,
-            "store": store_path, "final_cell_mass": final_cell_mass}
+            "store": store_path, "final_cell_mass": final_cell_mass,
+            "build_config": build_config}
 
 
 # ---------------------------------------------------------------------------

@@ -603,40 +603,14 @@ def config_sections_for(cond: str, v2_dir: str, ve_dir: str) -> list[dict]:
             "html": f"<p style='color:#6b7280'>config not found for {cond} "
                     f"(no workflow_config.json under {ve_dir}/cond_{cond}).</p>"})
 
-    # Prefer the new build-config sidecar (full resolved process set +
-    # topology straight from the Composite); fall back to the zarr-attrs run
-    # config for older runs that predate it. Label which one is shown.
+    # The v2ecoli config panel itself is rendered by v2_config_section (every
+    # mode); here we only resolve v2_cfg/source for the config-DIFF below.
     v2_build = _read_v2ecoli_build_config(v2_dir)
     if v2_build is not None:
         v2_cfg, v2_source = v2_build, "build-config sidecar"
-        sec = report.config_panel_section(v2_cfg)
-        sec["title"] = f"{cond} — config (v2ecoli)"
-        sec["desc"] = (
-            f"v2ecoli RESOLVED build config for condition '{cond}', from the "
-            f"v2ecoli_build_config.json sidecar the run emitted straight off the "
-            f"built Composite (process set, per-process config keys, topology, "
-            f"time_step, condition, seed, options).")
-        sections.append(sec)
     else:
         v2_cfg = _read_v2ecoli_config(v2_dir)
         v2_source = "zarr-attrs run config (sidecar absent)"
-        if v2_cfg is not None:
-            sec = report.config_panel_section(v2_cfg)
-            sec["title"] = f"{cond} — config (v2ecoli)"
-            sec["desc"] = (
-                f"v2ecoli RUN config for condition '{cond}', recovered from the "
-                f"compact zarr's lineage-node attrs (the build-config sidecar was "
-                f"absent — this is the run config: condition, seed, time_step, "
-                f"max_duration, variant, generation).")
-            sections.append(sec)
-        else:
-            v2_cfg = None
-            sections.append({
-                "title": f"{cond} — config (v2ecoli)", "kind": "content",
-                "desc": f"v2ecoli run config for condition '{cond}'.",
-                "html": f"<p style='color:#6b7280'>config not found for {cond} "
-                        f"(no sidecar and no recoverable run config in "
-                        f"{v2_dir} zarr attrs).</p>"})
 
     # CONFIG DIFF panel — vEcoli resolved vs v2ecoli build config.
     diff = config_diff_section(cond, ve_cfg, v2_cfg, v2_source)
@@ -645,13 +619,59 @@ def config_sections_for(cond: str, v2_dir: str, ve_dir: str) -> list[dict]:
     return sections
 
 
+def _process_interfaces(v2_build: dict | None) -> dict[str, dict]:
+    """Map process name AND address → its resolved interface ({inputs,outputs})
+    from the build-config sidecar, so a converted process can be looked up by
+    whichever identifier the injection spec used."""
+    out: dict[str, dict] = {}
+    for p in (v2_build or {}).get("processes") or []:
+        iface = p.get("interface")
+        if not iface:
+            continue
+        for k in (p.get("name"), p.get("address")):
+            if k:
+                out[k] = iface
+    return out
+
+
+def _schema_table(iface: dict | None) -> str:
+    """Render a converted process's RESULTING process-bigraph schema: each
+    input/output port → its resolved type. Returns '' when unavailable."""
+    from scripts._compare.report import _e
+    if not iface:
+        return ("<div style='color:#6b7280;font-size:12px;padding:2px 0 6px'>"
+                "resulting schema unavailable (process instance not captured).</div>")
+
+    def _rows(ports: dict, kind: str) -> str:
+        if not ports:
+            return (f"<tr><td style='color:#6b7280'>{kind}</td>"
+                    f"<td style='color:#6b7280' colspan='2'>(none)</td></tr>")
+        rs = []
+        for i, (port, typ) in enumerate(ports.items()):
+            tstr = typ if isinstance(typ, str) else json.dumps(typ, default=str)
+            rs.append(f"<tr><td style='color:#6b7280'>{kind if i == 0 else ''}</td>"
+                      f"<td style='padding:2px 10px'><code>{_e(port)}</code></td>"
+                      f"<td style='padding:2px 10px;color:#334155'>"
+                      f"<code>{_e(tstr if len(tstr) <= 80 else tstr[:77] + '…')}</code>"
+                      f"</td></tr>")
+        return "".join(rs)
+    return ("<table style='border-collapse:collapse;font-size:12px;margin:2px 0 8px'>"
+            "<tbody>"
+            + _rows(iface.get("inputs") or {}, "inputs")
+            + _rows(iface.get("outputs") or {}, "outputs")
+            + "</tbody></table>")
+
+
 def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None:
-    """Surface the fork processes converted + injected into the v2ecoli composite.
+    """Surface the fork processes converted + injected into the v2ecoli composite,
+    with each one's RESULTING process-bigraph schema (resolved port types).
 
     Sourced from the build-config sidecar's ``options.overrides.injected_processes``
     (written by run_comparison_ensemble): the add_processes + swap_processes that
     the bridge auto-converted from vivarium-1.0 to process-bigraph and wired into
-    baseline. Returns None when the run injected nothing.
+    baseline. The resulting schema comes from each process's captured
+    ``interface`` (inputs()/outputs()) in the sidecar's ``processes`` list.
+    Returns None when the run injected nothing.
     """
     inj = (((v2_build or {}).get("options") or {}).get("overrides") or {}).get(
         "injected_processes")
@@ -662,14 +682,19 @@ def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None
     if not adds and not swaps:
         return None
     fork = inj.get("fork_repo", "?")
+    ifaces = _process_interfaces(v2_build)
     rows = []
+
+    def _card(name: str, mode: str, note: str) -> str:
+        return (f"<tr><td><code>{name}</code></td><td>{mode}</td><td>{note}</td>"
+                f"<td>vivarium-1.0 → process-bigraph</td></tr>"
+                f"<tr><td colspan='4' style='padding:0 0 6px 18px'>"
+                f"<div style='font-size:12px;color:#6b7280;margin:2px 0'>"
+                f"resulting schema:</div>{_schema_table(ifaces.get(name))}</td></tr>")
     for name in adds:
-        rows.append(f"<tr><td><code>{name}</code></td><td>add</td>"
-                    f"<td>—</td><td>vivarium-1.0 → process-bigraph</td></tr>")
+        rows.append(_card(name, "add", "—"))
     for old, new in swaps.items():
-        rows.append(f"<tr><td><code>{new}</code></td><td>swap</td>"
-                    f"<td>replaces <code>{old}</code></td>"
-                    f"<td>vivarium-1.0 → process-bigraph</td></tr>")
+        rows.append(_card(new, "swap", f"replaces <code>{old}</code>"))
     table = ("<table><thead><tr><th>process</th><th>mode</th><th>note</th>"
              "<th>conversion</th></tr></thead><tbody>"
              + "".join(rows) + "</tbody></table>")
@@ -680,9 +705,82 @@ def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None
         "desc": (f"Fork (vEcoli) processes auto-converted by the v2ecoli bridge "
                  f"(<code>wrap_vivarium_process</code>) and injected into the "
                  f"v2ecoli composite for '{cond}', from fork <code>{fork}</code>. "
-                 f"Each ran in the v2ecoli engine of this comparison."),
+                 f"Each row shows the conversion plus the RESULTING process-bigraph "
+                 f"schema (resolved input/output port types). Each ran in the "
+                 f"v2ecoli engine of this comparison."),
         "html": table,
     }
+
+
+def v2_config_section(cond: str, v2_build: dict | None) -> dict | None:
+    """The FULL resolved v2ecoli build config for ONE condition, rendered from a
+    build-config dict — process set, per-process config keys, topology wiring,
+    time_step, and the build options. Renders in EVERY mode (it needs no
+    Nextflow config), so a run that injected processes shows its real config
+    instead of reading as a bare condition label. Returns None without a build."""
+    if not v2_build:
+        return None
+    sec = report.config_panel_section(v2_build)
+    sec["title"] = f"{cond} — config (v2ecoli)"
+    sec["nav_group"] = cond
+    procs = v2_build.get("processes") or []
+    inj = (((v2_build.get("options") or {}).get("overrides") or {})
+           .get("injected_processes") or {})
+    injected = list(inj.get("add_processes") or []) + \
+        list((inj.get("swap_processes") or {}).values())
+    note = (f" Includes {len(injected)} injected process"
+            f"{'es' if len(injected) != 1 else ''}: "
+            f"{', '.join(injected)}." if injected else "")
+    sec["desc"] = (
+        f"v2ecoli RESOLVED build config for '{cond}' — {len(procs)} processes "
+        f"actually built into the composite (with per-process config keys + "
+        f"topology), time_step {v2_build.get('time_step')}, from the "
+        f"v2ecoli_build_config.json sidecar emitted off the built Composite.{note}")
+    return sec
+
+
+def vecoli_config_section(cond: str, ve_build: dict | None) -> dict | None:
+    """The FULL resolved vEcoli config for ONE condition, rendered from the
+    vecoli_build_config.json sidecar (the EcoliSim.config the genuine-vEcoli pbg
+    run actually used — its real process set, exclude list, media, time_step).
+    Renders in EVERY mode, so the report shows what vEcoli truly ran (e.g. its
+    default baseline, when the v2 side injected a v2-only process). Returns None
+    without a build."""
+    if not ve_build:
+        return None
+    sec = report.config_panel_section(ve_build)
+    sec["title"] = f"{cond} — config (vEcoli)"
+    sec["nav_group"] = cond
+    n = len(ve_build.get("processes") or []) + len(ve_build.get("steps") or [])
+    sec["desc"] = (
+        f"vEcoli RESOLVED config for '{cond}' — {n} processes+steps the "
+        f"genuine-vEcoli engine actually ran (from EcoliSim.config; vEcoli runs "
+        f"most mechanism as partitioned requester/evolver steps), time_step "
+        f"{ve_build.get('time_step')}, media {ve_build.get('media_id')}, captured "
+        f"into the vecoli_build_config.json sidecar. This is vEcoli's OWN config; "
+        f"compare it against the v2ecoli config panel to see any divergence.")
+    return sec
+
+
+def _read_vecoli_build_config(ve_dir: str) -> dict | None:
+    """The resolved vEcoli config sidecar (vecoli_build_config.json) the
+    genuine-vEcoli pbg run emits next to its zarr. Local dir first, then S3.
+    Returns None when absent (older runs that predate the sidecar)."""
+    local = os.path.join(ve_dir, "vecoli_build_config.json")
+    if os.path.exists(local):
+        try:
+            with open(local) as fh:
+                return json.load(fh)
+        except Exception:  # noqa: BLE001
+            return None
+    import boto3
+    s3 = boto3.client("s3", region_name=REGION)
+    key = f"{PREFIX}/{ve_dir}/vecoli_build_config.json"
+    try:
+        obj = s3.get_object(Bucket=BUCKET, Key=key)
+        return json.loads(obj["Body"].read())
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def runs_section(cond: str, per_obs: dict, plot_trajs: dict,
@@ -940,14 +1038,28 @@ def main(argv=None):
         for cond in conds:
             v2_dir, ve_dir = conds[cond]
             per_obs, plot_trajs, v2_bounds = cond_data[cond]
+            v2_build = _read_v2ecoli_build_config(v2_dir)
             cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
                              eval_section(cond, per_obs)]
-            # Converted-processes panel renders in EVERY mode (incl. local pbg) —
-            # it reads the v2ecoli build-config sidecar, not any Nextflow config.
-            conv = converted_processes_section(
-                cond, _read_v2ecoli_build_config(v2_dir))
+            # Converted-processes panel (with each converted process's RESULTING
+            # schema) AND the full v2ecoli config panel render in EVERY mode —
+            # both read the v2ecoli build-config sidecar, not any Nextflow config.
+            # So a 'basal' run that injected processes shows its real process set
+            # and the conversions, not just the bare condition label.
+            conv = converted_processes_section(cond, v2_build)
             if conv is not None:
                 cond_sections = [conv] + cond_sections
+            v2cfg = v2_config_section(cond, v2_build)
+            if v2cfg is not None:
+                cond_sections = [v2cfg] + cond_sections
+            # vEcoli config panel — every mode, from the vecoli sidecar (what
+            # genuine vEcoli actually ran). So both engines show full config.
+            ve_build = _read_vecoli_build_config(ve_dir)
+            vecfg = vecoli_config_section(cond, ve_build)
+            if vecfg is not None:
+                cond_sections = [vecfg] + cond_sections
+            # vEcoli Nextflow config panel + config diff — only when the
+            # workflow_config.json is available (genuine S3/Nextflow runs).
             if not skip_nextflow:
                 cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
                                  + cond_sections)

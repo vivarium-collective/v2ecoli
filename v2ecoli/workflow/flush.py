@@ -155,11 +155,27 @@ def _run_one_step(cls, kind, extract, core):
     return out.get("view", ""), out.get("data", {}) or {}
 
 
+def _flush_analyses(extract: "RunExtract", config: dict) -> tuple:
+    """Run the configured analyses over the run, then copy their outputs into the
+    owning study's report dir. Returns (placed, skipped). Empty analysis_options
+    -> ([], []). Any failure -> ([], [{"name":"analyses","error":...}])."""
+    analysis_options = (config or {}).get("analysis_options") or {}
+    if not any(analysis_options.values()):
+        return [], []
+    try:
+        from v2ecoli.workflow.analysis_runner import run_analyses
+        run_analyses(extract.out_dir, analysis_options)
+        return place_analysis_outputs(extract), []
+    except Exception as e:  # noqa: BLE001 — never abort the flush
+        return [], [{"name": "analyses", "error": f"{type(e).__name__}: {e}"}]
+
+
 def run_flush(out_dir, config, ws_root, *, core=None,
-              kinds=("report_card", "visualization")) -> dict:
+              kinds=("analysis", "report_card", "visualization")) -> dict:
     """Dispatch the registered post-sim steps of the given kinds over a finished
-    run and place each output where the study report renders it. Plan 1 omits
-    the 'analysis' kind (Plan 2 folds it in). Graceful per-step skip."""
+    run and place each output where the study report renders it. Graceful
+    per-step skip. The 'analysis' kind calls _flush_analyses (not the per-step
+    iter_post_sim loop, which is for report_card/visualization)."""
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.post_sim import iter_post_sim
     if core is None:
@@ -168,6 +184,11 @@ def run_flush(out_dir, config, ws_root, *, core=None,
     placed, skipped = [], []
     try:
         for kind in kinds:
+            if kind == "analysis":
+                a_placed, a_skipped = _flush_analyses(extract, config)
+                placed.extend(a_placed)
+                skipped.extend(a_skipped)
+                continue
             for name, cls in iter_post_sim(kind):
                 try:
                     view, data = _run_one_step(cls, kind, extract, core)
@@ -180,3 +201,31 @@ def run_flush(out_dir, config, ws_root, *, core=None,
     finally:
         extract.close()
     return {"placed": placed, "skipped": skipped, "study": extract.study_slug}
+
+
+def place_analysis_outputs(extract: "RunExtract") -> list:
+    """Copy a finished run's analysis artifacts into the owning study's report
+    dir so the study report surfaces them: <out_dir>/viz/*.html ->
+    <study viz>/<stem>.html and <out_dir>/ptools/*.tsv -> <study>/ptools/<stem>.tsv.
+    Returns [{"kind":"analysis","name":<stem>,"path":<dest>}] per copied html.
+    No owning study -> returns [] (the run's out_dir stays the home)."""
+    import shutil
+
+    study_viz = extract.study_viz_dir()
+    if study_viz is None:
+        return []
+    placed = []
+    src_viz = Path(extract.out_dir) / "viz"
+    if src_viz.is_dir():
+        study_viz.mkdir(parents=True, exist_ok=True)
+        for html in sorted(src_viz.glob("*.html")):
+            dest = study_viz / html.name
+            shutil.copyfile(html, dest)
+            placed.append({"kind": "analysis", "name": html.stem, "path": str(dest)})
+    src_ptools = Path(extract.out_dir) / "ptools"
+    if src_ptools.is_dir():
+        study_ptools = study_viz.parent / "ptools"
+        study_ptools.mkdir(parents=True, exist_ok=True)
+        for tsv in sorted(src_ptools.glob("*.tsv")):
+            shutil.copyfile(tsv, study_ptools / tsv.name)
+    return placed

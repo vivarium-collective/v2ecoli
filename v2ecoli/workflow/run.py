@@ -23,14 +23,15 @@ from v2ecoli.workflow.variants import expand_branches
 
 
 def _maybe_flush(config: dict, out_dir: str, result: dict) -> dict:
-    """Additively run the post-sim flush (report_card + visualization kinds) when
-    an owning study is resolvable, attaching result['flush']. Never raises: NOTHING
-    in the flush path — study resolution or the flush itself — may fail the run."""
+    """Run the post-sim flush. Never raises. Runs when an owning study is
+    resolvable OR when analysis_options are present (ad-hoc analyses place into
+    out_dir/viz)."""
     import os
     from v2ecoli.workflow.flush import resolve_owning_study, run_flush
     try:
         ws_root = config.get("ws_root") or os.getcwd()
-        if resolve_owning_study(out_dir, config, ws_root) is None:
+        has_analyses = any((config.get("analysis_options") or {}).values())
+        if resolve_owning_study(out_dir, config, ws_root) is None and not has_analyses:
             return result
         result["flush"] = run_flush(out_dir, config, ws_root)
     except Exception as e:  # noqa: BLE001 — flush failures must not fail the run
@@ -146,8 +147,9 @@ def _run_sweep_parallel(config: dict[str, Any], branches, mode: str, *,
     }
     analysis_options = config.get("analysis_options") or {}
     if any((analysis_options or {}).values()):
-        from v2ecoli.workflow.analysis_runner import run_analyses
-        run_analyses(out_dir, analysis_options)
+        # analyses are now driven by the post-sim flush (run_flush's analysis
+        # kind), which runs run_analyses once and places outputs into the study
+        # report dir. We only record where analysis.json will be written.
         result["analysis"] = os.path.join(out_dir, "analysis.json")
     result = _maybe_flush(config, out_dir, result)
     return result
@@ -218,8 +220,9 @@ def _run_sweep_sequential(config: dict[str, Any], *, max_sim_time: float = 1e9,
 
     analysis_options = config.get("analysis_options") or {}
     if run_analysis and any((analysis_options or {}).values()):
-        from v2ecoli.workflow.analysis_runner import run_analyses
-        run_analyses(out_dir, analysis_options)
+        # analyses are now driven by the post-sim flush (run_flush's analysis
+        # kind), which runs run_analyses once and places outputs into the study
+        # report dir. We only record where analysis.json will be written.
         result["analysis"] = os.path.join(out_dir, "analysis.json")
     result = _maybe_flush(config, out_dir, result)
     return result

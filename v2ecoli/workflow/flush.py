@@ -155,11 +155,27 @@ def _run_one_step(cls, kind, extract, core):
     return out.get("view", ""), out.get("data", {}) or {}
 
 
+def _flush_analyses(extract: "RunExtract", config: dict) -> tuple:
+    """Run the configured analyses over the run, then copy their outputs into the
+    owning study's report dir. Returns (placed, skipped). Empty analysis_options
+    -> ([], []). Any failure -> ([], [{"name":"analyses","error":...}])."""
+    analysis_options = (config or {}).get("analysis_options") or {}
+    if not any(analysis_options.values()):
+        return [], []
+    try:
+        from v2ecoli.workflow.analysis_runner import run_analyses
+        run_analyses(extract.out_dir, analysis_options)
+        return place_analysis_outputs(extract), []
+    except Exception as e:  # noqa: BLE001 — never abort the flush
+        return [], [{"name": "analyses", "error": f"{type(e).__name__}: {e}"}]
+
+
 def run_flush(out_dir, config, ws_root, *, core=None,
-              kinds=("report_card", "visualization")) -> dict:
+              kinds=("analysis", "report_card", "visualization")) -> dict:
     """Dispatch the registered post-sim steps of the given kinds over a finished
-    run and place each output where the study report renders it. Plan 1 omits
-    the 'analysis' kind (Plan 2 folds it in). Graceful per-step skip."""
+    run and place each output where the study report renders it. Graceful
+    per-step skip. The 'analysis' kind calls _flush_analyses (not the per-step
+    iter_post_sim loop, which is for report_card/visualization)."""
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.post_sim import iter_post_sim
     if core is None:
@@ -168,6 +184,11 @@ def run_flush(out_dir, config, ws_root, *, core=None,
     placed, skipped = [], []
     try:
         for kind in kinds:
+            if kind == "analysis":
+                a_placed, a_skipped = _flush_analyses(extract, config)
+                placed.extend(a_placed)
+                skipped.extend(a_skipped)
+                continue
             for name, cls in iter_post_sim(kind):
                 try:
                     view, data = _run_one_step(cls, kind, extract, core)

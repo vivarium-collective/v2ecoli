@@ -65,6 +65,15 @@ ARG VECOLI_UPSTREAM_REPO=https://github.com/CovertLab/vEcoli
 ARG VECOLI_UPSTREAM_REF=master
 RUN git clone "${VECOLI_UPSTREAM_REPO}" /app/vEcoli \
  && git -C /app/vEcoli checkout "${VECOLI_UPSTREAM_REF}"
+# Compile upstream vEcoli's Cython extensions in-place (wholecell.utils.
+# _build_sequences / mc_complexation / _fastsums). The image reaches vEcoli via
+# V2E_VECOLI_DIR — it is NOT pip-installed — so its Cython must be built here, or
+# the on-node ParCa build (build_upstream_parca.py) and every --composite vecoli
+# run fail with "No module named 'wholecell.utils._build_sequences'". numpy is in
+# the venv; install Cython (build-only) and use the image's build toolchain.
+RUN --mount=type=cache,target=/root/.cache/uv \
+    (python -c "import Cython" 2>/dev/null || uv pip install "Cython==3.1.2") \
+ && cd /app/vEcoli && python setup.py build_ext --inplace
 ENV V2E_VECOLI_DIR=/app/vEcoli
 # Verify the clone + that the external upstream wrapper imports and can reach
 # upstream EcoliSim through its sys.path/Cython-pinning shim (does NOT build a

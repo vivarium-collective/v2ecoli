@@ -38,3 +38,15 @@ def test_maybe_flush_noop_without_study(tmp_path):
     res = run_mod._maybe_flush({"out_dir": "out/workflow", "ws_root": str(tmp_path)},
                                "out/workflow", {"complete": True})
     assert "flush" not in res
+
+
+def test_maybe_flush_swallows_resolve_error(monkeypatch, tmp_path):
+    import v2ecoli.workflow.run as run_mod
+    import v2ecoli.workflow.flush as flush_mod
+    def _boom(*a, **k):
+        raise PermissionError("nope")
+    monkeypatch.setattr(flush_mod, "resolve_owning_study", _boom, raising=False)
+    res = run_mod._maybe_flush({"study": "demo", "ws_root": str(tmp_path)},
+                               "out/x", {"complete": True})
+    assert res["complete"] is True          # run result preserved, no exception
+    assert "error" in res.get("flush", {})  # error captured into result['flush']

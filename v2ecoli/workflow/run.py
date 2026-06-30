@@ -24,16 +24,16 @@ from v2ecoli.workflow.variants import expand_branches
 
 def _maybe_flush(config: dict, out_dir: str, result: dict) -> dict:
     """Additively run the post-sim flush (report_card + visualization kinds) when
-    an owning study is resolvable, attaching result['flush']. Never raises: a
-    flush failure must not fail the run."""
+    an owning study is resolvable, attaching result['flush']. Never raises: NOTHING
+    in the flush path — study resolution or the flush itself — may fail the run."""
     import os
     from v2ecoli.workflow.flush import resolve_owning_study, run_flush
-    ws_root = config.get("ws_root") or os.getcwd()
-    if resolve_owning_study(out_dir, config, ws_root) is None:
-        return result
     try:
+        ws_root = config.get("ws_root") or os.getcwd()
+        if resolve_owning_study(out_dir, config, ws_root) is None:
+            return result
         result["flush"] = run_flush(out_dir, config, ws_root)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001 — flush failures must not fail the run
         result["flush"] = {"placed": [], "skipped": [], "error": f"{type(e).__name__}: {e}"}
     return result
 

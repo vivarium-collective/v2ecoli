@@ -45,21 +45,21 @@ jobs:
         run: uv sync --extra dev --no-install-package vivarium-dashboard || uv sync --no-install-package vivarium-dashboard
 
       - name: Run fast tests (no .run() calls)
-        # -n 2: pytest-xdist parallelism, capped at 2 workers. ``-n auto`` (~4
-        # workers on ubuntu-latest) OOM-kills a worker on the 7GB runner since
-        # the pbg-emitters 0.2.0 framework — each worker holds sim_data + built
-        # composites — so 4× peak memory exceeds the runner and a worker dies
-        # ("node down: Not properly terminated"), hanging the job to timeout.
-        # 2 workers keeps peak memory in budget; the full set still runs in a
-        # few minutes. --dist=loadfile keeps tests from the same file on one
-        # worker so module-level fixtures pay the build cost once per file.
+        # -n 1 (serial): each worker holds sim_data + built composites, so on the
+        # 7GB runner ANY concurrency risks an OOM-killed worker ("node down: Not
+        # properly terminated") that hangs the job to its timeout. -n auto (~4)
+        # then -n 2 each worked until the suite grew (SBC/surrogate tests added
+        # memory pressure) and started OOM-ing intermittently → reliably. These
+        # are the FAST "no .run()" tests (no full simulations), so serial keeps a
+        # bounded single-test peak and still finishes in minutes. If wall-clock
+        # becomes a problem, move to a larger runner rather than re-adding workers.
         run: >-
           uv run pytest
           -m "not slow and not sim"
           --ignore=tests/test_initialize.py
           --ignore=tests/test_kinetics_units.py
           --ignore=tests/test_unit_bridge.py
-          -n 2 --dist=loadfile
+          -n 1 --dist=loadfile
           -v --tb=short
 
   behavior-tests:

@@ -299,6 +299,65 @@ def _import_class(module: str, qualname: str):
     return obj
 
 
+def _schema_defaults(schema: dict) -> dict:
+    """Recursively pull ``{key: _default}`` out of a vivarium ports_schema subtree.
+
+    Leaf = a dict carrying ``_default``; branches recurse. Ports/keys without a
+    default are skipped (nothing to materialize)."""
+    out: dict = {}
+    for k, v in (schema or {}).items():
+        if not isinstance(v, dict):
+            continue
+        if "_default" in v:
+            out[k] = v["_default"]
+        else:
+            sub = _schema_defaults(v)
+            if sub:
+                out[k] = sub
+    return out
+
+
+def _merge_missing(dst: dict, src: dict) -> None:
+    """Set keys from ``src`` into ``dst`` ONLY where absent (recursive). Never
+    overwrites an existing value — the composite's real state always wins."""
+    for k, v in src.items():
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _merge_missing(dst[k], v)
+        elif k not in dst:
+            dst[k] = v
+
+
+def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
+                                topology: dict, name: str) -> None:
+    """Fill the state a vivarium-1.0 process declares (ports_schema defaults)
+    into ``cell_state`` along its topology, creating missing stores/fields only.
+
+    This is what lets a SURPRISE fork process/subsystem inject + run unattended:
+    its private stores get created with sensible defaults and any field it reads
+    from a shared store is guaranteed present on tick 0."""
+    try:
+        v1 = cls(config or {})
+        pschema = v1.ports_schema()
+    except Exception as e:  # noqa: BLE001 — never block injection on schema probe
+        print(f"[inject] {name}: ports_schema probe skipped ({type(e).__name__}: {e})")
+        return
+    for port, path in topology.items():
+        if not path:
+            continue
+        defaults = _schema_defaults(pschema.get(port) if isinstance(pschema, dict) else None)
+        node = cell_state
+        for seg in path:
+            node = node.setdefault(seg, {})
+        if defaults and isinstance(node, dict):
+            _merge_missing(node, defaults)
+    # Surface what new top-level stores this process introduced.
+    intro = sorted({path[0] for path in topology.values()
+                    if path and path[0] in cell_state})
+    if intro:
+        print(f"[inject] {name}: declared-state materialized (roots touched: "
+              f"{', '.join(intro)})")
+
+
 def apply_injected_processes(cell_state: dict, flow_order: list, core,
                              specs: list[dict]) -> list[str]:
     """Add each resolved spec to ``cell_state`` + ``flow_order`` (in place)."""
@@ -309,6 +368,18 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
     for spec in specs:
         cls = _import_class(spec["module"], spec["qualname"])
         if spec["kind"] == "vivarium_1":
+            # Wire EVERY ports_schema port: an explicit topology entry wins, but a
+            # port the process DECLARES yet leaves unmapped defaults to a
+            # same-named top-level store — exactly vivarium-1.0's convention
+            # (e.g. cell-wall's pbp_state, read in next_update but absent from the
+            # registered TOPOLOGY). Without this such a port KeyErrors on tick 0.
+            try:
+                _pschema = cls(spec["config"] or {}).ports_schema()
+                for _p in (_pschema or {}):
+                    spec["topology"].setdefault(_p, (_p,))
+            except Exception as e:  # noqa: BLE001 — never block on the probe
+                print(f"[inject] {spec['name']}: topology auto-port skipped "
+                      f"({type(e).__name__}: {e})")
             # Defer ports wiring to stores the composite already owns: use their
             # existing types instead of this process's inferred ones (avoids the
             # unitless-float vs quantity[fg] subtype conflict on shared stores
@@ -330,14 +401,25 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             wrapped = cls
         core.register_link(spec["name"], wrapped)
 
-        # Validate topology roots exist in the cell-state tree.
-        for port, path in spec["topology"].items():
-            root = path[0] if path else None
-            if root is not None and root not in cell_state:
-                raise InjectionError(
-                    f"{spec['name']}: topology port {port!r} -> {path}: root "
-                    f"store {root!r} not present in cell state "
-                    f"(have: {sorted(cell_state)[:12]}...).")
+        # Materialize the state each injected process DECLARES in its
+        # ports_schema, so a process runs the moment it is wired — exactly what
+        # vivarium's Engine does at build. Without this, a process that
+        # introduces its own stores (the cell-wall subsystem's murein_state /
+        # wall_state / pbp_state) or reads a field absent from a shared store
+        # (e.g. boundary.volume before ecoli-shape's first write) crashes on
+        # tick 0. We fill ONLY missing stores/fields (never overwrite v2's
+        # existing values), from the process's schema ``_default``s — so ANY
+        # surprise fork process/config injects + runs unattended, no per-process
+        # tuning. (pbg_native processes declare via inputs()/outputs() and are
+        # materialized by the Composite itself.)
+        if spec["kind"] == "vivarium_1":
+            _materialize_declared_state(cell_state, cls, spec["config"],
+                                        spec["topology"], spec["name"])
+        else:
+            for port, path in spec["topology"].items():
+                root = path[0] if path else None
+                if root is not None and root not in cell_state:
+                    cell_state[root] = {}
 
         instance = wrapped(spec["config"] or {}, core=core)
         edge_type = "step" if spec["kind"] == "pbg_native" and spec["as_step"] \

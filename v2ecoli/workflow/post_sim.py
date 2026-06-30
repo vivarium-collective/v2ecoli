@@ -5,6 +5,8 @@ and route every post-sim output from one place. Existing per-kind registries
 additive parallel index they funnel into."""
 from __future__ import annotations
 
+from v2ecoli.steps.base import V2Step
+
 KINDS = ("analysis", "visualization", "report_card")
 
 # name -> {"cls": <Step subclass>, "kind": <one of KINDS>}
@@ -28,3 +30,36 @@ def iter_post_sim(kind: "str | None" = None) -> list:
     out = [(nm, e["cls"]) for nm, e in POST_SIM_REGISTRY.items()
            if kind is None or e["kind"] == kind]
     return sorted(out, key=lambda t: t[0])
+
+
+class Visualization(V2Step):
+    """A post-sim visualization Step: emits a rendered ``view`` (HTML) + ``data``
+    (map), like ``Analysis`` but tagged ``kind="visualization"`` so the flush can
+    route it distinctly. Subclasses set ``name`` and implement
+    ``render(study) -> (html, data) | None``. Inputs default to a StudyContext;
+    override ``inputs()`` to consume the run extraction instead."""
+
+    name: str = ""
+    config_schema: dict = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.__dict__.get("name"):
+            register_post_sim(cls, "visualization")
+
+    def inputs(self):
+        return {"study": "any"}
+
+    def outputs(self):
+        return {"view": "string", "data": "map"}
+
+    def render(self, study) -> "tuple[str, dict] | None":
+        raise NotImplementedError
+
+    def update(self, state, interval=None):
+        study = state.get("study")
+        res = self.render(study)
+        if not res:
+            return {"view": "", "data": {}}
+        view, data = res
+        return {"view": view, "data": data}

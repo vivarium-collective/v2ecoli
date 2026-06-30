@@ -24,6 +24,7 @@ from typing import Any
 import yaml
 
 from v2ecoli.steps.base import V2Step
+from v2ecoli.workflow.post_sim import register_post_sim
 
 REPORT_CARD_REGISTRY: dict[str, type] = {}
 
@@ -76,6 +77,8 @@ class ReportCardStep(V2Step):
         super().__init_subclass__(**kwargs)
         if cls.__dict__.get("name"):
             REPORT_CARD_REGISTRY[cls.name] = cls
+        if cls.__dict__.get("name"):
+            register_post_sim(cls, "report_card")
 
     def inputs(self):
         return {"study": "any"}

@@ -92,6 +92,7 @@ class RunExtract:
         conn = self._ctx.get("conn")
         if conn is not None:
             conn.close()
+        self._ctx = {}
 
 
 def _write_html(path, html: str):
@@ -170,10 +171,10 @@ def run_flush(out_dir, config, ws_root, *, core=None,
             for name, cls in iter_post_sim(kind):
                 try:
                     view, data = _run_one_step(cls, kind, extract, core)
+                    path = place_output(kind, name, view, data, extract)
                 except Exception as e:  # noqa: BLE001 — one step never aborts the flush
                     skipped.append({"name": name, "error": f"{type(e).__name__}: {e}"})
                     continue
-                path = place_output(kind, name, view, data, extract)
                 if path:
                     placed.append({"kind": kind, "name": name, "path": path})
     finally:

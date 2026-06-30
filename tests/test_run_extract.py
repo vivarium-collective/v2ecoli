@@ -46,3 +46,16 @@ def test_extraction_is_lazy(tmp_path):
     bag = ex.context_bag()              # must not raise though no parquet exists
     assert bag["study"].study_name == "demo"
     assert "conn" in bag                 # present as a lazy handle/None, not built
+
+
+def test_close_clears_ctx(tmp_path):
+    ex = RunExtract("out/x", {}, tmp_path)
+    class _FakeConn:
+        closed = False
+        def close(self):
+            self.closed = True
+    fake = _FakeConn()
+    ex._ctx = {"conn": fake, "from_clause": "x", "sim_data": None, "validation_data": None}
+    ex.close()
+    assert fake.closed is True
+    assert ex._ctx == {}   # cleared, so a later conn_ctx() would re-provision

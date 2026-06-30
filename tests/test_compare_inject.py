@@ -113,12 +113,21 @@ def test_apply_injects_edge_and_flow_order():
     assert edge["inputs"]["counts"] == ["bulk"]
     assert flow_order[-1] == "example-secretion"
 
-def test_apply_rejects_missing_store_path():
+def test_apply_introduces_process_owned_store():
+    """A vivarium_1 process whose topology references a store the composite does
+    not yet own now INTRODUCES that store — created and materialized from the
+    process's own port schema — instead of being rejected. This is what lets a
+    fork subsystem carrying its own private stores (e.g. the cell-wall model's
+    murein_state/wall_state) inject and run unattended. (Trade-off: a genuinely
+    mis-typed store path creates an isolated store rather than erroring; the
+    process simply reads/writes its own orphan store.)"""
     from v2ecoli.core import build_core
     core = build_core()
     cfg = {"add_processes": ["example-secretion"],
            "topology": {"example-secretion": {"counts": ["nonexistent_store"]}},
            "time_step": 1.0}
     specs = inject.resolve_injections(FORK, cfg)
-    with pytest.raises(inject.InjectionError, match="nonexistent_store"):
-        inject.apply_injected_processes({"bulk": {}}, [], core, specs)
+    cell_state = {"bulk": {}}
+    added = inject.apply_injected_processes(cell_state, [], core, specs)
+    assert "example-secretion" in added
+    assert "nonexistent_store" in cell_state  # auto-introduced, not rejected

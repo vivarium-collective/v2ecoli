@@ -118,3 +118,64 @@ def place_output(kind: str, name: str, view: str, data: dict,
     # visualization / analysis view
     viz = extract.study_viz_dir() or (Path(extract.out_dir) / "viz")
     return str(_write_html(viz / f"{name}.html", view))
+
+
+def _run_one_step(cls, kind, extract, core):
+    """Instantiate + run one post-sim step; return (view, data). For report
+    cards we call build()/applies() directly (their native API); visualizations
+    and analyses go through update() with an inputs()-filtered bag."""
+    step = cls({}, core=core)
+    bag = extract.context_bag()
+    inputs = {}
+    try:
+        inputs = step.inputs() or {}
+    except Exception:  # noqa: BLE001
+        inputs = {}
+    # report cards: skip when applies() is False; build() returns (verdict, html)
+    if kind == "report_card":
+        ctx = bag.get("study")
+        if ctx is None or not step.applies(ctx):
+            return "", {}
+        res = step.build(ctx)
+        if not res:
+            return "", {}
+        verdict, html = res
+        return html, verdict
+    # analyses/visualizations declaring DuckDB inputs get the lazy conn ctx
+    state = {}
+    for key in inputs:
+        if key in ("conn", "history_sql", "sim_data", "validation_data") and bag.get("conn") is None:
+            conn, from_clause, sim_data, validation_data = bag["_conn_ctx"]()
+            state.update({"conn": conn, "history_sql": from_clause,
+                          "sim_data": sim_data, "validation_data": validation_data})
+        elif key in bag:
+            state[key] = bag[key]
+    out = step.update(state) or {}
+    return out.get("view", ""), out.get("data", {}) or {}
+
+
+def run_flush(out_dir, config, ws_root, *, core=None,
+              kinds=("report_card", "visualization")) -> dict:
+    """Dispatch the registered post-sim steps of the given kinds over a finished
+    run and place each output where the study report renders it. Plan 1 omits
+    the 'analysis' kind (Plan 2 folds it in). Graceful per-step skip."""
+    from bigraph_schema import allocate_core
+    from v2ecoli.workflow.post_sim import iter_post_sim
+    if core is None:
+        core = allocate_core()
+    extract = RunExtract(out_dir, config, ws_root)
+    placed, skipped = [], []
+    try:
+        for kind in kinds:
+            for name, cls in iter_post_sim(kind):
+                try:
+                    view, data = _run_one_step(cls, kind, extract, core)
+                except Exception as e:  # noqa: BLE001 — one step never aborts the flush
+                    skipped.append({"name": name, "error": f"{type(e).__name__}: {e}"})
+                    continue
+                path = place_output(kind, name, view, data, extract)
+                if path:
+                    placed.append({"kind": kind, "name": name, "path": path})
+    finally:
+        extract.close()
+    return {"placed": placed, "skipped": skipped, "study": extract.study_slug}

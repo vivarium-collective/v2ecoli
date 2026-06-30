@@ -59,6 +59,38 @@ def _strip_pint_magnitudes(obj):
     return obj
 
 
+def _backfill_schema_defaults(state, ports_schema):
+    """Ensure every leaf a v1 process DECLARES is present in ``state`` before its
+    ``next_update`` runs — backfilling absent leaves with their schema
+    ``_default`` (including ``None``), recursively.
+
+    This is what vivarium's Engine guarantees a process: it always sees its full
+    declared port state. The process-bigraph store layer drops a leaf whose value
+    is ``None`` (it cannot type it), so a sentinel-``None`` field like the
+    cell-wall model's ``wall_state.lattice`` (read as ``states[...]["lattice"]``,
+    ``is None`` → build) would otherwise KeyError. Backfilling at call time
+    presents the sentinel without needing the store to persist ``None``; the
+    value the process WRITES back (e.g. the sampled ndarray) types and persists
+    normally. Never overwrites a value already present in ``state``."""
+    if not isinstance(state, dict) or not isinstance(ports_schema, dict):
+        return state
+    for port, schema in ports_schema.items():
+        if not isinstance(schema, dict):
+            continue
+        if '_default' in schema or '_updater' in schema or '_emit' in schema:
+            # leaf metadata dict
+            if port not in state:
+                state[port] = schema.get('_default')
+        else:
+            # nested ports subtree
+            if port not in state or not isinstance(state[port], dict):
+                if port not in state:
+                    state[port] = {}
+            if isinstance(state.get(port), dict):
+                _backfill_schema_defaults(state[port], schema)
+    return state
+
+
 def _attach_pint_units(obj, unit):
     """Recursively wrap raw numbers as pint Quantities of ``unit``.
 
@@ -298,6 +330,13 @@ def wrap_vivarium_process(
 
         def update(self, state, interval=None):
             v1 = self._v1
+            # Present the v1 process its FULL declared state: backfill any leaf the
+            # pbg store dropped (notably sentinel-None fields it can't type, e.g.
+            # cell-wall's wall_state.lattice) with the schema default — mirroring
+            # vivarium's Engine guarantee. Without it a `states[...]["lattice"]`
+            # read KeyErrors on tick 0.
+            if isinstance(state, dict):
+                _backfill_schema_defaults(state, v1.ports_schema())
             # Per-port boundary unit-bridge: for ports the wrapped process attaches
             # its own (unum) units to, strip v2's pint Quantities to raw magnitudes
             # (e.g. metabolism_redux's ``cell_mass * units.fg``). Ports it reads as
@@ -375,6 +414,9 @@ def wrap_vivarium_instance(
 
         def update(self, state, interval=None):
             v1 = self._v1
+            # Backfill dropped/sentinel-None declared leaves (see process bridge).
+            if isinstance(state, dict):
+                _backfill_schema_defaults(state, v1.ports_schema())
             # Per-port boundary unit-bridge: for ports the wrapped process attaches
             # its own (unum) units to, strip v2's pint Quantities to raw magnitudes
             # (e.g. metabolism_redux's ``cell_mass * units.fg``). Ports it reads as

@@ -131,3 +131,50 @@ def test_apply_introduces_process_owned_store():
     added = inject.apply_injected_processes(cell_state, [], core, specs)
     assert "example-secretion" in added
     assert "nonexistent_store" in cell_state  # auto-introduced, not rejected
+
+
+# ---------------------------------------------------------------------------
+# Config initial_state honoring + schema-default backfill
+# ---------------------------------------------------------------------------
+def test_resolve_config_initial_state_merges_inline_and_overrides(tmp_path):
+    """initial_state (inline) + initial_state_overrides (files under
+    <fork>/data) merge, overrides on top."""
+    fork = tmp_path / "fork"
+    (fork / "data" / "overrides").mkdir(parents=True)
+    (fork / "data" / "overrides" / "red.json").write_text(
+        '{"murein_state": {"unincorporated_murein": 2234940}, "wall_state": {}}')
+    cfg = {"initial_state": {"murein_state": {"shadow_murein": 0}},
+           "initial_state_overrides": ["overrides/red"]}
+    merged = inject.resolve_config_initial_state(str(fork), cfg)
+    assert merged["murein_state"]["unincorporated_murein"] == 2234940
+    assert merged["murein_state"]["shadow_murein"] == 0     # inline preserved
+    assert merged["wall_state"] == {}
+
+
+def test_apply_seeds_new_store_from_config_initial_state_not_baseline():
+    """Config initial_state seeds an injected NEW store, but never clobbers a
+    pre-existing v2 baseline store (e.g. the structured bulk array)."""
+    from v2ecoli.core import build_core
+    core = build_core()
+    cfg = {"add_processes": ["example-secretion"],
+           "topology": {"example-secretion": {"counts": ["new_store"]}},
+           "initial_state": {"new_store": {"seeded": 7}, "bulk": {"X": 1}},
+           "time_step": 1.0}
+    specs = inject.resolve_injections(FORK, cfg)
+    cell_state = {"bulk": {"_real_array": True}}      # baseline store v2 owns
+    inject.apply_injected_processes(cell_state, [], core, specs)
+    assert cell_state["new_store"]["seeded"] == 7     # new store seeded
+    assert cell_state["bulk"] == {"_real_array": True}  # baseline NOT clobbered
+
+
+def test_bridge_backfills_sentinel_none_leaf():
+    """The bridge presents a v1 process its declared leaves — including a
+    sentinel-None default the pbg store can't persist — so reads don't KeyError."""
+    from v2ecoli.library.vivarium_bridge import _backfill_schema_defaults
+    schema = {"wall_state": {"lattice": {"_default": None, "_updater": "set"},
+                             "rows": {"_default": 0}}}
+    state = {"wall_state": {"rows": 5}}   # 'lattice' dropped by the store
+    _backfill_schema_defaults(state, schema)
+    assert "lattice" in state["wall_state"]
+    assert state["wall_state"]["lattice"] is None     # sentinel present
+    assert state["wall_state"]["rows"] == 5           # existing value untouched

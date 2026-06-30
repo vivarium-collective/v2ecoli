@@ -180,6 +180,52 @@ def translate_vivarium_topology(topo: dict) -> dict[str, list]:
     return out
 
 
+def _deep_merge(base: dict, over: dict) -> dict:
+    """Recursive dict merge; ``over`` wins. Returns a new dict."""
+    out = dict(base)
+    for k, v in over.items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def resolve_config_initial_state(fork_repo: str, config: dict) -> dict:
+    """Resolve a vEcoli config's initial state for INJECTED stores.
+
+    Honors the same two knobs ``EcoliSim`` does — ``initial_state`` (inline) and
+    ``initial_state_overrides`` (names of JSON files under the fork's
+    ``data/``) — merged in the same order (overrides on top of inline). This is
+    what gives an injected subsystem its real starting values (e.g. the
+    cell-wall model's ``murein_state`` counts) instead of bare schema defaults,
+    so the subsystem's own first-update logic can build the rest (e.g. PBPBinding
+    samples the murein lattice when ``wall_state.lattice`` is None). The big
+    ``initial_state_file`` (bulk/unique) is NOT loaded here — matched bulk is
+    handled by --match-initial-state; this resolves only the small,
+    subsystem-specific stores the config declares. Best-effort: a missing
+    override file is logged and skipped, never fatal."""
+    merged: dict = dict(config.get("initial_state") or {})
+    for name in (config.get("initial_state_overrides") or []):
+        rel = name if name.endswith(".json") else f"{name}.json"
+        candidates = [
+            os.path.join(fork_repo, "data", rel),
+            os.path.join(fork_repo, "data", "overrides", os.path.basename(rel)),
+        ]
+        path = next((p for p in candidates if os.path.exists(p)), None)
+        if path is None:
+            print(f"[inject] initial_state override {name!r} not found under "
+                  f"{fork_repo}/data — skipping")
+            continue
+        try:
+            with open(path) as fh:
+                merged = _deep_merge(merged, json.load(fh))
+        except Exception as e:  # noqa: BLE001
+            print(f"[inject] initial_state override {name!r} unreadable "
+                  f"({type(e).__name__}: {e}) — skipping")
+    return merged
+
+
 def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     """Resolve add_processes/swap_processes -> a list of InjectionSpec dicts.
 
@@ -202,6 +248,8 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         "strip_pint_ports": config.get("strip_pint_ports") or {},
         "defer_ports": config.get("defer_ports") or {},
         "attach_pint_ports": config.get("attach_pint_ports") or {},
+        "initial_state": config.get("initial_state") or {},
+        "initial_state_overrides": config.get("initial_state_overrides") or [],
     }, sort_keys=True, default=str)  # default=str: process_configs may hold
     # sim_data-derived numpy arrays (e.g. a swapped metabolism config) that are
     # not natively JSON-serializable; stringifying them keeps the memo key stable.
@@ -212,6 +260,9 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     interval = float(config.get("time_step", 1.0))
     process_configs = config.get("process_configs") or {}
     topologies = config.get("topology") or {}
+    # Resolve the config's initial_state + initial_state_overrides ONCE; each
+    # spec carries the slice for its own topology roots (below).
+    config_initial_state = resolve_config_initial_state(fork_repo, config)
 
     names = list(config.get("add_processes") or [])
     names += list((config.get("swap_processes") or {}).values())
@@ -256,6 +307,12 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         # Cache class for apply step (survives sys.modules restore in _fork_registry).
         _fork_class_cache[(cls.__module__, cls.__qualname__)] = cls
 
+        # Slice the config's resolved initial_state to THIS process's topology
+        # roots, so each process seeds only the stores it actually wires.
+        roots = {path[0] for path in topo.values() if path}
+        proc_initial = {r: config_initial_state[r]
+                        for r in roots if r in config_initial_state}
+
         specs.append({
             "name": name,
             "module": cls.__module__,
@@ -280,6 +337,9 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             "defer_ports": (config.get("defer_ports") or {}).get(name),
             # {port: unit} to wrap raw magnitudes as pint for pint-reading ports.
             "attach_pint_ports": (config.get("attach_pint_ports") or {}).get(name),
+            # Config-resolved initial values for this process's stores
+            # (initial_state + initial_state_overrides), applied at injection.
+            "initial_state": proc_initial,
         })
     _RESOLVE_CACHE[key] = specs
     return [dict(s) for s in specs]
@@ -328,13 +388,20 @@ def _merge_missing(dst: dict, src: dict) -> None:
 
 
 def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
-                                topology: dict, name: str) -> None:
+                                topology: dict, name: str,
+                                initial_state: dict | None = None,
+                                protected_roots: set | None = None) -> None:
     """Fill the state a vivarium-1.0 process declares (ports_schema defaults)
-    into ``cell_state`` along its topology, creating missing stores/fields only.
+    into ``cell_state`` along its topology, creating missing stores/fields only,
+    then overlay the config's resolved ``initial_state`` for this process's roots.
 
     This is what lets a SURPRISE fork process/subsystem inject + run unattended:
-    its private stores get created with sensible defaults and any field it reads
-    from a shared store is guaranteed present on tick 0."""
+    its private stores are created with schema defaults (so reads never KeyError),
+    and the config's ``initial_state`` / ``initial_state_overrides`` seed the real
+    starting values (e.g. the cell-wall ``murein_state`` counts) — config wins
+    over the bare schema default. Values the composite ALREADY owns from v2's
+    baseline are never overwritten by a schema default (only by an explicit
+    config initial_state targeting that store)."""
     try:
         v1 = cls(config or {})
         pschema = v1.ports_schema()
@@ -350,12 +417,34 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
             node = node.setdefault(seg, {})
         if defaults and isinstance(node, dict):
             _merge_missing(node, defaults)
-    # Surface what new top-level stores this process introduced.
+    # Overlay the config-resolved initial_state (config wins over schema
+    # defaults) onto the NEW stores this injection introduced. Roots that v2's
+    # baseline already owns (``protected_roots`` — e.g. the structured ``bulk``
+    # array, ``boundary``) are NEVER touched here: their representation differs
+    # from a config's plain-dict counts, and matched bulk is seeded separately by
+    # --match-initial-state. So a config bulk override is skipped (logged), while
+    # the subsystem's own stores (murein_state / wall_state / pbp_state) seed.
+    protected = protected_roots or set()
+    skipped = []
+    for root, value in (initial_state or {}).items():
+        if root in protected:
+            skipped.append(root)
+            continue
+        if isinstance(value, dict) and isinstance(cell_state.get(root), dict):
+            cell_state[root] = _deep_merge(cell_state[root], value)
+        else:
+            cell_state[root] = value
+    # Surface what top-level stores this process introduced / seeded.
     intro = sorted({path[0] for path in topology.values()
                     if path and path[0] in cell_state})
+    seeded = sorted(r for r in (initial_state or {}) if r not in protected)
+    if skipped:
+        print(f"[inject] {name}: config initial_state for baseline store(s) "
+              f"{', '.join(sorted(skipped))} skipped (owned by v2 / --match-initial-state)")
     if intro:
-        print(f"[inject] {name}: declared-state materialized (roots touched: "
-              f"{', '.join(intro)})")
+        print(f"[inject] {name}: declared-state materialized (roots: "
+              f"{', '.join(intro)})"
+              + (f"; config initial_state → {', '.join(seeded)}" if seeded else ""))
 
 
 def apply_injected_processes(cell_state: dict, flow_order: list, core,
@@ -364,6 +453,9 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
     from v2ecoli.library.vivarium_bridge import wrap_vivarium_process
     from v2ecoli.composites._helpers import make_edge
 
+    # Roots v2's baseline already owns BEFORE any injection — config
+    # initial_state must never clobber these (e.g. the structured bulk array).
+    baseline_roots = set(cell_state)
     added: list[str] = []
     for spec in specs:
         cls = _import_class(spec["module"], spec["qualname"])
@@ -380,12 +472,30 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             except Exception as e:  # noqa: BLE001 — never block on the probe
                 print(f"[inject] {spec['name']}: topology auto-port skipped "
                       f"({type(e).__name__}: {e})")
-            # Defer ports wiring to stores the composite already owns: use their
-            # existing types instead of this process's inferred ones (avoids the
-            # unitless-float vs quantity[fg] subtype conflict on shared stores
-            # like listeners.mass that the v2 mass deriver owns). An explicit
-            # spec defer_ports overrides this auto-default, so ports that need
-            # their real type (e.g. boundary's pint for .to("mM")) keep it.
+
+            # Materialize declared state + config initial_state BEFORE deferring
+            # ports, so this process's NEW root stores already exist in cell_state
+            # and are picked up by the auto-defer below. vivarium's Engine does
+            # this at build; without it a process that introduces its own stores
+            # (cell-wall's murein_state / wall_state / pbp_state) or reads a field
+            # absent from a shared store (boundary.volume before ecoli-shape's
+            # first write) crashes on tick 0. Fills only missing stores/fields,
+            # then overlays the config's initial_state (config wins).
+            _materialize_declared_state(cell_state, cls, spec["config"],
+                                        spec["topology"], spec["name"],
+                                        initial_state=spec.get("initial_state"),
+                                        protected_roots=baseline_roots)
+
+            # Defer ports to the composite's store type ({_type:node}) instead of
+            # the process's inferred type. Auto-default: defer every port whose
+            # root store now exists in cell_state — which (after materialization)
+            # covers BOTH shared stores (avoids the float-vs-quantity subtype
+            # clash on stores like listeners.mass) AND this process's own new
+            # stores (so a `_default: None` field like wall_state.lattice is held
+            # as a node that accepts None now and the model's sampled ndarray
+            # later, instead of failing to type). An explicit spec defer_ports
+            # overrides this — so ports that need their real type (e.g. boundary's
+            # pint for .to("mM")) keep it.
             if spec.get("defer_ports") is not None:
                 defer_ports = list(spec["defer_ports"])
             else:
@@ -399,27 +509,11 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
                                             attach_pint_ports=spec.get("attach_pint_ports"))
         else:  # pbg_native
             wrapped = cls
-        core.register_link(spec["name"], wrapped)
-
-        # Materialize the state each injected process DECLARES in its
-        # ports_schema, so a process runs the moment it is wired — exactly what
-        # vivarium's Engine does at build. Without this, a process that
-        # introduces its own stores (the cell-wall subsystem's murein_state /
-        # wall_state / pbp_state) or reads a field absent from a shared store
-        # (e.g. boundary.volume before ecoli-shape's first write) crashes on
-        # tick 0. We fill ONLY missing stores/fields (never overwrite v2's
-        # existing values), from the process's schema ``_default``s — so ANY
-        # surprise fork process/config injects + runs unattended, no per-process
-        # tuning. (pbg_native processes declare via inputs()/outputs() and are
-        # materialized by the Composite itself.)
-        if spec["kind"] == "vivarium_1":
-            _materialize_declared_state(cell_state, cls, spec["config"],
-                                        spec["topology"], spec["name"])
-        else:
             for port, path in spec["topology"].items():
                 root = path[0] if path else None
                 if root is not None and root not in cell_state:
                     cell_state[root] = {}
+        core.register_link(spec["name"], wrapped)
 
         instance = wrapped(spec["config"] or {}, core=core)
         edge_type = "step" if spec["kind"] == "pbg_native" and spec["as_step"] \

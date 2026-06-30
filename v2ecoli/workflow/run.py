@@ -22,6 +22,22 @@ from v2ecoli.workflow.meta_composite import (
 from v2ecoli.workflow.variants import expand_branches
 
 
+def _maybe_flush(config: dict, out_dir: str, result: dict) -> dict:
+    """Additively run the post-sim flush (report_card + visualization kinds) when
+    an owning study is resolvable, attaching result['flush']. Never raises: a
+    flush failure must not fail the run."""
+    import os
+    from v2ecoli.workflow.flush import resolve_owning_study, run_flush
+    ws_root = config.get("ws_root") or os.getcwd()
+    if resolve_owning_study(out_dir, config, ws_root) is None:
+        return result
+    try:
+        result["flush"] = run_flush(out_dir, config, ws_root)
+    except Exception as e:  # noqa: BLE001
+        result["flush"] = {"placed": [], "skipped": [], "error": f"{type(e).__name__}: {e}"}
+    return result
+
+
 def _all_complete(composite) -> bool:
     branches = composite.state.get("branches", {})
     return bool(branches) and all(
@@ -133,6 +149,7 @@ def _run_sweep_parallel(config: dict[str, Any], branches, mode: str, *,
         from v2ecoli.workflow.analysis_runner import run_analyses
         run_analyses(out_dir, analysis_options)
         result["analysis"] = os.path.join(out_dir, "analysis.json")
+    result = _maybe_flush(config, out_dir, result)
     return result
 
 
@@ -204,6 +221,7 @@ def _run_sweep_sequential(config: dict[str, Any], *, max_sim_time: float = 1e9,
         from v2ecoli.workflow.analysis_runner import run_analyses
         run_analyses(out_dir, analysis_options)
         result["analysis"] = os.path.join(out_dir, "analysis.json")
+    result = _maybe_flush(config, out_dir, result)
     return result
 
 

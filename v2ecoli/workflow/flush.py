@@ -180,3 +180,31 @@ def run_flush(out_dir, config, ws_root, *, core=None,
     finally:
         extract.close()
     return {"placed": placed, "skipped": skipped, "study": extract.study_slug}
+
+
+def place_analysis_outputs(extract: "RunExtract") -> list:
+    """Copy a finished run's analysis artifacts into the owning study's report
+    dir so the study report surfaces them: <out_dir>/viz/*.html ->
+    <study viz>/<stem>.html and <out_dir>/ptools/*.tsv -> <study>/ptools/<stem>.tsv.
+    Returns [{"kind":"analysis","name":<stem>,"path":<dest>}] per copied html.
+    No owning study -> returns [] (the run's out_dir stays the home)."""
+    import shutil
+
+    study_viz = extract.study_viz_dir()
+    if study_viz is None:
+        return []
+    placed = []
+    src_viz = Path(extract.out_dir) / "viz"
+    if src_viz.is_dir():
+        study_viz.mkdir(parents=True, exist_ok=True)
+        for html in sorted(src_viz.glob("*.html")):
+            dest = study_viz / html.name
+            shutil.copyfile(html, dest)
+            placed.append({"kind": "analysis", "name": html.stem, "path": str(dest)})
+    src_ptools = Path(extract.out_dir) / "ptools"
+    if src_ptools.is_dir():
+        study_ptools = study_viz.parent / "ptools"
+        study_ptools.mkdir(parents=True, exist_ok=True)
+        for tsv in sorted(src_ptools.glob("*.tsv")):
+            shutil.copyfile(tsv, study_ptools / tsv.name)
+    return placed

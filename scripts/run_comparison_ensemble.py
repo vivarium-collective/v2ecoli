@@ -445,6 +445,11 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
         "defer_ports": resolved.get("defer_ports") or {},
         "strip_pint_ports": resolved.get("strip_pint_ports") or {},
         "attach_pint_ports": resolved.get("attach_pint_ports") or {},
+        # Honor the config's initial state for the injected stores (so a
+        # subsystem like cell-wall gets its real murein_state counts, and its
+        # own first-update logic builds the rest).
+        "initial_state": resolved.get("initial_state") or {},
+        "initial_state_overrides": resolved.get("initial_state_overrides") or [],
     }
     if fork_sim_data:
         inj["fork_sim_data"] = fork_sim_data

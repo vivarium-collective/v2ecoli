@@ -92,3 +92,29 @@ class RunExtract:
         conn = self._ctx.get("conn")
         if conn is not None:
             conn.close()
+
+
+def _write_html(path, html: str):
+    from pathlib import Path
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(html, encoding="utf-8")
+    return p
+
+
+def place_output(kind: str, name: str, view: str, data: dict,
+                 extract: "RunExtract") -> "str | None":
+    """Route one step's output to the owning study's report location by kind.
+    Returns the written html path (str) or None if nothing was written."""
+    if not view:
+        return None
+    if kind == "report_card":
+        from v2ecoli.workflow.report_cards import write_card
+        ctx = extract.study_ctx()
+        if ctx is not None:
+            return str(write_card(ctx, name, data or {}, view))
+        # no study: drop the card next to the run so it is not lost
+        return str(_write_html(Path(extract.out_dir) / "viz" / "report_card" / f"{name}.html", view))
+    # visualization / analysis view
+    viz = extract.study_viz_dir() or (Path(extract.out_dir) / "viz")
+    return str(_write_html(viz / f"{name}.html", view))

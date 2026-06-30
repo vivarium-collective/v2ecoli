@@ -16,8 +16,12 @@ def test_register_and_iter_by_kind():
     assert POST_SIM_REGISTRY["a_demo"] == {"cls": _A, "kind": "analysis"}
     names = dict(iter_post_sim())
     assert "a_demo" in names and "v_demo" in names
-    assert [n for n, _ in iter_post_sim("visualization")] == ["v_demo"]
-    assert [n for n, _ in iter_post_sim("analysis")] == ["a_demo"]
+    # Verify membership (order-independent, robust to other test imports registering steps)
+    assert "v_demo" in [n for n, _ in iter_post_sim("visualization")]
+    assert "a_demo" in [n for n, _ in iter_post_sim("analysis")]
+    # Verify kind-correctness: each step appears only under its own kind
+    assert "v_demo" not in [n for n, _ in iter_post_sim("analysis")]
+    assert "a_demo" not in [n for n, _ in iter_post_sim("visualization")]
 
 
 def test_unknown_kind_raises():

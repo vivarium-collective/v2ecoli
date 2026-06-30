@@ -22,6 +22,7 @@ from typing import Any
 from process_bigraph.composite import SyncUpdate
 
 from v2ecoli.steps.base import V2Step
+from v2ecoli.workflow.post_sim import register_post_sim
 
 
 # scale name -> human description of the result slice it consumes
@@ -60,6 +61,8 @@ class Analysis(V2Step):
                 f"{cls.__name__}.scale={cls.scale!r} not in {sorted(ANALYSIS_SCALES)}")
         if "name" in cls.__dict__:
             ANALYSIS_REGISTRY[cls.name] = cls
+        if "name" in cls.__dict__:
+            register_post_sim(cls, "analysis")
 
     def inputs(self):
         return {
@@ -107,6 +110,8 @@ class AnalysisStep(V2Step):
         # Register concrete analyses (those declaring their own ``name``).
         if "name" in cls.__dict__:
             ANALYSIS_REGISTRY[cls.name] = cls
+        if "name" in cls.__dict__:
+            register_post_sim(cls, "analysis")
 
     def inputs(self):
         return {"results": "list"}

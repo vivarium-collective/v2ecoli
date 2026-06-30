@@ -22,6 +22,16 @@ from v2ecoli.workflow.meta_composite import (
 from v2ecoli.workflow.variants import expand_branches
 
 
+def _should_flush(run_analysis: bool) -> bool:
+    """Whether the sequential sweep path should run the post-sim flush. Parallel
+    workers invoke that path with ``run_analysis=False`` and must NOT flush — the
+    flush (report cards + visualizations + analyses) runs ONCE on the driver,
+    over the shared out_dir. The driver-sequential path passes ``run_analysis=True``.
+    Without this gate the flush ran once per worker (redundant writes / a race on
+    the shared study report dir)."""
+    return bool(run_analysis)
+
+
 def _maybe_flush(config: dict, out_dir: str, result: dict) -> dict:
     """Run the post-sim flush. Never raises. Runs when an owning study is
     resolvable OR when analysis_options are present (ad-hoc analyses place into
@@ -224,7 +234,8 @@ def _run_sweep_sequential(config: dict[str, Any], *, max_sim_time: float = 1e9,
         # kind), which runs run_analyses once and places outputs into the study
         # report dir. We only record where analysis.json will be written.
         result["analysis"] = os.path.join(out_dir, "analysis.json")
-    result = _maybe_flush(config, out_dir, result)
+    if _should_flush(run_analysis):
+        result = _maybe_flush(config, out_dir, result)
     return result
 
 

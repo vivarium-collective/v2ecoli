@@ -135,7 +135,15 @@ def _run_one_step(cls, kind, extract, core):
     # report cards: skip when applies() is False; build() returns (verdict, html)
     if kind == "report_card":
         ctx = bag.get("study")
-        if ctx is None or not step.applies(ctx):
+        if ctx is None:
+            return "", {}
+        # honor a study's optional report_cards: allowlist (parity with the
+        # standalone runner's report_cards.applicable) — a declared list narrows
+        # which cards run; an absent key = every applicable card.
+        declared = (getattr(ctx, "spec", None) or {}).get("report_cards")
+        if declared is not None and step.name not in declared:
+            return "", {}
+        if not step.applies(ctx):
             return "", {}
         res = step.build(ctx)
         if not res:
@@ -229,3 +237,35 @@ def place_analysis_outputs(extract: "RunExtract") -> list:
         for tsv in sorted(src_ptools.glob("*.tsv")):
             shutil.copyfile(tsv, study_ptools / tsv.name)
     return placed
+
+
+def main(argv=None) -> int:
+    """Re-run the post-sim flush over an EXISTING run dir (parity with
+    analysis_runner.main). Useful to regenerate a study's report cards /
+    visualizations / analyses without re-simulating.
+
+    Usage: python -m v2ecoli.workflow.flush <out_dir> [--study SLUG]
+           [--ws-root DIR] [--kinds report_card,visualization,analysis]
+    """
+    import argparse
+    import os
+
+    ap = argparse.ArgumentParser(description=main.__doc__)
+    ap.add_argument("out_dir", help="the finished run's output dir")
+    ap.add_argument("--study", default=None, help="owning study slug (else inferred from out_dir)")
+    ap.add_argument("--ws-root", default=None, help="workspace root (default: cwd)")
+    ap.add_argument("--kinds", default="report_card,visualization,analysis",
+                    help="comma-separated post-sim kinds to run")
+    args = ap.parse_args(argv)
+
+    ws_root = args.ws_root or os.getcwd()
+    config = {"study": args.study} if args.study else {}
+    kinds = tuple(k.strip() for k in args.kinds.split(",") if k.strip())
+    res = run_flush(args.out_dir, config, ws_root, kinds=kinds)
+    print(f"placed {len(res['placed'])}, skipped {len(res['skipped'])}, "
+          f"study={res.get('study')}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

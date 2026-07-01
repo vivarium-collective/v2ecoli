@@ -1,0 +1,339 @@
+schema_version: 4
+name: dnaa-8-parameter-sweep
+investigation: dnaa-replication
+title: "Study 8 — Cooperativity Parameter Sweep (in-sim n×K)"
+created: "2026-06-30"
+status: completed
+design_status: designed
+implementation_status: implemented
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: pass   # 2026-07-01: broad operating basin — 12/20 (n,K) pass BOTH cyclic-replication + steady-DnaA-band; the dnaa-5 reference n=4/K=30 sits robustly inside it (composite 0.915). Carried-open (not this study's gate): DnaA-ATP fraction is below [0.2,0.5] for ALL 20 conditions — the code-level k_r lever from dnaa-6 F-04, independent of n/K.
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-6-mechanistic-initiation
+  why: >-
+    dnaa-5 chose the oriC-low cooperativity operating point (n=4, K=30 nM) from ANALYTIC
+    Hill switch/K curves, and dnaa-6 (F-04) showed that single point gives clean
+    once-per-cell-cycle initiation. Rashmi (2026-06-30): the n and K exploration was only
+    theoretical/static curves — run those conditions as ACTUAL multi-generation simulations,
+    show the lineage trajectories, and score the whole grid on cyclic replication + a steady
+    DnaA band. This study does that: it is the in-sim parameter sweep behind the dnaa-5 choice.
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-6-mechanistic-initiation
+  enables: []
+  gate_status: pass
+
+question: >-
+  Across the oriC-low cooperativity grid (Hill coefficient n × half-saturation K), which
+  parameter combinations produce CYCLIC once-per-cell-cycle replication together with a
+  STEADY homeostatic DnaA band — in actual multi-generation simulations, not just the
+  analytic switch curve? How wide is the operating basin around the dnaa-5 choice (n=4, K=30)?
+
+background: >-
+  dnaa-5 built the cooperative oriC-low DnaA-ATP switch and selected n=4, K=30 nM from the
+  analytic Hill switch curve (dnaa5_switch_curve) and an analytic K sweep (dnaa5_k_sweep) —
+  static curves, not simulations. dnaa-6 then showed that operating point, under the
+  mechanistic oriC-low trigger, gives clean once-per-cycle initiation (F-04, seed-robust).
+  What was missing: the actual multi-generation simulation results across the n and K grid,
+  and a metric that captures BOTH things the cell cycle needs — periodic replication AND
+  DnaA homeostasis. This study runs the full n×K grid in-sim and maps that basin.
+
+mechanism: >-
+  No new code — the env-knob cooperativity interface from dnaa-5/6. Sweep
+  DNAA_ORIC_COOPERATIVITY_N ∈ {1,2,4,6,8} × DNAA_ORIC_HALF_SAT_nM ∈ {15,20,30,40} nM (20
+  conditions), each an 8-generation lineage under the mechanistic oriC-low trigger
+  (DNAA_INITIATION_TRIGGER=mechanistic, DNAA_INIT_TRIGGER_POOL=low), with the rest of the
+  dnaa-4 reference config held fixed (autoregulation linear s=0.6, V=1.5e-3, k_h=0.025,
+  cache_dnaa4_s06_F05, succinate, seed 1). Harness: scripts/run_dnaa_saturation_sweep.py
+  (grid scripts/sweeps/dnaa_nk_grid.json) + scripts/dnaa_sweep_analysis.py (trajectory
+  extraction + metric) + scripts/make_dnaa_sweep_figures.py (figures).
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa4_s06_F05
+      max_generations: 8
+      single_daughters: true
+      perturbations: {"TU00259[c]": 1.5e-3}
+      note: >-
+        dnaa-4/6 reference config under the mechanistic oriC-low trigger. The grid varies
+        only DNAA_ORIC_COOPERATIVITY_N and DNAA_ORIC_HALF_SAT_nM; n=4/K=30 is the dnaa-5/6
+        reference operating point and doubles as the in-grid control.
+  variants:
+    - name: nk-grid
+      diff_from_baseline: "DNAA_ORIC_COOPERATIVITY_N ∈ {1,2,4,6,8} × DNAA_ORIC_HALF_SAT_nM ∈ {15,20,30,40} (20 runs)"
+      note: "One 8-gen lineage per (n,K) cell; seed 1. Scored on cyclic replication + steady DnaA band."
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    initiation_trigger: mechanistic
+    init_trigger_pool: low
+    dnaA_expression_V: 1.5e-3
+    autoreg_form: linear
+    autoreg_strength_s: 0.6
+    hydrolysis_rate_per_min: 0.025
+    seed: 1
+    generations: 8
+  swept:
+    DNAA_ORIC_COOPERATIVITY_N: [1, 2, 4, 6, 8]
+    DNAA_ORIC_HALF_SAT_nM: [15, 20, 30, 40]
+  source: dnaa-4-reference + dnaa-5-cooperativity grid
+
+readouts:
+  - name: number of oriC
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: total cellular DnaA (free + box-bound)
+    identifier: PD03831[c]+MONOMER0-160[c]+MONOMER0-4565[c] + listeners.dnaA_binding.total_DnaA_bound
+    units: count
+    status: primary
+  - name: DnaA-ATP fraction (free pool)
+    identifier: MONOMER0-160[c] / (PD03831[c]+MONOMER0-160[c]+MONOMER0-4565[c])
+    units: fraction
+    status: primary
+  - name: oriC-low occupancy
+    identifier: listeners.replication_data.oriC_low_bound_atp / (oriC_low_bound_atp + oriC_low_free)
+    units: fraction
+    status: primary
+
+tests:
+  - name: cyclic-replication
+    classification: primary
+    description: >-
+      Over steady generations, replication is once-per-cell-cycle: exactly one oriC-low
+      fill→fire→reset per generation and oriC oscillates strictly 1↔2 (never ≥3), with a
+      division every generation.
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: steady_generations}
+    pass_if: {op: in_range, low: 1, high: 2}
+    outcomes:
+      grid:
+        result: PARTIAL
+        detail: >-
+          14/20 conditions are strictly once-per-cycle. The 6 failures are the over-initiation
+          edge at K=15 (n=2/4/6/8 reach oriC 4 in steady gens), the crashed n6/K20 (FBA
+          numerical abort at gen 6), and n8/K30 (occasional skipped fire). K≥20 is clean for
+          n=1–6. The reference n=4/K=30 PASSES.
+  - name: steady-dnaa-band
+    classification: primary
+    description: >-
+      Total cellular DnaA (free pool + box-bound) holds a steady homeostatic band across
+      steady generations — per-generation mean inside [300,800] counts with low
+      across-generation drift (no monotonic climb or collapse).
+    measure: {kind: per_generation_mean, path: "total_cellular_DnaA", window: steady_generations}
+    pass_if: {op: in_range, low: 300, high: 800}
+    outcomes:
+      grid:
+        result: PASS
+        detail: >-
+          17/20 conditions hold the [300,800] band with low drift. Every per-generation mean
+          total DnaA is in-band across the grid (~390–570); the 3 that miss are drift-only
+          (n1/K30 drift 0.33, n6/K40 0.23, n6/K20 0.34 — the crashed run). The reference
+          n=4/K=30 PASSES (mean 458, drift 0.11).
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    The (n,K) conditions that pass BOTH tests define the operating basin for once-per-cycle
+    replication with DnaA homeostasis. If the dnaa-5 choice (n=4, K=30) sits inside a broad
+    basin, the operating point is robust; a narrow basin would flag parameter sensitivity to
+    revisit. The in-sim map replaces the analytic n/K curves as the evidence for the choice.
+  if_primary_tests_fail: >-
+    If no (n,K) simultaneously gives cyclic replication and a steady DnaA band, the cooperative
+    switch alone is insufficient for homeostatic cycling and an additional mechanism (SeqA
+    eclipse / RIDA, or the DnaA-ADP→ATP recharge k_r) is required — pointing back to dnaa-7 or
+    to the code-level levers identified in dnaa-6 F-04.
+
+simulation_set:
+  - name: nk-grid-seed1
+    kind: lineage
+    status: completed
+    base_model: v2ecoli baseline + mechanistic oriC-low trigger, dnaa-4 reference config
+    duration_steps: "8 generations per condition"
+    seeds: [1]
+    metrics: [number_of_oric, total_cellular_DnaA, dnaA_ATP_fraction, oriC_low_occupancy]
+    pass_fail_tests: [cyclic-replication, steady-dnaa-band]
+    note: >-
+      20 conditions: n ∈ {1,2,4,6,8} × K ∈ {15,20,30,40} nM. In-sim (actual multigen
+      simulations, not analytic curves), 8 generations each, seed 1, mechanistic oriC-low
+      trigger, cache_dnaa4_s06_F05. Scored by scripts/dnaa_sweep_analysis.py. Result: 12/20
+      pass BOTH tests (cyclic + band), 14/20 cyclic, 17/20 band. Per-condition metrics in
+      analyses/nk_sweep_metrics.csv; per-generation detail in nk_sweep_per_generation.csv.
+      Run out-dirs out/nk_n<N>_K<K>/. One condition (n6/K20) aborted at gen 6 on an FBA
+      numerical edge case (BIOTIN homeostatic target −8e-7), unrelated to the sweep.
+
+visualizations:
+  - name: nk_metric_heatmap
+    address: image:charts/nk_metric_heatmap.png
+    chart: charts/nk_metric_heatmap.png
+    source_run: nk_n*_K* (20-condition grid, seed 1)
+    config:
+      title: >-
+        The operating basin — n×K composite score (cyclic once-per-cycle + steady DnaA band),
+        in-sim, mechanistic oriC-low trigger, 8 generations, seed 1. Each cell shows the
+        composite (0–1), the CYC / BAND pass glyphs, and the mean total DnaA. K≥20 gives a broad
+        clean basin across n=1–8; K=15 (left column) breaks strict once-per-cycle by
+        over-initiating (oriC→4). The dnaa-5 reference n=4/K=30 sits inside the basin (0.92).
+        Interactive version: reports/figures/dnaa-8-parameter-sweep/nk_metric_heatmap.html.
+  - name: nk_trajectory_browser
+    address: iframe:../figures/dnaa-8-parameter-sweep/nk_trajectory_browser.html
+    chart: reports/figures/dnaa-8-parameter-sweep/nk_trajectory_browser.html
+    source_run: nk_n*_K* (20-condition grid, seed 1)
+    config:
+      title: >-
+        Interactive lineage-trajectory browser — pick any (n,K) and see the four trajectories
+        Rashmi asked for: number of oriC, total DnaA (band [300,800]), DnaA-ATP fraction (band
+        [0.2,0.5]), and oriC-low occupancy, across all 8 generations. These are the ACTUAL
+        simulation trajectories behind the analytic dnaa-5 switch/K curves.
+  - name: nk_trajectories_curated
+    address: image:charts/nk_trajectories_curated.png
+    chart: charts/nk_trajectories_curated.png
+    source_run: nk_n4_K30, nk_n1_K30, nk_n8_K30, nk_n4_K15, nk_n4_K40
+    config:
+      title: >-
+        Curated lineage trajectories — the reference (n=4/K=30) and the four n/K extremes,
+        four signals each. Shows the once-per-cycle oriC 1↔2, the in-band total DnaA sawtooth,
+        the (universally low) DnaA-ATP fraction, and the oriC-low fill→fire→reset; n=4/K=15
+        (middle) shows the K=15 over-initiation edge (oriC→4).
+
+report:
+  title: "dnaa-8 — cooperativity parameter sweep (in-sim n×K)"
+  verdict: >-
+    COMPLETE (2026-07-01): the full n×K grid (20 conditions, n ∈ {1,2,4,6,8} × K ∈ {15,20,30,40}
+    nM, mechanistic oriC-low trigger, 8 generations, seed 1) was run as ACTUAL multi-generation
+    simulations — the in-sim evidence the analytic dnaa-5 switch/K curves lacked, with the four
+    lineage trajectories (oriC count, total DnaA, DnaA-ATP fraction, oriC-low occupancy) per
+    condition. RESULT: a BROAD operating basin. 12/20 conditions pass BOTH tests (cyclic
+    once-per-cycle AND steady DnaA band), 14/20 are once-per-cycle, and 17/20 hold the [300,800]
+    DnaA band. The basin is K≥20 across essentially all n (1–8): cooperativity coefficient n is
+    forgiving (even n=1 Langmuir cycles once-per-generation at K=20–40 — cooperativity mainly
+    SHARPENS the oriC-low switch and STEADIES DnaA rather than being required for cycling; see the
+    dnaa-6 contrast). The FAILURE EDGE is K=15 (the lowest half-saturation): the switch trips too
+    early, so n≥2 over-initiates to oriC 4 in steady generations. The dnaa-5 reference operating
+    point n=4/K=30 sits robustly inside the basin (composite 0.92, mean DnaA 458, drift 0.11) —
+    the analytic choice is confirmed by actual simulations. ONE carried-open item, now shown to be
+    grid-wide: the DnaA-ATP FRACTION is below the [0.2,0.5] band for ALL 20 conditions (~0.01–0.05),
+    independent of n and K — exactly as dnaa-6 F-04 predicted, this is the code-baked DnaA-ADP→ATP
+    recharge rate k_r (not env-exposed), a code change for Haochen, not a cooperativity knob.
+    Harness: scripts/run_dnaa_saturation_sweep.py (grid dnaa_nk_grid.json) +
+    scripts/dnaa_sweep_analysis.py + scripts/make_dnaa_sweep_figures.py.
+
+next_action: >-
+  Optional follow-ups: (1) multi-seed the passing basin (seeds 0/2) to confirm K≥20 robustness
+  and re-run the single FBA-aborted n6/K20; (2) once Haochen exposes/raises the recharge rate k_r,
+  re-run the reference to close the DnaA-ATP-fraction band. Neither blocks the dnaa-8 conclusion.
+
+runs:
+  - name: nk_n4_K30
+    status: completed
+    canonical: true   # the dnaa-5 reference operating point — passes both tests
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/nk_n4_K30}
+    note: "Reference n=4/K=30. composite 0.92, cyclic+band PASS, mean DnaA 458, drift 0.11. Confirms the dnaa-5 analytic choice in-sim."
+    outcomes:
+      cyclic-replication: {result: PASS, detail: "once-per-cycle every steady gen, oriC 1↔2."}
+      steady-dnaa-band: {result: PASS, detail: "mean total DnaA 458 in [300,800], drift 0.11."}
+  - name: nk_n2_K40
+    status: completed
+    canonical: false  # highest composite in the grid
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/nk_n2_K40}
+    note: "Best composite (0.94): cyclic+band, lowest DnaA drift (0.06)."
+    outcomes:
+      cyclic-replication: {result: PASS, detail: "once-per-cycle, oriC 1↔2."}
+      steady-dnaa-band: {result: PASS, detail: "mean 519, drift 0.06."}
+  - name: nk_n4_K15
+    status: completed
+    canonical: false  # the K=15 over-initiation failure edge
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/nk_n4_K15}
+    note: "K=15 edge: switch trips early → over-initiates to oriC 4 in steady gens (g7/g8). Fails cyclic; band OK."
+    outcomes:
+      cyclic-replication: {result: FAIL, detail: "oriC reaches 4 in steady gens (over-initiation)."}
+      steady-dnaa-band: {result: PASS, detail: "mean 507 in band."}
+  - name: nk_n1_K30
+    status: completed
+    canonical: false  # cooperativity contrast (vs n4/K30) — used in dnaa-6 figure
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/nk_n1_K30}
+    note: "n=1 (no cooperativity): still once-per-cycle at K=30, but DnaA drifts (0.33) and misses the band test. Used in the dnaa-6 cooperativity contrast."
+    outcomes:
+      cyclic-replication: {result: PASS, detail: "once-per-cycle, oriC 1↔2."}
+      steady-dnaa-band: {result: FAIL, detail: "drift 0.33 (dips below band late) — cooperativity steadies this."}
+  - name: nk_grid_full
+    status: completed
+    canonical: false
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "The full 20-condition grid (out/nk_n<N>_K<K>/). Per-condition metrics in analyses/nk_sweep_metrics.csv; per-generation in nk_sweep_per_generation.csv. 12/20 pass both, 14 cyclic, 17 band."
+
+findings:
+  - id: F-01
+    statement: >-
+      BROAD OPERATING BASIN (in-sim): across the 20-condition n×K grid (mechanistic oriC-low
+      trigger, 8 generations, seed 1), 12/20 conditions pass BOTH tests — cyclic once-per-cell-cycle
+      replication AND a steady total-DnaA band [300,800] — with 14/20 once-per-cycle and 17/20 in
+      band. The basin is K≥20 across essentially all cooperativity coefficients n=1–8. This is the
+      actual-simulation evidence behind the analytic dnaa-5 switch/K curves; the dnaa-5 reference
+      n=4/K=30 sits robustly inside it (composite 0.92, mean DnaA 458, drift 0.11, both tests PASS).
+    status: evaluated
+    provenance:
+      run_ids: [nk_n4_K30, nk_n2_K40, nk_grid_full]
+  - id: F-02
+    statement: >-
+      K=15 IS THE OVER-INITIATION EDGE: the lowest half-saturation (K=15 nM) trips the cooperative
+      switch too early, so for n≥2 the cell over-initiates — oriC reaches 4 in steady generations
+      (n2/K15, n4/K15, n6/K15, n8/K15 all FAIL cyclic-replication while still holding the DnaA band).
+      K≥20 removes the over-initiation. So K is the sensitive knob for once-per-cycle timing, and the
+      dnaa-5 choice K=30 has margin above this edge.
+    status: evaluated
+    provenance:
+      run_ids: [nk_n4_K15, nk_grid_full]
+  - id: F-03
+    statement: >-
+      COOPERATIVITY n IS FORGIVING — IT SHARPENS, IT DOESN'T GATE: even n=1 (the independent-site
+      Langmuir limit) cycles once-per-generation at K=20–40. Higher n mainly SHARPENS the oriC-low
+      switch (a brief fill→fire spike instead of a gradual staircase) and STEADIES DnaA homeostasis
+      (n=4/K=30 DnaA drift 0.11, CV 0.07 vs n=1/K=30 drift 0.33, CV 0.15). So the dnaa-5 rationale
+      for n=4 is switch sharpness + DnaA steadiness, not a cycling on/off threshold — confirmed
+      in-sim and shown in the dnaa-6 cooperativity contrast figure.
+    status: evaluated
+    provenance:
+      run_ids: [nk_n1_K30, nk_n4_K30]
+  - id: F-04
+    statement: >-
+      DnaA-ATP FRACTION IS BELOW BAND GRID-WIDE (independent of n,K): every one of the 20 conditions
+      has steady-state DnaA-ATP fraction ~0.01–0.05, well below the Boesen [0.2,0.5] band, with no n-
+      or K-dependence. This confirms dnaa-6 F-04 across the whole parameter space: the ATP-fraction
+      lever is the code-baked DnaA-ADP→ATP recharge rate k_r (~1e-7/s, not env-exposed), NOT the
+      cooperativity parameters. Closing the band is a code change for Haochen, out of scope for a
+      parameter sweep.
+    status: evaluated
+    provenance:
+      run_ids: [nk_grid_full]
+
+biological_summary: >-
+  In E. coli, replication initiates once per cell cycle when DnaA-ATP cooperatively assembles on the
+  oriC low-affinity DnaA boxes and melts the origin. dnaa-5 modelled that as a Hill/Adair switch with
+  a cooperativity coefficient n and a half-saturation K, and chose n=4/K=30 nM from analytic curves.
+  This study runs the whole n×K grid as actual multi-generation simulations and maps where the switch
+  gives clean once-per-cycle replication with DnaA homeostasis. The biology reads: a broad basin (the
+  origin is robust to the exact cooperativity), a lower-K over-initiation edge (too-easy origin firing
+  → extra rounds, the SeqA/eclipse regime), and a DnaA-ATP fraction that the cooperativity cannot lift
+  — that is set by nucleotide recharge, a separate piece of physics.

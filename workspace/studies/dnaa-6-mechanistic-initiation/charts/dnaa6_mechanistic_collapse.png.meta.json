@@ -1,7 +1,0 @@
-{
-  "title": "dnaa-5 first-pass mechanistic initiation trigger collapses the cell cycle",
-  "caption": "Diagnostic of swapping the cell-mass-per-origin initiation heuristic for a DnaA-ATP/oriC saturation trigger (threshold = all 3 high-affinity sites ATP-bound), seed 1, dnaa-4 reference config. TOP: cell mass over time — the mass-trigger control (blue, dnaa4_s06_F05_seed1_12gen) sawtooths and divides at ~735 fg every cycle; the mechanistic trigger (red, dnaa5_mech_diag_seed1_8gen) divides once (gen 1) then runs away to ~6159 fg (~8x normal) in gen 2 without dividing, collapsing the lineage. BOTTOM: the trigger signal (oriC high-affinity DnaA-ATP bound, green) reaches 5 in gen 1 (initiates) but in gen 2 stays stuck at 2/3 for the whole generation, never reaching the threshold (3 x n_oriC, purple dashed) — so initiation never fires.",
-  "interpretation": "The first-pass full-saturation mechanistic trigger is non-viable on the current independent-site DnaA binding: it fails by stochastic UNDER-saturation (the 3rd high-affinity site doesn't bind), so initiation never fires, the cell grows unbounded and the lineage collapses. This is the direct consequence of the missing cooperativity (no sharp all-or-none filament switch) identified in the Phase-1 readiness gate. The fix is cooperative DnaA-ATP filament assembly at oriC before the initiation mechanism can be swapped.",
-  "source_runs": ["dnaa5_mech_diag_seed1_8gen", "dnaa4_s06_F05_seed1_12gen"],
-  "script": "scripts/render_dnaa5_diag.py"
-}

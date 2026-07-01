@@ -1,0 +1,7 @@
+[
+ {"tag": "kh_mult1p0", "env": {"DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER": 1.0}},
+ {"tag": "kh_mult0p3", "env": {"DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER": 0.3}},
+ {"tag": "kh_mult0p1", "env": {"DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER": 0.1}},
+ {"tag": "kh_mult0p03", "env": {"DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER": 0.03}},
+ {"tag": "kh_mult0p01", "env": {"DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER": 0.01}}
+]

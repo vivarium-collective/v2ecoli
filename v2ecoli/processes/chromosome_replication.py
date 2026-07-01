@@ -153,6 +153,9 @@ class ChromosomeReplication(Step):
                     'oriC_high_bound_atp': {'_type': 'integer', '_default': 0},
                     'oriC_low_bound_atp': {'_type': 'integer', '_default': 0},
                     'number_of_oric': {'_type': 'integer', '_default': 0},
+                    # per-origin oriC-low saturation for asynchronous initiation
+                    'oriC_domain_index': {'_type': 'array[integer]', '_default': []},
+                    'oriC_low_bound_atp_by_origin': {'_type': 'array[integer]', '_default': []},
                 },
             },
             'environment': {
@@ -207,6 +210,16 @@ class ChromosomeReplication(Step):
         self.init_eclipse_min = float(os.environ.get("DNAA_INIT_ECLIPSE_MIN", "0"))
         self._last_init_time = -1e18  # time of last initiation (s); -inf so the first fires
         self._cur_time = 0.0          # set each tick in _prepare
+        # Asynchronous initiation (Rashmi 2026-07-01, flag-gated, default OFF =
+        # synchronous baseline byte-identical). When ON (with the mechanistic
+        # oriC-low trigger), each origin fires INDEPENDENTLY when its OWN low-affinity
+        # sites saturate (>= init_low_threshold), instead of doubling all origins in
+        # one tick. Origins separate via (a) per-origin stochastic box filling and
+        # (b) the RIDA feedback: the first origin to fire activates replisome-coupled
+        # RIDA, dropping free DnaA-ATP so the others wait — giving oriC 2->3->4, not
+        # the biologically-wrong synchronous 2->4 jump.
+        self.async_initiation = os.environ.get("DNAA_ASYNC_INITIATION", "0").lower() in ("1", "true", "yes")
+        self._last_init_time_by_domain = {}  # per-origin eclipse clock (domain_index -> time s)
         self._mech_ready = False  # set each tick in _request, read in _evolve
         self.replichore_lengths = self.parameters["replichore_lengths"]
         self.sequences = self.parameters["sequences"]
@@ -300,6 +313,7 @@ class ChromosomeReplication(Step):
         # saturated with DnaA-ATP (>= threshold per origin). Computed here (in _request)
         # and read again in _evolve via _should_initiate().
         self._cur_time = float(states.get("global_time", 0.0))  # for the dnaa-7 eclipse clock
+        self._fire_domains = None  # set below for async initiation
         if self.initiation_trigger == "mechanistic":
             rd = states["listeners"]["replication_data"]
             if self.init_trigger_pool == "low":
@@ -309,6 +323,26 @@ class ChromosomeReplication(Step):
                 signal = int(rd.get("oriC_high_bound_atp", 0))  # first-pass oriC-high saturation
                 threshold = self.init_high_threshold
             self._mech_ready = signal >= threshold * n_oriC
+            # ASYNCHRONOUS initiation (oriC-low trigger only): decide PER ORIGIN which
+            # origins are saturated (>= threshold) AND past their own eclipse. Only
+            # these fire this tick, so origins initiate independently (oriC 2->3->4).
+            if self.async_initiation and self.init_trigger_pool == "low":
+                dom = np.asarray(rd.get("oriC_domain_index", []), dtype=np.int64)
+                per = np.asarray(rd.get("oriC_low_bound_atp_by_origin", []), dtype=np.int64)
+                fire = []
+                if dom.size and dom.size == per.size:
+                    for d, b in zip(dom.tolist(), per.tolist()):
+                        if b < threshold:
+                            continue
+                        if self.init_eclipse_min > 0.0:
+                            last = self._last_init_time_by_domain.get(d, -1e18)
+                            if (self._cur_time - last) < self.init_eclipse_min * 60.0:
+                                continue  # this origin is within its own eclipse
+                        fire.append(d)
+                self._fire_domains = fire
+                # gate the whole initiation on there being >=1 firing origin; the
+                # eclipse is enforced per-origin above, so bypass the global eclipse.
+                self._mech_ready = len(fire) > 0
 
         # If replication should be initiated, request subunits required for
         # building two replisomes per one origin of replication, and edit
@@ -390,59 +424,72 @@ class ChromosomeReplication(Step):
             states["chromosome_domains"], ["domain_index", "child_domains"]
         )
 
+        # Which origins fire this tick. SYNCHRONOUS (default): all origins
+        # (fire_mask all-True → byte-identical to the original logic). ASYNCHRONOUS
+        # (DNAA_ASYNC_INITIATION): only the per-origin-saturated subset from _prepare.
+        (domain_index_existing_oric,) = attrs(states["oriCs"], ["domain_index"])
+        if self.async_initiation and self._fire_domains is not None:
+            fire_mask = np.isin(domain_index_existing_oric, np.asarray(self._fire_domains))
+        else:
+            fire_mask = np.ones(n_oriC, dtype=bool)
+        n_fire = int(fire_mask.sum())
+
         initiate_replication = False
-        if self._should_initiate(n_oriC):
+        if n_fire > 0 and self._should_initiate(n_oriC):
             # Get number of available replisome subunits
             n_replisome_trimers = counts(states["bulk"], self.replisome_trimers_idx)
             n_replisome_monomers = counts(states["bulk"], self.replisome_monomers_idx)
             # Initiate replication only when
             # 1) The cell has reached the critical mass per oriC
             # 2) If mechanistic replisome option is on, there are enough
-            # replisome subunits to assemble two replisomes per existing OriC.
-            # Note that we assume asynchronous initiation does not happen.
+            # replisome subunits to assemble two replisomes per FIRING OriC.
             initiate_replication = not self.mechanistic_replisome or (
-                np.all(n_replisome_trimers == 6 * n_oriC)
-                and np.all(n_replisome_monomers == 2 * n_oriC)
+                np.all(n_replisome_trimers == 6 * n_fire)
+                and np.all(n_replisome_monomers == 2 * n_fire)
             )
 
-        # If all conditions are met, initiate a round of replication on every
-        # origin of replication
+        # If all conditions are met, initiate a round of replication on the
+        # firing origins (all of them in synchronous mode).
         if initiate_replication:
-            self._last_init_time = self._cur_time  # dnaa-7 eclipse: stamp this initiation
-            # Get attributes of existing oriCs and domains
-            (domain_index_existing_oric,) = attrs(states["oriCs"], ["domain_index"])
+            self._last_init_time = self._cur_time  # global eclipse: stamp this initiation
+            fire_oric_domains = domain_index_existing_oric[fire_mask]
+            if self.async_initiation:
+                for _d in fire_oric_domains.tolist():
+                    self._last_init_time_by_domain[int(_d)] = self._cur_time
 
             # Get indexes of the domains that would be getting child domains
-            # (domains that contain an origin)
+            # (domains that contain a FIRING origin)
             new_parent_domains = np.where(
-                np.isin(domain_index_existing_domain, domain_index_existing_oric)
+                np.isin(domain_index_existing_domain, fire_oric_domains)
             )[0]
 
             # Calculate counts of new replisomes and domains to add
-            n_new_replisome = 2 * n_oriC
-            n_new_domain = 2 * n_oriC
+            n_new_replisome = 2 * n_fire
+            n_new_domain = 2 * n_fire
 
             # Calculate the domain indexes of new domains and oriC's
             max_domain_index = domain_index_existing_domain.max()
             domain_index_new = np.arange(
-                max_domain_index + 1, max_domain_index + 2 * n_oriC + 1, dtype=np.int32
+                max_domain_index + 1, max_domain_index + 2 * n_fire + 1, dtype=np.int32
             )
 
-            # Add new oriC's, and reset attributes of existing oriC's
-            # All oriC's must be assigned new domain indexes
-            update["oriCs"]["set"] = {"domain_index": domain_index_new[:n_oriC]}
+            # Reset the domain index of existing FIRING oriC's (non-firing keep
+            # theirs), and add one new oriC per firing origin.
+            new_oric_domain = np.asarray(domain_index_existing_oric).copy()
+            new_oric_domain[fire_mask] = domain_index_new[:n_fire]
+            update["oriCs"]["set"] = {"domain_index": new_oric_domain}
             update["oriCs"]["add"] = {
-                "domain_index": domain_index_new[n_oriC:],
+                "domain_index": domain_index_new[n_fire:],
             }
 
             # Add and set attributes of newly created replisomes.
             # New replisomes inherit the domain indexes of the oriC's they
-            # were initiated from. Two replisomes are formed per oriC, one on
-            # the right replichore, and one on the left.
+            # were initiated from. Two replisomes are formed per firing oriC, one
+            # on the right replichore, and one on the left.
             coordinates_replisome = np.zeros(n_new_replisome, dtype=np.int64)
-            right_replichore = np.tile(np.array([True, False], dtype=np.bool_), n_oriC)
+            right_replichore = np.tile(np.array([True, False], dtype=np.bool_), n_fire)
             right_replichore = right_replichore.tolist()
-            domain_index_new_replisome = np.repeat(domain_index_existing_oric, 2)
+            domain_index_new_replisome = np.repeat(fire_oric_domains, 2)
             massDiff_protein_new_replisome = np.full(
                 n_new_replisome,
                 self.replisome_protein_mass if self.mechanistic_replisome else 0.0,
@@ -466,17 +513,17 @@ class ChromosomeReplication(Step):
                 }
             }
 
-            # Add new domains as children of existing domains
+            # Add new domains as children of the firing origins' domains
             child_domains[new_parent_domains] = domain_index_new.reshape(-1, 2)
             existing_domains_update = {"set": {"child_domains": child_domains}}
             update["chromosome_domains"].update(
                 {**new_domains_update, **existing_domains_update}
             )
 
-            # Decrement counts of replisome subunits
+            # Decrement counts of replisome subunits (per firing origin)
             if self.mechanistic_replisome:
-                update["bulk"].append((self.replisome_trimers_idx, -6 * n_oriC))
-                update["bulk"].append((self.replisome_monomers_idx, -2 * n_oriC))
+                update["bulk"].append((self.replisome_trimers_idx, -6 * n_fire))
+                update["bulk"].append((self.replisome_monomers_idx, -2 * n_fire))
 
         # Write data from this module to a listener
         update["listeners"]["replication_data"]["critical_mass_per_oriC"] = (

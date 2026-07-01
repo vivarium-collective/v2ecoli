@@ -1,0 +1,9 @@
+{
+  "title": "dnaa-6 payoff \u2014 mechanistic DnaA-ATP/oriC initiation gives clean once-per-cell-cycle replication",
+  "caption": "Reference operating point (n=4, K=30 nM), mechanistic oriC-low trigger, seed 1, 8 generations. TOP: cell mass sawtooths and divides every generation. MIDDLE: oriC count steps strictly 1\u21942 \u2014 exactly one initiation per cycle, no re-initiation (the over-initiation to oriC\u21924 in the earlier build does not reproduce; F-04). BOTTOM: oriC-low DnaA-ATP occupancy fills, fires, and resets once per generation. Total cellular DnaA holds the [300,800] homeostatic band (mean 458).",
+  "interpretation": "Biology-driven replication initiation (DnaA-ATP filament at oriC) now drives a clean, periodic cell cycle in place of the cell-mass heuristic: one fill\u2192fire\u2192reset per generation, oriC 1\u21942, DnaA homeostatic. This is finding F-04 shown directly.",
+  "source_runs": [
+    "nk_n4_K30"
+  ],
+  "script": "scripts/render_dnaa6_figures.py"
+}

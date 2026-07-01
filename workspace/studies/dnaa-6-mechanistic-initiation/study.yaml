@@ -151,29 +151,36 @@ simulation_set:
     note: "PAYOFF: trigger re-pointed to the oriC-low cooperative switch. Multi-seed (0/1/2): SUSTAINS 8/8 on all seeds (collapse resolved) but over-initiates to oriC 4 (1400/1591/2304 re-init ticks) — the robust 'viable-but-over-inits' result that motivates dnaa-7 (RIDA)."
 
 visualizations:
-  - name: dnaa6_payoff_sustains
-    address: image:charts/dnaa6_payoff_sustains.png
-    chart: charts/dnaa6_payoff_sustains.png
-    source_run: dnaa6_mech_low_coop_n4_seed1_8gen vs dnaa5_mech_diag_seed1_8gen vs dnaa4_s06_F05_seed1_12gen
+  - name: dnaa6_once_per_cycle
+    address: image:charts/dnaa6_once_per_cycle.png
+    chart: charts/dnaa6_once_per_cycle.png
+    source_run: nk_n4_K30 (dnaa-8 sweep, seed 1)
     config:
       title: >-
-        PAYOFF — the mechanistic DnaA-ATP/oriC trigger sustains the cycle once cooperativity is in
-        place. TOP: cell mass — the mass control (blue) sawtooths; the first-pass mechanistic trigger
-        (red, oriC-high, no cooperativity) runs away and collapses at gen 2; the oriC-LOW cooperative
-        switch trigger (green, n=4) sustains a normal sawtooth — 8/8 divisions. BOTTOM: oriC count —
-        the mass control is clean 1<->2; the cooperative-switch trigger sustains but OVER-initiates
-        (oriC reaches 4), the next issue (needs SeqA eclipse / threshold tuning for one-init-per-cycle).
-  - name: dnaa6_mechanistic_collapse
-    address: image:charts/dnaa6_mechanistic_collapse.png
-    chart: charts/dnaa6_mechanistic_collapse.png
-    source_run: dnaa5_mech_diag_seed1_8gen (mechanistic) vs dnaa4_s06_F05_seed1_12gen (mass control)
+        PAYOFF (F-04) — the mechanistic DnaA-ATP/oriC trigger gives CLEAN once-per-cell-cycle
+        initiation at the reference operating point (n=4, K=30). TOP: cell mass sawtooths and divides
+        every generation. MIDDLE: oriC steps strictly 1<->2 — exactly one initiation per cycle, no
+        re-initiation (the earlier over-init to oriC->4 was a 59e108fb-build artifact; it does not
+        reproduce). BOTTOM: oriC-low DnaA-ATP occupancy fills, fires, and resets once per generation;
+        total DnaA holds the [300,800] band (mean 458). Regenerated in-sim from the dnaa-8 sweep.
+  - name: dnaa6_cooperativity_contrast
+    address: image:charts/dnaa6_cooperativity_contrast.png
+    chart: charts/dnaa6_cooperativity_contrast.png
+    source_run: nk_n1_K30 vs nk_n4_K30 (dnaa-8 sweep, seed 1)
     config:
       title: >-
-        The first-pass mechanistic initiation trigger COLLAPSES the cell cycle. Top: cell mass —
-        the mass-trigger control (blue) sawtooths and divides at ~735 fg, while the mechanistic
-        trigger (red) runs away to ~6159 fg in gen 2 without dividing. Bottom: the trigger signal
-        (oriC high-affinity DnaA-ATP bound, green) never reaches the threshold (3 x n_oriC, purple)
-        in gen 2 — stuck at 2/3 — so initiation never fires. Diagnoses the cooperativity gap.
+        Cooperativity sharpens the oriC-low switch and steadies DnaA homeostasis. Both n=1 and n=4
+        (same K=30) cycle once-per-generation, so cooperativity is not strictly required for cycling
+        here — but it improves the switch. TOP (oriC-low occupancy): n=1 fills gradually in a
+        staircase (Langmuir, dnaa-3 regime); n=4 switches in a sharp spike. BOTTOM (total DnaA): the
+        cooperative switch holds DnaA steadier in [300,800] (drift 0.11, CV 0.07) than n=1 (drift 0.33,
+        CV 0.15). Refines the dnaa-5 rationale for choosing n=4; confirmed in-sim by dnaa-8.
+  # dnaa6_mechanistic_collapse RETIRED (2026-07-01): the first-pass oriC-high collapse was a
+  # 59e108fb-build artifact (like the over-init in F-03/F-04) and does not reproduce on current
+  # code — a fresh re-run fires the oriC-high trigger in gen 1 (highATP 4 >= threshold 3) and
+  # divides even WITHOUT cooperativity, so there is no clean collapse to show. The "why
+  # cooperativity" science is now carried by F-01 (noisy independent-site oriC signal) and the
+  # dnaa6_cooperativity_contrast figure (n=1 gradual staircase vs n=4 sharp switch).
 
 report:
   title: "dnaa-6 — mechanistic replication initiation"
@@ -311,6 +318,12 @@ findings:
       consequence of F-01 (independent-site binding, no cooperativity → no sharp all-or-none
       switch). A faithful full-saturation DnaA-ATP trigger is therefore non-viable on the current
       binding. Fix: cooperative DnaA-ATP filament assembly at oriC (the missing physics).
+      UPDATE (2026-07-01): this collapse is a 59e108fb-BUILD ARTIFACT and does NOT reproduce on
+      current code — a fresh re-run of the first-pass config fires the oriC-high trigger in gen 1
+      (highATP 4 ≥ threshold 3) and divides even without cooperativity. So F-02's diagnostic value
+      is historical (it correctly motivated cooperativity at the time); on current code the
+      mechanistic trigger simply works (F-04). The old collapse figure was retired accordingly; the
+      cooperativity rationale is now shown by F-01 + the dnaa6_cooperativity_contrast figure.
     status: evaluated
     provenance:
       run_ids: [dnaa5_mech_smoke, dnaa5_mech_diag_seed1_8gen]
@@ -356,6 +369,14 @@ findings:
       knobs: the ATP-fraction lever is the DnaA-ADP->ATP recharge rate k_r (code-baked at 1e-7/s, not
       env-exposed), and sustained saturation needs the dynamic kick — both are CODE changes for
       Haochen, not parameter sweeps.
+      CORRECTION (2026-07-01, dnaa-9): the "ATP-fraction band needs a CODE change" conclusion above is
+      WRONG. The stage-3 k_h triage tuned the wrong hydrolysis — DNAA_HYDROLYSIS_RATE_PER_MIN acts on
+      the BOUND pool only. The effective, ENV-TUNABLE lever for the free-pool DnaA-ATP fraction is RIDA
+      (replisome-coupled regulatory hydrolysis, RIDA_RATE_MULTIPLIER): it is monotonic (on 0.045, ×0.1
+      0.098, ×0.05 0.276, off 0.389), and RIDA×0.05 lands the total DnaA-ATP fraction in [0.2,0.5]
+      seed-robustly (0.21-0.24 on seeds 0/1/2). See dnaa-9 F-01/F-04. So the band IS reachable by a
+      parameter change; only its calibration is a question for Haochen. (The dnaa-9 operating point also
+      adds a full-occupancy trigger and per-origin asynchronous initiation.)
     status: evaluated
     provenance:
       run_ids: [s2_ctrl_s0, s2_ctrl_s1, s2_ctrl_s2, s2_ecl40_rida06_s0, s2_ecl40_rida06_s1, s2_ecl40_rida06_s2]

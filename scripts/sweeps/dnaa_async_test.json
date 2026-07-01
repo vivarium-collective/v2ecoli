@@ -1,0 +1,5 @@
+[
+ {"tag": "op_async_off",   "env": {"RIDA_RATE_MULTIPLIER": 0.05, "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "ridaoff_sync",   "env": {"RIDA_RATE_MULTIPLIER": 0.0,  "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "ridaoff_async",  "env": {"RIDA_RATE_MULTIPLIER": 0.0,  "DNAA_INIT_LOW_THRESHOLD": 8, "DNAA_ASYNC_INITIATION": 1}}
+]

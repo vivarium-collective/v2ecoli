@@ -1,0 +1,10 @@
+{
+  "title": "dnaa-6 \u2014 cooperativity sharpens the oriC-low switch and steadies DnaA homeostasis",
+  "caption": "Same K=30 nM, mechanistic oriC-low trigger, seed 1. Both n=1 and n=4 give once-per-cycle replication (oriC 1\u21942), so cooperativity is not strictly required for cycling here \u2014 but it improves the switch. TOP (oriC-low occupancy): n=1 (left) fills gradually in a staircase (independent-site Langmuir, the dnaa-3 regime); n=4 (right) switches in a sharp spike. BOTTOM (total DnaA): the cooperative switch holds DnaA steadier in the [300,800] band (drift 0.11, CV 0.07) than n=1 (drift 0.33, CV 0.15).",
+  "interpretation": "Cooperativity is a sharpening/homeostasis knob, not an on/off switch for cycling: at K=30 both n=1 and n=4 cycle once-per-generation, but higher n gives a crisper oriC-low trigger and a flatter DnaA band. This refines the dnaa-5 rationale \u2014 the operating point n=4 is chosen for switch sharpness + DnaA steadiness, confirmed in-sim by dnaa-8.",
+  "source_runs": [
+    "nk_n1_K30",
+    "nk_n4_K30"
+  ],
+  "script": "scripts/render_dnaa6_figures.py"
+}

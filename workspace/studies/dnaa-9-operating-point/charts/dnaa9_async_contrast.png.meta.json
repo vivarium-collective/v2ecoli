@@ -1,0 +1,10 @@
+{
+  "title": "dnaa-9 \u2014 asynchronous per-origin initiation replaces the synchronous 2\u21924 oriC jump with 2\u21923\u21924",
+  "caption": "Same over-initiating stress config (RIDA off, threshold 8). LEFT (async off): when re-initiation occurs both origins fire in the same tick \u2014 oriC jumps 2\u21924 (biologically incorrect). RIGHT (async on): each origin initiates independently when its own low-affinity sites saturate \u2014 oriC steps 2\u21923\u21924. The origins separate via per-origin stochastic filling and the RIDA feedback (the first to fire drops free DnaA-ATP, delaying the other).",
+  "interpretation": "The flag-gated asynchronous-initiation mechanism (DNAA_ASYNC_INITIATION) decouples the two origins as Rashmi requested: replication initiation is now a per-origin event, so overlapping rounds appear as oriC 2\u21923\u21924 rather than the synchronous 2\u21924 jump.",
+  "source_runs": [
+    "ridaoff_sync",
+    "ridaoff_async"
+  ],
+  "script": "scripts/render_dnaa9_operating_point.py"
+}

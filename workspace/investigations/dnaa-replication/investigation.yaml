@@ -98,6 +98,33 @@ executive:
     seed-variable / mostly below [0.2,0.5] (lever = the code-baked recharge rate k_r), and firing is
     a brief fill-spike rather than a sustained full-saturation plateau (needs a dynamic-kick).
 
+    Headline update (dnaa-8, 2026-07-01, Rashmi's request): the n and K cooperativity exploration —
+    previously only ANALYTIC Hill switch/K curves — was run as ACTUAL multi-generation simulations
+    across the full 20-condition grid (n in {1,2,4,6,8} x K in {15,20,30,40} nM, mechanistic oriC-low
+    trigger, 8 generations, seed 1), scored on the two things Rashmi asked the metric to capture —
+    cyclic once-per-cell-cycle replication AND a steady DnaA band — with the four lineage trajectories
+    (oriC count, total DnaA, DnaA-ATP fraction, oriC-low occupancy) per condition. RESULT: a BROAD
+    operating basin. 12/20 conditions pass BOTH tests, 14/20 are once-per-cycle, 17/20 hold the
+    [300,800] DnaA band. The basin is K>=20 across essentially all n (1-8); cooperativity n is
+    forgiving (even n=1 cycles at K=20-40 — it mainly SHARPENS the switch and STEADIES DnaA), and the
+    failure edge is K=15, where the switch trips too early and over-initiates (oriC->4). The dnaa-5
+    reference operating point n=4/K=30 sits robustly inside the basin (composite 0.92, mean DnaA 458,
+    drift 0.11) — the analytic choice is now confirmed by actual simulations. Grid-wide, the DnaA-ATP
+    FRACTION is below [0.2,0.5] for all 20 conditions independent of n/K — confirming that the ATP-
+    fraction lever is the code-baked recharge rate k_r, not a cooperativity knob (Haochen code item).
+
+    Headline update (dnaa-9, 2026-07-01, Rashmi's four-knob tuning list): a single SEED-ROBUST operating
+    point satisfies all four of her asks at once — RIDA_RATE_MULTIPLIER=0.05 + DNAA_INIT_LOW_THRESHOLD=8
+    + DNAA_ASYNC_INITIATION=1 + DNAA_INIT_ECLIPSE_MIN=40. (1) DnaA-ATP FRACTION IN BAND: the effective
+    hydrolysis lever is RIDA (regulatory, replisome-coupled), NOT the intrinsic equilibrium hydrolysis
+    (negligible) — RIDA×0.05 lands the total DnaA-ATP fraction at 0.21-0.24, in [0.2,0.5] on seeds 0/1/2
+    (was seed-variable ~0.02-0.26). This CORRECTS the dnaa-8/dnaa-6 claim that the band needs a code-level
+    k_r change — it is env-tunable; only the calibration is a Haochen question. (2) FULL-OCCUPANCY
+    TRIGGER: threshold 8 fires at peak oriC-low occupancy 1.00 (was ~0.6). (3) oriC ASYNCHRONY: a new
+    flag-gated per-origin initiation path decouples the origins — oriC steps 2->3->4 instead of the
+    biologically-wrong synchronous 2->4 jump. (4) SEED-ROBUST: regular divisions, DnaA in [300,800], all
+    three seeds. All new code is behind default-off flags (synchronous baseline byte-identical).
+
     The arc, step by step:
       (0) succinate baseline: v2ecoli reaches periodic steady state (oriC 1↔2 from gen 3).
       (1) DnaA expression: V=0.8e-3 holds the pool in band, but no constitutive V also gives the
@@ -115,6 +142,11 @@ executive:
       (6) mechanistic initiation trigger: firing initiation on the cooperative oriC-low switch
           (DnaA-ATP/oriC) in place of the cell-mass heuristic gives clean once-per-cell-cycle
           initiation, oriC 1<->2, seed-robust over 8 gens (partial only on the open ATP-fraction band).
+      (8) cooperativity parameter sweep (in-sim n x K): the full 20-condition grid run as actual
+          multi-generation simulations maps a BROAD operating basin (12/20 pass cyclic + steady-DnaA-
+          band; K>=20 clean across n=1-8; K=15 over-initiates); n=4/K=30 sits robustly inside it. The
+          DnaA-ATP fraction is below band grid-wide (the k_r code lever, not n/K). This replaces the
+          static dnaa-5 switch/K curves with real simulation evidence + the four lineage trajectories.
 
     Next (code-level, for Haochen): close the DnaA-ATP-fraction band (expose/tune the recharge rate
     k_r) and add a dynamic-kick so the oriC cluster holds a sustained full-saturation plateau. Detail
@@ -249,9 +281,18 @@ executive:
       K=20/30 and the K=20 lineage stopped at gen 6 — multi-seed check before fixing an operating K.
       Largely moot under the MECHANISTIC trigger (dnaa-6 F-04), which already saturates reliably once
       per cycle regardless of K. See feedback-2026-06-27-haochen/response.md.
+      SUPERSEDED/EXTENDED 2026-07-01 by dnaa-8 (Rashmi's request): the FULL n x K grid (20 conditions,
+      n in {1,2,4,6,8} x K in {15,20,30,40}) was run in-sim under the MECHANISTIC trigger, scored on
+      cyclic once-per-cycle replication + a steady DnaA band, with the four lineage trajectories per
+      condition. Result: a broad operating basin (12/20 pass both; K>=20 clean across all n; K=15
+      over-initiates oriC->4), n=4/K=30 robustly inside, and the DnaA-ATP fraction below band grid-wide
+      (the k_r code lever). This is the definitive in-sim n/K answer and replaces the analytic curves.
     context: |
       Haochen's report question + comment H1 (feedback-2026-06-27-haochen). He wants the in-sim
-      K-lowering result shown, not just the analytic dnaa5_k_sweep curve.
+      K-lowering result shown, not just the analytic dnaa5_k_sweep curve. Rashmi (2026-06-30) extended
+      this to: run the n AND K sweep conditions as ACTUAL multi-generation simulations (not static
+      curves), include lineage trajectories, and score on cyclic replication + a steady DnaA band —
+      delivered as study dnaa-8-parameter-sweep.
   - question: "dnaa-4 — the seed-sensitive DnaA-ATP fraction: is it acceptable, or does it warrant a follow-up? (Seeds 0/2 confirmation done: homeostasis robust 3/3, but the fraction band holds only on seed 1.) And should we advance into the downstream mechanistic roadmap (dnaa-05 RIDA/DDAH/DARS next)?"
     status: |
       Seeds 0/2 confirmed 2026-06-16 (F-08): the homeostasis (clean cell cycle + total-DnaA pool
@@ -452,7 +493,11 @@ feedback_rounds:
     form — for Hill, scan both n (sharpness) AND K (midpoint); the report mentioned
     lowering K but did not SHOW the result — he wants to see if lower K raises oriC
     saturation chance. → n already scanned (dnaa-5 n=1..8); the IN-SIM K scan
-    (K=15/20/25/30/40, n=4, 8 gens) is executing now. (H2) Hydrolysis at oriC is NOT
+    (K=15/20/25/30/40, n=4, 8 gens, mass trigger) done — lower K raises saturation chance
+    monotonically. Now SUPERSEDED by dnaa-8 (2026-07-01, Rashmi): the full n x K grid (20
+    conditions) run in-sim under the mechanistic trigger with the cyclic + steady-DnaA-band
+    metric + lineage trajectories — broad basin, n=4/K=30 robustly inside, K=15 over-inits.
+    (H2) Hydrolysis at oriC is NOT
     the cluster-reset mechanism — reset happens at initiation (DnaA falls back to
     cytoplasm) and oriC-bound hydrolysis is negligible vs the DnaA-ATP half-life. →
     CONFIRMED: dnaa_box_binding is bookkeeping, the pools reset on FORK PASSAGE at
@@ -570,6 +615,8 @@ studies:
 - dnaa-4-autoregulation     # added 2026-06-10 — DnaA negative autoregulation: wire DnaA-ATP→dnaA-promoter repression (coupled to the adopted box occupancy) so DnaA self-stabilizes without the V override; dissolves the dnaa-1/dnaa-2 V tension and drift at the root. Scoped, first diagnostic done (promoter-occupancy feedback signal confirmed present).
 - dnaa-5-cooperativity      # added 2026-06-18 (Rashmi ordering) — cooperative DnaA-ATP filament assembly at oriC: turn the gradual, partial oriC occupancy (dnaa-3, correct as-is) into a sharp switch. Prerequisite for the mechanistic initiation swap. Designed; build pending.
 - dnaa-6-mechanistic-initiation  # re-added 2026-06-27: the DnaA-ATP/oriC initiation trigger replaces the mass heuristic. F-04 — the cooperative oriC-low + mechanistic-low trigger gives CLEAN once-per-cell-cycle initiation (oriC 1<->2, seed-robust over 8 gens); the over-init (oriC->4) was a 59e108fb-build artifact and does not reproduce. Gate partial only on the open DnaA-ATP-fraction band.
+- dnaa-8-parameter-sweep     # added 2026-06-30 (Rashmi) — the IN-SIM cooperativity sweep behind the dnaa-5 analytic n/K choice: 20 conditions (n∈{1,2,4,6,8} × K∈{15,20,30,40}) run as actual multi-generation simulations, scored on cyclic once-per-cycle replication + a steady DnaA band, with the four lineage trajectories per condition. Replaces the static dnaa-5 switch/K curves with real simulation results.
+- dnaa-9-operating-point     # added 2026-07-01 (Rashmi's four-knob tuning list) — the seed-robust initiation OPERATING POINT: RIDA×0.05 (DnaA-ATP fraction into [0.2,0.5] — the effective hydrolysis lever is RIDA, not intrinsic) + threshold 8 (fire at FULL 8/8 oriC-low occupancy) + DNAA_ASYNC_INITIATION (NEW per-origin async: oriC 2→3→4, not the wrong synchronous 2→4) + eclipse 40 min (once-per-cycle). Corrects dnaa-6 F-04: the ATP band is env-tunable, NOT a code change. All new code flag-gated default-off.
 # Still set aside (not in the report): dnaa-7-seqa-sequestration. F-04 shows SeqA eclipse + RIDA are
 # NOT required for once-per-cycle firing, so dnaa-7's premise is weakened; keep it on disk under
 # workspace/studies/ until/if there's a reason to present it.

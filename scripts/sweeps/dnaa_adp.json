@@ -1,0 +1,6 @@
+[
+ {"tag": "adp1p0_thr8",  "env": {"DNAA_ADP_CHARGE_MULTIPLIER": 1.0,  "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "adp0p1_thr8",  "env": {"DNAA_ADP_CHARGE_MULTIPLIER": 0.1,  "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "adp0p03_thr8", "env": {"DNAA_ADP_CHARGE_MULTIPLIER": 0.03, "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "adp0p1_thr6",  "env": {"DNAA_ADP_CHARGE_MULTIPLIER": 0.1}}
+]

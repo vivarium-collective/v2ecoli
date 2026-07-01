@@ -1,0 +1,9 @@
+{
+  "title": "dnaa-9 \u2014 initiation operating point satisfies all four targets (DnaA-ATP band, full occupancy, asynchrony, cycle)",
+  "caption": "Operating point RIDA\u00d70.05 + threshold 8 + async + eclipse 40 min, seed 0. TOP\u2192BOTTOM: regular division sawtooth; oriC 1\u21942 with asynchronous 2\u21923 episodes (origins decoupled \u2014 no synchronous 2\u21924 jump); oriC-low occupancy fires at full 1.0 (threshold 8); total DnaA-ATP fraction in the Boesen [0.2,0.5] band (mean 0.23). Seed-robust across 0/1/2.",
+  "interpretation": "All four of Rashmi's requested behaviors hold together at one operating point, seed-robust: the DnaA-ATP fraction is in band (via RIDA, the regulatory hydrolysis), initiation fires at full oriC-low occupancy (threshold 8), origins initiate asynchronously (per-origin, oriC 2\u21923\u21924), and the cell keeps a regular once-per-cycle division with DnaA homeostasis.",
+  "source_runs": [
+    "opE40_s0"
+  ],
+  "script": "scripts/render_dnaa9_operating_point.py"
+}

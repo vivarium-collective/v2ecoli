@@ -308,7 +308,7 @@ wheels = [
 [[package]]
 name = "bigraph-loom"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=main#41b556c7f93bc9b65f2ea593ccb82bf15ba386a4" }
+source = { git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=main#8d06560df914e37686a5fc8329efc949f6850a5f" }
 
 [[package]]
 name = "bigraph-schema"
@@ -4581,7 +4581,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#b19c8cdf9518afa9473a46e810d1300d872e6c85" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#cf92a0cf5184f1fbdbb1b6c59fef746b2b022a7d" }
 dependencies = [
     { name = "bigraph-loom" },
     { name = "bigraph-schema" },

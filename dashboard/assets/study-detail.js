@@ -47,8 +47,35 @@
     });
     if (kind === 'tests') { loadTestsTab(window._study); }
     if (kind === 'visualize') { _loadReadouts(); _loadCharts('viz-charts-panel'); }
+    if (kind === 'data') { _loadAnalysisOutputs(); }
+    if (kind === 'simulate') { _renderReproduceCard(); }
   }
   window._setStudyTab = _setStudyTab;
+
+  function _renderReproduceCard() {
+    var host = document.getElementById('reproduce-card');
+    if (!host) return;
+    var rc = (window._study && window._study.run_commands) || null;
+    if (!rc) { host.style.display = 'none'; return; }
+    var e = escapeHtmlForTests;
+    function chip(cmd) {
+      return '<code style="display:inline-block;padding:2px 6px;background:#fff;'
+        + 'border:1px solid #e2e8f0;border-radius:3px">' + e(cmd) + '</code>'
+        + ' <button class="cli-copy" data-cmd="' + e(cmd)
+        + '" style="font-size:0.8em;cursor:pointer">copy</button>';
+    }
+    var html = '<strong>Reproduce / run (CLI)</strong><br/>'
+      + '<div style="margin-top:4px">' + chip(rc.baseline) + '</div>';
+    (rc.variants || []).forEach(function (v) {
+      html += '<div style="margin-top:3px">' + chip(v.cmd) + '</div>';
+    });
+    host.innerHTML = html;
+    host.querySelectorAll('.cli-copy').forEach(function (b) {
+      b.addEventListener('click', function () {
+        navigator.clipboard && navigator.clipboard.writeText(b.dataset.cmd);
+      });
+    });
+  }
 
   // Click a pillar -> reveal its member sub-nav and open its first member panel.
   function _setStudyPillar(pillar) {
@@ -81,6 +108,70 @@
       })
       .catch(function() {
         host.innerHTML = '<p class="empty-message">Readouts unavailable.</p>';
+      });
+  }
+
+  // --- Data tab: downloadable Analysis result files (CSV/TSV) ---
+  var _analysisOutputsLoaded = false;
+  function _fmtBytes(n) {
+    if (!n && n !== 0) return '';
+    if (n < 1024) return n + ' B';
+    var u = ['KB', 'MB', 'GB'], i = -1, v = n;
+    do { v /= 1024; i++; } while (v >= 1024 && i < u.length - 1);
+    return (v >= 10 ? Math.round(v) : v.toFixed(1)) + ' ' + u[i];
+  }
+  function _renderAnalysisOutputs(j) {
+    var e = escapeHtmlForTests;
+    var files = (j && j.files) || [];
+    if (!files.length) {
+      return '<p class="empty-message">No result files yet. Analysis steps write '
+        + '<code>.csv</code>/<code>.tsv</code> files here once this study has run.</p>';
+    }
+    // Group by parent dir so ptools/ and per-run analysis tables read cleanly.
+    var groups = {}, order = [];
+    files.forEach(function (f) {
+      var g = f.dir || '(study root)';
+      if (!groups[g]) { groups[g] = []; order.push(g); }
+      groups[g].push(f);
+    });
+    var html = '';
+    order.forEach(function (g) {
+      html += '<div class="data-group" style="margin-bottom:14px">'
+        + '<div class="muted" style="font-family:ui-monospace,monospace;font-size:0.82em;'
+        + 'margin:0 0 4px 0">' + e(g) + '/</div>'
+        + '<table class="data-files-table" style="width:100%;border-collapse:collapse;font-size:0.9em">';
+      groups[g].forEach(function (f) {
+        html += '<tr style="border-top:1px solid #eef2f6">'
+          + '<td style="padding:5px 8px"><a href="' + e(f.download_url) + '">'
+          + e(f.name) + '</a></td>'
+          + '<td style="padding:5px 8px;text-align:right;color:#64748b;white-space:nowrap">'
+          + e(_fmtBytes(f.size)) + '</td></tr>';
+      });
+      html += '</table></div>';
+    });
+    return html;
+  }
+  function _loadAnalysisOutputs() {
+    if (_analysisOutputsLoaded) return;
+    _analysisOutputsLoaded = true;
+    var host = document.getElementById('data-files');
+    if (!host) return;
+    var slug = host.getAttribute('data-study') || studyName();
+    if (!slug) return;
+    fetch('/api/study-analysis-outputs?study=' + encodeURIComponent(slug),
+          {headers: {Accept: 'application/json'}})
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !Array.isArray(j.files)) {
+          host.innerHTML = '<p class="empty-message">Result files unavailable.</p>';
+          return;
+        }
+        host.innerHTML = _renderAnalysisOutputs(j);
+        var dl = document.getElementById('data-download-all');
+        if (dl) dl.style.display = j.files.length ? '' : 'none';
+      })
+      .catch(function () {
+        host.innerHTML = '<p class="empty-message">Result files unavailable.</p>';
       });
   }
 
@@ -280,10 +371,15 @@
     var origin = (typeof location !== 'undefined' && location.origin
                   && /^https?:/.test(location.origin)) ? location.origin : '';
     var base = origin + (isSnap ? (cfg.basePath || '') : '');
-    var stateUrl = isSnap
-      ? base + '/api/composite-state/' + encodeURIComponent(composite) + '.json'
-      : base + '/api/composite-state?ref=' + encodeURIComponent(composite);
-    var u = base + '/bigraph-loom/index.html?static=1&stateUrl=' + encodeURIComponent(stateUrl);
+    var u;
+    if (isSnap) {
+      // Published bundle: no live backend → read-only wiring from a static snapshot.
+      var stateUrl = base + '/api/composite-state/' + encodeURIComponent(composite) + '.json';
+      u = base + '/bigraph-loom/index.html?static=1&stateUrl=' + encodeURIComponent(stateUrl);
+    } else {
+      // Live dashboard: full Setup & Run (loom self-hydrates via ?id= → /api/composite-state?ref=).
+      u = base + '/bigraph-loom/index.html?id=' + encodeURIComponent(composite);
+    }
     window.open(u, 'loom', 'width=1200,height=840');
   }
   window._openCompositeLoom = _openCompositeLoom;

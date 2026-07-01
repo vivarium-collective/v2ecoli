@@ -56,12 +56,20 @@ jobs:
         # the job alive if an optional extra fails to build.
         run: uv sync --extra dev || uv sync
 
-      - name: Ensure the publish CLI is present (latest dashboard main)
+      - name: Ensure the publish CLI + loom bundle are current (latest main)
         # uv.lock may pin a vivarium-dashboard commit that predates the publish
         # CLI (vivarium_dashboard.publish). Force the current main so
         # `vivarium-dashboard-publish` exists and carries the latest publish
         # robustness fixes.
-        run: uv pip install --reinstall-package vivarium-dashboard "vivarium-dashboard @ git+https://github.com/vivarium-collective/vivarium-dashboard.git@main"
+        #
+        # bigraph-loom needs the SAME treatment: the read-only snapshot bundles
+        # loom's built `_dist` from the installed package, but reinstalling
+        # vivarium-dashboard alone does NOT re-fetch loom (the uv.lock-pinned
+        # loom already satisfies the `@main` git spec), so the snapshot would
+        # ship a stale loom UI. Force loom@main too.
+        run: |
+          uv pip install --reinstall-package vivarium-dashboard "vivarium-dashboard @ git+https://github.com/vivarium-collective/vivarium-dashboard.git@main"
+          uv pip install --reinstall-package bigraph-loom "bigraph-loom @ git+https://github.com/vivarium-collective/bigraph-loom.git@main"
 
       - name: Build dashboard snapshot
         # Builds the static SPA bundle (all investigations + studies) and strips

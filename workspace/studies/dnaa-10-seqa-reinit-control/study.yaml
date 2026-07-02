@@ -86,28 +86,54 @@ readouts:
     units: fraction
     status: primary
 
+# ACCUMULATING REPORT CARD (controlled-progression ratchet, docs/conventions/
+# controlled-progression-ratchet.md): this study's NEW criterion is added as a test
+# entry, and every PRIOR criterion is carried forward as a MAINTAINED test so the
+# report card verifies previous behavior still holds. A study passes only if its new
+# criterion AND all maintained ones pass on the current config. `stage:` tags each.
 tests:
+  # --- NEW criterion (this study, C10) ---
   - name: over-replication-fixed
     classification: primary
-    description: oriC returns to controlled once-per-cycle (max 2-3, no runaway to 4/5) and total DnaA back in [300,800].
+    stage: new
+    description: "[NEW] Adding SeqA returns oriC to controlled once-per-cycle (max 2-3, no runaway to 4/5)."
     measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: steady_generations}
     pass_if: {op: max_le, value: 3}
     outcomes:
-      grid: {result: PASS, detail: "max oriC 2-3 (was 4-5 without SeqA); total DnaA 428-489 back in band on seeds 0/1/2."}
+      grid: {result: PASS, detail: "max oriC 2-3 (was 4-5 without SeqA) on seeds 0/1/2."}
+  # --- MAINTAINED criteria (previous behavior must still hold) ---
+  - name: dnaa-pool-in-band
+    classification: primary
+    stage: maintained   # C1 (dnaa-1)
+    description: "[MAINTAINED] Total DnaA pool stays in [300,800]."
+    measure: {kind: per_generation_mean, path: "total_DnaA", window: steady_generations}
+    pass_if: {op: in_range, low: 300, high: 800}
+    outcomes:
+      grid: {result: PASS, detail: "456 / 489 / 428 in band on seeds 0/1/2 (was 671-804 without SeqA)."}
   - name: dnaa-atp-fraction-in-band
     classification: primary
-    description: DnaA-ATP fraction stays in [0.2,0.5] (still set by hydrolysis, not RIDA).
+    stage: maintained   # C2 (dnaa-2 / dnaa-9), set by hydrolysis, not RIDA
+    description: "[MAINTAINED] DnaA-ATP fraction stays in [0.2,0.5] (still set by hydrolysis)."
     measure: {kind: per_generation_mean, path: "total_DnaA_ATP_fraction", window: steady_generations}
     pass_if: {op: in_range, low: 0.2, high: 0.5}
     outcomes:
       grid: {result: PASS, detail: "0.298 / 0.317 / 0.219 in band on seeds 0/1/2."}
-  - name: asynchrony-preserved
+  - name: fires-at-full-occupancy
     classification: primary
-    description: Origins still initiate independently (controlled async — oriC 2<->3 episodes present, not a synchronous 2->4 jump).
+    stage: maintained   # C7 (dnaa-9)
+    description: "[MAINTAINED] Initiation still fires at full oriC-low occupancy (1.0, threshold 8)."
+    measure: {kind: peak, path: "oriC_low_occupancy", window: full_lineage}
+    pass_if: {op: approx, value: 1.0, tolerance: 0.05}
+    outcomes:
+      grid: {result: PASS, detail: "peak occupancy 1.00 on all seeds."}
+  - name: asynchronous-initiation
+    classification: primary
+    stage: maintained   # C8 (dnaa-9)
+    description: "[MAINTAINED] Origins still initiate independently (controlled async — oriC 2<->3, not a synchronous 2->4 jump)."
     measure: {kind: value_present, path: "listeners.replication_data.number_of_oric", value: 3}
     pass_if: {op: present}
     outcomes:
-      grid: {result: PASS, detail: "seed 1 shows controlled oriC=3 async episodes; seed 0 mostly 1<->2; async preserved but bounded."}
+      grid: {result: PASS, detail: "seeds 0/1 show controlled oriC=3 async episodes; seed 2 stays 1<->2 (async is seed-variable, bounded)."}
 
 conclusion_logic:
   if_primary_tests_pass: >-

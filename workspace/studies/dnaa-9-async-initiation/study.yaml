@@ -100,40 +100,58 @@ readouts:
     units: count
     status: primary
 
+# ACCUMULATING REPORT CARD (controlled-progression ratchet): NEW criteria for this study
+# (full-occupancy firing, async) + MAINTAINED prior criteria carried forward. Here the
+# report card DELIBERATELY shows that adding async BREAKS two maintained criteria
+# (once-per-cycle, pool band) — the honest problem statement that dnaa-10 (SeqA) then fixes.
 tests:
-  - name: dnaa-atp-fraction-in-band
-    classification: primary
-    description: Steady-state total DnaA-ATP fraction inside [0.2,0.5], set by the hydrolysis rate (extrinsic mechanisms off).
-    measure: {kind: per_generation_mean, path: "total_DnaA_ATP_fraction", window: steady_generations}
-    pass_if: {op: in_range, low: 0.2, high: 0.5}
-    outcomes:
-      grid: {result: PASS, detail: "0.23 / 0.238 / 0.257 in band on seeds 0/1/2 via DNAA_HYDROLYSIS_RATE_PER_MIN=0.025."}
+  # --- NEW criteria (this study) ---
   - name: fires-at-full-occupancy
     classification: primary
-    description: Initiation fires at full oriC-low saturation (occupancy 1.0, threshold 8).
+    stage: new   # C7
+    description: "[NEW] Initiation fires at full oriC-low saturation (occupancy 1.0, threshold 8)."
     measure: {kind: peak, path: "oriC_low_occupancy", window: full_lineage}
     pass_if: {op: approx, value: 1.0, tolerance: 0.05}
     outcomes:
       grid: {result: PASS, detail: "peak occupancy 1.00 (threshold 8)."}
   - name: asynchronous-initiation
     classification: primary
-    description: Origins initiate independently (per-origin DnaA binding) — oriC=3 intermediate present, not a synchronous 2->4 jump.
+    stage: new   # C8
+    description: "[NEW] Origins initiate independently (per-origin DnaA binding) — oriC=3 intermediate present, not a synchronous 2->4 jump."
     measure: {kind: value_present, path: "listeners.replication_data.number_of_oric", value: 3}
     pass_if: {op: present}
     outcomes:
       grid: {result: PASS, detail: "oriC=3 (and higher) present on all seeds — origins decoupled."}
+  # --- MAINTAINED criteria (recalibrated / checked against previous behavior) ---
+  - name: dnaa-atp-fraction-in-band
+    classification: primary
+    stage: maintained   # C2 — recalibrated here via the hydrolysis rate (extrinsic mechanisms off)
+    description: "[MAINTAINED] DnaA-ATP fraction inside [0.2,0.5] (recalibrated via DNAA_HYDROLYSIS_RATE_PER_MIN=0.025)."
+    measure: {kind: per_generation_mean, path: "total_DnaA_ATP_fraction", window: steady_generations}
+    pass_if: {op: in_range, low: 0.2, high: 0.5}
+    outcomes:
+      grid: {result: PASS, detail: "0.23 / 0.238 / 0.257 in band on seeds 0/1/2."}
+  - name: dnaa-pool-in-band
+    classification: primary
+    stage: maintained   # C1 — BROKEN by async over-replication (restored in dnaa-10)
+    description: "[MAINTAINED] Total DnaA pool stays in [300,800]."
+    measure: {kind: per_generation_mean, path: "total_DnaA", window: steady_generations}
+    pass_if: {op: in_range, low: 300, high: 800}
+    outcomes:
+      grid: {result: FAIL, detail: "BROKEN — pool climbs to 671-804 (extra origins → extra gene dosage). Restored in dnaa-10 (SeqA)."}
   - name: no-over-replication
     classification: primary
-    description: oriC stays within the once-per-cycle range (<=2 in steady growth) and total DnaA holds [300,800].
+    stage: maintained   # C6 (once-per-cycle) — BROKEN by async (the problem this study reveals)
+    description: "[MAINTAINED] oriC stays once-per-cycle (<=2 in steady growth)."
     measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: steady_generations}
     pass_if: {op: max_le, value: 2}
     outcomes:
       grid:
         result: FAIL
         detail: >-
-          OVER-REPLICATES — oriC runs to 3/4/5 and total DnaA climbs above [300,800] (671-804) on all
-          seeds. This is the expected consequence of asynchronous per-origin initiation with NO
-          re-initiation control; the fix (SeqA) is dnaa-10. Intended, informative negative result.
+          BROKEN — oriC runs to 3/4/5 on all seeds. The expected consequence of asynchronous per-origin
+          initiation with NO re-initiation control; the intended, informative negative result that
+          motivates dnaa-10 (SeqA), which restores this maintained criterion.
 
 conclusion_logic:
   if_primary_tests_pass: >-

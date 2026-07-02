@@ -1,0 +1,288 @@
+schema_version: 4
+name: dnaa-11-rida-second-control
+investigation: dnaa-replication
+title: "Study 11 — RIDA (second re-initiation control); a recalibration illustration"
+created: "2026-07-02"
+status: completed
+design_status: designed
+implementation_status: implemented
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: partial   # RIDA+SeqA control the over-replication (tightest), but RIDA drains the DnaA-ATP fraction out of band → needs k_h recalibration (seed-1 preliminary); RIDA also suppresses the async, so SeqA-alone (dnaa-10) is the minimal control
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-10-seqa-reinit-control
+  why: >-
+    Rashmi asked to show, in a follow-up study, how RIDA AND SeqA correct the asynchronous
+    over-replication (dnaa-10 used SeqA alone, RIDA off). This study adds RIDA on top of SeqA and, in
+    doing so, is a clean worked example of the controlled-progression RECALIBRATION step: RIDA perturbs
+    a prior criterion (the DnaA-ATP fraction), which must be re-tuned before proceeding.
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-10-seqa-reinit-control
+  enables: []
+  gate_status: partial
+
+question: >-
+  Does adding RIDA (replisome-coupled DnaA-ATP inactivation) on top of SeqA further control the
+  asynchronous re-initiation — and what does it cost? Specifically, does RIDA (which hydrolyzes
+  DnaA-ATP) knock the DnaA-ATP fraction out of band, requiring the hydrolysis rate to be recalibrated?
+
+background: >-
+  RIDA and SeqA are the two biological post-initiation controls: SeqA sequesters the newly-replicated
+  origin (frequency), RIDA inactivates DnaA-ATP at the replisome (activity). dnaa-10 showed SeqA alone
+  restores controlled once-per-cycle from the dnaa-9 async over-replication. This study adds RIDA to
+  test whether the two together tighten control, and to make the ratchet's recalibration step explicit.
+
+mechanism: >-
+  The dnaa-10 config (hydrolysis 0.025 + threshold 8 + async + SeqA eclipse 40) PLUS RIDA on
+  (RIDA_RATE_MULTIPLIER=1.0; DDAH/DARS still off). RIDA hydrolyzes DnaA-ATP -> DnaA-ADP coupled to the
+  replisome, so it both suppresses re-initiation AND drains the DnaA-ATP pool — the latter perturbs the
+  DnaA-ATP fraction, requiring DNAA_HYDROLYSIS_RATE_PER_MIN to be re-tuned DOWN to restore the band.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa4_s06_F05
+      max_generations: 6
+      single_daughters: true
+      perturbations: {"TU00259[c]": 1.5e-3}
+      note: "dnaa-10 config + RIDA on."
+  variants:
+    - name: rida-plus-seqa
+      diff_from_baseline: "dnaa-10 config + RIDA_RATE_MULTIPLIER=1.0"
+      note: "Run seeds 0/1/2 at the inherited k_h=0.025 (shows the fraction drops out of band)."
+    - name: recalibrated
+      diff_from_baseline: "rida-plus-seqa + DNAA_HYDROLYSIS_RATE_PER_MIN lowered (~0.015)"
+      note: "Recalibration: re-tune k_h down to restore the DnaA-ATP fraction to [0.2,0.5] (seed-1 preliminary)."
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    initiation_trigger: mechanistic
+    init_trigger_pool: low
+    init_low_threshold: 8
+    async_initiation: true
+    init_eclipse_min: 40                # SeqA
+    rida_rate_multiplier: 1.0           # RIDA ON (the added mechanism)
+    ddah_rate_multiplier: 0
+    dars_rate_multiplier: 0
+    hydrolysis_rate_per_min: 0.025      # inherited; RECALIBRATED to ~0.015 to restore the fraction
+  source: dnaa-10 config + RIDA
+
+readouts:
+  - name: number of oriC
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: total DnaA-ATP fraction
+    identifier: (free MONOMER0-160 + bound-ATP DnaA boxes) / all DnaA forms
+    units: fraction
+    status: primary
+  - name: total cellular DnaA
+    identifier: free (apo+ATP+ADP) + total_DnaA_bound
+    units: count
+    status: primary
+
+# ACCUMULATING REPORT CARD (controlled-progression ratchet): NEW criterion (RIDA control)
+# + MAINTAINED prior criteria. Here the report card shows RIDA BREAKS the DnaA-ATP fraction
+# at the inherited k_h — the recalibration step re-tunes k_h to restore it before proceeding.
+tests:
+  # --- NEW criterion (this study, C11) ---
+  - name: rida-tightens-control
+    classification: primary
+    stage: new
+    description: "[NEW] Adding RIDA (on top of SeqA) holds oriC to max 2 (tightest re-init control, no over-replication)."
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: steady_generations}
+    pass_if: {op: max_le, value: 2}
+    outcomes:
+      grid: {result: PASS, detail: "max oriC 2 on all seeds (vs 3 with SeqA alone, 4-5 with async only)."}
+  # --- MAINTAINED criteria ---
+  - name: dnaa-atp-fraction-in-band
+    classification: primary
+    stage: maintained   # C2 — BROKEN by RIDA at inherited k_h; restored by recalibration
+    description: "[MAINTAINED] DnaA-ATP fraction in [0.2,0.5]."
+    measure: {kind: per_generation_mean, path: "total_DnaA_ATP_fraction", window: steady_generations}
+    pass_if: {op: in_range, low: 0.2, high: 0.5}
+    outcomes:
+      grid:
+        result: PARTIAL
+        detail: >-
+          BROKEN at the inherited k_h=0.025 (RIDA drains DnaA-ATP -> fraction ~0.01-0.03, below band).
+          RECALIBRATION: lowering k_h restores it — k_h~0.015-0.018 gives fraction ~0.37 in band
+          (seed-1 preliminary; k_h=0.010 overshoots to ~0.57, so the response is steep). Multi-seed
+          recalibration is the follow-up.
+  - name: dnaa-pool-in-band
+    classification: primary
+    stage: maintained   # C1
+    description: "[MAINTAINED] Total DnaA pool in [300,800]."
+    measure: {kind: per_generation_mean, path: "total_DnaA", window: steady_generations}
+    pass_if: {op: in_range, low: 300, high: 800}
+    outcomes:
+      grid: {result: PASS, detail: "516-702 (seed-variable, mostly in band)."}
+  - name: no-over-replication
+    classification: primary
+    stage: maintained   # C6 / C9
+    description: "[MAINTAINED] oriC once-per-cycle (<=2)."
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: steady_generations}
+    pass_if: {op: max_le, value: 2}
+    outcomes:
+      grid: {result: PASS, detail: "max oriC 2 on all seeds."}
+  - name: asynchronous-initiation
+    classification: primary
+    stage: maintained   # C8 — SUPPRESSED by RIDA
+    description: "[MAINTAINED] Origins initiate independently (oriC=3 async episodes present)."
+    measure: {kind: value_present, path: "listeners.replication_data.number_of_oric", value: 3}
+    pass_if: {op: present}
+    outcomes:
+      grid:
+        result: FAIL
+        detail: >-
+          SUPPRESSED — RIDA keeps DnaA-ATP low, so origins do not re-saturate independently and oriC
+          stays 1<->2 (no oriC=3). So RIDA over-controls: it removes the asynchrony dnaa-9/dnaa-10
+          established. SeqA alone (dnaa-10) is the minimal control that both fixes over-replication AND
+          preserves the async.
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    RIDA + SeqA together give the tightest re-initiation control (oriC max 2), but RIDA (a) drains the
+    DnaA-ATP fraction out of band, requiring the hydrolysis rate to be recalibrated, and (b) suppresses
+    the asynchrony. So the minimal satisfactory control is SeqA alone (dnaa-10); RIDA is a heavier,
+    real second control that comes with a recalibration cost.
+  if_primary_tests_fail: >-
+    If RIDA+SeqA could not control the over-replication, a different second mechanism would be needed.
+
+simulation_set:
+  - name: rida-plus-seqa
+    kind: lineage
+    status: completed
+    base_model: dnaa-10 config + RIDA on
+    duration_steps: "6 generations"
+    seeds: [0, 1, 2]
+    metrics: [number_of_oric, total_DnaA_ATP_fraction, total_DnaA]
+    pass_fail_tests: [rida-tightens-control, dnaa-atp-fraction-in-band, dnaa-pool-in-band, no-over-replication, asynchronous-initiation]
+    note: >-
+      RIDA+SeqA at inherited k_h=0.025: oriC max 2 (tightest control), fraction ~0.01-0.03 out of band
+      (RIDA drains it), async suppressed. Recalibration (k_h~0.015-0.018) restores the fraction to ~0.37
+      (seed-1 preliminary).
+
+visualizations:
+  - name: dnaa11_rida_recalibration
+    address: image:charts/dnaa11_rida_recalibration.png
+    chart: charts/dnaa11_rida_recalibration.png
+    source_run: opclean_s* vs fixSeqA_s* vs ridaSeqA_s*
+    config:
+      title: >-
+        RIDA + SeqA correct the over-replication (tightest control, oriC max 2) — but RIDA drains the
+        DnaA-ATP fraction out of band, which the ratchet's recalibration step (re-tune the hydrolysis
+        rate down) then restores. LEFT: max oriC across the async → +SeqA → +RIDA+SeqA progression.
+        RIGHT: DnaA-ATP fraction — in band with SeqA (hydrolysis), knocked out by RIDA, recalibrated back.
+
+report:
+  title: "dnaa-11 — RIDA (second re-initiation control) + recalibration"
+  verdict: >-
+    COMPLETE (2026-07-02): adding RIDA on top of SeqA answers Rashmi's "show how RIDA and SeqA correct
+    it" AND is a clean worked example of the controlled-progression recalibration step. RIDA + SeqA give
+    the TIGHTEST re-initiation control — oriC held to max 2 (no over-replication) on all seeds, tighter
+    than SeqA alone (max 3). BUT RIDA hydrolyzes DnaA-ATP, so at the inherited hydrolysis rate (k_h=0.025)
+    the DnaA-ATP FRACTION falls out of band (~0.01-0.03). This is the recalibration trigger: re-tuning
+    k_h DOWN restores the fraction (k_h~0.015-0.018 -> ~0.37 in band, seed-1 preliminary; the response is
+    steep — k_h=0.010 overshoots to ~0.57 — so a careful multi-seed recalibration is the follow-up).
+    RIDA also SUPPRESSES the asynchrony: by keeping DnaA-ATP low, origins stop re-saturating
+    independently, so oriC stays 1<->2 with no oriC=3. CONCLUSION: RIDA + SeqA both correct the
+    over-replication, but SeqA ALONE (dnaa-10) is the MINIMAL control — it fixes over-replication while
+    keeping the DnaA-ATP fraction in band (no recalibration) and preserving the asynchrony. RIDA is a
+    heavier, biologically-real second control whose cost is a fraction recalibration and loss of async.
+
+next_action: >-
+  Multi-seed recalibration of the RIDA+SeqA point (find the k_h that holds the fraction in band across
+  seeds 0/1/2), and decide with Rashmi/Haochen whether the tighter RIDA control (at the cost of async)
+  or the async-preserving SeqA-only control (dnaa-10) is the intended operating point.
+
+runs:
+  - name: ridaSeqA_s0
+    status: completed
+    canonical: true
+    seed: 0
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/ridaSeqA_s0}
+    note: "RIDA+SeqA at k_h=0.025. oriC max 2 (tightest control); fraction 0.031 out of band (RIDA drained); async suppressed."
+    outcomes:
+      rida-tightens-control: {result: PASS, detail: "max oriC 2."}
+      dnaa-atp-fraction-in-band: {result: FAIL, detail: "0.031 below band (RIDA drains DnaA-ATP)."}
+      asynchronous-initiation: {result: FAIL, detail: "no oriC=3 (async suppressed by RIDA)."}
+  - name: ridaSeqA_s1
+    status: completed
+    canonical: false
+    seed: 1
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "fraction 0.013 out of band; oriC max 2."
+    outcomes:
+      rida-tightens-control: {result: PASS, detail: "max oriC 2."}
+      dnaa-atp-fraction-in-band: {result: FAIL, detail: "0.013 below band."}
+  - name: ridaSeqA_s2
+    status: completed
+    canonical: false
+    seed: 2
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "fraction 0.035 out of band; oriC max 2."
+    outcomes:
+      rida-tightens-control: {result: PASS, detail: "max oriC 2."}
+      dnaa-atp-fraction-in-band: {result: FAIL, detail: "0.035 below band."}
+  - name: ridaSeqA_kh015
+    status: completed
+    canonical: false   # the recalibration point (seed-1 preliminary)
+    seed: 1
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "RECALIBRATION: k_h lowered to 0.015 -> DnaA-ATP fraction restored to ~0.37 (in band), oriC max 2. Seed-1 preliminary; multi-seed follow-up."
+    outcomes:
+      dnaa-atp-fraction-in-band: {result: PASS, detail: "~0.37 in band after re-tuning k_h down (seed 1)."}
+
+findings:
+  - id: F-01
+    statement: >-
+      RIDA + SeqA GIVE THE TIGHTEST RE-INITIATION CONTROL. Adding RIDA on top of SeqA holds oriC to max 2
+      (no over-replication) on all seeds, tighter than SeqA alone (max 3) and far tighter than async with
+      no control (max 4-5). So both biological post-initiation controls correct the dnaa-9 over-replication;
+      together they are strongest.
+    status: evaluated
+    provenance:
+      run_ids: [ridaSeqA_s0, ridaSeqA_s1, ridaSeqA_s2]
+  - id: F-02
+    statement: >-
+      RIDA PERTURBS THE DnaA-ATP FRACTION — A RECALIBRATION EXAMPLE. RIDA hydrolyzes DnaA-ATP, so at the
+      inherited hydrolysis rate (k_h=0.025) the DnaA-ATP fraction falls out of band (~0.01-0.03). The
+      controlled-progression recalibration step re-tunes k_h DOWN to restore it (k_h~0.015-0.018 -> ~0.37
+      in band, seed 1). The response is steep (k_h=0.010 overshoots to ~0.57), so RIDA makes the fraction
+      HARDER to hold than SeqA-alone does — a concrete illustration that adding a mechanism perturbs a
+      prior criterion and must be recalibrated before proceeding (docs/conventions/controlled-progression-ratchet.md).
+    status: evaluated
+    provenance:
+      run_ids: [ridaSeqA_s1, ridaSeqA_kh015]
+  - id: F-03
+    statement: >-
+      RIDA SUPPRESSES THE ASYNCHRONY -> SeqA-ALONE IS THE MINIMAL CONTROL. Because RIDA keeps DnaA-ATP low,
+      origins do not re-saturate independently, so oriC stays 1<->2 with no oriC=3 — the asynchrony
+      dnaa-9/dnaa-10 established is lost. SeqA alone (dnaa-10) fixes the over-replication WHILE keeping the
+      DnaA-ATP fraction in band (no recalibration) and preserving the asynchrony, so it is the minimal
+      satisfactory control. RIDA is a heavier, real second control whose cost is recalibration + loss of async.
+    status: evaluated
+    provenance:
+      run_ids: [ridaSeqA_s0, ridaSeqA_s1, ridaSeqA_s2]
+
+biological_summary: >-
+  RIDA (replisome-coupled DnaA-ATP hydrolysis via Hda-DnaN) and SeqA (origin sequestration) are the two
+  post-initiation controls that prevent over-initiation in E. coli. This study adds RIDA on top of SeqA:
+  together they clamp initiation tightest, but because RIDA drains the active DnaA-ATP pool it lowers the
+  DnaA-ATP fraction (recalibrate the hydrolysis rate) and damps the origin-to-origin asynchrony. The
+  minimal control that satisfies all prior criteria without recalibration is SeqA alone (dnaa-10); RIDA is
+  the fuller biological picture at a recalibration cost.

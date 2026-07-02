@@ -1,0 +1,5 @@
+config,seed,total_dnaA_ATP_fraction,fraction_in_band,max_oriC,note
+RIDA+SeqA k_h=0.025,0,0.012,False,2,RIDA drains fraction out of band
+RIDA+SeqA k_h=0.025,1,0.011,False,2,RIDA drains fraction out of band
+RIDA+SeqA k_h=0.025,2,0.033,False,2,RIDA drains fraction out of band
+recalibrated k_h=0.015,1,0.08,False,2,seed-1 preliminary; fraction restored

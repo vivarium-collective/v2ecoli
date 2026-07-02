@@ -80,11 +80,22 @@ executive:
     state, DnaA-ATP fraction band). Further mechanistic studies (RIDA/DDAH/DARS, seqA
     sequestration, cooperativity, validation) are scaffolded as a roadmap but not yet worked.
   verdict: |-
-    The succinate DnaA cell cycle is reconstructed mechanistically across seven studies (0-6):
-    a periodic baseline, in-band DnaA expression, ATP/ADP nucleotide balance, active DnaA-box
-    binding, DnaA self-autoregulation, a cooperative oriC switch, and a mechanistic DnaA-ATP/oriC
-    initiation trigger that replaces the inherited cell-mass-per-origin heuristic. Each step meets
-    its gate (or is honestly partial), and each step's tension pinpoints the next mechanism.
+    METHODOLOGY — a controlled progression (see docs/conventions/controlled-progression-ratchet.md).
+    The succinate DnaA replication-initiation model is built one mechanism at a time as a forward
+    RATCHET: each study inherits the current satisfactory operating point (one canonical reference
+    config), adds exactly one mechanism, RECALIBRATES only the parameters that mechanism perturbs to
+    restore all prior acceptance criteria, and passes the new config forward. Acceptance criteria
+    ACCUMULATE — each study's report card carries its new criterion (stage: new) plus every prior one
+    (stage: maintained), so "previous behavior maintained" is verified, not assumed. Read as a graph
+    traversal, the arc below is the whole story: inherit → add mechanism → what it breaks →
+    recalibrate → pass a satisfactory config forward.
+
+    The DnaA cell cycle is reconstructed mechanistically across the arc (studies 0-11): a periodic
+    baseline, in-band DnaA expression, ATP/ADP nucleotide balance, active DnaA-box binding, DnaA
+    self-autoregulation, a cooperative oriC switch, a mechanistic DnaA-ATP/oriC initiation trigger
+    (replacing the cell-mass heuristic), an in-sim cooperativity sweep, full-occupancy + asynchronous
+    per-origin initiation, and the SeqA (and RIDA) re-initiation controls. Each step meets its
+    accumulating gate (or is honestly partial), and each step's tension pinpoints the next mechanism.
 
     Headline update (dnaa-6, 2026-06-27): the mechanistic trigger built on the cooperative oriC-low
     switch now gives CLEAN ONCE-PER-CELL-CYCLE initiation — exactly one fill->fire->reset per
@@ -159,6 +170,14 @@ executive:
           async over-replication — oriC back to controlled 1<->2/async-2<->3, total DnaA back in
           [300,800], DnaA-ATP fraction still in band via hydrolysis, seed-robust; RIDA not required.
           Resolves Rashmi's four-item tuning list.
+      (11) RIDA (second re-initiation control): adding RIDA on top of SeqA tightens control further
+          (oriC max 2, no over-replication) — but RIDA DRAINS DnaA-ATP, so the fraction falls out of
+          band (~0.03 at the inherited k_h). RECALIBRATION: re-tune the hydrolysis k_h down to restore
+          the fraction to [0.2,0.5] (k_h 0.010 overshoots to ~0.57; the recalibrated point is ~0.015).
+          A live illustration of the ratchet's recalibration step: the added mechanism perturbs a prior
+          criterion, and the study re-tunes to restore it before proceeding. (RIDA also suppresses the
+          async — it keeps DnaA-ATP low enough that origins don't re-saturate independently — so SeqA
+          alone (dnaa-10) remains the minimal control that preserves the asynchrony.)
 
     Next (calibration, for Rashmi/Haochen): confirm the hydrolysis rate (0.025) and the SeqA eclipse
     window (~40 min) are the biologically-right strengths, and decide whether RIDA should later be
@@ -631,6 +650,7 @@ studies:
 - dnaa-8-parameter-sweep     # added 2026-06-30 (Rashmi) — the IN-SIM cooperativity sweep behind the dnaa-5 analytic n/K choice: 20 conditions (n∈{1,2,4,6,8} × K∈{15,20,30,40}) run as actual multi-generation simulations, scored on cyclic once-per-cycle replication + a steady DnaA band, with the four lineage trajectories per condition. Replaces the static dnaa-5 switch/K curves with real simulation results.
 - dnaa-9-async-initiation    # added 2026-07-02 (Rashmi) — DnaA-ATP fraction into [0.2,0.5] by the HYDROLYSIS rate (DNAA_HYDROLYSIS_RATE_PER_MIN 0.046→0.025, extrinsic RIDA/DDAH/DARS OFF) + threshold 8 (full 8/8 occupancy) + NEW per-origin async initiation (each oriC binds DnaA independently). Shows async ALONE OVER-REPLICATES (oriC 3/4/5, DnaA above band) — the intended problem statement. NOTE: supersedes the retired dnaa-9-operating-point, which wrongly used RIDA for the fraction.
 - dnaa-10-seqa-reinit-control # added 2026-07-02 (Rashmi) — adds SeqA (per-origin post-initiation eclipse) to fix the dnaa-9 async over-replication: oriC back to controlled 1↔2/async-2↔3, total DnaA back in [300,800], DnaA-ATP fraction still in band via hydrolysis, all seeds — RIDA still OFF. Resolves the four-item tuning list.
+- dnaa-11-rida-second-control # added 2026-07-02 (Rashmi) — adds RIDA on top of SeqA: tightest re-init control (oriC max 2), but RIDA DRAINS DnaA-ATP → fraction out of band → RECALIBRATE k_h down (~0.015 restores it, seed-1 prelim). RIDA also suppresses the async, so SeqA-alone (dnaa-10) is the MINIMAL control. A live example of the controlled-progression recalibration step (docs/conventions/controlled-progression-ratchet.md).
 # Set aside (not in the report): dnaa-7-seqa-sequestration — a prior SeqA study, now SUPERSEDED by
 # dnaa-10-seqa-reinit-control. Its SeqA premise, weakened under the synchronous trigger (F-04), is
 # revived and realized in dnaa-10: SeqA is the re-initiation-frequency control that the ASYNCHRONOUS

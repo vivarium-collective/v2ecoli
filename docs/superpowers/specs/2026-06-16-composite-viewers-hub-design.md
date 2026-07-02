@@ -81,7 +81,7 @@ All viewer links for a composite resolve to the **same** `data/<slug>.state.json
 Reads `viewers.json` and, for each curated composite:
 
 1. **Resolve state + SVG** by reusing the dashboard's
-   `vivarium_dashboard.server._composite_resolve_data(<id>)`, which returns the
+   `vivarium_workbench.server._composite_resolve_data(<id>)`, which returns the
    loom state JSON (with `describe()` docs) **and** a bigraph-viz SVG in one
    call. Write `data/<slug>.state.json` and `img/<slug>.svg`.
    - Runs **locally**, where the on-disk ParCa cache exists, so heavy composites

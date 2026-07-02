@@ -2,7 +2,7 @@
 default-state artifact at ``reports/composite-state/<id>.json``.
 
 The Composite Explorer renders a generator's wiring from that committed artifact
-(the dashboard resolver falls back to it — see vivarium-dashboard
+(the dashboard resolver falls back to it — see vivarium-workbench
 ``composite_resolve._committed_default_state``). A generator with no committed
 artifact shows "default state for generator '<x>' is not generated yet" and a
 blank Explorer. This test fails loudly the moment a new generator lands without

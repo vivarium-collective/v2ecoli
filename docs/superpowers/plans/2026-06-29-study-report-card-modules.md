@@ -1042,7 +1042,7 @@ reader iterates the exact dirs the generator wrote to. Confirm:
 ```bash
 $V2EPY -c "
 from pathlib import Path
-from vivarium_dashboard.lib.saved_visualizations import build_saved_visualizations
+from vivarium_workbench.lib.saved_visualizations import build_saved_visualizations
 payload = build_saved_visualizations(Path('$PWD'))
 rc = payload['report_cards']
 print('report_cards found:', len(rc))

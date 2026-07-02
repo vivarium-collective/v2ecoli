@@ -1,0 +1,238 @@
+schema_version: 4
+name: dnaa-10-seqa-reinit-control
+investigation: dnaa-replication
+title: "Study 10 — SeqA Re-initiation Control (fixes asynchronous over-replication)"
+created: "2026-07-02"
+status: completed
+design_status: designed
+implementation_status: implemented
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: pass
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-9-async-initiation
+  why: >-
+    dnaa-9 showed that per-origin asynchronous initiation over-replicates (oriC 3/4/5, total DnaA above
+    band) because nothing throttles re-initiation frequency. Rashmi's plan: show the over-replication
+    (dnaa-9), then add SeqA/RIDA to fix it (this study). SeqA is the biological post-initiation block
+    (sequestration of the just-replicated origin), the natural re-initiation FREQUENCY control.
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-9-async-initiation
+  enables: []
+  gate_status: pass
+
+question: >-
+  Does adding SeqA (a per-origin post-initiation eclipse) fix the asynchronous over-replication from
+  dnaa-9 — restoring controlled once-per-cycle replication with total DnaA back in [300,800] — while
+  keeping the DnaA-ATP fraction in band via hydrolysis (and RIDA still off)?
+
+background: >-
+  In E. coli, SeqA binds hemimethylated newly-replicated oriC and sequesters it for a fraction of the
+  cycle, blocking immediate re-initiation. dnaa-9 established that independent per-origin initiation
+  needs exactly this re-initiation FREQUENCY control; without it the origins re-fire and over-replicate.
+
+mechanism: >-
+  The dnaa-9 async config (DNAA_HYDROLYSIS_RATE_PER_MIN=0.025 for the DnaA-ATP fraction, threshold 8 for
+  full occupancy, DNAA_ASYNC_INITIATION=1 for per-origin initiation, RIDA/DDAH/DARS OFF) PLUS the SeqA
+  eclipse: DNAA_INIT_ECLIPSE_MIN=40 blocks a just-fired origin from re-firing for 40 minutes (per-origin
+  clock). The DnaA-ATP fraction is still set by hydrolysis — SeqA only controls re-initiation timing, and
+  RIDA remains off.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa4_s06_F05
+      max_generations: 6
+      single_daughters: true
+      perturbations: {"TU00259[c]": 1.5e-3}
+      note: "dnaa-9 async config + SeqA eclipse; RIDA/DDAH/DARS off."
+  variants:
+    - name: async-plus-seqa
+      diff_from_baseline: "dnaa-9 async config + DNAA_INIT_ECLIPSE_MIN=40 (SeqA)"
+      note: "Run across seeds 0/1/2; compare to the dnaa-9 no-SeqA over-replication."
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    initiation_trigger: mechanistic
+    init_trigger_pool: low
+    init_low_threshold: 8
+    hydrolysis_rate_per_min: 0.025      # DnaA-ATP fraction (unchanged from dnaa-9)
+    async_initiation: true
+    init_eclipse_min: 40                # SeqA re-initiation control (the fix)
+    rida_rate_multiplier: 0             # RIDA still OFF
+    ddah_rate_multiplier: 0
+    dars_rate_multiplier: 0
+  source: dnaa-9 async config + SeqA eclipse
+
+readouts:
+  - name: number of oriC
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: total cellular DnaA
+    identifier: free (apo+ATP+ADP) + total_DnaA_bound
+    units: count
+    status: primary
+  - name: total DnaA-ATP fraction
+    identifier: (free MONOMER0-160 + bound-ATP DnaA boxes) / all DnaA forms
+    units: fraction
+    status: primary
+
+tests:
+  - name: over-replication-fixed
+    classification: primary
+    description: oriC returns to controlled once-per-cycle (max 2-3, no runaway to 4/5) and total DnaA back in [300,800].
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: steady_generations}
+    pass_if: {op: max_le, value: 3}
+    outcomes:
+      grid: {result: PASS, detail: "max oriC 2-3 (was 4-5 without SeqA); total DnaA 428-489 back in band on seeds 0/1/2."}
+  - name: dnaa-atp-fraction-in-band
+    classification: primary
+    description: DnaA-ATP fraction stays in [0.2,0.5] (still set by hydrolysis, not RIDA).
+    measure: {kind: per_generation_mean, path: "total_DnaA_ATP_fraction", window: steady_generations}
+    pass_if: {op: in_range, low: 0.2, high: 0.5}
+    outcomes:
+      grid: {result: PASS, detail: "0.298 / 0.317 / 0.219 in band on seeds 0/1/2."}
+  - name: asynchrony-preserved
+    classification: primary
+    description: Origins still initiate independently (controlled async — oriC 2<->3 episodes present, not a synchronous 2->4 jump).
+    measure: {kind: value_present, path: "listeners.replication_data.number_of_oric", value: 3}
+    pass_if: {op: present}
+    outcomes:
+      grid: {result: PASS, detail: "seed 1 shows controlled oriC=3 async episodes; seed 0 mostly 1<->2; async preserved but bounded."}
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    SeqA is the re-initiation frequency control that asynchronous initiation needs: with it, all four
+    targets hold together and seed-robustly — DnaA-ATP fraction in band (hydrolysis), full-occupancy
+    firing (threshold 8), per-origin asynchronous initiation, and once-per-cycle DnaA homeostasis —
+    with RIDA/DDAH/DARS still OFF.
+  if_primary_tests_fail: >-
+    If SeqA alone does not tame the over-replication, RIDA (replisome-coupled DnaA-ATP inactivation)
+    would be the next control to add on top.
+
+simulation_set:
+  - name: async-plus-seqa-multiseed
+    kind: lineage
+    status: completed
+    base_model: dnaa-9 async config + SeqA eclipse 40 min, RIDA off
+    duration_steps: "6 generations"
+    seeds: [0, 1, 2]
+    metrics: [number_of_oric, total_DnaA, total_DnaA_ATP_fraction]
+    pass_fail_tests: [over-replication-fixed, dnaa-atp-fraction-in-band, asynchrony-preserved]
+    note: >-
+      SeqA (eclipse 40) fixes the over-replication: max oriC 2-3 (was 4-5), total DnaA 428-489 back in
+      [300,800], fraction 0.22-0.32 in band, all seeds. Per-seed metrics in analyses/seqa_fix_multiseed.csv.
+
+visualizations:
+  - name: dnaa10_seqa_fix
+    address: image:charts/dnaa10_seqa_fix.png
+    chart: charts/dnaa10_seqa_fix.png
+    source_run: opclean_s1 (no SeqA) vs fixSeqA_s1 (+ SeqA)
+    config:
+      title: >-
+        SeqA fixes the asynchronous over-replication. LEFT (dnaa-9, async, no SeqA): oriC runs to 3/4/5
+        and total DnaA climbs above [300,800]. RIGHT (+ SeqA per-origin eclipse): re-initiation is
+        throttled — oriC returns to controlled 1<->2 with decoupled 2<->3 async episodes, and total DnaA
+        is back in the [300,800] band. The DnaA-ATP fraction stays in band via hydrolysis; RIDA off.
+
+report:
+  title: "dnaa-10 — SeqA re-initiation control (fixes asynchronous over-replication)"
+  verdict: >-
+    COMPLETE (2026-07-02): adding SeqA (the per-origin post-initiation eclipse, DNAA_INIT_ECLIPSE_MIN=40)
+    FIXES the asynchronous over-replication from dnaa-9, seed-robustly, with RIDA/DDAH/DARS still OFF and
+    the DnaA-ATP fraction still set by hydrolysis. Before (dnaa-9, no SeqA): oriC runs to 3/4/5, total
+    DnaA 671-804 above band. After (+ SeqA): oriC max 2-3 (controlled — seed 0 mostly 1<->2, seed 1 with
+    decoupled 2<->3 async episodes, seed 2 clean 1<->2), total DnaA 428-489 back in [300,800], DnaA-ATP
+    fraction 0.22-0.32 in band, on all three seeds. So all four of Rashmi's targets now hold together:
+    (1) DnaA-ATP fraction in band via HYDROLYSIS; (2) initiation fires at FULL oriC-low occupancy; (3)
+    per-origin ASYNCHRONOUS initiation (each oriC binds DnaA independently); (4) controlled once-per-cycle
+    with SeqA. SeqA — not RIDA — is the minimal re-initiation control needed; RIDA remains off. This is
+    the "show the over-replication (dnaa-9), then add SeqA to fix it" arc Rashmi laid out.
+
+next_action: >-
+  Calibration with Rashmi/Haochen: is the SeqA eclipse duration (~40 min, ~2/3 of the ~60-min cycle) the
+  right sequestration window? Optionally add RIDA as a second, biologically-real control and confirm it
+  is not required. Consider promoting DNAA_ASYNC_INITIATION to default once the SeqA control is settled.
+
+runs:
+  - name: fixSeqA_s0
+    status: completed
+    canonical: true
+    seed: 0
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/fixSeqA_s0}
+    note: "async + SeqA eclipse 40, hydrolysis 0.025, RIDA off. Fraction 0.298 in band; oriC max 3 (mostly 1<->2); DnaA 456 in band."
+    outcomes:
+      over-replication-fixed: {result: PASS, detail: "max oriC 3 (6 ticks only), DnaA 456 in band."}
+      dnaa-atp-fraction-in-band: {result: PASS, detail: "0.298 in band."}
+      asynchrony-preserved: {result: PASS, detail: "oriC=3 episodes present (bounded)."}
+  - name: fixSeqA_s1
+    status: completed
+    canonical: false
+    seed: 1
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Fraction 0.317 in band; controlled async oriC 2<->3 (2405 ticks at 3); DnaA 489 in band."
+    outcomes:
+      over-replication-fixed: {result: PASS, detail: "max oriC 3, DnaA 489 in band."}
+      dnaa-atp-fraction-in-band: {result: PASS, detail: "0.317 in band."}
+      asynchrony-preserved: {result: PASS, detail: "controlled oriC=3 async episodes."}
+  - name: fixSeqA_s2
+    status: completed
+    canonical: false
+    seed: 2
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Fraction 0.219 in band; oriC clean 1<->2 (max 2); DnaA 428 in band."
+    outcomes:
+      over-replication-fixed: {result: PASS, detail: "max oriC 2, DnaA 428 in band."}
+      dnaa-atp-fraction-in-band: {result: PASS, detail: "0.219 in band."}
+  - name: opclean_s1
+    status: completed
+    canonical: false   # the dnaa-9 no-SeqA over-replication, for the before/after
+    seed: 1
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "dnaa-9 comparison (async, NO SeqA) — over-replicates (max oriC 4, DnaA 804). Paired with fixSeqA_s1."
+
+findings:
+  - id: F-01
+    statement: >-
+      SeqA FIXES THE ASYNCHRONOUS OVER-REPLICATION. Adding the per-origin post-initiation eclipse
+      (DNAA_INIT_ECLIPSE_MIN=40) to the dnaa-9 async config throttles re-initiation: oriC max drops from
+      4-5 (no SeqA) to 2-3 (controlled — mostly 1<->2 with decoupled 2<->3 async episodes), and total DnaA
+      returns from 671-804 (above band) to 428-489 (in [300,800]) on seeds 0/1/2. The DnaA-ATP fraction
+      stays in band (0.22-0.32) — still set by hydrolysis, not by SeqA or RIDA. So SeqA is the minimal
+      re-initiation FREQUENCY control that asynchronous per-origin initiation needs, and RIDA is not
+      required for it.
+    status: evaluated
+    provenance:
+      run_ids: [fixSeqA_s0, fixSeqA_s1, fixSeqA_s2, opclean_s1]
+  - id: F-02
+    statement: >-
+      ALL FOUR TARGETS HOLD TOGETHER, SEED-ROBUST. With hydrolysis (fraction) + threshold 8 (full
+      occupancy) + async (per-origin) + SeqA (re-init control), and RIDA/DDAH/DARS OFF: DnaA-ATP fraction
+      in [0.2,0.5], firing at full oriC-low occupancy, per-origin asynchronous initiation, and controlled
+      once-per-cycle DnaA homeostasis — on all three seeds. This is the resolution of Rashmi's four-item
+      tuning list, reached without the extrinsic RIDA/DDAH/DARS mechanisms.
+    status: evaluated
+    provenance:
+      run_ids: [fixSeqA_s0, fixSeqA_s1, fixSeqA_s2]
+
+biological_summary: >-
+  SeqA sequesters the newly-replicated, hemimethylated oriC for part of the cell cycle, preventing the
+  just-fired origin from immediately re-initiating. This study adds that post-initiation block on top of
+  the asynchronous per-origin initiation from dnaa-9: it converts the runaway re-firing (over-replication)
+  into a controlled once-per-cycle asynchronous cell cycle, with the DnaA-ATP level still set by
+  hydrolysis. SeqA is thus the re-initiation frequency control the model needs — RIDA is not required at
+  this stage.

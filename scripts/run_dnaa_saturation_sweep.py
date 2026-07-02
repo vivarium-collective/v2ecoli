@@ -28,6 +28,14 @@ REF_ENV = {  # dnaa reference operating point (held fixed across the sweep)
     "DNAA_INITIATION_TRIGGER": "mechanistic",
     "DNAA_INIT_TRIGGER_POOL": "low",
     "DNAA_HYDROLYSIS_RATE_PER_MIN": "0.025",
+    # The extrinsic DnaA-ATP conversion mechanisms (RIDA / DDAH / DARS) are OFF in
+    # the dnaa reference — they are NOT wanted at this stage (Rashmi 2026-07-01).
+    # (Earlier sweeps wrongly left these at the default multiplier 1.0 = ON, which
+    # masked the hydrolysis-rate lever for the DnaA-ATP fraction.)
+    "RIDA_RATE_MULTIPLIER": "0",
+    "DDAH_RATE_MULTIPLIER": "0",
+    "DARS1_RATE_MULTIPLIER": "0",
+    "DARS2_RATE_MULTIPLIER": "0",
 }
 V_PERT = "TU00259[c]=0.0015"
 

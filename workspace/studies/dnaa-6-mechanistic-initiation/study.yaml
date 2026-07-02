@@ -369,14 +369,16 @@ findings:
       knobs: the ATP-fraction lever is the DnaA-ADP->ATP recharge rate k_r (code-baked at 1e-7/s, not
       env-exposed), and sustained saturation needs the dynamic kick — both are CODE changes for
       Haochen, not parameter sweeps.
-      CORRECTION (2026-07-01, dnaa-9): the "ATP-fraction band needs a CODE change" conclusion above is
-      WRONG. The stage-3 k_h triage tuned the wrong hydrolysis — DNAA_HYDROLYSIS_RATE_PER_MIN acts on
-      the BOUND pool only. The effective, ENV-TUNABLE lever for the free-pool DnaA-ATP fraction is RIDA
-      (replisome-coupled regulatory hydrolysis, RIDA_RATE_MULTIPLIER): it is monotonic (on 0.045, ×0.1
-      0.098, ×0.05 0.276, off 0.389), and RIDA×0.05 lands the total DnaA-ATP fraction in [0.2,0.5]
-      seed-robustly (0.21-0.24 on seeds 0/1/2). See dnaa-9 F-01/F-04. So the band IS reachable by a
-      parameter change; only its calibration is a question for Haochen. (The dnaa-9 operating point also
-      adds a full-occupancy trigger and per-origin asynchronous initiation.)
+      CORRECTION (2026-07-02, dnaa-9, Rashmi): the "ATP-fraction band needs a CODE change" conclusion
+      above is WRONG — the band is reachable by the HYDROLYSIS rate. With the extrinsic mechanisms
+      (RIDA/DDAH/DARS) OFF, DNAA_HYDROLYSIS_RATE_PER_MIN is the DnaA-ATP-fraction setpoint (as its own
+      code comment states): 0.046→0.025 puts the total DnaA-ATP fraction in [0.2,0.5] (0.29; 0.23-0.26
+      across seeds). The stage-3 k_h triage above missed this because it was run with RIDA left ON (the
+      sweep reference wrongly defaulted the extrinsic multipliers to 1.0), and RIDA drained DnaA-ATP,
+      masking the hydrolysis lever. So NO new mechanism is needed for the fraction — just the hydrolysis
+      rate, with extrinsic mechanisms off. See dnaa-9 F-01. (An earlier dnaa-9-operating-point that used
+      RIDA for the fraction was retired; the correct arc is dnaa-9 hydrolysis+async-over-replication →
+      dnaa-10 SeqA fix.)
     status: evaluated
     provenance:
       run_ids: [s2_ctrl_s0, s2_ctrl_s1, s2_ctrl_s2, s2_ecl40_rida06_s0, s2_ecl40_rida06_s1, s2_ecl40_rida06_s2]

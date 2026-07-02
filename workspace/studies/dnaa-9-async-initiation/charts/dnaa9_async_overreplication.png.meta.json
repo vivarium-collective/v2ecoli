@@ -1,0 +1,9 @@
+{
+  "title": "dnaa-9 \u2014 asynchronous initiation over-replicates without a re-initiation control",
+  "caption": "Config: DNAA_HYDROLYSIS_RATE_PER_MIN=0.025 + threshold 8 + async, RIDA/DDAH/DARS off (seed 1). The hydrolysis rate puts the total DnaA-ATP fraction in the [0.2,0.5] band (mean 0.24) and the trigger fires at full oriC-low occupancy (1.0). But because each oriC binds DnaA and initiates INDEPENDENTLY with nothing throttling re-initiation, the origins re-fire continuously \u2014 oriC runs to 3/4/5 and total DnaA climbs above [300,800].",
+  "interpretation": "Two of the targets (DnaA-ATP fraction in band via hydrolysis; full-occupancy firing) are met, and per-origin asynchronous initiation is in place \u2014 but async ALONE over-replicates. A re-initiation frequency control (SeqA) is required; that is dnaa-10.",
+  "source_runs": [
+    "opclean_s1"
+  ],
+  "script": "scripts/render_dnaa910.py"
+}

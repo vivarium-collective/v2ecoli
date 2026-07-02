@@ -1,0 +1,10 @@
+{
+  "title": "dnaa-10 \u2014 SeqA eclipse fixes the asynchronous over-replication (RIDA stays off)",
+  "caption": "Same config as dnaa-9 (hydrolysis 0.025 + threshold 8 + async, RIDA/DDAH/DARS off), seed 1. LEFT (no SeqA): oriC over-replicates to 3/4/5 and total DnaA climbs above [300,800]. RIGHT (+ SeqA per-origin eclipse): re-initiation is throttled to once per origin per cycle \u2014 oriC returns to a controlled 1\u21942 with decoupled 2\u21943 async episodes, and total DnaA is back in the [300,800] band. The DnaA-ATP fraction stays in [0.2,0.5] (still set by hydrolysis, not RIDA).",
+  "interpretation": "SeqA (the post-initiation sequestration that blocks a just-fired origin from re-firing) is the re-initiation FREQUENCY control that asynchronous initiation needs. With it, all four targets hold together: DnaA-ATP fraction in band (hydrolysis), full-occupancy firing (threshold 8), per-origin asynchronous initiation, and once-per-cycle DnaA homeostasis \u2014 RIDA not required.",
+  "source_runs": [
+    "opclean_s1",
+    "fixSeqA_s1"
+  ],
+  "script": "scripts/render_dnaa910.py"
+}

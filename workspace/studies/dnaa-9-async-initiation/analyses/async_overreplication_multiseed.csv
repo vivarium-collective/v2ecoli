@@ -1,0 +1,4 @@
+seed,total_dnaA_ATP_fraction,fraction_in_band,mean_total_dnaa,dnaa_in_band,max_oriC
+0,0.23,True,671.9,False,5
+1,0.238,True,803.9,False,4
+2,0.257,True,745.9,False,4

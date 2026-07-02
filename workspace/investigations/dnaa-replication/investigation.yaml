@@ -113,17 +113,19 @@ executive:
     FRACTION is below [0.2,0.5] for all 20 conditions independent of n/K — confirming that the ATP-
     fraction lever is the code-baked recharge rate k_r, not a cooperativity knob (Haochen code item).
 
-    Headline update (dnaa-9, 2026-07-01, Rashmi's four-knob tuning list): a single SEED-ROBUST operating
-    point satisfies all four of her asks at once — RIDA_RATE_MULTIPLIER=0.05 + DNAA_INIT_LOW_THRESHOLD=8
-    + DNAA_ASYNC_INITIATION=1 + DNAA_INIT_ECLIPSE_MIN=40. (1) DnaA-ATP FRACTION IN BAND: the effective
-    hydrolysis lever is RIDA (regulatory, replisome-coupled), NOT the intrinsic equilibrium hydrolysis
-    (negligible) — RIDA×0.05 lands the total DnaA-ATP fraction at 0.21-0.24, in [0.2,0.5] on seeds 0/1/2
-    (was seed-variable ~0.02-0.26). This CORRECTS the dnaa-8/dnaa-6 claim that the band needs a code-level
-    k_r change — it is env-tunable; only the calibration is a Haochen question. (2) FULL-OCCUPANCY
-    TRIGGER: threshold 8 fires at peak oriC-low occupancy 1.00 (was ~0.6). (3) oriC ASYNCHRONY: a new
-    flag-gated per-origin initiation path decouples the origins — oriC steps 2->3->4 instead of the
-    biologically-wrong synchronous 2->4 jump. (4) SEED-ROBUST: regular divisions, DnaA in [300,800], all
-    three seeds. All new code is behind default-off flags (synchronous baseline byte-identical).
+    Headline update (dnaa-9 + dnaa-10, 2026-07-02, Rashmi's four-item tuning list): resolved as a
+    problem→fix pair, WITHOUT the extrinsic RIDA/DDAH/DARS mechanisms (which Rashmi does not want yet).
+    (1) DnaA-ATP FRACTION: tuned into [0.2,0.5] purely by the HYDROLYSIS rate — DNAA_HYDROLYSIS_RATE_PER_MIN
+    0.046→0.025 gives fraction 0.29 (0.23-0.26 across seeds), extrinsic mechanisms OFF. This is Rashmi's
+    result and CORRECTS my earlier (wrong) RIDA-based claim: the "hydrolysis isn't a lever" reading was an
+    artifact of leaving RIDA ON in the reference, which masked the hydrolysis effect. (2) FULL-OCCUPANCY:
+    threshold 8 fires at peak oriC-low occupancy 1.00 (was ~0.6). (3) ASYNCHRONY (dnaa-9): a new
+    flag-gated per-origin initiation path makes each oriC bind DnaA and initiate independently — but async
+    ALONE OVER-REPLICATES (oriC 3/4/5, DnaA above band) because nothing throttles re-initiation. (4) FIX
+    (dnaa-10): adding SeqA (the per-origin post-initiation eclipse) restores controlled once-per-cycle
+    (oriC 1↔2 / async 2↔3), DnaA back in [300,800], fraction still in band via hydrolysis, seed-robust —
+    RIDA NOT required. So all four targets hold together. (The earlier dnaa-9-operating-point, which used
+    RIDA for the fraction, is retired.) All new code is behind default-off flags.
 
     The arc, step by step:
       (0) succinate baseline: v2ecoli reaches periodic steady state (oriC 1↔2 from gen 3).
@@ -616,7 +618,8 @@ studies:
 - dnaa-5-cooperativity      # added 2026-06-18 (Rashmi ordering) — cooperative DnaA-ATP filament assembly at oriC: turn the gradual, partial oriC occupancy (dnaa-3, correct as-is) into a sharp switch. Prerequisite for the mechanistic initiation swap. Designed; build pending.
 - dnaa-6-mechanistic-initiation  # re-added 2026-06-27: the DnaA-ATP/oriC initiation trigger replaces the mass heuristic. F-04 — the cooperative oriC-low + mechanistic-low trigger gives CLEAN once-per-cell-cycle initiation (oriC 1<->2, seed-robust over 8 gens); the over-init (oriC->4) was a 59e108fb-build artifact and does not reproduce. Gate partial only on the open DnaA-ATP-fraction band.
 - dnaa-8-parameter-sweep     # added 2026-06-30 (Rashmi) — the IN-SIM cooperativity sweep behind the dnaa-5 analytic n/K choice: 20 conditions (n∈{1,2,4,6,8} × K∈{15,20,30,40}) run as actual multi-generation simulations, scored on cyclic once-per-cycle replication + a steady DnaA band, with the four lineage trajectories per condition. Replaces the static dnaa-5 switch/K curves with real simulation results.
-- dnaa-9-operating-point     # added 2026-07-01 (Rashmi's four-knob tuning list) — the seed-robust initiation OPERATING POINT: RIDA×0.05 (DnaA-ATP fraction into [0.2,0.5] — the effective hydrolysis lever is RIDA, not intrinsic) + threshold 8 (fire at FULL 8/8 oriC-low occupancy) + DNAA_ASYNC_INITIATION (NEW per-origin async: oriC 2→3→4, not the wrong synchronous 2→4) + eclipse 40 min (once-per-cycle). Corrects dnaa-6 F-04: the ATP band is env-tunable, NOT a code change. All new code flag-gated default-off.
+- dnaa-9-async-initiation    # added 2026-07-02 (Rashmi) — DnaA-ATP fraction into [0.2,0.5] by the HYDROLYSIS rate (DNAA_HYDROLYSIS_RATE_PER_MIN 0.046→0.025, extrinsic RIDA/DDAH/DARS OFF) + threshold 8 (full 8/8 occupancy) + NEW per-origin async initiation (each oriC binds DnaA independently). Shows async ALONE OVER-REPLICATES (oriC 3/4/5, DnaA above band) — the intended problem statement. NOTE: supersedes the retired dnaa-9-operating-point, which wrongly used RIDA for the fraction.
+- dnaa-10-seqa-reinit-control # added 2026-07-02 (Rashmi) — adds SeqA (per-origin post-initiation eclipse) to fix the dnaa-9 async over-replication: oriC back to controlled 1↔2/async-2↔3, total DnaA back in [300,800], DnaA-ATP fraction still in band via hydrolysis, all seeds — RIDA still OFF. Resolves the four-item tuning list.
 # Still set aside (not in the report): dnaa-7-seqa-sequestration. F-04 shows SeqA eclipse + RIDA are
 # NOT required for once-per-cycle firing, so dnaa-7's premise is weakened; keep it on disk under
 # workspace/studies/ until/if there's a reason to present it.

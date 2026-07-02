@@ -1,0 +1,267 @@
+schema_version: 4
+name: dnaa-9-async-initiation
+investigation: dnaa-replication
+title: "Study 9 — Asynchronous Initiation (DnaA-ATP band via hydrolysis; over-replication problem)"
+created: "2026-07-02"
+status: completed
+design_status: designed
+implementation_status: implemented
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: partial   # two targets met (fraction via hydrolysis, full occupancy) + async implemented, but async ALONE over-replicates → the re-init control is dnaa-10
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-8-parameter-sweep
+  why: >-
+    Rashmi's tuning list (2026-07-01/02): (1) get the DnaA-ATP fraction into the Boesen [0.2,0.5] band
+    by tuning the HYDROLYSIS rate (she showed 0.046->0.025 works) — NOT by adding new mechanisms;
+    (2) fire replication initiation at FULL oriC-low occupancy (8/8), not the ~0.6 seen before; (3)
+    implement oriC ASYNCHRONY — each oriC binds DnaA independently, so replication is asynchronous
+    (instead of the synchronous oriC 2->4 jump). This study delivers (1) and (2) and implements (3),
+    and shows the consequence: async ALONE over-replicates. The fix (SeqA) is dnaa-10.
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-8-parameter-sweep
+  enables:
+    - dnaa-10-seqa-reinit-control
+  gate_status: partial
+
+question: >-
+  With the extrinsic DnaA-ATP conversion mechanisms (RIDA/DDAH/DARS) OFF, can the DnaA-ATP fraction be
+  brought into [0.2,0.5] purely by the hydrolysis rate, can initiation fire at full oriC-low occupancy
+  (8/8), and does per-origin asynchronous initiation (each oriC binding DnaA independently) behave
+  correctly — or does it need a re-initiation control?
+
+background: >-
+  dnaa-8 confirmed the cooperative oriC-low switch (n=4/K=30) gives cyclic replication. Two things were
+  raised: the DnaA-ATP FRACTION sat below [0.2,0.5], and the trigger fired at PARTIAL oriC-low occupancy
+  (threshold 6/8 ≈ 0.6). Rashmi corrected an earlier analysis: with the extrinsic mechanisms off, the
+  hydrolysis rate DNAA_HYDROLYSIS_RATE_PER_MIN (whose code comment already says it "drives the ATP-
+  fraction setpoint") is the lever — 0.046->0.025 puts the fraction in band. She also asked for oriC
+  asynchrony: each oriC binds DnaA and initiates on its own, rather than all origins doubling together.
+
+mechanism: >-
+  Reference config (mechanistic oriC-low trigger, cooperativity n=4/K=30) with the EXTRINSIC mechanisms
+  OFF (RIDA/DDAH/DARS multipliers = 0; no SeqA eclipse), plus three knobs:
+    * DNAA_HYDROLYSIS_RATE_PER_MIN=0.025 — the DnaA-ATP fraction lever (Rashmi). Lowering the bound-pool
+      hydrolysis keeps more DnaA in the ATP form, raising the total DnaA-ATP fraction into [0.2,0.5].
+    * DNAA_INIT_LOW_THRESHOLD=8 — fire only at FULL oriC-low occupancy (all 8 sites bound, occupancy 1.0).
+    * DNAA_ASYNC_INITIATION=1 — NEW flag-gated per-origin initiation: the replication_data deriver emits
+      per-origin oriC-low saturation, and chromosome_replication fires ONLY the saturated subset of
+      origins. Each oriC binds DnaA and initiates independently. Default off = synchronous byte-identical.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa4_s06_F05
+      max_generations: 6
+      single_daughters: true
+      perturbations: {"TU00259[c]": 1.5e-3}
+      note: "dnaa-4/8 reference (cooperative oriC-low switch), extrinsic mechanisms OFF."
+  variants:
+    - name: async-hydrolysis
+      diff_from_baseline: "DNAA_HYDROLYSIS_RATE_PER_MIN=0.025, DNAA_INIT_LOW_THRESHOLD=8, DNAA_ASYNC_INITIATION=1; RIDA/DDAH/DARS=0"
+      note: "The async operating point without a re-initiation control; run across seeds 0/1/2."
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    initiation_trigger: mechanistic
+    init_trigger_pool: low
+    init_low_threshold: 8
+    hydrolysis_rate_per_min: 0.025      # DnaA-ATP fraction lever (Rashmi)
+    async_initiation: true              # per-origin independent initiation
+    rida_rate_multiplier: 0             # extrinsic mechanisms OFF (not wanted yet)
+    ddah_rate_multiplier: 0
+    dars_rate_multiplier: 0
+    init_eclipse_min: 0                 # no SeqA yet (added in dnaa-10)
+  source: dnaa-8 reference + hydrolysis + full-occupancy + async
+
+readouts:
+  - name: total DnaA-ATP fraction
+    identifier: (free MONOMER0-160 + bound-ATP DnaA boxes) / all DnaA forms
+    units: fraction
+    status: primary
+  - name: oriC-low occupancy at firing
+    identifier: listeners.replication_data.oriC_low_bound_atp / (bound + free)
+    units: fraction
+    status: primary
+  - name: number of oriC
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: total cellular DnaA
+    identifier: free (apo+ATP+ADP) + total_DnaA_bound
+    units: count
+    status: primary
+
+tests:
+  - name: dnaa-atp-fraction-in-band
+    classification: primary
+    description: Steady-state total DnaA-ATP fraction inside [0.2,0.5], set by the hydrolysis rate (extrinsic mechanisms off).
+    measure: {kind: per_generation_mean, path: "total_DnaA_ATP_fraction", window: steady_generations}
+    pass_if: {op: in_range, low: 0.2, high: 0.5}
+    outcomes:
+      grid: {result: PASS, detail: "0.23 / 0.238 / 0.257 in band on seeds 0/1/2 via DNAA_HYDROLYSIS_RATE_PER_MIN=0.025."}
+  - name: fires-at-full-occupancy
+    classification: primary
+    description: Initiation fires at full oriC-low saturation (occupancy 1.0, threshold 8).
+    measure: {kind: peak, path: "oriC_low_occupancy", window: full_lineage}
+    pass_if: {op: approx, value: 1.0, tolerance: 0.05}
+    outcomes:
+      grid: {result: PASS, detail: "peak occupancy 1.00 (threshold 8)."}
+  - name: asynchronous-initiation
+    classification: primary
+    description: Origins initiate independently (per-origin DnaA binding) — oriC=3 intermediate present, not a synchronous 2->4 jump.
+    measure: {kind: value_present, path: "listeners.replication_data.number_of_oric", value: 3}
+    pass_if: {op: present}
+    outcomes:
+      grid: {result: PASS, detail: "oriC=3 (and higher) present on all seeds — origins decoupled."}
+  - name: no-over-replication
+    classification: primary
+    description: oriC stays within the once-per-cycle range (<=2 in steady growth) and total DnaA holds [300,800].
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: steady_generations}
+    pass_if: {op: max_le, value: 2}
+    outcomes:
+      grid:
+        result: FAIL
+        detail: >-
+          OVER-REPLICATES — oriC runs to 3/4/5 and total DnaA climbs above [300,800] (671-804) on all
+          seeds. This is the expected consequence of asynchronous per-origin initiation with NO
+          re-initiation control; the fix (SeqA) is dnaa-10. Intended, informative negative result.
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    If async had stayed once-per-cycle, per-origin initiation alone would suffice. It does not — the
+    fraction (hydrolysis) and full-occupancy targets are met and async decouples the origins, but with
+    no re-initiation control the origins re-fire continuously and over-replicate. A re-initiation
+    frequency control (SeqA) is therefore required, which is dnaa-10.
+  if_primary_tests_fail: >-
+    The over-replication localizes the missing physics precisely: async needs a post-initiation block
+    (SeqA sequestration) to enforce one initiation per origin per cycle.
+
+simulation_set:
+  - name: async-no-reinit-control
+    kind: lineage
+    status: completed
+    base_model: v2ecoli baseline + cooperative oriC-low trigger + hydrolysis 0.025 + threshold 8 + async, extrinsic OFF
+    duration_steps: "6 generations"
+    seeds: [0, 1, 2]
+    metrics: [total_DnaA_ATP_fraction, oriC_low_occupancy, number_of_oric, total_DnaA]
+    pass_fail_tests: [dnaa-atp-fraction-in-band, fires-at-full-occupancy, asynchronous-initiation, no-over-replication]
+    note: >-
+      Fraction in band (0.23-0.26) and full-occupancy firing on all seeds, but oriC over-replicates
+      (max 4-5) and DnaA climbs above band. Per-seed metrics in analyses/async_overreplication_multiseed.csv.
+
+visualizations:
+  - name: dnaa9_async_overreplication
+    address: image:charts/dnaa9_async_overreplication.png
+    chart: charts/dnaa9_async_overreplication.png
+    source_run: opclean_s1
+    config:
+      title: >-
+        Asynchronous initiation over-replicates without a re-init control. The hydrolysis rate puts the
+        DnaA-ATP fraction in [0.2,0.5] (top) and the trigger fires at full oriC-low occupancy (1.0), but
+        because each oriC initiates independently with nothing throttling re-initiation, oriC runs to
+        3/4/5 (third panel) and total DnaA climbs above [300,800] (bottom). Motivates dnaa-10 (SeqA).
+
+report:
+  title: "dnaa-9 — asynchronous initiation (DnaA-ATP band via hydrolysis; over-replication problem)"
+  verdict: >-
+    COMPLETE (2026-07-02): with the EXTRINSIC DnaA-ATP mechanisms (RIDA/DDAH/DARS) OFF, two of Rashmi's
+    targets are met by simple knobs and the third (asynchrony) is implemented, revealing a clean problem.
+    (1) DnaA-ATP FRACTION: the hydrolysis rate is the lever, as Rashmi found — DNAA_HYDROLYSIS_RATE_PER_MIN
+    0.046->0.025 lifts the total DnaA-ATP fraction into [0.2,0.5] (0.23-0.26, seeds 0/1/2). This CORRECTS
+    the earlier (RIDA-based) analysis: the fraction is tuned by hydrolysis, not by adding RIDA — my prior
+    "hydrolysis isn't a lever" reading was an artifact of leaving RIDA on in the reference, which masked
+    it. (2) FULL-OCCUPANCY TRIGGER: threshold 8 fires at peak oriC-low occupancy 1.00. (3) ASYNCHRONY:
+    a new flag-gated per-origin initiation path makes each oriC bind DnaA and initiate independently
+    (oriC shows 3+, not a synchronous 2->4 jump). BUT async ALONE OVER-REPLICATES: with no re-initiation
+    control the origins re-fire continuously — oriC runs to 3/4/5 and total DnaA climbs above [300,800]
+    on all seeds. This is the intended, informative negative result: it isolates the missing physics as a
+    re-initiation FREQUENCY control (SeqA sequestration), delivered in dnaa-10. RIDA/DDAH/DARS remain off.
+
+next_action: >-
+  dnaa-10: add SeqA (the per-origin post-initiation eclipse) to throttle re-initiation and confirm it
+  restores controlled asynchronous once-per-cycle with the DnaA-ATP fraction still in band via hydrolysis.
+
+runs:
+  - name: opclean_s0
+    status: completed
+    canonical: true
+    seed: 0
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/opclean_s0}
+    note: "async + hydrolysis 0.025 + thr8, extrinsic OFF. Fraction 0.23 in band; over-replicates (max oriC 5, DnaA 672)."
+    outcomes:
+      dnaa-atp-fraction-in-band: {result: PASS, detail: "0.23 in band."}
+      fires-at-full-occupancy: {result: PASS, detail: "peak occupancy 1.00."}
+      asynchronous-initiation: {result: PASS, detail: "oriC 3/4/5 present — origins decoupled."}
+      no-over-replication: {result: FAIL, detail: "max oriC 5, DnaA 672 above band."}
+  - name: opclean_s1
+    status: completed
+    canonical: false
+    seed: 1
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Fraction 0.238 in band; over-replicates (max oriC 4, DnaA 804)."
+    outcomes:
+      dnaa-atp-fraction-in-band: {result: PASS, detail: "0.238 in band."}
+      no-over-replication: {result: FAIL, detail: "max oriC 4, DnaA 804 above band."}
+  - name: opclean_s2
+    status: completed
+    canonical: false
+    seed: 2
+    generations: 6
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Fraction 0.257 in band; over-replicates (max oriC 4, DnaA 746)."
+    outcomes:
+      dnaa-atp-fraction-in-band: {result: PASS, detail: "0.257 in band."}
+      no-over-replication: {result: FAIL, detail: "max oriC 4, DnaA 746 above band."}
+
+findings:
+  - id: F-01
+    statement: >-
+      DnaA-ATP FRACTION IS TUNED BY HYDROLYSIS (with extrinsic mechanisms off). With RIDA/DDAH/DARS off,
+      DNAA_HYDROLYSIS_RATE_PER_MIN is the DnaA-ATP-fraction setpoint (as its own code comment states):
+      0.046 -> fraction 0.19 (just below band), 0.025 -> 0.29 (in band), 0.015 -> 0.35. At 0.025 the
+      total DnaA-ATP fraction is in [0.2,0.5] on seeds 0/1/2 (0.23-0.26). This reproduces Rashmi's result
+      and CORRECTS the earlier dnaa-6 F-04 / RIDA-based claim: the earlier "hydrolysis isn't a lever"
+      reading was an artifact of leaving RIDA ON in the reference (RIDA drained DnaA-ATP and masked the
+      hydrolysis effect). No new mechanism is needed for the fraction — just the hydrolysis rate.
+    status: evaluated
+    provenance:
+      run_ids: [opclean_s0, opclean_s1, opclean_s2]
+  - id: F-02
+    statement: >-
+      FULL-OCCUPANCY TRIGGER. DNAA_INIT_LOW_THRESHOLD=8 fires initiation only when all 8 oriC-low sites
+      are bound (peak occupancy 1.00), replacing the partial ~0.6 (threshold 6/8) firing.
+    status: evaluated
+    provenance:
+      run_ids: [opclean_s0]
+  - id: F-03
+    statement: >-
+      ASYNCHRONOUS INITIATION IMPLEMENTED, BUT OVER-REPLICATES ALONE. A new flag-gated per-origin
+      initiation path (DNAA_ASYNC_INITIATION) makes each oriC bind DnaA and initiate independently — the
+      deriver emits per-origin oriC-low saturation and chromosome_replication fires only the saturated
+      subset. Origins decouple (oriC steps through 3, not a synchronous 2->4 jump). But with NO
+      re-initiation control, the origins re-fire continuously: oriC runs to 3/4/5 and total DnaA climbs
+      above [300,800] on all seeds. Asynchrony therefore requires a re-initiation frequency control
+      (SeqA), which is dnaa-10. The synchronous control (async off) stays once-per-cycle (oriC 1<->2 with
+      only a startup transient) — confirming the over-replication is specifically the async re-firing.
+    status: evaluated
+    provenance:
+      run_ids: [opclean_s0, opclean_s1, opclean_s2]
+
+biological_summary: >-
+  DnaA-ATP saturates the oriC low-affinity boxes and fires initiation; in a real cell each origin binds
+  DnaA and initiates on its own schedule (asynchrony), while SeqA sequesters the just-replicated origin
+  to prevent immediate re-firing. This study sets the DnaA-ATP level with the hydrolysis rate, fires at
+  full filament saturation, and makes initiation per-origin — and shows that without the SeqA
+  re-initiation block, independent origins re-fire and over-replicate. That block is dnaa-10.

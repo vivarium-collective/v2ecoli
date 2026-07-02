@@ -721,43 +721,6 @@ def baseline(
             if proc not in configs:
                 raise KeyError(f"override target process {proc!r} not in cache configs.")
             configs[proc][key] = value
-    # Runtime knob (Rashmi 2026-07-01): scale the DnaA-ATP intrinsic hydrolysis
-    # forward rate baked into the cached equilibrium config, to tune the DnaA-ATP
-    # FRACTION toward the Boesen [0.2,0.5] band WITHOUT a ParCa rebuild. The rate
-    # (DNAA-INTRINSIC-HYDROLYSIS-RXN, ATP->ADP; ~1.4e-5) is ~500x the apo->ATP
-    # charging rate, so the free pool is ADP-locked at ~0.02-0.05; <1 lowers
-    # hydrolysis -> raises the fraction. The scaled rate flows into the
-    # ode_solver factory closure (kf) when '_function' resolves at build, so it
-    # reaches the free-pool ODE. FREE-pool lever; distinct from
-    # DNAA_HYDROLYSIS_RATE_PER_MIN (bound-pool form swap in dnaa_box_binding).
-    # DnaA-ATP-FRACTION levers (2026-07-01 investigation). The free-pool DnaA-ATP
-    # fraction is governed by the apo-charging COMPETITION: apo+ATP->DnaA-ATP
-    # (MONOMER0-160_RXN) vs apo+ADP->DnaA-ADP (MONOMER0-4565_RXN), both fwd=1.0, so
-    # the split tracks cellular [ATP]/[ADP]; DnaA-ADP is a near-sink (dissociation
-    # ~1e-7, DARS recharge weak). Two findings from this investigation:
-    #  * DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER (scales DNAA-INTRINSIC-HYDROLYSIS-RXN
-    #    fwd) is INEFFECTIVE for the fraction — the slow (7.5e-6) hydrolysis is
-    #    negligible vs the charging throughput. Kept as a diagnostic knob.
-    #  * DNAA_ADP_CHARGE_MULTIPLIER (scales MONOMER0-4565_RXN fwd, apo+ADP charging)
-    #    IS the effective lever: <1 biases new apo toward DnaA-ATP -> raises the
-    #    fraction. This is the free-pool nucleotide-state knob.
-    _h_mult = float(os.environ.get("DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER", "1.0"))
-    _adp_mult = float(os.environ.get("DNAA_ADP_CHARGE_MULTIPLIER", "1.0"))
-    if (_h_mult != 1.0 or _adp_mult != 1.0) and "ecoli-equilibrium" in configs:
-        if not config_overrides:
-            configs = copy.deepcopy(configs)  # avoid mutating the lru_cache-shared bundle
-        try:
-            eq = configs["ecoli-equilibrium"]
-            rxn_ids = list(eq["reaction_ids"])
-            data = eq["fluxesAndMoleculesToSS"]["_data"]
-            rf = list(data["rates_fwd"])
-            if _h_mult != 1.0:
-                rf[rxn_ids.index("DNAA-INTRINSIC-HYDROLYSIS-RXN")] *= _h_mult
-            if _adp_mult != 1.0:
-                rf[rxn_ids.index("MONOMER0-4565_RXN")] *= _adp_mult  # apo+ADP charging
-            data["rates_fwd"] = rf
-        except (KeyError, ValueError, IndexError, TypeError):
-            pass
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 

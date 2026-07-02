@@ -146,12 +146,23 @@ executive:
           initiation, oriC 1<->2, seed-robust over 8 gens (partial only on the open ATP-fraction band).
       (8) cooperativity parameter sweep (in-sim n x K): the full 20-condition grid run as actual
           multi-generation simulations maps a BROAD operating basin (12/20 pass cyclic + steady-DnaA-
-          band; K>=20 clean across n=1-8; K=15 over-initiates); n=4/K=30 sits robustly inside it. The
-          DnaA-ATP fraction is below band grid-wide (the k_r code lever, not n/K). This replaces the
-          static dnaa-5 switch/K curves with real simulation evidence + the four lineage trajectories.
+          band; K>=20 clean across n=1-8; K=15 over-initiates); n=4/K=30 sits robustly inside it. This
+          replaces the static dnaa-5 switch/K curves with real simulation evidence + the four lineage
+          trajectories. (The DnaA-ATP fraction read below band here — but that was an artifact of the
+          sweep reference leaving RIDA on; it is fixed by hydrolysis in dnaa-9, see below.)
+      (9) asynchronous initiation + DnaA-ATP band via hydrolysis: with the extrinsic mechanisms
+          (RIDA/DDAH/DARS) OFF, the HYDROLYSIS rate puts the DnaA-ATP fraction in [0.2,0.5]
+          (DNAA_HYDROLYSIS_RATE_PER_MIN 0.046->0.025); threshold 8 fires at full oriC-low occupancy;
+          and NEW per-origin async initiation makes each oriC bind DnaA independently. Async ALONE
+          over-replicates (oriC 3/4/5) — the problem statement.
+      (10) SeqA re-initiation control: adding SeqA (the per-origin post-initiation eclipse) fixes the
+          async over-replication — oriC back to controlled 1<->2/async-2<->3, total DnaA back in
+          [300,800], DnaA-ATP fraction still in band via hydrolysis, seed-robust; RIDA not required.
+          Resolves Rashmi's four-item tuning list.
 
-    Next (code-level, for Haochen): close the DnaA-ATP-fraction band (expose/tune the recharge rate
-    k_r) and add a dynamic-kick so the oriC cluster holds a sustained full-saturation plateau. Detail
+    Next (calibration, for Rashmi/Haochen): confirm the hydrolysis rate (0.025) and the SeqA eclipse
+    window (~40 min) are the biologically-right strengths, and decide whether RIDA should later be
+    added as a second, real re-initiation control (shown here to be not strictly required). Detail
     per step follows.
 
     dnaa-0 pass (succinate periodic steady state, oriC 1↔2 from gen 3). dnaa-1 pass at V=0.8e-3
@@ -620,9 +631,10 @@ studies:
 - dnaa-8-parameter-sweep     # added 2026-06-30 (Rashmi) — the IN-SIM cooperativity sweep behind the dnaa-5 analytic n/K choice: 20 conditions (n∈{1,2,4,6,8} × K∈{15,20,30,40}) run as actual multi-generation simulations, scored on cyclic once-per-cycle replication + a steady DnaA band, with the four lineage trajectories per condition. Replaces the static dnaa-5 switch/K curves with real simulation results.
 - dnaa-9-async-initiation    # added 2026-07-02 (Rashmi) — DnaA-ATP fraction into [0.2,0.5] by the HYDROLYSIS rate (DNAA_HYDROLYSIS_RATE_PER_MIN 0.046→0.025, extrinsic RIDA/DDAH/DARS OFF) + threshold 8 (full 8/8 occupancy) + NEW per-origin async initiation (each oriC binds DnaA independently). Shows async ALONE OVER-REPLICATES (oriC 3/4/5, DnaA above band) — the intended problem statement. NOTE: supersedes the retired dnaa-9-operating-point, which wrongly used RIDA for the fraction.
 - dnaa-10-seqa-reinit-control # added 2026-07-02 (Rashmi) — adds SeqA (per-origin post-initiation eclipse) to fix the dnaa-9 async over-replication: oriC back to controlled 1↔2/async-2↔3, total DnaA back in [300,800], DnaA-ATP fraction still in band via hydrolysis, all seeds — RIDA still OFF. Resolves the four-item tuning list.
-# Still set aside (not in the report): dnaa-7-seqa-sequestration. F-04 shows SeqA eclipse + RIDA are
-# NOT required for once-per-cycle firing, so dnaa-7's premise is weakened; keep it on disk under
-# workspace/studies/ until/if there's a reason to present it.
+# Set aside (not in the report): dnaa-7-seqa-sequestration — a prior SeqA study, now SUPERSEDED by
+# dnaa-10-seqa-reinit-control. Its SeqA premise, weakened under the synchronous trigger (F-04), is
+# revived and realized in dnaa-10: SeqA is the re-initiation-frequency control that the ASYNCHRONOUS
+# per-origin initiation (dnaa-9) needs. Kept on disk under workspace/studies/ as history.
 
 # Reference materials supporting the DnaA arc. Files staged under
 # workspace/references/dnaa/ and registered in workspace.yaml expert_docs.

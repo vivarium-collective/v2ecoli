@@ -2,7 +2,7 @@ name: Publish investigation reports
 
 # Regenerate every investigation's self-contained HTML report and publish it to
 # the gh-pages branch at investigations/<slug>.html. The report is built by the
-# vivarium-dashboard SPA client-side, so we serve the dashboard headlessly and
+# vivarium-workbench SPA client-side, so we serve the dashboard headlessly and
 # drive its "Generate report" button via Playwright
 # (scripts/publish_investigation_reports.py).
 #
@@ -47,8 +47,8 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12.9
 
-      - name: Install dependencies (incl. vivarium-dashboard)
-        # Unlike the test jobs, the report generator NEEDS vivarium-dashboard
+      - name: Install dependencies (incl. vivarium-workbench)
+        # Unlike the test jobs, the report generator NEEDS vivarium-workbench
         # (it serves the SPA). The dashboard's hatchling build works again now
         # that bigraph-schema is un-pinned, so a full sync is fine; the `|| uv
         # sync` fallback keeps the job alive if an optional extra fails to build.
@@ -63,7 +63,7 @@ jobs:
 
       - name: Generate investigation reports
         id: gen
-        # Spawns `vivarium-dashboard serve`, drives each investigation's report
+        # Spawns `vivarium-workbench serve`, drives each investigation's report
         # export headlessly, writes reports/published/investigations/<slug>.html.
         # Keep going on a per-report failure so good reports still publish; the
         # script's exit code is recorded for the final status gate.

@@ -1,0 +1,80 @@
+schema_version: 4
+name: population_phenotype_basal
+title: Basal-condition physiology — v2ecoli baseline vs experimental literature
+created: '2026-07-03'
+status: evaluated   # free-form gate keyword
+
+# This study attaches the Gen 2 `vs_literature` report card (VsLiteratureCard)
+# to the dashboard. The card grades the blessed v2ecoli baseline ensemble against
+# curated experimental + theoretical reference values from the ecoli-sources
+# validation_data bundle (the PR #134 reference-agnostic grader pointed at
+# literature instead of a pinned run). Measured (model) side is the committed
+# tests/fixtures/population_phenotype_basal/model_*.json fixtures — the
+# reproducibility boundary (#268), not a live zarr.
+
+# Only the vs_literature card runs for this study (report_card_refs.vs_literature
+# gates VsLiteratureCard.applies; report_cards narrows the runner to it).
+report_cards: [vs_literature]
+report_card_refs:
+  vs_literature: tests/fixtures/population_phenotype_basal
+
+question: |
+  Does the v2ecoli baseline single-cell→division ensemble reproduce the
+  basal-condition physiology of glucose-minimal MG1655 — growth rate, biomass
+  yield, glucose uptake, central-carbon fluxes, exchange rates, proteome census,
+  macromolecular composition, and metabolite pools — when graded against curated
+  experimental + theoretical reference values (Bremer-Dennis, Crown 2015 ¹³C-MFA,
+  Schmidt 2016, Bennett 2009) rather than a pinned run?
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+  # The blessed measured side is a MULTISEED + MULTIGEN ensemble (the
+  # population_phenotype_basal sweep, post-burn-in gen≥3), baked to committed
+  # per-cell fixtures by `scripts/render_basal_vs_literature.py --from-sweep`.
+  variants:
+  - name: wild-type baseline (no perturbation)
+    role: reference
+    detail: Unperturbed glucose-minimal whole cell; the vs_literature reference is experimental data, not a pinned run.
+  model_settings:
+  - name: baked-fixture-measured-side
+    detail: Measured side reads committed model_*.json fixtures (the #268 reproducibility boundary), not a live sweep zarr — the card grades run-free.
+  - name: literature-reference-side
+    detail: Reference values read live from ecoli_sources.VALIDATION_BUNDLE_PATH (the validation manifest, bypassing the ParCa SourceBundle contract).
+
+assumptions:
+- text: |
+    The committed model_*.json fixtures faithfully represent the blessed baseline
+    ensemble (post-burn-in gen≥3) — so grading the fixtures reproduces the verdict
+    the live sweep would give (reversible: a later study.run_zarr_paths() drop-in).
+  verified_in_v2ecoli: false
+
+# The headline physiology claims the card grades (documented here; the card
+# renders the full 13-axis verdict). These mirror the golden values pinned in
+# tests/test_basal_vs_literature.py.
+tests:
+- name: growth-rate-in-band
+  classification: primary
+  status: passed
+  question: Is the ensemble growth rate μ within the measured band?
+  measure:
+    kind: derived
+    detail: μ (1/h) from per-cell doubling times; graded vs the curated measured band.
+  cites: [bremer_dennis_2008]
+- name: glucose-uptake-below-band
+  classification: primary
+  status: failed
+  question: Does the model under-consume glucose relative to the measured band?
+  measure:
+    kind: derived
+    detail: q_glc (mmol/gDW/h) = |GLC[p] exchange|; measured 8.5–10.6, model ~5.1 → mismatch.
+  cites: [crown_2015]
+- name: biomass-yield-first-principles-violation
+  classification: primary
+  status: failed
+  question: Does the biomass yield exceed the theoretical-max stoichiometric ceiling?
+  measure:
+    kind: derived
+    detail: Yxs = ΔDW / ∫(q_glc·DW)dt by direct mass balance; exceeds the theoretical_max ceiling → differentiated first-principles violation.

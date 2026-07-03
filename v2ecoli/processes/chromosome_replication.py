@@ -220,6 +220,13 @@ class ChromosomeReplication(Step):
         # the biologically-wrong synchronous 2->4 jump.
         self.async_initiation = os.environ.get("DNAA_ASYNC_INITIATION", "0").lower() in ("1", "true", "yes")
         self._last_init_time_by_domain = {}  # per-origin eclipse clock (domain_index -> time s)
+        # Dwell time (Rashmi 2026-07-02): an origin must stay SATURATED (>= threshold)
+        # continuously for DNAA_INIT_DWELL_SEC seconds before it may fire — so a
+        # transient fill-spike does not trigger initiation (the sites must be "stuck").
+        # Default 0 = fire immediately on saturation (prior behavior).
+        self.init_dwell_sec = float(os.environ.get("DNAA_INIT_DWELL_SEC", "0"))
+        self._sat_since_by_domain = {}   # domain_index -> time it first became saturated (s)
+        self._sat_since_global = None    # sync path: time the global signal first crossed
         self._mech_ready = False  # set each tick in _request, read in _evolve
         self.replichore_lengths = self.parameters["replichore_lengths"]
         self.sequences = self.parameters["sequences"]
@@ -322,26 +329,50 @@ class ChromosomeReplication(Step):
             else:
                 signal = int(rd.get("oriC_high_bound_atp", 0))  # first-pass oriC-high saturation
                 threshold = self.init_high_threshold
-            self._mech_ready = signal >= threshold * n_oriC
+            saturated = signal >= threshold * n_oriC
+            # DWELL: the global signal must stay saturated for init_dwell_sec before firing.
+            if self.init_dwell_sec > 0.0:
+                if saturated:
+                    if self._sat_since_global is None:
+                        self._sat_since_global = self._cur_time
+                    self._mech_ready = (self._cur_time - self._sat_since_global) >= self.init_dwell_sec
+                else:
+                    self._sat_since_global = None
+                    self._mech_ready = False
+            else:
+                self._mech_ready = saturated
             # ASYNCHRONOUS initiation (oriC-low trigger only): decide PER ORIGIN which
-            # origins are saturated (>= threshold) AND past their own eclipse. Only
-            # these fire this tick, so origins initiate independently (oriC 2->3->4).
+            # origins are saturated (>= threshold), past their own eclipse, AND have stayed
+            # saturated for the dwell time. Only these fire this tick, so origins initiate
+            # independently (oriC 2->3->4).
             if self.async_initiation and self.init_trigger_pool == "low":
                 dom = np.asarray(rd.get("oriC_domain_index", []), dtype=np.int64)
                 per = np.asarray(rd.get("oriC_low_bound_atp_by_origin", []), dtype=np.int64)
                 fire = []
+                live_domains = set()
                 if dom.size and dom.size == per.size:
                     for d, b in zip(dom.tolist(), per.tolist()):
+                        live_domains.add(d)
                         if b < threshold:
+                            self._sat_since_by_domain.pop(d, None)  # dropped below -> reset dwell
                             continue
+                        # per-origin dwell: require sustained saturation
+                        if self.init_dwell_sec > 0.0:
+                            since = self._sat_since_by_domain.setdefault(d, self._cur_time)
+                            if (self._cur_time - since) < self.init_dwell_sec:
+                                continue  # saturated, but not long enough yet
                         if self.init_eclipse_min > 0.0:
                             last = self._last_init_time_by_domain.get(d, -1e18)
                             if (self._cur_time - last) < self.init_eclipse_min * 60.0:
                                 continue  # this origin is within its own eclipse
                         fire.append(d)
+                # forget dwell timers for origins that no longer exist
+                for d in list(self._sat_since_by_domain):
+                    if d not in live_domains:
+                        self._sat_since_by_domain.pop(d, None)
                 self._fire_domains = fire
                 # gate the whole initiation on there being >=1 firing origin; the
-                # eclipse is enforced per-origin above, so bypass the global eclipse.
+                # eclipse/dwell are enforced per-origin above, so bypass the global gate.
                 self._mech_ready = len(fire) > 0
 
         # If replication should be initiated, request subunits required for

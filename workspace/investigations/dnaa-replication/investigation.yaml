@@ -516,6 +516,25 @@ glossary:
     per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+- date: '2026-07-02-rashmi'
+  reviewer: Rashmi
+  artifact: feedback-2026-07-02-rashmi/feedback.yaml
+  summary: |
+    Inline feedback on dnaa-9 (async over-replication). Three annotations:
+    (1) "why does oriC jump 1->3 directly?" + "gen 2 initiates at 0.6 oriC-low occupancy which should
+        not happen" + "double-check all bound DnaA is removed on fork passage."
+        -> RESOLVED (dnaa-9 F-04): oriC never jumps — every event is +1 (the 1->3 is downsampling of the
+        fast over-replicating re-firing); the trigger fires at FULL per-origin 8/8 (the 0.6 is the GLOBAL
+        occupancy average across a full origin + a refilling one, per-origin=[2,8]); fork-passage reset is
+        CORRECT (per-origin bound -> [0,0] right after firing). New dnaa9_diagnostics figure added.
+    (2) "implement a stuck threshold ~10 s required for an initiation event."
+        -> DONE (dnaa-9 F-05): new knob DNAA_INIT_DWELL_SEC (per-origin sustained-saturation requirement).
+        dwell=10 s reduces over-replication from oriC max 4-5 to max 3, DnaA + fraction in band, WITHOUT
+        SeqA — a lighter, physics-based alternative to SeqA.
+    (3) "add plots for the actual box COUNTS (not fraction), cell mass, bulk DnaA-ATP; indicate n and K;
+        maybe re-tune for once-per-generation firing."
+        -> DONE: dnaa9_diagnostics figure (box counts, cell mass, bulk DnaA-ATP), labeled n=4/K=30.
+        Re-tuning n/K (and/or a longer dwell) for fully-once-per-generation firing is the flagged follow-up.
 - date: '2026-06-27-haochen'
   reviewer: Haochen
   artifact: feedback-2026-06-27-haochen/feedback.pdf

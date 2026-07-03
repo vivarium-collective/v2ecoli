@@ -1,0 +1,20 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260702200300"
+  generated_at: "2026-07-02T21:24:17.942Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-07-02-4.html#study-dnaa-9-async-initiation"
+annotations:
+  "study-dnaa-9-async-initiation-chart-dnaa9_async_overreplication":
+    - ts: "2026-07-02T21:21:24.161Z"
+      author: "Rashmi"
+      text: "I don't understand why oriC jump from 1 to 3 directly? Maybe we can implement a stuck threshold for about 10s that is required for an initiation event to happen. Also all bound DnaA is removed when the replication fork passes through them. Double check if this is correctly implemented. I still see gen 2 initiating upon 0.6 oriC low occupancy which should not happen."
+    - ts: "2026-07-02T21:22:12.162Z"
+      author: "Rashmi"
+      text: "Can you also add other plots to show the actual number of occupancy (number of boxes) not the fraction.\nAlso, the cell mass plot and bulk DnaA-ATP level"
+    - ts: "2026-07-02T21:23:21.676Z"
+      author: "Rashmi"
+      text: "Please also indicate the n and K values that were used for the run? Maybe we have to tune it again to get the correct dynamics of oriC firing once per generation"

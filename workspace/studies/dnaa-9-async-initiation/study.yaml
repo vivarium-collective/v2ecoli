@@ -187,6 +187,17 @@ visualizations:
         DnaA-ATP fraction in [0.2,0.5] (top) and the trigger fires at full oriC-low occupancy (1.0), but
         because each oriC initiates independently with nothing throttling re-initiation, oriC runs to
         3/4/5 (third panel) and total DnaA climbs above [300,800] (bottom). Motivates dnaa-10 (SeqA).
+  - name: dnaa9_diagnostics
+    address: image:charts/dnaa9_diagnostics.png
+    chart: charts/dnaa9_diagnostics.png
+    source_run: opclean_s1
+    config:
+      title: >-
+        Diagnostics (Rashmi 2026-07-02, n=4/K=30): cell mass; oriC at full resolution (every initiation
+        is +1 — the apparent 1->3 is downsampling of the fast over-replicating re-firing); oriC-low bound
+        BOX COUNTS with the 8xn_oriC line (each origin fires at ITS own 8/8); bulk free DnaA-ATP level;
+        and the GLOBAL occupancy fraction (dips to ~0.6 when one origin is full and another is refilling —
+        a global-average artifact, NOT partial firing). Confirms the per-origin trigger fires at full 8/8.
 
 report:
   title: "dnaa-9 — asynchronous initiation (DnaA-ATP band via hydrolysis; over-replication problem)"
@@ -276,6 +287,33 @@ findings:
     status: evaluated
     provenance:
       run_ids: [opclean_s0, opclean_s1, opclean_s2]
+  - id: F-04
+    statement: >-
+      IMPLEMENTATION VERIFIED (Rashmi feedback 2026-07-02) — two apparent problems are FIGURE ARTIFACTS
+      and one mechanism is CONFIRMED CORRECT. (a) oriC does NOT jump 1->3: every initiation is +1
+      (1->2->3->4); the apparent 1->3 is downsampling of the fast over-replicating re-firing (oriC goes
+      1->2->3 in ~3 s). (b) The trigger fires at FULL per-origin occupancy, not 0.6: at the gen-2 firing
+      the per-origin bound = [2, 8] — the firing origin is at 8/8 (full); the plotted 0.6 is the GLOBAL
+      average across a full origin + a refilling one. (c) FORK-PASSAGE RESET is correct: right after an
+      origin fires at 8/8, per-origin bound resets to [0, 0] (chromosome_structure.py). The new
+      dnaa9_diagnostics figure plots per-origin box COUNTS + cell mass + bulk DnaA-ATP (Rashmi's asks),
+      labeled n=4/K=30.
+    status: evaluated
+    provenance:
+      run_ids: [opclean_s1]
+  - id: F-05
+    statement: >-
+      DWELL-TIME REDUCES OVER-REPLICATION (Rashmi's suggestion) — a more mechanistic control than SeqA.
+      New knob DNAA_INIT_DWELL_SEC requires an origin to stay SATURATED (>=8/8) continuously for N seconds
+      before it may fire, so transient fill-spikes do not trigger initiation. dwell=10 s (async, hydrolysis
+      0.025, RIDA/SeqA OFF) reduces the over-replication from oriC max 4-5 to max 3, with total DnaA in band
+      (501) and the DnaA-ATP fraction in band (0.302) — comparable to the SeqA fix (dnaa-10) but WITHOUT a
+      separate sequestration mechanism (dwell=5 s is weaker: more oriC=3). So the dwell time is a lighter,
+      physics-based alternative to SeqA for throttling re-initiation. (Not yet fully 1<->2; combining dwell
+      with a longer dwell or SeqA, and/or re-tuning n/K, is the follow-up.)
+    status: evaluated
+    provenance:
+      run_ids: [dwell10, dwell5]
 
 biological_summary: >-
   DnaA-ATP saturates the oriC low-affinity boxes and fires initiation; in a real cell each origin binds

@@ -198,6 +198,16 @@ visualizations:
         BOX COUNTS with the 8xn_oriC line (each origin fires at ITS own 8/8); bulk free DnaA-ATP level;
         and the GLOBAL occupancy fraction (dips to ~0.6 when one origin is full and another is refilling —
         a global-average artifact, NOT partial firing). Confirms the per-origin trigger fires at full 8/8.
+  - name: dnaa9_once_per_gen_dwell_seqa
+    address: image:charts/dnaa9_once_per_gen_dwell_seqa.png
+    chart: charts/dnaa9_once_per_gen_dwell_seqa.png
+    source_run: dwell30_ecl40_s1
+    config:
+      title: >-
+        CLEAN once-per-generation (Rashmi's re-tune request): dwell 30 s + SeqA eclipse 40 min (on
+        hydrolysis 0.025 + threshold 8 + async, n=4/K=30) gives oriC strictly 1<->2 — one initiation round
+        per cycle — with the DnaA-ATP fraction and total DnaA in band, seed-robust (seeds 1/2 clean; seed 0
+        keeps ~13% oriC=3, consistent with the expected overlapping round when tau < C+D).
 
 report:
   title: "dnaa-9 — asynchronous initiation (DnaA-ATP band via hydrolysis; over-replication problem)"
@@ -314,6 +324,22 @@ findings:
     status: evaluated
     provenance:
       run_ids: [dwell10, dwell5]
+  - id: F-06
+    statement: >-
+      DWELL + SeqA GIVES CLEAN ONCE-PER-GENERATION (Rashmi's re-tune request), AND oriC=3 IS PARTLY
+      EXPECTED. Combining the dwell (30 s) with the SeqA eclipse (40 min) on the hydrolysis/threshold-8/async
+      config gives clean once-per-cell-cycle firing — oriC strictly 1<->2 (0% of ticks >= 3) on seeds 1 and 2,
+      with the DnaA-ATP fraction (0.26-0.27) and total DnaA (529-546) both in band; seed 0 keeps ~13% oriC=3.
+      IMPORTANT CONTEXT: the residual oriC=3 is NOT necessarily an error — per-generation tau here is 32-66
+      min while C+D ~= 60 min for succinate, so in the FAST generations (tau < C+D) an overlapping replication
+      round (oriC=3) is BIOLOGICALLY EXPECTED. So the right target is not "eliminate oriC=3" but "no runaway
+      over-replication + DnaA in band," which dwell+SeqA achieves. The dwell/n/K sweep on its own (dwell
+      30/60, K=40, n=6) only reached oriC max 3 (a full-cycle re-initiation block, not a seconds-scale dwell,
+      is what removes a whole extra round — hence dwell+SeqA). Open for Rashmi/Haochen: confirm the intended
+      tau / C / D regime (whether overlapping rounds should occur at this growth rate at all).
+    status: evaluated
+    provenance:
+      run_ids: [dwell30_ecl40_s0, dwell30_ecl40_s1, dwell30_ecl40_s2]
 
 biological_summary: >-
   DnaA-ATP saturates the oriC low-affinity boxes and fires initiation; in a real cell each origin binds

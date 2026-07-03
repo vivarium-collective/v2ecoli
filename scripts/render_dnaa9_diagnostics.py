@@ -46,7 +46,19 @@ def load(run_dir, downsample=0):
     return df, bounds[:-1]
 
 
-def render(run_dir, study_dir, n, K):
+def render(run_dir, study_dir, n, K, regime="overreplication", out_name="dnaa9_diagnostics", subtitle_extra=""):
+    clean = regime == "clean"
+    oric_title = ("oriC count — clean once-per-generation (1<->2): the dwell + SeqA controls keep initiation to one round per cycle"
+                  if clean else
+                  "oriC count (full resolution — each initiation is +1; the over-replication makes 1->2->3 fast)")
+    occ_title = ("oriC-low occupancy FRACTION (global average) — cyclic fill->fire->reset, once per generation"
+                 if clean else
+                 "oriC-low occupancy FRACTION (global average — dips to ~0.6 when one origin is full and another "
+                 "is refilling; NOT partial firing)")
+    return _render(run_dir, study_dir, n, K, oric_title, occ_title, out_name, subtitle_extra)
+
+
+def _render(run_dir, study_dir, n, K, oric_title, occ_title, out_name, subtitle_extra):
     # oriC at full resolution (no downsample) so +1 steps are visible; others lightly sampled
     dfull, bounds = load(run_dir, downsample=0)
     df, _ = load(run_dir, downsample=6000)
@@ -60,7 +72,7 @@ def render(run_dir, study_dir, n, K):
     ax[1].step(xf, dfull[RD + "number_of_oric"].to_numpy(), color=PALETTE["purple"], lw=1.0, where="post")
     style_axes(ax[1], "", "oriC count"); mark_lineages(ax[1], bounds)
     ax[1].set_ylim(0.5, 5.5); ax[1].set_yticks([1, 2, 3, 4, 5])
-    ax[1].set_title("oriC count (full resolution — each initiation is +1; the over-replication makes 1->2->3 fast)")
+    ax[1].set_title(oric_title)
     # 3 oriC-low bound COUNT (boxes) with the per-origin fire threshold
     bound = df[RD + "oriC_low_bound_atp"].to_numpy().astype(float)
     noric = df[RD + "number_of_oric"].to_numpy().astype(float)
@@ -79,13 +91,12 @@ def render(run_dir, study_dir, n, K):
     ax[4].plot(x, occ, color=PALETTE["amber"], lw=1.0)
     style_axes(ax[4], "lineage time (min)", "oriC-low occupancy\n(GLOBAL fraction)"); mark_lineages(ax[4], bounds)
     ax[4].set_ylim(0, 1.05)
-    ax[4].set_title("oriC-low occupancy FRACTION (global average — dips to ~0.6 when one origin is full and another "
-                    "is refilling; NOT partial firing)")
+    ax[4].set_title(occ_title)
     fig.suptitle(f"dnaa-9 diagnostics — cooperativity n={n}, K={K} nM · mechanistic oriC-low trigger, threshold 8 "
-                 f"(per-origin 8/8), async, hydrolysis 0.025\n(RIDA/DDAH/DARS off; seed from run)",
+                 f"(per-origin 8/8), async, hydrolysis 0.025{subtitle_extra}\n(RIDA/DDAH/DARS off; seed from run)",
                  fontsize=10.5, y=0.997)
     fig.tight_layout(rect=(0, 0, 1, 0.965))
-    base = os.path.join(study_dir, "charts", "dnaa9_diagnostics")
+    base = os.path.join(study_dir, "charts", out_name)
     fig.savefig(base + ".png", dpi=150); fig.savefig(base + ".svg"); plt.close(fig)
     json.dump({"title": f"dnaa-9 diagnostics — box counts, cell mass, bulk DnaA-ATP (n={n}, K={K})",
                "caption": f"Cooperativity n={n}, K={K} nM. Panels: cell mass; oriC count at full resolution "
@@ -107,8 +118,11 @@ def main():
     ap.add_argument("--study-dir", default="workspace/studies/dnaa-9-async-initiation")
     ap.add_argument("--n", type=int, default=4)
     ap.add_argument("--K", type=int, default=30)
+    ap.add_argument("--regime", default="overreplication", choices=["overreplication", "clean"])
+    ap.add_argument("--out-name", default="dnaa9_diagnostics")
+    ap.add_argument("--subtitle", default="")
     a = ap.parse_args()
-    render(a.run, a.study_dir, a.n, a.K)
+    render(a.run, a.study_dir, a.n, a.K, regime=a.regime, out_name=a.out_name, subtitle_extra=a.subtitle)
 
 
 if __name__ == "__main__":

@@ -160,7 +160,7 @@ Replace the record-building/grouping data path (`build_cell_records`,
   one the Visualizations tab reads (§3) — same location, no copy.
 - `main()`: `v2ecoli-analyze <sweep_dir> [--config cfg.json]` unchanged in spirit.
 
-### 3. Dashboard surfacing — `vivarium-dashboard/vivarium_dashboard/server.py`
+### 3. Dashboard surfacing — `vivarium-workbench/vivarium_workbench/server.py`
 
 - **Views (no new plumbing):** the runner writes `view` HTML into `<study>/viz/*.html`,
   which the dashboard **already** surfaces in the Visualizations tab via
@@ -228,7 +228,7 @@ v2ecoli/workflow/analysis_runner.py     refactor: open_connection, scale_history
 v2ecoli/workflow/analyses/              new: ptools_{rna,rxns,proteins}, +mass_fraction,
                                         +1 multiseed plot analysis
 v2ecoli/configs/<proving>.json          analysis_options for the proving set
-vivarium-dashboard/.../server.py        _list_visualization_classes += ANALYSIS_REGISTRY
+vivarium-workbench/.../server.py        _list_visualization_classes += ANALYSIS_REGISTRY
 pyproject.toml                          (unchanged) v2ecoli-analyze console script
 tests/test_workflow_analysis.py         Analysis base + ports + render helper
 tests/test_analysis_runner.py           scale_history_sql, run_analyses, fidelity oracle

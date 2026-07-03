@@ -27,7 +27,7 @@ COPY . .
 
 # Install v2ecoli + its locked deps into an in-project venv. Include the `ray` and
 # emitter extras (the multiseed fan-out + XArray/Parquet output); skip dev tooling and
-# the heavy vivarium-dashboard (mirrors CI's `--no-install-package vivarium-dashboard`).
+# the heavy vivarium-workbench (mirrors CI's `--no-install-package vivarium-workbench`).
 # UV_LINK_MODE=copy makes the venv self-contained (real wheel copies, not links into the
 # cache). The cache itself is a BuildKit cache mount below, so it is reused across builds
 # but NOT baked into the image layer — this is what keeps the image from ballooning toward
@@ -37,8 +37,8 @@ ENV UV_LINK_MODE=copy
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv python install 3.12.12
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --extra ray --extra emitters --no-install-package vivarium-dashboard \
- || uv sync --no-dev --extra ray --no-install-package vivarium-dashboard
+    uv sync --no-dev --extra ray --extra emitters --no-install-package vivarium-workbench \
+ || uv sync --no-dev --extra ray --no-install-package vivarium-workbench
 
 # Put the venv on PATH so `python`, `ray`, and the `v2ecoli-*` console scripts resolve —
 # both for non-login shells (ENV PATH) and LOGIN shells (the entrypoint runs the workload

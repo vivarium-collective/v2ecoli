@@ -504,7 +504,7 @@ def run_arm_multigen(
     """
     from v2ecoli import build_composite
     from v2ecoli.library.sqlite_run import run_multigen_sqlite
-    from vivarium_dashboard.lib import composite_runs
+    from vivarium_workbench.lib import composite_runs
 
     from v2ecoli.composites.baseline import set_null_emitter_override
 

@@ -8,7 +8,7 @@ parquet directory instead of a sqlite db.
 Storage: ~3-5× smaller than the equivalent sqlite run for v2ecoli-shaped
 sims — Parquet is column-oriented and dictionary-encodes repeated listener
 fields. Trade-off: the dashboard's Simulations-DB tab cannot read parquet
-yet (vivarium-dashboard follow-up); for now use this runner when downstream
+yet (vivarium-workbench follow-up); for now use this runner when downstream
 analysis is DuckDB/Polars-based, ``sqlite_run`` when dashboard inspection
 is required.
 

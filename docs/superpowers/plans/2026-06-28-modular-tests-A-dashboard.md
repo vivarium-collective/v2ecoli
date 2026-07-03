@@ -26,8 +26,8 @@
 ### Task A1: Payload carries `kind`/`card` + per-study report-card lookup
 
 **Files:**
-- Modify: `vivarium_dashboard/api/app.py` (the `/api/study/{slug}` route, ~line 1290-1305)
-- Test: `vivarium_dashboard/testing/test_modular_tests_payload.py` (create)
+- Modify: `vivarium_workbench/api/app.py` (the `/api/study/{slug}` route, ~line 1290-1305)
+- Test: `vivarium_workbench/testing/test_modular_tests_payload.py` (create)
 
 **Interfaces:**
 - Produces: the study-detail payload includes, for each test entry, its `kind` (default `"behavioral"`) and `card` (if any); and a top-level `report_card_urls` map `{<card name>: {url, verdict}}` for THIS study's `viz/report_card/` artifacts, so the SPA needn't cross-reference the global saved-visualizations endpoint.
@@ -35,11 +35,11 @@
 - [ ] **Step 1: Write the failing test**
 
 ```python
-# vivarium_dashboard/testing/test_modular_tests_payload.py
+# vivarium_workbench/testing/test_modular_tests_payload.py
 import json
 from pathlib import Path
 
-from vivarium_dashboard.lib import study_spec
+from vivarium_workbench.lib import study_spec
 
 
 def _ws(tmp_path):
@@ -71,11 +71,11 @@ def test_report_card_urls_and_kind_in_payload(tmp_path):
 
 - [ ] **Step 2: Run it — expect FAIL** (`KeyError: 'report_card_urls'`)
 
-Run: `.venv/bin/python -m pytest vivarium_dashboard/testing/test_modular_tests_payload.py -q`
+Run: `.venv/bin/python -m pytest vivarium_workbench/testing/test_modular_tests_payload.py -q`
 
 - [ ] **Step 3: Implement — add `report_card_urls` to the study-detail spec**
 
-In `vivarium_dashboard/lib/study_spec.py`, at the end of `load_study_detail_spec(ws, slug)` (just before it returns `spec`), add:
+In `vivarium_workbench/lib/study_spec.py`, at the end of `load_study_detail_spec(ws, slug)` (just before it returns `spec`), add:
 
 ```python
     # Per-study report-card artifacts (viz/report_card/<card>.{html,verdict.json})
@@ -103,13 +103,13 @@ In `vivarium_dashboard/lib/study_spec.py`, at the end of `load_study_detail_spec
 
 - [ ] **Step 4: Run it — expect PASS**
 
-Run: `.venv/bin/python -m pytest vivarium_dashboard/testing/test_modular_tests_payload.py -q`
+Run: `.venv/bin/python -m pytest vivarium_workbench/testing/test_modular_tests_payload.py -q`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add vivarium_dashboard/lib/study_spec.py vivarium_dashboard/testing/test_modular_tests_payload.py
+git add vivarium_workbench/lib/study_spec.py vivarium_workbench/testing/test_modular_tests_payload.py
 git commit -m "feat(tests): study payload exposes report_card_urls + per-test kind"
 ```
 
@@ -118,8 +118,8 @@ git commit -m "feat(tests): study payload exposes report_card_urls + per-test ki
 ### Task A2: Template tags each test `<li>` with its kind + a mount point
 
 **Files:**
-- Modify: `vivarium_dashboard/templates/study-detail.html` (the Tests loop, ~1771-1836)
-- Test: `vivarium_dashboard/testing/test_modular_tests_render.py` (create)
+- Modify: `vivarium_workbench/templates/study-detail.html` (the Tests loop, ~1771-1836)
+- Test: `vivarium_workbench/testing/test_modular_tests_render.py` (create)
 
 **Interfaces:**
 - Consumes: each `b` in `study.behavior_tests or study.expected_behavior or study.tests` may have `b.kind`/`b.card`.
@@ -128,7 +128,7 @@ git commit -m "feat(tests): study payload exposes report_card_urls + per-test ki
 - [ ] **Step 1: Write the failing test** (renders the template fragment and checks the mount)
 
 ```python
-# vivarium_dashboard/testing/test_modular_tests_render.py
+# vivarium_workbench/testing/test_modular_tests_render.py
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 
@@ -162,7 +162,7 @@ def test_behavioral_renders_pill_report_card_renders_mount():
 
 - [ ] **Step 2: Run it — expect PASS for the harness** (this test pins the contract; it passes on the harness template). Then make the REAL template match this contract in Step 3, verified by Task A3's integration check.
 
-Run: `.venv/bin/python -m pytest vivarium_dashboard/testing/test_modular_tests_render.py -q`
+Run: `.venv/bin/python -m pytest vivarium_workbench/testing/test_modular_tests_render.py -q`
 Expected: PASS (the harness encodes the target markup).
 
 - [ ] **Step 3: Edit the real template** — `templates/study-detail.html`, the Tests loop at ~1793
@@ -199,15 +199,15 @@ and add a matching `{% endif %}` before the existing `</li>` that closes the ite
 
 - [ ] **Step 4: Run the render test + a template smoke**
 
-Run: `.venv/bin/python -m pytest vivarium_dashboard/testing/test_modular_tests_render.py -q`
+Run: `.venv/bin/python -m pytest vivarium_workbench/testing/test_modular_tests_render.py -q`
 Then smoke that the real template still parses:
-`.venv/bin/python -c "from jinja2 import Environment, FileSystemLoader; Environment(loader=FileSystemLoader('vivarium_dashboard/templates')).get_template('study-detail.html'); print('template parses')"`
+`.venv/bin/python -c "from jinja2 import Environment, FileSystemLoader; Environment(loader=FileSystemLoader('vivarium_workbench/templates')).get_template('study-detail.html'); print('template parses')"`
 Expected: PASS + `template parses`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add vivarium_dashboard/templates/study-detail.html vivarium_dashboard/testing/test_modular_tests_render.py
+git add vivarium_workbench/templates/study-detail.html vivarium_workbench/testing/test_modular_tests_render.py
 git commit -m "feat(tests): template tags test <li> by kind + report_card mount"
 ```
 
@@ -216,8 +216,8 @@ git commit -m "feat(tests): template tags test <li> by kind + report_card mount"
 ### Task A3: `loadTestsTab` fills report-card mounts with the embedded card + verdict
 
 **Files:**
-- Modify: `vivarium_dashboard/static/study-detail.js` (`loadTestsTab`, ~839-963; add a helper + a fill pass)
-- Test: `vivarium_dashboard/testing/test_modular_tests_js.py` (create — a string-level assertion on the shipped JS, since the repo has no JS test runner)
+- Modify: `vivarium_workbench/static/study-detail.js` (`loadTestsTab`, ~839-963; add a helper + a fill pass)
+- Test: `vivarium_workbench/testing/test_modular_tests_js.py` (create — a string-level assertion on the shipped JS, since the repo has no JS test runner)
 
 **Interfaces:**
 - Consumes: `window._study.report_card_urls` (Task A1) — `{<card>: {url, verdict}}`; the `<div class="report-card-mount" data-card="<card>">` elements (Task A2).
@@ -226,7 +226,7 @@ git commit -m "feat(tests): template tags test <li> by kind + report_card mount"
 - [ ] **Step 1: Write the failing test** (asserts the JS contains the fill logic)
 
 ```python
-# vivarium_dashboard/testing/test_modular_tests_js.py
+# vivarium_workbench/testing/test_modular_tests_js.py
 from pathlib import Path
 
 JS = (Path(__file__).resolve().parent.parent / "static" / "study-detail.js").read_text(encoding="utf-8")
@@ -244,7 +244,7 @@ def test_loadteststab_fills_report_card_mounts():
 
 - [ ] **Step 2: Run it — expect FAIL** (`_fillReportCardModules` not present)
 
-Run: `.venv/bin/python -m pytest vivarium_dashboard/testing/test_modular_tests_js.py -q`
+Run: `.venv/bin/python -m pytest vivarium_workbench/testing/test_modular_tests_js.py -q`
 
 - [ ] **Step 3: Add the fill helper + call it from `loadTestsTab`**
 
@@ -297,7 +297,7 @@ Then, at the END of `loadTestsTab(spec)` (just before its closing `}`), add:
 
 - [ ] **Step 4: Run the JS-contract test + deploy to the editable install**
 
-Run: `.venv/bin/python -m pytest vivarium_dashboard/testing/test_modular_tests_js.py -q`
+Run: `.venv/bin/python -m pytest vivarium_workbench/testing/test_modular_tests_js.py -q`
 Expected: PASS.
 
 Note for the integration check (Task A4): the v2ecoli `.venv` serves the dashboard from THIS checkout (editable), so the JS/template edits are live after a server restart — no rebuild.
@@ -305,7 +305,7 @@ Note for the integration check (Task A4): the v2ecoli `.venv` serves the dashboa
 - [ ] **Step 5: Commit**
 
 ```bash
-git add vivarium_dashboard/static/study-detail.js vivarium_dashboard/testing/test_modular_tests_js.py
+git add vivarium_workbench/static/study-detail.js vivarium_workbench/testing/test_modular_tests_js.py
 git commit -m "feat(tests): loadTestsTab embeds report_card modules (iframe + verdict)"
 ```
 
@@ -314,7 +314,7 @@ git commit -m "feat(tests): loadTestsTab embeds report_card modules (iframe + ve
 ### Task A4: End-to-end render check against a fixture workspace
 
 **Files:**
-- Test: `vivarium_dashboard/testing/test_modular_tests_e2e.py` (create)
+- Test: `vivarium_workbench/testing/test_modular_tests_e2e.py` (create)
 
 **Interfaces:**
 - Consumes: Tasks A1–A3.
@@ -322,12 +322,12 @@ git commit -m "feat(tests): loadTestsTab embeds report_card modules (iframe + ve
 - [ ] **Step 1: Write the test** — serve a fixture study with a mixed Tests list and assert the payload + the discovered card
 
 ```python
-# vivarium_dashboard/testing/test_modular_tests_e2e.py
+# vivarium_workbench/testing/test_modular_tests_e2e.py
 import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from vivarium_dashboard.api.app import create_app
+from vivarium_workbench.api.app import create_app
 
 
 def _fixture(tmp_path):
@@ -356,17 +356,17 @@ def test_study_detail_payload_has_mixed_tests_and_card_url(tmp_path):
     assert kinds == {"beh": "behavioral", "std": "report_card"}
 ```
 
-(If `create_app`'s workspace kwarg differs, match the signature used by `vivarium_dashboard/cli.py serve` — grep `create_app(` in app.py.)
+(If `create_app`'s workspace kwarg differs, match the signature used by `vivarium_workbench/cli.py serve` — grep `create_app(` in app.py.)
 
 - [ ] **Step 2: Run it — expect PASS** (Tasks A1–A3 satisfy it)
 
-Run: `.venv/bin/python -m pytest vivarium_dashboard/testing/test_modular_tests_e2e.py -q`
+Run: `.venv/bin/python -m pytest vivarium_workbench/testing/test_modular_tests_e2e.py -q`
 Expected: PASS.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add vivarium_dashboard/testing/test_modular_tests_e2e.py
+git add vivarium_workbench/testing/test_modular_tests_e2e.py
 git commit -m "test(tests): e2e payload check for mixed behavioral + report_card tests"
 ```
 

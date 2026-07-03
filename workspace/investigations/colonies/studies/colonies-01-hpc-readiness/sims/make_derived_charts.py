@@ -2,7 +2,7 @@
 """Render the derived HPC-sizing visualizations from runs.db.
 
 Companion to the dashboard's live perf charts (rendered straight from the
-runs/ticks tables by vivarium_dashboard.lib.study_charts). These are the
+runs/ticks tables by vivarium_workbench.lib.study_charts). These are the
 *interpreted* charts — the ones that turn the raw N-sweep into the actual
 HPC-deployment answer: the realtime ceiling (cells/process), where the cost
 lives (EcoliWCM vs pymunk), and the per-tick stability across N.

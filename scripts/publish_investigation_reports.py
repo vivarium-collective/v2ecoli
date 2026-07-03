@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Headlessly export every investigation's self-contained HTML report.
 
-The investigation report is built CLIENT-SIDE by the vivarium-dashboard SPA
+The investigation report is built CLIENT-SIDE by the vivarium-workbench SPA
 (`_generateInvestigationReport()` → `_buildInvestigationReportHtml`), embedding
 each study's figures as `iframe srcdoc` + data URIs. There is no server-side
 generator, so this script drives the real "Generate report" button in a headless
@@ -10,7 +10,7 @@ manual browser export.
 
 Flow:
   1. discover investigations under workspace/investigations/*/investigation.yaml
-  2. serve the dashboard (`vivarium-dashboard serve`) unless --url points at a
+  2. serve the dashboard (`vivarium-workbench serve`) unless --url points at a
      running one
   3. for each investigation: _openInvestigationDetail(slug) → click-equivalent
      _generateInvestigationReport() → capture the download → write
@@ -156,16 +156,16 @@ def _wait_healthy(url: str, timeout: float = 60.0) -> bool:
 
 
 def _dashboard_binary(ws_root: Path) -> str:
-    """Resolve the vivarium-dashboard CLI: workspace .venv first, then PATH."""
-    local = ws_root / ".venv" / "bin" / "vivarium-dashboard"
+    """Resolve the vivarium-workbench CLI: workspace .venv first, then PATH."""
+    local = ws_root / ".venv" / "bin" / "vivarium-workbench"
     if local.exists():
         return str(local)
-    found = shutil.which("vivarium-dashboard")
+    found = shutil.which("vivarium-workbench")
     if found:
         return found
     raise RuntimeError(
-        "vivarium-dashboard CLI not found (looked in .venv/bin and PATH); "
-        "install it with `uv sync` or `uv pip install vivarium-dashboard`"
+        "vivarium-workbench CLI not found (looked in .venv/bin and PATH); "
+        "install it with `uv sync` or `uv pip install vivarium-workbench`"
     )
 
 

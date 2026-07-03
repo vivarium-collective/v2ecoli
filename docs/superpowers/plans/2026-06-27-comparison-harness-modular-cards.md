@@ -15,7 +15,7 @@
 - `Section = {"title": str, "kind": "content", "html": str, "anchor": str, "verdict": str | None}` — the existing section dict shape; the assembler stays structurally unchanged.
 - Rendered output keeps the `docs/report_cards/` convention.
 - seeds = a config's `n_init_sims`; gens = a config's `generations` — read from the vEcoli config, never the manifest.
-- Run tests with `/Users/eranagmon/code/v2e-cmp-harness/.venv/bin/python -m pytest` (set up the venv first if absent: `cd /Users/eranagmon/code/v2e-cmp-harness && uv sync --no-install-package vivarium-dashboard`).
+- Run tests with `/Users/eranagmon/code/v2e-cmp-harness/.venv/bin/python -m pytest` (set up the venv first if absent: `cd /Users/eranagmon/code/v2e-cmp-harness && uv sync --no-install-package vivarium-workbench`).
 
 ---
 

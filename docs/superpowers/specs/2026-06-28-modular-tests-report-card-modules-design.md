@@ -1,7 +1,7 @@
 # Modular Study "Tests" — report-card test modules — Design
 
 **Status:** spec (approved in brainstorm 2026-06-28). Cross-repo:
-`vivarium-dashboard` (consumer) + `v2ecoli` (producer). This is the
+`vivarium-workbench` (consumer) + `v2ecoli` (producer). This is the
 generalization the comparison↔investigation unification was aiming at: a study's
 **Tests section becomes a modular list of evaluation modules**, with the current
 Behavioral Tests as the default kind and **report cards as a pluggable kind**.
@@ -21,7 +21,7 @@ standard / statistical) as their Tests.
 
 Two subsystems, one small contract:
 
-1. **Dashboard framework (vivarium-dashboard, consumer):** the modular,
+1. **Dashboard framework (vivarium-workbench, consumer):** the modular,
    `kind`-dispatched Tests section. Reusable by ANY study.
 2. **Comparison producer (v2ecoli):** emit each study's cards to
    `viz/report_card/`, declare the `report_card` modules, and a scaffold.
@@ -201,7 +201,7 @@ regenerated.
 
 ## Testing
 
-**Dashboard (vivarium-dashboard):**
+**Dashboard (vivarium-workbench):**
 - payload: a study with mixed `tests` (one behavioral + one report_card) passes
   `kind`/`card` through to the payload.
 - render dispatch (JS/template unit or DOM test): behavioral → pill;

@@ -18,7 +18,7 @@ vEcoli's DuckDB/`sim_data` analyses now run **natively inside v2ecoli** as proce
 ### The `Analysis` abstraction (in `main`)
 - `Analysis(V2Step)` — sibling of the record-based `AnalysisStep`; declares DuckDB `conn` + scale-scoped `history_sql` + ParCa `sim_data` input ports; emits `{view: html, data: map}`. Shared `ANALYSIS_REGISTRY`.
 - Runner (`workflow/analysis_runner.py`) provisions one DuckDB connection + the paired `sim_data` per run, builds a per-scale `history_sql`, writes `data → analysis.json` and `view → <sweep>/viz/*.html`.
-- Dashboard integration is **done** (generic, no per-analysis code): vivarium-dashboard reads `v2ecoli.workflow.analysis.ANALYSIS_REGISTRY` to list `Analysis` classes in its picker, runs the ones declared in a study's `analyses:` list via a post-run hook (`_run_study_analyses` → `analysis_runner.run_analyses`), and surfaces the resulting `<sweep>/viz/*.html` per study/investigation (`_discover_viz_html_files` / `_discover_investigation_viz_html_files`). Any registered analysis (incl. `ptools_overview`) appears automatically once v2ecoli is importable in the serving venv. See vivarium-dashboard `docs/post-run-analyses.md`.
+- Dashboard integration is **done** (generic, no per-analysis code): vivarium-workbench reads `v2ecoli.workflow.analysis.ANALYSIS_REGISTRY` to list `Analysis` classes in its picker, runs the ones declared in a study's `analyses:` list via a post-run hook (`_run_study_analyses` → `analysis_runner.run_analyses`), and surfaces the resulting `<sweep>/viz/*.html` per study/investigation (`_discover_viz_html_files` / `_discover_investigation_viz_html_files`). Any registered analysis (incl. `ptools_overview`) appears automatically once v2ecoli is importable in the serving venv. See vivarium-workbench `docs/post-run-analyses.md`.
 
 ### 24 ported analyses (`Analysis`, DuckDB/`sim_data`)
 | Scale | Analyses |
@@ -79,7 +79,7 @@ The ptools data pipeline is done; the *visualization* is not. In increasing dept
    resolve in the live ECOLI PGDB. Run the server per the appendix below.
 
 ### B. Dashboard surfacing — DONE
-The `vivarium-dashboard` integration is merged (on its `main`) and is **generic**
+The `vivarium-workbench` integration is merged (on its `main`) and is **generic**
 — it reads `v2ecoli.workflow.analysis.ANALYSIS_REGISTRY` directly, so no
 per-analysis dashboard change is needed:
 - **Picker** lists every registered `Analysis` class (`_build_analysis_options`).
@@ -94,7 +94,7 @@ So `ptools_overview` (and any future analysis) shows up automatically. The only
 prerequisites are operational: v2ecoli must be importable in the dashboard's
 serving venv (cf. the pbg editable-install gap), and — for the painted
 overview — the external `sms-ptools` server must be running (see the appendix /
-`scripts/ptools_server.sh`). Reference: vivarium-dashboard `docs/post-run-analyses.md`.
+`scripts/ptools_server.sh`). Reference: vivarium-workbench `docs/post-run-analyses.md`.
 
 ### C. Other follow-ups
 - **`validation_data`:** the current minimal loader covers Schmidt/Wisniewski protein counts only. A fuller `ValidationDataEcoli` port (or adding a `validation/` tier to the **ecoli-sources** package, which is reconstruction-only today) would generalize it.
@@ -148,9 +148,9 @@ published gh-pages site (no server to build the launch URL). One-time:
    ```
 2. **Run the dashboard locally**, pointed at this repo:
    ```sh
-   vivarium-dashboard serve --workspace . --port 8771
+   vivarium-workbench serve --workspace . --port 8771
    ```
-   (Run from a venv where `v2ecoli` + `vivarium-dashboard` are installed. The
+   (Run from a venv where `v2ecoli` + `vivarium-workbench` are installed. The
    `ui.ptools_server_url` and `ui.ptools_data_dir: "/ptools-data"` keys are
    already set in `workspace.yaml`.)
 3. Open **http://localhost:8771** → **Analyses** tab → **Launch in Omics Viewer**

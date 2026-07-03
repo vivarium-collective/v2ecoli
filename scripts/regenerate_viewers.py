@@ -78,7 +78,7 @@ def write_state(state: dict, slug: str, data_dir: Path) -> Path:
     # and allow_nan=False + the _json_sanitize fallback replaces inf/nan with
     # null. Plain json.dumps chokes on the ndarrays. loom's ?stateUrl= reader
     # expects the {"state": <bigraph-state>} wrapper.
-    from vivarium_dashboard.server import _json_body
+    from vivarium_workbench.lib.json_serialize import _json_body
     out.write_bytes(_json_body({"state": state}))
     return out
 
@@ -140,10 +140,9 @@ _PAGE_TEMPLATE = """<!doctype html>
 def resolve_state_via_dashboard(spec_id: str) -> dict | None:
     """Resolve a composite to its loom state dict by reusing the dashboard's
     pure resolver. Returns None on failure, after surfacing WHY."""
-    import vivarium_dashboard.server as srv
+    from vivarium_workbench.lib.composite_resolve import resolve_composite
     # This script is always run standalone; point the dashboard's pure resolver at this workspace.
-    srv.WORKSPACE = REPO_ROOT
-    data = srv._composite_resolve_data(spec_id)
+    data = resolve_composite(REPO_ROOT, spec_id)
     if data and isinstance(data.get("state"), dict):
         return data["state"]
     # _composite_resolve_data swallows the real error and returns None. Re-run

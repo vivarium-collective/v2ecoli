@@ -18,7 +18,7 @@ they simply gain populated card slots and room for more.
   `workspace/studies/<name>/viz/report_card/<card>.html` (+ optional
   `<card>.verdict.json`, whose `.overall` field drives the verdict pill).
   Discovery is already implemented in
-  `vivarium_dashboard/lib/saved_visualizations.py` and
+  `vivarium_workbench/lib/saved_visualizations.py` and
   `lib/study_spec.py` (`report_card_urls`), and `publish.py` already stages
   `viz/report_card/` into the read-only bundle. **No dashboard changes are
   required.**

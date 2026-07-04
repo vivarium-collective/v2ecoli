@@ -1,0 +1,35 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.forward_uq_pipeline_runs_end_to_end",
+     "label": "forward-uq-pipeline-runs-end-to-end",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [1.0, 1.0]",
+     "detail": {
+      "text": "Does the pbg-uq forward-UQ pipeline run end-to-end on v2ecoli and produce Sobol\nindices, a PCE surrogate, figures and an HTML report?\n"
+     }
+    },
+    {
+     "id": "tests.single_elongation_knob_robustly_dominates",
+     "label": "single-elongation-knob-robustly-dominates",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [0.5, 1.0]",
+     "detail": {
+      "text": "Does a single effective elongation knob robustly dominate (total-order Sobol\n>= 0.5, with a stable identity across seeds) instantaneous-growth-rate variance?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "param-uq-01-elongation \u2014 default tests"
+}

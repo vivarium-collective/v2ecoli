@@ -38,24 +38,28 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        # vivarium-dashboard's wheel build fails under strict hatchling; the
+        # vivarium-workbench's wheel build fails under strict hatchling; the
         # upstream fix requires bigraph-schema>=1.4.1 (a core bump we're
         # deferring). It isn't imported by the test suite (testpaths=tests),
         # so skip building it here.
-        run: uv sync --extra dev --no-install-package vivarium-dashboard || uv sync --no-install-package vivarium-dashboard
+        run: uv sync --extra dev --no-install-package vivarium-workbench || uv sync --no-install-package vivarium-workbench
 
       - name: Run fast tests (no .run() calls)
-        # -n auto: pytest-xdist parallelism (~4 workers on ubuntu-latest).
-        # --dist=loadfile keeps tests from the same file on one worker —
-        # any module-level fixtures (caches, registry setup) only pay
-        # the build cost once per file, not once per worker.
+        # -n 1 (serial): each worker holds sim_data + built composites, so on the
+        # 7GB runner ANY concurrency risks an OOM-killed worker ("node down: Not
+        # properly terminated") that hangs the job to its timeout. -n auto (~4)
+        # then -n 2 each worked until the suite grew (SBC/surrogate tests added
+        # memory pressure) and started OOM-ing intermittently → reliably. These
+        # are the FAST "no .run()" tests (no full simulations), so serial keeps a
+        # bounded single-test peak and still finishes in minutes. If wall-clock
+        # becomes a problem, move to a larger runner rather than re-adding workers.
         run: >-
           uv run pytest
           -m "not slow and not sim"
           --ignore=tests/test_initialize.py
           --ignore=tests/test_kinetics_units.py
           --ignore=tests/test_unit_bridge.py
-          -n auto --dist=loadfile
+          -n 1 --dist=loadfile
           -v --tb=short
 
   behavior-tests:
@@ -76,11 +80,11 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        # vivarium-dashboard's wheel build fails under strict hatchling; the
+        # vivarium-workbench's wheel build fails under strict hatchling; the
         # upstream fix requires bigraph-schema>=1.4.1 (a core bump we're
         # deferring). It isn't imported by the test suite (testpaths=tests),
         # so skip building it here.
-        run: uv sync --extra dev --no-install-package vivarium-dashboard || uv sync --no-install-package vivarium-dashboard
+        run: uv sync --extra dev --no-install-package vivarium-workbench || uv sync --no-install-package vivarium-workbench
 
       # Cache out/cache (initial_state.json + sim_data_cache.dill +
       # cache_version.json) across PRs. The cache key pins to the same

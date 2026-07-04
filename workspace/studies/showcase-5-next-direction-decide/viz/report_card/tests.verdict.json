@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "ungraded",
+ "groups": {
+  "decision": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.reviewer_selects_next_direction",
+     "label": "reviewer-selects-next-direction",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "reviewer_selected_variant",
+     "detail": {
+      "text": "Have reviewers selected which next direction to pursue, given the showcase-4 ranking?"
+     }
+    }
+   ]
+  }
+ },
+ "title": "showcase-5-next-direction-decide \u2014 default tests"
+}

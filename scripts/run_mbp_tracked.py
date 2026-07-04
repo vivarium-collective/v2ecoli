@@ -68,8 +68,8 @@ DEFAULT_CHUNK = 1   # per-tick emission (~80 ms/tick on this machine)
 DEFAULT_EMITTER = "parquet"   # workspace default (see workspace.yaml.runtime.default_emitter)
 DB_PATH = REPO_ROOT / ".pbg" / "composite-runs.db"
 # Per-study parquet roots: studies/<study_slug>/parquet-runs/<experiment_id>/...
-# This is the convention vivarium-dashboard's _latest_parquet_for_study reads
-# from (vivarium_dashboard/lib/study_charts.py:_latest_parquet_for_study).
+# This is the convention vivarium-workbench's _latest_parquet_for_study reads
+# from (vivarium_workbench/lib/study_charts.py:_latest_parquet_for_study).
 # The cross-investigation reference variant (study_slug not a real study)
 # also gets a per-slug directory so the dashboard can still discover it via
 # the same code path, even though no study.yaml lives there.
@@ -379,7 +379,7 @@ def _run_one_variant(
     elif emitter == "parquet":
         # Workspace-default emitter (workspace.yaml.runtime.default_emitter).
         # Hive-partitioned per experiment_id/variant/lineage_seed/generation/agent_id.
-        # Written under studies/<study_slug>/parquet-runs/ so vivarium-dashboard's
+        # Written under studies/<study_slug>/parquet-runs/ so vivarium-workbench's
         # _latest_parquet_for_study can discover them per-study.
         parquet_root = _parquet_root_for(study_slug)
         parquet_root.mkdir(parents=True, exist_ok=True)

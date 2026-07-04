@@ -137,6 +137,61 @@ def test_select_carry_daughter_none_when_nothing_to_carry():
     assert select_carry_daughter({"0"}, {"0": {}}, mother_snapshot=None) is None
 
 
+def test_apply_carry_state_preserves_fresh_exchange_data():
+    """Regression: the rebuilt daughter must take ``environment.exchange_data``
+    from its FRESH build, not inherit the mother's raw substore.
+
+    Carrying the mother's raw ``exchange_data`` dict drops the store's overwrite
+    (ListenerStore) updater, so the daughter falls back to ``map[float]`` ACCUMULATE
+    semantics: the per-tick FBA bound write (ExchangeData's glucose uptake = cap)
+    then ADDS up instead of overwriting, ballooning the bound across the generation
+    and silently voiding every exchange constraint in gens >= 1. The biological
+    state still comes from the daughter; only the derived substore is kept fresh."""
+    from v2ecoli.workflow.lineage import apply_carry_state
+
+    fresh_exchange_data = {"constrained": {"GLC[p]": 20.0}, "unconstrained": []}
+    agent = {
+        "bulk": "FRESH_BULK",
+        "unique": {"u": "fresh"},
+        "environment": {"media_id": "FRESH", "exchange_data": fresh_exchange_data},
+        "boundary": {"external": {"GLC": 11.1}},
+        "listeners": {"mass": {}},
+    }
+    carry_state = {
+        "bulk": "CARRIED_BULK",
+        "unique": {"u": "carried"},
+        "environment": {
+            "media_id": "CARRIED",
+            # a mother store whose per-tick bound has already ballooned
+            "exchange_data": {"constrained": {"GLC[p]": 9999.0}, "unconstrained": ["GLC[p]"]},
+        },
+        "boundary": {"external": {"GLC": 5.0}},
+    }
+    apply_carry_state(agent, carry_state)
+
+    # biological + environmental state comes from the daughter ...
+    assert agent["bulk"] == "CARRIED_BULK"
+    assert agent["unique"] == {"u": "carried"}
+    assert agent["boundary"]["external"]["GLC"] == 5.0
+    assert agent["environment"]["media_id"] == "CARRIED"
+    # ... but exchange_data is the FRESH typed substore (identity-checked), NOT the
+    # ballooned carried one — this is the fix.
+    assert agent["environment"]["exchange_data"] is fresh_exchange_data
+    assert agent["environment"]["exchange_data"]["constrained"]["GLC[p]"] == 20.0
+
+
+def test_apply_carry_state_carries_when_no_fresh_exchange_data():
+    """If the fresh build has no exchange_data substore (e.g. a composite without
+    ExchangeData), fall back to carrying the whole environment unchanged."""
+    from v2ecoli.workflow.lineage import apply_carry_state
+
+    agent = {"environment": {"media_id": "FRESH"}, "bulk": "F"}
+    carry_state = {"environment": {"media_id": "CARRIED", "other": 1}, "bulk": "C"}
+    apply_carry_state(agent, carry_state)
+    assert agent["environment"] == {"media_id": "CARRIED", "other": 1}
+    assert agent["bulk"] == "C"
+
+
 def test_divide_flag_detected_when_agent_id_diverges_from_inner_cell():
     """Regression: gen 0 divides but gens >= 1 run to the duration cap.
 

@@ -1,0 +1,40 @@
+{
+  "schema": "report_card_verdict/v1",
+  "model_ref": "",
+  "reference_model": "vEcoli (fork)",
+  "generated": "",
+  "overall": "mismatch",
+  "groups": {
+    "physiology": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "physiology.cell_mass",
+          "label": "Cell mass",
+          "verdict": "within_tol",
+          "value": 4015.8962347090123,
+          "meter": "\u0394 = +1.0% \u00b7 p = 0.112 \u00b7 d = +0.07",
+          "detail": {
+            "p": 0.111626913273961,
+            "t": 1.5915595563841842,
+            "cohens_d": 0.06647727212521676,
+            "delta_rel": 0.010439686566451488
+          }
+        },
+        {
+          "id": "physiology.growth_rate",
+          "label": "Growth rate",
+          "verdict": "mismatch",
+          "value": 0.0005734311686275653,
+          "meter": "\u0394 = +21.4% \u00b7 p = 0.000 \u00b7 d = +0.15",
+          "detail": {
+            "p": 0.0003295278068428563,
+            "t": 3.596284921888696,
+            "cohens_d": 0.1482024981062822,
+            "delta_rel": 0.2137544241235913
+          }
+        }
+      ]
+    }
+  }
+}

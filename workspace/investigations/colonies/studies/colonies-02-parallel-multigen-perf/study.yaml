@@ -2,16 +2,16 @@ schema_version: 3
 name: colonies-02-parallel-multigen-perf
 title: Parallel multi-generation colony — natural-division perf & Ray scaling
 description: |
-  Redo the colony simulation from ONE whole-cell agent, let it divide
-  NATURALLY (no forced same-tick division), keep both daughters, and
+  Redo the colony simulation from one whole-cell agent, let it divide
+  naturally (no forced same-tick division), keep both daughters, and
   follow the colony as it doubles 1 → 2 → 4 → 8. Track the per-cell
   compute hit (wall, RSS) generation-by-generation to resolve colonies-01's
   open F-06 anomaly (RSS climbing ~5 MB/sim-s in long runs) and the
-  PASS-narrow caveat (colonies-01 validated only FORCED division). Run
+  PASS-narrow caveat (colonies-01 validated only forced division). Run
   the same growing colony under the updated process-bigraph Ray protocol
   (sharded RayProtocol / actor pool) to test whether process-level
   parallelism lifts the single-process ~13-cells GIL ceiling. Produce a
-  detailed compute-requirements profile that seeds colonies-03-hpc-deployment.
+  compute-requirements profile that seeds colonies-03-hpc-deployment.
 topic: scaling
 tags: [colony, multi-cell, perf, scaling, parallel, ray, natural-division, requires-pymunk, requires-viva-munk]
 created: '2026-06-15'
@@ -48,18 +48,18 @@ visualizations:
   description: |
     Process RSS vs tick from a controlled staged run (N=1→2→4, force-divided for
     timing; sims/mem_measure.py → runs/mem_measure.csv). The two memory factors
-    are visible in one figure: the STEP-UP at each division = the per-cell
-    footprint, and the upward SLOPE within each constant-N plateau = the leak
+    are visible in one figure: the step-up at each division = the per-cell
+    footprint, and the upward slope within each constant-N plateau = the leak
     (annotated MB/tick, scaling with cell count).
 - name: footprint-and-leak-by-ncells
   address: image:charts/02_footprint_and_leak_by_ncells.svg
   chart: charts/02_footprint_and_leak_by_ncells.svg
   render: python sims/make_memory_figs.py
   description: |
-    Left: per-cell footprint (GB/cell) — each colony cell is an INDEPENDENT full
-    baseline whole-cell composite that loads its OWN sim_data, so RAM scales ~1+
+    Left: per-cell footprint (GB/cell). Each colony cell is an independent full
+    baseline whole-cell composite that loads its own sim_data, so RAM scales ~1+
     GB per cell (bounded, but the dominant cells-per-node limiter). Right: the
-    per-tick leak rate (within-plateau RSS slope, MB/tick) — the unbounded factor,
+    per-tick leak rate (within-plateau RSS slope, MB/tick), the unbounded factor,
     scaling with cell count.
 - name: memory-decomposition
   address: image:charts/03_memory_decomposition.svg
@@ -67,7 +67,7 @@ visualizations:
   render: python sims/make_memory_figs.py
   description: |
     RSS split into numpy-object bytes (gc-visible) vs native/C. numpy stays flat
-    within each plateau while native grows — so the leak is NOT a retained
+    within each plateau while native grows, so the leak is not a retained
     Python/numpy object. tracemalloc saw <2 MB of the growth; macOS `leaks` found
     ~13 MB of true unreachable leak in the LLVM/Numba JIT layer (llvmlite). See
     colonies-03 F-05 + issue #253.
@@ -88,7 +88,7 @@ baseline:
 
 purpose:
   question: |
-    Starting from ONE whole-cell E. coli agent and letting it divide
+    Starting from one whole-cell E. coli agent and letting it divide
     naturally through 3-4 generations (1 → 2 → 4 → 8), does per-cell
     compute cost (wall + RSS) stay flat, or does it drift as daughter
     EcoliWCM internal composites accumulate history? And does running
@@ -237,7 +237,7 @@ findings:
   kind: computational
   status: confirms
   statement: |
-    One whole-cell agent divides NATURALLY (no forced same-tick division)
+    One whole-cell agent divides naturally (no forced same-tick division)
     through >=3 generations: 1 -> 2 -> 4 -> 6 -> 8 -> 10 -> 12 -> 14 cells
     (7 division events) in the sequential run, with all cells advancing on
     subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
@@ -261,13 +261,13 @@ findings:
   kind: computational
   status: confirms
   statement: |
-    Per-cell EcoliWCM wall does NOT drift across generations. Cleanest
+    Per-cell EcoliWCM wall does not drift across generations. The cleanest
     comparison (low-RSS static N-sweep, 60-tick windows): per-cell wall is
-    flat at 54-59 ms across N in {1,2,4,8,16} (65->54 ms, a slight DECREASE
+    flat at 54-59 ms across N in {1,2,4,8,16} (65->54 ms, a slight decrease
     as overhead amortizes). In the growing sequential run the 1-cell gen
     (55.3 ms) vs 2-cell gen (56.3 ms/cell) differ by only +1.8%. Apparent
     inflation to ~80 ms/cell at 14 cells is swap pressure (F-03) + O(N)
-    pymunk collision cost, NOT WCM-internal accumulation. Resolves F-06
+    pymunk collision cost, not WCM-internal accumulation. Resolves F-06
     for wall time: no per-cell wall drift.
   evidence:
     from_runs: [seq-1cell-4div, nsweep-local]
@@ -288,14 +288,14 @@ findings:
   kind: computational
   status: refutes
   statement: |
-    Per-cell RSS is an UNBOUNDED leak, NOT amortized warmup. A SINGLE cell
+    Per-cell RSS is an unbounded leak, not amortized warmup. A single cell
     climbs ~7.7 MB/sim-s (999 MB -> ~19 GB over the 2338 ticks before its
     first division); the sequential colony peaked at 27.5 GB and was
-    OOM-killed at tick 8161 (~136/180 sim-min). Confirmed EMITTER-INDEPENDENT
+    OOM-killed at tick 8161 (~136/180 sim-min). Confirmed emitter-independent
     (a no-emitter control run leaks the same ~7.06 MB/tick), so the leak is
     inside the EcoliWCM step itself (most likely inner vEcoli listener /
     history-array accumulation), not the RAMEmitter and not division. RSS
-    sawtooths DOWN at each division (the mother's accumulated state is freed
+    sawtooths down at each division (the mother's accumulated state is freed
     on _remove), so each lineage re-accumulates from scratch and the binding
     figure is ~18 GB per cell at end-of-generation. This is the F-06
     resolution for RAM: it is a real leak, and it makes the cells-per-node
@@ -324,11 +324,11 @@ findings:
   statement: |
     The process-bigraph Ray protocol (ray:EcoliWCM, parallel_processes=True)
     lifts the single-process GIL ceiling. Static N-sweep median wall (realtime
-    ratio): local scales LINEARLY 65/118/237/466/865 ms (ratio 0.07->0.87)
+    ratio): local scales linearly 65/118/237/466/865 ms (ratio 0.07->0.87)
     for N=1/2/4/8/16, crossing realtime near N~18 (the colonies-01 ceiling).
-    Ray scales SUB-LINEARLY 54/59/81/115/245 ms (ratio 0.05->0.25): per-cell
+    Ray scales sub-linearly 54/59/81/115/245 ms (ratio 0.05->0.25): per-cell
     wall drops 54->15 ms as cells solve concurrently across cores. At N=16
-    Ray is 3.5x faster and only 0.25 realtime -> headroom to ~50-60 cells
+    Ray is 3.5x faster and only 0.25 realtime, with headroom to ~50-60 cells
     before realtime. Confirmed in the growing colony too: 2 cells cost the
     same total wall (~59 ms) as 1 cell.
   evidence:
@@ -354,12 +354,12 @@ findings:
   status: confirms
   statement: |
     Under Ray the binding constraint flips from CPU/GIL to aggregate RAM,
-    and RAM is WORSE than sequential. The ~7.7 MB/sim-s per-cell leak (F-03)
-    is transport-independent: it moves into the actor PROCESS (one actor
+    and RAM is worse than sequential. The ~7.7 MB/sim-s per-cell leak (F-03)
+    is transport-independent: it moves into the actor process (one actor
     reached ~19 GB by tick 2338, mirroring sequential). The Ray protocol also
     pre-spawns a ~13-actor pool, each carrying a ~590 MB WCM baseline (~7.6 GB
     fixed overhead). At just 2 live cells the two daughter actors were each
-    ~10 GB and climbing (~34 GB distinct actor RSS) -> a growing colony OOMs
+    ~10 GB and climbing (~34 GB distinct actor RSS), so a growing colony OOMs
     the machine even faster than sequential. The main process stays flat
     ~0.7 GB (WCM offloaded). RSS sawtooths at division (mother actor returns
     to pool).
@@ -385,12 +385,12 @@ findings:
   kind: computational
   status: confirms
   statement: |
-    Ray and sequential produce the SAME colony trajectory. First division
-    occurs at tick 2338 under BOTH transports (exact, not just modulo RNG):
+    Ray and sequential produce the same colony trajectory. First division
+    occurs at tick 2338 under both transports (exact, not just modulo RNG):
     the EcoliWCM is deterministic given its seed and the transport does not
     alter seeding, so division timing and per-cell mass are transport-
     invariant. Per-cell wall under Ray at 2 cells is 29.7 ms (vs 59.8 ms at
-    1 cell) — the two cells solve concurrently.
+    1 cell): the two cells solve concurrently.
   evidence:
     from_runs: [seq-1cell-4div, ray-1cell-4div]
     from_test: ray-biology-consistency

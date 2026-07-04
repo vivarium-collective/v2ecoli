@@ -5,7 +5,7 @@ written by ``run_multigen_parquet`` under
 ``studies/<study>/parquet-runs/<experiment_id>/history/`` and writes a
 small set of comparison charts into ``studies/<study>/charts/`` where
 the dashboard's ``discover_static_study_charts`` picks them up
-(``vivarium_dashboard/lib/study_charts.py::discover_static_study_charts``).
+(``vivarium_workbench/lib/study_charts.py::discover_static_study_charts``).
 
 Charts produced (same set as the earlier sqlite-sourced renderer — same
 underlying biological data, different read path):

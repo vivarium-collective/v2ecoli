@@ -41,6 +41,9 @@ ALLOWLIST: dict[str, str] = {
         'loads config_defaults.pickle (ParCa-derived defaults)',
     'library/function_registry.py':
         'base64-dill for compiled rate functions (parameter compilation)',
+    'library/vivarium_ecoli_engine.py':
+        "loads genuine vEcoli's upstream simData.cPickle (vEcoli's native "
+        'sim_data format) to run the unmodified reference engine in-process',
     'cli/parca.py':
         'ParCa pipeline runner — writes parca_state.pkl + step checkpoints (ParCa cache exception)',
 }

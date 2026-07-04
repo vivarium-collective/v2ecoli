@@ -43,6 +43,42 @@ def select_carry_daughter(agents_before, agents_now, mother_snapshot):
     return None
 
 
+# Substores under ``environment`` that are RE-DERIVED every tick by their owning
+# Step and must therefore be taken from the freshly-built daughter, not inherited
+# from the mother. ``exchange_data`` (the FBA import constraints, written each tick
+# by the ExchangeData step) is realized as an overwrite store (ListenerStore) in a
+# fresh build, but carrying the mother's *raw* dict drops that updater so the
+# rebuilt daughter falls back to the ``map[float]`` default — which ACCUMULATES on
+# apply. The per-tick bound write (e.g. glucose uptake = cap) then adds up instead
+# of overwriting, ballooning the bound across the generation and silently voiding
+# every exchange constraint in generations >= 1. Keeping the fresh substore is both
+# correct (ExchangeData re-derives it from boundary.external on the first tick) and
+# the minimal fix.
+_FRESH_ENVIRONMENT_SUBSTORES = ("exchange_data",)
+
+
+def apply_carry_state(agent, carry_state):
+    """Overlay an inherited daughter's biological state onto a fresh agent doc.
+
+    Carries ``bulk``/``unique``/``environment``/``boundary`` from ``carry_state``,
+    but PRESERVES the fresh agent's derived ``environment`` substores listed in
+    :data:`_FRESH_ENVIRONMENT_SUBSTORES` so their overwrite updaters survive the
+    daughter rebuild (see the note there).
+    """
+    for key in ("bulk", "unique", "environment", "boundary"):
+        if key not in carry_state:
+            continue
+        if key == "environment":
+            fresh_env = agent.get("environment") or {}
+            carried_env = dict(carry_state["environment"] or {})
+            for sub in _FRESH_ENVIRONMENT_SUBSTORES:
+                if sub in fresh_env:
+                    carried_env[sub] = fresh_env[sub]
+            agent["environment"] = carried_env
+        else:
+            agent[key] = carry_state[key]
+
+
 # Default xarray view: scalar mass gauges (no vector coord arrays needed).
 # Override via emitter_arg["view"] (JSON list roots are accepted). Leaves the
 # composite doesn't emit are filtered out at open time (xarray is strict).
@@ -74,6 +110,7 @@ class LineageProcess(Process):
         # baseline emitter step then falls back to RAM (not read).
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
+        "injected_processes": {"_default": {}},
     }
 
     def initialize(self, config):
@@ -123,7 +160,8 @@ class LineageProcess(Process):
             try:
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides)
+                               config_overrides=overrides,
+                               injected_processes=self.config.get("injected_processes"))
             finally:
                 set_null_emitter_override(False)
             self._xarray_pending = True
@@ -142,15 +180,14 @@ class LineageProcess(Process):
             try:
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides)
+                               config_overrides=overrides,
+                               injected_processes=self.config.get("injected_processes"))
             finally:
                 set_parquet_emitter_override(None)
 
         if self._carry_state is not None:
             agent = doc["state"]["agents"]["0"]
-            for key in ("bulk", "unique", "environment", "boundary"):
-                if key in self._carry_state:
-                    agent[key] = self._carry_state[key]
+            apply_carry_state(agent, self._carry_state)
             agent["listeners"]["mass"] = {"dry_mass": 0.0, "cell_mass": 0.0}
             seed_mass_listener(agent, core)
 

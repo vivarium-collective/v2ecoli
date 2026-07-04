@@ -3,7 +3,7 @@
 
 The published (gh-pages) dashboard serves composite state as static files at
 ``api/composite-state/<id>.json`` so the bigraph-loom ``?static=1`` viewer works
-offline. ``vivarium_dashboard.publish.build_bundle`` will use a committed
+offline. ``vivarium_workbench.publish.build_bundle`` will use a committed
 override at ``reports/composite-state/<id>.json`` verbatim (marking the composite
 navigable) when present, and otherwise falls back to LIVE resolution — which
 fails in CI for any composite whose generator needs the on-disk ParCa cache
@@ -60,11 +60,10 @@ def main() -> int:
     if ws_str not in sys.path:
         sys.path.insert(0, ws_str)
 
-    # The dashboard's pure data builders require module-global WORKSPACE to be set.
-    from vivarium_dashboard import server as _srv
-    _srv.WORKSPACE = ws_root
-    from vivarium_dashboard.server import _json_default, _json_sanitize
-    from vivarium_dashboard.lib._root import set_workspace_root
+    from vivarium_workbench.lib.json_serialize import _json_default, _json_sanitize
+    from vivarium_workbench.lib._root import set_workspace_root
+    from vivarium_workbench.lib.composite_lookup import composites_data as _composites_data
+    from vivarium_workbench.lib.composite_resolve import resolve_composite
     set_workspace_root(ws_root)
 
     # Reuse the viewers-hub trimmer: caps the long molecule-data arrays (bulk
@@ -74,7 +73,7 @@ def main() -> int:
     sys.path.insert(0, str(ws_root / "scripts"))
     from regenerate_viewers import trim_state_for_view
 
-    composites = _srv._composites_data(ws_root)
+    composites = _composites_data(ws_root)
     comps = composites.get("composites") or []
     if not comps:
         print(f"ERROR: no composites discovered ({composites.get('error')})", file=sys.stderr)
@@ -102,7 +101,7 @@ def main() -> int:
     ok, failed = [], []
     for cid in sorted(ids):
         try:
-            data = _srv._composite_resolve_data(cid)
+            data = resolve_composite(ws_root, cid)
         except Exception as e:  # noqa: BLE001
             data = None
             err = repr(e)

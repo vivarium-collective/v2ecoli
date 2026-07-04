@@ -475,7 +475,10 @@ def test_write_summary_txt_is_readable(tmp_path: Path) -> None:
     ]
     out = tmp_path / "summary.txt"
     write_summary_txt(traj, out, "minimal", seed=0, wall_seconds=42.5)
-    text = out.read_text()
+    # write_summary_txt commits to utf-8 (it emits a ≥ in the sanity checks);
+    # read it back with the same encoding so this passes regardless of the
+    # platform default (ascii under some CI locales → UnicodeDecodeError).
+    text = out.read_text(encoding="utf-8")
     # Header + key sections must be there.
     assert "minimal" in text
     assert "Ticks completed: 2" in text

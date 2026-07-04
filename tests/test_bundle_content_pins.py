@@ -30,9 +30,11 @@ EXPECTED_SHA256 = {
     "rnas": "bddcd413a0ebb04b912844bde21bb189047d128a7629cbd409a7166158541f53",
     "metabolites": "b87e39d72a33954f3f564db39b75810941204f1e22ebeaf077e412460157b864",
     "sequence": "28a7167d8bab60570cd6e3ddacdde75d5c51db60e1009fb8c241f1da446b6152",
-    # v2ecoli local overrides (diverged biology, must win):
-    "equilibrium_reactions": "836a0acb5bb347c474e7cfc63ee3599a91baa35d7bb7e9b4da45b0f09933080a",
-    "equilibrium_reaction_rates": "554add4a8e94ab2bdda0d878d0998fa62974c056e9cbbd1e99154c90bea7b7f9",
+    # v2ecoli local overrides (diverged biology, must win). The two equilibrium
+    # keys gained the FLGM-FLIA-CPLX_RXN row (flagella-cascade investigation: FlgM
+    # anti-sigma sequestration of FliA/sigma28) — hashes re-pinned deliberately.
+    "equilibrium_reactions": "c6631eb752cd2f5062787517f78251bc3fbaae822c6faa4aa82e77db44649cb7",
+    "equilibrium_reaction_rates": "17ecd8f8fa622ea76ec7d7ddde5e2410de40c5eb3d4db875962d8047d810349b",
     "metabolic_reactions_added": "97765aafda3c76445caedb887f96ec874a0defa7004d94e1083e89dcf68b0271",
 }
 

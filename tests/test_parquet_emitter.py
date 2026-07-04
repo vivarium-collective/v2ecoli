@@ -7,7 +7,7 @@ import pytest
 
 # Skip the entire file if the [parquet] extra isn't installed.
 # CI's default `uv sync --extra dev` doesn't install [parquet] — duckdb /
-# polars may still resolve transitively via vivarium-dashboard, but
+# polars may still resolve transitively via vivarium-workbench, but
 # pbg-emitters (the actual ParquetEmitter implementation) won't, so the
 # v2ecoli.library.parquet_emitter shim's import would raise ImportError.
 # Skip cleanly in that case.

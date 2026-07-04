@@ -1,0 +1,60 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.ppgpp_off_perturbs_ppgpp_and_growth",
+     "label": "ppgpp-off-perturbs-ppgpp-and-growth",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [1.5, 3.0]",
+     "detail": {
+      "text": "Does disabling ppGpp regulation measurably perturb the ppGpp pool and slow growth vs baseline?"
+     }
+    },
+    {
+     "id": "tests.dnaa_2x_shifts_replication_and_flux",
+     "label": "dnaa-2x-shifts-replication-and-flux",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "in [0.15, 0.5]",
+     "detail": {
+      "text": "Does the dnaA-2x knob shift replication initiation and/or the central-carbon flux match vs baseline?"
+     }
+    },
+    {
+     "id": "tests.media_shifts_central_carbon_flux",
+     "label": "media-shifts-central-carbon-flux",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [0.4, 1.5]",
+     "detail": {
+      "text": "Does the succinate media change shift the central-carbon flux distribution (decorrelate from glucose-grown Toya-2010) and slow growth?"
+     }
+    }
+   ]
+  },
+  "negative_control": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.elong_down_is_near_null_negative_control",
+     "label": "elong-down-is-near-null-negative-control",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [-3.0, 3.0]",
+     "detail": {
+      "text": "Is the 0.7x ribosome elongation-rate cut a near-null on growth (doubling time within \u00b13 min of baseline), i.e. a clean negative control rather than a contrast?"
+     }
+    }
+   ]
+  }
+ },
+ "title": "showcase-4-variant-comparison \u2014 default tests"
+}

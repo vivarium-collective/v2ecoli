@@ -57,6 +57,11 @@ def trim_state_for_view(obj, *, max_list: int = 8):
     # numpy (and other 1-D array-likes): cap then recurse on the python list.
     tolist = getattr(obj, "tolist", None)
     if callable(tolist) and getattr(obj, "ndim", 0) >= 1:
+        # Structured arrays (bulk / unique molecules) keep their dtype so the JSON
+        # serializer (_json_default) can label rows by field name / id instead of
+        # positional index. Just cap the row count; don't flatten to a list.
+        if getattr(getattr(obj, "dtype", None), "names", None):
+            return obj[:max_list]
         try:
             return trim_state_for_view(obj[:max_list].tolist(), max_list=max_list)
         except Exception:  # noqa: BLE001 — fall through to leave the value as-is
@@ -73,7 +78,7 @@ def write_state(state: dict, slug: str, data_dir: Path) -> Path:
     # and allow_nan=False + the _json_sanitize fallback replaces inf/nan with
     # null. Plain json.dumps chokes on the ndarrays. loom's ?stateUrl= reader
     # expects the {"state": <bigraph-state>} wrapper.
-    from vivarium_dashboard.server import _json_body
+    from vivarium_workbench.lib.json_serialize import _json_body
     out.write_bytes(_json_body({"state": state}))
     return out
 
@@ -135,10 +140,9 @@ _PAGE_TEMPLATE = """<!doctype html>
 def resolve_state_via_dashboard(spec_id: str) -> dict | None:
     """Resolve a composite to its loom state dict by reusing the dashboard's
     pure resolver. Returns None on failure, after surfacing WHY."""
-    import vivarium_dashboard.server as srv
+    from vivarium_workbench.lib.composite_resolve import resolve_composite
     # This script is always run standalone; point the dashboard's pure resolver at this workspace.
-    srv.WORKSPACE = REPO_ROOT
-    data = srv._composite_resolve_data(spec_id)
+    data = resolve_composite(REPO_ROOT, spec_id)
     if data and isinstance(data.get("state"), dict):
         return data["state"]
     # _composite_resolve_data swallows the real error and returns None. Re-run
@@ -172,10 +176,39 @@ def _log_resolve_failure(spec_id: str) -> None:
           file=sys.stderr)
 
 
+_VIZ_META_KEYS = {"address", "config", "inputs", "outputs", "interval",
+                  "_type", "instance", "wires"}
+
+
+def _count_nodes(obj) -> int:
+    if not isinstance(obj, dict):
+        return 0
+    n = 0
+    for k, v in obj.items():
+        if k in _VIZ_META_KEYS or (isinstance(k, str) and k.startswith("_")):
+            continue
+        n += 1 + _count_nodes(v)
+    return n
+
+
+
 def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
-    """Best-effort bigraph-viz static SVG. Returns the path or None on failure."""
+    """Best-effort bigraph-viz static SVG. Returns the path or None on failure.
+
+    Skipped for large composites: graphviz spreads a whole-cell model's hundreds
+    of connected nodes across ~17000pt — unreadable as a static image, and
+    collapsing far enough to fit leaves only a couple of circles. Big composites
+    drop the static "Viz" link entirely and rely on the interactive loom + viz2
+    viewers; small composites still render a full static SVG.
+    """
     try:
         from bigraph_viz import plot_bigraph
+        if _count_nodes(state) > 120:
+            # Remove any stale SVG from a previous run so the hub drops the button.
+            stale = img_dir / f"{slug}.svg"
+            if stale.is_file():
+                stale.unlink()
+            return None
         img_dir.mkdir(parents=True, exist_ok=True)
         plot_bigraph(state, out_dir=str(img_dir), filename=slug,
                      file_format="svg", show_compiled_state=False)
@@ -185,10 +218,39 @@ def render_viz_svg(state: dict, slug: str, img_dir: Path) -> Path | None:
         if dot_src.is_file():
             dot_src.unlink()
         out = img_dir / f"{slug}.svg"
+        if out.is_file():
+            _make_svg_responsive(out)
         return out if out.is_file() else None
     except Exception as exc:  # noqa: BLE001
         print(f"  ! viz SVG skipped for {slug}: {exc}", file=sys.stderr)
         return None
+
+
+def _make_svg_responsive(svg_path: Path) -> None:
+    """Make a Graphviz SVG fit its container instead of rendering at native size.
+
+    bigraph-viz emits the SVG with absolute point dimensions (a 55-process
+    composite is ~61000pt wide), so opening it directly fills the page at native
+    scale — huge and effectively cropped. Replace the absolute width/height on
+    the root <svg> with 100% and keep the viewBox so the browser scales the whole
+    graph to fit the window (preserveAspectRatio defaults to xMidYMid meet).
+    """
+    import re
+    try:
+        txt = svg_path.read_text(encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        return
+    # Only touch the FIRST <svg ...> tag (the root). Drop its pt width/height.
+    def _fix(m: "re.Match[str]") -> str:
+        tag = m.group(0)
+        tag = re.sub(r'\swidth="[^"]*"', ' width="100%"', tag, count=1)
+        tag = re.sub(r'\sheight="[^"]*"', ' height="100%"', tag, count=1)
+        if "preserveAspectRatio" not in tag:
+            tag = tag[:-1] + ' preserveAspectRatio="xMidYMid meet">'
+        return tag
+    new = re.sub(r"<svg\b[^>]*>", _fix, txt, count=1)
+    if new != txt:
+        svg_path.write_text(new, encoding="utf-8")
 
 
 def render_viz2_html(state: dict, slug: str, viz2_dir: Path) -> Path | None:
@@ -196,7 +258,11 @@ def render_viz2_html(state: dict, slug: str, viz2_dir: Path) -> Path | None:
     try:
         from bigraph_viz2 import emit_html
         viz2_dir.mkdir(parents=True, exist_ok=True)
-        html = emit_html(state, height="100vh")
+        # Open large WCM composites collapsed below the top subsystems so the
+        # graph is legible/fast; the user drills in (double-click) + zooms.
+        import os as _os
+        depth = int(_os.environ.get("VIZ2_COLLAPSE_DEPTH", "2"))
+        html = emit_html(state, height="100vh", collapse_depth=depth)
         out = viz2_dir / f"{slug}.html"
         out.write_text(html, encoding="utf-8")
         return out

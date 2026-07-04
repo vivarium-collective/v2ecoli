@@ -5,8 +5,8 @@ read-only dashboard publish step ships verbatim as
 `api/composite-state/<id>.json` and marks navigable (`has_wiring=True`) — even
 if the composite can't resolve at publish time.
 
-`vivarium_dashboard.publish` checks this directory first; a committed file wins
-over live resolution. (See the publish loop in vivarium-dashboard's
+`vivarium_workbench.publish` checks this directory first; a committed file wins
+over live resolution. (See the publish loop in vivarium-workbench's
 `publish.py`.)
 
 ## Why this exists
@@ -29,9 +29,9 @@ import os, sys, json, math
 os.environ.setdefault("POLARS_MAX_THREADS", "1")
 from pathlib import Path
 WS = Path("/path/to/v2ecoli"); sys.path.insert(0, str(WS))
-from vivarium_dashboard import server
-from vivarium_dashboard.lib._root import set_workspace_root
-from vivarium_dashboard.server import _json_default
+from vivarium_workbench import server
+from vivarium_workbench.lib._root import set_workspace_root
+from vivarium_workbench.server import _json_default
 server.WORKSPACE = WS; set_workspace_root(WS)
 
 CID = "v2ecoli.composites.baseline.baseline"

@@ -34,7 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(REPO_ROOT)
 sys.path.insert(0, str(REPO_ROOT))
 
-from vivarium_dashboard.lib.composite_runs import connect, generate_run_id
+from vivarium_workbench.lib.composite_runs import connect, generate_run_id
 
 
 # Mapping from each study slug to the runs we want to backfill.

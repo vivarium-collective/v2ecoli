@@ -100,7 +100,7 @@ def main():
     print("=== recording run + outcomes ===")
     record(res)
     sh(f"{PY} -c \"import yaml; yaml.safe_load(open('studies/dnaa-3-box-binding/study.yaml')); print('parse OK')\"")
-    sh(f"{PY} -c \"from pathlib import Path; from vivarium_dashboard.lib.report import render_workspace_report; render_workspace_report(Path('.'))\"")
+    sh(f"{PY} -c \"from pathlib import Path; from vivarium_workbench.lib.report import render_workspace_report; render_workspace_report(Path('.'))\"")
     sh("git add studies/dnaa-3-box-binding/ && git commit -q -m 'dnaa-3: RAN seed-1 8-gen (mini) — record run + acceptance tests + plots from the run\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>' && git push origin feat/aim2-dnaa-oric")
     print("=== FINALIZE DONE — dnaa-3 now Ran with results, pushed ===")
 

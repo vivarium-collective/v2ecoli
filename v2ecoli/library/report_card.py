@@ -27,8 +27,8 @@ _DEFAULT_FOOTER = ("Behavioral report card — see docs/report_cards/README.md "
 # Canonical group order for the population phenotype card. Independent of the
 # axis insertion order in any given reference (self-pin vs equivalence pin may
 # differ); groups not listed here fall to the end in first-appearance order.
-_GROUP_ORDER = ["Physiology", "Composition", "Ribosomes",
-                "Exchange fluxes", "Gene expression"]
+_GROUP_ORDER = ["Physiology", "Metabolism", "Proteome", "Composition",
+                "Metabolite pools", "Ribosomes", "Exchange fluxes", "Gene expression"]
 
 
 def _ordered_groups(groups: dict) -> list:
@@ -182,6 +182,10 @@ def _fmt_value(a: dict) -> str:
         return ""  # the verdict badge + meter (pass/FAIL) carry it
     if ctype in ("r2", "flux_scatter"):
         return f"R² {val:.4g}"
+    if ctype == "pearson":
+        return f"r {val:.3g}"
+    if ctype == "composition":
+        return f"TV {val:.3g}"
     if isinstance(val, float):
         return f"{val * a.get('scale', 1.0):.4g} {a.get('units', '')}".strip()
     return str(val)
@@ -347,12 +351,17 @@ def _flux_table(measured: dict, crit: dict) -> str:
     cs = measured.get("std") or [0.0] * len(cv)
     eps = crit.get("active_eps", 1e-6)
     qual_eps = crit.get("qual_eps", 1e-3)
+    # Internal-flux axes (qualitative=False) carry no on/off semantics — suppress
+    # the appeared/lost flag column to match the scatter.
+    qualitative = crit.get("qualitative", True)
     rows = []
     for i, mol in enumerate(ids):
         r, c = (rv[i] if i < len(rv) else 0.0), (cv[i] if i < len(cv) else 0.0)
         if abs(r) <= eps and abs(c) <= eps:
             continue
-        if abs(r) <= eps:  # appeared (active in candidate only)
+        if not qualitative:
+            flag = ""
+        elif abs(r) <= eps:  # appeared (active in candidate only)
             flag = "appeared" if abs(c) >= qual_eps else "subfloor"
         elif abs(c) <= eps:  # lost (active in reference only)
             flag = "lost" if abs(r) >= qual_eps else "subfloor"
@@ -389,6 +398,10 @@ def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) ->
     ids = crit.get("ids") or []
     syms = crit.get("symbols") or [""] * len(ids)
     names = crit.get("names") or [""] * len(ids)
+    entity = crit.get("entity_label", "gene")        # noun for the row entity
+    count_noun = crit.get("count_label", "counts")   # noun for the values
+    up_word = crit.get("up_label", "over-expressed in")    # direction phrasing
+    down_word = crit.get("down_label", "under-expressed in")
     ref = crit.get("ref_vector") or []
     meas = measured.get("vector") or []
     if not ids or not ref or not meas:
@@ -436,18 +449,18 @@ def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) ->
                 if len(direction) > top_n else "")
         return (f"<div class='otcol'><div class='oth'>{label} "
                 f"<span class='otn'>({len(direction)})</span></div>"
-                f"<table><thead><tr><th class='ohgene'>gene</th>"
+                f"<table><thead><tr><th class='ohgene'>{entity}</th>"
                 f"<th class='ohnum'>{ref_label}</th>"
                 f"<th class='ohnum'>{meas_label}</th>"
                 f"<th class='ohnum'>log2FC</th></tr></thead>"
                 f"<tbody>{trs}</tbody></table>{more}</div>")
 
-    up_html = _table(f"↑ over-expressed in {meas_label}", up)
-    down_html = _table(f"↓ under-expressed in {meas_label}", down)
+    up_html = _table(f"↑ {up_word} {meas_label}", up)
+    down_html = _table(f"↓ {down_word} {meas_label}", down)
     return (f"<div class='otbl'><div class='otgrid'>{up_html}{down_html}</div>"
             f"<div class='ftnote'>log2 fold-change ({meas_label} / {ref_label}) "
-            f"of ensemble-mean counts · |log2FC| > {cut:g}, "
-            f"min {min_count:g} counts · ±∞ = on/off in one model · "
+            f"of ensemble-mean {count_noun} · |log2FC| > {cut:g}, "
+            f"min {min_count:g} {count_noun} · ±∞ = on/off in one model · "
             f"top {top_n}/direction</div></div>")
 
 
@@ -495,10 +508,36 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 label=axis.get("label", ""), units=axis.get("units", ""),
                 scale=axis.get("scale", 1.0), y_from_zero=axis.get("y_from_zero", False),
                 ref_label=ref_label, meas_label=meas_label)
+        if kind == "literature" and isinstance(measured, dict):
+            return card_plots.literature_strip(
+                measured.get("values"), measured.get("mean"),
+                crit.get("measured") or [],
+                measured_unc=crit.get("measured_unc"),
+                labels=crit.get("sources"),
+                theoretical=crit.get("theoretical_max"),
+                theoretical_label=crit.get("theoretical_source"),
+                units=axis.get("units", ""), label=axis.get("label", ""),
+                scale=axis.get("scale", 1.0))
+        if kind == "ternary" and isinstance(measured, dict) and measured.get("branches"):
+            return card_plots.ternary_plot(
+                measured["branches"], measured.get("influx"),
+                ref_fractions=crit.get("ref_fractions"),
+                ref_label=crit.get("ref_label", ref_label),
+                extra_refs=crit.get("extra_refs"),
+                residual_max=crit.get("residual_max", 0.05),
+                label=axis.get("label", ""), meas_label=meas_label)
+        if kind == "split" and isinstance(measured, dict) and measured.get("branches"):
+            return card_plots.composition_bars(
+                measured["branches"], crit.get("ref_fractions"),
+                influx=measured.get("influx"), label=axis.get("label", ""),
+                xlabel=crit.get("xlabel", "fraction of node flux"),
+                ref_label=crit.get("ref_label", ref_label), meas_label=meas_label)
         if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
+            stat_label = "r" if crit.get("type") == "pearson" else "R²"
             svg = card_plots.loglog_scatter(
                 measured["vector"], crit.get("ref_vector"),
-                r2=axis.get("value"), label=axis.get("label", ""),
+                r2=axis.get("value"), stat_label=stat_label, label=axis.get("label", ""),
+                ref_err=crit.get("ref_err"),
                 ref_label=ref_label, meas_label=meas_label)
             tbl = _omics_table(measured, crit, ref_label, meas_label)
             return f"<div class='omicswrap'>{svg}{tbl}</div>" if tbl else svg
@@ -508,6 +547,7 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 ids=crit.get("flux_ids"), r2=axis.get("value"),
                 active_eps=crit.get("active_eps", 1e-6),
                 qual_eps=crit.get("qual_eps", 1e-3),
+                qualitative=crit.get("qualitative", True),
                 ref_std=crit.get("ref_std"), cand_std=measured.get("std"),
                 label=axis.get("label", ""),
                 ref_label=ref_label, meas_label=meas_label)
@@ -531,6 +571,42 @@ def _sim_health_html(card: dict, label: str) -> str:
     return ("<section class='card simhealth warn'><div class='shbody'>⚠ "
             f"<b>Simulations ({label}):</b> {nf} of {nt} generations hit the "
             f"duration cap without dividing ({nd}/{nt} divided)</div></section>")
+
+
+def _coverage_html(coverage) -> str:
+    """A 'Scope & coverage' panel — the behavioral-spec map. ``coverage`` is
+    ``{lede, invite, rows:[(category, status, kind, detail)]}`` where status is
+    'covered' | 'planned' and kind is 'independent' | 'fit-to' (the latter a
+    ParCa calibration target — a consistency check, not independent validation).
+    Frames the card as a deliberately partial, growing spec rather than a
+    complete one. Absent on cards that don't supply it."""
+    if not coverage or not coverage.get("rows"):
+        return ""
+    rows = [r if len(r) == 4 else (r[0], r[1], "independent", r[2])
+            for r in coverage["rows"]]
+    n_cov = sum(1 for r in rows if r[1] == "covered")
+    n_tot = len(rows)
+    items = []
+    for cat, status, kind, detail in rows:
+        cov = status == "covered"
+        mark = "✓" if cov else "○"
+        cls = "cov-yes" if cov else "cov-no"
+        tag = "" if cov else "<span class='cov-tag'>planned</span>"
+        if kind == "fit-to":
+            tag += "<span class='cov-tag cov-fit'>ParCa fit-to</span>"
+        items.append(
+            f"<li class='{cls}'><span class='cov-mark'>{mark}</span>"
+            f"<span class='cov-cat'>{cat}{tag}</span>"
+            f"<span class='cov-detail'>{detail}</span></li>")
+    lede = f"<p class='cov-lede'>{coverage['lede']}</p>" if coverage.get("lede") else ""
+    invite = (f"<p class='cov-invite'>💬 {coverage['invite']}</p>"
+              if coverage.get("invite") else "")
+    return (f"<section class='card coverage'><div class='head'>"
+            f"<h2>Scope &amp; coverage</h2>"
+            f"<div class='chips'><span class='chip' style='background:#6b7280'>"
+            f"{n_cov} of {n_tot} categories populated</span></div></div>"
+            f"<div class='covbody'>{lede}<ul class='covlist'>{''.join(items)}</ul>"
+            f"{invite}</div></section>")
 
 
 def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) -> str:
@@ -604,6 +680,7 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
     findings_html = ("<section class='card'><div class='head'><h2>Findings</h2></div>"
                      "<ul class='findings'>" + "".join(f"<li>{f}</li>" for f in findings)
                      + "</ul></section>") if findings else ""
+    coverage_html = _coverage_html(reference.get("coverage"))
     stim = reference.get("stimulus", {})
     # one stimulus descriptor for the header, whatever shape the card is:
     # population cards carry `ensemble` (seeds × gens); others carry `summary`.
@@ -640,13 +717,14 @@ tbody td{{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;f
 .axhd{{display:flex;align-items:center;gap:8px;flex-wrap:wrap}} .metric{{font-weight:600}}
 .badge{{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff;white-space:nowrap}}
 .how{{color:var(--muted);font-size:11.5px;margin-top:4px;max-width:560px}} .crit{{font-size:12px;margin-top:4px;color:#374151}}
-.val{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap}} .spread{{color:var(--muted);font-size:11px;margin-top:2px}}
-.meter{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap}}
+.val{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap;width:1%}} .spread{{color:var(--muted);font-size:11px;margin-top:2px}}
+.meter{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap;width:1%}}
+tbody td:first-child{{min-width:420px}}
 .verdict-within_tol td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['within_tol']}}} .verdict-drift td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['drift']}}}
 .verdict-mismatch td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['mismatch']}}} .verdict-ungraded td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['ungraded']}}}
 details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}} .plotwrap{{margin-top:8px}} .plotwrap svg{{max-width:100%;height:auto}}
 .fluxwrap{{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}} .fluxwrap svg{{flex:0 0 auto;max-width:420px}}
-.ftbl{{flex:1 1 280px;min-width:260px}} .ftbl table{{width:auto}} .ftbl thead th{{padding:5px 10px;font-size:10px}}
+.ftbl{{flex:1 1 100%;overflow-x:auto}} .ftbl table{{width:auto}} .ftbl thead th{{padding:5px 10px;font-size:10px}}
 .ftbl tbody td{{padding:4px 10px;border-bottom:1px solid #f1f3f5;font-size:11.5px}} .ftbl .fid{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px}}
 .ftbl .fnum{{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}}
 .ftbl tr.flux-appeared{{background:#fdecea}} .ftbl tr.flux-appeared .fid{{color:{_COLOR['mismatch']};font-weight:600}}
@@ -674,14 +752,82 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 .stat-callout{{border-left:4px solid {_COLOR['drift']}}} .stat-callout .statbody{{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}}
 .statbody code{{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}}
 .findings{{margin:0;padding:14px 34px;color:#374151;font-size:13px}} footer{{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}}
+.coverage{{border-left:4px solid #6b7280}} .covbody{{padding:14px 18px}}
+.cov-lede{{margin:0 0 12px;font-size:13px;color:#374151;line-height:1.5}}
+.covlist{{list-style:none;margin:0;padding:0}} .covlist li{{display:grid;grid-template-columns:20px 220px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f3f5;font-size:12.5px}}
+.cov-mark{{font-weight:700;text-align:center}} .cov-yes .cov-mark{{color:{_COLOR['within_tol']}}} .cov-no .cov-mark{{color:#b0b6bd}}
+.cov-cat{{font-weight:600;color:#1a1d21}} .cov-no .cov-cat{{color:#6b7280}} .cov-detail{{color:var(--muted)}}
+.cov-tag{{margin-left:7px;font-size:10px;font-weight:600;color:#8a93a0;background:#eef0f2;padding:1px 6px;border-radius:999px;vertical-align:middle}}
+.cov-fit{{color:#7c5a00;background:#fdf3da}}
+.cov-invite{{margin:12px 0 0;font-size:12.5px;color:#374151;background:#f6f8fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;line-height:1.5}}
 </style></head><body>
 <header class="top"><h1>{title} — report card</h1>
 <div class="sub">{subtitle}</div>
 <div class="obadge">{overall} &nbsp;·&nbsp; {c['within_tol']} ✓ &nbsp; {c['drift']} ≈ &nbsp; {c['mismatch']} ✗ &nbsp; {c['ungraded']} –</div></header>
 <nav class="sticky">{nav}</nav>
-<main>{sim_html}{stationarity_html}{''.join(sections)}{findings_html}</main>
+<main>{coverage_html}{sim_html}{stationarity_html}{''.join(sections)}{findings_html}</main>
 <footer>{footer}</footer>
 </body></html>"""
+
+
+def render_verdict_html(verdict: dict, *, title: str | None = None) -> str:
+    """Render a stored ``report_card_verdict/v1`` dict into a self-contained HTML
+    card (no external assets): one section per group, one row per axis. Reuses the
+    card colour/glyph vocabulary so it matches grade_card-rendered cards. Emits no
+    timestamp (callers commit the output — keep it deterministic)."""
+    import html as _html
+
+    overall = verdict.get("overall", "ungraded")
+    title = title or verdict.get("title") or "Report card"
+    ref_model = verdict.get("reference_model", "")
+    meas_model = verdict.get("model_ref", "")
+
+    def chip(v: str, label: str | None = None) -> str:
+        c = _COLOR.get(v, _COLOR["ungraded"])
+        g = _GLYPH.get(v, _GLYPH["ungraded"])
+        txt = _html.escape(label or v.replace("_", " "))
+        return (f"<span style='display:inline-block;padding:2px 8px;border-radius:10px;"
+                f"background:{c};color:#fff;font-size:12px'>{g} {txt}</span>")
+
+    def val_str(val) -> str:
+        if val is None:
+            return ""
+        if isinstance(val, bool):
+            return str(val)
+        if isinstance(val, (int, float)):
+            return _html.escape(f"{val:.4g}")
+        return _html.escape(str(val))
+
+    sections = []
+    for gslug, grp in (verdict.get("groups") or {}).items():
+        rows = []
+        for ax in grp.get("axes", []):
+            rows.append(
+                "<tr>"
+                f"<td style='padding:4px 10px'>{_html.escape(str(ax.get('label', ax.get('id', ''))))}</td>"
+                f"<td style='padding:4px 10px'>{chip(ax.get('verdict', 'ungraded'))}</td>"
+                f"<td style='padding:4px 10px;font-variant-numeric:tabular-nums'>{val_str(ax.get('value'))}</td>"
+                f"<td style='padding:4px 10px;color:#555'>{_html.escape(str(ax.get('meter', '') or ''))}</td>"
+                "</tr>")
+        sections.append(
+            f"<h3 style='margin:14px 0 4px'>{_html.escape(gslug.replace('_', ' ').title())} "
+            f"{chip(grp.get('verdict', 'ungraded'))}</h3>"
+            "<table style='border-collapse:collapse;width:100%;font-size:13px'>"
+            "<thead><tr style='text-align:left;color:#888'>"
+            "<th style='padding:4px 10px'>axis</th><th style='padding:4px 10px'>verdict</th>"
+            "<th style='padding:4px 10px'>value</th><th style='padding:4px 10px'>meter</th>"
+            "</tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table>")
+
+    sub = " · ".join(x for x in [
+        f"reference: {_html.escape(ref_model)}" if ref_model else "",
+        f"measured: {_html.escape(meas_model)}" if meas_model else ""] if x)
+    return (
+        "<div style='font-family:system-ui,sans-serif;max-width:900px'>"
+        f"<h2 style='margin:0 0 2px'>{_html.escape(title)} "
+        f"{chip(overall, 'overall: ' + overall.replace('_', ' '))}</h2>"
+        f"<div style='color:#888;font-size:12px;margin-bottom:8px'>{sub}</div>"
+        f"{''.join(sections)}</div>")
 
 
 def load_json(path: str) -> dict:

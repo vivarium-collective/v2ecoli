@@ -1,0 +1,35 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.basal_dominates_mass_observables",
+     "label": "basal-dominates-mass-observables",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [0.5, 1.0]",
+     "detail": {
+      "text": "Does basal_elongation_rate dominate (total-order Sobol > 0.5) the mass\nobservables (dry_mass, cell_mass) over the 360-step window?\n"
+     }
+    },
+    {
+     "id": "tests.growth_rate_ranking_is_window_dependent",
+     "label": "growth-rate-ranking-is-window-dependent",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [0.8, 1.0]",
+     "detail": {
+      "text": "Does the dominant driver of instantaneous-growth-rate variance change between\nthe 120-step and 360-step windows \u2014 i.e. is the growth-rate ranking\nwindow-dependent, as this study claims?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "param-uq-02-observables \u2014 default tests"
+}

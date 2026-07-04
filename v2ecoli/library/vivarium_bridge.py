@@ -41,6 +41,78 @@ from v2ecoli.library.ecoli_step import EcoliProcess, EcoliStep
 from v2ecoli.library.schema_types import UNIQUE_TYPES
 
 
+def _strip_pint_magnitudes(obj):
+    """Recursively replace pint Quantities with their raw magnitude.
+
+    The boundary unit-bridge for wrapped vivarium/vEcoli processes: they read raw
+    numbers from stores and attach their own (unum) units in-process, but v2's
+    stores hold pint Quantities. ndarrays/scalars pass through untouched, so this
+    is a cheap no-op on states that carry no pint Quantities.
+    """
+    from v2ecoli.types.quantity import ureg
+    if isinstance(obj, ureg.Quantity):
+        return obj.magnitude
+    if isinstance(obj, dict):
+        return {k: _strip_pint_magnitudes(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(_strip_pint_magnitudes(v) for v in obj)
+    return obj
+
+
+def _backfill_schema_defaults(state, ports_schema):
+    """Ensure every leaf a v1 process DECLARES is present in ``state`` before its
+    ``next_update`` runs — backfilling absent leaves with their schema
+    ``_default`` (including ``None``), recursively.
+
+    This is what vivarium's Engine guarantees a process: it always sees its full
+    declared port state. The process-bigraph store layer drops a leaf whose value
+    is ``None`` (it cannot type it), so a sentinel-``None`` field like the
+    cell-wall model's ``wall_state.lattice`` (read as ``states[...]["lattice"]``,
+    ``is None`` → build) would otherwise KeyError. Backfilling at call time
+    presents the sentinel without needing the store to persist ``None``; the
+    value the process WRITES back (e.g. the sampled ndarray) types and persists
+    normally. Never overwrites a value already present in ``state``."""
+    if not isinstance(state, dict) or not isinstance(ports_schema, dict):
+        return state
+    for port, schema in ports_schema.items():
+        if not isinstance(schema, dict):
+            continue
+        if '_default' in schema or '_updater' in schema or '_emit' in schema:
+            # leaf metadata dict
+            if port not in state:
+                state[port] = schema.get('_default')
+        else:
+            # nested ports subtree
+            if port not in state or not isinstance(state[port], dict):
+                if port not in state:
+                    state[port] = {}
+            if isinstance(state.get(port), dict):
+                _backfill_schema_defaults(state[port], schema)
+    return state
+
+
+def _attach_pint_units(obj, unit):
+    """Recursively wrap raw numbers as pint Quantities of ``unit``.
+
+    The reverse of :func:`_strip_pint_magnitudes`: some wrapped vEcoli processes
+    read a store with pint's API (e.g. metabolism_redux's
+    ``boundary.external[x].to("mM")``) but v2 delivers a raw magnitude there.
+    Existing Quantities and non-numbers pass through untouched.
+    """
+    from v2ecoli.types.quantity import ureg
+    if isinstance(obj, ureg.Quantity):
+        return obj
+    if isinstance(obj, bool):
+        return obj
+    if isinstance(obj, (int, float)):
+        return ureg.Quantity(obj, unit)
+    if isinstance(obj, dict):
+        return {k: _attach_pint_units(v, unit) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(_attach_pint_units(v, unit) for v in obj)
+    return obj
+
+
 def _special_type(key):
     """Return the v2ecoli type string for a well-known port name, or None.
 
@@ -56,7 +128,17 @@ def _special_type(key):
     return None
 
 
-def translate_ports(core, ports, key=None):
+# Parent store names under which a child port literally named ``bulk`` does
+# NOT mean the structured bulk-molecule array. Under the partition machinery,
+# ``request.<proc>.bulk`` holds a list of ``(index, count)`` request tuples and
+# ``allocate.<proc>.bulk`` holds a per-process integer allocation vector —
+# neither is the ``bulk_array`` structured type. Mapping them to bulk_array
+# (the default for the name) produces a BulkNumpyUpdate schema that conflicts
+# with the plain list/array values flowing through those stores.
+_NON_BULK_PARENTS = ('request', 'allocate')
+
+
+def translate_ports(core, ports, key=None, parent=None, in_partition=False):
     """Convert a vivarium ``ports_schema`` dict into a v2ecoli typed-port tree.
 
     Args:
@@ -86,7 +168,12 @@ def translate_ports(core, ports, key=None):
     if not isinstance(ports, dict):
         return 'node'
 
-    special = _special_type(key)
+    # Once we descend into a ``request``/``allocate`` subtree (the partition
+    # machinery), ``bulk`` no longer means the structured bulk-molecule array
+    # at ANY depth — the Allocator nests it as request→{proc}→{bulk}. Track
+    # this with a propagating flag rather than just the immediate parent.
+    in_partition = in_partition or (parent in _NON_BULK_PARENTS)
+    special = None if in_partition else _special_type(key)
 
     # A vivarium leaf schema is identified by any underscore-prefixed key
     # (_default / _updater / _emit / _divider / _serializer / ...). Store
@@ -95,10 +182,35 @@ def translate_ports(core, ports, key=None):
     if is_leaf:
         if special is not None:
             return special
+        # vivarium updater-dict literal: ``{'_value': v, '_updater': n}``.
+        # Some processes embed these directly as a port "default". Normalize
+        # to the bare value ``v`` so the schema key soup ('_value'/'_updater')
+        # doesn't leak into the inferred type / state (else, e.g., media_id
+        # would become a dict instead of a string). Faithful to the fork's
+        # build_ecoli_document converter gap fix.
+        if '_value' in ports and '_default' not in ports:
+            value = ports['_value']
+            schema = core.infer(value)
+            if ports.get('_updater') == 'set':
+                schema = Overwrite(_value=schema)
+            return {'_type': render(schema), '_default': value}
         if '_default' in ports:
             value = ports['_default']
             if isinstance(value, tuple) and value == ():
                 value = []
+            # Empty-collection defaults carry no element-type information, so
+            # ``core.infer([])`` would pin an over-specific ``list[?]`` that
+            # rejects the real runtime payload (e.g. the shared-process tuple
+            # ``(process,)`` in the ('process',) store, or bulk request lists).
+            # Map them to a permissive ``node`` instead (fork converter gap).
+            if isinstance(value, (list, tuple, set, dict)) and len(value) == 0:
+                # Keep the permissive ``node`` TYPE (don't core.infer an empty
+                # collection — it over-specifies), but still carry the empty
+                # ``_default`` so the store is seeded with it. Returning a bare
+                # type string here dropped the default and regressed
+                # test_translate_ports_empty_tuple_default_normalized.
+                type_str = 'overwrite[node]' if ports.get('_updater') == 'set' else 'node'
+                return {'_type': type_str, '_default': value}
             schema = core.infer(value)
             if ports.get('_updater') == 'set':
                 schema = Overwrite(_value=schema)
@@ -112,11 +224,29 @@ def translate_ports(core, ports, key=None):
     if special is not None:
         return special
 
+    # vivarium glob port: ``{'*': subschema}`` declares "any number of
+    # dynamically-named children of this shape" — the bigraph equivalent is
+    # ``map[<subschema>]`` (fork converter gap). Without this the literal
+    # '*' key leaks into the typed schema and no real child store is created.
+    non_underscore = [k for k in ports if not k.startswith('_')]
+    if non_underscore == ['*']:
+        sub = translate_ports(core, ports["*"], key="*", parent=key, in_partition=in_partition)
+        if isinstance(sub, str):
+            return f'map[{sub}]' if sub not in ('node', 'any') else 'map'
+        # Non-trivial subschema → keep permissive map of nodes (the children
+        # are typed structurally when their real values land).
+        return 'map'
+
     result = {}
     for subkey, subports in ports.items():
         if subkey.startswith('_'):
             continue
-        result[subkey] = translate_ports(core, subports, key=subkey)
+        if subkey == '*':
+            # Mixed concrete + glob keys: fold the glob into a permissive
+            # passthrough so the concrete siblings still get typed.
+            continue
+        result[subkey] = translate_ports(
+            core, subports, key=subkey, parent=key, in_partition=in_partition)
     return result
 
 
@@ -126,6 +256,9 @@ def wrap_vivarium_process(
     name=None,
     as_step=False,
     output_ports=None,
+    defer_ports=None,
+    strip_pint_ports=None,
+    attach_pint_ports=None,
 ):
     """Build an ``EcoliProcess`` / ``EcoliStep`` subclass from a vivarium-1.0 class.
 
@@ -157,6 +290,23 @@ def wrap_vivarium_process(
     base = EcoliStep if as_step else EcoliProcess
     proc_name = name or getattr(v1_cls, 'name', v1_cls.__name__)
     write_ports = set(output_ports) if output_ports is not None else None
+    # defer_ports: declare these top-level ports as the top type ``any`` so the
+    # composite's EXISTING store type governs. Needed when a swapped/injected
+    # process shares a store another process already types (e.g. v2's mass deriver
+    # owns listeners.mass as quantity[fg]; the bridged vEcoli process infers a
+    # bare unitless float and the two won't subtype-resolve). ``any`` defers.
+    defer = set(defer_ports) if defer_ports is not None else set()
+    # strip_pint_ports: top-level ports whose pint Quantities should be stripped
+    # to raw magnitudes on input. Needed where the wrapped process attaches its
+    # OWN (unum) units to a raw number (e.g. metabolism_redux's
+    # ``listeners.mass.cell_mass * units.fg``). Ports it reads as pint (e.g.
+    # ``boundary.external`` via ``.to("mM")``) must be LEFT pint — so this is
+    # per-port, declared in the injection spec, not a blanket strip.
+    strip_pint = set(strip_pint_ports) if strip_pint_ports is not None else set()
+    # attach_pint_ports: {port: unit} — wrap raw magnitudes as pint Quantities of
+    # that unit for ports the process reads with pint's API (e.g. metabolism_redux
+    # ``boundary.external[x].to("mM")``) where v2 delivers raw numbers.
+    attach_pint = dict(attach_pint_ports) if attach_pint_ports is not None else {}
 
     class _VivariumBridge(base):
         name = proc_name
@@ -169,15 +319,35 @@ def wrap_vivarium_process(
             self._typed_ports = translate_ports(self.core, self._v1.ports_schema())
 
         def inputs(self):
-            return dict(self._typed_ports)
+            return {k: ({'_type': 'node'} if k in defer else v)
+                    for k, v in self._typed_ports.items()}
 
         def outputs(self):
-            if write_ports is None:
-                return dict(self._typed_ports)
-            return {k: v for k, v in self._typed_ports.items() if k in write_ports}
+            ports = (self._typed_ports if write_ports is None
+                     else {k: v for k, v in self._typed_ports.items()
+                           if k in write_ports})
+            return {k: ({'_type': 'node'} if k in defer else v) for k, v in ports.items()}
 
         def update(self, state, interval=None):
             v1 = self._v1
+            # Present the v1 process its FULL declared state: backfill any leaf the
+            # pbg store dropped (notably sentinel-None fields it can't type, e.g.
+            # cell-wall's wall_state.lattice) with the schema default — mirroring
+            # vivarium's Engine guarantee. Without it a `states[...]["lattice"]`
+            # read KeyErrors on tick 0.
+            if isinstance(state, dict):
+                _backfill_schema_defaults(state, v1.ports_schema())
+            # Per-port boundary unit-bridge: for ports the wrapped process attaches
+            # its own (unum) units to, strip v2's pint Quantities to raw magnitudes
+            # (e.g. metabolism_redux's ``cell_mass * units.fg``). Ports it reads as
+            # pint (``boundary.external`` via ``.to("mM")``) are left untouched.
+            if (strip_pint or attach_pint) and isinstance(state, dict):
+                state = {
+                    k: (_strip_pint_magnitudes(v) if k in strip_pint
+                        else _attach_pint_units(v, attach_pint[k]) if k in attach_pint
+                        else v)
+                    for k, v in state.items()
+                }
             if hasattr(v1, 'next_update'):
                 return v1.next_update(interval or 0, state)
             return v1.update(state, interval)
@@ -189,3 +359,109 @@ def wrap_vivarium_process(
         f'``{v1_cls.__module__}.{v1_cls.__name__}``.'
     )
     return _VivariumBridge
+
+
+def wrap_vivarium_instance(
+    core,
+    v1_instance,
+    *,
+    name=None,
+    as_step=False,
+    output_ports=None,
+):
+    """Wrap an ALREADY-INSTANTIATED vivarium process/step for process-bigraph.
+
+    Unlike :func:`wrap_vivarium_process` (which takes a *class* and re-builds
+    the v1 object from config), this adapter wraps a live instance unchanged.
+    That is essential for the partitioning machinery: an upstream vEcoli
+    ``Requester`` and ``Evolver`` share a single ``PartitionedProcess`` object
+    (passed through the ``('process',)`` store as a 1-tuple), and re-building
+    them from config would shatter that shared identity. By wrapping the exact
+    instances the upstream ``Ecoli`` composer produced, the shared-instance
+    coordination is preserved verbatim.
+
+    The wrapper derives ``inputs()``/``outputs()`` from the instance's
+    ``ports_schema()`` via :func:`translate_ports`, exposes the instance's
+    ``ports_schema()`` (so process-bigraph's ``realize_link`` can enrich port
+    defaults), routes ``update(state, interval)`` to the v1
+    ``next_update(timestep, states)``, and — for steps — honors the v1
+    ``update_condition`` gate via ``perform_update`` (this is what implements
+    the per-process ``next_update_time <= global_time`` partition timing).
+
+    The wrapped class subclasses :class:`EcoliProcess` / :class:`EcoliStep`
+    but is constructed via ``__new__`` so the v1 instance is injected directly
+    (no re-instantiation, no config round-trip).
+    """
+    base = EcoliStep if as_step else EcoliProcess
+    proc_name = name or getattr(v1_instance, 'name', type(v1_instance).__name__)
+    typed = translate_ports(core, v1_instance.ports_schema())
+    write = set(output_ports) if output_ports is not None else None
+
+    class _InstanceBridge(base):
+        name = proc_name
+
+        def inputs(self):
+            return dict(self._typed_ports)
+
+        def outputs(self):
+            if self._write_ports is None:
+                return dict(self._typed_ports)
+            return {k: v for k, v in self._typed_ports.items()
+                    if k in self._write_ports}
+
+        def ports_schema(self):
+            return self._v1.ports_schema()
+
+        def update(self, state, interval=None):
+            v1 = self._v1
+            # Backfill dropped/sentinel-None declared leaves (see process bridge).
+            if isinstance(state, dict):
+                _backfill_schema_defaults(state, v1.ports_schema())
+            # Per-port boundary unit-bridge: for ports the wrapped process attaches
+            # its own (unum) units to, strip v2's pint Quantities to raw magnitudes
+            # (e.g. metabolism_redux's ``cell_mass * units.fg``). Ports it reads as
+            # pint (``boundary.external`` via ``.to("mM")``) are left untouched.
+            if (strip_pint or attach_pint) and isinstance(state, dict):
+                state = {
+                    k: (_strip_pint_magnitudes(v) if k in strip_pint
+                        else _attach_pint_units(v, attach_pint[k]) if k in attach_pint
+                        else v)
+                    for k, v in state.items()
+                }
+            if hasattr(v1, 'next_update'):
+                return v1.next_update(interval or 0, state)
+            return v1.update(state, interval)
+
+        def perform_update(self, state):
+            # Honor the vivarium update_condition gate (Requester/Evolver
+            # variable-timestep gate keyed on next_update_time/global_time).
+            v1 = self._v1
+            if hasattr(v1, 'update_condition'):
+                try:
+                    return bool(v1.update_condition(state.get('timestep', 1), state))
+                except Exception as _gate_exc:
+                    # FAIL CLOSED. The Evolver/Requester variable-timestep gate is
+                    # the ONLY thing that stops a partitioned process from
+                    # re-applying its bulk delta more than once per scheduled
+                    # step. If the gate can't be evaluated, returning True (run
+                    # anyway) lets the evolver re-apply every tick → runaway
+                    # synthesis / mass explosion (observed: cell_mass 5k→98k over
+                    # one generation on the upstream wrapper). A gate we cannot
+                    # evaluate must SKIP, not run. Surface the cause, don't swallow.
+                    import sys as _sys
+                    print(f"[vivarium_bridge] update_condition raised for "
+                          f"{type(v1).__name__}; skipping (fail-closed): {_gate_exc!r}",
+                          file=_sys.stderr, flush=True)
+                    return False
+            return True
+
+    _InstanceBridge.__name__ = f'{type(v1_instance).__name__}InstanceBridge'
+    _InstanceBridge.__qualname__ = _InstanceBridge.__name__
+
+    inst = _InstanceBridge.__new__(_InstanceBridge)
+    inst.parameters = getattr(v1_instance, 'parameters', {}) or {}
+    inst.core = core
+    inst._v1 = v1_instance
+    inst._typed_ports = typed
+    inst._write_ports = write
+    return inst

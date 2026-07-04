@@ -1,6 +1,6 @@
 """Render Visualization Steps from a study's parquet-runs output.
 
-The vivarium-dashboard currently reads sim data only from a SQLite emitter's
+The vivarium-workbench currently reads sim data only from a SQLite emitter's
 ``history`` table; its inputs_map → port resolution speaks the SQLite shape.
 When a study runs with ``parquet_emitter()`` instead of ``sqlite_emitter()``,
 the dashboard's data-resolution layer has nothing to read.
@@ -124,7 +124,7 @@ _VIZ_CLASS_CACHE: dict[str, type] | None = None
 def _discover_visualization_classes() -> dict[str, type]:
     """Walk v2ecoli.visualizations and collect Visualization subclasses by name.
 
-    The vivarium-dashboard's ``local:<ClassName>`` address scheme picks the
+    The vivarium-workbench's ``local:<ClassName>`` address scheme picks the
     workspace package's Visualization classes by short name. Replicate that
     lookup here.
     """

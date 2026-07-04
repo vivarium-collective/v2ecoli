@@ -185,6 +185,19 @@ class LoadSimData:
         if condition is not None:
             self.sim_data.condition = condition
 
+        # Derive the runtime media from the CONDITION's nutrients. media_timeline
+        # defaults to ((0,'minimal'),) and setting `condition` alone never updated
+        # it (the "have to change both" footgun), so every non-basal condition
+        # silently ran on 'minimal' media — e.g. no_oxygen ran AEROBIC instead of
+        # minimal_minus_oxygen (O2=0), and with_aa's media_id was mislabelled.
+        # Pull it straight from sim_data unless the caller set fixed_media or an
+        # explicit (non-default) timeline. Basal -> 'minimal' (unchanged).
+        if fixed_media is None and self.media_timeline == ((0, "minimal"),):
+            cond_nutrients = self.sim_data.conditions.get(
+                self.sim_data.condition, {}).get("nutrients")
+            if cond_nutrients:
+                self.media_timeline = ((0, cond_nutrients),)
+
         # Used by processes to apply submass updates to correct unique attr
         self.submass_indices = {
             f"massDiff_{submass}": idx

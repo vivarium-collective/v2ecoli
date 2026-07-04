@@ -43,6 +43,8 @@ TODO:
   - match sigma factors to promoters
 """
 
+import os
+
 import numpy as np
 import scipy.sparse
 import matplotlib.pyplot as plt
@@ -76,6 +78,36 @@ from v2ecoli.library.schema_types import (
 )
 
 
+# dnaA autoregulation constants (dnaa-4 / Rashmi mechanism)
+DNAA_TU_IDX = 2778        # TU00259[c] — verified against cache_dnaa4_autoreg
+# s; 0 disables, 1 fully silences at f=1. Env-overridable so the no-autoreg
+# control run (DNAA_AUTOREG_STRENGTH=0) shares one code path with the experiment.
+AUTOREG_STRENGTH = float(os.environ.get("DNAA_AUTOREG_STRENGTH", "0.8"))
+# Repression curve: "linear" = (1 - s*f); "hill" = (1 - s * f^n/(K^n+f^n)).
+# Hill gives a sharper switch — LESS repression at low promoter occupancy (lifts
+# the cell-cycle trough), MORE once f crosses K (caps the peak). Per Rashmi's
+# handoff open question + the linear run's over-repression of the trough.
+AUTOREG_FORM = os.environ.get("DNAA_AUTOREG_FORM", "linear")
+AUTOREG_HILL_N = float(os.environ.get("DNAA_AUTOREG_HILL_N", "4"))
+AUTOREG_HILL_K = float(os.environ.get("DNAA_AUTOREG_HILL_K", "0.5"))
+
+
+def _autoreg_factor(promoter_fraction: float, strength: float,
+                    form: str | None = None, n: float | None = None,
+                    K: float | None = None) -> float:
+    """Transcription-scaling factor from promoter occupancy f in [0,1].
+
+    linear: ``1 - s*f``. hill: ``1 - s * f^n / (K^n + f^n)`` — sharper switch.
+    """
+    form = form if form is not None else AUTOREG_FORM
+    if form == "hill":
+        n = n if n is not None else AUTOREG_HILL_N
+        K = K if K is not None else AUTOREG_HILL_K
+        f = promoter_fraction
+        return 1.0 - strength * (f ** n) / (K ** n + f ** n)
+    return 1.0 - strength * promoter_fraction
+
+
 # Register default topology for this process, associating it with process name
 NAME = "ecoli-transcript-initiation"
 TOPOLOGY = {
@@ -88,6 +120,7 @@ TOPOLOGY = {
     "listeners": ("listeners",),
     "timestep": ("timestep",),
     "ppgpp_state": ("ppgpp_state",),
+    "dnaa_hydrolysis": ("process_state", "dnaa_hydrolysis"),
 }
 
 
@@ -349,6 +382,9 @@ class TranscriptInitiation(Step):
                 'basal_prob': {'_type': 'array[float]', '_default': []},
                 'frac_active_rnap': {'_type': 'float', '_default': 0.0},
             },
+            'dnaa_hydrolysis': {
+                'promoter_fraction': {'_type': 'float', '_default': 0.0},
+            },
         }
 
     def outputs(self):
@@ -407,7 +443,27 @@ class TranscriptInitiation(Step):
                 basal_prob = ppgpp_basal
                 self.fracActiveRnap = ppgpp["frac_active_rnap"]
                 ppgpp_scale = basal_prob[TU_index]
-                ppgpp_scale[ppgpp_scale == 0] = 1
+                # TF effect is multiplicative on the gene's ppGpp-adjusted basal
+                # expression: p = basal * (1 + scale-weighted delta). A gene with
+                # zero basal can never be induced, so the original code used a
+                # hard `ppgpp_scale[basal == 0] = 1` switch to let a silent gene
+                # take the TF delta additively at full strength. That `== 0`
+                # switch is a floating-point knife-edge: whether a near-zero
+                # basal lands at exactly 0 (full delta) or denormal-tiny (delta
+                # suppressed) is a BLAS/underflow accident that differs across
+                # numpy builds, so one truly-null gene (TU0-14529) reached ~19%
+                # of all transcription on carbon-poor media in one engine and ~0
+                # in the other. Replace the switch with a smooth Hill/Michaelis-
+                # Menten accessibility gain — scale = b^2/(b+K): ~b for expressed
+                # genes (multiplicative regime unchanged), smoothly -> 0 for
+                # silent genes (b << K). This is the cooperative-threshold
+                # biology (a promoter needs a minimum RNAP-recruitment competence
+                # before a bound TF can act); it suppresses truly-null genes
+                # consistently and is identical across underflow regimes, so the
+                # engines agree. K sits in the empty gap between the numerical
+                # noise floor (~1e-13) and the smallest real expression (~1e-9).
+                _PPGPP_SCALE_K = 1e-11
+                ppgpp_scale = ppgpp_scale ** 2 / (ppgpp_scale + _PPGPP_SCALE_K)
             else:
                 basal_prob = self.basal_prob
                 self.fracActiveRnap = self.fracActiveRnapDict[current_media_id]
@@ -471,6 +527,22 @@ class TranscriptInitiation(Step):
                     1.0 - self.promoter_init_probs[is_fixed].sum()
                 ) / self.promoter_init_probs[~is_fixed].sum()
                 self.promoter_init_probs[~is_fixed] *= scaleTheRestBy
+
+            # dnaA autoregulation (dnaa-4 / Rashmi mechanism):
+            # scale dnaA promoter init-probs by (1 - s*f) where f = bound fraction
+            # of dnaA-box sites from the dnaa_hydrolysis port.
+            promoter_fraction = float(
+                states.get("dnaa_hydrolysis", {}).get("promoter_fraction", 0.0))
+            if promoter_fraction > 0.0 and AUTOREG_STRENGTH > 0.0:
+                dnaa_promoters = (TU_index == DNAA_TU_IDX)
+                if dnaa_promoters.any():
+                    self.promoter_init_probs[dnaa_promoters] *= _autoreg_factor(
+                        promoter_fraction, AUTOREG_STRENGTH)
+                    # Renormalize: promoter_init_probs is a distribution consumed by
+                    # multinomial (which forces the last element to the remainder), so
+                    # the repressed dnaA mass must redistribute proportionally, not pile
+                    # onto the last promoter. Repression of dnaA is preserved (p is tiny).
+                    self.promoter_init_probs /= self.promoter_init_probs.sum()
 
         # If there are no chromosomes in the cell, set all probs to zero
         else:

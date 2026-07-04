@@ -8,7 +8,7 @@ parquet directory instead of a sqlite db.
 Storage: ~3-5× smaller than the equivalent sqlite run for v2ecoli-shaped
 sims — Parquet is column-oriented and dictionary-encodes repeated listener
 fields. Trade-off: the dashboard's Simulations-DB tab cannot read parquet
-yet (vivarium-dashboard follow-up); for now use this runner when downstream
+yet (vivarium-workbench follow-up); for now use this runner when downstream
 analysis is DuckDB/Polars-based, ``sqlite_run`` when dashboard inspection
 is required.
 
@@ -241,6 +241,10 @@ def run_multigen_parquet(
     done = 0
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
+    # Seed the represented-population doubling count (#225 item #1); see
+    # run_multigen_sqlite.set_lineage_doublings. No-op without a lineage store.
+    from v2ecoli.library.sqlite_run import set_lineage_doublings
+    set_lineage_doublings(composite, gen - 1)
 
     def _emit(agents_map: dict, agent_key: str, emitter) -> None:
         if agent_key not in agents_map:
@@ -320,6 +324,9 @@ def run_multigen_parquet(
             partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
             gen += 1
             gens_seen.append(gen)
+            # Grow the represented population 2x for the new generation (#225
+            # item #1); aggregator applies 2^(gen-1) in representative_doubling.
+            set_lineage_doublings(composite, gen - 1)
             em = _make_emitter(partition_agent_id, gen)
 
             if single_daughters:

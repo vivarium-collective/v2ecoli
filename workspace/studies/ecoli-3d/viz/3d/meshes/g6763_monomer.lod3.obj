@@ -1,4 +1,4 @@
-# parsimony mesh: g6763_monomer (source /Users/eranagmon/code/v2e-3d/out/ecoli3d/structures/g6763_monomer.pdb)
+# parsimony mesh: g6763_monomer (source /Users/eranagmon/code/v2e-cplx/workspace/studies/ecoli-3d/viz/3d/structures/g6763_monomer.pdb)
 # atoms: 2719  voxel: 2.5 Å  verts: 4343  tris: 9052
 v -6.7130 79.6389 -51.9068
 v -5.3050 79.5353 -51.9287

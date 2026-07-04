@@ -96,6 +96,12 @@ class Division(V2Step):
         self._unique_names = self.parameters.get('unique_names', [])
         self._seed = self.parameters.get('seed', 0)
         self._cache_dir = self.parameters.get('cache_dir', 'out/cache')
+        # vEcoli's default (`d_period=True`): division fires D_period after
+        # chromosome replication completes (via the flag MarkDPeriod raises at
+        # the chromosome's division_time), and the dry-mass threshold is
+        # IGNORED — see vEcoli ecoli/processes/cell_division.py. When False, the
+        # legacy mass-distribution threshold is used instead.
+        self.d_period = bool(self.parameters.get('d_period', True))
 
         # Division mass multiplier
         seed = self._seed
@@ -115,6 +121,9 @@ class Division(V2Step):
             "global_time": Float(_default=0.0),
             "division_threshold": Overwrite(),
             "media_id": InPlaceDict(),
+            # D-period flag MarkDPeriod raises at the chromosome's division_time
+            # (consulted only when self.d_period is True).
+            "divide": Overwrite(),
         }
 
     def outputs(self):
@@ -124,7 +133,9 @@ class Division(V2Step):
 
     def next_update(self, timestep, states):
         # --- Threshold initialization ---
-        if states.get("division_threshold") == "mass_distribution":
+        # Under d_period (vEcoli default) the dry-mass threshold is never
+        # consulted, so skip its one-shot initialization entirely.
+        if not self.d_period and states.get("division_threshold") == "mass_distribution":
             media_id = states.get("media_id", "minimal")
             dry_mass_inc = self.dry_mass_inc_dict.get(media_id)
             if dry_mass_inc is not None:
@@ -159,7 +170,6 @@ class Division(V2Step):
         # (units-on-ports); a Quantity vs float comparison raises (and is
         # swallowed), which would silently prevent division.
         dry_mass = fg_magnitude(dry_mass)
-        threshold = fg_magnitude(states.get("division_threshold", float('inf')))
 
         full_chrom = states.get('unique', {}).get('full_chromosome')
         n_chromosomes = 0
@@ -167,8 +177,23 @@ class Division(V2Step):
             if '_entryState' in full_chrom.dtype.names:
                 n_chromosomes = full_chrom['_entryState'].sum()
 
-        if dry_mass < threshold or n_chromosomes < 2:
-            return {}
+        # --- Division trigger ---
+        if self.d_period:
+            # vEcoli default: divide once the D-period has elapsed after
+            # replication finished — MarkDPeriod raises `divide` at the
+            # chromosome's division_time (= completion + D_period). The dry-mass
+            # threshold is IGNORED. Without this, v2's mass threshold fired
+            # ~D_period too early, dividing slow-growth cells (acetate,
+            # succinate, anaerobic; cycle > the per-gen window) well below their
+            # proper size, which also cut them off before the 2nd replication
+            # round and suppressed the growth ramp.
+            threshold = float('nan')
+            if not bool(states.get("divide", False)) or n_chromosomes < 2:
+                return {}
+        else:
+            threshold = fg_magnitude(states.get("division_threshold", float('inf')))
+            if dry_mass < threshold or n_chromosomes < 2:
+                return {}
 
         if self.division_detected:
             return {}
@@ -207,32 +232,86 @@ class Division(V2Step):
             d2_seed = (self._seed + 2) % (2**31)
 
             def _build_daughter_doc(d_data, seed, daughter_id):
-                # Mirror vEcoli's per-cell partitioning: each daughter's
-                # emitter writes under its own agent_id, with generation
-                # derived from len(agent_id). Without this the daughter
-                # ParquetEmitter inherits the parent's metadata and clobbers
-                # the parent's history partition (see project memory
-                # parquet-division-partition-bug).
-                saved_override = _PARQUET_EMITTER_OVERRIDE
-                if saved_override is not None and saved_override.get("metadata"):
-                    daughter_meta = {
-                        **saved_override["metadata"],
-                        "agent_id": daughter_id,
-                        "generation": len(daughter_id),
-                    }
-                    set_parquet_emitter_override(
-                        {**saved_override, "metadata": daughter_meta})
+                # When a parquet-emitter override is active, the daughter's
+                # emitter would otherwise inherit the PARENT's static partition
+                # metadata (generation, agent_id) from the global override, and
+                # its _write_configuration (run in __init__) would DELETE the
+                # parent's fully-written history partition at division — the
+                # parent emits its whole life to generation=N/agent_id=<id>, the
+                # daughter spawns on the SAME path and wipes it, leaving only
+                # the daughter's birth rows (the early-cycle-slice symptom).
+                # Re-point the override to the daughter's OWN slot
+                # (generation=N+1, agent_id=<parent><suffix>) for the duration
+                # of the build so the daughter partitions to
+                # generation=N+1/agent_id=P0|P1 and never touches the parent's
+                # data. The next runner-driven generation re-wipes and rewrites
+                # that daughter slot cleanly.
+                import copy as _copy
+                _saved = _PARQUET_EMITTER_OVERRIDE
+                if _saved is not None:
+                    _ovr = _copy.deepcopy(_saved)
+                    _meta = _ovr.setdefault('metadata', {})
+                    # Derive the daughter slot from the PARENT's override
+                    # metadata (the runner's per-generation identity), NOT from
+                    # self.agent_id — inside a composite the cell is always the
+                    # 'agents/0' key, so self.agent_id is "0" for every runner
+                    # generation. Using it would give generation=2/agent_id=00
+                    # for ALL gens, colliding with (and wiping) runner gen 2.
+                    _parent_aid = str(_meta.get('agent_id', self.agent_id))
+                    _parent_gen = _meta.get('generation')
+                    if _parent_gen is None:
+                        _parent_gen = len(_parent_aid)
+                    _suffix = daughter_id[len(str(self.agent_id)):] or '0'
+                    _meta['agent_id'] = _parent_aid + _suffix
+                    _meta['generation'] = int(_parent_gen) + 1
+                    set_parquet_emitter_override(_ovr)
+                # Emitter sink for the daughter's INTERNAL 'emitter' step.
+                # baseline() defaults to 'parquet', whose declared-default sink
+                # has a FIXED partition (generation=1/agent_id=1) with no
+                # per-daughter identity. When NO parquet override is active
+                # (e.g. runs driven by run_multigen_xarray, which captures the
+                # real output via an EXTERNAL XArrayEmitter), both daughters
+                # would otherwise spawn ParquetEmitters pinned to that one
+                # shared partition and stomp each other's temp files — the next
+                # batch flush (~step 400 ≈ 780s of gen 2) raises FileNotFoundError
+                # on the temp→final rename, which the runner swallows as a
+                # "graceful stop" and truncates the lineage mid-generation.
+                # The internal sink is redundant in that path, so build the
+                # daughter with the no-op 'null' emitter (global_time-only
+                # RAMEmitter) — no files, no collision, gen 2+ runs a full
+                # cell cycle. When an override IS active the repointed,
+                # per-daughter-partitioned parquet sink above is used instead.
+                _daughter_emitter = "parquet" if _saved is not None else "null"
                 try:
                     doc = baseline(
-                        core=self.core, seed=seed, cache_dir=self._cache_dir)
+                        core=self.core, seed=seed, cache_dir=self._cache_dir,
+                        emitter=_daughter_emitter)
                 finally:
-                    set_parquet_emitter_override(saved_override)
+                    if _saved is not None:
+                        set_parquet_emitter_override(_saved)
                 agent = doc['state']['agents']['0']
                 for key in ('bulk', 'unique', 'environment', 'boundary'):
                     if key in d_data:
                         agent[key] = d_data[key]
                 agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
                 seed_mass_listener(agent, self.core)
+                # Advance the phylogeny. baseline() always wires the daughter's
+                # OWN internal division Step with the default agent_id='0' (see
+                # _helpers._get_step_config). Re-point it at this daughter's
+                # actual lineage id so that when *this* daughter later divides it
+                # removes the correct agent and emits descendant ids
+                # (e.g. parent '00' -> daughters '000'/'001'), instead of forever
+                # re-emitting '00'/'01'. Without this, _remove:['0'] removes
+                # nothing on the 2nd+ division and run_multigen_sqlite's
+                # followed-agent-disappeared branch never trips, so generations
+                # are under-counted even though gen-3 cells biologically run.
+                div_edge = agent.get('division')
+                if isinstance(div_edge, dict):
+                    if isinstance(div_edge.get('config'), dict):
+                        div_edge['config']['agent_id'] = daughter_id
+                    inst = div_edge.get('instance')
+                    if inst is not None:
+                        inst.agent_id = daughter_id
                 return doc
 
             d1_doc = _build_daughter_doc(d1_data, d1_seed, d1_id)
@@ -244,18 +323,23 @@ class Division(V2Step):
             print(f'  DAUGHTERS: {d1_id} (bulk={d1_data["bulk"]["count"].sum()}) '
                   f'+ {d2_id} (bulk={d2_data["bulk"]["count"].sum()})')
 
-            # Mirror vEcoli's pre-divide ``self.emitter.finalize()`` hook
-            # (ecoli/processes/engine_process.py: divide branch). The parent
-            # ParquetEmitter has rows buffered since its last batch flush;
-            # without an explicit close() they vanish when this _remove
-            # update tears the agent subtree down. Lookup is by self.agent_id
-            # via the per-agent registry populated at emitter construction.
-            from v2ecoli.composites._helpers import (
-                get_parquet_emitter, unregister_parquet_emitter)
-            parent_emitter = get_parquet_emitter(self.agent_id)
-            if parent_emitter is not None:
-                parent_emitter.close(success=True)
-                unregister_parquet_emitter(self.agent_id)
+            # Mirror vEcoli's pre-divide ``emitter.finalize()`` hook
+            # (ecoli_master_sim.py DivisionDetected branch: success=True then
+            # finalize()). The parent ParquetEmitter has rows buffered since its
+            # last batch flush; without an explicit close() they vanish — and
+            # no success sentinel is written — when this _remove update tears
+            # the agent subtree down. The close-flush-and-unregister itself is
+            # the FRAMEWORK-generic ``finalize_emitter_for_agent`` from
+            # pbg-emitters; the v2ecoli-specific glue is only *which key* to
+            # finalize: the parent is registered under the parquet override's
+            # metadata.agent_id (the runner's per-generation identity: "0",
+            # "00", ...). self.agent_id inside the composite is always "0" (the
+            # agents/0 key), so for gens >= 2 a self.agent_id lookup misses;
+            # use the override metadata as the canonical key.
+            from v2ecoli.composites._helpers import finalize_emitter_for_agent
+            _ovr_meta = (_PARQUET_EMITTER_OVERRIDE or {}).get('metadata') or {}
+            _emitter_key = str(_ovr_meta.get('agent_id', self.agent_id))
+            finalize_emitter_for_agent(_emitter_key, success=True)
 
             return {
                 'agents': {

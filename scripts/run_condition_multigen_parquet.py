@@ -9,11 +9,21 @@ Agent IDs follow vEcoli's lineage convention: gen N uses agent_id "0"*N
 ("0", "00", "000", ...). This way ``generation = len(agent_id)`` matches
 vEcoli's parquet partitioning semantics.
 
-Transient daughter emitters spawned inside the composite at division time
-write to ``gen=N+1/agent_id=00 or 01/`` partitions (see Division step's
-metadata override). When the next runner-driven gen opens its ctx mgr,
-its ``_write_configuration`` wipes whichever of those partitions matches —
-so the runner-driven sim's history is the source of truth per gen.
+Full per-gen history retention (the vEcoli-aligned mechanism):
+  * The runner-driven cell emits its WHOLE cycle to its own partition
+    ``generation=N/agent_id="0"*N``. The in-composite Division step
+    closes that emitter with ``success=True`` BEFORE it ``_remove``-s the
+    agent (see Division.next_update), so the trailing partial batch + the
+    success sentinel land on disk — mirroring vEcoli's pre-divide
+    ``emitter.finalize()`` hook in ecoli_master_sim.py.
+  * Transient daughter emitters spawned inside the composite at division
+    time are re-pointed to their OWN slot
+    ``generation=N+1/agent_id="0"*N+{0,1}`` (Division re-points the parquet
+    override during the daughter build) so their ``_write_configuration``
+    can NOT wipe the parent's fully-written partition. The d?0 daughter
+    slot is later re-wiped + rewritten cleanly by the next runner-driven
+    generation; the d?1 slot leaves a 1-tick birth stub (ignore it — the
+    canonical lineage is the all-zeros agent_id chain).
 
 Usage:
     python scripts/run_condition_multigen_parquet.py \\
@@ -26,6 +36,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
 import os
 import sys
@@ -38,9 +50,14 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
+# The cache config key whose ``perturbations`` dict TranscriptInitiation reads;
+# perturbation values are fixed RNA synthesis probabilities keyed by RNA id
+# (e.g. ``TU00259[c]`` — the dnaA operon TU).
+_TI_CONFIG_KEY = "ecoli-transcript-initiation"
+
 from process_bigraph import Composite
 
-from v2ecoli import build_composite, build_document
+from v2ecoli import build_composite
 from v2ecoli.composites._helpers import parquet_emitter
 from v2ecoli.composites.baseline import baseline as baseline_doc
 from v2ecoli.core import build_core
@@ -67,6 +84,149 @@ def _fg(q) -> float:
     """dry_mass in fg as a plain float. Post-merge with origin/main the mass
     listener emits a pint Quantity (femtogram); strip units if present."""
     return float(getattr(q, "magnitude", q))
+
+
+def parse_perturbation(spec: str) -> tuple[str, float]:
+    """Parse a ``KEY=VALUE`` perturbation spec into ``(rna_id, synth_prob)``.
+
+    e.g. ``"TU00259[c]=1.7e-3"`` -> ``("TU00259[c]", 0.0017)``. KEY is an RNA
+    id; VALUE is a fixed synthesis probability (float). Raises ValueError on a
+    malformed spec.
+    """
+    if "=" not in spec:
+        raise ValueError(
+            f"--perturbation {spec!r} must be KEY=VALUE (e.g. 'TU00259[c]=1.7e-3')")
+    key, _, value = spec.partition("=")
+    key = key.strip()
+    if not key:
+        raise ValueError(f"--perturbation {spec!r}: empty KEY")
+    try:
+        val = float(value)
+    except ValueError as e:
+        raise ValueError(
+            f"--perturbation {spec!r}: VALUE {value!r} is not a float") from e
+    return key, val
+
+
+def apply_perturbations(configs: dict, perturbations: dict[str, float]) -> dict:
+    """Explicitly set each ``rna_id -> synth_prob`` perturbation into the cache
+    config TranscriptInitiation reads, OVERRIDING whatever the cache baked in.
+
+    Mutates ``configs`` in place (caller deep-copies first). Returns a record
+    ``{rna_id: {"applied": v, "cache_baked": prev_or_None, "overrode": bool}}``
+    so the run_config can note both the applied value and any pre-baked one.
+    """
+    record: dict = {}
+    if not perturbations:
+        return record
+    ti = configs.setdefault(_TI_CONFIG_KEY, {})
+    baked = ti.get("perturbations")
+    if not isinstance(baked, dict):
+        baked = {}
+    new = dict(baked)
+    for rna_id, val in perturbations.items():
+        prev = baked.get(rna_id)
+        new[rna_id] = val
+        record[rna_id] = {
+            "applied": val,
+            "cache_baked": prev,
+            "overrode": prev is not None and prev != val,
+        }
+    ti["perturbations"] = new
+    return record
+
+
+def cache_fingerprint(cache_dir: str) -> dict:
+    """Cheap, verifiable fingerprint of the cache: sim_data_cache.dill
+    mtime + size + a sha256 of (size, mtime_ns) so a swapped cache is
+    detectable without hashing the whole multi-hundred-MB dill."""
+    path = os.path.join(cache_dir, "sim_data_cache.dill")
+    if not os.path.exists(path):
+        return {"path": path, "exists": False}
+    st = os.stat(path)
+    h = hashlib.sha256(f"{st.st_size}:{st.st_mtime_ns}".encode()).hexdigest()[:16]
+    return {
+        "path": path,
+        "exists": True,
+        "size_bytes": st.st_size,
+        "mtime": st.st_mtime,
+        "fingerprint": h,
+    }
+
+
+def read_synth_probs(cache: dict, rna_ids: list[str]) -> dict[str, float | None]:
+    """Read back the ParCa-derived basal synthesis probability for each
+    ``rna_id`` from the cache's TranscriptInitiation config — the verifiable
+    ground-truth the perturbation is meant to override. Returns
+    ``{rna_id: basal_prob_or_None}``."""
+    out: dict[str, float | None] = {}
+    if not rna_ids:
+        return out
+    try:
+        import numpy as np
+        ti = cache.get("configs", {}).get(_TI_CONFIG_KEY, {})
+        ids = np.asarray(ti.get("rna_data", {})["id"])
+        basal = np.asarray(ti.get("basal_prob"))
+        for rid in rna_ids:
+            hit = np.where(ids == rid)[0]
+            out[rid] = float(basal[hit[0]]) if len(hit) else None
+    except Exception:
+        for rid in rna_ids:
+            out.setdefault(rid, None)
+    return out
+
+
+def build_run_config(args, *, perturbations: dict[str, float],
+                     applied_record: dict, cache: dict) -> dict:
+    """Assemble the decision-relevant run-config provenance dict.
+
+    Captures the knobs that determine what the run actually computed:
+    applied perturbations (+ whether they overrode a cache-baked value), the
+    cache dir + cheap fingerprint, seed, generations, max_min, resume_dill,
+    and the verifiable ParCa-derived synth prob read back from the cache for
+    each perturbed RNA.
+    """
+    return {
+        "experiment_id": args.experiment_id,
+        "perturbations": dict(perturbations),
+        "perturbations_detail": applied_record,
+        "cache_dir": args.cache_dir,
+        "cache_fingerprint": cache_fingerprint(args.cache_dir),
+        "seed": args.seed,
+        "generations": args.generations,
+        "start_gen": args.start_gen,
+        "max_min": args.max_min,
+        "resume_dill": args.resume_dill,
+        "dnaA_synth_prob_from_cache": read_synth_probs(
+            cache, list(perturbations.keys())),
+        "out_dir": args.out_dir,
+    }
+
+
+def register_run_config(args, run_config: dict, *, status: str) -> str | None:
+    """Register the run into the per-study runs.db via pbg-superpowers'
+    ``register_run`` (run_id = experiment_id). Best-effort: returns the
+    runs.db path on success, None if pbg_superpowers is unavailable or
+    ``--study-dir`` is not resolvable. Never raises into the sim path."""
+    try:
+        from pbg_superpowers.run_registry import register_run
+    except Exception:
+        return None
+    study_dir = args.study_dir
+    if not study_dir:
+        return None
+    runs_db = os.path.join(study_dir, "runs.db")
+    try:
+        register_run(
+            runs_db, args.experiment_id,
+            spec_id=args.spec_id or args.experiment_id,
+            status=status,
+            params=run_config,
+        )
+        return runs_db
+    except Exception as e:  # provenance is best-effort; don't kill the sim
+        print(f"    [provenance] register_run failed (non-fatal): {e}")
+        return None
 
 
 def _run_gen(comp: Composite, max_duration: int, gen_idx: int) -> tuple[float, bool, dict | None]:
@@ -101,10 +261,12 @@ def _run_gen(comp: Composite, max_duration: int, gen_idx: int) -> tuple[float, b
             dry = _fg(cur["listeners"]["mass"].get("dry_mass", 0))
             print(f"    gen {gen_idx}: t={total/60:5.1f} min  dry_mass={dry:.1f} fg")
 
-    # Pre-divide finalize hook (in division.py) already closed the parent
-    # emitter for us if divided=True, but call flush_all_in_composite as a
-    # belt-and-suspenders no-op for any in-composite daughter emitters or
-    # the non-divided edge case.
+    # When divided=True the Division step already close(success=True)-d the
+    # parent emitter (via the per-agent registry) BEFORE tearing the agent
+    # subtree down, so the full per-gen history + success sentinel are on
+    # disk. flush_all_in_composite is the belt-and-suspenders path for the
+    # non-divided edge case (last gen): it closes any still-live emitter so
+    # the trailing batch is durable. On divide it's a no-op (agent gone).
     n_closed = ParquetEmitter.flush_all_in_composite(comp, success=divided)
     if n_closed:
         print(f"    gen {gen_idx}: flushed {n_closed} ParquetEmitter instance(s)")
@@ -133,7 +295,29 @@ def main() -> None:
     ap.add_argument("--start-gen", type=int, default=1,
                     help="Generation index (and agent_id length) for the "
                          "first gen of THIS run. Default 1.")
+    ap.add_argument("--perturbation", action="append", default=[],
+                    metavar="RNA_ID=SYNTH_PROB",
+                    help="Explicitly set a fixed RNA synthesis probability at "
+                         "run time, e.g. 'TU00259[c]=1.7e-3' for the dnaA "
+                         "operon. Repeatable. OVERRIDES any value baked into "
+                         "the cache; the override is recorded in the run "
+                         "provenance (run_config.perturbations).")
+    ap.add_argument("--study-dir", default=None,
+                    help="Study dir whose runs.db records this run's config "
+                         "provenance (run_id = experiment_id). If omitted, "
+                         "the run_config is still written to the summary JSON "
+                         "but not registered.")
+    ap.add_argument("--spec-id", default=None,
+                    help="spec/study id to record for this run "
+                         "(default: experiment_id).")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Assemble + print + register the run_config WITHOUT "
+                         "running any simulation. Use to verify provenance "
+                         "wiring and --perturbation parsing.")
     args = ap.parse_args()
+
+    # Parse perturbations up front (fail fast on a malformed spec).
+    perturbations = dict(parse_perturbation(s) for s in args.perturbation)
 
     max_duration = int(args.max_min * 60)
     dill_dir = args.dill_dir or f"out/{args.experiment_id}/gen_dills"
@@ -156,6 +340,44 @@ def main() -> None:
         rebind_cache_quantities(cache)
     except ImportError:
         pass
+
+    # Apply explicit run-time perturbations BEFORE building any composite, so
+    # they are a recorded run-time decision (not an opaque cache). Deep-copy
+    # the configs subtree so we don't mutate the lru_cache-shared cache dict.
+    applied_record: dict = {}
+    if perturbations:
+        cache["configs"] = copy.deepcopy(cache.get("configs", {}))
+        applied_record = apply_perturbations(cache["configs"], perturbations)
+        for rid, info in applied_record.items():
+            tag = ("OVERRODE cache-baked " + repr(info["cache_baked"])
+                   if info["overrode"] else
+                   ("set (no cache value)" if info["cache_baked"] is None
+                    else "set (== cache value)"))
+            print(f"  perturbation: {rid} = {info['applied']:g}  ({tag})")
+
+    # Assemble + register the run-config provenance (run_id = experiment_id).
+    run_config = build_run_config(
+        args, perturbations=perturbations,
+        applied_record=applied_record, cache=cache)
+    registered_db = register_run_config(
+        args, run_config, status="dry-run" if args.dry_run else "running")
+    run_config["registered_runs_db"] = registered_db
+    print("  run_config:")
+    print("    " + json.dumps(run_config, indent=2, default=str).replace(
+        "\n", "\n    "))
+    if registered_db:
+        print(f"  registered run '{args.experiment_id}' -> {registered_db}")
+
+    if args.dry_run:
+        # Write the run_config to a *_run_config.json sidecar too, then stop
+        # WITHOUT running any simulation.
+        cfg_path = os.path.join(
+            args.out_dir, f"{args.experiment_id}_run_config.json")
+        with open(cfg_path, "w") as f:
+            json.dump(run_config, f, indent=2, default=str)
+        print(f"\n[dry-run] no simulation executed. run_config: {cfg_path}")
+        return
+
     configs = cache.get("configs", {})
     unique_names = cache.get("unique_names", [])
     dry_mass_inc = cache.get("dry_mass_inc_dict", {})
@@ -189,7 +411,19 @@ def main() -> None:
         ):
             t_build = time.time()
             if prev_cell_data is None:
-                comp = build_composite("baseline", cache_dir=args.cache_dir)
+                if perturbations:
+                    # Build gen 1 from the perturbed in-memory bundle so the
+                    # run-time --perturbation override actually reaches
+                    # TranscriptInitiation. (build_composite re-reads the cache
+                    # from disk, which would silently drop the override.)
+                    from v2ecoli.core import load_cache_bundle
+                    bundle = dict(load_cache_bundle(args.cache_dir))
+                    bundle["configs"] = configs  # perturbed configs
+                    doc = baseline_doc(core=core, seed=args.seed,
+                                       cache_dir=args.cache_dir, bundle=bundle)
+                    comp = Composite(doc, core=core)
+                else:
+                    comp = build_composite("baseline", cache_dir=args.cache_dir)
             else:
                 d1_state, _d2_state = divide_cell(prev_cell_data)
                 bundle = {
@@ -237,11 +471,15 @@ def main() -> None:
         "generations_requested": args.generations,
         "generations_completed": len(summary),
         "pipeline_wall_seconds": pipeline_wall,
+        "run_config": run_config,
         "gens": summary,
     }
     summary_path = os.path.join(args.out_dir, f"{args.experiment_id}_summary.json")
     with open(summary_path, "w") as f:
-        json.dump(out_summary, f, indent=2)
+        json.dump(out_summary, f, indent=2, default=str)
+
+    # Mark the run complete in the registry (preserves the recorded params).
+    register_run_config(args, run_config, status="complete")
 
     print("\n" + "=" * 60)
     print(f"DONE — {len(summary)} gens, {pipeline_wall/60:.1f} min wall")

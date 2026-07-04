@@ -68,10 +68,19 @@ def balance_translation_efficiencies(monomer_ids, efficiencies, groups):
         groups: list of lists — each sub-list is a set of monomer IDs to average.
     Returns:
         the adjusted numpy array.
+
+    The group IDs are *bare* monomer IDs (no compartment), while ``monomer_ids``
+    carry a trailing compartment tag (e.g. ``'EG10866-MONOMER[c]'``). Strip the
+    3-char ``[X]`` tag before matching so the groups actually match — mirroring
+    vEcoli's ``set_balanced_translation_efficiencies`` (``monomer["id"][:-3]``).
+    Without this, no group ever matched and the (ribosomal-protein) groups were
+    left unbalanced, leaving raw per-gene efficiencies that diverged from vEcoli.
     """
+    bare_ids = [m[:-3] for m in monomer_ids]
     for group in groups:
+        group = set(group)
         idx = np.array([
-            i for i, m in enumerate(monomer_ids) if m in group
+            i for i, m in enumerate(bare_ids) if m in group
         ])
         if len(idx) > 0:
             efficiencies[idx] = np.mean(efficiencies[idx])

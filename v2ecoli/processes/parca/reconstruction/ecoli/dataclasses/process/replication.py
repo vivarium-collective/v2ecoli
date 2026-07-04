@@ -269,6 +269,50 @@ class Replication(object):
                 motif["length"], motif["sequences"]
             )
 
+        # Catalog the 8 low-affinity oriC DnaA boxes (R5M, τ2, I1, I2, C3, C2,
+        # I3, C1). These are non-consensus 9-mers that cannot be discovered by
+        # the motif scan above; their coordinates are listed explicitly in
+        # raw_data.dna_sites with type "dnaa-low-affinity-box".
+        #
+        # Stored as signed coordinates relative to oriC midpoint, sorted, in the
+        # same units as motif_coordinates["DnaA_box"].
+        low_aff_centers = []
+        oric_high_centers = []
+        prom_high_centers = []
+        for site in raw_data.dna_sites:
+            stype = site["type"]
+            if stype not in (
+                "dnaa-low-affinity-box",
+                "dnaa-orichigh-affinity-box",
+                "dnaa-promoter-high-affinity-box",
+            ):
+                continue
+            left, right = site["left_end_pos"], site["right_end_pos"]
+            if left is None or right is None or left == "" or right == "":
+                continue
+            center = round((left + right) / 2)
+            if stype == "dnaa-low-affinity-box":
+                low_aff_centers.append(center)
+            elif stype == "dnaa-orichigh-affinity-box":
+                oric_high_centers.append(center)
+            else:
+                prom_high_centers.append(center)
+        if low_aff_centers:
+            self.motif_coordinates["DnaA_box_oric_low_aff"] = (
+                self._get_relative_coordinates(np.array(low_aff_centers))
+            )
+            self.motif_coordinates["DnaA_box_oric_low_aff"].sort()
+        if oric_high_centers:
+            self.motif_coordinates["DnaA_box_oric_high_aff"] = (
+                self._get_relative_coordinates(np.array(oric_high_centers))
+            )
+            self.motif_coordinates["DnaA_box_oric_high_aff"].sort()
+        if prom_high_centers:
+            self.motif_coordinates["DnaA_box_promoter_high_aff"] = (
+                self._get_relative_coordinates(np.array(prom_high_centers))
+            )
+            self.motif_coordinates["DnaA_box_promoter_high_aff"].sort()
+
     def _get_complement_sequence(self, sequenceVector):
         """
         Calculates the vector for a complement sequence of a DNA sequence given

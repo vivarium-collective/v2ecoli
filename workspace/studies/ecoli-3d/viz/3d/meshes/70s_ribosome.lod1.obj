@@ -1,4 +1,4 @@
-# parsimony mesh: 70s_ribosome (source /Users/eranagmon/code/v2e-3d/out/ecoli3d/structures/70s_ribosome.cif)
+# parsimony mesh: 70s_ribosome (source /Users/eranagmon/code/v2e-cplx/workspace/studies/ecoli-3d/viz/3d/structures/70s_ribosome.cif)
 # atoms: 295060  voxel: 8 Å  verts: 16472  tris: 35312
 v -1.6387 -73.0699 -206.2031
 v 2.5084 -74.0168 -206.7341

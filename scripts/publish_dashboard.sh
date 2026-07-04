@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the read-only v2ecoli dashboard snapshot — a self-contained static SPA
 # bundle (all investigations + studies + assets) that anyone can browse with no
-# server. Built by vivarium-dashboard-publish; the same build is used locally
+# server. Built by vivarium-workbench-publish; the same build is used locally
 # (to practice/preview) and by .github/workflows/publish-dashboard.yml (to
 # publish to gh-pages:dashboard/).
 #
@@ -18,8 +18,8 @@
 #     Pages' project subpath (served at <user>.github.io/v2ecoli/dashboard/).
 #   * bigraph-loom source maps (~8MB, half the bundle) are stripped — a
 #     read-only viewer never needs them.
-#   * Needs `vivarium-dashboard-publish` on PATH (run via `uv run`, or use the
-#     workspace .venv: `.venv/bin/vivarium-dashboard-publish`).
+#   * Needs `vivarium-workbench-publish` on PATH (run via `uv run`, or use the
+#     workspace .venv: `.venv/bin/vivarium-workbench-publish`).
 set -euo pipefail
 
 WS_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -30,7 +30,7 @@ INTERACTIVE_URL="https://github.com/vivarium-collective/v2ecoli"
 rm -rf "$OUT"
 # The workspace's own package must be importable for build_core() registration.
 PYTHONPATH="$WS_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
-  vivarium-dashboard-publish \
+  vivarium-workbench-publish \
     --workspace "$WS_ROOT" \
     --out "$OUT" \
     --base-path "$BASE_PATH" \

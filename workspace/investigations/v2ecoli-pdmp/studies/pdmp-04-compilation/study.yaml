@@ -4,14 +4,14 @@ investigation: v2ecoli-pdmp
 title: Phase 4 — Compilation and Performance
 claim: |
   76% of per-tick time is spent outside process_update (13,817 isinstance + 4,213
-  __array_finalize__ + 52 process_update calls/tick) — but that 76% bucket includes real
-  numpy/scipy numeric work (e.g. Poisson logpmf), so it is NOT all marshalling overhead. The
-  headline "total speedup at N=10³" is an ILLUSTRATIVE PROJECTION, not a measurement: it equals
+  __array_finalize__ + 52 process_update calls/tick), but that 76% bucket includes real
+  numpy/scipy numeric work (e.g. Poisson logpmf), so it is not all marshalling overhead. The
+  headline "total speedup at N=10³" is an illustrative projection, not a measurement. It equals
   a hand-picked toy factor × N (the script hardcodes 3× → 3000×; the prose uses the recalibrated
   1.5× → ~1500×; 26 min → ~1 s). The column-centric vectorized runtime was never built and never
-  timed — only the pbg side was measured (at N=1,2,4). The per-Process Catalyst.jl JIT ≤10% figure
-  is an extrapolation, not validated on the 55-process WCM. Suggested (not demonstrated) architectural
-  direction: a column-centric runtime over per-Process JIT.
+  timed; only the pbg side was measured (at N=1,2,4). The per-Process Catalyst.jl JIT ≤10% figure
+  is an extrapolation, not validated on the 55-process WCM. The suggested but not demonstrated
+  architectural direction is a column-centric runtime over per-Process JIT.
 confidence: Investigating
 status: running
 phase: Design
@@ -101,7 +101,7 @@ description: "Phase 4 of the v2ecoli → PDMP roadmap. The DUF report Sec. 4.2.1
   \ it produce the same trajectory\nensemble as the reference Phase 2 runner? \"Same\" means\nW₂(p_compiled, p_phase2) ≤ 5·σ_MC\
   \ where σ_MC is the standard\nerror of the Phase 2 self-W₂ estimate at the same N (a 5σ\nbound is conservative — covers\
   \ genuine FP-order differences\nwithout firing on legitimate stochastic noise). We test on N=10⁴\ntrajectories across all\
-  \ Phase 0 conditions.\n\nPrecision. Single-precision (FP32) on GPU is tempting for 2×\nthroughput but has been shown to\
+  \ Phase 0 conditions.\n\nPrecision. Single-precision (FP32) on GPU promises 2×\nthroughput but has been shown to\
   \ corrupt long-run ABC posteriors\nvia catastrophic cancellation in propensity sums. Default:\nFP64. FP32 only allowed where\
   \ (a) bit-equivalence test passes\nvs FP64 reference and (b) downstream ABC posteriors are\ninvariant under switch.\n\n\
   FP summation order. Parallel reductions over per-trajectory\nlog-likelihoods must use a deterministic summation order\n\
@@ -254,22 +254,17 @@ variants:
     parallelism: 1000
 interventions: []
 runs: []
-bibliography:
-  bib_keys:
-  - loman2023
-  - jumpprocessesjl
-  - xarray2017
 report:
   confidence: design-stage
   evidence_quality: scaffold
   conclusion: Predicted — exporting the Phase 2 PDMP to Catalyst.jl + ModelingToolkit with a column-centric Vivarium runtime
     will achieve ≥10³ parallel trajectories on GPU or multi-core CPU, with 1/√N posterior variance scaling and bit-equivalent
     trajectory distributions vs. the Phase 2 reference.
-  main_insight: Throughput is downstream of correctness — the gating test is W₂ equivalence to within 5σ of MC fluctuation
-    between the compiled runner and the Phase 2 Python runner. FP summation order is the silent-killer bug here; pairwise/Kahan
-    summation is non-negotiable.
-  caveat: FP32 on GPU is tempting for 2× throughput but corrupts long-run ABC posteriors via catastrophic cancellation in
-    propensity sums — default FP64, FP32 only with explicit bit-equivalence + ABC-posterior KL < 0.01 vs. FP64.
+  main_insight: Throughput is downstream of correctness. The gating test is W₂ equivalence to within 5σ of MC fluctuation
+    between the compiled runner and the Phase 2 Python runner. FP summation order is the bug that hides here; pairwise/Kahan
+    summation is required.
+  caveat: FP32 on GPU promises 2× throughput but corrupts long-run ABC posteriors via catastrophic cancellation in
+    propensity sums. Default FP64, FP32 only with explicit bit-equivalence + ABC-posterior KL < 0.01 vs. FP64.
   key_metrics:
   - label: Catalyst.jl export round-trips
     status: stub
@@ -306,22 +301,22 @@ study_card:
 readouts:
 - name: catalyst-export-artefact
   status: planned
-  path: 'planned output: compiled_pdmp.jl (not yet produced)'
+  path: (planned) compiled_pdmp.jl
   units: Julia source + binary
   notes: Catalyst.jl + ModelingToolkit compiled model with symbolic Jacobian + automatic sensitivity equations.
 - name: per-step-profile-compiled
   status: planned
-  path: 'planned output: out/trajectories/compiled_profile.csv (not yet produced)'
+  path: (planned) out/trajectories/compiled_profile.csv
   units: ms per bucket
   notes: 'Same 5 buckets as Phase 0. Gating: marshalling fraction < 10% of total.'
 - name: parallel-throughput
   status: planned
-  path: 'planned output: out/trajectories/throughput_vs_n_trajectories.csv (not yet produced)'
+  path: (planned) out/trajectories/throughput_vs_n_trajectories.csv
   units: trajectories per second
   notes: 'Sweep parallelism N in {10, 100, 1000, 10000}. Gating: >=10^3 parallel.'
 - name: abc-posterior-variance-vs-walltime
   status: planned
-  path: 'planned output: out/trajectories/abc_posterior_efficiency.csv (not yet produced)'
+  path: (planned) out/trajectories/abc_posterior_efficiency.csv
   units: posterior std * wall-clock-s
   notes: 'Standard MCMC efficiency metric. Required: 1/sqrt(N) scaling on doubling parallelism.'
 planned_runs:
@@ -348,10 +343,10 @@ planned_runs:
     subset (G6P, F6P, PEP, PYR via PGI-glycolysis-PYK-drain) in JAX/Diffrax. Real timings on this
     hardware: cold compile = 221ms (one-time XLA JIT), warm-cache mean = 4.11 ± 0.08 ms (N=20),
     cold→warm speedup = 53.7×. Apples-to-oranges vs basico full-Millard: basico-full 288.5 ms vs
-    JAX-subset warm 4.11 ms = 70× — promising signal for the full 77-state JAX port (the actual
-    jax-compiled-throughput-10x test target). SCAFFOLD honestly: 4 states out of 77, lumped rate
-    laws (not faithful Millard kinetics), single-CPU. Full port is the legitimate test, this pilot
-    proves the toolchain works end-to-end.'
+    JAX-subset warm 4.11 ms = 70×, an early sign for the full 77-state JAX port (the actual
+    jax-compiled-throughput-10x test target). Scaffold caveat: 4 states out of 77, lumped rate
+    laws (not faithful Millard kinetics), single-CPU. The full port is the real test; this pilot
+    shows the toolchain works.'
 - name: ram-profile-per-cell-N1024
   status: planned
   n_steps: 600
@@ -536,6 +531,9 @@ tests:
     field: L_inf_error
   requires_simulation: phase4-equivalence-test
   cites: []
+  cites_note: 'Engineering reproducibility tolerance (L-inf relative error < 1e-4) for compiled-vs-reference
+    trajectory equivalence; a numerical-drift budget, not a published biological/physical constant. No
+    literature source exists for this band — recorded as a provenance gap, not invented.'
 - name: memory-fits-1024-cells-per-node
   classification: supporting
   description: Steady-state RAM footprint of N=1024 cells × full PDMP state stays under 256 GB on a single HPC node. Currently
@@ -550,6 +548,9 @@ tests:
     field: RSS_GB
   requires_simulation: phase4-memory-1024
   cites: []
+  cites_note: 'Hardware budget (RSS < 256 GB = single HPC-node memory capacity); an infrastructure target,
+    not a literature-sourced band. The per-cell footprint is projected from colonies-01 sizing. No published
+    source exists for this threshold — recorded as a provenance gap, not invented.'
 embed_visualizations:
 - name: Phase 4 — JAX/Julia backend speedup (Phase 1 wrap-up)
   url: /reports/figures/pdmp-04/jax_julia_speedup.html
@@ -562,14 +563,14 @@ embed_visualizations:
   description: Memory budget per WCM cell broken down by listener / state / ParCa cache.
 - name: Phase 4 sprint 3 — column-centric runtime prototype
   url: /reports/figures/pdmp-04/column_centric_prototype.html
-  description: Constant per-trajectory wall regardless of N — 3.1× speedup on pure-Poisson toy.
+  description: Constant per-trajectory wall regardless of N; 3.1× speedup on pure-Poisson toy.
 - name: Phase 4 sprint 2 — function-level marshalling hotspots
   url: /reports/figures/pdmp-04/marshalling_hotspots.html
   description: 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine cProfile counts).
-    Much per-tick time is outside process_update, but that includes real numpy/scipy numeric work — not all of it marshalling.
+    Much per-tick time is outside process_update, but that includes real numpy/scipy numeric work, not all of it marshalling.
 - name: Phase 4 sprint 4 — 3-step composite prototype
   url: /reports/figures/pdmp-04/multistep_prototype.html
-  description: Speedup does NOT compound across processes — pbg overhead is per-process, not per-step.
+  description: Speedup does not compound across processes; pbg overhead is per-process, not per-step.
 - name: Phase 4 sprint 1 — per-tick compute decomposition
   url: /reports/figures/pdmp-04/per_step_compute_decomposition.html
   description: 76% of per-tick time is outside process_update (includes real numpy/scipy numeric work, not all of it
@@ -577,13 +578,13 @@ embed_visualizations:
     architectural direction.
 - name: Phase 4 sprint 6 — TI-shaped column-centric runner
   url: /reports/figures/pdmp-04/ti_shaped_prototype.html
-  description: 'Realistic TI-shaped workload: honest 1.5× per-tick recalibration (vs toys'' 3×) — a measured
-    microbenchmark, an extrapolation not validated on the 55-process WCM. This 1.5× is the toy factor fed into
+  description: 'TI-shaped workload: 1.5× per-tick recalibration (vs toys'' 3×), a measured
+    microbenchmark and an extrapolation not validated on the 55-process WCM. This 1.5× is the toy factor fed into
     the illustrative ~1500× = factor × N projection (not a measured speedup; column-centric runtime never built).'
 - name: Phase 4 sprint 5 — real WCM baseline + illustrative N-scaling projection
   url: /reports/figures/pdmp-04/wcm_baseline_projection.html
   description: 'Real WCM benchmark (measured): pbg sequential at N=10³ × 30 ticks = 26 min. The "≈ 1 sec /
-    ~1500× total speedup" is an ILLUSTRATIVE PROJECTION = toy factor × N (script hardcodes 3× → 3000×; prose
+    ~1500× total speedup" is an illustrative projection = toy factor × N (script hardcodes 3× → 3000×; prose
     uses 1.5× → ~1500×); the column-centric parallel runtime was never built or timed. Not a measured speedup.'
 discovery_implications:
   resolved_uncertainties:
@@ -594,20 +595,20 @@ discovery_implications:
     per tick (genuine counts); much of the per-tick cost is outside process_update, though that bucket
     includes real numpy/scipy numeric work, so it is not purely marshalling.'
   - 'Column-centric prototypes give constant-in-N per-trajectory wall and a per-tick speedup of 1.5x on a
-    realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys) — measured microbenchmarks, an
+    realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys): measured microbenchmarks and an
     extrapolation not validated on the 55-process WCM. The "~1500x at N=1e3 x 30 ticks (26 min -> ~1 s)"
-    is an ILLUSTRATIVE PROJECTION = toy factor x N (the script hardcodes 3x -> 3000x; the prose uses the
-    1.5x recalibration -> ~1500x), NOT a measured speedup: the column-centric vectorized runtime was never
-    built and never timed — only the pbg sequential side was measured (at N=1,2,4).'
+    is an illustrative projection = toy factor x N (the script hardcodes 3x -> 3000x; the prose uses the
+    1.5x recalibration -> ~1500x), not a measured speedup: the column-centric vectorized runtime was never
+    built and never timed; only the pbg sequential side was measured (at N=1,2,4).'
   remaining_uncertainties:
-  - 'The column-centric runtime is validated as prototypes + a projection, NOT as a built runner that
-    reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC — numerical equivalence of
+  - 'The column-centric runtime is validated as prototypes + a projection, not as a built runner that
+    reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC; numerical equivalence of
     the vectorized path is unproven.'
   - 'Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order
     needed for reproducible ABC posteriors across hardware is untested.'
   alternate_hypotheses:
   - id: per-process-jit-wins
-    statement: 'Per-Process Catalyst.jl JIT compilation is the right performance attack, recovering most
+    statement: 'Per-Process Catalyst.jl JIT compilation is the main performance lever, recovering most
       of the per-tick cost.'
     why_plausible: 'JIT-compiling reaction propensities is the standard speedup for stochastic chemical
       kinetics.'
@@ -639,3 +640,38 @@ discovery_implications:
       ABC test posterior.'
     expected_information_gain: high
     expert_gate_required: true
+# --- v4 narrative spine (filled from existing study content; honest, no new results) ---
+runtime:
+  notes: 'simulation_status: not_started, gate: blocked. No compiled runtime has been built or benchmarked;
+    the throughput / memory / equivalence numbers are targets, projected (memory from colonies-01 sizing),
+    not measured here.'
+assumptions:
+- The PDMP can be compiled (Catalyst.jl/ModelingToolkit or JAX/Diffrax) to a symbolic-Jacobian form that runs ≥10× faster than the Python+glpk baseline.
+- A column-centric (struct-of-arrays) state layout removes the marshalling overhead Phase 0 motivates.
+- Deterministic floating-point summation (pairwise/Kahan) preserves numerical equivalence with the Phase-3 reference.
+enforced_params:
+- name: implementation_status
+  value: not built — compilation + parallel runtime are planned
+- name: gate
+  value: blocked on the Phase-1/2/3 model being finalized for compilation
+biological_summary: 'No biology is added: Phase 4 is a performance/runtime re-implementation of the
+  already-defined PDMP whole-cell model, targeting many-trajectory / many-cell HPC throughput (≥1e3
+  parallel trajectories, 1024 cells/node) needed by the inference (Phase 3) and colony (downstream) work.'
+model_change: 'No mechanistic change — a runtime/representation change: compile the PDMP to a fast backend
+  and invert the per-step loop to a column-centric layout. Equivalence with Phase 3 must be proven.'
+implementation_requirements:
+- A Catalyst.jl/ModelingToolkit (or JAX/Diffrax) export of the PDMP with symbolic Jacobian + sensitivities.
+- A column-centric runner + deterministic summation; a parallel throughput harness (N in {10,100,1000,10000}).
+- A 1024-cell memory profile to verify the <256 GB/node budget directly (currently only projected).
+design_pivot_required: 'No pivot yet — Phase 4 has not started. The design hinges on the upstream PDMP
+  being stable enough to compile; that prerequisite (Phases 1–3) is not yet complete.'
+conclusion_verdicts:
+- claim: A compiled PDMP achieves ≥10× throughput vs the Python+glpk baseline.
+  verdict: not_started
+  basis: No compiled runtime built or benchmarked; threshold is a target, not a measurement.
+- claim: Compilation preserves numerical equivalence with the Phase-3 reference (L∞ < 1e-4).
+  verdict: not_started
+  basis: No equivalence test has been run; gate blocked.
+- claim: N=1024 cells fit under 256 GB on one HPC node.
+  verdict: projected_only
+  basis: Per-cell footprint projected from colonies-01 sizing; not yet verified with a 1024-cell ensemble.

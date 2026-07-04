@@ -1,0 +1,60 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "ungraded",
+ "groups": {
+  "primary": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.cell_mass_monotone_pre_division",
+     "label": "cell-mass-monotone-pre-division",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "",
+     "detail": {
+      "text": ""
+     }
+    },
+    {
+     "id": "tests.glc_declines_under_linear_decline_driver",
+     "label": "glc-declines-under-linear-decline-driver",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "",
+     "detail": {
+      "text": ""
+     }
+    },
+    {
+     "id": "tests.glc_stays_zero_under_zero_clamp_driver",
+     "label": "glc-stays-zero-under-zero-clamp-driver",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "",
+     "detail": {
+      "text": ""
+     }
+    }
+   ]
+  },
+  "supporting": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.growth_rate_positive",
+     "label": "growth-rate-positive",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "",
+     "detail": {
+      "text": ""
+     }
+    }
+   ]
+  }
+ },
+ "title": "mbp-01-time-varying-environment \u2014 default tests"
+}

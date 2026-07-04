@@ -89,14 +89,98 @@ report:
     the mini), so the reproduces-parca_compare test is PARTIAL — verified at the
     structural-inventory + simulation-readiness level, not the per-step bit diff.
 
+# --- v4 narrative-spine sections (filled from this study's recorded results) ---
+study_card:
+  phase: Build / Simulate
+  one_liner: "Rebuild the ParCa in full (51 TF conditions) from the ~133 ecoli-sources flat files and confirm a complete, simulation-ready cache bundle."
+  status: complete
+  headline: "PASS — 51 conditions fit in 142.4 s; 4-artifact bundle complete; 5-step smoke run clean (no equilibrium-solver crash)."
+
+runtime:
+  wall_seconds: 142.4
+  dispatch: single-process ParCa (--cpus 8)
+  scale: 51 TF conditions
+  hardware: Mac mini (2026-06-09)
+
+readouts:
+- {name: tf-condition-count, description: "TF-condition count fit by the ParCa run (51 = full, ~7 = fast/debug)"}
+- {name: cache-bundle-artifacts, description: "cache-bundle artifact presence (initial_state.json + sim_data_cache.dill + metadata.json + cache_version.json)"}
+- {name: simdata-structural-inventory, description: "sim_data structural inventory (4538 genes / 3277 TUs / 4309 monomers / 1118 complexes / 9460 metabolic reactions)"}
+- {name: smoke-run, description: "5-step build_composite('baseline') smoke run — no equilibrium-solver crash"}
+
+enforced_params:
+- {name: mode, value: full, why: "fits all 51 TF conditions; fast/debug fits ~7 and mis-calibrates dnaA / replication"}
+- {name: cache_dir, value: out/cache-showcase, why: "own dir, not the dnaa cache (out-symlink hazard)"}
+- {name: cpus, value: 8}
+
+biological_summary: |
+  The ParCa (parameter-calculator) fits heterogeneous measured E. coli datasets
+  into a single self-consistent sim_data parameter set across 51 transcription-
+  factor conditions (basal + with_aa + acetate + succinate + no_oxygen + the
+  active/inactive TF set). The full-mode fit is what calibrates the metabolite
+  concentrations so the whole-cell composite can solve its equilibrium ODEs at
+  steady state — the precondition for a simulation-ready wild-type baseline.
+
+literature_anchors:
+- {cite: macklin2020, note: "The Covert-lab whole-cell model whose ParCa pipeline v2ecoli rebuilds from the ecoli-sources flat files."}
+
+model_change: |
+  None — this is the unmodified full-mode ParCa build (the reference pipeline).
+  The only configuration axis exercised is the build MODE: --mode full (51 TF
+  conditions, used) vs fast/debug (~7 conditions, contrast only, never used for
+  simulation because it mis-calibrates dnaA / replication).
+
+implementation_requirements: |
+  scripts/parca_run.py --mode full --cpus 8 (the reconstruction pipeline);
+  gzip of parca_state.pkl (634 MB → 41 MB) and scripts/build_cache.py to emit
+  the simulation-input bundle. Run via the v2ecoli .venv (bare python lacks
+  unum). Cross-tool parca_compare additionally needs vivarium-ecoli
+  --save-intermediates reference checkpoints (absent on the mini this session).
+
+design_pivot_required: false
+
+conclusion_verdicts:
+- {claim: "v2ecoli rebuilds the ParCa in full from ecoli-sources", verdict: supported, basis: "51 TF conditions fit in 142.4 s — the full-mode proof (vs 7 fast/debug)"}
+- {claim: "the cache bundle is complete and simulation-ready", verdict: supported, basis: "all 4 artifacts present; 5-step baseline smoke run, no equilibrium-solver crash"}
+- {claim: "the rebuilt sim_data reproduces the parca_compare reference", verdict: partial, basis: "verified at structural-inventory + simulation-readiness level; the cross-tool HTML bit-diff was NOT re-run (vEcoli --save-intermediates reference absent)"}
+
+conclusion_logic:
+  if_primary_tests_pass:
+    summary: "The ParCa rebuilds in full (51 TF conditions) from the ecoli-sources flat files and emits a complete, simulation-ready cache bundle, so showcase-2 can resume the wild-type baseline from out/cache-showcase."
+    block_downstream: false
+    pipeline_unblocks: [showcase-2-baseline-figures]
+    biological_validation: "51 fitted TF conditions plus a no-crash 5-step smoke run confirm the metabolite concentrations are calibrated — the full-mode calibration a simulation-ready fixture requires."
+  if_primary_tests_fail:
+    summary: "If the build fits only ~7 conditions or the bundle is missing artifacts, the cache is the fast/debug build that mis-calibrates dnaA / replication and must NOT seed the baseline; showcase-2 stays blocked until a full rebuild succeeds."
+    block_downstream: true
+    diagnose: [condition count != 51, missing cache artifact, equilibrium-solver crash on the smoke run]
+    biological_validation: "A fast-mode cache over-expresses dnaA (~2x) and breaks replication initiation, so any downstream baseline resumed from it would be mis-calibrated."
+
+simulation_set:
+- name: showcase1-parca-full-2026-06-09
+  kind: parca
+  status: complete
+  base_model: parca
+  duration_steps: "n/a (reconstruction build; 5-step smoke validation)"
+  seeds: "n/a"
+  metrics: [TF-condition count, cache-bundle artifacts, sim_data structural inventory, 5-step smoke run]
+  pass_fail_tests: [parca-builds-full-51-conditions, cache-bundle-complete, sim_data-reproduces-parca-comparison]
+
 conditions:
   baseline:
     composite: parca
     params:
       mode: full
       cache_dir: out/cache-showcase
-  variants: []
-  # Required by v4 schema even when empty.
+  variants:
+  # No perturbation variants — a ParCa rebuild has a single configuration. The
+  # build MODE is the only axis, and it is itself the full-mode proof.
+  - name: full-mode (51 TF conditions)
+    role: reference
+    detail: "The build configuration actually used (--mode full); the study's only simulation-ready configuration."
+  - name: fast/debug-mode (~7 TF conditions)
+    role: contrast (NOT used for simulation)
+    detail: "The debug build the full-mode proof is contrasted against; it mis-calibrates dnaA / replication, so it is never used to seed the showcase sims."
   model_settings: []
 
 assumptions:
@@ -189,21 +273,13 @@ runs:
   cache_dir: out/cache-showcase
   result: PASS
   outcomes:
-    # Authored outcome keys are lowercase to match each tests[].name EXACTLY, so
-    # the report (walkthrough.js: out = outcomeByTest[t.name]) surfaces the
-    # PASS/PASS/PARTIAL pills instead of "pending". These are ParCa-artifact
-    # checks (condition_count / artifacts_present / parca_compare) — non-run-data
-    # measure kinds — so the run-data evaluator agent-buckets them and computes
-    # no verdict (this run has no parquet/zarr store, only the ParCa cache); the
-    # authored outcomes below ARE the verdicts. See tests[].classification for
-    # the (authored) primary tagging.
-    parca-builds-full-51-conditions:
+    PARCA-BUILDS-FULL-51-CONDITIONS:
       result: PASS
       detail: 51 TF conditions fitted (--mode full, 142.4 s on the mini); 51 = full vs 7 = fast/debug.
-    cache-bundle-complete:
+    CACHE-BUNDLE-COMPLETE:
       result: PASS
       detail: All four artifacts present in out/cache-showcase — initial_state.json (10.39 MB), sim_data_cache.dill (164.92 MB), metadata.json (210 B), cache_version.json (1.1 KB).
-    sim_data-reproduces-parca-comparison:
+    SIM_DATA-REPRODUCES-PARCA-COMPARISON:
       result: PARTIAL
       detail: |
         Verified at structural-inventory + simulation-readiness level (4538 genes /
@@ -212,8 +288,6 @@ runs:
         parca_compare HTML diff was not re-run — it needs vivarium-ecoli
         --save-intermediates reference checkpoints, absent on the mini this session.
 
-  computed_outcomes:
-    _status: store_unresolved
 visualizations:
 - name: source-file manifest
   address: image:charts/showcase1_source_manifest.png
@@ -236,3 +310,12 @@ visualizations:
   chart: table
   source_run: showcase1-parca-full-2026-06-09
   render: .venv/bin/python studies/showcase-1-parca/sims/fig3_cache_bundle.py --cache out/cache-showcase --out studies/showcase-1-parca/charts
+
+# Interactive Plotly companions (scripts/make_showcase_interactive_figures.py).
+embed_visualizations:
+- name: ParCa reconstruction summary (interactive)
+  url: /reports/figures/showcase-1-parca/simdata_summary_interactive.html
+  description: Molecule and reaction counts in the fitted sim_data bundle, as an interactive bar chart.
+- name: Units Atlas (interactive)
+  url: /reports/figures/showcase-1-parca/units_atlas.html
+  description: Every declared unit-bearing baseline readout grouped by physical dimension. Folds in the former units-atlas investigation.

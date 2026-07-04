@@ -1,0 +1,12 @@
+[
+  {"slug": "baseline", "id": "v2ecoli.composites.baseline.baseline",
+   "title": "Baseline whole-cell", "blurb": "The full v2ecoli single-cell whole-cell model."},
+  {"slug": "biological", "id": "v2ecoli.composites.biological.biological",
+   "title": "Biologically-organized", "blurb": "Baseline re-organized into biological subsystems."},
+  {"slug": "millard_fba_bridge_harness", "id": "v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness",
+   "title": "Millard FBA bridge", "blurb": "Millard kinetic metabolism bridged to the WCM via FBA."},
+  {"slug": "colony", "id": "v2ecoli.composites.colony.colony",
+   "title": "Colony", "blurb": "A multi-cell colony of baseline cells."},
+  {"slug": "reactor_bird_coupled", "id": "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled",
+   "title": "Reactor–bird coupling", "blurb": "The WCM coupled to a bioreactor environment."}
+]

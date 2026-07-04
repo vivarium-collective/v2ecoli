@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 
 from bigraph_schema.schema import Node, Overwrite
 from bigraph_schema.methods.apply import apply
+from bigraph_schema.methods.handle_parameters import align_parameters
 
 
 # ---------------------------------------------------------------------------
@@ -26,8 +27,24 @@ class InPlaceDict(Node):
     preserves the original dict object and deeply merges updates into it.
     Keys in state but not in the update are preserved.
     Keys in the update but not in state are added.
+
+    Optionally parameterized by a value type — ``inplace_dict[float[mM]]`` — so a
+    dynamic-keyed in-place map can still declare the unit of its values. The
+    ``_value`` node carries it; the in-place ``apply`` below is unchanged (the
+    unit is metadata, not enforced on apply), so units_resolver labels the map
+    without altering the store's merge semantics. Mirrors ``Map._value``.
     """
-    pass
+    _schema_keys = Node._schema_keys | frozenset({'_value'})
+    _value: Node = field(default_factory=Node)
+
+
+@align_parameters.dispatch
+def align_parameters(schema: InPlaceDict, parameters):
+    """Bind ``inplace_dict[<value-type>]`` — single param -> ``_value`` (like Map)."""
+    align = {}
+    if len(parameters) >= 1:
+        align['_value'] = parameters[0]
+    return align
 
 
 def _deep_merge_apply(state, update):

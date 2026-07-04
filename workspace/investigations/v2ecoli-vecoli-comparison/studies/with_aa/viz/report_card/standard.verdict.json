@@ -1,0 +1,88 @@
+{
+  "schema": "report_card_verdict/v1",
+  "overall": "drift",
+  "groups": {
+    "standard": {
+      "verdict": "drift",
+      "axes": [
+        {
+          "id": "standard.cell mass (fg)",
+          "label": "cell mass (fg)",
+          "verdict": "within_tol",
+          "value": 0.01273885463443923,
+          "meter": "t~60s init Δ=-1.18%; gen-1 matched median |Δ|=1.27% (median of 1 seed)",
+          "detail": {
+            "median_rel": 0.01273885463443923,
+            "max_rel": 0.023183459759760723
+          }
+        },
+        {
+          "id": "standard.dry mass (fg)",
+          "label": "dry mass (fg)",
+          "verdict": "within_tol",
+          "value": 0.012774349669920162,
+          "meter": "t~60s init Δ=-1.19%; gen-1 matched median |Δ|=1.28% (median of 1 seed)",
+          "detail": {
+            "median_rel": 0.012774349669920162,
+            "max_rel": 0.023282121841869355
+          }
+        },
+        {
+          "id": "standard.protein mass (fg)",
+          "label": "protein mass (fg)",
+          "verdict": "within_tol",
+          "value": 0.015086967997875546,
+          "meter": "t~60s init Δ=-0.44%; gen-1 matched median |Δ|=1.51% (median of 1 seed)",
+          "detail": {
+            "median_rel": 0.015086967997875546,
+            "max_rel": 0.043617373962016724
+          }
+        },
+        {
+          "id": "standard.RNA mass (fg)",
+          "label": "RNA mass (fg)",
+          "verdict": "drift",
+          "value": 0.07491714383367788,
+          "meter": "t~60s init Δ=-3.30%; gen-1 matched median |Δ|=7.49% (median of 1 seed)",
+          "detail": {
+            "median_rel": 0.07491714383367788,
+            "max_rel": 0.16550652392916726
+          }
+        },
+        {
+          "id": "standard.growth rate (1/s)",
+          "label": "growth rate (1/s)",
+          "verdict": "within_tol",
+          "value": 0.026793065897298986,
+          "meter": "t~60s init Δ=-1.78%; gen-1 matched median |Δ|=2.68% (median of 1 seed)",
+          "detail": {
+            "median_rel": 0.026793065897298986,
+            "max_rel": 0.11217376547178211
+          }
+        },
+        {
+          "id": "standard.active_RNAP",
+          "label": "active_RNAP",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "no paired trajectory (observable absent in one engine's emitter)",
+          "detail": {
+            "median_rel": null,
+            "max_rel": null
+          }
+        },
+        {
+          "id": "standard.active_ribosome",
+          "label": "active_ribosome",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "no paired trajectory (observable absent in one engine's emitter)",
+          "detail": {
+            "median_rel": null,
+            "max_rel": null
+          }
+        }
+      ]
+    }
+  }
+}

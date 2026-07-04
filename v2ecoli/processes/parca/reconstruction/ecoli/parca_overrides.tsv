@@ -2,9 +2,10 @@ canonical_key	source_path	description	schema_name
 equilibrium_reactions	flat_overrides/equilibrium_reactions.tsv	v2ecoli DnaA-ATP hydrolysis equilibrium (PR #123)	
 equilibrium_reaction_rates	flat_overrides/equilibrium_reaction_rates.tsv	v2ecoli DnaA-ATP hydrolysis rates (PR #123)	
 metabolic_reactions_added	flat_overrides/metabolic_reactions_added.tsv	v2ecoli metabolic additions (v2parca merge #16)	
-fold_changes_nca	flat_overrides/fold_changes_nca.tsv	v2ecoli per-promoter NCA fold-change edits (gltX/serA) from plasmids branch	
-fold_changes_removed	flat_overrides/fold_changes_removed.tsv	v2ecoli removed-FC edits (leuA/gltX/serA/rpsU) from plasmids branch	
-plasmid_dna_sites	flat_overrides/plasmid_dna_sites.tsv	v2ecoli plasmid DNA sites (P-ori) — plasmids branch	
-per_promoter_ratios	flat_overrides/per_promoter_ratios.tsv	v2ecoli per-promoter expression ratios — plasmids branch	
-tf_tu_routing	flat_overrides/tf_tu_routing.tsv	v2ecoli per-TU transcription-factor routing — plasmids branch	
-plasmidsequence	flat_overrides/plasmidsequence.fasta	v2ecoli plasmid nucleotide sequence (pBR322) — plasmids branch	
+fold_changes_nca	flat_overrides/fold_changes_nca.tsv	v2ecoli per-promoter NCA fold-change edits (gltX/serA) from plasmids branch
+fold_changes_removed	flat_overrides/fold_changes_removed.tsv	v2ecoli removed-FC edits (leuA/gltX/serA/rpsU) from plasmids branch
+plasmid_dna_sites	flat_overrides/plasmid_dna_sites.tsv	v2ecoli plasmid DNA sites (P-ori) — plasmids branch
+per_promoter_ratios	flat_overrides/per_promoter_ratios.tsv	v2ecoli per-promoter expression ratios — plasmids branch
+tf_tu_routing	flat_overrides/tf_tu_routing.tsv	v2ecoli per-TU transcription-factor routing — plasmids branch
+plasmidsequence	flat_overrides/plasmidsequence.fasta	v2ecoli plasmid nucleotide sequence (pBR322) — plasmids branch
+dna_sites	flat_overrides/dna_sites.tsv	DnaA-box catalog (8 oriC-low + 3 oriC-high + 2 promoter sites) for dnaa-3 box binding (Rashmi feat/aim2-dnaa-oric-box-binding)

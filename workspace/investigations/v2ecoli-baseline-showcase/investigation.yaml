@@ -14,23 +14,26 @@ status: active
 #   4. run ALL four candidate perturbations as a 5-variant sweep and rank how
 #      far each moves the cell off baseline (media-succinate strongest;
 #      ppGpp-off de-represses; dnaA-2x partial; elong-down near-null),
-#   5. stop at the NEXT-direction DECISION, seeded from the showcase-4 ranking.
-# showcase-4 is RUN (5-variant sweep + 8 comparison figures); studies 3 and 5
-# are reviewer-decision studies that stay un-run until a choice is made.
+#   5. stop at the NEXT-direction DECISION, seeded from the showcase-4 ranking,
+#   6. run the 16x16 v1<->v2 equivalence-at-scale ensemble, graded against the
+#      vEcoli reference across 21 axes (in progress; PARTIAL — exchange-flux +
+#      gene-expression below the strict band, a localized #143 divergence).
+# showcase-4 and showcase-6 are RUN; studies 3 and 5 are reviewer-decision
+# studies that stay un-run until a choice is made.
 
 question: |
   Can v2ecoli, starting from the raw ecoli-sources flat files, rebuild the
   ParCa in full, run a wild-type baseline single-cell→division ensemble that
   reproduces measured E. coli properties (doubling time, mass fractions, FBA
   fluxes, proteome), and then characterize a perturbation response? This is a
-  DEMONSTRATIVE walkthrough of the v2ecoli pipeline rather than a test of a
-  scientific hypothesis — the goal is to exhibit the full path
-  (ecoli-sources → ParCa → calibrated whole cell → perturbation) working
-  end-to-end and to hand reviewers an explicit perturbation-choice decision.
+  demonstration walkthrough of the v2ecoli pipeline rather than a test of a
+  scientific hypothesis. The goal is to show the full path
+  (ecoli-sources → ParCa → calibrated whole cell → perturbation) working,
+  and to hand reviewers an explicit perturbation-choice decision.
 
 executive:
   what_is_this: |
-    A five-study walkthrough of the v2ecoli pipeline, built as a demonstration
+    A six-study walkthrough of the v2ecoli pipeline, built as a demonstration
     rather than a hypothesis test:
       • showcase-1-parca — rebuild the ParCa in full from the ~133
         ecoli-sources flat files (--mode full, 51 TF conditions) and confirm
@@ -49,7 +52,7 @@ executive:
         elong-down + media-succinate) and rank how far each moves the cell off
         baseline across growth / replication / regulation / central-carbon flux
         / proteome. 8 cross-variant comparison figures rendered. Result:
-        media-succinate is the strongest, most interpretable contrast (mass
+        media-succinate is the strongest, clearest contrast (mass
         halved, never multiforks, Toya-2010 flux correlation collapses to
         -0.06); ppGpp-off de-represses the ppGpp pool (1.86x, NOT a collapse) and
         slows growth most; dnaA-2x is partial (advances re-init timing + drops
@@ -58,19 +61,33 @@ executive:
         seeded from the showcase-4 ranking: deepen the strongest contrast (a
         growth-condition panel), chase the ppGpp-off surprise (synthesis vs
         regulation 2x2), push the dnaA knob, or rescue the elong-down null.
-    showcase-4 is RUN (the 5-variant sweep + 8 figures are complete); the two
-    decision studies (3 and 5) stay un-run until a reviewer chooses.
+      • showcase-6-equivalence-large — run the 16x16 v1<->v2 equivalence-at-scale
+        ensemble and grade v2ecoli against the vEcoli reference across 21 axes.
+        In progress; PARTIAL — physiology, composition, and ribosomes fall within
+        tolerance, while exchange-flux (O2/CO2) and gene-expression sit below the
+        strict band (a localized, expected divergence, issue #143), so the overall
+        report card reads MISMATCH.
+    showcase-4 and showcase-6 are RUN (the 5-variant sweep + 8 figures, and the
+    16x16 equivalence ensemble); the two decision studies (3 and 5) stay un-run
+    until a reviewer chooses.
+
+    Units are integrated throughout: every study carries interactive Plotly
+    figures (scripts/make_showcase_interactive_figures.py) whose axes and hover
+    reads are labelled with the declared schema unit (fg, uM, 1/s, fL), and an
+    interactive Units Atlas — every unit-bearing baseline readout grouped by
+    physical dimension — is embedded in each study. This folds in and replaces
+    the former standalone units-atlas investigation.
   verdict_status: in-progress
   verdict_detail: |
-    The pipeline is exercised end-to-end and the perturbation-response half is
-    now REALIZED: showcase-4 ran the full 5-variant sweep and produced a
+    The pipeline is exercised and the perturbation-response half is now done:
+    showcase-4 ran the full 5-variant sweep and produced a
     measured ranking of how far each candidate perturbation moves the cell off
-    the wild-type baseline (media-succinate strongest, ppGpp-off most
-    informative surprise, dnaA-2x partial, elong-down near-null), rendered as 8
+    the wild-type baseline (media-succinate strongest, ppGpp-off the most
+    surprising, dnaA-2x partial, elong-down near-null), rendered as 8
     cross-variant comparison figures. showcase-1 and showcase-2 establish the
     ParCa build + validated baseline; showcase-3 and showcase-5 are the two
     open reviewer-decision gates (which perturbation to highlight, and which
-    direction to deepen next). The end-to-end demonstration
+    direction to deepen next). The demonstration
     (ecoli-sources → ParCa → calibrated baseline → perturbation sweep →
     next-direction decision) is now complete through showcase-4.
   decisions_needed:
@@ -118,30 +135,30 @@ executive:
 
 scientific_argument:
   main_claim: |
-    v2ecoli reproduces, runs, and characterizes the wild-type baseline
-    end-to-end from ecoli-sources: the ParCa rebuilds in full (51 TF
+    v2ecoli rebuilds and runs the wild-type baseline from ecoli-sources: the
+    ParCa rebuilds in full (51 TF
     conditions) from the raw flat files, the wild-type baseline single-cell→
     division ensemble runs to completion, and the resulting cell matches
     measured E. coli properties (doubling time, mass fractions, FBA fluxes vs
     Toya 2010, proteome vs Schmidt/Wisniewski).
   evidence_for:
-  - "The ParCa builds in FULL (--mode full ⇒ 51 TF conditions) from the ~133 ecoli-sources flat files in ~2.5 min on the mini, producing a complete cache bundle (initial_state.json + sim_data_cache.dill + metadata + cache_version) that reproduces parca_compare. [TARGET of showcase-1; sim deferred.]"
-  - "The wild-type baseline single-cell→division ensemble (multiseed + multigen, Ray-parallel dispatch, XArray/zarr emit) runs to completion and reproduces wild-type E. coli properties: doubling time in band, physiological mass fractions, FBA flux correlation to Toya 2010, proteome correlation to Schmidt 2016 / Wisniewski. [TARGET of showcase-2; sim deferred.]"
-  - "v2ecoli characterizes a PERTURBATION RESPONSE: the showcase-4 5-variant x 2-seed sweep moves the cell off baseline in interpretable, perturbation-specific ways. media-succinate halves dry mass (271 vs 492 fg), suppresses multifork replication (max oriC 2 vs 4), and decorrelates central-carbon flux from glucose-grown Toya-2010 (r 0.73 → -0.06). ppGpp-off de-represses the ppGpp pool (mean 64.8 → 120.6, 1.86x) and slows growth most (doubling +10.5 min). [REALIZED in showcase-4.]"
+  - "The ParCa builds in full (--mode full, 51 TF conditions) from the ~133 ecoli-sources flat files in ~2.5 min on the mini, producing a complete cache bundle (initial_state.json + sim_data_cache.dill + metadata + cache_version) that reproduces parca_compare. [Target of showcase-1; sim deferred.]"
+  - "The wild-type baseline single-cell→division ensemble (multiseed + multigen, Ray-parallel dispatch, XArray/zarr emit) runs to completion and reproduces wild-type E. coli properties: doubling time in band, physiological mass fractions, FBA flux correlation to Toya 2010, proteome correlation to Schmidt 2016 / Wisniewski. [Target of showcase-2; sim deferred.]"
+  - "v2ecoli characterizes a perturbation response: the showcase-4 5-variant x 2-seed sweep moves the cell off baseline in perturbation-specific ways. media-succinate halves dry mass (271 vs 492 fg), suppresses multifork replication (max oriC 2 vs 4), and decorrelates central-carbon flux from glucose-grown Toya-2010 (r 0.73 → -0.06). ppGpp-off de-represses the ppGpp pool (mean 64.8 → 120.6, 1.86x) and slows growth most (doubling +10.5 min). [Measured in showcase-4.]"
   caveats:
-  - "This is a DEMONSTRATIVE investigation, not a hypothesis test. Its purpose is to exhibit the v2ecoli pipeline working end-to-end, not to discover or test a scientific claim."
-  - "Two of the showcase-4 perturbations gave weaker-than-expected contrasts and are reported honestly: dnaA-2x did NOT raise the discrete oriC ceiling (it advances re-initiation timing instead), and elong-down (0.7x elongation) was a near-null on growth (the steady-state charging + variable elongation appear to compensate). The proteome was the least-discriminating readout (Schmidt r 0.70-0.74 across all variants)."
-  - "ppGpp-off's result is counter-intuitive and worth flagging: disabling ppGpp *regulation* de-represses ppGpp *synthesis* (the pool RISES, it does not collapse). showcase-5 candidate B proposes a synthesis-vs-regulation 2x2 to confirm the mechanism."
-  - "showcase-1/showcase-2 sims are still scaffolded as deferred (their evidence_for items are TARGETS); showcase-4's evidence is REALIZED from the actual sweep."
+  - "This is a demonstration investigation, not a hypothesis test. Its purpose is to show the v2ecoli pipeline working, not to discover or test a scientific claim."
+  - "Two of the showcase-4 perturbations gave weaker-than-expected contrasts: dnaA-2x did NOT raise the discrete oriC ceiling (it advances re-initiation timing instead), and elong-down (0.7x elongation) was a near-null on growth (the steady-state charging + variable elongation appear to compensate). The proteome was the least-discriminating readout (Schmidt r 0.70-0.74 across all variants)."
+  - "ppGpp-off's result runs opposite to the naive expectation: disabling ppGpp *regulation* de-represses ppGpp *synthesis* (the pool rises, it does not collapse). showcase-5 candidate B proposes a synthesis-vs-regulation 2x2 to confirm the mechanism."
+  - "showcase-1/showcase-2 sims are still scaffolded as deferred (their evidence_for items are targets); showcase-4's evidence is measured from the actual sweep."
 
 at_a_glance:
   studies:
   - showcase-1-parca: rebuild the ParCa in full from the ~133 ecoli-sources files (--mode full, 51 TF conditions); confirm the cache bundle is complete + reproduces parca_compare
   - showcase-2-baseline-figures: run the wild-type baseline single-cell→division ensemble (multiseed + multigen, Ray-parallel, XArray/zarr emit) and show it reproduces doubling time / mass fractions / Toya FBA fluxes / Schmidt-Wisniewski proteome
-  - showcase-3-variant-decide: stop at a reviewer DECISION — which perturbation best demonstrates v2ecoli's response (4 candidates proposed)
+  - showcase-3-variant-decide: stop at a reviewer decision on which perturbation best demonstrates v2ecoli's response (4 candidates proposed)
   - showcase-4-variant-comparison: RUN all four candidates as a 5-variant sweep + 8 comparison figures; rank the contrasts (media-succinate strongest; ppGpp-off de-represses; dnaA-2x partial; elong-down near-null)
-  - showcase-5-next-direction-decide: stop at the NEXT-direction DECISION, seeded from the showcase-4 ranking (deepen media / chase ppGpp-off / push dnaA / rescue elong-down)
-  - showcase-6-equivalence-large: apply the PR #134 report-card approach as a v1↔v2 EQUIVALENCE instrument at LARGE scale — a 16×16 baseline ensemble graded against a matched vEcoli reference (population_phenotype_basal vs_vecoli mode); reads whether the 8×16 equivalence picture holds at scale (Physiology/Composition/Ribosomes within tol, exchange-flux metabolism the divergence, gene expression correlated)
+  - showcase-5-next-direction-decide: stop at the next-direction decision, seeded from the showcase-4 ranking (deepen media / chase ppGpp-off / push dnaA / rescue elong-down)
+  - showcase-6-equivalence-large: apply the PR #134 report-card approach as a v1↔v2 equivalence instrument at large scale. A 16×16 baseline ensemble graded against a matched vEcoli reference (population_phenotype_basal vs_vecoli mode); reads whether the 8×16 equivalence picture holds at scale (Physiology/Composition/Ribosomes within tol, exchange-flux metabolism the divergence, gene expression correlated)
 
 studies:
 - showcase-1-parca
@@ -174,7 +191,7 @@ proposed_inputs:
     proposed_at: '2026-06-09'
     related_study: showcase-3-variant-decide
     rationale: |
-      A clean global regulatory knock-out: toggling ppGpp regulation off
+      A global regulatory knock-out: toggling ppGpp regulation off
       removes the stringent-response coupling and gives a whole-cell,
       single-switch perturbation that is easy to read against the baseline.
     status: pending
@@ -186,7 +203,7 @@ proposed_inputs:
     related_study: showcase-3-variant-decide
     rationale: |
       A dose-response demonstration: sweeping one transcription/translation
-      knob across a linspace shows v2ecoli's graded response and exercises the
+      knob across a linspace shows v2ecoli's graded response and uses the
       multi-variant sweep machinery (one baseline cache, many parameterized runs).
     status: pending
   - id: variant-media-condition-change

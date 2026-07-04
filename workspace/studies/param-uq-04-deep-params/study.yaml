@@ -76,7 +76,25 @@ conditions:
     composite: baseline
     params:
       seed: 0
-  variants: []
+  variants:
+  - name: rnap-active-fraction
+    perturbation: "(planned) transcription.rnap_active_fraction via sim_data injection"
+    parameter_overrides:
+      transcription.rnap_active_fraction: [0.25, 0.47]
+    expected_contrast: "RNAP availability → transcription flux → growth."
+    measured_contrast: "Pending — study not yet run."
+  - name: kinetic_objective_weight
+    perturbation: "(planned) metabolism.kinetic_objective_weight (FBA)"
+    parameter_overrides:
+      metabolism.kinetic_objective_weight: [5.0e-8, 5.0e-7]
+    expected_contrast: "FBA kinetic-objective weighting → metabolic flux distribution."
+    measured_contrast: "Pending — study not yet run."
+  - name: cell_dry_mass_fraction
+    perturbation: "(planned) mass.cell_dry_mass_fraction"
+    parameter_overrides:
+      mass.cell_dry_mass_fraction: [0.25, 0.35]
+    expected_contrast: "Dry-to-wet mass ratio → biomass accounting."
+    measured_contrast: "Pending — study not yet run."
   model_settings:
   - name: sim-data-injection-required
     detail: "Deep params require sim_data-level mutation (sim_data_setattr) + per-sample ParCa cache rebuild. Not reachable via config_overrides."
@@ -112,18 +130,148 @@ tests:
   measure:
     kind: authored
     detail: |
-      (TBD) Will measure (1) crash-free completion rate across all samples and
-      (2) max total-order Sobol across the 6 candidate deep params. A dominant
-      parameter is defined as total-order Sobol ≥ 0.5.
+      PLANNED metric — (1) crash-free completion rate across all samples and (2) max
+      total-order Sobol across the 6 candidate deep params; a parameter is dominant if
+      its total-order Sobol ≥ 0.5. Not yet computed (study planned).
     measured_value: null
   pass_if:
     op: in_range
     low: 0.5
     high: 1.0
+  # The "Sobol >= 0.5" dominance threshold is an analyst-chosen methodological
+  # convention, not a literature-derived band. Documented as a citation GAP.
+  cites_note: "Sobol >= 0.5 dominance threshold is methodological; not literature-derived."
 
 runs: []
 
-visualizations: []
+planned_runs:
+- name: pbg-uq-sim-data-injection-adapter
+  status: planned
+  n_steps: "(infrastructure — no simulation steps)"
+  details: |
+    Implement/adapt the uqEcoli-style sim_data injection (sim_data_setattr) in pbg-uq;
+    currently pbg-uq supports config_overrides injection only. Prerequisite for the run below.
+- name: uq-deep-params-parca-rebuild
+  status: planned
+  n_steps: 360
+  details: |
+    n=30 train + 10 test PCRV over 6 deep sim_data params, each sample requiring a
+    fresh ParCa cache rebuild (~2.5 min/sample on the mini → ~100 min ParCa overhead
+    on top of simulation time). Per-observable Sobol over growth/mass.
+
+readouts:
+- name: crash_free_completion_rate
+  status: planned
+  notes: "Fraction of sim_data-injected + ParCa-rebuilt samples that complete without simulation crashes."
+- name: per_deep_param_sobol
+  status: planned
+  notes: "Per-deep-parameter total-order Sobol over growth/mass observables (6 candidates)."
+- name: growth_mass_responses
+  status: planned
+  notes: "dry_mass, cell_mass, instantaneous_growth_rate responses to the deep params."
+
+enforced_params:
+- transcription.rnap_active_fraction
+- transcription.rnap_bound_fraction
+- transcription.basal_elongation_rate
+- metabolism.kinetic_objective_weight
+- metabolism.secretion_penalty_coeff
+- mass.cell_dry_mass_fraction
+
+study_card:
+  goal: |
+    (planned) Extend UQ coverage from config-reachable process-config scalars
+    (studies 00–02) to the deeper physiological parameters in SimulationDataEcoli
+    (RNAP fractions, FBA weights, mass fractions) via sim_data-level injection, and
+    determine which most drive single-cell growth/mass variance.
+  why_before_next: |
+    These deep params set fundamental biological rates and are the primary targets of
+    the original uqEcoli analysis; reaching them requires an injection path beyond
+    config_overrides, making this the infrastructure-gated frontier of the program.
+
+biological_summary: |
+  (planned) The deepest levers on growth/mass — RNAP active/bound fractions
+  (transcription capacity), FBA kinetic-objective and secretion-penalty weights
+  (metabolic flux allocation), and the dry-mass fraction (biomass accounting) — live
+  in the sim_data dataclass, not in process configs. This study would quantify their
+  sensitivity, requiring a per-sample ParCa cache rebuild to propagate each perturbation.
+
+literature_anchors:
+- expectation: |
+    The candidate deep-parameter ranges (RNAP fractions, FBA weights, dry-mass
+    fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data parameterization.
+  model_observable: "transcription.rnap_active_fraction, metabolism.kinetic_objective_weight, mass.cell_dry_mass_fraction"
+  source: "v2ecoli baseline parameterization (Macklin et al. 2020); uqEcoli demo bounds"
+  status_in_workspace: "Planned — bounds adopted from uqEcoli; may need re-calibration to v2ecoli's current ParCa state."
+  cites: [macklin2020]
+
+model_change:
+  base_model: v2ecoli.composites.baseline
+  new_processes: []
+  new_parameters: []
+  modified_processes: []
+  notes: |
+    (planned) No biological model change. Infrastructure work: a sim_data injection
+    adapter (sim_data_setattr) in pbg-uq plus a per-sample ParCa cache rebuild — not
+    reachable via the config_overrides path used in studies 00–02.
+
+implementation_requirements:
+- id: req-sim-data-injection-adapter
+  kind: framework
+  title: sim_data-level injection adapter in pbg-uq
+  effort: L
+  description: |
+    Add uqEcoli-style sim_data_setattr injection to pbg-uq (it currently supports only
+    config_overrides). Each perturbed sample mutates the SimulationDataEcoli dataclass.
+  unblocks:
+  - deep-param-injection-feasible-and-ranked
+- id: req-per-sample-parca-rebuild
+  kind: harness
+  title: Per-sample ParCa cache rebuild
+  effort: L
+  description: |
+    Each deep-param perturbation needs a fresh ParCa cache build (~2.5 min/sample on
+    the mini). Budget must account for ~n × 2.5 min of rebuild time.
+  unblocks:
+  - deep-param-injection-feasible-and-ranked
+
+design_pivot_required:
+- id: PIVOT-deep-params-need-parca-injection
+  status: accepted
+  question: "Can the deep physiological params be reached via the baseline() config_overrides path?"
+  decision: |
+    NO. They live in SimulationDataEcoli and require sim_data-level mutation plus a
+    per-sample ParCa rebuild — out of reach of config_overrides. This study is gated on
+    a new pbg-uq injection adapter (see implementation_requirements).
+  alternatives:
+  - "Approximate deep params with config-reachable proxies (rejected — not equivalent)."
+
+conclusion_verdicts:
+- claim: "(planned) A single deep sim_data parameter dominates growth/mass variance (total-order Sobol ≥ 0.5)."
+  verdict: pending
+  basis: "Study not yet run — blocked on the pbg-uq sim_data injection adapter and ParCa-rebuild budget."
+
+simulation_set:
+- name: uq-deep-params-parca-rebuild
+  kind: sensitivity_analysis
+  status: planned
+  base_model: v2ecoli.composites.baseline
+  duration_steps: 360
+  details: "(planned) n=30+10 PCRV over 6 deep sim_data params; each sample requires a fresh ParCa cache rebuild (~2.5 min). Blocked on the pbg-uq sim_data injection adapter."
+  metrics:
+  - dry_mass
+  - cell_mass
+  - instantaneous_growth_rate
+  pass_fail_tests:
+  - deep-param-injection-feasible-and-ranked
+
+visualizations:
+- name: Deep-parameter Sobol ranking (planned mockup)
+  address: image:charts/deep_param_sobol_planned.png
+  config:
+    title: "(PLANNED) Total-order Sobol of growth/mass over 6 deep sim_data params"
+  chart: image
+  render: "PLANNED mockup — bar chart ranking the 6 deep params by total-order Sobol on growth/mass. No real data yet; renders only after the sim_data injection adapter + per-sample ParCa rebuild land."
 
 pipeline_gate:
   prerequisites:

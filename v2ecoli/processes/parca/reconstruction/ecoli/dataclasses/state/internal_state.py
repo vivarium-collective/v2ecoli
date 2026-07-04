@@ -376,11 +376,22 @@ class InternalState(object):
         # that the DnaA box belongs to. This value is used to allocate DnaA
         # boxes to the two daughter cells at cell division.
         # - DnaA_bound (boolean): True if bound to a DnaA protein, False if not
+        #   (legacy field; retained for back-compat, not currently written by any
+        #   step — dnaa-3 introduced DnaA_bound_form as the authoritative state)
+        # - pool_label (int8): 0 = chromosomal_high (Kd=1nM, ATP+ADP),
+        #   1 = oriC_high (Kd=1nM, ATP+ADP),
+        #   2 = oriC_low (Kd=100nM, ATP only),
+        #   3 = promoter_high (Kd=1nM, ATP+ADP).
+        # - DnaA_bound_form (int8): 0 = free, 1 = bound DnaA-ATP, 2 = bound DnaA-ADP.
+        #   Phase 2 binding step writes this from fast-equilibrium per-pool
+        #   occupancy; not yet wired — Phase 1+ stays at 0 for all sites.
         DnaA_box_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
         DnaA_box_attributes = {
             "coordinates": "i8",
             "domain_index": "i4",
             "DnaA_bound": "?",
+            "pool_label": "i1",
+            "DnaA_bound_form": "i1",
         }
 
         self.unique_molecule.add_to_unique_state(

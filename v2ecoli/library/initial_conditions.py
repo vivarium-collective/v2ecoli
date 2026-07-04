@@ -746,9 +746,18 @@ def initialize_replication(
     all_promoter_coordinates = sim_data.process.transcription.rna_data[
         "replication_coordinate"
     ]
-    all_DnaA_box_coordinates = sim_data.process.replication.motif_coordinates[
-        "DnaA_box"
-    ]
+    # Concatenate the 307 motif-scan high-aff catalog with the 8 oriC low-aff
+    # entries (added by replication.py in dnaa-3 Phase 1). Total: 315 sites.
+    # The downstream get_motif_attributes / fork-doubling logic treats all
+    # entries as anonymous coordinates so this works transparently.
+    _consensus_coords = sim_data.process.replication.motif_coordinates["DnaA_box"]
+    _low_aff_coords = sim_data.process.replication.motif_coordinates.get(
+        "DnaA_box_oric_low_aff",
+        np.array([], dtype=_consensus_coords.dtype),
+    )
+    all_DnaA_box_coordinates = np.concatenate(
+        [_consensus_coords, _low_aff_coords]
+    )
 
     # Define function that initializes attributes of sequence motifs given the
     # initial state of the chromosome
@@ -895,6 +904,26 @@ def initialize_replication(
     # Add DnaA boxes as unique molecules and set attributes
     n_DnaA_box = len(DnaA_box_coordinates)
 
+    # dnaa-3 Phase 1+: tag each box with its pool by coordinate membership.
+    # 0 = chromosomal_high · 1 = oriC_high · 2 = oriC_low · 3 = promoter_high
+    # DnaA_bound_form defaults to 0 (free); Phase 2's binding step will write it.
+    _motif_coords = sim_data.process.replication.motif_coordinates
+    _oric_high = set(int(c) for c in _motif_coords.get(
+        "DnaA_box_oric_high_aff", []))
+    _oric_low = set(int(c) for c in _motif_coords.get(
+        "DnaA_box_oric_low_aff", []))
+    _prom_high = set(int(c) for c in _motif_coords.get(
+        "DnaA_box_promoter_high_aff", []))
+    pool_label = np.zeros(n_DnaA_box, dtype=np.int8)
+    for _i, _c in enumerate(DnaA_box_coordinates):
+        _ci = int(_c)
+        if _ci in _oric_high:
+            pool_label[_i] = 1
+        elif _ci in _oric_low:
+            pool_label[_i] = 2
+        elif _ci in _prom_high:
+            pool_label[_i] = 3
+
     unique_molecules["DnaA_box"] = create_new_unique_molecules(
         "DnaA_box",
         n_DnaA_box,
@@ -903,6 +932,8 @@ def initialize_replication(
         domain_index=DnaA_box_domain_index,
         coordinates=DnaA_box_coordinates,
         DnaA_bound=np.zeros(n_DnaA_box, dtype=bool),
+        pool_label=pool_label,
+        DnaA_bound_form=np.zeros(n_DnaA_box, dtype=np.int8),
     )
 
 

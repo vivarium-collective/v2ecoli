@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import binascii
 import copy
+import os
 from typing import Any
 
 import numpy as np
@@ -81,6 +82,15 @@ BASE_EXECUTION_LAYERS = [
 
     # Layer 2: standalone (no partitioning needed)
     ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
+
+    # NOTE: the dnaA-investigation mechanism steps — dnaa-3 (dnaa-box-binding +
+    # dnaa_box_binding_listener), dnaa-4 (autoregulation in transcript_initiation),
+    # and dnaa-5 (rida / ddah / dars + library/locus_copy_number) — remain in the
+    # tree as DORMANT infrastructure but are NOT wired into the default baseline.
+    # Main's default model is the pre-investigation WCM; these are activated only
+    # by the dnaa-replication investigation (draft PR), which re-adds the layers.
+
+    # Layer 3: TF binding
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
@@ -197,6 +207,11 @@ def build_execution_layers(features=None):
                     if listener not in layer:
                         layer.append(listener)
                     break
+        # Replace an existing step name with another in-place (same layer/order).
+        for old_name, new_name in (feat.get('replace') or {}).items():
+            for layer in layers:
+                if isinstance(layer, list):
+                    layer[:] = [new_name if s == old_name else s for s in layer]
     return _expand_flushes(layers)
 
 
@@ -233,6 +248,10 @@ def _get_step_config(
     from v2ecoli.processes.two_component_system import TwoComponentSystem
     from v2ecoli.processes.rna_maturation import RnaMaturation
     from v2ecoli.processes.complexation import Complexation
+    from v2ecoli.steps.dnaa_box_binding import DnaABoxBinding
+    from v2ecoli.steps.rida import Rida
+    from v2ecoli.steps.ddah import Ddah
+    from v2ecoli.steps.dars import Dars
     from v2ecoli.processes.protein_degradation import ProteinDegradation
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
@@ -288,6 +307,76 @@ def _get_step_config(
             except (KeyError, AttributeError):
                 pass
         instance = _make_instance(CountsDeriver, merged_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-3 Phase 2: DnaA-box binding step. No ParCa-generated config — built
+    # from class defaults + cell_density / n_avogadro from the equilibrium
+    # config + bulk_mass_data / submass_indices from tf_binding (used to
+    # update DnaA_box.massDiff_* when DnaA moves bulk → bound).
+    if step_name == 'dnaa-box-binding':
+        try:
+            eq_cfg = loader.get_config_by_name('ecoli-equilibrium') or {}
+        except (KeyError, AttributeError):
+            eq_cfg = {}
+        try:
+            tf_cfg = loader.get_config_by_name('ecoli-tf-binding') or {}
+        except (KeyError, AttributeError):
+            tf_cfg = {}
+        dnaa_cfg = {
+            'cell_density': eq_cfg.get('cell_density', 1100.0),
+            'n_avogadro': eq_cfg.get('n_avogadro', 6.02214076e23),
+            'seed': _derive_process_seed(master_seed, 'dnaa-box-binding'),
+            'time_step': 1,
+            'bulk_mass_data': tf_cfg.get('bulk_mass_data'),
+            'bulk_molecule_ids': tf_cfg.get('bulk_molecule_ids'),
+            'submass_indices': tf_cfg.get('submass_indices'),
+        }
+        instance = _make_instance(DnaABoxBinding, dnaa_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: RIDA — replisome-coupled DnaA-ATP inactivation. No ParCa config;
+    # built from class defaults. rate_multiplier=0.0 gives the rida-knockout
+    # variant (set via env RIDA_RATE_MULTIPLIER for the knockout sweep).
+    if step_name == 'rida':
+        rida_cfg = {
+            'rate_multiplier': float(os.environ.get('RIDA_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'rida'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Rida, rida_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DDAH — datA-locus-coupled DnaA-ATP hydrolysis.
+    if step_name == 'ddah':
+        ddah_cfg = {
+            'rate_multiplier': float(os.environ.get('DDAH_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'ddah'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Ddah, ddah_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-5: DARS1/DARS2 — locus-copy-number-coupled DnaA reactivation.
+    if step_name == 'dars':
+        dars_cfg = {
+            'dars1_multiplier': float(os.environ.get('DARS1_RATE_MULTIPLIER', '1.0')),
+            'dars2_multiplier': float(os.environ.get('DARS2_RATE_MULTIPLIER', '1.0')),
+            'seed': _derive_process_seed(master_seed, 'dars'),
+            'time_step': 1,
+        }
+        instance = _make_instance(Dars, dars_cfg, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
             topology = topology()
@@ -477,6 +566,13 @@ def _get_step_config(
             "default": {},
             "description": "Declarative '<process>.<key>': value config overrides (variants)",
         },
+        "features": {
+            "type": "list",
+            "default": [],
+            "description": "Opt-in feature-module names to insert in addition to "
+                           "the boolean toggles (e.g. ['mass_conservation']). "
+                           "Each must be a key in FEATURE_MODULES.",
+        },
         # --- Biological feature toggles (insert/remove feature-module steps) ---
         "ppgpp_regulation": {
             "type": "bool",
@@ -513,6 +609,13 @@ def _get_step_config(
                            "sqlite (persistent time-series db), xarray "
                            "(in-memory labelled arrays), or null (global_time only).",
         },
+        "injected_processes": {
+            "type": "map",
+            "default": {},
+            "description": "Fork process-injection spec "
+                           "{fork_repo, add_processes, swap_processes, "
+                           "process_configs, topology, time_step}; empty = none.",
+        },
     },
     default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
@@ -538,12 +641,14 @@ def baseline(
     transcript_initiation_mode: str = "discrete",
     polypeptide_initiation_mode: str = "discrete",
     config_overrides: dict | None = None,
+    features: list | None = None,
     ppgpp_regulation: bool = True,
     trna_attenuation: bool = False,
     supercoiling: bool = False,
     mass_conservation: bool = False,
     emitter: str = "parquet",
     bundle: dict | None = None,
+    injected_processes: dict | None = None,
 ) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
@@ -627,8 +732,13 @@ def baseline(
         'supercoiling': supercoiling,
         'mass_conservation': mass_conservation,
     }
+    _requested_features = list(features or [])
     features = [name for name, on in _toggle_features.items() if on]
     for f in _EXTRA_FEATURES:
+        if f not in features:
+            features.append(f)
+    # Explicit per-call opt-in feature modules (e.g. mass_conservation).
+    for f in _requested_features:
         if f not in features:
             features.append(f)
 
@@ -793,8 +903,55 @@ def baseline(
     _seed_state_from_defaults(cell_state)
     seed_mass_listener(cell_state, core)
 
+    # Shape step (Skalnik et al. 2023): derive the capsule cell geometry from
+    # mass — length from volume = mass/density, fixed width. Reads the whole
+    # listeners.mass sub-store, writes the top-level 'shape' store. Added as a
+    # FINAL execution layer (after the mass listener) so inject_flow_dependencies
+    # wires it into the per-tick flow: it recomputes length/volume from the
+    # current cell_mass every step, so the envelope tracks growth over the sim.
+    # (The 'shape' store is seeded with all keys: a map[float] store only merges
+    # onto existing keys.)
+    if core is not None:
+        from v2ecoli.cell_shape import ShapeStep, zero_shape
+        core.register_link("ShapeStep", ShapeStep)
+        cell_state['shape'] = zero_shape()
+        cell_state['shape_step'] = {
+            '_type': 'step',
+            'address': 'local:ShapeStep',
+            'config': {'width_um': 1.0, 'density_g_per_ml': 1.1,
+                       'periplasm_fraction': 0.2},
+            'inputs': {'mass': ['listeners', 'mass']},
+            'outputs': {'shape': ['shape']},
+        }
+        execution_layers = execution_layers + [['shape_step']]
+        flow_order = [step for layer in execution_layers for step in layer]
+
     inject_flow_dependencies(
         cell_state, flow_order, layers=execution_layers)
+
+    if injected_processes and (
+            injected_processes.get("add_processes")
+            or injected_processes.get("swap_processes")
+            or injected_processes.get("exclude_processes")):
+        import sys, os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__),
+                                        "..", "..", "scripts"))
+        from scripts._compare.inject import (
+            resolve_injections, apply_injected_processes, remove_processes)
+        # Add half: convert + inject the new processes (add_processes plus the
+        # TARGETS of swap_processes). resolve_injections needs the fork repo only
+        # when there is something to add.
+        if (injected_processes.get("add_processes")
+                or injected_processes.get("swap_processes")):
+            specs = resolve_injections(injected_processes["fork_repo"],
+                                       injected_processes)
+            apply_injected_processes(cell_state, flow_order, core, specs)
+        # Remove half: drop the swapped-out SOURCES and any exclude_processes, so
+        # a swap is a true replace (not a co-existing add).
+        remove_processes(cell_state, flow_order,
+                         list((injected_processes.get("swap_processes") or {}).keys()))
+        remove_processes(cell_state, flow_order,
+                         list(injected_processes.get("exclude_processes") or []))
 
     state = {
         'agents': {'0': cell_state},

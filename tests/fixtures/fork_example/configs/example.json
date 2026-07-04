@@ -1,0 +1,12 @@
+{
+  "experiment_id": "fork_example",
+  "generations": 1,
+  "n_init_sims": 1,
+  "single_daughters": true,
+  "time_step": 1.0,
+  "add_processes": ["example-secretion"],
+  "swap_processes": {},
+  "exclude_processes": [],
+  "process_configs": {"example-secretion": {"rate": 2.0}},
+  "topology": {"example-secretion": {"counts": ["bulk"]}}
+}

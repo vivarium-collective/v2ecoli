@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "ungraded",
+ "groups": {
+  "decision": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.reviewer_selects_perturbation_variant",
+     "label": "reviewer-selects-perturbation-variant",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "reviewer_selected_variant",
+     "detail": {
+      "text": "Have reviewers selected which perturbation variant(s) to run to demonstrate v2ecoli's response?"
+     }
+    }
+   ]
+  }
+ },
+ "title": "showcase-3-variant-decide \u2014 default tests"
+}

@@ -57,7 +57,7 @@ GitHub-issue feedback widget.</p>
 <div class="invest">
   <h3><a href="investigations/ketchup-baseline-comparison.html">Does v2ecoli&#x27;s baseline central-carbon exchange phenotype match KETCHUP kinetic models?</a>
       <span class="pill active">active</span></h3>
-  <p>A one-study report-card comparison that drives the PR #134 behavioral report-card grader with kinetic models as reference sources: • ketchup-exchange-comparison — grade the v2ecoli baseline central-carbon exchange-flux vector against four kinetic models using the flux_scatter criterion (identity-…</p>
+  <p>A one-study report-card comparison that grades the v2ecoli baseline central-carbon exchange-flux vector against kinetic reference sources with the PR #134 grader (flux_scatter: identity-line R^2 on signed, glucose-normalized, matched fluxes). • ketchup-exchange-comparison (EXECUTED) — grade the b…</p>
   <p class="meta">1 study · ketchup-exchange-comparison</p>
 </div>
 
@@ -71,21 +71,21 @@ GitHub-issue feedback widget.</p>
 <div class="invest">
   <h3><a href="investigations/parameter-uq.html">Parameter UQ — global sensitivity of v2ecoli</a>
       <span class="pill running">running</span></h3>
-  <p>A multi-study forward UQ investigation using the pbg-uq package to identify dominant sources of parameter-driven variance in the v2ecoli whole-cell baseline. The program proceeds in a structured graph: 1. param-uq-00-screen (EXECUTED): A low/high parameter screen over 7 config-reachable knobs ide…</p>
+  <p>A multi-study forward UQ investigation using the pbg-uq package to identify dominant sources of parameter-driven variance in the v2ecoli whole-cell baseline. The program proceeds in a structured graph: 1. param-uq-00-screen (EXECUTED): low/high screen of 7 config-reachable knobs, keeping the 3 th…</p>
   <p class="meta">5 studies</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/surrogate-modeling.html">Surrogate Modeling — can a neural net emulate the v2ecoli baseline?</a>
       <span class="pill complete">complete</span></h3>
-  <p>A four-study investigation building a neural-network SURROGATE of the v2ecoli baseline with the pbg-torch library (github.com/vivarium-collective/pbg-torch), then holding it to a skeptical standard: 1. sm-00-data-collection — roll out an 8-seed baseline ensemble and extract a broad ~11.5k-observa…</p>
+  <p>A four-study investigation that builds a neural-network surrogate of the v2ecoli baseline with pbg-torch (github.com/vivarium-collective/pbg-torch), then holds it to a skeptical standard against trivial baselines. 1. sm-00-data-collection: roll out an 8-seed baseline ensemble into a broad ~11.5k-…</p>
   <p class="meta">4 studies · sm-00-data-collection · sm-01-nn-surrogate · sm-02-utility-and-limits · sm-03-improving-the-surrogate</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/v2ecoli-baseline-showcase.html">v2ecoli Baseline Showcase: from ecoli-sources to a calibrated whole cell</a>
       <span class="pill active">active</span></h3>
-  <p>A six-study walkthrough of the v2ecoli pipeline, built as a demonstration rather than a hypothesis test: • showcase-1-parca — rebuild the ParCa in full from the ~133 ecoli-sources flat files (--mode full, 51 TF conditions) and confirm the cache bundle is complete and reproduces parca_compare. • s…</p>
+  <p>A six-study walkthrough of the v2ecoli pipeline, built as a demonstration rather than a hypothesis test. The arc runs ecoli-sources → ParCa → calibrated baseline → perturbation sweep → next-direction decision: • showcase-1-parca [PLANNED] — rebuild the ParCa in full from the ~133 ecoli-sources fl…</p>
   <p class="meta">6 studies</p>
 </div>
 

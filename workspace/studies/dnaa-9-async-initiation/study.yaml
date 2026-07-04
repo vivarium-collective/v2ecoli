@@ -352,6 +352,23 @@ findings:
     status: evaluated
     provenance:
       run_ids: [gradgate]
+  - id: F-08
+    statement: >-
+      STUCK-THRESHOLD TUNING ON TOP OF THE GATE BACKFIRES (tested Rashmi's "tune the stuck threshold
+      accordingly" suggestion). Adding even a 5 s dwell to the gradient-gate config (gradgate_dwell5) does
+      NOT push toward once-per-generation — it makes both targets WORSE: over-replication rises (oriC max
+      4 -> 5) and, critically, the mass artifact returns — gen-start mass climbs 595 -> 712 -> 789 -> 870
+      -> 1075 -> 1129 fg per oriC (up to ~1075-1129 fg, well above the ~730 fg critical mass), exactly the
+      artificial lineage Rashmi flagged for the 30 s dwell. Mechanism: the dwell delays the FIRST
+      initiation, so mass and the DnaA-ATP pool build higher, and when firing finally triggers it does so
+      from a larger pool that over-fires. The DnaA-ATP fraction stays in band (0.361) but that is not the
+      binding constraint. CONCLUSION: the dwell/stuck-threshold lever is exhausted and counterproductive
+      here; the plain gradient gate (F-07) is strictly better. The residual oriC=4 is NOT a dwell-tuning
+      problem — it comes from Langmuir saturating at DnaA-ATP spikes when the gate is closed, so closing it
+      needs a cleaner gate SIGNAL/condition (Rashmi's exact gradient definition), not a firing delay.
+    status: evaluated
+    provenance:
+      run_ids: [gradgate_dwell5, gradgate]
 
 biological_summary: >-
   DnaA-ATP saturates the oriC low-affinity boxes and fires initiation; in a real cell each origin binds

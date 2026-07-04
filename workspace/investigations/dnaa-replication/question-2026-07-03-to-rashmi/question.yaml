@@ -1,0 +1,74 @@
+# Outbound question (investigation team -> Rashmi)
+# Re: reproducing the DnaA-ATP gradient gate on dnaa-9.
+# Companion to feedback-2026-07-03-rashmi/feedback.yaml (Rashmi's request that
+# prompted this).
+meta:
+  investigation: "dnaa-replication"
+  direction: "outbound"        # from the investigation team to Rashmi
+  to: "Rashmi"
+  from: "investigation team"
+  date: "2026-07-03"
+  study: "dnaa-9-async-initiation"
+  responds_to: "feedback-2026-07-03-rashmi/feedback.yaml"
+  provenance:
+    runs: ["gradgate", "gradgate_dwell5"]
+    findings: ["F-07", "F-08"]
+
+summary: >-
+  Implemented the positive-DnaA-ATP-gradient gate as described (cooperativity
+  engages only when bulk DnaA-ATP is rising, to distinguish parent from daughter
+  chromosomes); removed SeqA/RIDA and the dwell. Mass artifact is fixed and the
+  DnaA-ATP fraction is in band, but we still see residual over-replication
+  (oriC=4) — not once-per-generation. Want to match our gate definition to
+  Rashmi's working version.
+
+what_we_did:
+  signal: "free bulk DnaA-ATP (MONOMER0-160[c]) count"
+  rising_test: >-
+    current value > its trailing EMA (exponential moving average, ~20-tick
+    window). Rising -> cooperative Hill switch (n=4, K=30 nM) engages;
+    flat/falling -> reverts to plain Langmuir (n=1).
+  config: "DNAA_COOP_GRADIENT_GATE=1, no SeqA/RIDA/dwell, seed 1, 6 gens"
+
+results:
+  gradient_gate:
+    cell_mass: "physiological — gens start ~530-755 fg/oriC (around/below the ~730 fg critical mass)"
+    dnaa_atp_fraction: "0.264 (in band)"
+    oric_max: 4
+    verdict: "mass artifact fixed + fraction in band, but NOT once-per-generation"
+  gate_plus_5s_stuck_threshold:
+    note: "tested Rashmi's 'tune the stuck threshold accordingly' suggestion"
+    cell_mass: "drifts back up to ~1075-1129 fg/oriC (artificial lineage returns)"
+    oric_max: 5
+    verdict: "backfires — a firing delay is not the fix"
+
+hypothesis: >-
+  The residual oriC=4 looks like a gate-SIGNAL issue: when our gate is closed
+  the Langmuir binding still saturates at DnaA-ATP spikes and re-fires. So the
+  exact 'rising' definition and closed-gate behavior likely differ from ours.
+
+questions:
+  - id: Q1
+    text: >-
+      Which quantity defines the gradient — free bulk DnaA-ATP, total DnaA-ATP
+      (free + bound), or a per-oriC / per-chromosome quantity?
+  - id: Q2
+    text: >-
+      Over what window do you compute 'rising' — instantaneous tick-to-tick
+      derivative, an EMA/smoothed slope, or a fixed lookback? (Our EMA signal is
+      spiky, which may be the problem.)
+  - id: Q3
+    text: "What threshold counts as 'positive' — strictly > 0, or a minimum slope?"
+  - id: Q4
+    text: >-
+      When the gate is closed, does cooperativity simply revert to Langmuir (as
+      ours does), or do you suppress binding more strongly (cap occupancy / no
+      binding) so a falling-DnaA-ATP daughter cannot re-saturate?
+  - id: Q5
+    text: >-
+      Any additional coupling — is the gate tied to per-origin state or a
+      newborn-chromosome flag, rather than a single global bulk signal?
+
+ask: >-
+  If you can share the signal + window + closed-gate behavior you used, we can
+  align the implementation exactly.

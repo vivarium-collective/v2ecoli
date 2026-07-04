@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 4
 name: colonies-02-parallel-multigen-perf
 title: Parallel multi-generation colony — natural-division perf & Ray scaling
 description: |
@@ -428,3 +428,10 @@ findings:
     analysis_script: studies/colonies-02-parallel-multigen-perf/sims/diagnose_physics.py
     random_seeds: [0]
   next_action: "Defaults (jitter=1e-4, init_mass=200) adopted in run.py and simulation_set."
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null
+references: []
+implementation_tasks: ''

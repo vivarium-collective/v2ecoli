@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 4
 name: colonies-01-hpc-readiness
 investigation: colonies
 title: HPC scaling readiness for the colony composite
@@ -856,3 +856,5 @@ tests:
   data_source: latest_run
   pytest_args: []
   last_results: null
+references: []
+implementation_tasks: ''

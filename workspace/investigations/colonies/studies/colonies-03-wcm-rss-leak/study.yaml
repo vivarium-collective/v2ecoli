@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 4
 name: colonies-03-wcm-rss-leak
 title: Inner EcoliWCM RSS leak — localize and fix
 description: |
@@ -244,3 +244,10 @@ findings:
 # WCM and originally flipped gate_status to passed. The colonies-02 multi-cell
 # re-run on main (F-04) overturned that at colony scale — the dominant leak is
 # native/C, still open — so the gate is BLOCKED again pending a native profiler.
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null
+references: []
+implementation_tasks: ''

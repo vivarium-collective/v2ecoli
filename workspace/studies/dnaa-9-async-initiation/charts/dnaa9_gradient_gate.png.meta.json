@@ -1,0 +1,9 @@
+{
+  "title": "dnaa-9 \u2014 DnaA-ATP gradient gate (Rashmi's mechanism): physiological cell mass, no SeqA",
+  "caption": "Config: hydrolysis 0.025 + threshold 8 + async + DnaA-ATP GRADIENT GATE (cooperativity engages only while bulk DnaA-ATP is rising), RIDA/DDAH/DARS/SeqA OFF, seed 1. The gate keeps CELL MASS PHYSIOLOGICAL \u2014 cells start each generation at ~530-755 fg (around/below the ~730 fg critical initiation mass), NOT the drifting oversized lineage the dwell+SeqA produced (781-850 fg). DnaA-ATP fraction stays in band (0.264). Residual over-replication remains (oriC reaches 4) because, without cooperativity, Langmuir binding can still saturate at the DnaA-ATP spikes.",
+  "interpretation": "Rashmi's gradient gate reproduced: gating cooperativity on a rising bulk DnaA-ATP distinguishes parent (building) from daughter (falling) chromosomes and prevents re-initiation WITHOUT delaying the first, so cell mass stays physiological (fixing the dwell+SeqA mass artifact) \u2014 with no SeqA/RIDA. Fully eliminating the residual oriC=4 needs a cleaner gate signal (the free-DnaA-ATP EMA used here is spiky); Rashmi's own implementation may use a different signal.",
+  "source_runs": [
+    "gradgate"
+  ],
+  "script": "scripts/render_dnaa9_diagnostics.py"
+}

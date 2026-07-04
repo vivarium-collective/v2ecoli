@@ -198,16 +198,17 @@ visualizations:
         BOX COUNTS with the 8xn_oriC line (each origin fires at ITS own 8/8); bulk free DnaA-ATP level;
         and the GLOBAL occupancy fraction (dips to ~0.6 when one origin is full and another is refilling —
         a global-average artifact, NOT partial firing). Confirms the per-origin trigger fires at full 8/8.
-  - name: dnaa9_once_per_gen_dwell_seqa
-    address: image:charts/dnaa9_once_per_gen_dwell_seqa.png
-    chart: charts/dnaa9_once_per_gen_dwell_seqa.png
-    source_run: dwell30_ecl40_s1
+  - name: dnaa9_gradient_gate
+    address: image:charts/dnaa9_gradient_gate.png
+    chart: charts/dnaa9_gradient_gate.png
+    source_run: gradgate
     config:
       title: >-
-        CLEAN once-per-generation (Rashmi's re-tune request): dwell 30 s + SeqA eclipse 40 min (on
-        hydrolysis 0.025 + threshold 8 + async, n=4/K=30) gives oriC strictly 1<->2 — one initiation round
-        per cycle — with the DnaA-ATP fraction and total DnaA in band, seed-robust (seeds 1/2 clean; seed 0
-        keeps ~13% oriC=3, consistent with the expected overlapping round when tau < C+D).
+        DnaA-ATP GRADIENT GATE (Rashmi's mechanism, no SeqA): cooperativity engages only while bulk
+        DnaA-ATP is RISING, so a daughter (post-init, DnaA-ATP falling) does not re-initiate. Cell mass
+        stays PHYSIOLOGICAL — gens start at ~530-755 fg per oriC (around/below the ~730 fg critical mass),
+        fixing the dwell+SeqA mass drift (781-850 fg) — and the DnaA-ATP fraction stays in band. Residual
+        oriC=4 remains (Langmuir still saturates at DnaA-ATP spikes); needs a cleaner gate signal.
 
 report:
   title: "dnaa-9 — asynchronous initiation (DnaA-ATP band via hydrolysis; over-replication problem)"
@@ -326,20 +327,31 @@ findings:
       run_ids: [dwell10, dwell5]
   - id: F-06
     statement: >-
-      DWELL + SeqA GIVES CLEAN ONCE-PER-GENERATION (Rashmi's re-tune request), AND oriC=3 IS PARTLY
-      EXPECTED. Combining the dwell (30 s) with the SeqA eclipse (40 min) on the hydrolysis/threshold-8/async
-      config gives clean once-per-cell-cycle firing — oriC strictly 1<->2 (0% of ticks >= 3) on seeds 1 and 2,
-      with the DnaA-ATP fraction (0.26-0.27) and total DnaA (529-546) both in band; seed 0 keeps ~13% oriC=3.
-      IMPORTANT CONTEXT: the residual oriC=3 is NOT necessarily an error — per-generation tau here is 32-66
-      min while C+D ~= 60 min for succinate, so in the FAST generations (tau < C+D) an overlapping replication
-      round (oriC=3) is BIOLOGICALLY EXPECTED. So the right target is not "eliminate oriC=3" but "no runaway
-      over-replication + DnaA in band," which dwell+SeqA achieves. The dwell/n/K sweep on its own (dwell
-      30/60, K=40, n=6) only reached oriC max 3 (a full-cycle re-initiation block, not a seconds-scale dwell,
-      is what removes a whole extra round — hence dwell+SeqA). Open for Rashmi/Haochen: confirm the intended
-      tau / C / D regime (whether overlapping rounds should occur at this growth rate at all).
+      RETRACTED (Rashmi 2026-07-03): the dwell+SeqA "clean once-per-generation" was ARTIFICIAL. Combining
+      the 30 s dwell with the SeqA eclipse gave oriC 1<->2, but it did so by DELAYING initiation — cells
+      grew to start each generation at 781-850 fg per oriC, ABOVE the ~730 fg critical initiation mass (an
+      oversized, non-physiological lineage; cell mass peaks drift upward). So the "clean 1<->2" was bought
+      with an artificial mass drift, not correct dynamics. SeqA is also removed per Rashmi. Superseded by
+      F-07 (the DnaA-ATP gradient gate), which controls re-initiation WITHOUT delaying the first initiation.
     status: evaluated
     provenance:
-      run_ids: [dwell30_ecl40_s0, dwell30_ecl40_s1, dwell30_ecl40_s2]
+      run_ids: [dwell30_ecl40_s1]
+  - id: F-07
+    statement: >-
+      DnaA-ATP GRADIENT GATE (Rashmi's mechanism) — physiological mass, no SeqA. Gating cooperativity on a
+      RISING bulk DnaA-ATP (the cooperative oriC-low switch engages only while DnaA-ATP is building; when
+      flat/falling it reverts to Langmuir) distinguishes the parent chromosome (DnaA-ATP rising toward its
+      one initiation) from the daughters (post-init, DnaA-ATP falling), preventing a second initiation per
+      generation WITHOUT delaying the first. Result (DNAA_COOP_GRADIENT_GATE, seed 1, no SeqA/RIDA/dwell):
+      cell mass stays PHYSIOLOGICAL — gens start at ~530-755 fg per oriC (around/below the ~730 critical
+      mass), fixing the F-06 mass artifact — and the DnaA-ATP fraction stays in band (0.264). RESIDUAL:
+      oriC still reaches 4, because without cooperativity the Langmuir binding can still saturate at the
+      DnaA-ATP spikes (the free-DnaA-ATP EMA gate signal used here is spiky). Fully closing this needs a
+      cleaner gate signal — Rashmi's own implementation (she reports "fairly good dynamics") may define the
+      gradient differently; aligning on her exact condition is the next step.
+    status: evaluated
+    provenance:
+      run_ids: [gradgate]
 
 biological_summary: >-
   DnaA-ATP saturates the oriC low-affinity boxes and fires initiation; in a real cell each origin binds

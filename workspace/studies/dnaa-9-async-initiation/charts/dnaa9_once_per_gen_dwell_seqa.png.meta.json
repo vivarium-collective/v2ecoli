@@ -1,9 +1,0 @@
-{
-  "title": "dnaa-9 \u2014 clean once-per-generation firing (dwell + SeqA), n=4/K=30",
-  "caption": "Operating config: hydrolysis 0.025 + threshold 8 + async + dwell 30 s + SeqA eclipse 40 min (RIDA/DDAH/DARS off), seed 1. oriC is strictly 1<->2 (one initiation round per cycle), cell mass sawtooths regularly, oriC-low boxes fill to 8 (single origin) then reset each cycle, and the occupancy fires->resets once per generation. Seeds 1/2 are clean 1<->2; seed 0 retains ~13% oriC=3.",
-  "interpretation": "Rashmi's requested re-tune for once-per-generation firing: the dwell (sustained-saturation requirement) combined with the SeqA eclipse (full-cycle re-initiation block) gives clean once-per-cell-cycle initiation with the DnaA-ATP fraction and pool in band. The residual oriC=3 on the fast-tau seed is the biologically-expected overlapping round (tau < C+D ~60 min).",
-  "source_runs": [
-    "dwell30_ecl40_s1"
-  ],
-  "script": "scripts/render_dnaa9_diagnostics.py"
-}

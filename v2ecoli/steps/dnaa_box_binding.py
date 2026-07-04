@@ -459,16 +459,18 @@ class DnaABoxBinding(Step):
         # blocks a second initiation in the same generation (post-init DnaA-ATP is
         # falling) WITHOUT delaying the first, keeping cell mass near the ~730 fg
         # critical initiation mass. Default off -> coop_n_gate=None (module cooperativity).
+        # When DnaA-ATP is NOT rising, cooperativity does not engage: the switch
+        # reverts to Langmuir (coop_n=1), so the oriC-low filament does not complete
+        # cooperatively — a daughter (post-init, DnaA-ATP falling) stays in the gradual
+        # regime and does not re-fire, while the parent (DnaA-ATP building) engages the
+        # switch and fires. coop_n_gate = None (full cooperativity) or 1.0 (Langmuir).
         self._coop_n_gate = None
         if COOP_GRADIENT_GATE:
             ema = getattr(self, "_atp_ema", None)
-            if ema is None:
-                rising = True  # first tick: allow
-            else:
-                rising = (atp_bulk_count - ema) > COOP_GRADIENT_MIN
+            rising = True if ema is None else (atp_bulk_count - ema) > COOP_GRADIENT_MIN
             alpha = 1.0 / max(COOP_GRADIENT_WINDOW, 1.0)
             self._atp_ema = atp_bulk_count if ema is None else ema + alpha * (atp_bulk_count - ema)
-            self._coop_n_gate = None if rising else 1.0  # 1.0 = Langmuir (no switch, no fire)
+            self._coop_n_gate = None if rising else 1.0
 
         # Current bound counts (from previous tick's bookkeeping).
         prev_bound_atp = int(np.count_nonzero(bound_form == FORM_BOUND_ATP))
@@ -558,7 +560,7 @@ class DnaABoxBinding(Step):
                 else:
                     A_h = D_h = 0.0
                 if K_l > 0 and N_l > 0:
-                    A_l = N_l * _oric_low_occupancy(A_f, K_l, self._coop_n_gate)   # dnaa-5 cooperative Hill switch; gate closes it (Langmuir) when DnaA-ATP not rising
+                    A_l = N_l * _oric_low_occupancy(A_f, K_l, self._coop_n_gate)   # dnaa-5 cooperative Hill switch; gradient gate -> Langmuir when DnaA-ATP not rising
                 else:
                     A_l = 0.0
                 return [A_T - A_f - A_h - A_l, D_T - D_f - D_h]
@@ -584,7 +586,7 @@ class DnaABoxBinding(Step):
         else:
             high_bound_atp = high_bound_adp = 0.0
         if K_l > 0 and N_l > 0:
-            low_bound_atp = N_l * _oric_low_occupancy(A_free, K_l, self._coop_n_gate)   # dnaa-5 cooperative Hill switch; gate closes it (Langmuir) when DnaA-ATP not rising
+            low_bound_atp = N_l * _oric_low_occupancy(A_free, K_l, self._coop_n_gate)   # dnaa-5 cooperative Hill switch; gradient gate -> Langmuir when DnaA-ATP not rising
         else:
             low_bound_atp = 0.0
 

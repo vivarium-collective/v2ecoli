@@ -136,6 +136,15 @@ ORIC_HALF_SAT_NM = float(os.environ.get("DNAA_ORIC_HALF_SAT_nM", str(KD_LOW_NM))
 ORIC_COOP_MODE = os.environ.get("DNAA_ORIC_COOP_MODE", "hill").lower()
 ORIC_KD_COOP = float(os.environ.get("DNAA_ORIC_KD_COOP", "1.0"))      # per-pair cooperativity factor (>1 cooperative)
 ORIC_LOW_N_SITES = int(os.environ.get("DNAA_ORIC_LOW_N_SITES", "8"))  # # oriC low-affinity sites
+# DnaA-ATP GRADIENT GATE (Rashmi 2026-07-03, flag-gated, default OFF): engage the
+# cooperative oriC-low switch only while bulk DnaA-ATP is RISING (positive gradient).
+# When DnaA-ATP is flat/falling the switch reverts to Langmuir (n=1) so oriC-low
+# cannot saturate/fire — distinguishing parent (DnaA-ATP building) from daughters
+# (post-init, DnaA-ATP falling) and preventing multiple initiations per generation
+# WITHOUT delaying the first (so cell mass stays near the ~730 fg critical init mass).
+COOP_GRADIENT_GATE = os.environ.get("DNAA_COOP_GRADIENT_GATE", "0").lower() in ("1", "true", "yes")
+COOP_GRADIENT_MIN = float(os.environ.get("DNAA_COOP_GRADIENT_MIN", "0"))  # bulk DnaA-ATP must exceed its trailing EMA by > this to count as "rising"
+COOP_GRADIENT_WINDOW = float(os.environ.get("DNAA_COOP_GRADIENT_WINDOW", "20"))  # EMA time constant (ticks) — smooths tick noise; the parent/daughter signal is cycle-scale
 
 
 def _oric_low_occupancy_kd(A_free: float, K0: float, n_sites: int, coop: float) -> float:
@@ -162,21 +171,30 @@ def _oric_low_occupancy_kd(A_free: float, K0: float, n_sites: int, coop: float) 
     return weighted / (n_sites * den)
 
 
-def _oric_low_occupancy(A_free: float, kd_low_molecules: float) -> float:
+def _oric_low_occupancy(A_free: float, kd_low_molecules: float, coop_n: float = None) -> float:
     """Fractional occupancy of the oriC low-affinity pool in free DnaA-ATP A_free
     (molecules). Cooperative switch (dnaa-5) — Hill (default) or varying-K_d (Adair),
     per DNAA_ORIC_COOP_MODE. K0 scaled from kd_low by the half-sat ratio (reuses the
-    nM->molecules conversion). Defaults reduce EXACTLY to the one-site Langmuir."""
+    nM->molecules conversion). Defaults reduce EXACTLY to the one-site Langmuir.
+
+    coop_n overrides the module cooperativity coefficient — used by the DnaA-ATP
+    GRADIENT GATE (Rashmi 2026-07-03): cooperativity engages (sharp switch, can
+    saturate + fire) only while bulk DnaA-ATP is RISING; when it is flat/falling
+    the caller passes coop_n=1 (Langmuir) so oriC-low cannot reach the fire
+    threshold — this distinguishes the parent chromosome (DnaA-ATP building toward
+    its one initiation) from the daughters (post-initiation, DnaA-ATP dropping),
+    preventing a second initiation in the same generation WITHOUT delaying the first."""
     if A_free <= 0.0 or kd_low_molecules <= 0.0:
         return 0.0
     K = kd_low_molecules * (ORIC_HALF_SAT_NM / KD_LOW_NM)
     if K <= 0.0:
         return 0.0
-    if ORIC_COOP_MODE == "kd":
+    n = ORIC_COOPERATIVITY_N if coop_n is None else coop_n
+    if ORIC_COOP_MODE == "kd" and coop_n is None:
         return _oric_low_occupancy_kd(A_free, K, ORIC_LOW_N_SITES, ORIC_KD_COOP)
-    if ORIC_COOPERATIVITY_N == 1.0:
+    if n == 1.0:
         return A_free / (K + A_free)
-    x = (A_free / K) ** ORIC_COOPERATIVITY_N
+    x = (A_free / K) ** n
     return x / (1.0 + x)
 
 
@@ -435,6 +453,23 @@ class DnaABoxBinding(Step):
         atp_bulk_count = int(counts(states["bulk"], self._atp_idx))
         adp_bulk_count = int(counts(states["bulk"], self._adp_idx))
 
+        # DnaA-ATP GRADIENT GATE (Rashmi 2026-07-03): engage the cooperative switch
+        # only while bulk DnaA-ATP is RISING (current above its trailing EMA). When
+        # flat/falling, coop_n=1 (Langmuir) so oriC-low cannot saturate/fire. This
+        # blocks a second initiation in the same generation (post-init DnaA-ATP is
+        # falling) WITHOUT delaying the first, keeping cell mass near the ~730 fg
+        # critical initiation mass. Default off -> coop_n_gate=None (module cooperativity).
+        self._coop_n_gate = None
+        if COOP_GRADIENT_GATE:
+            ema = getattr(self, "_atp_ema", None)
+            if ema is None:
+                rising = True  # first tick: allow
+            else:
+                rising = (atp_bulk_count - ema) > COOP_GRADIENT_MIN
+            alpha = 1.0 / max(COOP_GRADIENT_WINDOW, 1.0)
+            self._atp_ema = atp_bulk_count if ema is None else ema + alpha * (atp_bulk_count - ema)
+            self._coop_n_gate = None if rising else 1.0  # 1.0 = Langmuir (no switch, no fire)
+
         # Current bound counts (from previous tick's bookkeeping).
         prev_bound_atp = int(np.count_nonzero(bound_form == FORM_BOUND_ATP))
         prev_bound_adp = int(np.count_nonzero(bound_form == FORM_BOUND_ADP))
@@ -523,7 +558,7 @@ class DnaABoxBinding(Step):
                 else:
                     A_h = D_h = 0.0
                 if K_l > 0 and N_l > 0:
-                    A_l = N_l * _oric_low_occupancy(A_f, K_l)   # dnaa-5: cooperative Hill switch (n=1 => Langmuir)
+                    A_l = N_l * _oric_low_occupancy(A_f, K_l, self._coop_n_gate)   # dnaa-5 cooperative Hill switch; gate closes it (Langmuir) when DnaA-ATP not rising
                 else:
                     A_l = 0.0
                 return [A_T - A_f - A_h - A_l, D_T - D_f - D_h]
@@ -549,7 +584,7 @@ class DnaABoxBinding(Step):
         else:
             high_bound_atp = high_bound_adp = 0.0
         if K_l > 0 and N_l > 0:
-            low_bound_atp = N_l * _oric_low_occupancy(A_free, K_l)   # dnaa-5: cooperative Hill switch (n=1 => Langmuir)
+            low_bound_atp = N_l * _oric_low_occupancy(A_free, K_l, self._coop_n_gate)   # dnaa-5 cooperative Hill switch; gate closes it (Langmuir) when DnaA-ATP not rising
         else:
             low_bound_atp = 0.0
 

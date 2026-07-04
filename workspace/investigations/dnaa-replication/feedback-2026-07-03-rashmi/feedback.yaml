@@ -1,0 +1,22 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260703155820"
+  generated_at: "2026-07-03T16:18:06.645Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-07-03-2.html"
+annotations:
+  "study-dnaa-10-seqa-reinit-control":
+    - ts: "2026-07-03T16:17:25.403Z"
+      author: "Rashmi"
+      text: "remove this study. First focus on study 9"
+  "study-dnaa-11-rida-second-control":
+    - ts: "2026-07-03T16:17:47.344Z"
+      author: "Rashmi"
+      text: "Remove this study."
+  "study-dnaa-9-async-initiation-chart-dnaa9_once_per_gen_dwell_seqa":
+    - ts: "2026-07-03T16:16:28.603Z"
+      author: "Rashmi"
+      text: "30s dwell is too much i think. Because it delays replication initation which causes the cell mass peaks to drift upwards compared to the previous plot where you had multiple initations. Try adding another gate for the presence of a positive bulk gradient for firing cooperativity. This would allow us to distinguish between parent and daughter chromosomes. You can also tune the stuck threshold accordingly to make it fire once per generation. According to the critical initiation mass threshold, cell mass per oriC for initiation was around ~730 fg. If all our cells are starting off with a mass higher than that, that would be an artificial lineage. Also, remove SeqA. I think the behavior can be achieved this way without adding seqA."

@@ -124,19 +124,22 @@ executive:
     FRACTION is below [0.2,0.5] for all 20 conditions independent of n/K — confirming that the ATP-
     fraction lever is the code-baked recharge rate k_r, not a cooperativity knob (Haochen code item).
 
-    Headline update (dnaa-9 + dnaa-10, 2026-07-02, Rashmi's four-item tuning list): resolved as a
-    problem→fix pair, WITHOUT the extrinsic RIDA/DDAH/DARS mechanisms (which Rashmi does not want yet).
+    Headline update (dnaa-9, 2026-07-03): all mechanism work stays in dnaa-9; NO extrinsic RIDA/DDAH/DARS
+    and NO SeqA (Rashmi 2026-07-03 — removed the dnaa-10 SeqA + dnaa-11 RIDA studies).
     (1) DnaA-ATP FRACTION: tuned into [0.2,0.5] purely by the HYDROLYSIS rate — DNAA_HYDROLYSIS_RATE_PER_MIN
-    0.046→0.025 gives fraction 0.29 (0.23-0.26 across seeds), extrinsic mechanisms OFF. This is Rashmi's
-    result and CORRECTS my earlier (wrong) RIDA-based claim: the "hydrolysis isn't a lever" reading was an
-    artifact of leaving RIDA ON in the reference, which masked the hydrolysis effect. (2) FULL-OCCUPANCY:
-    threshold 8 fires at peak oriC-low occupancy 1.00 (was ~0.6). (3) ASYNCHRONY (dnaa-9): a new
-    flag-gated per-origin initiation path makes each oriC bind DnaA and initiate independently — but async
-    ALONE OVER-REPLICATES (oriC 3/4/5, DnaA above band) because nothing throttles re-initiation. (4) FIX
-    (dnaa-10): adding SeqA (the per-origin post-initiation eclipse) restores controlled once-per-cycle
-    (oriC 1↔2 / async 2↔3), DnaA back in [300,800], fraction still in band via hydrolysis, seed-robust —
-    RIDA NOT required. So all four targets hold together. (The earlier dnaa-9-operating-point, which used
-    RIDA for the fraction, is retired.) All new code is behind default-off flags.
+    0.046→0.025 gives fraction ~0.29 (0.23-0.26 across seeds), extrinsic mechanisms OFF. This is Rashmi's
+    result and CORRECTS my earlier (wrong) RIDA-based claim (the "hydrolysis isn't a lever" reading was an
+    artifact of leaving RIDA ON, which masked it). (2) FULL-OCCUPANCY: threshold 8 fires at peak oriC-low
+    occupancy 1.00 (was ~0.6). (3) ASYNCHRONY: a new flag-gated per-origin initiation path makes each oriC
+    bind DnaA and initiate independently — but async alone over-replicates. (4) RE-INITIATION CONTROL
+    (IN PROGRESS): instead of SeqA/RIDA, Rashmi's DnaA-ATP GRADIENT GATE — cooperativity engages only while
+    bulk DnaA-ATP is RISING (distinguishing the parent chromosome, DnaA-ATP building toward its one
+    initiation, from the daughters, post-init DnaA-ATP falling). This prevents a second initiation per
+    generation WITHOUT delaying the first. IMPORTANT: the earlier dwell+SeqA "clean 1<->2" was ARTIFICIAL
+    — cells started each generation ABOVE the ~730 fg critical initiation mass (an oversized lineage);
+    the gradient gate keeps mass physiological. Diagnostics also confirmed the per-origin trigger fires at
+    full 8/8 (the "0.6 firing" was a global-average artifact) and every oriC step is +1 (the "1->3 jump"
+    was downsampling). All new code is behind default-off flags.
 
     The arc, step by step:
       (0) succinate baseline: v2ecoli reaches periodic steady state (oriC 1↔2 from gen 3).
@@ -161,28 +164,19 @@ executive:
           replaces the static dnaa-5 switch/K curves with real simulation evidence + the four lineage
           trajectories. (The DnaA-ATP fraction read below band here — but that was an artifact of the
           sweep reference leaving RIDA on; it is fixed by hydrolysis in dnaa-9, see below.)
-      (9) asynchronous initiation + DnaA-ATP band via hydrolysis: with the extrinsic mechanisms
-          (RIDA/DDAH/DARS) OFF, the HYDROLYSIS rate puts the DnaA-ATP fraction in [0.2,0.5]
-          (DNAA_HYDROLYSIS_RATE_PER_MIN 0.046->0.025); threshold 8 fires at full oriC-low occupancy;
-          and NEW per-origin async initiation makes each oriC bind DnaA independently. Async ALONE
-          over-replicates (oriC 3/4/5) — the problem statement.
-      (10) SeqA re-initiation control: adding SeqA (the per-origin post-initiation eclipse) fixes the
-          async over-replication — oriC back to controlled 1<->2/async-2<->3, total DnaA back in
-          [300,800], DnaA-ATP fraction still in band via hydrolysis, seed-robust; RIDA not required.
-          Resolves Rashmi's four-item tuning list.
-      (11) RIDA (second re-initiation control): adding RIDA on top of SeqA tightens control further
-          (oriC max 2, no over-replication) — but RIDA DRAINS DnaA-ATP, so the fraction falls out of
-          band (~0.03 at the inherited k_h). RECALIBRATION: re-tune the hydrolysis k_h down to restore
-          the fraction to [0.2,0.5] (k_h 0.010 overshoots to ~0.57; the recalibrated point is ~0.015).
-          A live illustration of the ratchet's recalibration step: the added mechanism perturbs a prior
-          criterion, and the study re-tunes to restore it before proceeding. (RIDA also suppresses the
-          async — it keeps DnaA-ATP low enough that origins don't re-saturate independently — so SeqA
-          alone (dnaa-10) remains the minimal control that preserves the asynchrony.)
+      (9) asynchronous initiation + DnaA-ATP band via hydrolysis + gradient gate (IN PROGRESS): with the
+          extrinsic mechanisms (RIDA/DDAH/DARS) OFF, the HYDROLYSIS rate puts the DnaA-ATP fraction in
+          [0.2,0.5] (DNAA_HYDROLYSIS_RATE_PER_MIN 0.046->0.025); threshold 8 fires at full oriC-low
+          occupancy; and NEW per-origin async initiation makes each oriC bind DnaA independently. Async
+          alone over-replicates. Rather than add SeqA/RIDA (removed 2026-07-03), the re-initiation is
+          controlled by Rashmi's DnaA-ATP GRADIENT GATE — cooperativity engages only while bulk DnaA-ATP
+          is RISING, so a daughter chromosome (post-init, DnaA-ATP falling) cannot re-initiate in the same
+          generation, WITHOUT delaying the parent's initiation (keeping cell mass near the ~730 fg critical
+          initiation mass; the earlier dwell+SeqA "clean 1<->2" was an artificial oversized lineage).
 
-    Next (calibration, for Rashmi/Haochen): confirm the hydrolysis rate (0.025) and the SeqA eclipse
-    window (~40 min) are the biologically-right strengths, and decide whether RIDA should later be
-    added as a second, real re-initiation control (shown here to be not strictly required). Detail
-    per step follows.
+    Next (for Rashmi/Haochen): tune the gradient gate (window / stuck-threshold) to fire once per
+    generation with physiological cell mass; confirm the intended tau / C / D regime (whether overlapping
+    rounds should occur at this growth rate). Detail per step follows.
 
     dnaa-0 pass (succinate periodic steady state, oriC 1↔2 from gen 3). dnaa-1 pass at V=0.8e-3
     on the expert's in-band + steady criterion (steady-gen cycle-mean ~362, peaks <800, troughs
@@ -516,6 +510,19 @@ glossary:
     per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+- date: '2026-07-03-rashmi'
+  reviewer: Rashmi
+  artifact: feedback-2026-07-03-rashmi/feedback.yaml
+  summary: |
+    On dnaa-9/10/11: REMOVE the SeqA (dnaa-10) and RIDA (dnaa-11) studies — not wanted yet; focus on
+    dnaa-9. The 30 s dwell is TOO MUCH: it delays initiation so cell mass drifts UP — cells start each
+    generation ABOVE the ~730 fg critical initiation mass (cell mass per oriC), an ARTIFICIAL lineage.
+    Instead, gate cooperativity on a POSITIVE bulk DnaA-ATP GRADIENT (rising) to distinguish parent from
+    daughter chromosomes and prevent a second initiation per generation without delaying the first; tune
+    the stuck threshold accordingly. Achieve the behavior this way, without SeqA.
+    -> DONE: removed dnaa-10 + dnaa-11. Confirmed the mass artifact (dwell+SeqA lineage started gens at
+    781-850 fg/oriC > 730). Implemented the flag-gated DnaA-ATP gradient gate (DNAA_COOP_GRADIENT_GATE)
+    in dnaa_box_binding.py (cooperativity -> Langmuir when DnaA-ATP not rising). Tuning in dnaa-9.
 - date: '2026-07-02-rashmi'
   reviewer: Rashmi
   artifact: feedback-2026-07-02-rashmi/feedback.yaml
@@ -668,8 +675,12 @@ studies:
 - dnaa-6-mechanistic-initiation  # re-added 2026-06-27: the DnaA-ATP/oriC initiation trigger replaces the mass heuristic. F-04 — the cooperative oriC-low + mechanistic-low trigger gives CLEAN once-per-cell-cycle initiation (oriC 1<->2, seed-robust over 8 gens); the over-init (oriC->4) was a 59e108fb-build artifact and does not reproduce. Gate partial only on the open DnaA-ATP-fraction band.
 - dnaa-8-parameter-sweep     # added 2026-06-30 (Rashmi) — the IN-SIM cooperativity sweep behind the dnaa-5 analytic n/K choice: 20 conditions (n∈{1,2,4,6,8} × K∈{15,20,30,40}) run as actual multi-generation simulations, scored on cyclic once-per-cycle replication + a steady DnaA band, with the four lineage trajectories per condition. Replaces the static dnaa-5 switch/K curves with real simulation results.
 - dnaa-9-async-initiation    # added 2026-07-02 (Rashmi) — DnaA-ATP fraction into [0.2,0.5] by the HYDROLYSIS rate (DNAA_HYDROLYSIS_RATE_PER_MIN 0.046→0.025, extrinsic RIDA/DDAH/DARS OFF) + threshold 8 (full 8/8 occupancy) + NEW per-origin async initiation (each oriC binds DnaA independently). Shows async ALONE OVER-REPLICATES (oriC 3/4/5, DnaA above band) — the intended problem statement. NOTE: supersedes the retired dnaa-9-operating-point, which wrongly used RIDA for the fraction.
-- dnaa-10-seqa-reinit-control # added 2026-07-02 (Rashmi) — adds SeqA (per-origin post-initiation eclipse) to fix the dnaa-9 async over-replication: oriC back to controlled 1↔2/async-2↔3, total DnaA back in [300,800], DnaA-ATP fraction still in band via hydrolysis, all seeds — RIDA still OFF. Resolves the four-item tuning list.
-- dnaa-11-rida-second-control # added 2026-07-02 (Rashmi) — adds RIDA on top of SeqA: tightest re-init control (oriC max 2), but RIDA DRAINS DnaA-ATP → fraction out of band → RECALIBRATE k_h down (~0.015 restores it, seed-1 prelim). RIDA also suppresses the async, so SeqA-alone (dnaa-10) is the MINIMAL control. A live example of the controlled-progression recalibration step (docs/conventions/controlled-progression-ratchet.md).
+# REMOVED 2026-07-03 (Rashmi): dnaa-10-seqa-reinit-control + dnaa-11-rida-second-control.
+# SeqA/RIDA are not wanted as mechanisms at this stage. The dnaa-9 async over-replication is instead
+# addressed by Rashmi's DnaA-ATP GRADIENT GATE (cooperativity engages only when bulk DnaA-ATP is rising,
+# distinguishing parent vs daughter chromosomes) — which prevents re-initiation WITHOUT delaying the
+# first, keeping cell mass physiological (the dwell+SeqA "clean 1<->2" was an ARTIFICIAL oversized lineage:
+# cells started each gen above the ~730 fg critical initiation mass). Gradient-gate work continues in dnaa-9.
 # Set aside (not in the report): dnaa-7-seqa-sequestration — a prior SeqA study, now SUPERSEDED by
 # dnaa-10-seqa-reinit-control. Its SeqA premise, weakened under the synchronous trigger (F-04), is
 # revived and realized in dnaa-10: SeqA is the re-initiation-frequency control that the ASYNCHRONOUS

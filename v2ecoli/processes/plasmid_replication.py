@@ -34,9 +34,9 @@ from v2ecoli.library.schema import (
 
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.unit_bridge import unum_to_pint
-from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema_types import (
     FULL_PLASMID_ARRAY,
     PLASMID_DOMAIN_ARRAY,
@@ -60,20 +60,20 @@ TOPOLOGY = {
 }
 
 
-class PlasmidReplication(PartitionedProcess):
-    """Plasmid Replication PartitionedProcess (ColE1 / pBR322).
+class PlasmidReplication(Step):
+    """Plasmid Replication Step (ColE1 / pBR322).
 
-    Replisome subunits (DnaG, DnaB, HolA, pol-III core, β-clamp) and dNTPs
-    are shared with chromosome replication.  Both processes run in the
-    same allocator layer (``allocator_2``) so the allocator partitions
-    the shared subunit pool proportionally to demand under contention —
-    matching vEcoli's allocator-based fairness.
+    Runs as a plain ``EcoliStep`` — mirroring ``ChromosomeReplication`` — with
+    NO allocator: ``update()`` calls ``calculate_request`` (BP1993 ODE
+    integration; stashes the ODE outputs + elongation rates on ``self``) then
+    ``evolve_state`` (initiation / elongation / termination), both reading the
+    real bulk directly. The plasmid's dNTP draw is negligible next to the
+    chromosome, so no partitioned allocation is needed.
 
-    Implements ``calculate_request`` (BP1993 ODE integration + subunit /
-    dNTP request) and ``evolve_state`` (initiation, elongation,
-    termination on the allocated counts).  ODE state and the integer
-    ``n_rna_initiations`` count are stored on ``self`` between the two
-    phases.
+    Replisome subunits (DnaG, DnaB, HolA, pol-III core, β-clamp) and dNTPs are
+    shared with chromosome replication via the same bulk store. The ODE state
+    and the integer ``n_rna_initiations`` count are stored on ``self`` between
+    ``calculate_request`` and ``evolve_state``.
     """
 
     name = NAME
@@ -244,6 +244,18 @@ class PlasmidReplication(PartitionedProcess):
             self.bp_k_1 = self.parameters["k_1"] * bimol_factor
             self.bp_k_3 = self.parameters["k_3"] * bimol_factor
             self.n_substeps = self.parameters["n_substeps"]
+
+    def update(self, states, interval=None):
+        """Run the request phase (BP1993 ODE + stash) then the evolve phase.
+
+        Mirrors ChromosomeReplication.update: no allocator, both phases read the
+        real bulk. ``calculate_request`` stashes ``self._rna_control_update``,
+        ``self._n_rna_initiations`` and ``self.elongation_rates`` for
+        ``evolve_state``; its returned request dict is unused in Step form.
+        """
+        timestep = states["timestep"]
+        self.calculate_request(timestep, states)
+        return self.evolve_state(timestep, states)
 
     def calculate_request(self, timestep, states):
         if self.ppi_idx is None:

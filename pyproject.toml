@@ -16,7 +16,12 @@ dependencies = [
     "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
-    "vivarium-dashboard",
+    "vivarium-workbench",
+    # Transitive dep of pbg-superpowers + vivarium-workbench (the Actionable
+    # Investigation Graph types); declared directly so [tool.uv.sources] below
+    # resolves its git source (uv applies sources to direct deps, not arbitrary
+    # transitive ones).
+    "investigation-contracts",
     "vEcoli[dev]>=1.1.0",
     "viva-munk>=0.0.1",
     # viva-munk's __init__.py imports from spatio_flux.processes.particles
@@ -41,7 +46,7 @@ dependencies = [
     "requests",
     # Emitters are now BASE/default deps (no longer optional extras): v2ecoli
     # always imports & registers BOTH the Parquet and XArray emitters so they
-    # appear in the vivarium-dashboard emitters list. Parquet remains the
+    # appear in the vivarium-workbench emitters list. Parquet remains the
     # default (workspace.yaml runtime.default_emitter = parquet); XArray is
     # merely available. [parquet] pulls in duckdb/polars/pyarrow/fsspec/tqdm;
     # [xarray] pulls in xarray/zarr/zarrs. The implementations live in
@@ -76,6 +81,7 @@ v2ecoli-parca = "v2ecoli.cli.parca:main"
 v2ecoli-colony = "v2ecoli.cli.colony:main"
 v2ecoli-workflow = "v2ecoli.workflow.run:main"
 v2ecoli-analyze = "v2ecoli.workflow.analysis_runner:main"
+v2e-compare = "scripts.compare_cli:main"
 
 [tool.setuptools.package-data]
 # Ship the v2ecoli override files; bulk KB data is provided by the ecoli-sources bundle.
@@ -105,6 +111,7 @@ timeout_method = "thread"
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
+
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
@@ -115,7 +122,8 @@ pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-biore
 pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
-vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
+vivarium-workbench = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
+investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
-ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "8d468b17a56a6b062c06d9f74ffc6bbe7e0ec2e4" }
+ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "e0fcfab181de59666b9f8ad2d1cb80ffe5c2a314" }

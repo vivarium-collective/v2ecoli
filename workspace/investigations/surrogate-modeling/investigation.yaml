@@ -8,7 +8,7 @@ question: |
   Can a neural-network surrogate, trained on v2ecoli baseline rollouts, emulate
   the model's per-step dynamics across a broad observable panel (growth/mass,
   exchange fluxes, metabolic fluxes, protein and transcript abundance,
-  chromosome state) — and crucially, does it beat trivial baselines, so the
+  chromosome state), and does it beat trivial baselines so the
   complexity is justified?
 
 hypothesis: |
@@ -23,47 +23,47 @@ executive:
   what_is_this: |
     A four-study investigation building a neural-network SURROGATE of the
     v2ecoli baseline with the pbg-torch library
-    (github.com/vivarium-collective/pbg-torch), and then holding it to a
-    rigorous, skeptical standard:
+    (github.com/vivarium-collective/pbg-torch), then holding it to a
+    skeptical standard:
 
     1. sm-00-data-collection — roll out an 8-seed baseline ensemble and extract
        a broad ~11.5k-observable panel into a pbg-torch TransitionDataset.
     2. sm-01-nn-surrogate — does the surrogate beat TRIVIAL baselines
        (persistence, mean-delta, linear) under leave-one-trajectory-out CV?
-    3. sm-02-utility-and-limits — what a cheap emulator that DOES work (linear)
-       is worth: an amortized break-even vs. the simulator; and the limits.
+    3. sm-02-utility-and-limits — what a cheap emulator that does work (linear)
+       is worth: an amortized break-even vs. the simulator, and the limits.
     4. sm-03-improving-the-surrogate — can multi-step rollout-loss training
        close the gap? (the follow-up "how do we get better?")
 
-    The arc is the value: a first pass looked like a triumph (R²≈1.0); rigor
-    revealed it was a persistence artifact; the honest conclusion is a scoping
-    one with a genuinely useful by-product (the cheap linear emulator).
+    A first pass looked like a success (R²≈1.0), but it turned out to be a
+    persistence artifact. The conclusion is a scoping one, with a useful
+    by-product: the cheap linear emulator.
   verdict_status: passed
   verdict_detail: |
     Held to trivial baselines under 8-fold cross-validation, the neural surrogate
-    does NOT justify itself: one-step R²≈1.000 is a persistence artifact (everyone
-    ties because the signal is smooth), and in multi-step rollout a LINEAR model
-    is the best and most stable emulator of coarse growth (nRMSE 0.019, 0/8
+    does not justify itself: one-step R²≈1.000 is a persistence artifact (every
+    model ties because the signal is smooth), and in multi-step rollout a linear
+    model is the best and most stable emulator of coarse growth (nRMSE 0.019, 0/8
     unstable) while the neural net is no better and explodes on 2/8 folds. The
-    broad 11.5k-observable panel is NOT learnable from the observable view alone
-    (0% of observables beat persistence) — it needs the cell's hidden state. The
-    convincing result is therefore a scoping one: a cheap linear emulator of a
+    broad 11.5k-observable panel is not learnable from the observable view alone
+    (0% of observables beat persistence); it needs the cell's hidden state. The
+    result is therefore a scoping one: a cheap linear emulator of a
     smooth observable pays for its training data after ~8 evaluations and runs a
-    5,000-trajectory sweep in 0.02 s (vs ~24 h on the WCM); a neural surrogate of
+    5,000-trajectory sweep in 0.02 s (vs ~24 h on the WCM). A neural surrogate of
     the broad cell state is not supported by this evidence.
 
 scientific_argument:
   main_claim: |
-    Rigor matters more than a headline number: under cross-validation against
-    trivial baselines, a neural surrogate does not beat a linear model at
-    emulating the baseline's smooth observables, and the high-dimensional cell
-    state is not predictable from a curated observable view. The useful, honest
-    deliverable is a cheap linear emulator of coarse growth, not a neural net.
+    Under cross-validation against trivial baselines, a neural surrogate does
+    not beat a linear model at emulating the baseline's smooth observables, and
+    the high-dimensional cell state is not predictable from a curated observable
+    view. The useful deliverable is a cheap linear emulator of coarse growth,
+    not a neural net.
   evidence_for:
   - "8-fold CV: linear rollout nRMSE 0.019 (0/8 unstable) is the best, beating the neural net (0.032, 2/8 explode) and persistence (1.850)."
   - "The cheap emulator pays back its 8 training sims after ~8 evaluations; a 5,000-trajectory sweep runs in 0.02 s vs ~24 h on the WCM."
   evidence_against:
-  - "One-step R²≈1.000 looks like strong emulation — but it's a persistence artifact (persistence also scores 1.000); it is not evidence of learned dynamics."
+  - "One-step R²≈1.000 looks like strong emulation, but it's a persistence artifact (persistence also scores 1.000) and not evidence of learned dynamics."
   caveats:
   - "Trained on 8 single-generation local trajectories; the cheap emulator is for coarse, smooth observables only."
   - "The negative result is conditioned on this observable panel + modest data; sm-03 tests whether better training narrows the gap."
@@ -72,20 +72,20 @@ at_a_glance:
 - study: sm-00-data-collection
   role: "Roll out the baseline ensemble and build the broad ~11.5k-observable pbg-torch TransitionDataset."
 - study: sm-01-nn-surrogate
-  role: "The honest test: under 8-fold CV the neural net does NOT beat trivial baselines; one-step R²=1.0 is a persistence artifact; broad panel unlearnable from itself."
+  role: "The test: under 8-fold CV the neural net does not beat trivial baselines; one-step R²=1.0 is a persistence artifact; broad panel unlearnable from itself."
 - study: sm-02-utility-and-limits
-  role: "What the cheap LINEAR emulator is worth — amortized break-even (~8 evals) + a 5,000-traj sweep in 0.02 s — and the limits."
+  role: "What the cheap linear emulator is worth: amortized break-even (~8 evals) plus a 5,000-traj sweep in 0.02 s, and the limits."
 - study: sm-03-improving-the-surrogate
   role: "Follow-up: does multi-step rollout-loss training close the gap to the linear baseline?"
 
 biological_story: |
   The v2ecoli whole-cell model integrates 55 processes to advance one cell by
   one second. A surrogate asks: given the cell's current observable state, can a
-  learned function predict the next state directly and cheaply? The honest answer
-  here is nuanced: the cell's coarse growth is so smooth that a linear model
+  learned function predict the next state directly and cheaply? The answer here
+  is split: the cell's coarse growth is so smooth that a linear model
   emulates it better than a neural net, while its high-dimensional molecular
-  state is governed by hidden variables a curated observable view doesn't carry —
-  so it can't be predicted from that view at all. The win is knowing which is
+  state is governed by hidden variables a curated observable view doesn't carry,
+  so it can't be predicted from that view at all. The value is knowing which is
   which, and having a cheap, trustworthy emulator for the part that is emulable.
 
 studies:

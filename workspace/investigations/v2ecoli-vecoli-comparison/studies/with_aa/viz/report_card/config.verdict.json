@@ -1,0 +1,10 @@
+{
+  "schema": "report_card_verdict/v1",
+  "overall": "ungraded",
+  "groups": {
+    "config": {
+      "verdict": "ungraded",
+      "axes": []
+    }
+  }
+}

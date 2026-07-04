@@ -147,7 +147,7 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # Note: the cell-mass / cell-volume / growth-rate / absolute-mass-components /
 # mass-fold-change TimeSeriesPlots that previously lived here used a
 # `config.observable: '<short-name>'` convention that the dashboard's
-# build_viz_composite (vivarium-dashboard, lib/investigations.py) does not yet
+# build_viz_composite (vivarium-workbench, lib/investigations.py) does not yet
 # understand — it only honors `inputs_map` for port→observable wiring, so
 # those plots came out with empty y-data even though the emitter recorded
 # them. They will land back here once the dashboard grows a short-name /
@@ -483,7 +483,7 @@ def sqlite_emitter(*, file_path: str | None = None,
     """Context manager: build composite with a SQLiteEmitter step.
 
     By default writes to ``<workspace_root>/.pbg/composite-runs.db`` — the
-    same workspace-shared DB the vivarium-dashboard's Simulations DB tab
+    same workspace-shared DB the vivarium-workbench's Simulations DB tab
     aggregates from. Pass ``study_slug`` / ``investigation_slug`` to tag the
     run; the slugs are stored as columns on the ``simulations`` row so the
     dashboard can group / filter by them.
@@ -1411,6 +1411,9 @@ def _get_special_step(loader, step_name, core):
             'global_time': ('global_time',),
             'division_threshold': ('division_threshold',),
             'media_id': ('environment', 'media_id'),
+            # D-period flag raised by MarkDPeriod (same store), so the Division
+            # step can divide on the D-period instead of the mass threshold.
+            'divide': ('divide',),
             'agents': ('..',),
         }
         return instance, topo, 'step'

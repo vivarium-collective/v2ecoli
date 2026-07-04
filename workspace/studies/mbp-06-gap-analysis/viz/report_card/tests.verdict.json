@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "ungraded",
+ "groups": {
+  "pytest": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.pytest_auto_discover",
+     "label": "pytest auto-discover",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "0 pytest target(s); no results recorded yet",
+     "detail": {
+      "text": ""
+     }
+    }
+   ]
+  }
+ },
+ "title": "mbp-06-gap-analysis \u2014 default tests"
+}

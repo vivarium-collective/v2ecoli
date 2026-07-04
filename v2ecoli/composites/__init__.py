@@ -22,7 +22,6 @@ from v2ecoli.composites import (  # noqa: F401
     reactor_bird_coupled,
     reactor_bird_coupled_millard,
 )
-from v2ecoli.structural import composite as parsimony_ecoli  # noqa: F401 — registers "parsimony-ecoli"
 
 
 # --- Clean-id aliases so the dashboard resolves the studies' short refs ------

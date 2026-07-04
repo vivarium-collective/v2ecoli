@@ -52,6 +52,11 @@ import subprocess as sp
 import sys
 import time
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from scripts._compare.charts import sparkline as _sparkline  # noqa: E402
+from scripts._compare.charts import multiline_svg as _multiline_svg  # noqa: E402
+from scripts._compare.charts import PALETTE  # noqa: E402
+
 REPORT_DIR = "out/comparison"
 
 # Tokens that map to the dedicated vEcoli runners; anything else is treated as
@@ -287,26 +292,6 @@ td.metric{color:#475569}
 footer{max-width:1100px;margin:0 auto;padding:0 36px 40px;color:#64748b;font-size:12px}
 """
 
-# Per-engine palette, reused by every multi-engine plot + the legend.
-PALETTE = ["#3730a3", "#b45309", "#15803d", "#9d174d", "#0e7490", "#6d28d9"]
-
-
-def _sparkline(snaps, key, w=260, h=44, color="#3730a3"):
-    """Inline SVG sparkline of snapshot[key] over time."""
-    pts = [(float(s.get("time", 0)), float(s.get(key, 0) or 0)) for s in snaps]
-    pts = [(t, v) for t, v in pts if v == v]  # drop NaN
-    if len(pts) < 2:
-        return "<span class='ref'>—</span>"
-    xs = [p[0] for p in pts]; ys = [p[1] for p in pts]
-    x0, x1 = min(xs), max(xs); y0, y1 = min(ys), max(ys)
-    dx = (x1 - x0) or 1.0; dy = (y1 - y0) or 1.0
-    coords = " ".join(
-        f"{(t-x0)/dx*(w-4)+2:.1f},{h-2-((v-y0)/dy*(h-6)):.1f}" for t, v in pts)
-    return (f"<svg width='{w}' height='{h}' viewBox='0 0 {w} {h}'>"
-            f"<polyline fill='none' stroke='{color}' stroke-width='1.5' "
-            f"points='{coords}'/></svg>")
-
-
 def _trajectory_section(cols):
     """Mass-over-time sparklines per engine, for the key mass components."""
     palette = ["#3730a3", "#b45309", "#15803d", "#9d174d", "#0e7490"]
@@ -369,42 +354,6 @@ def _legend(cols):
         f"{html.escape(c['engine'])}</span>"
         for i, c in enumerate(cols))
     return f"<div class='legend'>{items}</div>"
-
-
-def _multiline_svg(series, w=300, h=120, baseline_zero=True):
-    """Shared-axis multi-line SVG. `series` is a list aligned to engine index;
-    each element is a list of (x, y) points (or None/empty to skip). All lines
-    share one auto-scaled x/y range so absolute divergence is directly visible.
-    """
-    gxs, gys = [], []
-    for pts in series:
-        for t, v in (pts or []):
-            if v == v:
-                gxs.append(t); gys.append(v)
-    if len(gxs) < 2:
-        return "<span class='ref'>—</span>", (0.0, 0.0)
-    x0, x1 = min(gxs), max(gxs)
-    y0, y1 = min(gys), max(gys)
-    if baseline_zero:
-        y0 = min(y0, 0.0)
-    dx = (x1 - x0) or 1.0
-    dy = (y1 - y0) or 1.0
-    pad = 7
-    lines = []
-    for i, pts in enumerate(series):
-        pts = [(t, v) for t, v in (pts or []) if v == v]
-        if len(pts) < 2:
-            continue
-        coords = " ".join(
-            f"{pad+(t-x0)/dx*(w-2*pad):.1f},{h-pad-((v-y0)/dy*(h-2*pad)):.1f}"
-            for t, v in pts)
-        lines.append(f"<polyline fill='none' stroke='{PALETTE[i % len(PALETTE)]}' "
-                     f"stroke-width='1.5' points='{coords}'/>")
-    svg = (f"<svg width='100%' height='{h}' viewBox='0 0 {w} {h}' "
-           f"preserveAspectRatio='none'>"
-           f"<line x1='{pad}' y1='{h-pad}' x2='{w-pad}' y2='{h-pad}' "
-           f"stroke='#e2e8f0'/>{''.join(lines)}</svg>")
-    return svg, (y0, y1)
 
 
 def _overlay_card(cols, key, title, sub, fmt="{:.3g}"):

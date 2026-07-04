@@ -213,29 +213,6 @@ _EMITTER_OVERRIDE: dict | None = None
 # (parquet wins — sqlite stays available for dashboard's Simulations-DB tab).
 _PARQUET_EMITTER_OVERRIDE: dict | None = None
 
-# Per-agent registry of live ParquetEmitter step instances. Populated when
-# ``_get_special_step('emitter')`` constructs an emitter under a parquet
-# override; consulted by ``Division.next_update`` so the parent's trailing
-# partial batch can be ``finalize()``-d before the agent is ``_remove``-d
-# (mirrors vEcoli's ``EngineProcess`` pre-divide ``self.emitter.finalize()``
-# hook in ``ecoli/processes/engine_process.py``).
-_PARQUET_EMITTERS_BY_AGENT: dict[str, "Emitter"] = {}
-
-
-def register_parquet_emitter(agent_id: str, emitter) -> None:
-    """Track a live ParquetEmitter so Division can flush it before _remove."""
-    _PARQUET_EMITTERS_BY_AGENT[agent_id] = emitter
-
-
-def get_parquet_emitter(agent_id: str):
-    """Look up the ParquetEmitter for ``agent_id`` (or None)."""
-    return _PARQUET_EMITTERS_BY_AGENT.get(agent_id)
-
-
-def unregister_parquet_emitter(agent_id: str) -> None:
-    _PARQUET_EMITTERS_BY_AGENT.pop(agent_id, None)
-
-
 # When True (and no parquet/sqlite override is set), the 'emitter' step
 # materialises as a minimal RAMEmitter capturing ONLY global_time — instead of
 # the default full-state RAMEmitter (bulk + chromosome + listeners, multi-MB

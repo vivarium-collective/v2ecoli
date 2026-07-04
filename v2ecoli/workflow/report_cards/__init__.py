@@ -1,12 +1,14 @@
 # v2ecoli/workflow/report_cards/__init__.py
-"""Report cards as visualization-like process-bigraph Steps.
+"""Report cards: concrete ``ReportCardStep`` subclasses + their runner plumbing.
 
-A report card is a ``ReportCardStep`` — a sibling of
-``v2ecoli/workflow/analysis.py``'s ``Analysis(V2Step)`` with the same HTML output
-port. It emits a rendered ``view`` (the card HTML) plus ``data`` (the verdict_json
-map). Unlike ``Analysis`` — which consumes a live DuckDB sim-output connection — a
-report card's input is a ``StudyContext`` (the study's spec + dir), so cards grade
-run-free. Subclasses that set ``name`` auto-register in ``REPORT_CARD_REGISTRY``.
+The ``ReportCardStep`` base Step now lives in ``v2ecoli/workflow/post_sim.py``
+alongside the ``Visualization`` base (and ``Analysis`` in
+``v2ecoli/workflow/analysis.py``); it is re-exported here for the concrete cards
+and the runner. A report card emits a rendered ``view`` (the card HTML) plus
+``data`` (the verdict_json map). Unlike ``Analysis`` — which consumes a live
+DuckDB sim-output connection — a report card's input is a ``StudyContext`` (the
+study's spec + dir), so cards grade run-free. Subclasses that set ``name``
+auto-register in ``REPORT_CARD_REGISTRY``.
 
 The runner (``scripts/study_report_cards.py``) builds a ``bigraph_schema`` core,
 instantiates each registered card, calls ``applies``/``build``, and writes the
@@ -23,10 +25,7 @@ from typing import Any
 
 import yaml
 
-from v2ecoli.steps.base import V2Step
-from v2ecoli.workflow.post_sim import register_post_sim
-
-REPORT_CARD_REGISTRY: dict[str, type] = {}
+from v2ecoli.workflow.post_sim import REPORT_CARD_REGISTRY, ReportCardStep  # noqa: F401
 
 
 def _sanitize(obj: Any) -> Any:
@@ -62,44 +61,6 @@ class StudyContext:
     @property
     def card_dir(self) -> Path:
         return self.study_dir / "viz" / "report_card"
-
-
-class ReportCardStep(V2Step):
-    """A report card as a visualization-like Step (sibling of ``Analysis``):
-    emits ``view`` (HTML) + ``data`` (verdict map). Subclasses set ``name`` and
-    implement ``applies(study)`` + ``build(study) -> (verdict_dict, html) | None``.
-    """
-
-    name: str = ""
-    config_schema: dict = {}
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if cls.__dict__.get("name"):
-            REPORT_CARD_REGISTRY[cls.name] = cls
-        if cls.__dict__.get("name"):
-            register_post_sim(cls, "report_card")
-
-    def inputs(self):
-        return {"study": "any"}
-
-    def outputs(self):
-        return {"view": "string", "data": "map"}
-
-    def applies(self, study: "StudyContext") -> bool:
-        return True
-
-    def build(self, study: "StudyContext") -> "tuple[dict, str] | None":
-        """Return ``(verdict_json_dict, html_str)`` or None. Subclasses override."""
-        raise NotImplementedError
-
-    def update(self, state, interval=None):
-        study = state.get("study")
-        res = self.build(study) if study is not None else None
-        if not res:
-            return {"view": "", "data": {}}
-        verdict, html = res
-        return {"view": html, "data": verdict}
 
 
 def write_card(ctx: StudyContext, name: str, verdict: dict, html: str) -> Path:

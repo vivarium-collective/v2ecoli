@@ -49,15 +49,25 @@ def _drive_emitter(emit_key: str, partition_agent_id: str, store: str):
         generation=1, agent_id=partition_agent_id, output_metadata={},
         buffer_size=3,
     )
-    for t in range(4):
+    # Always close the emitter: its zarr writer owns a ThreadPoolExecutor and an
+    # open store on zarr v3's shared sync event loop. Leaving it open leaks those
+    # onto the next emitter's zarr.open_group(), which then deadlocks in
+    # zarr.core.sync.sync() on the Linux CI runner (the second store never opens).
+    try:
+        for t in range(4):
+            try:
+                em.update({
+                    "time": float(t), "global_time": float(t),
+                    "agents": {emit_key: {"listeners": {"mass": {"dry_mass": 100.0 + t}}}},
+                })
+            except Exception as e:  # noqa: BLE001
+                return e
+        return None
+    finally:
         try:
-            em.update({
-                "time": float(t), "global_time": float(t),
-                "agents": {emit_key: {"listeners": {"mass": {"dry_mass": 100.0 + t}}}},
-            })
-        except Exception as e:  # noqa: BLE001
-            return e
-    return None
+            em.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def test_emit_under_mismatched_key_reproduces_empty_tuple_bug():

@@ -2,8 +2,15 @@ import os
 import pytest
 
 CACHE = os.environ.get("V2ECOLI_CACHE", "out/cache")
-pytestmark = pytest.mark.skipif(
-    not os.path.isdir(CACHE), reason=f"ParCa cache {CACHE} not present")
+# Runs a real run_workflow() simulation, so it is a `sim` test (routed to the
+# behavior-tests job, which builds the ParCa cache). It was previously unmarked
+# and so ran in the "no .run()" fast-tests job, where a bad/partial cache made
+# run_workflow hang past the per-test timeout and burn the job to its cap.
+pytestmark = [
+    pytest.mark.skipif(
+        not os.path.isdir(CACHE), reason=f"ParCa cache {CACHE} not present"),
+    pytest.mark.sim,
+]
 
 
 def test_tiny_sweep_runs_to_completion(tmp_path):

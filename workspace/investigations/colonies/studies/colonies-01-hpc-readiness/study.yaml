@@ -3,12 +3,11 @@ name: colonies-01-hpc-readiness
 investigation: colonies
 title: HPC scaling readiness for the colony composite
 description: |
-  Build phase fixed daughter-process hydration so structural _add
-  instantiates daughter EcoliWCMs through the engine. Decide phase
-  N-sweep (N ∈ {1,2,4,8}) on one machine measured per-tick wall,
-  per-cell cost, peak RSS, and pymunk step, then extrapolated to a
-  cells-per-HPC-node budget and identified the GIL as the dominant
-  bottleneck. Output: 384 cells/node on 64-core/256GB.
+  Build phase fixed daughter-process hydration so structural _add instantiates
+  daughter EcoliWCMs through the engine. Decide-phase N-sweep (N ∈ {1,2,4,8}) on
+  one machine measured per-tick wall, per-cell cost, peak RSS, and pymunk step,
+  extrapolated to a cells-per-HPC-node budget, and identified the GIL as the
+  dominant bottleneck. Output: 384 cells/node on 64-core/256GB.
 topic: scaling
 tags: [colony, multi-cell, hpc, perf, scaling, requires-pymunk, requires-viva-munk]
 created: '2026-05-16'
@@ -72,27 +71,24 @@ baseline:
 
 purpose:
   question: |
-    Is the pure whole-cell colony composite ready to scale on HPC?
-    Specifically: can N parallel EcoliWCMs grow and divide cleanly for
-    ≥2 generations inside one composite, and how does wall-time / RAM /
-    per-tick cost scale with N on a single machine — well enough that
-    we can confidently project a cells-per-HPC-node budget?
+    Is the pure whole-cell colony composite ready to scale on HPC? Can N
+    parallel EcoliWCMs grow and divide cleanly for ≥2 generations inside one
+    composite, and how does wall-time / RAM / per-tick cost scale with N on one
+    machine — well enough to project a cells-per-HPC-node budget?
   mechanism: |
-    The `colony` composite generator (v2ecoli/composites/colony.py)
-    wires N copies of EcoliWCM (v2ecoli/bridge.py) into a pymunk 2D
-    physics environment. Each EcoliWCM holds an internal Composite
-    of the 55-process baseline. At cell division the bridge returns
-    a structural update (_remove mother, _add two daughter EcoliWCMs)
-    that the outer composite engine must hydrate. We sweep N ∈ {1,2,4,8}
-    and instrument per-tick costs.
+    The `colony` composite generator (v2ecoli/composites/colony.py) wires N
+    copies of EcoliWCM (v2ecoli/bridge.py) into a pymunk 2D physics environment.
+    Each EcoliWCM holds an internal Composite of the 55-process baseline. At cell
+    division the bridge returns a structural update (_remove mother, _add two
+    daughter EcoliWCMs) that the outer composite engine must hydrate. We sweep
+    N ∈ {1,2,4,8} and instrument per-tick costs.
   expected_outcome: |
-    After the Build phase fix, a pure-WC N=2 colony runs past first
-    division to 4 ticking cells without the manual-hydration workaround
-    in reports/colony_report.py. In the N-sweep, per-cell wall time
-    stays within ~2× of the N=1 cost (i.e. no super-linear blow-up
-    from coupling/contention), peak RSS scales close to linear, and
-    we can name the dominant bottleneck (likely GIL, pymunk serial
-    step, or RAM-per-cell).
+    After the Build fix, a pure-WC N=2 colony runs past first division to 4
+    ticking cells without the manual-hydration workaround in
+    reports/colony_report.py. In the N-sweep, per-cell wall stays within ~2× of
+    the N=1 cost (no super-linear blow-up from coupling/contention), peak RSS
+    scales close to linear, and we can name the dominant bottleneck (GIL, pymunk
+    serial step, or RAM-per-cell).
 
 pipeline_gate:
   prerequisites: []
@@ -428,12 +424,12 @@ conclusion_logic:
 
 limitations:
 - Single-machine only; cross-node HPC scaling is colonies-02's job.
-- 90 min sim window is one full doubling + a buffer for the second division,
+- 90 min sim window is one full doubling plus a buffer for the second division,
   not an N-generation run.
-- Per-cell EcoliWCM internal cache is shared (cache_dir is the same path).
-  RAM extrapolation may UNDERESTIMATE HPC RAM if HPC runs use per-cell caches.
-- pymunk is single-threaded; GIL contention may dominate before any HPC-relevant
-  bottleneck shows up. The Decide report must call this out explicitly.
+- Per-cell EcoliWCM internal cache is shared (same cache_dir path); RAM
+  extrapolation may underestimate HPC RAM if HPC runs use per-cell caches.
+- pymunk is single-threaded; GIL contention may dominate before any
+  HPC-relevant bottleneck shows up.
 
 implementation_requirements:
 - id: req-1-perf-harness
@@ -586,69 +582,63 @@ runs:
 
 # ── Decide conclusion ──────────────────────────────────────────────────────
 conclusion: |
-  Phase = Decide. PIPELINE-OPEN to colonies-02-hpc-deployment with the
-  caveats below.
+  Phase = Decide. Pipeline-open to colonies-02-hpc-deployment with the caveats
+  below.
 
-  ──────────────────────────────────────────────────────────────────────
-  Build phase fixes that were required to get here:
+  Build-phase fixes required to get here:
 
   1. viva-munk apply_updates_with_realize unpacked 2 values from
-     bigraph_schema.core.realize, which now returns 3 (escape_merges).
-     Every structural `_add` crashed before this was fixed. Patched.
-     (See viva-munk branch rename-multi-cell-to-viva-munk, commit
-     "fix: handle 3-tuple return from bigraph_schema core.realize".)
-  2. v2ecoli/colony.py wired only `mass`/`volume`/`exchange` outputs on
-     initial cells. `_handle_division` writes to `agents`, but with no
-     `agents` wire on initial cells, the update had nowhere to land —
-     mothers stayed put. Fixed by mirroring the full daughter wiring
-     (`agent_id`/`location`/`angle` inputs, `length`/`agents` outputs).
+     bigraph_schema.core.realize, which now returns 3 (escape_merges), so every
+     structural `_add` crashed. Patched (viva-munk branch
+     rename-multi-cell-to-viva-munk, commit "fix: handle 3-tuple return from
+     bigraph_schema core.realize").
+  2. v2ecoli/colony.py wired only `mass`/`volume`/`exchange` outputs on initial
+     cells. `_handle_division` writes to `agents`, but with no `agents` wire the
+     update had nowhere to land, so mothers stayed put. Fixed by mirroring the
+     full daughter wiring (`agent_id`/`location`/`angle` inputs, `length`/`agents`
+     outputs).
   3. v2ecoli/bridge.py `_handle_division` hard-coded
-     `interval=self.config.get('interval', 60.0)` for daughters; but
-     `interval` is not in `config_schema`, so the fallback always won
-     and daughters ticked once per 60s instead of inheriting the
-     mother's 1s cadence. Fixed by passing `interval` through.
+     `interval=self.config.get('interval', 60.0)` for daughters; `interval` is
+     not in `config_schema`, so the fallback always won and daughters ticked once
+     per 60s instead of inheriting the mother's 1s cadence. Fixed by passing
+     `interval` through.
 
-  After all three fixes: pure-WC N=2 colony with both initial cells
+  After all three fixes, a pure-WC N=2 colony with both initial cells
   force-divided produces 4 hydrated daughters that all advance.
 
-  ──────────────────────────────────────────────────────────────────────
   Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window):
 
-  - Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease
-    with N as Python/import overhead amortizes). The
-    per-cell-cost-within-2x-reference test passes at all N.
-  - pymunk is essentially free (<0.2 ms/tick even at N=8). All cost
-    is in the inner EcoliWCM composite (55 biological steps × N cells,
-    walked sequentially in one Python thread).
+  - Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease with N as
+    Python/import overhead amortizes); per-cell-cost-within-2x-reference passes
+    at all N.
+  - pymunk is essentially free (<0.2 ms/tick even at N=8). All cost is the inner
+    EcoliWCM composite (55 biological steps × N cells, walked sequentially in one
+    Python thread).
   - RSS grows ~450 MB per added cell, atop a ~1 GB Python baseline.
 
-  Bottleneck (at scale): the GIL. Process-bigraph composites are
-  single-threaded by design; one process can use ~1 CPU core regardless
-  of how many cells it holds. Scaling to many cells means scaling
-  processes, not cells-per-process.
+  Bottleneck at scale is the GIL: process-bigraph composites are single-threaded,
+  so one process uses ~1 CPU core regardless of cell count. Scaling to many cells
+  means scaling processes, not cells-per-process.
 
-  ──────────────────────────────────────────────────────────────────────
   HPC node sizing (64-core / 256 GB target):
 
-  - RAM-limited cell ceiling per node: 256 GB / 0.45 GB ≈ 570 cells
-    (purely RAM-bound, single process — not practical at speed).
-  - CPU-limited realtime ceiling per process: ~13 cells (13 × 73 ms ≈
-    950 ms, ~realtime sim).
-  - Practical recommendation: 8 cells/process × 64 processes = 512
-    cells per node, RAM use 64 × (1 GB + 8 × 0.45 GB) = ~290 GB —
-    just over the budget. Drop to 6 cells/process × 64 = 384 cells per
-    node fits in 256 GB with ~10% headroom. Per-process tick wall is
-    ~440 ms (~2× realtime).
+  - RAM-limited ceiling per node: 256 GB / 0.45 GB ≈ 570 cells (RAM-bound, single
+    process — not practical at speed).
+  - CPU-limited realtime ceiling per process: ~13 cells (13 × 73 ms ≈ 950 ms,
+    ~realtime).
+  - Recommendation: 8 cells/process × 64 processes = 512 cells/node uses
+    64 × (1 GB + 8 × 0.45 GB) = ~290 GB, just over budget. Drop to
+    6 cells/process × 64 = 384 cells/node, fits 256 GB with ~10% headroom;
+    per-process tick wall ~440 ms (~2× realtime).
 
-  ──────────────────────────────────────────────────────────────────────
-  What this study does not validate (handed to colonies-02):
+  Not validated here (handed to colonies-02):
 
-  - Cross-node scaling, distributed environment field
-  - Process-bigraph composite parallelism within a single process
-    (not currently supported — would require engine work)
-  - Multi-generation drift in per-tick cost (daughters' internal
-    composites may bloat over many divisions; not tested here)
-  - Per-cell ParCa cache contention if processes share cache_dir
+  - Cross-node scaling, distributed environment field.
+  - Process-bigraph composite parallelism within a single process (unsupported;
+    needs engine work).
+  - Multi-generation drift in per-tick cost (daughters' internal composites may
+    bloat over many divisions).
+  - Per-cell ParCa cache contention if processes share cache_dir.
 
 followup_proposals:
 - id: colonies-02-hpc-deployment

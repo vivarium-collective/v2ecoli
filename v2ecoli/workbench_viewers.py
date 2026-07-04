@@ -185,6 +185,36 @@ def _launch(ws_root, study, run, ctx) -> dict:
     return result
 
 
+def _studies_root(ws_root: Path) -> Path:
+    """The directory holding study subdirs. Uses the workbench's canonical
+    ``WorkspacePaths.studies`` resolver (honours a ``layout:`` remap /
+    ``workspace/`` subdir); falls back to ``<ws_root>/studies``."""
+    try:
+        from vivarium_workbench.lib.workspace_paths import WorkspacePaths
+        return WorkspacePaths.load(ws_root).studies
+    except Exception:
+        return Path(ws_root) / "studies"
+
+
+def _ptools_targets(ws_root) -> list:
+    """Studies that have exported ``ptools/*.tsv`` files — the launchable rows."""
+    ws_root = Path(ws_root)
+    root = _studies_root(ws_root)
+    out = []
+    if root.is_dir():
+        for p in sorted(root.iterdir()):
+            if not p.is_dir():
+                continue
+            n = len(list(p.glob("**/ptools/*.tsv")))
+            if n:
+                out.append({
+                    "study": p.name,
+                    "label": p.name,
+                    "detail": f"{n} TSV{'' if n == 1 else 's'}",
+                })
+    return out
+
+
 def get_viewers(ws_root) -> list:
     """Contribute the Pathway Tools Omics Viewer launcher (when configured)."""
     return [
@@ -199,5 +229,6 @@ def get_viewers(ws_root) -> list:
             "kind": "launcher",
             "applies": _ptools_configured,
             "launch": _launch,
+            "targets": _ptools_targets,
         }
     ]

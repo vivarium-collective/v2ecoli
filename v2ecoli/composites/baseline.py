@@ -98,21 +98,13 @@ BASE_EXECUTION_LAYERS = [
     # Layer 4: protein degradation (standalone — no resource competition)
     ['ecoli-protein-degradation'],
 
-    # Layer 4b: standalone initiation/complexation
-    # Chromosome and plasmid replication moved into allocator_2 alongside
-    # rna-degradation (matching vEcoli's flow — chromosome and rna-deg
-    # share the same ecoli-tf-binding dependency depth; plasmid joins
-    # so it can compete fairly with chromosome for replisome subunits).
-    ['ecoli-complexation',
+    # Layer 4b: standalone initiation/replication/complexation
+    ['ecoli-complexation', 'ecoli-chromosome-replication',
      'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
-    # Allocator_2: rna-degradation + chromosome + plasmid replication
-    ['ecoli-rna-degradation_requester',
-     'ecoli-chromosome-replication_requester',
-     'ecoli-plasmid-replication_requester'],
+    # RNA degradation still partitioned (shares water with other processes)
+    ['ecoli-rna-degradation_requester'],
     ['allocator_2'],
-    ['ecoli-rna-degradation_evolver',
-     'ecoli-chromosome-replication_evolver',
-     'ecoli-plasmid-replication_evolver'], FLUSH,
+    ['ecoli-rna-degradation_evolver'], FLUSH,
 
     # Layer 5: partition layer 3 -- elongation requesters (parallel)
     ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
@@ -406,6 +398,7 @@ def _get_step_config(
         'ecoli-rna-maturation': RnaMaturation,
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
+        'ecoli-chromosome-replication': ChromosomeReplication,
     }
 
     SIMPLE_STEPS = {
@@ -688,9 +681,6 @@ def baseline(
     if core is None:
         core = build_core()
 
-    # Allow callers (e.g. scripts/run_plasmid_multiseed.py) to mutate the
-    # cache bundle before document construction — pass a pre-loaded
-    # bundle via the ``bundle`` kwarg to skip the cache reload.
     if bundle is None:
         bundle = load_cache_bundle(cache_dir)
     # Deep-copy initial_state: a reused bundle (e.g. one load_cache_bundle()
@@ -770,17 +760,10 @@ def baseline(
         'enabled': False,
     })
 
-    # Initialize next_update_time only for partitioned processes whose
-    # configs are in the cache — these are the ones _get_step_config will
-    # actually instantiate. A slot for a never-instantiated process
-    # (e.g. plasmid replication when the cache was built without
-    # has_plasmid=True) pins GlobalClock at global_time=0 forever: nothing
-    # advances that slot, so min(next_update_time - global_time) stays 0
-    # and no process update ever fires.
+    # Initialize next_update_time for all partitioned processes
     nut = cell_state.setdefault('next_update_time', {})
     for proc_name in ALL_PARTITIONED:
-        if proc_name in configs:
-            nut.setdefault(proc_name, 0.0)
+        nut.setdefault(proc_name, 0.0)
 
     # Pre-create shared request/allocate/process stores
     cell_state.setdefault('request', {})

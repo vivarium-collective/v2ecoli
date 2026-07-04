@@ -5,51 +5,46 @@ created: '2026-05-22'
 status: active
 
 question: |
-  Can v2ecoli be migrated and enhanced to operate inside a bench-scale
-  bioreactor? The pieces are a time-varying external environment hook, a
-  population aggregator with representative-sampling scaling, and a
-  coupling adapter to `pbg-bioreactordesign`'s BiRDTransportProcess. The
-  test is whether a structured sim-vs-published comparison report (overlay
-  panels plus divergence triage feeding mbp-06 gap analysis) can be
-  rendered against the WT batch-phase prefix of the 2025 Beulig/Palsson lab
-  study (mSystems).
+  Can v2ecoli be migrated and enhanced to run inside a bench-scale
+  bioreactor? The pieces are a time-varying external-environment hook, a
+  population aggregator with representative-sampling scaling, and a coupling
+  adapter to `pbg-bioreactordesign`'s BiRDTransportProcess; the test is a
+  structured sim-vs-published comparison report (overlay panels plus
+  divergence triage feeding mbp-06 gap analysis) against the WT batch-phase
+  prefix of the 2025 Beulig/Palsson mSystems study.
 
-  Reframed 2026-05-26 per chris_feedback_2026_05_26 §1 + §10. The original
-  framing ("reproduces ... within per-metric tolerances") encoded an
-  open-ended menu of model knobs to turn; even with "no silent tuning"
-  discipline, the impulse to tune-to-tolerance was built into the test
-  design. Investigation success is now defined as "comparison harness built
-  and applied; structured gap inventory produced," not "Palsson benchmark
-  achieved." All biological divergences feed mbp-06 as evidence.
+  Reframed 2026-05-26 per chris_feedback_2026_05_26 §1 + §10: the original
+  "reproduces ... within per-metric tolerances" framing built the
+  tune-to-tolerance impulse into the test design. Success is now defined as
+  "comparison harness built and applied; structured gap inventory produced,"
+  not "Palsson benchmark achieved" — all biological divergences feed mbp-06
+  as evidence.
 
 hypothesis: |
-  Yes, with explicit scope caveats. v2ecoli's existing Layer-1 Steps
-  (`media_update`, `exchange_data`) already expose the environment-coupling
-  surface, and the metabolism Process already emits `external_exchange_fluxes`.
-  The required enhancements are small and additive: (1) a time-varying-env
-  hook over the existing static-medium plumbing, (2) a population aggregator
-  with `cells_per_agent` representative-sampling scaling that derives
-  reactor-scale biomass / OD from per-cell mass listeners, (3) a
-  ReactorCellCoupler Step that bridges to `pbg-bioreactordesign`'s
-  BiRDTransportProcess (transport-only fork, no internal biomass ODE
-  by construction, per the Option-B decision in
-  chris_feedback_2026_05_26 §5). Each study's acceptance tests gate its
-  impl PR, the multi-generation coupled run checks that no piece drifts
-  over time, and mbp-05's evaluation phase renders the comparison report
-  against Beulig batch-phase trajectories.
+  Yes, with scope caveats. v2ecoli's Layer-1 Steps (`media_update`,
+  `exchange_data`) already expose the environment-coupling surface and the
+  metabolism Process already emits `external_exchange_fluxes`, so the
+  enhancements are small and additive: (1) a time-varying-env hook over the
+  existing static-medium plumbing, (2) a population aggregator whose
+  `cells_per_agent` representative-sampling scaling derives reactor-scale
+  biomass / OD from per-cell mass listeners, (3) a ReactorCellCoupler Step
+  bridging to `pbg-bioreactordesign`'s BiRDTransportProcess (transport-only
+  fork, no internal biomass ODE by construction — the Option-B decision in
+  chris_feedback_2026_05_26 §5). Each study's acceptance tests gate its impl
+  PR, the multi-generation coupled run checks that no piece drifts over time,
+  and mbp-05's evaluation phase renders the comparison report against Beulig
+  batch-phase trajectories.
 
-  Known scope caveat. Beulig 2025 reached 50–80 gDW/L (~10^12 – 10^13
-  cells/L). v2ecoli's single-cell-with-Division population does not scale
-  to that regime by literal-sum aggregation, so the investigation adopts a
-  `cells_per_agent` scaling factor (mbp-02; representative-sampling under
-  the 0D well-mixed assumption) so the simulated lineage stands in for a
-  larger population. mbp-05 reframes as an evaluation phase that renders a
-  structured comparison report (overlays plus categorized divergences)
-  rather than asserting tolerance-based agreement with Beulig; the AI-agent
-  scope is bounded to "execute and report" rather than "tune until match."
-  mbp-06's gap analysis is expected to surface a coarse-grained surrogate
-  engine (under the same cell-side interface contract) as a top-priority
-  follow-up.
+  Scope caveat: Beulig 2025 reached 50–80 gDW/L (~10^12 – 10^13 cells/L),
+  which v2ecoli's single-cell-with-Division population cannot reach by
+  literal-sum aggregation — hence the `cells_per_agent` scaling factor
+  (mbp-02; representative-sampling under the 0D well-mixed assumption) that
+  lets the simulated lineage stand in for a larger population. mbp-05 is an
+  evaluation phase rendering overlays plus categorized divergences rather
+  than asserting tolerance-based agreement with Beulig, bounding the AI-agent
+  scope to "execute and report" rather than "tune until match"; mbp-06's gap
+  analysis is expected to surface a coarse-grained surrogate engine (under
+  the same cell-side interface contract) as a top-priority follow-up.
 
 # ─── Narrative spine (schema_version 2) ─────────────────────────────────────
 # at_a_glance / biological_story / scientific_argument are the v2 narrative
@@ -60,9 +55,9 @@ hypothesis: |
 at_a_glance:
   studies:
   - mbp-01-time-varying-environment: |
-      Time-varying environment hook: makes v2ecoli's medium externally
+      Time-varying environment hook: v2ecoli's medium becomes externally
       driven (EnvironmentDriver → EnvironmentMirror → boundary.external).
-      Plumbing + qualitative-extreme tests only. Build complete (6/6).
+      Plumbing + qualitative-extreme tests only; build complete (6/6).
   - mbp-02-population-aggregation: |
       Population aggregation: per-cell mass → reactor-scale
       biomass_concentration_gL via cells_per_agent representative-sampling
@@ -100,50 +95,45 @@ at_a_glance:
     or future iterations (see beulig_benchmark_axes below).
 
 biological_story: |
-  A whole-cell model of E. coli simulates one cell in molecular detail. A
+  A whole-cell model simulates one E. coli cell in molecular detail; a
   bioreactor runs 10^12–10^13 cells per litre under a changing physical
   environment — depleting glucose, oxygen-transfer-limited dissolved O2,
   accumulating acetate and CO2. This investigation asks whether the
-  single-cell model can be lifted into that bench-scale bioprocess context
-  and held up against a real published high-density run (Beulig 2025,
-  mSystems; senior author Palsson).
+  single-cell model can be lifted into that bench-scale context and held up
+  against a real published high-density run (Beulig 2025, mSystems; senior
+  author Palsson). The biology is multi-scale: a single lineage's nutrient
+  uptake and growth must aggregate into population-scale biomass, which then
+  draws down the shared medium and consumes oxygen faster than the reactor
+  can transfer it, driving substrate- and O2-limited growth. v2ecoli already
+  exposes the right surfaces (Layer-1 media/exchange Steps, per-cell mass
+  listeners), so the enhancements are additive: an externally driven
+  environment (mbp-01), a representative-sampling population aggregator
+  (mbp-02), and a coupler to the reactor's transport physics (mbp-03).
 
-  The biology the coupling has to reproduce is multi-scale: a single
-  lineage's nutrient uptake and growth must aggregate into population-scale
-  biomass; that population then draws down the shared medium and consumes
-  oxygen faster than the reactor can transfer it, driving the culture into
-  substrate- and O2-limited growth. v2ecoli already exposes the right
-  surfaces (Layer-1 media/exchange Steps for the environment, per-cell mass
-  listeners for biomass), so the enhancements are additive: an externally
-  driven environment (mbp-01), a representative-sampling population
-  aggregator (mbp-02), and a coupler to the reactor's transport physics
-  (mbp-03).
-
-  The central empirical result so far is a scale gap, not a tuning failure.
-  v2ecoli's single-lineage population architecture plateaus at ~4.3 mg/L,
-  while the Beulig batch phase peaks at ~9.6 g/L (max OD ~28 × 0.34 gDW/OD),
-  about 3.3 orders of magnitude, and not closable by run duration or a
-  division-flag flip. True both-daughters accumulation (2^N cells after N
-  generations) needs a population-runner architecture distinct from the
-  current single-lineage runner, and reaching the paper's 50–80 gDW/L
-  additionally needs fed-batch operations. Accordingly the investigation
-  was reframed (2026-05-26) from "match Beulig within tolerance" to "build
-  the comparison harness and produce a structured gap inventory": every
-  biological divergence becomes evidence feeding mbp-06, not a knob to turn.
+  The central result so far is a scale gap, not a tuning failure. v2ecoli's
+  single-lineage population plateaus at ~4.3 mg/L while the Beulig batch
+  phase peaks at ~9.6 g/L (max OD ~28 × 0.34 gDW/OD), a ~3.3-order gap not
+  closable by run duration or a division-flag flip. True both-daughters
+  accumulation (2^N cells after N generations) needs a population-runner
+  architecture distinct from the current single-lineage runner, and reaching
+  the paper's 50–80 gDW/L additionally needs fed-batch operations. The
+  investigation was therefore reframed (2026-05-26) from "match Beulig within
+  tolerance" to "build the comparison harness and produce a structured gap
+  inventory": every biological divergence becomes evidence feeding mbp-06,
+  not a knob to turn.
 
 scientific_argument:
   main_claim: |
     v2ecoli can be additively enhanced (time-varying environment +
     representative-sampling population aggregation + a BiRDTransportProcess
     coupler) to operate inside a bench-scale bioreactor and render a
-    structured, reviewable sim-vs-published comparison, while the gap to
-    the Beulig high-density regime is correctly attributed to
-    population-runner architecture and fed-batch operations (surfaced as
-    gaps) rather than tuned away.
+    structured, reviewable sim-vs-published comparison, with the gap to the
+    Beulig high-density regime attributed to population-runner architecture
+    and fed-batch operations (surfaced as gaps) rather than tuned away.
   evidence_for:
   - mbp-01 advanced from 1 passing / 5 skipped to 6 passing / 0 skipped; the EnvironmentDriver → EnvironmentMirror → boundary.external propagation chain runs at multi-generation scale (commit 60cdbd3).
   - mbp-02 cells_per_agent scaling validated empirically across seeds {0,1,2} and cpa ∈ {1, 1e6, 1e9}, with log-y parallelism over 9 orders of magnitude and narrow variance ribbons; the per-cell-mass-invariant chart confirms the aggregator never touches per-cell state.
-  - The mbp-03 hard prerequisite is satisfied. pbg-bioreactor-transport-fork merged to pbg-bioreactordesign main (f40f82f, PR   #1), 43 tests green; MonodCellProcess publishes external_exchange_fluxes in mmol/(gDW·h), honouring the cell-side interface contract so a WCM/dFBA engine is a drop-in swap.
+  - The mbp-03 hard prerequisite is satisfied. pbg-bioreactor-transport-fork merged to pbg-bioreactordesign main (f40f82f, PR #1), 43 tests green; MonodCellProcess publishes external_exchange_fluxes in mmol/(gDW·h), honouring the cell-side interface contract so a WCM/dFBA engine is a drop-in swap.
   - The mbp-05 comparison harness renders sim-vs-Beulig overlays plus categorized divergences from a YAML comparison_overlays list (13 overlays), so adding a comparison is configuration, not code.
   evidence_against:
   - Single-lineage population plateaus at ~4.3 mg/L vs the Beulig batch peak ~9.6 g/L, a ~3.3-order gap not closable by duration or the --no-single-daughters flag (chart 03 refuted that prediction); needs a both-daughters population runner plus fed-batch.
@@ -225,101 +215,99 @@ feedback_rounds:
 glossary:
 - term: OD600
   definition: |
-    Optical density at 600 nm — the standard turbidity proxy for cell
-    density. COSMETIC in this investigation; biomass_concentration_gL is
-    canonical. Converted via od_to_gdw = 0.34 gDW/(L·OD) (Beulig 2025).
+    Optical density at 600 nm, the standard turbidity proxy for cell density;
+    cosmetic here (biomass_concentration_gL is canonical), converted via
+    od_to_gdw = 0.34 gDW/(L·OD) (Beulig 2025).
 - term: gDW / biomass_concentration_gL
   definition: |
-    Grams dry weight per litre — the canonical population biomass observable.
-    Aggregated from per-cell mass listeners × cells_per_agent / reactor volume.
+    Grams dry weight per litre, the canonical population biomass observable,
+    aggregated from per-cell mass listeners × cells_per_agent / reactor volume.
 - term: cells_per_agent (cpa)
   definition: |
-    Representative-sampling scaling factor: one simulated lineage stands in
-    for cpa real cells under the 0D well-mixed assumption. Lets a single-cell
-    simulation reach reactor-scale population biomass without spatial detail.
+    Representative-sampling scaling factor by which one simulated lineage
+    stands in for cpa real cells under the 0D well-mixed assumption, letting a
+    single-cell simulation reach reactor-scale biomass without spatial detail.
 - term: kLa
   definition: |
-    Volumetric oxygen mass-transfer coefficient (1/h) — sets how fast the
-    reactor replenishes dissolved O2. Geometry-aware default upstream
+    Volumetric oxygen mass-transfer coefficient (1/h) setting how fast the
+    reactor replenishes dissolved O2, with a geometry-aware default upstream
     (Van't Riet for stirred tanks).
 - term: batch vs fed-batch
   definition: |
-    Batch — fixed initial medium, no feeding; the Beulig batch phase peaks
-    at ~9.6 g/L. Fed-batch — substrate fed over time to reach the ~50–80 gDW/L
-    headline density. Fed-batch is not yet exposed upstream; deferred.
+    Batch is fixed initial medium with no feeding (the Beulig batch phase
+    peaks at ~9.6 g/L); fed-batch feeds substrate over time to reach the
+    ~50–80 gDW/L headline density and is not yet exposed upstream (deferred).
 - term: dissolved O2 (dO2)
   definition: |
     O2 concentration in the liquid phase; the shared store where reactor
     transport (+) and cell consumption (−) net out as additive deltas.
 
 description: |
-  Investigation in the v2ecoli workspace migrating and enhancing v2ecoli
-  for bench-scale bioprocess context, then coupling it to
-  `vivarium-collective/pbg-bioreactordesign` for the physical reactor side.
+  Migrates and enhances v2ecoli for bench-scale bioprocess context, then
+  couples it to `vivarium-collective/pbg-bioreactordesign` for the physical
+  reactor side.
 
-  **Scope.** The work is internal v2ecoli upgrades plus a coupling adapter,
-  not a reactor wrapper built from scratch. v2ecoli gains a small set of
-  additive features (time-varying environment, population aggregation,
-  reactor coupler); reactor physics comes from `pbg-bioreactordesign`
-  consumed as a dependency. Out of scope: dynamic-FBA as the cell side
-  (the upstream multiscale-bioprocess roadmap's choice, see
+  **Scope.** Internal v2ecoli upgrades (time-varying environment, population
+  aggregation, reactor coupler) plus a coupling adapter — not a reactor
+  wrapper built from scratch; reactor physics comes from
+  `pbg-bioreactordesign` consumed as a dependency. Out of scope: dynamic-FBA
+  as the cell side (the upstream multiscale-bioprocess roadmap's choice, see
   references/expert/multiscale_bioprocess_roadmap.md); multi-cell colony
-  composite as the primary path (deferred); CFD / spatial-mixing; WCM-
-  internal mass-balance audits.
+  composite as the primary path (deferred); CFD / spatial-mixing;
+  WCM-internal mass-balance audits.
 
   **Fed-batch is deferred.** `pbg-bioreactordesign` does not yet expose
-  fed-batch operations (feed schedules, dynamic volume). Until that lands
-  upstream, or a v2ecoli-side feed Step is added, the mbp-05 Beulig
-  benchmark scopes to the batch portion of the Beulig dataset; the spec
-  PR makes that scope call explicit. Adding fed-batch is expected to be a
-  top-priority gap from mbp-06.
+  fed-batch operations (feed schedules, dynamic volume), so until that lands
+  upstream or a v2ecoli-side feed Step is added, the mbp-05 Beulig benchmark
+  scopes to the batch portion of the dataset; the spec PR makes that scope
+  call explicit. Adding fed-batch is expected to be a top-priority mbp-06 gap.
 
-  **Reactor + coupling code lives in `v2ecoli/`** (planned packages:
+  **Reactor + coupling code lives in `v2ecoli/`** (planned packages
   `v2ecoli.composites.baseline_time_varying_env`,
   `v2ecoli.composites.baseline_population`,
-  `v2ecoli.composites.reactor_bird_coupled`). Cell-side composite stays
+  `v2ecoli.composites.reactor_bird_coupled`); the cell-side composite stays
   `v2ecoli.composites.baseline` (single cell + Division Step).
   `pbg-bioreactordesign` is added as a workspace dependency in mbp-03.
 
-  Studies, in dependency order (with current `phase` shown — multi-axis
-  status is canonical, see each study.yaml):
+  Studies, in dependency order (current `phase` shown; multi-axis status is
+  canonical per each study.yaml):
 
-  1. mbp-01-time-varying-environment — **Evaluate phase** — v2ecoli
-     enhancement: media / environment becomes externally driven (time-
-     varying nutrient pool consumed by the existing Layer-1 Steps). Plumbing
-     + qualitative-extreme tests only (per chris_feedback_2026_05_26 §3);
-     gradient-shape / quantitative-biology defer to
-     `transport-kinetics-fidelity` candidate-future-study.
-  2. mbp-02-population-aggregation   — **Evaluate phase** — v2ecoli
-     enhancement: aggregate per-cell mass into reactor-scale biomass /
-     OD600 / cell-count via `cells_per_agent` representative-sampling
-     scaling (chris_feedback_2026_05_26 §4; Eran's choice over literal-sum
-     to make 240-min batch dynamics resolvable). OD600 is cosmetic;
+  1. mbp-01-time-varying-environment — **Evaluate phase** — media /
+     environment becomes externally driven (time-varying nutrient pool
+     consumed by the existing Layer-1 Steps); plumbing + qualitative-extreme
+     tests only (chris_feedback_2026_05_26 §3), with gradient-shape /
+     quantitative-biology deferred to the `transport-kinetics-fidelity`
+     candidate-future-study.
+  2. mbp-02-population-aggregation — **Evaluate phase** — aggregates per-cell
+     mass into reactor-scale biomass / OD600 / cell-count via
+     `cells_per_agent` representative-sampling scaling
+     (chris_feedback_2026_05_26 §4; Eran's choice over literal-sum to make
+     240-min batch dynamics resolvable). OD600 is cosmetic;
      `biomass_concentration_gL` is canonical.
-  3. mbp-03-bird-reactor-coupling    — adapter to `pbg-bioreactordesign`'s
+  3. mbp-03-bird-reactor-coupling — adapter to `pbg-bioreactordesign`'s
      **BiRDTransportProcess** (a transport-only sibling of
      `BiRDReactorProcess` with no internal biomass ODE; see
-     `chris_feedback_2026_05_26.md` §5 for the Option-B rationale). BiRD
-     owns transport physics; v2ecoli owns biomass. The keystone coupling.
-     Also the first impl PR to wire a real engine under the cell-side
-     interface contract (`references/expert/cell_side_interface_contract.md`).
-     **Cross-investigation dependency:** mbp-03 entering Build is gated on
-     the upstream `pbg-bioreactor-transport-fork` PR landing in
-     pbg-bioreactordesign (seeded as a candidate-future-study in mbp-06).
-  4. mbp-04-multigeneration-runs     — sustained coupled run (≥ 3
-     v2ecoli generations); mass-balance audit; regime transition into
+     `chris_feedback_2026_05_26.md` §5 for the Option-B rationale). BiRD owns
+     transport physics, v2ecoli owns biomass; the keystone coupling, and the
+     first impl PR to wire a real engine under the cell-side interface
+     contract (`references/expert/cell_side_interface_contract.md`).
+     **Cross-investigation dependency:** mbp-03 entering Build is gated on the
+     upstream `pbg-bioreactor-transport-fork` PR landing in pbg-bioreactordesign
+     (seeded as a candidate-future-study in mbp-06).
+  4. mbp-04-multigeneration-runs — sustained coupled run (≥ 3 v2ecoli
+     generations); mass-balance audit; regime transition into
      substrate-limited growth.
-  5. mbp-05-palsson-benchmark        — evaluation phase (per
-     `chris_feedback_2026_05_26.md` §10). Renders a structured comparison
+  5. mbp-05-palsson-benchmark — evaluation phase
+     (`chris_feedback_2026_05_26.md` §10) rendering a structured comparison
      report (overlay panels + categorized divergences) against the Beulig
-     2025 (mSystems; senior author Palsson) batch-phase prefix. Pass
-     criteria are about whether the comparison was executed and reported
-     coherently, not whether biology matched within tolerance; divergences
-     feed mbp-06's gap analysis as input.
-  6. mbp-06-gap-analysis             — evaluation phase, not construction.
-     Walks the mbp-01..05 artifacts, synthesizes gaps across five axes
-     (v2ecoli biology / coupling / BiRD physics / Beulig scope /
-     methodology), and feeds the next investigation iteration.
+     2025 (mSystems; senior author Palsson) batch-phase prefix. Pass criteria
+     are whether the comparison was executed and reported coherently, not
+     whether biology matched within tolerance; divergences feed mbp-06's gap
+     analysis as input.
+  6. mbp-06-gap-analysis — evaluation phase, not construction: walks the
+     mbp-01..05 artifacts, synthesizes gaps across five axes (v2ecoli biology
+     / coupling / BiRD physics / Beulig scope / methodology), and feeds the
+     next investigation iteration.
   7. mbp-07-millard-kinetic-metabolism — Evaluate phase — kinetic-metabolism
      (Millard 2017) drop-in cell engine (baseline_millard) + reactor coupling,
      validated against the FBA baseline and graded head-to-head against the
@@ -442,14 +430,13 @@ executive:
 
   verdict: |
     **Build phase complete for mbp-01 and mbp-02; ready for Evaluate
-    tooling.** Reviewer feedback through 2026-05-28 has been processed
-    (digest + raw export under `references/expert/`); all 9 inline cleanup
-    items closed in source, the §11 framework root cause seeded as an
-    upstream pbg-superpowers gap, and the two architectural blockers
-    Chris's first-pass review left open (env-store-topology +
-    env-driver-molecule-id) resolved 2026-05-29 by the EnvironmentMirror
-    Step (commit `60cdbd3`). mbp-01 went from 1 passing / 5 skipped to
-    **6 passing / 0 skipped**.
+    tooling.** Reviewer feedback through 2026-05-28 is processed (digest +
+    raw export under `references/expert/`): all 9 inline cleanup items closed
+    in source, the §11 framework root cause seeded as an upstream
+    pbg-superpowers gap, and the two architectural blockers Chris's first pass
+    left open (env-store-topology + env-driver-molecule-id) resolved
+    2026-05-29 by the EnvironmentMirror Step (commit `60cdbd3`). mbp-01 went
+    from 1 passing / 5 skipped to **6 passing / 0 skipped**.
 
   verdict_status: in-progress
 

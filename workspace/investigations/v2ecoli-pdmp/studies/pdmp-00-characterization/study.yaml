@@ -3,14 +3,11 @@ name: pdmp-00-characterization
 investigation: v2ecoli-pdmp
 title: Phase 0 — Characterization and Interface Extraction
 claim: |
-  v2ecoli's `seed` parameter only seeded the allocator, so multi-seed ensembles were bit-identical;
-  fixing per-process RNG seeding (crc32(process_name, master_seed)) makes trajectories genuinely
-  diverge. Confirmed on a fresh N=6 × 250 model-second M9-glucose pilot ensemble (.pbg/runs/phase0-traj/,
-  ATP[c] CV ≈ 0.029% across seeds), and tests/test_seed_diversity.py passes on the merged branch, so the
-  RNG-diversity result survives the main-merge. The canonical 192-run reference ensemble (3 conditions ×
-  N=64, 600 s) is not committed in this checkout and is being re-run. The cross-condition ATP ratios
-  (glucose:acetate 3.85×, +aa:glucose 1.97×) reported earlier await the re-run before they can be
-  re-asserted as the Markov-blanket validation standard.
+  Fixing per-process RNG seeding (crc32(process_name, master_seed)) makes multi-seed ensembles genuinely
+  diverge — v2ecoli's bare `seed` only seeded the allocator, so ensembles were bit-identical (confirmed on
+  an N=6 × 250 model-second M9-glucose pilot, .pbg/runs/phase0-traj/, ATP[c] CV ≈ 0.029%;
+  tests/test_seed_diversity.py passes). The canonical 192-run reference ensemble (3 conditions × N=64, 600 s)
+  is not committed in this checkout and is being re-run.
 confidence: Investigating
 status: running
 phase: Decide
@@ -27,146 +24,43 @@ tags:
 - zarr
 - multi-gen
 created: '2026-05-24'
-question: 'What is the Markov blanket of every major v2ecoli subprocess
-
-  (metabolism, transcription, translation, replication, division,
-
-  membrane), and how should every WCM state variable be categorized
-
-  (ODE-amenable, stochastic discrete, teleonomic, or coupling
-
-  artifact) so that subsequent phases have a typed interface
-
-  contract to validate against?
-
-  '
-hypothesis: 'Each major v2ecoli subprocess has a well-defined Markov blanket
-
-  that can be expressed as a typed Process Bigraph interface schema,
-
-  and per-step compute time is dominated by marshalling overhead
-
-  (nested-dict state traversal, type-coercion between stores and
-
-  process internals) rather than essential biological computation —
-
-  motivating the column-centric runtime refactor in Phase 4.
-
-  '
-objective: 'Run v2ecoli in diagnostic mode under ≥3 environmental conditions
-
-  (M9-glucose, M9-acetate, M9-glucose+amino-acid supplementation),
-
-  categorize every state variable, extract typed PB interface schemas
-
-  for each major subprocess, deploy the Xarray-format emitter to
-
-  record full interface time-series, and profile per-step compute to
-
-  separate marshalling overhead from essential computation.'
-description: 'Phase 0 of the v2ecoli → PDMP roadmap. The deliverables of this
-
-  study become the validation standard for every subsequent phase:
-
-  a replacement subprocess (Phase 1 ODE metabolism, Phase 2 jump
-
-  transcription, etc.) is accepted when its interface statistics
-
-  match the Phase 0 reference Xarray dataset within tolerance.
-
-
-  No biological mechanism is changed in this study — v2ecoli is run
-
-  as-is. The artefacts produced are (a) the typed interface schema
-
-  library, (b) the reference Xarray datasets across the ≥3 chosen
-
-  conditions, and (c) the per-step profiling report.
-
-
-  Conditions are not yet locked; tentative set: aerobic M9 + glucose
-
-  (the canonical reference), aerobic M9 + acetate (slower growth,
-
-  gluconeogenic flux), aerobic M9 + glucose + amino-acid mix (faster
-
-  growth, partial relief on translation). The DUF report Sec. 4.1.1
-
-  notes "approximately a dozen environmental conditions" exist in
-
-  the current WCM; we sample three that span the metabolic regime.
-
-
-  # Numerical considerations
-
-  The reference Xarray datasets are not single trajectories — they
-
-  are *ensembles*. For each (condition, seed) pair we run N=64
-
-  independent stochastic replicates (justification: the standard
-
-  error of an estimated mean falls as σ/√N ≈ σ/8 = 12.5% of σ, fine
-
-  enough to set a Wasserstein-2 tolerance band that downstream
-
-  phases can target without overfitting to MC noise). Replicate
-
-  count revisited after running pilot N=8 batches and measuring
-
-  per-observable variance — N is increased per-observable if MCSE
-
-  exceeds 10% of the inter-condition effect size.
-
-
-  Per-step compute profiling reports mean ± std over ≥1000 step
-
-  samples per condition (not single measurements), with separate
-
-  buckets for: (i) FBA LP solve time (`wholecell.utils.modular_fba`, glpk-linear), (ii) stochastic-draw RNG
-
-  cost, (iii) store↔process marshalling, (iv) topology traversal,
-
-  (v) emitter I/O. A bootstrap 95% CI on each bucket isolates
-
-  signal from machine jitter.
-
-
-  Variable categorization is recorded with a *numerical-sensitivity
-
-  tier* per variable: ODE-amenable variables carry an estimated
-
-  contribution to the Jacobian spectral radius (rough stiffness
-
-  signal); stochastic-discrete variables carry an empirical
-
-  per-step coefficient of variation; coupling-artifact variables
-
-  carry a coupling-strength index (the L∞ norm of the partial
-
-  derivatives across the artificial boundary).
-
-
-  # Emitter
-
-  All runs use **XArrayEmitter** (workspace default on this branch;
-
-  wired in dashboard via PR #70). The reference dataset is a
-
-  zarr store per (condition, replicate, generation) tuple, opened
-
-  downstream via xarray.open_zarr() with explicit chunking on the
-
-  time axis so Phase 1+ phases can stream-compare distributions
-
-  without loading the whole ensemble into memory. max_generations
-
-  in workspace.yaml is set to 8 (covers the multi-generation
-
-  lineage statistics that division-time / inheritance-distribution
-
-  validation in Phase 2 will consume).
-
-  '
+question: 'What is the Markov blanket of every major v2ecoli subprocess (metabolism, transcription,
+  translation, replication, division, membrane), and how should every WCM state variable be categorized
+  (ODE-amenable, stochastic discrete, teleonomic, or coupling artifact) so that subsequent phases have a
+  typed interface contract to validate against?'
+hypothesis: 'Each major v2ecoli subprocess has a well-defined Markov blanket expressible as a typed Process
+  Bigraph interface schema, and per-step compute time is dominated by marshalling overhead (nested-dict state
+  traversal, type-coercion between stores and process internals) rather than essential biological computation
+  — motivating the column-centric runtime refactor in Phase 4.'
+objective: 'Run v2ecoli in diagnostic mode under ≥3 environmental conditions (M9-glucose, M9-acetate,
+  M9-glucose+amino-acid supplementation), categorize every state variable, extract typed PB interface schemas
+  for each major subprocess, deploy the Xarray-format emitter to record full interface time-series, and
+  profile per-step compute to separate marshalling overhead from essential computation.'
+description: |
+  Phase 0 of the v2ecoli → PDMP roadmap; its deliverables become the validation standard for every later
+  phase (a replacement subprocess is accepted when its interface statistics match the Phase 0 reference
+  Xarray dataset within tolerance). No biology is changed — v2ecoli runs as-is; the artefacts are the typed
+  interface schema library, the reference Xarray datasets across the ≥3 conditions, and the per-step
+  profiling report.
+
+  Conditions (tentative, spanning the metabolic regime the DUF report Sec. 4.1.1 notes has "approximately a
+  dozen"): aerobic M9 + glucose (canonical reference), M9 + acetate (slower growth, gluconeogenic flux), and
+  M9 + glucose + amino-acid mix (faster growth, partial relief on translation).
+
+  The reference datasets are ensembles, not single trajectories: N=64 independent stochastic replicates per
+  (condition, seed) put the standard error of the mean at σ/√N ≈ σ/8 = 12.5% of σ, enough to set a
+  Wasserstein-2 tolerance band without overfitting to MC noise; N is revisited after pilot N=8 batches and
+  raised per-observable if MCSE exceeds 10% of the inter-condition effect size. Per-step compute is profiled
+  as mean ± std over ≥1000 step samples (bootstrap 95% CI) into five buckets: FBA LP solve
+  (`wholecell.utils.modular_fba`, glpk-linear), RNG draws, store↔process marshalling, topology traversal, and
+  emitter I/O. Each categorized variable carries a numerical-sensitivity tier — Jacobian spectral-radius
+  contribution (ODE-amenable), per-step CV (stochastic-discrete), or coupling-strength L∞ norm
+  (coupling-artifact).
+
+  All runs use XArrayEmitter (workspace default; wired in the dashboard via PR #70); the reference dataset is
+  a zarr store per (condition, replicate, generation) opened downstream via xarray.open_zarr() with time-axis
+  chunking, and max_generations in workspace.yaml is set to 8 to cover the multi-generation lineage
+  statistics Phase 2 will consume.
 expected_behavior:
 - name: variables-categorized
   en: Every state variable in the WCM's process internals + stores is labelled ODE-amenable / stochastic-discrete / teleonomic
@@ -349,11 +243,9 @@ bibliography:
 report:
   main_insight: Phase 0 produces the Markov-blanket reference dataset that gates every later phase. A Phase-N replacement
     subprocess is only accepted when its interface statistics match the Phase 0 zarr ensemble within tolerance.
-  caveat: 'Pre-execution scaffold. The acceptance bands cited in this study (W₂ ratio < 0.05, stiffness
-    κ > 10⁴, MCSE < 10% of inter-condition effect size, the ±σ / |z|≤2 operationalization) are currently
-    ad-hoc and uncited; provenance pending, and none is asserted as met. Concrete tolerance bands will be
-    fitted from the N≥64 replicate runs once the diagnostic harness lands and the canonical reference is
-    committed.'
+  caveat: 'Pre-execution scaffold: the acceptance bands (W₂ ratio < 0.05, stiffness κ > 10⁴, MCSE < 10% of
+    inter-condition effect size, ±σ / |z|≤2) are ad-hoc, uncited, and none asserted as met; concrete bands
+    will be fitted from the N≥64 runs once the diagnostic harness lands and the canonical reference is committed.'
   conclusion: Predicted; every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, teleonomic, or
     coupling-artifact; per-step compute will decompose into measurable marshalling vs. essential buckets across ≥3 conditions.
   confidence: design-stage

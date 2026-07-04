@@ -1,15 +1,14 @@
 # Surrogate Modeling — a neural-network emulator of the v2ecoli baseline
 
-This investigation demonstrates how to build a **neural-network surrogate** of
-the v2ecoli whole-cell model using
-[`pbg-torch`](https://github.com/vivarium-collective/pbg-torch), and evaluates
-how faithfully — and how much faster — the surrogate reproduces baseline
-behavior.
+This investigation builds a **neural-network surrogate** of the v2ecoli
+whole-cell model using
+[`pbg-torch`](https://github.com/vivarium-collective/pbg-torch) and evaluates
+how faithfully and how much faster the surrogate reproduces baseline behavior.
 
 A surrogate is a learned, drop-in process-bigraph `Process` that approximates
 the per-step dynamics of another `Process`/`Composite` over a curated panel of
-observables. Once trained it rolls out autoregressively at a tiny fraction of
-the simulator's cost.
+observables. Once trained it rolls out autoregressively at a fraction of the
+simulator's cost.
 
 ## How a surrogate is made (the pipeline)
 
@@ -57,37 +56,37 @@ generic surrogate machinery:
 
 - **sm-00-data-collection** — build the broad ~11.5k-observable transition-dataset
   ensemble (8 seeds).
-- **sm-01-nn-surrogate** — the honest test: under 8-fold cross-validation, does
-  the neural net beat trivial baselines (persistence, mean-delta, linear)?
+- **sm-01-nn-surrogate** — the test: under 8-fold cross-validation, does the
+  neural net beat trivial baselines (persistence, mean-delta, linear)?
 - **sm-02-utility-and-limits** — what the cheap **linear** emulator (the one that
   works) is worth: amortized break-even vs. the simulator, and the limits.
 - **sm-03-improving-the-surrogate** — follow-up: does multi-step rollout-loss
   training close the gap?
 
-## What we found (the honest arc)
+## What we found
 
-A first pass looked like a triumph — one-step **R²≈1.0** on growth/mass. Rigor
-overturned it:
+A first pass looked like a success — one-step **R²≈1.0** on growth/mass —
+but rigor overturned it:
 
 - **One-step R²≈1.0 was a persistence artifact.** Under 8-fold CV, persistence,
-  mean-delta, linear, and the neural net *all* score ~1.000 one-step, because
-  cell mass per second is smooth. One-step fidelity measured nothing.
-- **In multi-step rollout, a LINEAR model wins** (median nRMSE 0.019, 0/8
-  unstable). The neural net is no better and **destabilizes on 2/8 folds**. The
-  NN is not justified for this target.
+  mean-delta, linear, and the neural net all score ~1.000 one-step, because cell
+  mass per second is smooth. One-step fidelity measured nothing.
+- **In multi-step rollout, a linear model wins** (median nRMSE 0.019, 0/8
+  unstable). The neural net is no better and destabilizes on 2/8 folds; it is
+  not justified for this target.
 - **The broad 11.5k-observable panel is unlearnable from the observable view** —
   0% of observables beat persistence; they depend on the cell's hidden state.
-- **The cheap linear emulator is genuinely useful** (sm-02): it pays back its 8
-  training sims after ~8 evaluations and sweeps 5,000 trajectories in 0.02 s
-  (vs ~24 h on the WCM).
+- **The cheap linear emulator is useful** (sm-02): it pays back its 8 training
+  sims after ~8 evaluations and sweeps 5,000 trajectories in 0.02 s (vs ~24 h on
+  the WCM).
 - **Rollout-loss training helps but doesn't overturn this** (sm-03): it removes
   the instability (0/8) and improves the net (0.053 vs 0.069), yet linear still
-  wins — rollout-loss is the technique to carry to genuinely nonlinear targets.
+  wins. Rollout-loss is the technique to carry to nonlinear targets.
 
-The convincing result is a **scoping** one, not a capability claim. Documented
-next steps: rollout to/through **division** (test the cell-cycle limit); a
-**latent encode–decode** model and **more data on the Mac mini** for the
-high-dimensional groups.
+The result is a **scoping** one, not a capability claim. Documented next steps:
+rollout to/through **division** (test the cell-cycle limit); a **latent
+encode–decode** model and **more data on the Mac mini** for the high-dimensional
+groups.
 
 ## Reproduce
 

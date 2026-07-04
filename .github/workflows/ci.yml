@@ -45,21 +45,23 @@ jobs:
         run: uv sync --extra dev --no-install-package vivarium-workbench || uv sync --no-install-package vivarium-workbench
 
       - name: Run fast tests (no .run() calls)
-        # -n 1 (serial): each worker holds sim_data + built composites, so on the
-        # 7GB runner ANY concurrency risks an OOM-killed worker ("node down: Not
-        # properly terminated") that hangs the job to its timeout. -n auto (~4)
-        # then -n 2 each worked until the suite grew (SBC/surrogate tests added
-        # memory pressure) and started OOM-ing intermittently → reliably. These
-        # are the FAST "no .run()" tests (no full simulations), so serial keeps a
-        # bounded single-test peak and still finishes in minutes. If wall-clock
-        # becomes a problem, move to a larger runner rather than re-adding workers.
+        # Run IN-PROCESS (no pytest-xdist). `-n 1` gave zero parallelism yet still
+        # spawned an execnet worker, and on the Linux runner that worker
+        # intermittently dies ("node down: Not properly terminated") mid-suite;
+        # with a single worker, xdist then hangs waiting for it and the job runs
+        # to its timeout (GitHub reports "cancelled"). In-process removes that
+        # failure mode: a genuine hang is caught by pytest-timeout (120 s, thread
+        # method → os._exit) as a fast, clear failure instead of a 15-min hang.
+        # Memory is not a concern here — the CI-relevant "no .run()" tests peak
+        # ~3.7 GB, well under the 7 GB runner (the 9-12 GB analysis/ptools cases
+        # skip on CI: they need local sms-api / reference-sweep fixtures).
         run: >-
           uv run pytest
           -m "not slow and not sim"
           --ignore=tests/test_initialize.py
           --ignore=tests/test_kinetics_units.py
           --ignore=tests/test_unit_bridge.py
-          -n 1 --dist=loadfile
+          -p no:xdist
           -v --tb=short
 
   behavior-tests:

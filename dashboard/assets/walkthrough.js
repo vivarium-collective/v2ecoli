@@ -902,10 +902,62 @@
   }
   window._inputsAdd = _inputsAdd;
 
+  // ── Drag-and-drop source upload ──────────────────────────────────────────
+  function _inputsDzHi(z, on) {
+    if (!z) return;
+    z.style.background = on ? '#eef2ff' : '#f8fafc';
+    z.style.borderColor = on ? '#818cf8' : '#cbd5e1';
+  }
+  function _inputsDragOver(e) {
+    e.preventDefault(); e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    _inputsDzHi(e.currentTarget, true);
+  }
+  function _inputsDragLeave(e) {
+    e.preventDefault(); _inputsDzHi(e.currentTarget, false);
+  }
+  function _inputsDrop(e) {
+    e.preventDefault(); e.stopPropagation();
+    _inputsDzHi(e.currentTarget, false);
+    var slug = window._inputsSelectedSlug || window._currentIsetSlug || '';
+    if (!slug) { alert('Select an investigation first (Load sources into: …).'); return; }
+    var files = (e.dataTransfer && e.dataTransfer.files)
+      ? Array.prototype.slice.call(e.dataTransfer.files) : [];
+    files.forEach(_inputsUploadDropped);
+  }
+  // Infer the source category from a dropped file's extension and upload it,
+  // deriving the display name from the filename (no prompt).
+  function _inputsUploadDropped(f) {
+    var name = f.name || 'file';
+    var dot = name.lastIndexOf('.');
+    var ext = (dot >= 0 ? name.slice(dot + 1) : '').toLowerCase();
+    var stem = (dot > 0 ? name.slice(0, dot) : name);
+    var DOCLIKE = ['md', 'markdown', 'txt', 'rst', 'org', 'doc', 'docx', 'odt', 'tex'];
+    _inputsReadFileB64(f, function (b64) {
+      if (ext === 'pdf') {
+        _inputsPost('/api/reference-pdf', { pdf_b64: b64 });
+      } else if (DOCLIKE.indexOf(ext) >= 0) {
+        _inputsPost('/api/expert-doc', { name: stem, filename: name, file_b64: b64 });
+      } else {
+        _inputsPost('/api/dataset', { name: stem, filename: name, file_b64: b64 });
+      }
+    });
+  }
+  window._inputsDragOver = _inputsDragOver;
+  window._inputsDragLeave = _inputsDragLeave;
+  window._inputsDrop = _inputsDrop;
+  window._inputsUploadDropped = _inputsUploadDropped;
+
   function _renderInputs(el, data) {
     var inv = data.investigation || {};
     var glob = data.global || {};
     var current = data.current || null;
+    // Keep the selected-slug in sync with the investigation actually shown, so
+    // the drop zone + "+ Add" buttons resolve the right target even before the
+    // user touches the "Load sources into" dropdown (data.current reflects the
+    // git branch / last selection). Without this, dropping a file falsely
+    // reported "Select an investigation first".
+    if (current) window._inputsSelectedSlug = current;
 
     var invList = data._investigations || [];
 
@@ -947,6 +999,17 @@
         html += '<p class="muted" style="font-style:italic;font-size:0.85em">' +
           'migrating: showing repo-level inputs</p>';
       }
+      // Drag-and-drop upload zone: drop files straight in — no name prompt,
+      // no file picker. Category is inferred from the extension and the name
+      // from the filename (the "+ Add" buttons below remain for manual naming).
+      html += '<div id="inputs-dropzone" ' +
+        'ondragover="_inputsDragOver(event)" ondragleave="_inputsDragLeave(event)" ondrop="_inputsDrop(event)" ' +
+        'style="border:2px dashed #cbd5e1;border-radius:8px;padding:16px 14px;text-align:center;' +
+        'color:#64748b;font-size:0.9em;margin:10px 0 6px;background:#f8fafc;transition:background .12s,border-color .12s">' +
+        '<div style="font-weight:600;color:#475569">⬆ Drag datasets or expert docs here to upload</div>' +
+        '<div style="font-size:0.78em;color:#94a3b8;margin-top:3px">' +
+          'PDFs → references · .md / .txt / .docx → expert docs · everything else → datasets' +
+        '</div></div>';
       html += '<h4 style="margin:12px 0 4px">Datasets ' +
         _inputsAddBtn('dataset') + '</h4>' +
         _inputsDatasetsHtml(inv.datasets);
@@ -1247,9 +1310,8 @@
   }
 
   // -------------------------------------------------------------------------
-  // Analyses page: a gallery of special, saved, interactive visualizations —
-  // embedded parsimony 3D scenes + a PTools Omics-Viewer launcher.
-  // Backed by GET /api/saved-visualizations.
+  // Analyses page: repo-contributed analysis viewers (launcher/embed cards).
+  // Backed by GET /api/analysis-viewers (a package's workbench_viewers module).
   // -------------------------------------------------------------------------
 
   function _render3dVizCard(v) {
@@ -1320,39 +1382,40 @@
     '</div>';
   }
 
-  function _renderPtoolsCard(ptools) {
-    ptools = ptools || {};
-    var studies = ptools.studies || [];
+  // Generic repo-contributed analysis viewer card (launcher kind). The workbench
+  // knows nothing repo-specific: a viewer is discovered via /api/analysis-viewers
+  // (contributed by a package's workbench_viewers module) and launched via
+  // /api/analysis-viewer/{uid}/launch. `targets` are the launchable rows the
+  // contributor computed (e.g. studies with exported data).
+  function _renderViewerCard(v) {
+    v = v || {};
+    var targets = v.targets || [];
     var html = '<div class="analyses-card">' +
-      '<div class="analyses-card-head"><strong>Pathway Tools &mdash; Omics Viewer</strong></div>' +
-      '<p class="muted" style="font-size:0.85em;margin:4px 0 8px">Overlay a study\'s PTools TSV exports onto the E. coli metabolic map in the Pathway Tools Omics Viewer.</p>';
-    if (!ptools.configured) {
-      html += '<p class="empty-state muted" style="margin:0">PTools not configured. Set <code>ui.ptools_server_url</code> in <code>workspace.yaml</code> to enable launching.</p>';
-    } else if (!studies.length) {
-      html += '<p class="empty-state muted" style="margin:0">No <code>ptools/*.tsv</code> exports found yet. Run a study\'s ptools analyses first.</p>';
+      '<div class="analyses-card-head"><strong>' + _esc(v.title || v.id || 'Viewer') + '</strong></div>';
+    if (v.description) {
+      html += '<p class="muted" style="font-size:0.85em;margin:4px 0 8px">' + _esc(v.description) + '</p>';
+    }
+    if (!targets.length) {
+      html += '<p class="empty-state muted" style="margin:0">No launchable data found yet.</p>';
     } else {
-      // Launching builds a Pathway Tools URL server-side and points at the
-      // workspace-local sms-ptools container (ui.ptools_server_url, e.g.
-      // http://localhost:1555). Neither the /api/ptools-launch endpoint nor
-      // that container exists for the hosted read-only snapshot, so in snapshot
-      // mode we surface an honest note instead of a button that would 404 and
-      // throw "SyntaxError: The string did not match the expected pattern".
+      // A contributed launcher opens against a workspace-local service; the
+      // hosted read-only snapshot has neither the launch backend nor that
+      // service, so surface an honest note instead of a button that would 404.
       var _isSnapshot = (window.__DASH_CONFIG__ || {}).mode === 'snapshot';
-      html += '<div class="ptools-study-list">' + studies.map(function(s) {
+      html += '<div class="viewer-target-list">' + targets.map(function(t) {
         var action = _isSnapshot
-          ? '<span class="muted" style="font-size:0.8em">Launch from the local dashboard</span>'
-          : '<button class="btn-mini" onclick="_launchPtools(\'' + _esc(s.study) + '\')">Launch in Omics Viewer</button>';
+          ? '<span class="muted" style="font-size:0.8em">Launch from the local workbench</span>'
+          : '<button class="btn-mini" onclick="_launchViewer(\'' + _esc(v.uid) + '\',\'' + _esc(t.study) + '\')">Launch</button>';
         return '<div class="picker-row">' +
-          '<div class="picker-row-main"><strong>' + _esc(s.study) + '</strong>' +
-            ' <span class="muted" style="font-size:0.82em">' + (s.n_tsvs || 0) + ' TSV' + (s.n_tsvs === 1 ? '' : 's') + '</span></div>' +
+          '<div class="picker-row-main"><strong>' + _esc(t.label || t.study) + '</strong>' +
+            (t.detail ? ' <span class="muted" style="font-size:0.82em">' + _esc(t.detail) + '</span>' : '') + '</div>' +
           '<div class="picker-row-actions">' + action + '</div>' +
         '</div>';
       }).join('') + '</div>';
       if (_isSnapshot) {
         html += '<p class="muted" style="font-size:0.8em;margin:8px 0 0">' +
-          'The Omics Viewer launches against a local <code>sms-ptools</code> container and is only ' +
-          'available when running the dashboard locally; this read-only view shows which studies ' +
-          'have PTools exports.</p>';
+          'This viewer launches against a local service and is only available when running ' +
+          'the workbench locally; this read-only view shows which studies have exports.</p>';
       }
     }
     html += '</div>';
@@ -1367,72 +1430,67 @@
       '<div id="explorer-mount"></div></div>';
   }
 
-  function _launchPtools(study) {
-    // The read-only snapshot has no /api/ptools-launch backend and no local
-    // sms-ptools container to launch against. Bail with a clear message rather
-    // than fetch a 404 HTML page and throw a cryptic JSON-parse SyntaxError.
+  function _launchViewer(uid, study) {
+    // The read-only snapshot has no launch backend to call. Bail with a clear
+    // message rather than fetch a 404 HTML page and throw a JSON-parse error.
     if ((window.__DASH_CONFIG__ || {}).mode === 'snapshot') {
-      alert('The PTools Omics Viewer launches against a local sms-ptools ' +
-            'container and is only available when running the dashboard locally.');
+      alert('This viewer launches against a local service and is only available ' +
+            'when running the workbench locally.');
       return;
     }
-    var url = '/api/ptools-launch/' + encodeURIComponent(study);
+    var url = '/api/analysis-viewer/' + encodeURIComponent(uid) + '/launch' +
+      (study ? '?study=' + encodeURIComponent(study) : '');
     fetch(url).then(function(r) {
-      // Parse defensively: a non-JSON body (e.g. a 404 HTML page) otherwise
-      // throws "SyntaxError: The string did not match the expected pattern".
       return r.text().then(function(t) {
         var d = {};
         try { d = t ? JSON.parse(t) : {}; }
-        catch (e) { d = { error: 'server returned ' + r.status + ' (no PTools backend)' }; }
+        catch (e) { d = { error: 'server returned ' + r.status }; }
         return { status: r.status, body: d };
       });
     }).then(function(res) {
       var b = res.body || {};
       if (res.status === 200 && b.url) {
         window.open(b.url, '_blank');
-      } else if (b.error === 'ptools_server_url not configured') {
-        alert('PTools not configured.\nSet ui.ptools_server_url in workspace.yaml.');
       } else {
-        alert('PTools launch failed: ' + (b.error || res.status));
+        alert('Launch failed: ' + (b.error || res.status));
       }
-    }).catch(function(err) { alert('PTools launch failed: ' + err); });
+    }).catch(function(err) { alert('Launch failed: ' + err); });
   }
-  window._launchPtools = _launchPtools;
+  window._launchViewer = _launchViewer;
 
   function _loadAnalysesPage() {
     var container = document.getElementById('analyses-gallery');
     var countEl   = document.getElementById('viz-count');
     if (!container) return;
-    var _savedUrl = (window.DataSource && window.DataSource.savedVisualizationsUrl)
-      ? window.DataSource.savedVisualizationsUrl()
-      : '/api/saved-visualizations';
-    fetch(_savedUrl)
+    // Repo-contributed analysis viewers (name-agnostic): a package's
+    // workbench_viewers module supplies these; the workbench itself hardcodes
+    // nothing repo-specific. The Data Explorer is shown alongside them when a
+    // workspace contributes any viewer (metabolic-model workspaces like
+    // v2ecoli) — it doesn't apply to e.g. agent-based colony workspaces.
+    // NOTE: per-study comparison "report cards" are intentionally NOT shown
+    // here — they live on each study's detail page.
+    var _viewersUrl = (window.DataSource && window.DataSource.basePath)
+      ? (window.DataSource.basePath() + '/api/analysis-viewers')
+      : '/api/analysis-viewers';
+    fetch(_viewersUrl)
       .then(function(r) { return r.json(); })
       .then(function(data) {
         data = data || {};
-        var saved  = data.saved || [];
-        var ptools = data.ptools || {};
+        var viewers = data.viewers || [];
         var cards = [];
-        // NOTE: per-study comparison "report cards" (e.g. config/standard) are
-        // intentionally NOT shown here — they live on each study's detail page.
-        // The Analyses tab is just the workspace analysis tools (Pathway Tools
-        // + Data Explorer).
-        // Pathway Tools (E. coli metabolic map) and the Data Explorer
-        // (timeseries / allocation / flux maps) are E. coli / metabolic-model
-        // analyses. Only show them for workspaces set up as such — detected via
-        // ui.ptools_server_url being configured (currently v2ecoli). They don't
-        // apply to e.g. agent-based colony workspaces (viva-munk).
-        var _ecoliAnalyses = !!(ptools && (ptools.configured || (ptools.studies || []).length));
-        if (_ecoliAnalyses) {
-          cards.push(_renderPtoolsCard(ptools));
+        viewers.forEach(function(v) {
+          if (v && v.kind === 'launcher') cards.push(_renderViewerCard(v));
+        });
+        var _hasViewers = viewers.length > 0;
+        if (_hasViewers) {
           cards.push(_renderExplorerCard());
         }
         if (!cards.length) {
-          container.innerHTML = '<p class="empty-state">No saved visualizations yet. Run a parsimony packing composite or a PTools analysis to populate this gallery.</p>';
+          container.innerHTML = '<p class="empty-state">No analysis viewers for this workspace. Analyses are contributed by the repo (a package\'s <code>workbench_viewers</code> module).</p>';
         } else {
           container.innerHTML = cards.join('');
         }
-        if (_ecoliAnalyses && window.Explorer) {
+        if (_hasViewers && window.Explorer) {
           var _em = document.getElementById('explorer-mount');
           if (_em) window.Explorer.mount(_em, {
             basePath: (window.DataSource && window.DataSource.basePath) ? window.DataSource.basePath() : '',
@@ -1443,7 +1501,7 @@
         if (countEl) countEl.textContent = _n ? '(' + _n + ')' : '';
       })
       .catch(function(err) {
-        container.innerHTML = '<p class="empty-state" style="color:#991b1b">Error loading saved visualizations: ' + _esc(String(err)) + '</p>';
+        container.innerHTML = '<p class="empty-state" style="color:#991b1b">Error loading analysis viewers: ' + _esc(String(err)) + '</p>';
       });
   }
   window._loadAnalysesPage = _loadAnalysesPage;
@@ -3361,10 +3419,19 @@
   // Vivarium left rail — collapse toggle (V4)
   // -------------------------------------------------------------------------
 
+  function _vivSyncRailToggleLabel(collapsed) {
+    var btn = document.getElementById('viv-rail-toggle');
+    if (!btn) return;
+    var label = collapsed ? 'Open sidebar' : 'Collapse sidebar';
+    btn.setAttribute('title', label);
+    btn.setAttribute('aria-label', label);
+  }
+
   function _vivToggleRail() {
     var rail = document.getElementById('viv-rail');
     if (!rail) return;
     var collapsed = rail.classList.toggle('viv-rail-collapsed');
+    _vivSyncRailToggleLabel(collapsed);
     try { localStorage.setItem('vivarium.rail-collapsed', collapsed ? '1' : '0'); } catch (e) {}
   }
   window._vivToggleRail = _vivToggleRail;
@@ -3372,10 +3439,12 @@
   function _vivRestoreRailState() {
     var stored = null;
     try { stored = localStorage.getItem('vivarium.rail-collapsed'); } catch (e) {}
-    if (stored === '1') {
+    var collapsed = stored === '1';
+    if (collapsed) {
       var rail = document.getElementById('viv-rail');
       if (rail) rail.classList.add('viv-rail-collapsed');
     }
+    _vivSyncRailToggleLabel(collapsed);
   }
   window._vivRestoreRailState = _vivRestoreRailState;
 
@@ -4763,16 +4832,31 @@
       // divergence goes into the status-pill tooltip (not a separate line).
       var effStatus  = iset.effective_status || iset.status || 'planning';
       var authStatus = iset.status || 'planning';
-      var pillClass  = effStatus.replace(/[^a-z_]/g, '_');
-      var pillTip = (authStatus && authStatus !== effStatus)
-        ? 'effective: ' + effStatus + '  ·  intent: ' + authStatus
-        : 'status: ' + effStatus;
+      // Effective status is derived from the investigation's member studies
+      // (server: compute_investigation_status). Human label + color + a tooltip
+      // that says what each state actually MEANS — "running" (a study is
+      // executing right now) vs "in_progress" (partly done, nothing running)
+      // were the confusing pair.
+      var STATUS_META = {
+        planning:    {label:'Planned',     bg:'#f1f5f9', fg:'#475569', bd:'#cbd5e1', tip:'Not started — every study is still planned.'},
+        in_progress: {label:'In progress', bg:'#fef9c3', fg:'#854d0e', bd:'#fde047', tip:'Partly done — some studies have results, but none are running right now.'},
+        running:     {label:'Running now', bg:'#dbeafe', fg:'#1e40af', bd:'#93c5fd', tip:'A study is executing right now.'},
+        complete:    {label:'Complete',    bg:'#dcfce7', fg:'#166534', bd:'#86efac', tip:'All studies are done.'},
+        failed:      {label:'Failed',      bg:'#fee2e2', fg:'#991b1b', bd:'#fca5a5', tip:'A study failed or is invalid — needs attention.'}
+      };
+      var meta = STATUS_META[effStatus] || {label: effStatus, bg:'#f1f5f9', fg:'#475569', bd:'#cbd5e1', tip:'status: ' + effStatus};
+      var statusTip = meta.tip + (authStatus && authStatus !== effStatus ? '  ·  author intent: ' + authStatus : '');
+      // "Current branch" is NOT a status — it means this investigation is your
+      // current git checkout (what you're working on). Render it as a distinct
+      // context chip (indigo outline + branch glyph) so it doesn't read as the
+      // green "Complete" status it used to mimic.
+      var pillBase = 'font-size:0.72em;border-radius:9999px;padding:1px 9px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;';
       var currentPill = iset.current
-        ? '<span class="status-pill" style="font-size:0.72em;background:#dcfce7;color:#166534;border:1px solid #86efac">● current branch</span>'
+        ? '<span class="iset-here-chip" title="You are working on this investigation — it is the current git branch." style="' + pillBase + 'background:#eef2ff;color:#4338ca;border:1px solid #c7d2fe;font-weight:600">⎇ current branch</span>'
         : '';
       var statusPill = closed
-        ? '<span class="status-pill" style="font-size:0.78em;background:#e5e7eb;color:#4b5563;border:1px solid #d1d5db">Closed</span>'
-        : '<span class="status-pill ' + pillClass + '" style="font-size:0.78em" title="' + _esc(pillTip) + '">' + _esc(effStatus) + '</span>';
+        ? '<span class="status-pill" style="' + pillBase + 'background:#e5e7eb;color:#4b5563;border:1px solid #d1d5db">Closed</span>'
+        : '<span class="status-pill" style="' + pillBase + 'background:' + meta.bg + ';color:' + meta.fg + ';border:1px solid ' + meta.bd + '" title="' + _esc(statusTip) + '">' + _esc(meta.label) + '</span>';
       var cardStyle = 'background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px;cursor:pointer;transition:box-shadow 0.1s,border-color 0.1s;' +
         (closed ? 'opacity:0.6;' : '');
       var filterStatus = (closed ? 'closed' : effStatus);
@@ -11834,31 +11918,67 @@
       });
       groups.push({name: iset.name, title: iset.title || iset.name, studies: members});
     });
-    // Scope the rail to a SINGLE investigation. We never render the
-    // "Ungrouped" bucket or an all-investigations list here: the rail shows
-    // either the current investigation's studies or a chooser. (Orphan studies
-    // that belong to no investigation are intentionally not surfaced here.)
+    // Show EVERY study in the repo, grouped by investigation. The active
+    // investigation (window._currentIsetSlug, which follows the current
+    // branch/context) is rendered first and expanded; all other
+    // investigations follow as collapsed groups. Studies that belong to no
+    // investigation collect in a final "Ungrouped" group so nothing is hidden.
     var currentSlug = window._currentIsetSlug || '';
-    var currentGroup = currentSlug
-      ? groups.filter(function(g) { return g.name === currentSlug; })[0] || null
-      : null;
+    var railDepthMap = window._investigationsDepth || {};
 
-    var picker = _railInvestigationPicker(currentSlug);
+    // Active investigation first; the rest by topological depth then title.
+    var ordered = groups.slice().sort(function(a, b) {
+      if (a.name === currentSlug) return -1;
+      if (b.name === currentSlug) return 1;
+      var da = railDepthMap[a.name] || 0, db = railDepthMap[b.name] || 0;
+      return da - db || String(a.title || a.name).localeCompare(String(b.title || b.name));
+    });
 
-    if (!currentGroup) {
-      // No valid current investigation → picker + placeholder, no study rows.
-      host.innerHTML = picker
-        + '<div class="viv-rail-empty" style="font-size:0.85em;color:#94a3b8;'
-        + 'padding:6px 14px;font-style:italic">Choose an investigation to see its studies.</div>';
-      return;
+    // Studies not a member of any investigation.
+    var ungrouped = window._investigations.filter(function(s) { return !seen[s.name]; });
+    if (ungrouped.length) {
+      ungrouped.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+      ordered.push({ name: '__ungrouped__', title: 'Ungrouped', studies: ungrouped, _ungrouped: true });
     }
 
-    // Current investigation → its studies as a flat list under the picker.
-    host.innerHTML = picker
-      + '<div class="rail-iset-name" title="' + _esc(currentGroup.title || currentGroup.name) + '"'
-      + ' onclick="window._railOpenInvestigationDetail(\'' + _esc(currentGroup.name) + '\');"'
-      + ' style="cursor:pointer;">' + _esc(currentGroup.title || currentGroup.name) + '</div>'
-      + currentGroup.studies.map(function(s) { return _railStudyItem(s); }).join('');
+    var hasActive = ordered.some(function(g) { return g.name === currentSlug; });
+
+    function _railGroupHtml(g, forceOpen) {
+      var isActive = g.name === currentSlug;
+      // Collapsed unless active, or the caller forces it open (first group when
+      // there is no active investigation), so the rail opens on something.
+      var collapsed = (isActive || forceOpen) ? '' : ' collapsed';
+      var activeCls = isActive ? ' rail-iset-active' : '';
+      var clickName = g._ungrouped
+        ? ''
+        : ' onclick="window._railOpenInvestigationDetail(\'' + _esc(g.name) + '\');event.stopPropagation();"';
+      var nameStyle = g._ungrouped ? '' : 'cursor:pointer;';
+      return '<div class="viv-rail-investigations-group' + collapsed + activeCls + '" data-iset="' + _esc(g.name) + '">'
+        + '<div class="viv-rail-investigations-group-header" onclick="_vivToggleInvGroup(this)"'
+        + ' title="' + _esc(g.title || g.name) + (g._ungrouped ? '' : ' — open investigation') + '">'
+        + '<span class="viv-rail-investigations-group-arrow viv-arrow">▾</span>'
+        + '<span class="viv-rail-investigations-group-name" style="' + nameStyle + '"' + clickName + '>'
+        + _esc(g.title || g.name) + '</span>'
+        + '<span class="viv-rail-investigations-group-count">' + g.studies.length + '</span>'
+        + '</div>'
+        + '<div class="viv-rail-investigations-group-items">'
+        + (g.studies.length
+            ? g.studies.map(function(s) { return _railStudyItem(s, { indent: true }); }).join('')
+            : '<div class="viv-rail-empty" style="font-size:0.82em;color:#94a3b8;'
+              + 'padding:4px 14px 4px 28px;font-style:italic">No studies</div>')
+        + '</div>'
+        + '</div>';
+    }
+
+    var html = ordered.map(function(g, i) {
+      // With no active investigation, open the first group so the rail isn't
+      // entirely collapsed on load.
+      return _railGroupHtml(g, !hasActive && i === 0);
+    }).join('');
+
+    host.innerHTML = html
+      || '<div class="viv-rail-empty" style="font-size:0.85em;color:#94a3b8;'
+       + 'padding:6px 14px;font-style:italic">No studies yet.</div>';
   }
 
   // Per-workspace localStorage key for the remembered investigation. The URL
@@ -14467,25 +14587,24 @@
     // Actions: if the run belongs to a study → open its Runs tab at the run;
     // else if it has a spec_id → open in the Composite Explorer. The
     // {simulations} shape carries spec_id + db_path so both are reconstructable.
-    var specId = row.spec_id || '';
     var studySlug = _simStudy(row);
-    var openBtn;
-    if (studySlug) {
-      openBtn = '<a href="/studies/' + encodeURIComponent(studySlug) + '#run-' + encodeURIComponent(runId) + '" ' +
-        'class="action-btn js-authoring" title="View this run\'s results in the study" ' +
-        'style="text-decoration:none;">Open</a>';
-    } else if (specId) {
-      openBtn = '<a href="?id=' + encodeURIComponent(specId) +
-          '&run_id=' + encodeURIComponent(runId) + '#composite-explore" ' +
-          'class="action-btn js-authoring" title="Open in Composite Explorer" ' +
-          'style="text-decoration:none;" ' +
-          'onclick="event.preventDefault(); _openSimulationInExplorer(\'' +
-            _escSim(runId) + '\', \'' + _escSim(specId) + '\');">Open</a>';
-    } else {
-      openBtn = '';
-    }
-    var deleteBtn = '<button class="action-btn js-authoring" title="Delete simulation" ' +
-      'onclick="_deleteSimulationRun(\'' + _escSim(runId) + '\')">🗑</button>';
+    var runIdEnc = encodeURIComponent(runId);
+    // Download the run's RAW EMITTER DATA (native zarr/parquet store, else the
+    // SQLite runs.db) as a zip. The server resolves the on-disk store from the
+    // run_id via its own workspace scan — no path is trusted from the client.
+    // Only offered when the run has a local store; yaml-referenced history runs
+    // whose artifacts aren't in this checkout have nothing to download.
+    var hasLocalData = !!(row.store_path || row.db_path);
+    var emitterDl = (runId && hasLocalData)
+      ? '<a class="action-btn js-authoring" title="Download this run\'s raw emitter data (.zip)" ' +
+        'href="/api/simulation-run-download?run_id=' + runIdEnc + '" download style="text-decoration:none;">⬇ Data</a>'
+      : '';
+    // Download the ANALYSIS-FLUSH OUTPUT (analyses / figures / report cards) for
+    // the run's study, when the run belongs to one.
+    var analysisDl = studySlug
+      ? '<a class="action-btn js-authoring" title="Download the analysis-flush output for this run\'s study (.zip)" ' +
+        'href="/api/study-analysis-zip?study=' + encodeURIComponent(studySlug) + '" download style="text-decoration:none;">⬇ Analysis</a>'
+      : '';
     return (
       '<tr data-run-id="' + _escSim(runId) + '" style="border-bottom:1px solid #f3f4f6;">' +
       '<td style="padding:6px 8px; overflow-wrap:anywhere;">' + invCell + '</td>' +
@@ -14499,7 +14618,7 @@
       '<td style="padding:6px 8px; color:#6b7280;">' + _escSim(_simFmtTime(timeSec)) + '</td>' +
       '<td style="padding:6px 8px;">' + _simStatusChip(row.status) + '</td>' +
       '<td style="padding:6px 8px; text-align:center; white-space:nowrap;">' +
-        openBtn + (openBtn && deleteBtn ? ' ' : '') + deleteBtn + '</td>' +
+        emitterDl + (emitterDl && analysisDl ? ' ' : '') + analysisDl + '</td>' +
       '</tr>'
     );
   }
@@ -15480,19 +15599,26 @@
     var hint = document.getElementById('viv-gh-default-org-hint');
     if (!sel) return;
     sel.disabled = true;
+    var _retry = ' <a href="#" id="viv-gh-org-retry" style="color:#2563eb">Retry</a>';
+    function _bindRetry() {
+      var a = document.getElementById('viv-gh-org-retry');
+      if (a) a.onclick = function (e) { e.preventDefault(); _loadGithubOrgs(); };
+    }
     fetch('/api/auth/github/orgs').then(function (r) {
       if (r.status === 401) {
         sel.innerHTML = '<option value="">Sign in to load orgs…</option>';
-        if (hint) hint.textContent = '';
+        if (hint) hint.textContent = 'Sign in above to pick a default org.';
         return;
       }
       if (!r.ok) {
+        // Backend now degrades gracefully, so a hard non-OK here is unusual
+        // (network/proxy). Keep the picker usable + offer a retry.
         sel.innerHTML = '<option value="">Could not load orgs</option>';
-        if (hint) hint.textContent = 'GitHub returned HTTP ' + r.status + '.';
+        if (hint) { hint.innerHTML = 'GitHub request failed (HTTP ' + r.status + ').' + _retry; _bindRetry(); }
         return;
       }
       return r.json().then(function (data) {
-        // API shape: {login, orgs: [{name, kind: "personal"|"org"}, ...]}
+        // API shape: {login, orgs: [{name, kind}], warning?: "orgs_lookup_failed"}
         var orgs = (data && data.orgs) || [];
         var saved = '';
         try { saved = localStorage.getItem(GH_DEFAULT_ORG_KEY) || ''; } catch (_e) {}
@@ -15503,13 +15629,21 @@
           return '<option value="' + _esc(name) + '"' + selAttr + '>' + _esc(label) + '</option>';
         }).join('') || '<option value="">No orgs found</option>';
         if (hint) {
-          hint.textContent = saved
-            ? 'Default: ' + saved + ' (saved in this browser).'
-            : 'Pick one to use as the default for new-repo flows.';
+          if (data && data.warning) {
+            // Org list couldn't be fetched, but the personal namespace is
+            // available — the user isn't blocked.
+            hint.innerHTML = 'Showing your personal namespace — couldn’t list orgs right now.' + _retry;
+            _bindRetry();
+          } else {
+            hint.textContent = saved
+              ? 'Default: ' + saved + ' (saved in this browser).'
+              : 'Pick one to use as the default for new-repo flows.';
+          }
         }
       });
     }).catch(function () {
       sel.innerHTML = '<option value="">Network error</option>';
+      if (hint) { hint.innerHTML = 'Network error reaching the workbench.' + _retry; _bindRetry(); }
     }).then(function () {
       sel.disabled = false;
     });

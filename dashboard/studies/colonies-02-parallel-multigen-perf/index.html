@@ -377,41 +377,38 @@ coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
     <div class="overview-section">
       
       <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Starting from one whole-cell E. coli agent and letting it divide
-naturally through 3-4 generations (1 → 2 → 4 → 8), does per-cell
-compute cost (wall + RSS) stay flat, or does it drift as daughter
-EcoliWCM internal composites accumulate history? And does running
-the growing colony under the process-bigraph Ray protocol (one OS
-process per cell / sharded actor pool) lift the single-process
-GIL ceiling colonies-01 measured (~13 cells/process at realtime)?
+        <strong>Question.</strong> Starting from one whole-cell E. coli agent dividing naturally through 3-4
+generations (1 → 2 → 4 → 8), does per-cell compute cost (wall + RSS) stay
+flat, or drift as daughter EcoliWCM internal composites accumulate history?
+And does running the growing colony under the process-bigraph Ray protocol
+(one OS process per cell / sharded actor pool) lift the single-process GIL
+ceiling colonies-01 measured (~13 cells/process at realtime)?
 
       </div>
       
       
       <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Hypothesis / Expected outcome.</strong> (H1, drift) Per-cell wall drifts &lt;=20% across gens 0-3 of a natural-
-division colony; if &gt;20%, the inner composite is accumulating dead
-nodes / growing allocations (resolves F-06). (H2, RSS) Per-cell RSS
-stays bounded once startup is amortized; the ~5 MB/sim-s climb is
-pre-division warmup, not an unbounded leak. (H3, Ray) Under Ray,
-total wall for the growing colony stays sub-realtime well past the
-~13-cell single-process ceiling, with biology (masses, division
-timing) consistent vs the sequential run modulo RNG.
+        <strong>Hypothesis / Expected outcome.</strong> (H1, drift) Per-cell wall drifts &lt;=20% across gens 0-3; if &gt;20%, the inner
+composite is accumulating dead nodes / growing allocations (resolves F-06).
+(H2, RSS) Per-cell RSS stays bounded once startup is amortized; the
+~5 MB/sim-s climb is pre-division warmup, not an unbounded leak. (H3, Ray)
+Under Ray, total wall stays sub-realtime well past the ~13-cell single-process
+ceiling, with biology (masses, division timing) consistent vs the sequential
+run modulo RNG.
 
       </div>
       
       
       <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> The `colony` composite (v2ecoli/composites/colony.py) wires N copies
-of EcoliWCM (v2ecoli/bridge.py) into one pymunk 2D environment from
-viva-munk. At division the bridge emits a structural update (_remove
-mother, _add two daughter EcoliWCMs) hydrated natively by the engine
-(the colonies-01 daughter-hydration fix). Sequential runs walk all
-inner 55-process WCM steps on one GIL-bound thread. The updated
-process-bigraph Ray protocol (process_bigraph/protocols/ray.py —
+        <strong>Mechanism / Model change.</strong> The `colony` composite (v2ecoli/composites/colony.py) wires N copies of
+EcoliWCM (v2ecoli/bridge.py) into one pymunk 2D environment from viva-munk.
+At division the bridge emits a structural update (_remove mother, _add two
+daughter EcoliWCMs) hydrated natively by the engine (the colonies-01
+daughter-hydration fix). Sequential runs walk all inner 55-process WCM steps
+on one GIL-bound thread. The Ray protocol (process_bigraph/protocols/ray.py —
 RayProtocol sharded actor pool via `ray:EcoliWCM` + Composite
-parallel_processes=True) runs each cell&#39;s update in its own OS
-process, so independent cells solve concurrently across cores.
+parallel_processes=True) runs each cell&#39;s update in its own OS process, so
+independent cells solve concurrently across cores.
 
       </div>
       
@@ -1325,7 +1322,7 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
-      Analysis steps — e.g. PTools exports and per-run analysis tables. Click a file to
+      Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
     <div id="data-files" data-study="colonies-02-parallel-multigen-perf">

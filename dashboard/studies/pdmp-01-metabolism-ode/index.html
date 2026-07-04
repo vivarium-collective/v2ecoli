@@ -295,7 +295,7 @@
       </h2>
       <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                 data-narrative-path="biological_summary"
-                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Replaces v2ecoli&#39;s multi-objective FBA central-carbon metabolism with the Millard 2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble within ±σ; the ~20 fg offset was traced to open-loop water drift, not the kinetics or control.</textarea>
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">Replaces v2ecoli&#39;s multi-objective FBA central-carbon metabolism with the Millard 2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble within ±σ; the ~20 fg offset was traced to open-loop water drift (fraction had climbed to 0.7045), not the kinetics or control, and the fix regulates WATER[c] closed-loop to hold the birth water fraction (target_water_mass = dry*f/(1-f)). The FBA-bridge flux-pin keeps the WCM viable (dry_mass 379.8 -&gt; 389.8 fg over 120 s).</textarea>
       
     </div>
 
@@ -1271,9 +1271,6 @@ handover.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="">View</button>
-            
-            <button class="btn-launch-ptools" data-run-id="" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
-            
             <button class="btn-delete-run" data-run-id="">Delete</button>
           </td>
         </tr>
@@ -1320,9 +1317,6 @@ handover.
           </td>
           <td>
             <button class="btn-view-run" data-run-id="phase1-pdmp-vs-phase0-and-fba-bridge">View</button>
-            
-            <button class="btn-launch-ptools" data-run-id="phase1-pdmp-vs-phase0-and-fba-bridge" title="Launch Pathway Tools Omics Viewer for this run">Launch ptools</button>
-            
             <button class="btn-delete-run" data-run-id="phase1-pdmp-vs-phase0-and-fba-bridge">Delete</button>
           </td>
         </tr>
@@ -1475,7 +1469,7 @@ handover.
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
-      Analysis steps — e.g. PTools exports and per-run analysis tables. Click a file to
+      Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
     <div id="data-files" data-study="pdmp-01-metabolism-ode">

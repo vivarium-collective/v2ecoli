@@ -119,7 +119,7 @@ def main() -> int:
             s = status.get("status", "unknown")
             print(f"  [{elapsed:.0f}s] status: {s}")
 
-            if s in ("ready", "built", "complete"):
+            if s in ("ready", "built", "complete", "completed"):
                 print(f"\nBuild #{sim_id} is {s} ✓")
                 save_state({
                     "simulator_id": sim_id,

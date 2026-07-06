@@ -162,7 +162,7 @@ def main() -> int:
         status = client.simulator_status(sim_id)
         s = status.get("status", "unknown")
         print(f"  Status: {s}")
-        if s not in ("ready", "built", "complete"):
+        if s not in ("ready", "built", "complete", "completed"):
             print("ERROR: build not ready — run prep_remote_build.py and wait for it to complete")
             return 1
     except SmsApiError as e:

@@ -254,7 +254,6 @@ COOP_SATURATION_FRAC = 7.0 / 8.0  # occupancy at which K_d hits the floor
 # bistability — the cluster monotonically climbs to saturation as bulk grows.
 # When False (default), uses the symmetric model (single K_d(n) for all
 # sites), which has bistable low-n and high-n basins.
-ASYMMETRIC_KD = os.environ.get("V2ECOLI_DNAA_ASYMMETRIC_KD", "0") in ("1", "true", "True")
 
 # Stochastic kinetics at oriC_low toggle. When True, replaces the equilibrium
 # solve for oriC_low with per-site Bernoulli sampling at each tick. Each
@@ -1076,20 +1075,6 @@ class DnaABoxBinding(Step):
                             kd_g_mol = kd_g_M * cell_volume_L * n_avogadro
                             denom_g = kd_g_mol + A_f
                             target_g = (n_s_g * A_f / denom_g) if denom_g > 0 else 0.0
-                        elif ASYMMETRIC_KD:
-                            # Asymmetric (KNF ratchet): bound sites stable at
-                            # K_d_min, empty sites at linear K_d(n).
-                            # n = n × P(stay) + (N − n) × P(bind)
-                            kd_bound_mol = KD_LOW_MIN_M * cell_volume_L * n_avogadro
-                            kd_empty_M = _kd_low_cooperative(
-                                n_b_g, n_s_g, group_relax[i],
-                                coop_engaged=gradient_rising)
-                            kd_empty_mol = kd_empty_M * cell_volume_L * n_avogadro
-                            denom_b = kd_bound_mol + A_f
-                            denom_e = kd_empty_mol + A_f
-                            stay = (n_b_g * A_f / denom_b) if denom_b > 0 else 0.0
-                            bind = ((n_s_g - n_b_g) * A_f / denom_e) if denom_e > 0 else 0.0
-                            target_g = stay + bind
                         else:
                             # Symmetric (single K_d for all sites in cluster).
                             kd_g_M = _kd_low_cooperative(

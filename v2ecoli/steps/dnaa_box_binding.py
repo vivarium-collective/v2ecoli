@@ -1157,15 +1157,6 @@ class DnaABoxBinding(Step):
                                     target_g = n_avg_num / Z if Z > 0 else 0.0
                             else:
                                 target_g = 0.0
-                        elif HILL_CONC:
-                            # Hill-in-concentration (dashboard's canonical form):
-                            # P_bound = [A_f]^n / (K^n + [A_f]^n)
-                            # n=1 reduces exactly to standard Langmuir.
-                            A_f_M = A_f / (cell_volume_L * n_avogadro)
-                            A_f_pow = A_f_M ** HILL_CONC_N
-                            K_pow = HILL_CONC_K_M ** HILL_CONC_N
-                            P_bound = A_f_pow / (K_pow + A_f_pow) if (K_pow + A_f_pow) > 0 else 0.0
-                            target_g = n_s_g * P_bound
                         elif group_is_coop[i]:
                             # Committed domain — K_d locked at floor (hysteresis).
                             kd_g_M = KD_LOW_MIN_M

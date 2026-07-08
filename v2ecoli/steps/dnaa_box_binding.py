@@ -131,64 +131,18 @@ COOPERATIVE_ORIC_LOW = True
 KD_LOW_MAX_M = 100e-9  # 100 nM at zero occupancy (= legacy KD_LOW_M)
 KD_LOW_MIN_M = 1e-9    # 1 nM at saturation
 
-# Adaptive per-domain K_d relaxation: if a chromosome's oric_low occupancy
-# stays at the same integer n_bound for longer than STUCK_THRESHOLD_S, the
-# K_d at that domain is multiplied by a relax factor that drops over time
-# (STUCK_RELAX_RATE_PER_S per second stuck) to a floor of STUCK_RELAX_MIN.
-# Encodes: cooperative DnaA-DnaA contacts develop as the cluster lingers,
-# helping the next site to bind across an apparent barrier.
-STUCK_THRESHOLD_S = float(os.environ.get("V2ECOLI_DNAA_STUCK_THRESHOLD_S", "60.0"))
-STUCK_RELAX_RATE_PER_S = 0.05  # 5%/s K_d decay once stuck — fast tightening
-STUCK_RELAX_MIN = float(os.environ.get("V2ECOLI_DNAA_STUCK_RELAX_MIN", "0.01"))  # floor on relax
-
-# Minimum n_bound the cluster must have reached before the relax dial can
-# trigger. Biologically, cooperativity is a property of an already-nucleated
-# cluster — if no DnaA has even arrived yet (n=0), there is nothing for the
-# new molecules to be cooperative WITH, and the relax dial should not fire.
-# Set ≥1 to require at least one bound DnaA-ATP before cooperative help kicks in.
-STUCK_RELAX_MIN_N_BOUND = int(os.environ.get(
-    "V2ECOLI_DNAA_STUCK_RELAX_MIN_N", "1"))
-
-# Minimum bulk DnaA-ATP concentration (in nM) required for the relax dial to
-# fire. Biological motivation: cooperative cluster assembly (DiaA/IHF help)
-# requires a meaningful supply of DnaA-ATP available to the cluster. When
-# bulk DnaA-ATP is depleted (e.g., post-initiation when daughter clusters
-# inherit but bulk is crashed by sequestration), cooperativity should not
-# engage because there is no DnaA available to be cooperative ABOUT.
-# Naturally distinguishes pre-init parent (bulk peaks ~30 nM, relax fires)
-# from post-init daughters (bulk drops to ~0 nM, relax cannot fire).
-STUCK_RELAX_MIN_BULK_NM = float(os.environ.get(
-    "V2ECOLI_DNAA_STUCK_RELAX_MIN_BULK_NM", "0.0"))
-
-
-# Positive-gradient gate on the relax dial. When enabled, the relax dial only
-# fires while bulk DnaA-ATP is rising over the past GRADIENT_WINDOW_S seconds.
-# Biological motivation: cooperative cluster assembly is a property of the
-# growth phase of the cell cycle (synthesis > consumption). After initiation,
-# bulk DnaA-ATP first spikes from fork passage then decreases as the system
-# settles; during the decreasing phase, daughter clusters should fill only
-# through natural binding, not through artificial cooperative boost.
-# Distinguishes "rising bulk → parent cluster fills cooperatively → triggers
-# init" from "falling bulk → daughters fill (or don't) on physical binding".
+# Positive-gradient gate on the Adair cooperativity path. Enables the
+# gradient_rising computation over a GRADIENT_WINDOW_S rolling window of
+# bulk DnaA-ATP concentrations. Feeds COOP_GRADIENT_GATE and the
+# POST_INIT_UNLOCK_S SeqA-proxy unlock logic.
 GRADIENT_GATE = os.environ.get(
     "V2ECOLI_DNAA_GRADIENT_GATE", "0") in ("1", "true", "True")
 GRADIENT_WINDOW_S = float(os.environ.get(
     "V2ECOLI_DNAA_GRADIENT_WINDOW_S", "60.0"))
 # Minimum positive slope (nM / s) to count as rising; smaller positive slopes
-# are treated as flat (gates off). Prevents noise from spuriously enabling
-# the relax dial during quasi-steady-state phases.
+# are treated as flat.
 GRADIENT_MIN_SLOPE_NM_PER_S = float(os.environ.get(
     "V2ECOLI_DNAA_GRADIENT_MIN_SLOPE_NM_PER_S", "0.0"))
-
-# When stuck > threshold, snap relax to STUCK_RELAX_MIN immediately rather than
-# decaying gradually. Default linear K_d at n=2 is 75 nM; snapping to 0.01
-# gives K_d ≈ 0.75 nM — competitive with the chromosomal buffer (K_d=1 nM)
-# and small enough that even modest free A_f drives cluster to full saturation.
-# Idea: "when stuck, lower K_d enough to GUARANTEE filling."
-
-# n_bound must be ≥ 4 below max_seen to trigger dissolution
-# (≈ half the cluster collapsed, not flicker).
-DISSOLUTION_DROPOFF = 4
 
 # Asymmetric K_d (KNF-style ratchet) toggle. When True, the per-oriC
 # equilibrium treats bound vs empty sites with DIFFERENT K_ds:
@@ -324,35 +278,8 @@ class DnaABoxBinding(Step):
         self._proton_idx = None
         self._water_idx = None
 
-        # Memory-aware cooperativity (asymmetric hysteresis): set of
-        # domain_index values whose oric_low subpool is currently in the
-        # cooperative state. Once a domain enters (occ ≥ NUCLEATION) its
-        # K_d stays at KD_LOW_MIN_M until occ drops below COOP_EXIT_THRESHOLD.
-        # Domains that disappear (fork release) are pruned each tick.
-
-        # Adaptive per-domain stuck-state tracking (Option 2: progress-based).
-        # _stuck_n[dom]: MAX n_bound this domain has reached so far in its lifetime
-        # _stuck_secs[dom]: seconds spent at-or-below max without upward progress
-        # _kd_relax[dom]: multiplicative K_d factor (1.0 default; drops while
-        #                 stuck beyond STUCK_THRESHOLD_S, resets only on progress
-        #                 — i.e., n_bound exceeding the previous max)
-        # Biological rationale: cooperative cluster maturity is preserved across
-        # hydrolysis flicker (single-molecule turnover); only true upward
-        # progress (cluster growth) resets the "stuck" accumulator.
-        self._stuck_n = {}
-        self._stuck_secs = {}
-        self._kd_relax = {}
-
-        # Per-cluster K_half state for the adaptive-K_half mechanism. Persisted
-        # tick-by-tick so the listener can emit per-domain K_half traces —
-        # domains that spent time stuck at a low n show a K_half floor equal to
-        # that stuck n, matching the "K_d curve unlocked at stuck occupancy"
-        # semantic. Reset when the domain vanishes (fork release).
-
         # Positive-gradient gate state: rolling window of recent bulk DnaA-ATP
-        # observations as (time_s, nM) tuples. Gate fires only while the
-        # current bulk concentration is greater than the oldest value within
-        # the window — i.e. bulk is rising.
+        # observations as (time_s, nM) tuples used to compute gradient_rising.
         self._bulk_atp_history = []
 
         # Solver warm-start state — pure-linear-K_d mode (no hysteresis flag,
@@ -672,100 +599,11 @@ class DnaABoxBinding(Step):
                 n_bound_prev = int(np.count_nonzero(
                     bound_form[dom_mask] == FORM_BOUND_ATP))
                 n_bound_prev_by_dom[dom_key] = n_bound_prev
-                # v8 stuck-time relax (restored): track MAX n_bound per
-                # domain; if cluster stays at the same n for STUCK_THRESHOLD_S,
-                # multiply K_d by a relax factor that decays with stuck time.
-                # Resets on upward progress (cluster grew past previous max) or
-                # dissolution (cluster fell ≥ DISSOLUTION_DROPOFF below max).
-                prev_max_n = self._stuck_n.get(dom_key)
-                # Reset stuck timer only on SIGNIFICANT upward progress (≥2
-                # jump), not on every +1 fluctuation. With +1 reset rule,
-                # natural binding/unbinding fluctuations between adjacent
-                # low-n values (e.g. 0↔1) keep resetting the timer, preventing
-                # relax from ever firing. The ≥2 jump rule lets the timer
-                # accumulate during low-n fluctuation, so relax reliably
-                # triggers once per cycle when the cluster is genuinely stuck
-                # at a low max.
-                if prev_max_n is None:
-                    # New domain — initialize state
-                    self._stuck_n[dom_key] = n_bound_prev
-                    self._stuck_secs[dom_key] = 0.0
-                    self._kd_relax[dom_key] = 1.0
-                elif n_bound_prev > prev_max_n:
-                    # Upward progress (cluster grew) — update max, zero the
-                    # stuck timer, AND reset relax to 1.0. Cooperativity must
-                    # be re-engaged each cycle by the bulk-DnaA-ATP gate —
-                    # without carry-forward, once the cluster has filled it
-                    # falls back to natural K_d, and the next cycle requires
-                    # bulk to cross the gate threshold again. This prevents
-                    # the cluster from staying locked across post-init bulk
-                    # crashes (which is what allows daughter cluster firing
-                    # under the carry-forward semantics).
-                    self._stuck_n[dom_key] = n_bound_prev
-                    self._stuck_secs[dom_key] = 0.0
-                    self._kd_relax[dom_key] = 1.0
-                elif (prev_max_n - n_bound_prev) >= DISSOLUTION_DROPOFF:
-                    self._stuck_n[dom_key] = n_bound_prev
-                    self._stuck_secs[dom_key] = 0.0
-                    self._kd_relax[dom_key] = 1.0
-                else:
-                    # Guard: cooperativity is a property of an already-nucleated
-                    # AND currently-bound cluster. Check the CURRENT occupancy
-                    # (n_bound_prev), not the historical max (prev_max_n). If
-                    # the cluster transiently reached n=1 in the past but has
-                    # since dropped back to n=0, there is nothing currently
-                    # bound for cooperativity to help — relax must NOT fire.
-                    # The historical max being ≥ MIN_N is a necessary but not
-                    # sufficient condition; the cluster must ALSO currently
-                    # have ≥ MIN_N bound.
-                    if n_bound_prev >= STUCK_RELAX_MIN_N_BOUND:
-                        self._stuck_secs[dom_key] += dt_min * 60.0
-                        # Bulk DnaA-ATP concentration guard: relax only fires
-                        # if the cell has enough bulk DnaA-ATP available for
-                        # the cooperative cluster to draw from. This natural
-                        # mechanism prevents daughter clusters from firing
-                        # post-init when bulk has been depleted.
-                        bulk_atp_nM = (atp_bulk_count
-                                       / (cell_volume_L * self.n_avogadro)
-                                       * 1e9)
-                        bulk_gate_threshold = STUCK_RELAX_MIN_BULK_NM
-                        # Positive-gradient gate (optional): only fire when
-                        # bulk DnaA-ATP is rising over the past GRADIENT_WINDOW_S
-                        # seconds. Disabled by default — see GRADIENT_GATE.
-                        gradient_ok = True
-                        if GRADIENT_GATE and len(self._bulk_atp_history) >= 2:
-                            t_now = float(states["global_time"])
-                            t_old = self._bulk_atp_history[0][0]
-                            nM_old = self._bulk_atp_history[0][1]
-                            window_s = max(t_now - t_old, 1e-6)
-                            slope_nM_per_s = (
-                                (bulk_atp_nM - nM_old) / window_s)
-                            gradient_ok = (
-                                slope_nM_per_s > GRADIENT_MIN_SLOPE_NM_PER_S)
-                        if (self._stuck_secs[dom_key] > STUCK_THRESHOLD_S
-                                and bulk_atp_nM >= bulk_gate_threshold
-                                and gradient_ok):
-                            # Gradual decay of relax dial while cluster is stuck.
-                            new_relax = (1.0 - STUCK_RELAX_RATE_PER_S * (dt_min * 60.0)) \
-                                * self._kd_relax.get(dom_key, 1.0)
-                            self._kd_relax[dom_key] = max(STUCK_RELAX_MIN, new_relax)
-                    else:
-                        # Cluster currently below the nucleation threshold —
-                        # keep stuck timer at zero so the 60-second settling
-                        # window restarts whenever natural binding pushes
-                        # n_bound back to ≥ STUCK_RELAX_MIN_N_BOUND.
-                        self._stuck_secs[dom_key] = 0.0
-            # Prune any vanished domains (fork release). Clear warm-start
-            # cache + stuck-time state for vanished keys so daughter domains
-            # (different keys) start fresh.
+            # Prune warm-start cache for vanished domains (fork release), so
+            # daughter domains (different keys) start with a fresh solver x0.
             for stale in list(self._prev_n_bound_by_dom.keys()):
                 if stale not in current_doms_set:
                     self._prev_n_bound_by_dom.pop(stale, None)
-            for stale in list(self._stuck_n.keys()):
-                if stale not in current_doms_set:
-                    self._stuck_n.pop(stale, None)
-                    self._stuck_secs.pop(stale, None)
-                    self._kd_relax.pop(stale, None)
             # Prune post-init-unlock state for vanished domains.
             if POST_INIT_UNLOCK_S > 0:
                 for stale in list(self._dom_kd_ladder_unlocked.keys()):
@@ -785,15 +623,6 @@ class DnaABoxBinding(Step):
 
         if (A_T + D_T) > 0 and (N_h + N_l_legacy) > 0:
             if COOPERATIVE_ORIC_LOW and n_groups > 0:
-                # Precompute per-group K_d relax factors from stuck-tracking.
-                # v8 dynamic adjustment: K_d is multiplied by relax<1 when the
-                # cluster has been stuck for STUCK_THRESHOLD_S seconds. Only
-                # affects the Langmuir (linear-K_d) fallback path; the stepped
-                # Adair ladder ignores relax and reads its K_d,i list directly.
-                group_relax = [
-                    self._kd_relax.get(int(unique_doms[i]), 1.0)
-                    for i in range(n_groups)
-                ]
                 # Bulk-ATP gradient state (used by the Adair GRADIENT gate and
                 # by the POST_INIT_UNLOCK_S post-init ladder unlock below).
                 # gradient_rising = True → bulk DnaA-ATP is accumulating over
@@ -840,7 +669,6 @@ class DnaABoxBinding(Step):
                 # config), or from the Langmuir linear-K_d fallback otherwise.
                 def _residuals(x, A_T=A_T, D_T=D_T, N_h=N_h, K_h=K_h,
                                n_groups=n_groups, group_n_sites=group_n_sites,
-                               group_relax=group_relax,
                                cell_volume_L=cell_volume_L,
                                n_avogadro=self.n_avogadro):
                     A_f = max(x[0], 0.0)

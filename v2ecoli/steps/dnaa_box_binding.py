@@ -263,7 +263,6 @@ COOP_SATURATION_FRAC = 7.0 / 8.0  # occupancy at which K_d hits the floor
 # regime, one chromosome can cross to high-n while another stays at low-n
 # (competitive exclusion via stochastic timing). Equilibrium-solving is still
 # used for the high-affinity pools (no bistability there).
-STOCHASTIC_ORIC_LOW = os.environ.get("V2ECOLI_DNAA_STOCHASTIC_ORIC_LOW", "0") in ("1", "true", "True")
 
 # Kinetic oriC_low binding. When enabled, the equilibrium solver still finds
 # the fixed point (the "target" occupancy at current conditions), but each
@@ -1175,53 +1174,6 @@ class DnaABoxBinding(Step):
                 D_free = max(float(sol.x[1]), 0.0)
                 group_bound_atp = np.maximum(
                     np.asarray(sol.x[2:2 + n_groups], dtype=np.float64), 0.0)
-
-                if STOCHASTIC_ORIC_LOW:
-                    # Override the solver's oric_low result with per-site
-                    # sequential Bernoulli sampling with within-tick chain
-                    # reaction. Bound sites can stay bound or unbind (K_d_min);
-                    # empty sites are sampled in sequence, and each site's
-                    # binding decreases the K_d seen by SUBSEQUENT sites this
-                    # same tick (nearest-neighbor cooperativity propagation).
-                    #
-                    # Effect: a fresh cluster that starts to nucleate can
-                    # cascade within a tick IF bulk_ATP is high enough; if it
-                    # can't get past the first few bindings (low-P region at
-                    # K_d~100 nM), it stops. Prevents deterministic snap-fill
-                    # but allows cascade-to-full when conditions favor it.
-                    A_free_M = A_free / (cell_volume_L * self.n_avogadro)
-                    for i in range(n_groups):
-                        dom_key = int(unique_doms[i])
-                        dom_n_sites = int(group_n_sites[i])
-                        n_b_prev = self._prev_n_bound_by_dom.get(dom_key, 0.0)
-                        n_bound_initial = int(round(n_b_prev))
-                        # 1) Sample the already-bound sites (K_d = K_d_min).
-                        n_bound_running = 0
-                        for _ in range(n_bound_initial):
-                            kd_M = KD_LOW_MIN_M
-                            P_bound = A_free_M / (A_free_M + kd_M) \
-                                if (A_free_M + kd_M) > 0 else 0.0
-                            if self.random_state.random_sample() < P_bound:
-                                n_bound_running += 1
-                        # 2) Sample the empty sites in sequence. Each site's
-                        # K_d is computed from the CURRENT running n_bound so
-                        # a within-tick chain reaction can propagate.
-                        n_empty = max(0, dom_n_sites - n_bound_initial)
-                        for _ in range(n_empty):
-                            kd_M = _kd_low_cooperative(
-                                float(n_bound_running), float(dom_n_sites),
-                                1.0, coop_engaged=gradient_rising)
-                            P_bound = A_free_M / (A_free_M + kd_M) \
-                                if (A_free_M + kd_M) > 0 else 0.0
-                            if self.random_state.random_sample() < P_bound:
-                                n_bound_running += 1
-                        group_bound_atp[i] = float(n_bound_running)
-                    # Restore A_T conservation: adjust A_free for the change
-                    # in oric_low bound counts vs what the solver assumed.
-                    solver_oric_low = float(np.asarray(
-                        sol.x[2:2 + n_groups], dtype=np.float64).sum())
-                    stochastic_oric_low = float(group_bound_atp.sum())
-                    A_free = max(A_free + (solver_oric_low - stochastic_oric_low), 0.0)
 
                 if KINETIC_ORIC_LOW:
                     # True kinetic ODE: dN/dt = k_on(N)·[A_f]·(N_max−N) − k_off·N

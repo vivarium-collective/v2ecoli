@@ -160,33 +160,6 @@ STUCK_RELAX_MIN_N_BOUND = int(os.environ.get(
 STUCK_RELAX_MIN_BULK_NM = float(os.environ.get(
     "V2ECOLI_DNAA_STUCK_RELAX_MIN_BULK_NM", "0.0"))
 
-# Pre-init bulk-gate on the relax dial. When enabled, the bulk DnaA-ATP
-# threshold that gates the relax dial is set dynamically at initiation time:
-# we track the running max of bulk DnaA-ATP during the pre-init phase, and
-# at initiation we freeze that value as the post-init threshold. Idea:
-# daughter clusters should not fire unless bulk exceeds what was needed
-# to fire the parent cluster. Replaces STUCK_RELAX_MIN_BULK_NM after init
-# when on.
-PREINIT_BULK_GATE = os.environ.get(
-    "V2ECOLI_DNAA_PREINIT_BULK_GATE", "0") in ("1", "true", "True")
-
-# Peak-detection gate on the relax dial. When enabled, the relax dial fires
-# only after the running max of bulk DnaA-ATP within the current generation
-# has been "passed" — i.e., current bulk has dropped below PEAK_FRACTION ×
-# running_max. Once init fires, the gate closes for the rest of the
-# generation so daughter clusters cannot trigger cooperativity. Adapts the
-# trigger to each generation's natural bulk profile (no fixed nM threshold).
-# Phenomenological proxy for intrinsic concentration-dependent cooperativity
-# (real biology drives the peak via cooperative sequestration; we use the
-# peak as a signal to trigger cooperativity).
-PEAK_DETECT_GATE = os.environ.get(
-    "V2ECOLI_DNAA_PEAK_DETECT_GATE", "0") in ("1", "true", "True")
-PEAK_FRACTION = float(os.environ.get(
-    "V2ECOLI_DNAA_PEAK_FRACTION", "0.9"))
-# Minimum running max (nM) before peak detection arms — avoids false
-# positives from tick-to-tick noise at very low bulk values.
-PEAK_MIN_NM = float(os.environ.get(
-    "V2ECOLI_DNAA_PEAK_MIN_NM", "5.0"))
 
 # Positive-gradient gate on the relax dial. When enabled, the relax dial only
 # fires while bulk DnaA-ATP is rising over the past GRADIENT_WINDOW_S seconds.
@@ -437,15 +410,6 @@ class DnaABoxBinding(Step):
         # the window — i.e. bulk is rising.
         self._bulk_atp_history = []
 
-        # Pre-init bulk-gate / peak-detect-gate state. Tracks running max of
-        # bulk DnaA-ATP and whether a "bulk peak" has been detected this gen.
-        # Shared by PREINIT_BULK_GATE and PEAK_DETECT_GATE.
-        self._gen_running_max_bulk_nM = 0.0
-        self._preinit_bulk_max_nM = None
-        self._gen_peak_detected = False
-        self._gen_init_fired = False
-        self._prev_noric = None
-
         # Solver warm-start state — pure-linear-K_d mode (no hysteresis flag,
         # no relax dial). Cooperative K_d has intrinsic bistability; the
         # equilibrium solver picks an arbitrary basin per tick when started
@@ -477,11 +441,6 @@ class DnaABoxBinding(Step):
                     # Volume computed by mass_deriver as cell_mass / cell_density.
                     # Reading from the listener keeps a single source of truth.
                     'volume': {'_type': 'quantity[float,fL]', '_default': 0.0},
-                },
-                # Used by PREINIT_BULK_GATE to detect initiation events
-                # (number_of_oric step) and freeze the pre-init bulk max.
-                'replication_data': {
-                    'number_of_oric': {'_type': 'integer', '_default': 0},
                 },
             },
             'global_time': {'_type': 'float[s]', '_default': 0.0},
@@ -690,34 +649,6 @@ class DnaABoxBinding(Step):
                    and self._bulk_atp_history[0][0] < cutoff):
                 self._bulk_atp_history.pop(0)
 
-        # Track running max of bulk DnaA-ATP (shared by PREINIT_BULK_GATE and
-        # PEAK_DETECT_GATE), peak detection, and initiation detection.
-        if PREINIT_BULK_GATE or PEAK_DETECT_GATE:
-            tick_bulk_atp_nM = (atp_bulk_count
-                                / (cell_volume_L * self.n_avogadro)
-                                * 1e9)
-            self._gen_running_max_bulk_nM = max(
-                self._gen_running_max_bulk_nM, tick_bulk_atp_nM)
-            cur_noric = int(states["listeners"]["replication_data"]
-                            .get("number_of_oric", 0))
-            if (self._prev_noric is not None
-                    and cur_noric > self._prev_noric
-                    and self._preinit_bulk_max_nM is None):
-                # Initiation just fired. Freeze the pre-init max as the
-                # threshold for the rest of the cycle and lock the peak gate.
-                self._preinit_bulk_max_nM = self._gen_running_max_bulk_nM
-                self._gen_init_fired = True
-            self._prev_noric = cur_noric
-
-            # Peak detection: arm once running_max exceeds PEAK_MIN_NM, fire
-            # once current bulk has dropped to PEAK_FRACTION × running_max.
-            if (PEAK_DETECT_GATE
-                    and not self._gen_peak_detected
-                    and self._gen_running_max_bulk_nM >= PEAK_MIN_NM
-                    and tick_bulk_atp_nM
-                        < PEAK_FRACTION * self._gen_running_max_bulk_nM):
-                self._gen_peak_detected = True
-
         # K_d in molecules (so all per-pool maths stay integer-scale).
         # Kd[mol/L] * V[L] * N_A[1/mol] = molecules.
         kd_high_molecules = self.kd_high_M * cell_volume_L * self.n_avogadro
@@ -852,15 +783,7 @@ class DnaABoxBinding(Step):
                         bulk_atp_nM = (atp_bulk_count
                                        / (cell_volume_L * self.n_avogadro)
                                        * 1e9)
-                        # Dynamic bulk-gate (optional): once init has fired,
-                        # the threshold becomes the pre-init bulk max.
-                        # Daughters only fire if bulk exceeds parent's peak.
                         bulk_gate_threshold = STUCK_RELAX_MIN_BULK_NM
-                        if (PREINIT_BULK_GATE
-                                and self._preinit_bulk_max_nM is not None):
-                            bulk_gate_threshold = max(
-                                bulk_gate_threshold,
-                                self._preinit_bulk_max_nM)
                         # Positive-gradient gate (optional): only fire when
                         # bulk DnaA-ATP is rising over the past GRADIENT_WINDOW_S
                         # seconds. Disabled by default — see GRADIENT_GATE.
@@ -874,18 +797,9 @@ class DnaABoxBinding(Step):
                                 (bulk_atp_nM - nM_old) / window_s)
                             gradient_ok = (
                                 slope_nM_per_s > GRADIENT_MIN_SLOPE_NM_PER_S)
-                        # Peak-detection gate: fire only after the bulk peak
-                        # has been detected this generation AND before init
-                        # fires (lock daughters out). Overrides the bulk
-                        # concentration check when on.
-                        peak_gate_ok = True
-                        if PEAK_DETECT_GATE:
-                            peak_gate_ok = (self._gen_peak_detected
-                                            and not self._gen_init_fired)
                         if (self._stuck_secs[dom_key] > STUCK_THRESHOLD_S
                                 and bulk_atp_nM >= bulk_gate_threshold
-                                and gradient_ok
-                                and peak_gate_ok):
+                                and gradient_ok):
                             # Gradual decay of relax dial while cluster is stuck.
                             new_relax = (1.0 - STUCK_RELAX_RATE_PER_S * (dt_min * 60.0)) \
                                 * self._kd_relax.get(dom_key, 1.0)

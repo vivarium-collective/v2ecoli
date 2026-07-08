@@ -264,20 +264,6 @@ COOP_SATURATION_FRAC = 7.0 / 8.0  # occupancy at which K_d hits the floor
 # (competitive exclusion via stochastic timing). Equilibrium-solving is still
 # used for the high-affinity pools (no bistability there).
 
-# Kinetic oriC_low binding. When enabled, the equilibrium solver still finds
-# the fixed point (the "target" occupancy at current conditions), but each
-# tick we RELAX toward that target with time constant tau = 1/k_off — instead
-# of jumping to it instantly. Same K_d curve, same cooperativity, but binding
-# takes real biological time to happen. Prevents daughter clusters from
-# snap-filling 0→8 in one 2-second tick.
-#   dN/dt = k_on × A_free × (N_max − N) − k_off × N
-# At equilibrium: N_eq × K_d = A_f × (N_max − N_eq)  ← what solver finds
-# Kinetic step: N_new = N_prev + (N_eq − N_prev) × (1 − exp(−dt × k_off))
-KINETIC_ORIC_LOW = os.environ.get("V2ECOLI_DNAA_KINETIC_ORIC_LOW", "0") in ("1", "true", "True")
-# k_off in 1/s. Real DnaA-oriC dissociation is ~0.001-0.1/s in vitro.
-# Default 0.01/s → τ ≈ 100s. Cluster reaches 90% of eq in ~230s (~4 min).
-KINETIC_KOFF_PER_S = float(os.environ.get("V2ECOLI_DNAA_KINETIC_KOFF_PER_S", "0.01"))
-
 # Hill K_d cooperativity toggle. When True, replaces the linear K_d(n) formula
 # with a Hill function:
 #   K_d(n) = K_d_min + (K_d_max - K_d_min) × K_half^h / (K_half^h + n^h)
@@ -1174,52 +1160,6 @@ class DnaABoxBinding(Step):
                 D_free = max(float(sol.x[1]), 0.0)
                 group_bound_atp = np.maximum(
                     np.asarray(sol.x[2:2 + n_groups], dtype=np.float64), 0.0)
-
-                if KINETIC_ORIC_LOW:
-                    # True kinetic ODE: dN/dt = k_on(N)·[A_f]·(N_max−N) − k_off·N
-                    # where k_on(N) = k_off / K_d(N) — cooperativity affects
-                    # both the destination AND the rate. At low N, K_d is high
-                    # → k_on small → slow nucleation. Past K_half, K_d drops →
-                    # k_on rises → binding accelerates through the transition.
-                    #
-                    # For each cluster, freeze K_d at K_d(n_prev) over the
-                    # timestep (small-dt approximation) and integrate exactly:
-                    #   n_new = n_eq_local + (n_prev − n_eq_local)·exp(−c·dt)
-                    # where c = k_on·[A_f] + k_off, n_eq_local = N_max·A_f/(A_f+K_d)
-                    dt_s = float(states["timestep"])
-                    A_free_M = A_free / (cell_volume_L * self.n_avogadro)
-                    kinetic_bound = np.zeros(n_groups, dtype=np.float64)
-                    for i in range(n_groups):
-                        dom_key = int(unique_doms[i])
-                        n_prev = float(self._prev_n_bound_by_dom.get(
-                            dom_key, 0.0))
-                        cluster_n_sites = float(group_n_sites[i])
-                        kd_M = _kd_low_cooperative(
-                            n_prev, cluster_n_sites, group_relax[i],
-                            coop_engaged=gradient_rising)
-                        # Rate constants at current n_prev
-                        k_on = KINETIC_KOFF_PER_S / kd_M if kd_M > 0 else 0.0
-                        a = k_on * A_free_M  # forward rate (1/s)
-                        b = KINETIC_KOFF_PER_S  # reverse rate (1/s)
-                        c = a + b  # total relaxation rate (1/s)
-                        n_eq_local = (cluster_n_sites * A_free_M
-                                      / (A_free_M + kd_M)
-                                      if (A_free_M + kd_M) > 0 else 0.0)
-                        alpha_local = 1.0 - np.exp(-dt_s * c) if c > 0 else 0.0
-                        kinetic_bound[i] = (n_prev
-                                            + alpha_local * (n_eq_local - n_prev))
-                    group_bound_atp = np.clip(kinetic_bound, 0.0,
-                                              np.asarray(group_n_sites,
-                                                         dtype=np.float64))
-                    # Restore A_T conservation: unbound DnaA-ATP (from
-                    # kinetic under-fill vs equilibrium) stays in bulk.
-                    solver_targets = np.asarray(
-                        sol.x[2:2 + n_groups], dtype=np.float64)
-                    solver_targets = np.maximum(solver_targets, 0.0)
-                    solver_oric_low_total = float(solver_targets.sum())
-                    kinetic_oric_low_total = float(group_bound_atp.sum())
-                    A_free = max(A_free + (solver_oric_low_total
-                                           - kinetic_oric_low_total), 0.0)
 
                 # Cache for next tick's warm-start.
                 self._prev_A_free = A_free

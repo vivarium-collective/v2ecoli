@@ -81,11 +81,6 @@ class ReplicationData(Step):
                     # Consumed by chromosome_replication's per-oriC sat-init gate.
                     'oric_low_atp_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'oric_low_atp_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    # Per-oriC-domain adaptive-K_half trace emitted by
-                    # dnaa_box_binding. Parallel arrays: one K_half value per
-                    # domain that carried oric_low sites on the tick.
-                    'oric_khalf_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'oric_khalf_values': {'_type': 'overwrite[array[float]]', '_default': []},
                 },
             },
         }

@@ -289,20 +289,11 @@ KINETIC_KOFF_PER_S = float(os.environ.get("V2ECOLI_DNAA_KINETIC_KOFF_PER_S", "0.
 # This is steeper than linear — K_d stays near K_d_max at low n and drops
 # sharply around K_half. Captures real cooperative binding where the
 # transition happens in a narrow occupancy range rather than gradually.
-HILL_KD = os.environ.get("V2ECOLI_DNAA_HILL_KD", "0") in ("1", "true", "True")
-HILL_K_HALF = float(os.environ.get("V2ECOLI_DNAA_HILL_K_HALF", "4.0"))
-HILL_H = float(os.environ.get("V2ECOLI_DNAA_HILL_H", "4.0"))
+# KHALF_STUCK_THRESHOLD_S is referenced by the dead COOP_STUCK_GATE branch in
+# the Adair residuals (short-circuits when COOP_STUCK_GATE=0, which is the
+# milestone default). Kept as a literal until COOP_STUCK_GATE is removed too.
+KHALF_STUCK_THRESHOLD_S = 300.0
 
-# Adaptive K_half: when a cluster has been stuck at a max occupancy below the
-# default K_half for KHALF_STUCK_THRESHOLD_S seconds, drop K_half to the
-# cluster's current max-reached n. This lets cooperativity engage at the
-# stuck level rather than waiting for nucleation past the default cliff —
-# fixes "stuck at n=2 for an hour" pathology while keeping a fast-progressing
-# cluster on the normal K_half=3 cooperative curve.
-ADAPTIVE_KHALF = os.environ.get(
-    "V2ECOLI_DNAA_ADAPTIVE_KHALF", "0") in ("1", "true", "True")
-KHALF_STUCK_THRESHOLD_S = float(os.environ.get(
-    "V2ECOLI_DNAA_KHALF_STUCK_THRESHOLD_S", "300.0"))
 
 # Adair stepwise binding constants. Cluster of N sites has N sequential
 # dissociation constants K_d,1 > K_d,2 > ... > K_d,N (positive cooperativity:
@@ -344,7 +335,6 @@ COOP_GRADIENT_GATE = os.environ.get(
 
 
 def _kd_low_cooperative(n_bound: float, n_total: float, relax: float = 1.0,
-                         k_half: float | None = None,
                          coop_engaged: bool = True) -> float:
     """Per-oriC K_d for the Langmuir (linear-K_d) fallback path.
 
@@ -353,9 +343,6 @@ def _kd_low_cooperative(n_bound: float, n_total: float, relax: float = 1.0,
     inside the ASYMMETRIC / stochastic / kinetic oric_low branches. The
     stepped Adair ladder (ADAIR_KD=1) is the primary path and does not
     use this function.
-
-    k_half is accepted for backwards compatibility with call-site kwargs
-    but is currently unused (previously fed the removed HILL_KD branch).
     """
     if n_total <= 0:
         return KD_LOW_MAX_M
@@ -472,8 +459,6 @@ class DnaABoxBinding(Step):
         # domains that spent time stuck at a low n show a K_half floor equal to
         # that stuck n, matching the "K_d curve unlocked at stuck occupancy"
         # semantic. Reset when the domain vanishes (fork release).
-        self._last_khalf_doms = []
-        self._last_khalf_values = []
 
         # Positive-gradient gate state: rolling window of recent bulk DnaA-ATP
         # observations as (time_s, nM) tuples. Gate fires only while the
@@ -1025,31 +1010,6 @@ class DnaABoxBinding(Step):
                             else:
                                 self._dom_pos_grad_secs[dom_key] = 0.0
 
-                # Adaptive K_half per cluster. If the cluster has been stuck
-                # at-or-below a max-n for KHALF_STUCK_THRESHOLD_S seconds,
-                # lower K_half to that stuck max-n so cooperativity engages at
-                # the stuck level. Otherwise use the default HILL_K_HALF.
-                #
-                # Gated by bulk_ATP gradient (if GRADIENT_GATE=1): only lower
-                # K_half when bulk DnaA-ATP is RISING. Prevents daughter
-                # clusters from inheriting a lowered K_half while bulk_ATP is
-                # falling post-init — which would otherwise let them cascade-
-                # fill on the residual chr_high pool.
-                if ADAPTIVE_KHALF and gradient_rising:
-                    group_khalf = []
-                    for i in range(n_groups):
-                        dk = int(unique_doms[i])
-                        if self._stuck_secs.get(dk, 0.0) > KHALF_STUCK_THRESHOLD_S:
-                            stuck_max = self._stuck_n.get(dk, HILL_K_HALF)
-                            group_khalf.append(max(1.0, float(stuck_max)))
-                        else:
-                            group_khalf.append(HILL_K_HALF)
-                else:
-                    group_khalf = [HILL_K_HALF] * n_groups
-                # Persist for listener emission below (per-domain K_half tick trace).
-                self._last_khalf_doms = list(unique_doms)
-                self._last_khalf_values = list(group_khalf)
-
                 group_is_coop = [False] * n_groups
 
                 # Per-chromosome equilibrium residuals. For each oriC-low group
@@ -1059,7 +1019,6 @@ class DnaABoxBinding(Step):
                 def _residuals(x, A_T=A_T, D_T=D_T, N_h=N_h, K_h=K_h,
                                n_groups=n_groups, group_n_sites=group_n_sites,
                                group_relax=group_relax,
-                               group_khalf=group_khalf,
                                group_is_coop=group_is_coop,
                                cell_volume_L=cell_volume_L,
                                n_avogadro=self.n_avogadro):
@@ -1145,7 +1104,7 @@ class DnaABoxBinding(Step):
                             # n = n × P(stay) + (N − n) × P(bind)
                             kd_bound_mol = KD_LOW_MIN_M * cell_volume_L * n_avogadro
                             kd_empty_M = _kd_low_cooperative(
-                                n_b_g, n_s_g, group_relax[i], k_half=group_khalf[i],
+                                n_b_g, n_s_g, group_relax[i],
                                 coop_engaged=gradient_rising)
                             kd_empty_mol = kd_empty_M * cell_volume_L * n_avogadro
                             denom_b = kd_bound_mol + A_f
@@ -1156,7 +1115,7 @@ class DnaABoxBinding(Step):
                         else:
                             # Symmetric (single K_d for all sites in cluster).
                             kd_g_M = _kd_low_cooperative(
-                                n_b_g, n_s_g, group_relax[i], k_half=group_khalf[i],
+                                n_b_g, n_s_g, group_relax[i],
                                 coop_engaged=gradient_rising)
                             kd_g_mol = kd_g_M * cell_volume_L * n_avogadro
                             denom_g = kd_g_mol + A_f
@@ -1288,8 +1247,7 @@ class DnaABoxBinding(Step):
                         for _ in range(n_empty):
                             kd_M = _kd_low_cooperative(
                                 float(n_bound_running), float(dom_n_sites),
-                                1.0, k_half=group_khalf[i],
-                                coop_engaged=gradient_rising)
+                                1.0, coop_engaged=gradient_rising)
                             P_bound = A_free_M / (A_free_M + kd_M) \
                                 if (A_free_M + kd_M) > 0 else 0.0
                             if self.random_state.random_sample() < P_bound:
@@ -1323,7 +1281,6 @@ class DnaABoxBinding(Step):
                         cluster_n_sites = float(group_n_sites[i])
                         kd_M = _kd_low_cooperative(
                             n_prev, cluster_n_sites, group_relax[i],
-                            k_half=group_khalf[i],
                             coop_engaged=gradient_rising)
                         # Rate constants at current n_prev
                         k_on = KINETIC_KOFF_PER_S / kd_M if kd_M > 0 else 0.0
@@ -1570,14 +1527,6 @@ class DnaABoxBinding(Step):
             "dnaa_hydrolysis": {
                 "bound_count": int(delta_h_bound),
                 "promoter_fraction": promoter_fraction,
-            },
-            "listeners": {
-                "replication_data": {
-                    "oric_khalf_domains": np.asarray(
-                        self._last_khalf_doms, dtype=np.int64),
-                    "oric_khalf_values": np.asarray(
-                        self._last_khalf_values, dtype=np.float64),
-                },
             },
         }
         if bulk_update:

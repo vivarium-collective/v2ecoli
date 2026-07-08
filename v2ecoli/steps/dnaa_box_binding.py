@@ -225,8 +225,7 @@ RELAX_RECOVERY_RATE_PER_S = 0.001  # 0.1%/s recovery — 50× slower than decay
                                     # (cluster takes minutes to dissolve)
 RELAX_RECOVERED_THRESHOLD = 0.9    # above this, declare cluster dissolved
 
-_NO_HYSTERESIS = os.environ.get("V2ECOLI_DNAA_NO_HYSTERESIS", "0") in ("1", "true", "True")
-COOP_NUCLEATION_THRESHOLD = 1.1 if _NO_HYSTERESIS else 0.75  # 6/8 sites — ENTRY into the committed
+COOP_NUCLEATION_THRESHOLD = 0.75  # 6/8 sites — ENTRY into the committed
                                    # (hysteresis-locked) cooperative state.
                                    # Combined with the v8 stuck-time mechanism
                                    # below: a domain commits if it reaches 6/8

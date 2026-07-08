@@ -1030,28 +1030,6 @@ class DnaABoxBinding(Step):
                         # New domain (post-fork) — start at low-n basin guess.
                         x0.append(float(group_n_sites[i]) * 0.1)
                 sol = scipy_root(_residuals, x0, method="hybr", tol=1e-9)
-                # DEBUG: log first ~5 solver calls to inspect what's happening
-                if os.environ.get("V2ECOLI_DNAA_SOLVER_DEBUG", "0") == "1":
-                    if not hasattr(self, "_debug_call_count"):
-                        self._debug_call_count = 0
-                    if self._debug_call_count < 5:
-                        residuals_at_sol = _residuals(list(sol.x))
-                        print(f"[SOLVER_DBG call {self._debug_call_count}] "
-                              f"A_T={A_T:.3f} D_T={D_T:.3f} "
-                              f"cell_vol_L={cell_volume_L:.3e}",
-                              flush=True)
-                        print(f"  x0=[A0={x0[0]:.4f}, D0={x0[1]:.4f}, "
-                              f"x_cluster={x0[2]:.4f}]", flush=True)
-                        print(f"  sol.x=[A_f={sol.x[0]:.4f}, "
-                              f"D_f={sol.x[1]:.4f}, x_cluster={sol.x[2]:.4f}]",
-                              flush=True)
-                        print(f"  sol.success={sol.success} "
-                              f"residuals={[f'{r:.3e}' for r in residuals_at_sol]}",
-                              flush=True)
-                        print(f"  atp_bulk_count={atp_bulk_count} "
-                              f"n_bound_prev_by_dom={n_bound_prev_by_dom}",
-                              flush=True)
-                        self._debug_call_count += 1
                 if not sol.success:
                     # Fallback: retry from the current bulk pool + actual
                     # DNA-bound state. Same physical x0 as the primary path,
@@ -1066,10 +1044,6 @@ class DnaABoxBinding(Step):
                             dom_key, group_n_sites[i] * 0.1))
                         x0_fb.append(n0 * 0.9)  # nudge slightly toward low basin
                     sol = scipy_root(_residuals, x0_fb, method="hybr", tol=1e-9)
-                    if os.environ.get("V2ECOLI_DNAA_SOLVER_DEBUG", "0") == "1":
-                        print(f"[SOLVER_DBG] FALLBACK TRIGGERED "
-                              f"sol.success={sol.success} "
-                              f"sol.x[cluster]={sol.x[2]:.4f}", flush=True)
                 A_free = max(float(sol.x[0]), 0.0)
                 D_free = max(float(sol.x[1]), 0.0)
                 group_bound_atp = np.maximum(

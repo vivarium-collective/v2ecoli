@@ -304,21 +304,6 @@ ADAPTIVE_KHALF = os.environ.get(
 KHALF_STUCK_THRESHOLD_S = float(os.environ.get(
     "V2ECOLI_DNAA_KHALF_STUCK_THRESHOLD_S", "300.0"))
 
-# Hill-in-concentration toggle. The dashboard's canonical formulation:
-#   P(each oric_low site bound) = [A_f]^n / (K^n + [A_f]^n)
-# where [A_f] is free DnaA-ATP concentration, n is the Hill coefficient (n=1
-# reduces to standard Langmuir), and K is the half-saturation concentration.
-# This is the standard biochemistry Hill function — sites respond
-# SIGMOIDALLY to free DnaA-ATP concentration, with cooperativity in the
-# exponent rather than in an occupancy-dependent K_d. No bistability, no
-# self-referential equilibrium. Each site treated independently for the
-# Hill response. (Replaces the K_d-in-occupancy mechanism when enabled.)
-# Default parameters match the dashboard's dnaa-5 study: n=4, K=30 nM.
-HILL_CONC = os.environ.get("V2ECOLI_DNAA_HILL_CONC", "0") in ("1", "true", "True")
-HILL_CONC_N = float(os.environ.get("V2ECOLI_DNAA_HILL_CONC_N", "4.0"))
-HILL_CONC_K_nM = float(os.environ.get("V2ECOLI_DNAA_HILL_CONC_K_NM", "30.0"))
-HILL_CONC_K_M = HILL_CONC_K_nM * 1e-9
-
 # Adair stepwise binding constants. Cluster of N sites has N sequential
 # dissociation constants K_d,1 > K_d,2 > ... > K_d,N (positive cooperativity:
 # each bound site makes next binding easier). Geometric interpolation between

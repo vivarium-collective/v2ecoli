@@ -289,12 +289,6 @@ KINETIC_KOFF_PER_S = float(os.environ.get("V2ECOLI_DNAA_KINETIC_KOFF_PER_S", "0.
 # This is steeper than linear — K_d stays near K_d_max at low n and drops
 # sharply around K_half. Captures real cooperative binding where the
 # transition happens in a narrow occupancy range rather than gradually.
-# KHALF_STUCK_THRESHOLD_S is referenced by the dead COOP_STUCK_GATE branch in
-# the Adair residuals (short-circuits when COOP_STUCK_GATE=0, which is the
-# milestone default). Kept as a literal until COOP_STUCK_GATE is removed too.
-KHALF_STUCK_THRESHOLD_S = 300.0
-
-
 # Adair stepwise binding constants. Cluster of N sites has N sequential
 # dissociation constants K_d,1 > K_d,2 > ... > K_d,N (positive cooperativity:
 # each bound site makes next binding easier). Geometric interpolation between
@@ -304,11 +298,6 @@ KHALF_STUCK_THRESHOLD_S = 300.0
 # response to bulk concentration, NO bistability, single-valued equilibrium.
 # Cluster cooperativity captured by the K_d,i sequence.
 ADAIR_KD = os.environ.get("V2ECOLI_DNAA_ADAIR_KD", "0") in ("1", "true", "True")
-# When enabled, Adair cooperativity only engages after the cluster has been
-# stuck at some occupancy for KHALF_STUCK_THRESHOLD_S seconds. Otherwise
-# sites bind independently at K_d_max (Langmuir, weak). Mimics IHF-mediated
-# unlock: cooperative loading kicks in only after DnaA has been waiting.
-COOP_STUCK_GATE = os.environ.get("V2ECOLI_DNAA_COOP_STUCK_GATE", "0") in ("1", "true", "True")
 ADAIR_KD_MAX_nM = float(os.environ.get("V2ECOLI_DNAA_ADAIR_KD_MAX_NM", "100.0"))
 ADAIR_KD_MIN_nM = float(os.environ.get("V2ECOLI_DNAA_ADAIR_KD_MIN_NM", "1.0"))
 ADAIR_KD_MAX_M = ADAIR_KD_MAX_nM * 1e-9
@@ -1047,21 +1036,16 @@ class DnaABoxBinding(Step):
                             A_f_M = A_f / (cell_volume_L * n_avogadro)
                             N_sites = int(n_s_g)
                             if N_sites > 0 and A_f_M > 0:
-                                # Three gates that can collapse Adair to Langmuir:
+                                # Two gates that can collapse Adair to Langmuir:
                                 # 1. GRADIENT gate: bulk isn't rising → no coop
-                                # 2. STUCK gate: cluster hasn't been stuck yet →
-                                #    IHF-unlock hasn't triggered → no coop
-                                # 3. UNLOCK gate: fresh daughter domain hasn't
+                                # 2. UNLOCK gate: fresh daughter domain hasn't
                                 #    accumulated POST_INIT_UNLOCK_S of continuous
                                 #    positive gradient yet → K_d clamped at K_d_max
                                 _dom_key_a = int(unique_doms[i])
-                                _stuck_ok = (not COOP_STUCK_GATE) or (
-                                    self._stuck_secs.get(_dom_key_a, 0.0)
-                                    > KHALF_STUCK_THRESHOLD_S)
                                 _kd_unlocked = (POST_INIT_UNLOCK_S <= 0
                                     or self._dom_kd_ladder_unlocked.get(
                                         _dom_key_a, False))
-                                if (COOP_GRADIENT_GATE and not gradient_rising) or not _stuck_ok or not _kd_unlocked:
+                                if (COOP_GRADIENT_GATE and not gradient_rising) or not _kd_unlocked:
                                     # Non-cooperative: independent sites at K_d_max
                                     P_bound = A_f_M / (ADAIR_KD_MAX_M + A_f_M)
                                     target_g = n_s_g * P_bound

@@ -77,7 +77,11 @@ _FORM_BOUND_ATP = 1
 # Per-spec pseudo-first-order rate constant (Sekimizu 1987 / Stage 1 PDF):
 # k = 0.046 / min ≈ 7.667e-4 / s. The dnaa_box_binding step uses the same rate
 # (independently) for the in-place bound ATP→ADP form swap.
-_HYDROLYSIS_RATE_PER_SEC = 0.025 / 60.0
+# Env-driven so free + bound rates can be raised together to the literature
+# value (0.046/min) or any other test value.
+import os as _os
+_HYDROLYSIS_RATE_PER_SEC = float(_os.environ.get(
+    "V2ECOLI_DNAA_HYDROLYSIS_RATE_PER_MIN", "0.025")) / 60.0
 
 
 class Equilibrium(Step):

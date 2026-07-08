@@ -212,9 +212,9 @@ def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction,
         cell_dry_mass_fraction: float
         critical_mass_scale: post-ParCa multiplier applied to the
             returned M* (default 1.0 = no scaling). Used by Stage 1
-            sanity-check / Aim 2 work to delay the per-oriC mass criterion
-            when overridden C/D periods stretch the cycle and the
-            ParCa-fit M* would trigger a mid-cycle re-initiation.
+            sanity-check / DnaA-oriC initiation work to delay the per-oriC
+            mass criterion when overridden C/D periods stretch the cycle
+            and the ParCa-fit M* would trigger a mid-cycle re-initiation.
     """
     units = _pint_units
     NORMAL_CRITICAL_MASS = 975 * units.fg

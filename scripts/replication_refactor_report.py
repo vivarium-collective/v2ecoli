@@ -584,7 +584,7 @@ appropriate until then.
   approximation.</strong>  Real cells have specific binding kinetics
   (DnaG-replisome dissociation rates, spatial localization, oriC- vs
   oriV-specific affinities) that proportional partitioning flattens
-  out.  For mechanistic DnaA-oriC initiation (Aim 2) and the eventual
+  out.  For mechanistic DnaA-oriC initiation and the eventual
   bulk-ification of RNA I/II (Stage C) you'll want explicit binding
   kinetics that go beyond proportional partitioning — but the
   allocator is the correct intermediate model and matches what

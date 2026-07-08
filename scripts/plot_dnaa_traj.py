@@ -212,7 +212,8 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int,
     }
 
 
-def plot(d: dict, out_path: Path, title_extra: str) -> None:
+def plot(d: dict, out_path: Path, title_extra: str,
+         skip_promoter_panel: bool = False) -> None:
     t_min = d["t"] / 60
     boundaries_min = [b / 60 for b in d["gen_boundaries"]]
     total = d["atp"] + d["adp"] + d["apo"]
@@ -222,7 +223,8 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
         frac_adp = np.where(total > 0, d["adp"] / total, np.nan)
         frac_apo = np.where(total > 0, d["apo"] / total, np.nan)
 
-    fig, axes = plt.subplots(8, 1, figsize=(14, 22), sharex=True)
+    n_panels = 7 if skip_promoter_panel else 8
+    fig, axes = plt.subplots(n_panels, 1, figsize=(14, 22 * n_panels / 8), sharex=True)
     fig.suptitle(
         f"{title_extra}\n"
         "DnaA-ATP intrinsic hydrolysis wired into equilibrium (k = 0.046/min)\n"
@@ -285,25 +287,26 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
     ax.set_ylabel("bulk count")
     ax.legend(loc="lower right", fontsize=8, frameon=False)
 
-    # 7. dnaA-promoter FREE fraction — inverse of occupancy.
-    # Plot (1 - f) so the saturated-bound state is at 0 (baseline) and
-    # cycle-phase unbinding events spike UP. Much more visually informative
-    # than f, which sits pinned at the top of the panel.
-    ax = axes[6]
-    if d["prom_occ"].size and not np.all(np.isnan(d["prom_occ"])):
-        free_frac = 1.0 - d["prom_occ"]
-        ax.plot(t_min, free_frac, color="#b91c1c", lw=1.2)
-        ax.axhline(0.0, color="#94a3b8", lw=0.8, ls=":")
-        ax.set_ylim(bottom=-0.02)
-    else:
-        ax.text(0.5, 0.5, "no listener data", transform=ax.transAxes,
-                ha="center", va="center", color="#9ca3af")
-        ax.set_ylim(-0.05, 1.10)
-    vlines(ax)
-    ax.set_ylabel("dnaA-promoter\nfree fraction (1 − f)")
+    if not skip_promoter_panel:
+        # 7. dnaA-promoter FREE fraction — inverse of occupancy.
+        # Plot (1 - f) so the saturated-bound state is at 0 (baseline) and
+        # cycle-phase unbinding events spike UP. Much more visually informative
+        # than f, which sits pinned at the top of the panel.
+        ax = axes[6]
+        if d["prom_occ"].size and not np.all(np.isnan(d["prom_occ"])):
+            free_frac = 1.0 - d["prom_occ"]
+            ax.plot(t_min, free_frac, color="#b91c1c", lw=1.2)
+            ax.axhline(0.0, color="#94a3b8", lw=0.8, ls=":")
+            ax.set_ylim(bottom=-0.02)
+        else:
+            ax.text(0.5, 0.5, "no listener data", transform=ax.transAxes,
+                    ha="center", va="center", color="#9ca3af")
+            ax.set_ylim(-0.05, 1.10)
+        vlines(ax)
+        ax.set_ylabel("dnaA-promoter\nfree fraction (1 − f)")
 
-    # 8. dnaA transcription event count over time — cumulative per gen
-    ax = axes[7]
+    # dnaA transcription event count over time — cumulative per gen
+    ax = axes[7 if not skip_promoter_panel else 6]
     if d["tx_events"].size and d["t"].size > 1:
         # Cumulative event count, RESET at each gen boundary so the line
         # reads as one sawtooth per cell cycle — mirrors the DnaA panel.
@@ -352,6 +355,8 @@ def main():
                     help="First generation to include (default 1).")
     ap.add_argument("--title-extra", default="")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--skip-promoter-panel", action="store_true",
+                    help="drop the dnaA-promoter free-fraction panel")
     args = ap.parse_args()
 
     d = load_lineage(args.exp_root, args.exp_id, args.lineage_seed, args.gens,
@@ -359,7 +364,8 @@ def main():
     if d["t"].size == 0:
         print("No data loaded — aborting.")
         return
-    plot(d, Path(args.out), args.title_extra)
+    plot(d, Path(args.out), args.title_extra,
+         skip_promoter_panel=args.skip_promoter_panel)
 
 
 if __name__ == "__main__":

@@ -106,7 +106,8 @@ TOPOLOGY = {
 # encoded in fold_changes_nca.tsv (which the L1-norm ParCa fit drops to zero
 # — this step restores it as a dynamic, occupancy-driven feedback).
 DNAA_TU_IDX = 2778
-AUTOREG_STRENGTH = 0.6
+import os as _os
+AUTOREG_STRENGTH = float(_os.environ.get("V2ECOLI_AUTOREG_STRENGTH", "0.6"))
 AUTOREG_HILL_N = 2.0
 AUTOREG_HILL_K = 0.5
 

@@ -133,7 +133,8 @@ def main():
 
             duration, divided, last_state = _run_gen(comp, max_duration, gen_idx)
 
-        dry_f = float((last_state or {}).get("listeners", {}).get("mass", {}).get("dry_mass", 0))
+        dm_raw = (last_state or {}).get("listeners", {}).get("mass", {}).get("dry_mass", 0)
+        dry_f = float(getattr(dm_raw, "magnitude", dm_raw))
         wall = time.time() - t0
         result = {
             "gen": gen_idx,

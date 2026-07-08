@@ -47,7 +47,9 @@ def build_cache(fixture: str, cache_dir: str,
                 dnaa_txn_scale: float = 1.0,
                 dnaa_constitutive: bool = False,
                 dnaa_stable: bool = False,
-                dnaa_translation_efficiency: float | None = None) -> None:
+                dnaa_translation_efficiency: float | None = None,
+                apo_atp_kinetic: bool = False,
+                dnaa_runtime_basal_prob: float | None = None) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
 
@@ -60,6 +62,24 @@ def build_cache(fixture: str, cache_dir: str,
     print(f"[{time.strftime('%H:%M:%S')}] Hydrating sim_data ...")
     sim_data = hydrate_sim_data_from_state(state)
     print(f"    hydrated in {time.time()-t1:.1f}s")
+
+    if apo_atp_kinetic:
+        _eq = sim_data.process.equilibrium
+        _rids = list(_eq.rxn_ids)
+        _rxn = "MONOMER0-160_RXN"
+        if _rxn in _rids:
+            _idx = _rids.index(_rxn)
+            _eq.integrate_dt_mask[_idx] = True
+            print(f"    apoATP kinetic: {_rxn} integrate_dt → True")
+        else:
+            raise SystemExit(f"apoATP kinetic requested but {_rxn} not in rxn_ids")
+
+    if dnaa_runtime_basal_prob is not None:
+        _existing = getattr(sim_data, "genetic_perturbations", None) or {}
+        _existing = dict(_existing)
+        _existing["TU00259[c]"] = float(dnaa_runtime_basal_prob)
+        sim_data.genetic_perturbations = _existing
+        print(f"    dnaA runtime basal_prob: TU00259[c] → {dnaa_runtime_basal_prob:.4e}")
 
     if condition is not None:
         avail = dict(getattr(sim_data, "condition_to_doubling_time", {}) or {})
@@ -151,6 +171,20 @@ def main() -> None:
                              "translation efficiency (PDF row 7: 1.0 "
                              "protein/mRNA, Hansen & Atlung 2018). "
                              "Default: leave at ParCa / overrides.py value.")
+    parser.add_argument("--apo-atp-kinetic", action="store_true",
+                        help="Set MONOMER0-160_RXN (DnaA-apo + ATP → "
+                             "DnaA-ATP) integrate_dt=True post-ParCa. "
+                             "Matches reference cache_dnaa2_v1.5e-3_kd3nm_"
+                             "apoATP_kinetic; slows apo→ATP conversion so "
+                             "bulk DnaA-ATP builds up gradually.")
+    parser.add_argument("--dnaa-runtime-basal-prob", type=float,
+                        default=None,
+                        help="Bake sim_data.genetic_perturbations["
+                             "'TU00259[c]'] = VALUE into cache. At runtime "
+                             "the transcript-initiation process overrides "
+                             "its init_prob for the dnaA operon with this "
+                             "value. Reference used 0.0015 (1.5/min "
+                             "transcription rate).")
     args = parser.parse_args()
     build_cache(args.fixture, args.cache_dir,
                 condition=args.condition, fixed_media=args.fixed_media,
@@ -160,7 +194,9 @@ def main() -> None:
                 dnaa_txn_scale=args.dnaa_txn_scale,
                 dnaa_constitutive=args.dnaa_constitutive,
                 dnaa_stable=args.dnaa_stable,
-                dnaa_translation_efficiency=args.dnaa_translation_efficiency)
+                dnaa_translation_efficiency=args.dnaa_translation_efficiency,
+                apo_atp_kinetic=args.apo_atp_kinetic,
+                dnaa_runtime_basal_prob=args.dnaa_runtime_basal_prob)
 
 
 if __name__ == "__main__":

@@ -77,6 +77,15 @@ class ReplicationData(Step):
                     'dnaa_box_pool_label': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'dnaa_box_bound_form': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'dnaa_box_coordinates': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    # Per-oriC-domain oriC_low DnaA-ATP counts (parallel arrays).
+                    # Consumed by chromosome_replication's per-oriC sat-init gate.
+                    'oric_low_atp_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'oric_low_atp_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    # Per-oriC-domain adaptive-K_half trace emitted by
+                    # dnaa_box_binding. Parallel arrays: one K_half value per
+                    # domain that carried oric_low sites on the tick.
+                    'oric_khalf_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'oric_khalf_values': {'_type': 'overwrite[array[float]]', '_default': []},
                 },
             },
         }
@@ -113,6 +122,18 @@ class ReplicationData(Step):
         ol_free, ol_atp, _ol_adp = _pool_counts(2)  # ATP-only pool
         pr_free, pr_atp, pr_adp = _pool_counts(3)
 
+        # Per-domain oriC_low ATP-bound counts (for per-oriC sat-init gate).
+        # Emit parallel arrays: domain index and count for each domain that
+        # has any oriC_low ATP-bound sites. Domains with zero are implicit.
+        ol_atp_mask = (pool_label == 2) & (bound_form == 1)
+        if ol_atp_mask.any():
+            _doms, _cnts = np.unique(domain_index[ol_atp_mask], return_counts=True)
+            oric_low_atp_domains = _doms.astype(np.int64)
+            oric_low_atp_counts = _cnts.astype(np.int64)
+        else:
+            oric_low_atp_domains = np.array([], dtype=np.int64)
+            oric_low_atp_counts = np.array([], dtype=np.int64)
+
         update = {
             "listeners": {
                 "replication_data": {
@@ -141,6 +162,8 @@ class ReplicationData(Step):
                         bound_form, dtype=np.int64),
                     "dnaa_box_coordinates": np.asarray(
                         coordinates, dtype=np.int64),
+                    "oric_low_atp_domains": oric_low_atp_domains,
+                    "oric_low_atp_counts": oric_low_atp_counts,
                 }
             }
         }

@@ -346,18 +346,16 @@ COOP_GRADIENT_GATE = os.environ.get(
 def _kd_low_cooperative(n_bound: float, n_total: float, relax: float = 1.0,
                          k_half: float | None = None,
                          coop_engaged: bool = True) -> float:
-    """Per-oriC K_d with adaptive stuck-state relaxation.
+    """Per-oriC K_d for the Langmuir (linear-K_d) fallback path.
 
-    Linear form (default): K_d drops linearly from K_d_max at n=0 to K_d_min
-    at n=N_total. Gradual transition across the whole range.
+    K_d drops linearly from K_d_max at n=0 to K_d_min at n=N_total. Gradual
+    transition across the whole range. Used as the non-Adair fallback and
+    inside the ASYMMETRIC / stochastic / kinetic oric_low branches. The
+    stepped Adair ladder (ADAIR_KD=1) is the primary path and does not
+    use this function.
 
-    Hill form (when HILL_KD=1): K_d stays near K_d_max for n<K_half, drops
-    sharply around K_half, asymptotes to K_d_min for n>>K_half. Captures
-    cooperative binding where the transition happens in a narrow occupancy
-    range — more biologically realistic than linear.
-
-    The k_half parameter allows per-cluster override of HILL_K_HALF (for the
-    adaptive-K_half mechanism). Defaults to HILL_K_HALF if not provided.
+    k_half is accepted for backwards compatibility with call-site kwargs
+    but is currently unused (previously fed the removed HILL_KD branch).
     """
     if n_total <= 0:
         return KD_LOW_MAX_M
@@ -366,15 +364,8 @@ def _kd_low_cooperative(n_bound: float, n_total: float, relax: float = 1.0,
     # of n. Cluster behaves as if no cooperative oligomerization has taken hold.
     if COOP_GRADIENT_GATE and not coop_engaged:
         return KD_LOW_MAX_M
-    if HILL_KD:
-        khalf_use = HILL_K_HALF if k_half is None else float(k_half)
-        n_safe = max(0.0, float(n_bound))
-        khalf_h = khalf_use ** HILL_H
-        n_h = n_safe ** HILL_H
-        base_kd = KD_LOW_MIN_M + (KD_LOW_MAX_M - KD_LOW_MIN_M) * khalf_h / (khalf_h + n_h)
-    else:
-        occ = max(0.0, min(1.0, n_bound / n_total))
-        base_kd = KD_LOW_MAX_M + (KD_LOW_MIN_M - KD_LOW_MAX_M) * occ
+    occ = max(0.0, min(1.0, n_bound / n_total))
+    base_kd = KD_LOW_MAX_M + (KD_LOW_MIN_M - KD_LOW_MAX_M) * occ
     # Clamp effective K_d at K_d_min so the relax dial cannot push K_d below
     # the natural fully-cooperative value. The relax represents "the cluster
     # behaves cooperatively, like fully bound sites" — not an artificial

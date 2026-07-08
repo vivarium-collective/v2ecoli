@@ -186,38 +186,9 @@ GRADIENT_MIN_SLOPE_NM_PER_S = float(os.environ.get(
 # and small enough that even modest free A_f drives cluster to full saturation.
 # Idea: "when stuck, lower K_d enough to GUARANTEE filling."
 
-# Cluster dissolution: if n_bound drops > DISSOLUTION_DROPOFF below max_seen,
-# the cooperative cluster is losing structure. Relax recovers toward 1.0 at
-# RELAX_RECOVERY_RATE_PER_S (slower than decay — clusters take longer to
-# dissolve than to mature). When relax > RELAX_RECOVERED_THRESHOLD, max_seen
-# resets to current n (the cluster has effectively dissolved).
-DISSOLUTION_DROPOFF = 4        # n_bound must be ≥ 4 below max_seen to trigger
-                                # (≈ half the cluster collapsed, not flicker)
-RELAX_RECOVERY_RATE_PER_S = 0.001  # 0.1%/s recovery — 50× slower than decay
-                                    # (cluster takes minutes to dissolve)
-RELAX_RECOVERED_THRESHOLD = 0.9    # above this, declare cluster dissolved
-
-COOP_NUCLEATION_THRESHOLD = 0.75  # 6/8 sites — ENTRY into the committed
-                                   # (hysteresis-locked) cooperative state.
-                                   # Combined with the v8 stuck-time mechanism
-                                   # below: a domain commits if it reaches 6/8
-                                   # via the linear-Kd build-up. Once committed,
-                                   # its K_d is locked at KD_LOW_MIN regardless
-                                   # of stuck-time / relax — structural lock-in
-                                   # like the report-baseline hysteresis.
-COOP_EXIT_THRESHOLD = 0.375       # 3/8 sites — once a chromosome is in the
-                                  # cooperative state, it only EXITS when
-                                  # occupancy drops below this much lower
-                                  # threshold. Asymmetric hysteresis (enter
-                                  # at 6/8, exit at 3/8) ensures that once
-                                  # cooperative saturation is reached, the
-                                  # state is held until fork passage / strong
-                                  # dilution forces it out. (Tested EXIT=1/8;
-                                  # produced identical dynamics because the
-                                  # cooperative state never drops below 3/8
-                                  # in practice — fork release is what
-                                  # actually destroys the state.)
-COOP_SATURATION_FRAC = 7.0 / 8.0  # occupancy at which K_d hits the floor
+# n_bound must be ≥ 4 below max_seen to trigger dissolution
+# (≈ half the cluster collapsed, not flicker).
+DISSOLUTION_DROPOFF = 4
 
 # Asymmetric K_d (KNF-style ratchet) toggle. When True, the per-oriC
 # equilibrium treats bound vs empty sites with DIFFERENT K_ds:
@@ -277,31 +248,6 @@ else:
 COOP_GRADIENT_GATE = os.environ.get(
     "V2ECOLI_DNAA_COOP_GRADIENT_GATE", "0") in ("1", "true", "True")
 
-
-def _kd_low_cooperative(n_bound: float, n_total: float, relax: float = 1.0,
-                         coop_engaged: bool = True) -> float:
-    """Per-oriC K_d for the Langmuir (linear-K_d) fallback path.
-
-    K_d drops linearly from K_d_max at n=0 to K_d_min at n=N_total. Gradual
-    transition across the whole range. Used as the non-Adair fallback and
-    inside the ASYMMETRIC / stochastic / kinetic oric_low branches. The
-    stepped Adair ladder (ADAIR_KD=1) is the primary path and does not
-    use this function.
-    """
-    if n_total <= 0:
-        return KD_LOW_MAX_M
-    # Gradient-gated cooperativity: if the gate is enabled and cooperativity
-    # is NOT currently engaged (bulk not rising), pin K_d to K_d_max regardless
-    # of n. Cluster behaves as if no cooperative oligomerization has taken hold.
-    if COOP_GRADIENT_GATE and not coop_engaged:
-        return KD_LOW_MAX_M
-    occ = max(0.0, min(1.0, n_bound / n_total))
-    base_kd = KD_LOW_MAX_M + (KD_LOW_MIN_M - KD_LOW_MAX_M) * occ
-    # Clamp effective K_d at K_d_min so the relax dial cannot push K_d below
-    # the natural fully-cooperative value. The relax represents "the cluster
-    # behaves cooperatively, like fully bound sites" — not an artificial
-    # super-tight binding that exceeds biology.
-    return max(KD_LOW_MIN_M, base_kd * relax)
 
 # DnaA-ATP intrinsic hydrolysis rate. Bound DnaA-ATP hydrolyzes at the same
 # rate as free DnaA-ATP (Sekimizu 1987, k = 0.046 / min). bf8b82e's equilibrium
@@ -383,7 +329,6 @@ class DnaABoxBinding(Step):
         # cooperative state. Once a domain enters (occ ≥ NUCLEATION) its
         # K_d stays at KD_LOW_MIN_M until occ drops below COOP_EXIT_THRESHOLD.
         # Domains that disappear (fork release) are pruned each tick.
-        self._cooperative_domains = set()
 
         # Adaptive per-domain stuck-state tracking (Option 2: progress-based).
         # _stuck_n[dom]: MAX n_bound this domain has reached so far in its lifetime
@@ -832,8 +777,6 @@ class DnaABoxBinding(Step):
             unique_doms = np.array([], dtype=np.int64)
             group_n_sites = np.array([], dtype=np.float64)
             n_groups = 0
-            # No oric_low groups → clear hysteresis state.
-            self._cooperative_domains.clear()
 
         # Non-cooperative fallback K_l (used when COOPERATIVE_ORIC_LOW=False
         # or when grouping is degenerate). Matches legacy behaviour.
@@ -891,8 +834,6 @@ class DnaABoxBinding(Step):
                             else:
                                 self._dom_pos_grad_secs[dom_key] = 0.0
 
-                group_is_coop = [False] * n_groups
-
                 # Per-chromosome equilibrium residuals. For each oriC-low group
                 # the target occupancy is computed from the stepped Adair
                 # ladder when ADAIR_KD=1 (primary path used by the milestone
@@ -900,7 +841,6 @@ class DnaABoxBinding(Step):
                 def _residuals(x, A_T=A_T, D_T=D_T, N_h=N_h, K_h=K_h,
                                n_groups=n_groups, group_n_sites=group_n_sites,
                                group_relax=group_relax,
-                               group_is_coop=group_is_coop,
                                cell_volume_L=cell_volume_L,
                                n_avogadro=self.n_avogadro):
                     A_f = max(x[0], 0.0)
@@ -968,20 +908,10 @@ class DnaABoxBinding(Step):
                                     target_g = n_avg_num / Z if Z > 0 else 0.0
                             else:
                                 target_g = 0.0
-                        elif group_is_coop[i]:
-                            # Committed domain — K_d locked at floor (hysteresis).
-                            kd_g_M = KD_LOW_MIN_M
-                            kd_g_mol = kd_g_M * cell_volume_L * n_avogadro
-                            denom_g = kd_g_mol + A_f
-                            target_g = (n_s_g * A_f / denom_g) if denom_g > 0 else 0.0
                         else:
-                            # Symmetric (single K_d for all sites in cluster).
-                            kd_g_M = _kd_low_cooperative(
-                                n_b_g, n_s_g, group_relax[i],
-                                coop_engaged=gradient_rising)
-                            kd_g_mol = kd_g_M * cell_volume_L * n_avogadro
-                            denom_g = kd_g_mol + A_f
-                            target_g = (n_s_g * A_f / denom_g) if denom_g > 0 else 0.0
+                            # Non-Adair (fallback). Should never be reached in
+                            # the milestone config (ADAIR_KD=1 always).
+                            target_g = 0.0
                         group_res[i] = n_b_g - target_g
                         sum_A_l += n_b_g
                     return [A_T - A_f - A_h - sum_A_l, D_T - D_f - D_h, *group_res]

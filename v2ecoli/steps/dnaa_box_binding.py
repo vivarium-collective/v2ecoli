@@ -212,7 +212,6 @@ GRADIENT_MIN_SLOPE_NM_PER_S = float(os.environ.get(
 # gives K_d ≈ 0.75 nM — competitive with the chromosomal buffer (K_d=1 nM)
 # and small enough that even modest free A_f drives cluster to full saturation.
 # Idea: "when stuck, lower K_d enough to GUARANTEE filling."
-RELAX_SNAP = os.environ.get("V2ECOLI_DNAA_RELAX_SNAP", "0") in ("1", "true", "True")
 
 # Cluster dissolution: if n_bound drops > DISSOLUTION_DROPOFF below max_seen,
 # the cooperative cluster is losing structure. Relax recovers toward 1.0 at
@@ -903,14 +902,10 @@ class DnaABoxBinding(Step):
                                 and bulk_atp_nM >= bulk_gate_threshold
                                 and gradient_ok
                                 and peak_gate_ok):
-                            if RELAX_SNAP:
-                                # Snap to minimum — guarantee cluster fills.
-                                self._kd_relax[dom_key] = STUCK_RELAX_MIN
-                            else:
-                                # Gradual decay (original).
-                                new_relax = (1.0 - STUCK_RELAX_RATE_PER_S * (dt_min * 60.0)) \
-                                    * self._kd_relax.get(dom_key, 1.0)
-                                self._kd_relax[dom_key] = max(STUCK_RELAX_MIN, new_relax)
+                            # Gradual decay of relax dial while cluster is stuck.
+                            new_relax = (1.0 - STUCK_RELAX_RATE_PER_S * (dt_min * 60.0)) \
+                                * self._kd_relax.get(dom_key, 1.0)
+                            self._kd_relax[dom_key] = max(STUCK_RELAX_MIN, new_relax)
                     else:
                         # Cluster currently below the nucleation threshold —
                         # keep stuck timer at zero so the 60-second settling

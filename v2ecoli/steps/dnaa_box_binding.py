@@ -431,7 +431,10 @@ class DnaABoxBinding(Step):
         # Residuals (mass balance):
         #   r0 = A_T - A_free - N_h*a/(1+a+d) - Σ x[2+g]
         #   r1 = D_T - D_free - N_h*d/(1+a+d)
-        #   r[2+g] = x[2+g] - N_l_g * A_free / (K_l_g(x[2+g]) + A_free)
+        #   r[2+g] = x[2+g] - <n>_Adair(A_free; K_d,1..K_d,N)
+        #
+        # where <n>_Adair is the mean occupancy from the Adair partition
+        # function Z = Σᵢ (A/K_d,1)(A/K_d,2)…(A/K_d,i).
         #
         # MINPACK hybr (Powell hybrid, Newton-like) converges in ~5-15 iter.
         K_h = kd_high_molecules
@@ -600,8 +603,7 @@ class DnaABoxBinding(Step):
                             else:
                                 target_g = 0.0
                         else:
-                            # Non-Adair (fallback). Should never be reached in
-                            # the milestone config (ADAIR_KD=1 always).
+                            # ADAIR_KD=0: leave the group empty (no fallback).
                             target_g = 0.0
                         group_res[i] = n_b_g - target_g
                         sum_A_l += n_b_g

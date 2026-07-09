@@ -624,8 +624,7 @@ class DnaABoxBinding(Step):
 
                 # Per-chromosome equilibrium residuals. For each oriC-low group
                 # the target occupancy is computed from the stepped Adair
-                # ladder when ADAIR_KD=1 (primary path used by the milestone
-                # config), or from the Langmuir linear-K_d fallback otherwise.
+                # ladder (primary path; ADAIR_KD=0 leaves the group empty).
                 def _residuals(x, A_T=A_T, D_T=D_T, N_h=N_h, K_h=K_h,
                                n_groups=n_groups, group_n_sites=group_n_sites,
                                cell_volume_L=cell_volume_L,
@@ -703,30 +702,20 @@ class DnaABoxBinding(Step):
                         sum_A_l += n_b_g
                     return [A_T - A_f - A_h - sum_A_l, D_T - D_f - D_h, *group_res]
 
-                # Warm-start initial guess. Cooperative K_d has intrinsic
-                # bistability (low-n basin + high-n basin); using the previous
-                # tick's converged solution as x0 keeps the system in whichever
-                # basin it landed in, instead of letting scipy.root choose
-                # arbitrarily. Without warm-start the solver flickers between
-                # basins tick-to-tick (verified in gen-1 tick-compare analysis).
-                # Warm-start floors removed. The old max(prev, 1e-3) guard was
-                # a numerical divide-by-zero protection, but at near-empty
-                # bulk-ATP states it re-seeded A_free ≈ 1e-3 molecules ≈ 2 nM
-                # per tick. That is above K_d,8 = 2 nM for the stepped Adair,
-                # so the solver could climb into the high-n basin from x0 even
-                # when the true equilibrium is low-n. Result: tick-to-tick
-                # basin-hop flicker. Warm-start now preserves the previous
-                # tick's basin exactly.
+                # Warm-start initial guess from the previous tick's converged
+                # (A_free, D_free). Preserves basin selection in the bistable
+                # transition regime — without this, scipy.root picks basins
+                # arbitrarily per tick and produces flicker. No floors on x0:
+                # a small warm-start seed near true equilibrium is safer than
+                # a fixed lower bound, which can seed A_free above K_d,N and
+                # push the solver into the wrong basin.
                 if self._prev_A_free is not None and self._prev_D_free is not None:
                     A0 = float(self._prev_A_free)
                     D0 = float(self._prev_D_free)
                 else:
-                    # Fresh sim / post-resume — use the current bulk pool as
-                    # the A_free / D_free guess. At near-empty bulk states
-                    # (dill loaded with most DnaA bound), atp_bulk_count is
-                    # tiny → x0 near true equilibrium. The old A_T/2 default
-                    # placed A_free 100× above equilibrium, causing the solver
-                    # to over-saturate the cluster on the very first tick.
+                    # Fresh sim / post-resume — seed from the current bulk
+                    # pool so x0 matches the loaded state, not an arbitrary
+                    # A_T/2 default that would over-saturate the cluster.
                     A0 = float(atp_bulk_count)
                     D0 = float(adp_bulk_count)
                 x0 = [A0, D0]
@@ -736,24 +725,18 @@ class DnaABoxBinding(Step):
                     if prev_n is not None:
                         x0.append(float(prev_n))
                     elif dom_key in n_bound_prev_by_dom:
-                        # Fresh sim / post-resume — use the current DNA-bound
-                        # state as x0. This matches the dill's actual bound
-                        # count so the solver equilibrates from the loaded
-                        # state rather than from an arbitrary A_T/2 cold start
-                        # (which would place A_free above K_d,8 and let the
-                        # cluster saturate immediately on tick 1).
+                        # Fresh sim / post-resume — seed from the actual
+                        # bound count so the solver starts near the loaded
+                        # equilibrium instead of a cold cluster guess.
                         x0.append(float(n_bound_prev_by_dom[dom_key]))
                     else:
                         # New domain (post-fork) — start at low-n basin guess.
                         x0.append(float(group_n_sites[i]) * 0.1)
                 sol = scipy_root(_residuals, x0, method="hybr", tol=1e-9)
                 if not sol.success:
-                    # Fallback: retry from the current bulk pool + actual
-                    # DNA-bound state. Same physical x0 as the primary path,
-                    # nudged by 10% toward the low basin for cluster targets
-                    # to give the solver a slightly different starting point.
-                    # The old A_T/2 fallback re-introduced the pathological
-                    # 100× overshoot on A_free.
+                    # Retry from the current bulk pool + actual DNA-bound
+                    # state, nudged 10% toward the low basin to give scipy
+                    # a slightly different starting point.
                     x0_fb = [float(atp_bulk_count), float(adp_bulk_count)]
                     for i in range(n_groups):
                         dom_key = int(unique_doms[i])

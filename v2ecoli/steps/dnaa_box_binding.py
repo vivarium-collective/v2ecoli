@@ -52,6 +52,11 @@ Outputs:
     bulk[DnaA-ADP]   updated by the net change in bound-ADP across pools
     DnaA_box.DnaA_bound       boolean per active row
     DnaA_box.DnaA_bound_form  int8 per active row (0 / 1 / 2)
+    dnaa_hydrolysis.bound_count        int, consumed by equilibrium for
+                                       byproduct routing
+    dnaa_hydrolysis.promoter_fraction  float in [0,1], consumed by
+                                       transcript_initiation for dnaA
+                                       autoregulation
 """
 
 from __future__ import annotations
@@ -444,12 +449,8 @@ class DnaABoxBinding(Step):
                 dtype=np.float64)
             n_groups = int(len(unique_doms))
 
-            # Update per-chromosome stuck-state tracking (Option 2).
-            # Track MAX n_bound seen for each domain. Reset stuck state only
-            # on upward progress (n exceeding previous max). Hydrolysis flicker
-            # — single-molecule turnover dropping n by 1 — accumulates as stuck
-            # time, because the cooperative cluster's higher-order structure
-            # is preserved across transient single-molecule loss.
+            # Snapshot per-domain state: current domain keys + previous-tick
+            # bound counts (for solver warm-start on fresh sims / post-resume).
             current_doms_set = set()
             n_bound_prev_by_dom = {}
             for i, dom in enumerate(unique_doms):
@@ -618,8 +619,7 @@ class DnaABoxBinding(Step):
                     D0 = float(self._prev_D_free)
                 else:
                     # Fresh sim / post-resume — seed from the current bulk
-                    # pool so x0 matches the loaded state, not an arbitrary
-                    # A_T/2 default that would over-saturate the cluster.
+                    # pool so x0 tracks the loaded state.
                     A0 = float(atp_bulk_count)
                     D0 = float(adp_bulk_count)
                 x0 = [A0, D0]
@@ -660,7 +660,8 @@ class DnaABoxBinding(Step):
                     self._prev_n_bound_by_dom[int(unique_doms[i])] = float(
                         group_bound_atp[i])
             else:
-                # Legacy non-cooperative pooled solve.
+                # n_groups == 0 fallback: pooled Langmuir on high-aff pool
+                # only (no oriC-low sites present — degenerate edge case).
                 def _residuals(x, A_T=A_T, D_T=D_T, N_h=N_h, N_l=N_l_legacy,
                                K_h=K_h, K_l=K_l_legacy):
                     A_f = max(x[0], 0.0)
@@ -685,7 +686,7 @@ class DnaABoxBinding(Step):
                     sol = scipy_root(_residuals, [A_T, D_T], method="hybr", tol=1e-9)
                 A_free = max(float(sol.x[0]), 0.0)
                 D_free = max(float(sol.x[1]), 0.0)
-                # Legacy distributed-as-pool target; recomputed below.
+                # No oriC-low subpools in this branch.
                 group_bound_atp = np.array([], dtype=np.float64)
         else:
             A_free = A_T
@@ -700,8 +701,8 @@ class DnaABoxBinding(Step):
             high_bound_adp = N_h * d_h / denom_h
         else:
             high_bound_atp = high_bound_adp = 0.0
-        # Low-aff total bound count: sum over per-chromosome subpools when
-        # cooperative; closed-form Langmuir when legacy.
+        # Low-aff total bound count: sum over per-chromosome subpools on the
+        # primary path; closed-form Langmuir on the n_groups==0 fallback.
         if COOPERATIVE_ORIC_LOW and n_groups > 0:
             low_bound_atp = float(group_bound_atp.sum())
         elif K_l_legacy > 0 and N_l_legacy > 0:

@@ -1,6 +1,6 @@
 """
 =========================
-DnaA-box equilibrium binding (dnaa-3 Phase 2)
+DnaA-box equilibrium binding
 =========================
 
 Fast-equilibrium occupancy of the 315 DnaA boxes (302 chromosomal high-aff +
@@ -39,20 +39,13 @@ For the ATP-only pool (2), oriC_low occupancy is set by a per-domain stepped
 Adair ladder (K_d,1 ≥ K_d,2 ≥ … ≥ K_d,N via V2ECOLI_DNAA_ADAIR_KDS_NM), coupled
 to the same (A_free, D_free) solve.
 
-Hydrolysis (DnaA-ATP -> DnaA-ADP) is owned by the equilibrium step (bf8b82e,
-k = 0.046 / min) and applies uniformly to bound + free DnaA-ATP per spec.
-This step runs AFTER equilibrium so the ATP/ADP form swap has already
-happened — see composites/baseline.py layer 2.
-
-dnaa-3 Phase 2b: the Pi / PROTON / WATER byproducts of bound-pool hydrolysis
-are now produced via bf8b82e's stoichMatrix (it reads DnaA_boxes optionally
-and injects extra DNAA-INTRINSIC-HYDROLYSIS-RXN flux for the bound pool).
-This step still computes its own bound-pool hydrolysis count for the
-in-place bound ATP → bound ADP form swap on DnaA_box rows; the two
-calculations use the same rate (0.046/min) but independent stochastic rounds,
-so the bound_form counts will drift by O(sqrt(N)) per tick from the byproduct
-flux. Acceptable noise for box bookkeeping; would require a shared-state
-channel to make exactly consistent.
+Hydrolysis (DnaA-ATP -> DnaA-ADP; k = 0.046 / min per Sekimizu 1987) is split
+between the equilibrium step (owns the free pool + Pi/PROTON/WATER byproduct
+accounting via DNAA-INTRINSIC-HYDROLYSIS-RXN) and this step (owns the in-place
+bound ATP → bound ADP form swap on DnaA_box rows). The shared bound-hydrolysis
+count is published on the process_state channel `dnaa_hydrolysis.bound_count`
+so the equilibrium step can route the byproducts for the SAME Poisson events
+instead of independently re-sampling.
 
 Outputs:
     bulk[DnaA-ATP]   updated by the net change in bound-ATP across pools
@@ -82,10 +75,8 @@ TOPOLOGY = {
     "global_time": ("global_time",),
     "timestep": ("timestep",),
     "next_update_time": ("next_update_time", "dnaa_box_binding"),
-    # dnaa-3 Phase 2c: shared bound-hydrolysis count consumed by equilibrium.py.
-    # Without this, the two steps independently sample the same Poisson process,
-    # producing O(sqrt(N)) divergence between the bound-pool form swap and the
-    # byproduct accounting.
+    # Shared bound-hydrolysis count consumed by the equilibrium step for
+    # byproduct routing — avoids independently sampling the same Poisson process.
     "dnaa_hydrolysis": ("process_state", "dnaa_hydrolysis"),
 }
 
@@ -101,7 +92,7 @@ PI_ID = "Pi[c]"
 PROTON_ID = "PROTON[c]"
 WATER_ID = "WATER[c]"
 
-# Pool labels (must match Phase 1 initial_conditions.py).
+# Pool labels (must match initial_conditions.py).
 POOL_CHROMOSOMAL_HIGH = 0
 POOL_ORIC_HIGH = 1
 POOL_ORIC_LOW = 2
@@ -165,9 +156,9 @@ COOP_GRADIENT_GATE = os.environ.get(
 
 
 # DnaA-ATP intrinsic hydrolysis rate. Bound DnaA-ATP hydrolyzes at the same
-# rate as free DnaA-ATP (Sekimizu 1987, k = 0.046 / min). bf8b82e's equilibrium
-# step hydrolyzes the FREE pool only; this step additionally hydrolyzes the
-# BOUND pool, in-place (bound box-ATP → bound box-ADP on the same row).
+# rate as free DnaA-ATP (Sekimizu 1987, k = 0.046 / min). The equilibrium step
+# hydrolyzes the FREE pool only; this step additionally hydrolyzes the BOUND
+# pool, in-place (bound box-ATP → bound box-ADP on the same row).
 HYDROLYSIS_RATE_PER_MIN = float(os.environ.get(
     "V2ECOLI_DNAA_HYDROLYSIS_RATE_PER_MIN", "0.025"))
 
@@ -445,12 +436,11 @@ class DnaABoxBinding(Step):
         prev_bound_atp = int(np.count_nonzero(bound_form == FORM_BOUND_ATP))
         prev_bound_adp = int(np.count_nonzero(bound_form == FORM_BOUND_ADP))
 
-        # Hydrolyze bound DnaA-ATP at the same per-molecule rate as bf8b82e's
-        # DNAA-INTRINSIC-HYDROLYSIS-RXN on the free pool. The TSV stores the
-        # bimolecular rate (1.4E-5 M⁻¹s⁻¹); pseudo-first-order rate with
-        # [WATER]≈55 M is k = 0.046/min. bf8b82e covers the free pool, this
-        # step covers the bound pool — together they apply the TSV reaction
-        # uniformly to (free + bound).
+        # Hydrolyze bound DnaA-ATP at the same per-molecule rate as
+        # DNAA-INTRINSIC-HYDROLYSIS-RXN applies to the free pool. The TSV
+        # stores the bimolecular rate (1.4E-5 M⁻¹s⁻¹); the pseudo-first-order
+        # rate with [WATER]≈55 M is k = 0.046/min. The equilibrium step covers
+        # the free pool; this step covers the bound pool.
         dt_min = float(states["timestep"]) / 60.0
         delta_h_bound = self._stochastic_round(
             HYDROLYSIS_RATE_PER_MIN * prev_bound_atp * dt_min)
@@ -510,10 +500,10 @@ class DnaABoxBinding(Step):
         # scipy.optimize.root on the algebraic mass-balance system.
         #
         # High-aff pool: K_h, both ATP and ADP, sites = N_h (chrom+oric_hi+prom)
-        # Low-aff pool(s): K_l(occ) per-chromosome cooperativity (Haochen spec).
-        #   Each chromosome has its own oric_low subpool (typically 8 sites);
-        #   its K_l depends on its OWN local occupancy. All subpools compete
-        #   for the same A_free, but each has its own K_l(n_bound_g / 8).
+        # Low-aff pool(s): per-chromosome stepped Adair ladder on oric_low.
+        #   Each chromosome has its own 8-site subpool with its own K_d,i
+        #   sequence; all subpools compete for the same A_free but track
+        #   occupancy independently.
         #
         # Variables for scipy.root:
         #   x[0] = A_free, x[1] = D_free
@@ -924,18 +914,15 @@ class DnaABoxBinding(Step):
             bulk_update.append((self._atp_idx, int(delta_atp_bulk)))
         if delta_adp_bulk != 0:
             bulk_update.append((self._adp_idx, int(delta_adp_bulk)))
-        # dnaa-3 Phase 2b: Pi / PROTON / WATER for bound-pool hydrolysis are
-        # NOW produced by the equilibrium step (bf8b82e). Writing them here
-        # was bypassing FBA accounting → metabolism over-allocated biomass
-        # synthesis → cells ballooned 2-3× and stopped dividing. The in-place
-        # ATP→ADP bound-form swap (delta_h_bound rows above) is still owned
-        # here — only the byproducts moved.
+        # Pi / PROTON / WATER for bound-pool hydrolysis are produced by the
+        # equilibrium step (via DNAA-INTRINSIC-HYDROLYSIS-RXN in the FBA
+        # stoichMatrix). Writing them here would bypass FBA accounting.
+        # This step still owns the in-place bound-form ATP → ADP swap
+        # (delta_h_bound above) — only the byproducts moved.
 
         # massDiff_* per-row updates so cell-mass accounting reflects the
         # DnaA moved bulk → bound on each box. Same pattern as tf_binding for
-        # TFs binding promoters (tf_binding.py:362-369). Now that bf8b82e
-        # owns the Pi/PROTON/WATER byproduct accounting (Phase 2b), enabling
-        # massDiff here doesn't conflict with FBA's mass balance.
+        # TFs binding promoters (tf_binding.py:362-369).
         box_set = {
             "DnaA_bound": new_bound,
             "DnaA_bound_form": new_bound_form,
@@ -948,7 +935,7 @@ class DnaABoxBinding(Step):
                 current = attrs(boxes, [submass_field])[0]
                 box_set[submass_field] = current + mass_delta[:, idx]
 
-        # dnaa-4 autoregulation: publish dnaA-promoter occupancy fraction so
+        # dnaA autoregulation: publish dnaA-promoter occupancy fraction so
         # transcript_initiation.py can repress the dnaA TU when DnaA has bound
         # the promoter sites (negative feedback). f = bound / total over the
         # POOL_PROMOTER_HIGH boxes in this cell (2 sites per chromosome; 2-4
@@ -964,9 +951,9 @@ class DnaABoxBinding(Step):
         update = {
             "DnaA_boxes": {"set": box_set},
             "next_update_time": states["global_time"] + states["timestep"],
-            # dnaa-3 Phase 2c: publish the bound-pool hydrolysis count so
-            # equilibrium.py can route the byproducts (Pi/PROTON/WATER) for the
-            # SAME hydrolysis events rather than independently re-sampling.
+            # Publish the bound-pool hydrolysis count so the equilibrium step
+            # routes Pi/PROTON/WATER byproducts for the SAME hydrolysis events
+            # instead of independently re-sampling.
             "dnaa_hydrolysis": {
                 "bound_count": int(delta_h_bound),
                 "promoter_fraction": promoter_fraction,

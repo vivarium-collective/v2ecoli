@@ -33,10 +33,11 @@ Detailed balance + mass conservation give the closed-form occupancies:
 
 where A, D are free concentrations of DnaA-ATP and DnaA-ADP. With N >> A_tot
 or D_tot the free ≈ total approximation fails; we solve the conservation
-equations iteratively (Newton in (A_free, D_free) — see _solve_pool).
+equations for (A_free, D_free) with scipy.optimize.root.
 
-For the ATP-only pool (2) the closed form is the standard one-site Langmuir
-in A_free alone, solved by the quadratic.
+For the ATP-only pool (2), oriC_low occupancy is set by a per-domain stepped
+Adair ladder (K_d,1 ≥ K_d,2 ≥ … ≥ K_d,N via V2ECOLI_DNAA_ADAIR_KDS_NM), coupled
+to the same (A_free, D_free) solve.
 
 Hydrolysis (DnaA-ATP -> DnaA-ADP) is owned by the equilibrium step (bf8b82e,
 k = 0.046 / min) and applies uniformly to bound + free DnaA-ATP per spec.
@@ -190,13 +191,14 @@ class DnaABoxBinding(Step):
     """
 
     description = (
-        "DnaA-box equilibrium binding — closed-form Langmuir / "
-        "competitive-Langmuir solve per pool.\n"
+        "DnaA-box equilibrium binding.\n"
+        "  High-affinity pools (chromosomal/oriC_high/promoter):\n"
         "    p_atp = (A/Kd_A) / (1 + A/Kd_A + D/Kd_D)   competitive\n"
         "    p_adp = (D/Kd_D) / (1 + A/Kd_A + D/Kd_D)   competitive\n"
-        "    p_atp = (A/Kd_A) / (1 + A/Kd_A)            ATP-only\n"
-        "Free DnaA-ATP / DnaA-ADP solved iteratively (Newton) from"
-        " conservation; bound-form counts rounded stochastically."
+        "  oriC_low (ATP-only, per-domain): stepped Adair ladder,\n"
+        "    K_d,1 ≥ K_d,2 ≥ … ≥ K_d,N (from V2ECOLI_DNAA_ADAIR_KDS_NM).\n"
+        "  Free (A, D) solved by scipy.optimize.root; bound-form counts"
+        " rounded stochastically."
     )
 
     name = NAME
@@ -242,14 +244,11 @@ class DnaABoxBinding(Step):
         # observations as (time_s, nM) tuples used to compute gradient_rising.
         self._bulk_atp_history = []
 
-        # Solver warm-start state — pure-linear-K_d mode (no hysteresis flag,
-        # no relax dial). Cooperative K_d has intrinsic bistability; the
-        # equilibrium solver picks an arbitrary basin per tick when started
-        # cold, which produces tick-by-tick flicker. Warm-starting from the
-        # previous tick's converged bound counts gives the solver "memory" —
-        # a cluster that landed in the high-n basin stays there until a real
-        # release event (fork passage clears the domain key from cache).
-        # Stochastic kinetics would give this naturally; here we approximate.
+        # Solver warm-start state. Warm-starting scipy.root from the previous
+        # tick's converged (A_free, D_free, per-domain bound counts) speeds
+        # convergence and, more importantly, resists tick-by-tick flicker in
+        # the transition regime. Cache is pruned on fork passage (domain key
+        # disappears), so daughter oriCs start from the cold basin.
         self._prev_A_free = None
         self._prev_D_free = None
         self._prev_n_bound_by_dom = {}  # domain_key → bound DnaA-ATP from last tick
@@ -576,8 +575,8 @@ class DnaABoxBinding(Step):
             group_n_sites = np.array([], dtype=np.float64)
             n_groups = 0
 
-        # Non-cooperative fallback K_l (used when COOPERATIVE_ORIC_LOW=False
-        # or when grouping is degenerate). Matches legacy behaviour.
+        # Pooled Langmuir K_l / N_l used only when n_groups == 0 (no oriC-low
+        # sites present — edge case; per-domain Adair path is the primary).
         K_l_legacy = kd_low_molecules
         N_l_legacy = n_low_total
 

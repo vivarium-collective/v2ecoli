@@ -113,23 +113,11 @@ FORM_BOUND_ADP = 2
 
 # K_d values in molar (mol / L).
 KD_HIGH_M = 3e-9    # 3 nM — chromosomal_high, oriC_high, promoter_high
-KD_LOW_M = 100e-9   # 100 nM — oriC_low (ATP only). Used as KD_LOW_MAX_M when
-                    # COOPERATIVE_ORIC_LOW = False (legacy non-cooperative).
+KD_LOW_M = 100e-9   # 100 nM — oriC_low (ATP only), legacy non-cooperative K_d.
+                    # Consumed only by the K_l_legacy path (fallback when
+                    # n_groups == 0); Adair ladder ignores it.
 
-# Per-oriC linear-K_d cooperativity at oriC_low (Haochen spec).
-# K_d_low decreases linearly with local occupancy on the same chromosome:
-#   K_d_low(occ) = max(KD_LOW_MIN_M, KD_LOW_MAX_M
-#                                    - (KD_LOW_MAX_M - KD_LOW_MIN_M)
-#                                      * occ / COOP_SATURATION_FRAC)
-# At occ = 0:   K_d = 100 nM (matches non-cooperative legacy)
-# At occ = 7/8: K_d =   1 nM (sites cooperative saturate)
-# Above 7/8 the K_d clamps at KD_LOW_MIN_M.
-# Cooperativity is per-chromosome (not pooled across chromosomes) — DnaA-DnaA
-# contacts at neighbouring oric_low sites are local, so each oriC's 8 sites
-# have their own K_d driven by their own local occupancy fraction.
 COOPERATIVE_ORIC_LOW = True
-KD_LOW_MAX_M = 100e-9  # 100 nM at zero occupancy (= legacy KD_LOW_M)
-KD_LOW_MIN_M = 1e-9    # 1 nM at saturation
 
 # Positive-gradient gate on the Adair cooperativity path. Enables the
 # gradient_rising computation over a GRADIENT_WINDOW_S rolling window of
@@ -144,31 +132,6 @@ GRADIENT_WINDOW_S = float(os.environ.get(
 GRADIENT_MIN_SLOPE_NM_PER_S = float(os.environ.get(
     "V2ECOLI_DNAA_GRADIENT_MIN_SLOPE_NM_PER_S", "0.0"))
 
-# Asymmetric K_d (KNF-style ratchet) toggle. When True, the per-oriC
-# equilibrium treats bound vs empty sites with DIFFERENT K_ds:
-#   - Bound sites:  K_d = KD_LOW_MIN_M  (very stable, slow unbinding)
-#   - Empty sites:  K_d = _kd_low_cooperative(n, N)  (linear with occ)
-# This breaks the symmetry of the standard equilibrium and collapses the
-# bistability — the cluster monotonically climbs to saturation as bulk grows.
-# When False (default), uses the symmetric model (single K_d(n) for all
-# sites), which has bistable low-n and high-n basins.
-
-# Stochastic kinetics at oriC_low toggle. When True, replaces the equilibrium
-# solve for oriC_low with per-site Bernoulli sampling at each tick. Each
-# domain's sites are independently sampled from the (asymmetric) K_d-derived
-# binding probability. Breaks the symmetry between chromosomes (each cluster
-# gets a different random draw), so when bulk DnaA-ATP is in the transition
-# regime, one chromosome can cross to high-n while another stays at low-n
-# (competitive exclusion via stochastic timing). Equilibrium-solving is still
-# used for the high-affinity pools (no bistability there).
-
-# Hill K_d cooperativity toggle. When True, replaces the linear K_d(n) formula
-# with a Hill function:
-#   K_d(n) = K_d_min + (K_d_max - K_d_min) × K_half^h / (K_half^h + n^h)
-# Default K_half = 4 (half-saturation occupancy), h = 4 (cooperativity exponent).
-# This is steeper than linear — K_d stays near K_d_max at low n and drops
-# sharply around K_half. Captures real cooperative binding where the
-# transition happens in a narrow occupancy range rather than gradually.
 # Adair stepwise binding constants. Cluster of N sites has N sequential
 # dissociation constants K_d,1 > K_d,2 > ... > K_d,N (positive cooperativity:
 # each bound site makes next binding easier). Geometric interpolation between
@@ -192,13 +155,10 @@ if ADAIR_KDS_nM_STR:
 else:
     ADAIR_KDS_M = None
 
-# Gradient-gated cooperativity: when enabled, Hill K_d cooperativity only
-# engages while bulk DnaA-ATP is actively accumulating (positive gradient).
-# When gradient is not positive, K_d is pinned to K_d_max regardless of n
-# — the cluster behaves as if no cooperativity has taken hold. Biologically
-# this approximates the idea that cooperative oligomerization at oriC
-# requires DnaA-ATP to be arriving. Combined with a fixed K_half (no
-# adaptive), this gives a two-gate cooperativity: K_half=X AND rising bulk.
+# Gradient-gated cooperativity: when enabled, the Adair ladder only engages
+# while bulk DnaA-ATP is actively accumulating (positive gradient). When the
+# gradient is not positive, the cluster is pinned to the K_d_max floor for
+# all sites — cooperative loading only proceeds while DnaA-ATP is arriving.
 COOP_GRADIENT_GATE = os.environ.get(
     "V2ECOLI_DNAA_COOP_GRADIENT_GATE", "0") in ("1", "true", "True")
 

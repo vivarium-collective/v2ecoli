@@ -306,11 +306,6 @@ wheels = [
 ]
 
 [[package]]
-name = "bigraph-loom"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=main#8d06560df914e37686a5fc8329efc949f6850a5f" }
-
-[[package]]
 name = "bigraph-schema"
 version = "1.4.2"
 source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#87e6b7cdf5b410064e5245f22cd7138b62f64017" }
@@ -2819,17 +2814,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pbg-basic-processes"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?branch=main#af83ccc834a84af4e4b3bb5d114aca79713cf401" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "process-bigraph" },
-    { name = "sympy" },
-]
-
-[[package]]
 name = "pbg-bioreactordesign"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main#f40f82f0057d042cb06f349dbe1702306b35ddbf" }
@@ -4419,7 +4403,6 @@ dependencies = [
     { name = "unum" },
     { name = "vecoli", extra = ["dev"] },
     { name = "viva-munk" },
-    { name = "vivarium-workbench" },
 ]
 
 [package.optional-dependencies]
@@ -4465,7 +4448,6 @@ requires-dist = [
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
-    { name = "vivarium-workbench", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
 ]
 provides-extras = ["dev", "parquet", "xarray", "emitters", "ray"]
 
@@ -4577,30 +4559,6 @@ dependencies = [
     { name = "setuptools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca3036152fe5df56860a57e70f3e68ac0198dbd7df60fcb/vivarium-core-1.6.5.tar.gz", hash = "sha256:1d83faa60005304b548f623447ab8675a06bb7ed8f6b7c0bd25b4aaa3381fccb", size = 136102, upload-time = "2024-12-03T21:49:29.797Z" }
-
-[[package]]
-name = "vivarium-workbench"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#ee0ae6734458edfc7d01e6929ce2fd46219b4761" }
-dependencies = [
-    { name = "bigraph-loom" },
-    { name = "bigraph-schema" },
-    { name = "fastapi" },
-    { name = "investigation-contracts" },
-    { name = "jinja2" },
-    { name = "jsonschema", extra = ["format-nongpl"] },
-    { name = "numpy" },
-    { name = "pbg-basic-processes" },
-    { name = "pbg-emitters", extra = ["xarray"] },
-    { name = "pbg-superpowers" },
-    { name = "process-bigraph" },
-    { name = "pydantic" },
-    { name = "pypdf" },
-    { name = "pyyaml" },
-    { name = "uvicorn" },
-    { name = "xarray" },
-    { name = "zarr" },
-]
 
 [[package]]
 name = "vl-convert-python"

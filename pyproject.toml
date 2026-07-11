@@ -16,11 +16,9 @@ dependencies = [
     "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
-    "vivarium-workbench",
-    # Transitive dep of pbg-superpowers + vivarium-workbench (the Actionable
-    # Investigation Graph types); declared directly so [tool.uv.sources] below
-    # resolves its git source (uv applies sources to direct deps, not arbitrary
-    # transitive ones).
+    # Transitive dep of pbg-superpowers (the Actionable Investigation Graph
+    # types); declared directly so [tool.uv.sources] below resolves its git
+    # source (uv applies sources to direct deps, not arbitrary transitive ones).
     "investigation-contracts",
     "vEcoli[dev]>=1.1.0",
     "viva-munk>=0.0.1",
@@ -122,7 +120,6 @@ pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-biore
 pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
-vivarium-workbench = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }

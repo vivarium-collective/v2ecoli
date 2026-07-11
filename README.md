@@ -27,7 +27,7 @@ Two things follow from that:
 - **The repository is a pbg research workspace.** Alongside the model code live
   **investigations** (a research question) and **studies** (the simulations that
   answer it) — browsable and runnable in the
-  [vivarium-workbench](https://github.com/vivarium-collective/vivarium-dashboard).
+  [vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench).
   Investigations live under `workspace/investigations/` (baseline showcase,
   PDMP, colonies, and more), each publishing a self-contained
   [investigation report](#explore-v2ecoli).
@@ -60,7 +60,7 @@ There are **three** kinds of output, each from a different pipeline.
 **[→ vivarium-collective.github.io/v2ecoli/dashboard/](https://vivarium-collective.github.io/v2ecoli/dashboard/)**
 
 A read-only snapshot of the v2ecoli workspace in the
-[vivarium-workbench](https://github.com/vivarium-collective/vivarium-dashboard):
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench):
 investigations & studies, the process/type **registry**, navigable **composite**
 wiring graphs (`baseline`, `parca`), and the **sources** bundle. Auto-rebuilt
 from `main` on every push. For the full interactive version (authoring, running
@@ -223,7 +223,7 @@ quantities at ports are `pint.Quantity`; the only place `Unum` survives is the
 upstream-interop bridge at `v2ecoli/library/unit_bridge.py`.
 
 **The `pbg_v2ecoli/` package** at the repo root is the *workspace* package the
-[vivarium-workbench](https://github.com/vivarium-collective/vivarium-dashboard)
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench)
 uses. Its `build_core()` pre-registers the v2ecoli types **plus** the `EcoliWCM`
 bridge before composites are built (so the dashboard's subprocess runner can pass
 a fully-populated `core`). The model package (`v2ecoli/`) and the workspace
@@ -596,7 +596,7 @@ workspace.yaml     pbg workspace config
 - [bigraph-schema](https://github.com/vivarium-collective/bigraph-schema) — type system + auto-discovery
 - [pbg-superpowers](https://github.com/vivarium-collective/pbg-superpowers) — `@composite_generator`, `Visualization`
 - [pbg-emitters](https://github.com/vivarium-collective/pbg-emitters) — `ParquetEmitter`
-- [vivarium-workbench](https://github.com/vivarium-collective/vivarium-dashboard) — interactive workspace UI (reads `workspace.yaml` + `pbg_v2ecoli/`)
+- [vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench) — interactive workspace UI (reads `workspace.yaml` + `pbg_v2ecoli/`)
 - [vEcoli](https://github.com/CovertLab/vEcoli) — ParCa reference data & biology
 - [multi-cell](https://github.com/vivarium-collective/pymunk-process) — 2D colony physics
 - [3d-ecoli](https://github.com/vivarium-collective/3d-ecoli) — 3D structural model (imports v2ecoli + pbg-parsimony)

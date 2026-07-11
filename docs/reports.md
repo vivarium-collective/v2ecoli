@@ -21,7 +21,7 @@ links into all three.
 **[→ vivarium-collective.github.io/v2ecoli/dashboard/](https://vivarium-collective.github.io/v2ecoli/dashboard/)**
 
 A **read-only** snapshot of the v2ecoli workspace rendered by the
-[vivarium-workbench](https://github.com/vivarium-collective/vivarium-dashboard)
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench)
 SPA. Browse:
 
 - **Investigations & studies** — the research questions and the runs that answer
@@ -40,7 +40,7 @@ static server can host. The `publish-dashboard.yml` workflow rebuilds it from
 > The hosted version is **view-only**. For the full interactive dashboard —
 > authoring investigations, running studies, editing wiring — clone the repo and
 > run `vivarium-workbench serve` locally (see the
-> [vivarium-workbench README](https://github.com/vivarium-collective/vivarium-dashboard#readme)).
+> [vivarium-workbench README](https://github.com/vivarium-collective/vivarium-workbench#readme)).
 
 ---
 

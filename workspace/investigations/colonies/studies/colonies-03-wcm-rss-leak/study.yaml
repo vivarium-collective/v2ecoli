@@ -1,16 +1,15 @@
-schema_version: 3
+schema_version: 4
 name: colonies-03-wcm-rss-leak
 title: Inner EcoliWCM RSS leak — localize and fix
 description: |
-  colonies-02 refuted per-cell-rss-drift-bounded: a single EcoliWCM grows
-  RSS ~7.7 MB/sim-s (emitter-independent), reaching ~19 GB before its first
-  division and OOM-killing the sequential colony at 27.5 GB. Under Ray the
-  leak just moves into the per-cell actors (~34 GB at 2 cells), so process
-  parallelism lifts the GIL/compute ceiling but RAM becomes the binding
-  constraint. This unbounded growth makes the colonies cells-per-node budget
-  untrustworthy and blocks HPC deployment. This study localizes the leak to
-  a named allocation site and fixes it so per-cell RSS stays bounded over a
-  natural-division lifetime.
+  colonies-02 refuted per-cell-rss-drift-bounded: a single EcoliWCM grows RSS
+  ~7.7 MB/sim-s (emitter-independent), reaching ~19 GB before its first division
+  and OOM-killing the sequential colony at 27.5 GB. Under Ray the leak moves into
+  the per-cell actors (~34 GB at 2 cells), so process parallelism lifts the
+  GIL/compute ceiling but RAM becomes the binding constraint, making the
+  cells-per-node budget untrustworthy and blocking HPC deployment. This study
+  localizes the leak to a named allocation site and fixes it so per-cell RSS
+  stays bounded over a natural-division lifetime.
 topic: scaling
 tags: [colony, perf, memory, leak, debugging, requires-viva-munk, blocker]
 created: '2026-06-15'
@@ -44,29 +43,27 @@ purpose:
     colonies HPC sizing?
   mechanism: |
     Localized (2026-06-15): the leak is the inner per-cell RAMEmitter, not
-    chromosome_history. Each embedded cell's inner Composite (built by
-    baseline() in the EcoliWCM bridge) gets a default RAMEmitter whose
-    no-override branch (v2ecoli/composites/_helpers.py) captures `bulk`
-    (~25k-molecule array) + four unique-molecule node arrays (full_chromosome
-    / active_replisome / active_RNAP / chromosome_domain) every tick into an
-    unbounded history list (RAMEmitter.update -> history.append(tree_copy)).
-    The inner RAM history is never read (the bridge reads composite.state
-    directly), so it is pure leak, and it matches the ~7.7 MB/sim-s. This
-    corrects colonies-02's "emitter-independent" call: the no-emitter probe
-    there nulled only the outer colony emitter; each cell's inner emitter kept
-    accumulating.
-    Fix: a `_RAM_EMITTER_CAPTURE='minimal'` mode in _helpers.py (global_time
-    + listeners only) that the bridge sets for embedded cells; default stays
-    'full' for standalone callers that read the in-RAM tree.
-    (Other candidates ruled out as dominant: chromosome_history append
-    (bridge.py:243) is unbounded but small; unique-molecule array growth is
-    legitimate biomass, not a leak.)
+    chromosome_history. Each embedded cell's inner Composite (built by baseline()
+    in the EcoliWCM bridge) gets a default RAMEmitter whose no-override branch
+    (v2ecoli/composites/_helpers.py) captures `bulk` (~25k-molecule array) plus
+    four unique-molecule node arrays (full_chromosome / active_replisome /
+    active_RNAP / chromosome_domain) every tick into an unbounded history list
+    (RAMEmitter.update -> history.append(tree_copy)). That history is never read
+    (the bridge reads composite.state directly), so it is pure leak matching the
+    ~7.7 MB/sim-s. This corrects colonies-02's "emitter-independent" call: the
+    no-emitter probe there nulled only the outer colony emitter, while each cell's
+    inner emitter kept accumulating.
+    Fix: a `_RAM_EMITTER_CAPTURE='minimal'` mode in _helpers.py (global_time +
+    listeners only) that the bridge sets for embedded cells; default stays 'full'
+    for standalone callers that read the in-RAM tree. (Other candidates ruled out
+    as dominant: chromosome_history append (bridge.py:243) is unbounded but small;
+    unique-molecule array growth is legitimate biomass, not a leak.)
   expected_outcome: |
-    A tracemalloc/gc profile attributes the bulk of growth to one or two
-    named sites. After the fix, a single-cell ~2500s run holds RSS within a
-    bounded band (no monotonic climb), and a re-run of colonies-02's
-    seq-1cell-4div completes 3 generations WITHOUT OOM while leaving the
-    biology unchanged (first division still tick 2338, masses within RNG).
+    A tracemalloc/gc profile attributes the bulk of growth to one or two named
+    sites. After the fix, a single-cell ~2500s run holds RSS within a bounded band
+    (no monotonic climb), and a re-run of colonies-02's seq-1cell-4div completes 3
+    generations without OOM while leaving the biology unchanged (first division
+    still tick 2338, masses within RNG).
 
 build_tasks:
 - id: leak-localization
@@ -247,3 +244,10 @@ findings:
 # WCM and originally flipped gate_status to passed. The colonies-02 multi-cell
 # re-run on main (F-04) overturned that at colony scale — the dominant leak is
 # native/C, still open — so the gate is BLOCKED again pending a native profiler.
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null
+references: []
+implementation_tasks: ''

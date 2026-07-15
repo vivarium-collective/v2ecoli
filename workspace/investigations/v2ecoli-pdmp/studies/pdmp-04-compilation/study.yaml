@@ -3,15 +3,11 @@ name: pdmp-04-compilation
 investigation: v2ecoli-pdmp
 title: Phase 4 — Compilation and Performance
 claim: |
-  76% of per-tick time is spent outside process_update (13,817 isinstance + 4,213
-  __array_finalize__ + 52 process_update calls/tick), but that 76% bucket includes real
-  numpy/scipy numeric work (e.g. Poisson logpmf), so it is not all marshalling overhead. The
-  headline "total speedup at N=10³" is an illustrative projection, not a measurement. It equals
-  a hand-picked toy factor × N (the script hardcodes 3× → 3000×; the prose uses the recalibrated
-  1.5× → ~1500×; 26 min → ~1 s). The column-centric vectorized runtime was never built and never
-  timed; only the pbg side was measured (at N=1,2,4). The per-Process Catalyst.jl JIT ≤10% figure
-  is an extrapolation, not validated on the 55-process WCM. The suggested but not demonstrated
-  architectural direction is a column-centric runtime over per-Process JIT.
+  Profiling shows ~76% of per-tick time is spent outside process_update, but that bucket includes real
+  numpy/scipy numeric work (e.g. Poisson logpmf), so it is not all marshalling overhead. The headline
+  "total speedup at N=10³" is an illustrative projection (a hand-picked toy factor × N), not a measurement
+  — the column-centric vectorized runtime was never built or timed, only the pbg side was measured (at
+  N=1,2,4), and the per-Process Catalyst.jl JIT ≤10% figure is an unvalidated extrapolation.
 confidence: Investigating
 status: running
 phase: Design
@@ -28,96 +24,65 @@ tags:
 - hpc
 - xarray-emitter
 created: '2026-05-24'
-question: 'Can the Phase 2 PDMP be exported to a high-performance compiled
+question: |
+  Can the Phase 2 PDMP be exported to a high-performance compiled representation (Catalyst.jl /
+  ModelingToolkit with symbolic Jacobians and automatic sensitivity equations) on a column-centric
+  Vivarium runtime, achieving ≥10³ parallel single-cell trajectories on a GPU or multi-core CPU with
+  near-zero per-step marshalling overhead — turning the throughput bottleneck the DUF report identified
+  into a non-issue for downstream inference?
+hypothesis: |
+  (a) The PDMP, expressed in Process Bigraph schemas, admits an automatic export to Catalyst.jl /
+  ModelingToolkit producing LLVM-optimized simulation with symbolic Jacobians and forward-mode
+  sensitivity equations. (b) Replacing v2ecoli's row-centric nested-dictionary state with pre-allocated
+  column-centric tensors removes essentially all per-step marshalling overhead identified in Phase 0.
+  (c) Vivarium's API can be inverted so processes declare local state, ODE vector fields, and jump
+  propensities, with the runtime handling topology traversal and time-stepping. (d) The combined runtime
+  achieves ≥10³ parallel single-cell trajectories on GPU or multi-core CPU with throughput an order of
+  magnitude or more above the v2ecoli baseline.
+objective: |
+  Implement the PB → Catalyst.jl export, refactor Vivarium state to column-centric pre-allocated tensors,
+  invert the Vivarium API to declarative process specs (local state + ODE vector field + jump
+  propensities), and deploy the compiled runner on GPU and multi-core CPU. Benchmark ≥10³ parallel
+  trajectories vs. the v2ecoli baseline and the Phase 2 PDMP runner, and report the ABC wall-clock
+  improvement handed to Phase 3 / Phase 5.
+description: |
+  Phase 4 of the v2ecoli → PDMP roadmap. The DUF report Sec. 4.2.1 notes that "submodel definitions and
+  simulation modules are currently inseparable" in v2ecoli and that the runtime "exhibits orders of
+  magnitude of overhead, relative to competitive numerical solvers" — the dominant cause being
+  marshalling overhead from the row-centric nested-dictionary state. Catalyst.jl + ModelingToolkit +
+  JumpProcesses.jl is the reference target: an established Julia stack for compiled reaction-network
+  simulation with symbolic Jacobians and GPU-friendly state. The PB → Catalyst.jl bridge — codifying the
+  PB process interface as a Catalyst-compatible reaction-network spec — is the primary new deliverable;
+  the column-centric refactor of Vivarium can proceed in parallel with Phases 1–2.
 
-  representation (Catalyst.jl / ModelingToolkit with symbolic
+  # Numerical considerations
+  Numerical equivalence. The hardest test is whether the compiled runner produces the same trajectory
+  ensemble as the Phase 2 runner: W₂(p_compiled, p_phase2) ≤ 5·σ_MC, where σ_MC is the standard error of
+  the Phase 2 self-W₂ at the same N (5σ is conservative — it covers genuine FP-order differences without
+  firing on stochastic noise). Tested on N=10⁴ trajectories across all Phase 0 conditions.
 
-  Jacobians and automatic sensitivity equations) running on a
+  Precision. FP32 on GPU promises 2× throughput but corrupts long-run ABC posteriors via catastrophic
+  cancellation in propensity sums. Default FP64; FP32 only where (a) bit-equivalence vs FP64 passes and
+  (b) downstream ABC posteriors are invariant under the switch.
 
-  column-centric Vivarium runtime, and achieve ≥10³ parallel
+  FP summation order. Parallel reductions over per-trajectory log-likelihoods must use deterministic
+  (pairwise or Kahan) summation so results are independent of GPU thread scheduling; non-deterministic
+  atomic-add reductions are banned (they break SBC reproducibility across hardware).
 
-  single-cell trajectories on a GPU or multi-core CPU with
+  Convergence orders. ODE: order-5 embedded Runge-Kutta (default) or BDF for stiff segments, verified on
+  Van der Pol + Brusselator before deployment. SSA jumps: exact. τ-leaping: weak order 1, strong order
+  0.5, tested on the analytical M/M/1 queue.
 
-  near-zero per-step marshalling overhead — turning the throughput
+  Throughput vs variance. The relevant metric is posterior-estimate-variance per wall-clock second, not
+  raw trajectories/second; we report both trajectories/sec at fixed precision and ABC posterior variance
+  × wall-clock time. Doubling trajectories should roughly halve posterior variance (1/√N); if not, the
+  parallelism has hidden correlations to investigate.
 
-  bottleneck the DUF report identified into a non-issue for
-
-  downstream inference?
-
-  '
-hypothesis: '(a) The PDMP, expressed in Process Bigraph schemas, admits an
-
-  automatic export to Catalyst.jl / ModelingToolkit that produces
-
-  LLVM-optimized simulation with symbolic Jacobians and
-
-  automatic forward-mode sensitivity equations. (b) Replacing
-
-  v2ecoli''s row-centric nested-dictionary state with pre-allocated
-
-  column-centric tensors removes essentially all per-step
-
-  marshalling overhead identified in Phase 0. (c) Vivarium''s API
-
-  can be inverted so processes declare local state, ODE vector
-
-  fields, and jump propensities; the runtime handles topology
-
-  traversal and time-stepping. (d) The combined runtime achieves
-
-  ≥10³ parallel single-cell trajectories on GPU or multi-core CPU
-
-  with throughput an order of magnitude or more above the v2ecoli
-
-  baseline.
-
-  '
-objective: 'Implement the PB → Catalyst.jl export; refactor Vivarium''s
-
-  state representation to column-centric pre-allocated tensors;
-
-  invert the Vivarium API so process specifications are
-
-  declarative (local state + ODE vector field + jump
-
-  propensities); deploy the compiled runner on GPU and multi-core
-
-  CPU; benchmark ≥10³ parallel trajectories vs. v2ecoli baseline
-
-  and vs. Phase 2 PDMP runner; report ABC wall-clock time
-
-  improvement (handing off to Phase 3 / Phase 5).
-
-  '
-description: "Phase 4 of the v2ecoli → PDMP roadmap. The DUF report Sec. 4.2.1\nidentifies that \"submodel definitions and\
-  \ simulation modules\nare currently inseparable\" in v2ecoli and that the runtime\n\"exhibits orders of magnitude of overhead,\
-  \ relative to\ncompetitive numerical solvers\" — the dominant cause being\nmarshalling overhead from the row-centric nested-dictionary\n\
-  state representation.\n\nCatalyst.jl + ModelingToolkit + JumpProcesses.jl is the\nreference target: an established Julia\
-  \ stack for compiled\nreaction-network simulation with symbolic Jacobians and\nGPU-friendly state representations. The PB\
-  \ → Catalyst.jl\nbridge will require codifying the PB process interface as a\nCatalyst-compatible reaction network spec;\
-  \ this is the\nprimary new infrastructure deliverable.\n\nThe column-centric refactor of Vivarium itself is a substantial\n\
-  undertaking; the roadmap implies it can be initiated in\nparallel with Phases 1–2 by an independent infrastructure team.\n\
-  \n# Numerical considerations\nNumerical equivalence. The single hardest test for a compiled\nre-implementation is: does\
-  \ it produce the same trajectory\nensemble as the reference Phase 2 runner? \"Same\" means\nW₂(p_compiled, p_phase2) ≤ 5·σ_MC\
-  \ where σ_MC is the standard\nerror of the Phase 2 self-W₂ estimate at the same N (a 5σ\nbound is conservative — covers\
-  \ genuine FP-order differences\nwithout firing on legitimate stochastic noise). We test on N=10⁴\ntrajectories across all\
-  \ Phase 0 conditions.\n\nPrecision. Single-precision (FP32) on GPU promises 2×\nthroughput but has been shown to\
-  \ corrupt long-run ABC posteriors\nvia catastrophic cancellation in propensity sums. Default:\nFP64. FP32 only allowed where\
-  \ (a) bit-equivalence test passes\nvs FP64 reference and (b) downstream ABC posteriors are\ninvariant under switch.\n\n\
-  FP summation order. Parallel reductions over per-trajectory\nlog-likelihoods must use a deterministic summation order\n\
-  (pairwise or Kahan) so that the result is independent of GPU\nthread scheduling. Non-deterministic atomic-add reductions\
-  \ are\nbanned — they break SBC reproducibility across hardware.\n\nConvergence orders. The compiled ODE integrator and stochastic\n\
-  integrator each carry an explicit convergence claim:\n - ODE: order-5 embedded Runge-Kutta (default) or BDF for\n   stiff\
-  \ segments; verified on Van der Pol oscillator + Brusselator\n   test problems before deployment.\n - SSA-based jumps: exact\
-  \ (no integration error).\n - τ-leaping: weak order 1, strong order 0.5; tested on\n   analytical M/M/1 queue.\n\nThroughput\
-  \ vs variance. The relevant performance metric for\ndownstream inference is not raw trajectories/second but\nposterior-estimate-variance\
-  \ per wall-clock second. We report\nboth: trajectories/sec at fixed precision AND ABC posterior\nvariance × wall-clock-time\
-  \ (standard MCMC efficiency metric).\nDoubling trajectories should roughly halve posterior variance\n(1/√N scaling) — if\
-  \ not, the parallelism has hidden\ncorrelations to investigate.\n\n# Emitter\nCompiled-runner output goes through a Julia\
-  \ → XArrayEmitter\nbridge that batches per-trajectory results into chunked zarr\nwrites (chunks: {trajectory: 64, time:\
-  \ -1}) at the python\nboundary, avoiding per-trajectory I/O overhead at 10³+\nparallelism. The bridge preserves exact bit-equivalence\
-  \ with\nthe Phase 2 emitter so the W₂ equivalence test\n[[uq-compiled-vs-reference-w2-5sigma]] can compare paired\nzarr\
-  \ stores directly.\n"
+  # Emitter
+  Compiled-runner output goes through a Julia → XArrayEmitter bridge that batches per-trajectory results
+  into chunked zarr writes (chunks: {trajectory: 64, time: -1}) at the python boundary, avoiding
+  per-trajectory I/O at 10³+ parallelism. The bridge preserves bit-equivalence with the Phase 2 emitter
+  so the W₂ equivalence test [[uq-compiled-vs-reference-w2-5sigma]] can compare paired zarr stores.
 expected_behavior:
 - name: catalyst-export-works
   en: The PDMP exports to a Catalyst.jl / ModelingToolkit model with symbolic Jacobians and automatic sensitivity equations;

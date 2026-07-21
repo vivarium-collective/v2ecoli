@@ -168,7 +168,13 @@ def test_badge_class_whitelisted():
     }
     bad_html = render(summary)
     assert 'class="badge "><x"' not in bad_html
-    assert '"><x' not in bad_html.split("class=")[1].split(">")[0]
+    # the badge span's own class attribute must be a safe whitelisted value,
+    # not the attacker string (anchor on the badge span, not the page shell)
+    import re
+    badge_cls = re.search(r'<span class="badge ([^"]*)">', bad_html).group(1)
+    assert badge_cls in ("", "within_tol", "drift", "mismatch")
+    # ...but the value is still shown as text, HTML-escaped
+    assert "&gt;&lt;x" in bad_html
 
 
 def test_fragment_with_style_block_is_isolated(tmp_path):

@@ -20,8 +20,9 @@ The work divides along a seam worth naming up front:
 - **Mechanical** (this spec) — the variant machinery, the multi-ParCa runner it
   needs, and the tests that establish the implementation does what it says.
 - **Scientific** (separate, see
-  `workspace/investigations/genotype-perturbation-response/`) — whether the
-  model's *response* to those perturbations matches measured biology.
+  `workspace/investigations/genotype-perturbation-response/`) — how the model
+  *responds* to those perturbations, characterized first and compared against
+  measured biology later.
 
 These are separated deliberately. The mechanical work can be reviewed and
 merged on its own terms; the scientific work is a research question that only
@@ -263,6 +264,16 @@ designed. C carries the coordinate work and the AA-fitting risk.
 
 The scientific investigation is scaffolded now but runs after C, since the
 essentiality panel and the AA-pathway stress test both need ParCa-level KO.
+
+That investigation is deliberately a **descriptive** first pass — characterize
+how the model responds, with several checks per study that can surface
+divergences worth acting on, rather than graded evaluation returning verdicts.
+Structured comparison against literature and experimental data, with declared
+criteria and bands, is the natural follow-on once the mechanisms are trusted:
+the test matrix above establishes the machinery is correct, and the descriptive
+pass shows both that the model responds sensibly and what the readouts actually
+look like. Which comparisons are worth the run budget depends on what that pass
+surfaces, so they are not enumerated here.
 
 ## Out of scope
 

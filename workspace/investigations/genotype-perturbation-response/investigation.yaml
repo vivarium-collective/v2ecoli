@@ -1,6 +1,6 @@
 schema_version: 2
 name: genotype-perturbation-response
-title: "Genotype perturbation response: does v2ecoli respond correctly to KO, KD, and OE of native genes?"
+title: "Genotype perturbation response: characterizing how v2ecoli responds to KO, KD, and OE of native genes"
 created: '2026-07-21'
 status: draft
 
@@ -9,80 +9,97 @@ status: draft
 # docs/superpowers/specs/2026-07-21-genotype-perturbations-design.md; studies
 # 02-05 additionally require that spec's Tranche C (ParCa-level KO/KD).
 #
-# This investigation is deliberately scoped to the SCIENTIFIC question — does
-# the model's response to a genotype perturbation match measured biology? The
-# MECHANICAL question (does the machinery edit coordinates and expression
-# vectors correctly?) is answered by the test matrix in the design spec, not
-# here. Keeping them separate means the engineering can merge on its own terms
-# and the biology gets scheduled rather than assumed.
+# SCOPE — this is a DESCRIPTIVE first pass, deliberately. The studies below
+# characterize how the model responds to genotype perturbations; they are not
+# structured as graded evaluations returning verdicts. Each carries several
+# independent checks, any of which can surface a divergence worth acting on,
+# and that is the intended yield: a ranked list of things to look at, not a
+# pass/fail.
+#
+# The studies are kept at this level on purpose. Committing detailed conditions,
+# tests, and grading bands before the machinery exists would mostly be
+# speculative structure, rewritten once real readouts are in hand. Deepening
+# comes after — see `going_deeper` at the bottom.
+#
+# This investigation is also scoped to the SCIENTIFIC question. The MECHANICAL
+# question (does the machinery edit coordinates and expression vectors
+# correctly?) is answered by the test matrix in the design spec, not here.
+# Keeping them separate means the engineering can merge on its own terms and
+# the biology gets scheduled rather than assumed.
 
 question: |
   When a native gene is knocked out, knocked down, or overexpressed in v2ecoli,
-  does the cell respond in the way measured biology says it should? Concretely:
-  does the model reproduce known gene essentiality; does it survive perturbation
-  of genes whose products feed the mechanistic amino-acid supply parameters; and
-  do the two available knockout mechanisms (translation-level and ParCa-level)
-  agree where they should and differ where they should?
+  how does the cell respond? Specifically: what does the model do across a panel
+  of genes whose essentiality is independently known; what happens when the
+  perturbed genes feed the mechanistic amino-acid supply parameters; and how do
+  the two available knockout mechanisms (translation-level and ParCa-level)
+  differ in effect?
 
 executive:
   what_is_this: |
-    A five-study evaluation of the genotype-perturbation machinery once it
-    exists. The arc runs from a null control, through an independent
-    essentiality benchmark, into two anticipated failure modes:
-      - genotype-01-null-control [PLANNED] — a no-op perturbation and a
-        single well-characterized non-essential knockout, to establish the
-        machinery moves the cell only where it should.
+    A five-study descriptive characterization of the genotype-perturbation
+    machinery once it exists. The arc moves from a machinery sanity check into
+    two panels with independent structure to check against, then into two
+    targeted probes:
+      - genotype-01-null-control [PLANNED] — a no-op perturbation and one
+        well-characterized non-essential knockout; confirms the machinery moves
+        the cell only where it should before anything is read into a result.
       - genotype-02-essentiality-panel [PLANNED] — a panel of single-gene
-        knockouts graded against published essentiality. The primary
-        independent benchmark.
+        knockouts spanning known-essential, known-non-essential, and
+        known-conditional genes. Descriptive: characterize what the model does
+        across the panel, using published essentiality as structure to read
+        against rather than as a grading key.
       - genotype-03-aa-pathway-stress [PLANNED] — knockouts of amino-acid
-        pathway genes, targeting a specific anticipated failure mode in the
-        mechanistic AA supply parameter fitting.
+        pathway genes, probing the mechanistic AA supply parameter-fitting
+        interaction flagged in RFC-007. A targeted look at an anticipated
+        failure mode.
       - genotype-04-ko-mechanism-comparison [PLANNED] — the same genes knocked
-        out translationally and at the ParCa level, to characterize where the
-        two mechanisms diverge.
+        out translationally and at the ParCa level; characterize where and how
+        far the two mechanisms diverge.
       - genotype-05-knockdown-dose-response [PLANNED] — graded knockdown of a
-        small gene set, testing whether response is monotonic in the multiplier.
+        small gene set; characterize the shape of the response across the
+        multiplier series.
   verdict_status: not-started
   decisions_needed:
-  - question: "Which gene panel for the essentiality benchmark, and at what size?"
+  - question: "Which gene panel for the essentiality study, and at what size?"
     status: "OPEN"
     context: |
-      The benchmark needs enough genes to be informative and few enough to run.
       An informative panel mixes confidently-essential, confidently-non-essential,
       and known-conditional genes rather than sampling uniformly, since the
       conditional cases are where a whole-cell model can say something a
       flux-balance model cannot. Panel size trades directly against seeds and
-      generations per genotype; see the aggregation note below.
-  - question: "What counts as a correct essentiality call?"
-    status: "OPEN"
+      generations per genotype; see `notes.run_shape`.
+  - question: "What readouts best express 'the model treated this gene as essential'?"
+    status: "OPEN — expected to be informed BY the descriptive pass, not before it"
     context: |
       A whole-cell model does not return a binary. Candidate readouts include
-      failure to divide within the simulated window, doubling time beyond a
-      declared band, or mass accumulation arrest. Each gives a different
-      confusion matrix against the reference. The criterion should be declared
-      before the panel runs rather than chosen to fit the result.
+      failure to divide within the simulated window, doubling time beyond some
+      band, and mass accumulation arrest. Rather than pick one up front, the
+      descriptive pass should report several and show what they look like across
+      known-essential and known-non-essential genes. Choosing the criterion is
+      then grounded in observed separation instead of guessed — and it is a
+      prerequisite for any later graded comparison.
 
 scientific_argument:
   main_claim: |
-    v2ecoli's genotype-perturbation machinery produces physiologically sound
-    responses: knockouts of essential genes arrest growth, knockouts of
-    non-essential genes do not, and perturbations of amino-acid pathway genes
-    do not corrupt the mechanistic AA supply parameterization.
+    Descriptive investigation — no verdict claim is asserted. The intended
+    output is a characterization of the model's genotype-perturbation response,
+    plus a ranked list of divergences worth acting on.
   evidence_for: []
   caveats:
-  - "No study here has been run; this is a scaffold. All evidence entries are targets."
-  - "The essentiality reference is an independent benchmark — the model is not fit to it — which makes a gap unambiguously a model deficiency rather than an ambiguous comparison. That is the reason to lead with it."
-  - "Reference strain matters: published single-gene knockout collections are in BW25113, not MG1655. Strain mismatch is a real confounder for a minority of genes and should be recorded on the card rather than silently absorbed."
-  - "The AA-pathway study tests an anticipated failure mode, so a negative result there is an expected and useful outcome, not a project risk. It is scoped as its own study precisely so it cannot be quietly skipped."
+  - "No study here has been run; this is a scaffold. Everything below is a target."
+  - "Published essentiality is used here as independent structure to read results against, not as a grading key. It is genuinely independent — the model is not fit to it — which is what would make a later graded comparison meaningful, and why it is worth reaching for even in a descriptive pass."
+  - "Reference strain matters: published single-gene knockout collections are in BW25113, not MG1655. Strain mismatch is a real confounder for a minority of genes and should be recorded alongside results rather than silently absorbed."
+  - "genotype-04 is a model-to-model comparison. There is no ground truth for which knockout mechanism is 'right', so it characterizes divergence and cannot return a correctness verdict — but the divergence itself is informative, since a translation-level knockout still transcribes mRNA and consumes RNAP capacity where a ParCa-level knockout removes the gene entirely."
+  - "genotype-03 tests an anticipated failure mode, so a negative result there is an expected and useful outcome, not a project risk. It is scoped as its own study precisely so it cannot be quietly skipped."
 
 at_a_glance:
   studies:
-  - genotype-01-null-control: a no-op perturbation (all multipliers 1.0) and one well-characterized non-essential knockout; establish the machinery perturbs only what it claims to
-  - genotype-02-essentiality-panel: single-gene knockout panel graded against published essentiality; the primary independent benchmark
+  - genotype-01-null-control: no-op perturbation plus one non-essential knockout; machinery sanity check before results are interpreted
+  - genotype-02-essentiality-panel: single-gene knockout panel across known-essential / non-essential / conditional genes; characterize the model's response using published essentiality as structure to read against
   - genotype-03-aa-pathway-stress: knockouts of amino-acid pathway genes, probing the mechanistic AA supply parameter-fitting interaction flagged in RFC-007
-  - genotype-04-ko-mechanism-comparison: translation-level vs ParCa-level knockout of the same gene set; characterize divergence (translational KO retains transcription and its RNAP burden)
-  - genotype-05-knockdown-dose-response: graded knockdown over a multiplier series; test monotonicity of response
+  - genotype-04-ko-mechanism-comparison: translation-level vs ParCa-level knockout of the same gene set; characterize the divergence, including the transcriptional burden the translational mechanism retains
+  - genotype-05-knockdown-dose-response: graded knockdown over a multiplier series; characterize the shape of the response
 
 studies:
 - genotype-01-null-control
@@ -93,10 +110,10 @@ studies:
 
 acceptance_criteria:
 - {study: genotype-01-null-control, behavior: no-op-perturbation-matches-baseline-and-non-essential-ko-is-viable}
-- {study: genotype-02-essentiality-panel, behavior: essentiality-calls-agree-with-published-reference}
-- {study: genotype-03-aa-pathway-stress, behavior: aa-pathway-knockouts-preserve-valid-aa-supply-parameterization}
-- {study: genotype-04-ko-mechanism-comparison, behavior: translation-and-parca-knockouts-agree-except-in-transcriptional-burden}
-- {study: genotype-05-knockdown-dose-response, behavior: knockdown-response-monotonic-in-multiplier}
+- {study: genotype-02-essentiality-panel, behavior: knockout-panel-response-characterized-against-published-essentiality}
+- {study: genotype-03-aa-pathway-stress, behavior: aa-pathway-knockout-effect-on-supply-parameterization-characterized}
+- {study: genotype-04-ko-mechanism-comparison, behavior: translation-vs-parca-knockout-divergence-characterized}
+- {study: genotype-05-knockdown-dose-response, behavior: knockdown-response-shape-characterized-across-multiplier-series}
 
 notes:
   aggregation: |
@@ -111,7 +128,14 @@ notes:
     panel will likely need to trade seeds and generations down to buy genotype
     breadth; that trade should be made against a measured variance decomposition
     rather than by assumption.
-  grading: |
-    Report-card axes state what is measured and how it is graded, as fact. They
-    do not carry mechanistic interpretation of why a genotype behaved as it did
-    — that belongs in the study read-out, not in the reusable instrument.
+  going_deeper: |
+    Deliberately deferred. Once the mechanisms are trusted — the machinery
+    verified by the design spec's test matrix, and the descriptive pass above
+    showing the model responds sensibly and revealing what the readouts actually
+    look like — the natural next step is structured, graded comparison against
+    literature and experimental data, with declared criteria and bands rather
+    than characterization.
+    There are several candidate directions for that, but writing them out now
+    would be premature: which comparisons are worth the run budget depends on
+    what the descriptive pass surfaces, and on which readouts turn out to
+    separate cleanly. Revisit once these five have run.

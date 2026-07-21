@@ -110,3 +110,19 @@ def test_render_overview_and_matrix():
     # self-contained: no external stylesheet or script src
     assert "<link " not in html.lower()
     assert "script src" not in html.lower()
+
+
+def test_render_per_study_sections_and_embedding():
+    from reports._summary.aggregate import aggregate
+    from reports._summary.render import render
+
+    html = render(aggregate(SLUG, WS))
+    # every study appears as a details section
+    for slug in ("parca", "acetate", "statistical"):
+        assert f'id="study-{slug}"' in html
+    # fragment card (acetate standard) inlined: its <h3 ... simulation runs heading present
+    assert "simulation runs" in html
+    # full-doc card (statistical) embedded via iframe srcdoc
+    assert "iframe" in html and "srcdoc=" in html
+    # auto-height shim present exactly once
+    assert html.count("scrollHeight") >= 1

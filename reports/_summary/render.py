@@ -74,6 +74,48 @@ def _rollup(summary: dict) -> str:
     return f'<div class="rollup">{"".join(pills)}</div>'
 
 
+_IFRAME_JS = (
+    "<script>window.addEventListener('load',function(){"
+    "document.querySelectorAll('iframe.card-frame').forEach(function(f){"
+    "try{f.style.height=(f.contentDocument.body.scrollHeight+20)+'px';}catch(e){}"
+    "});});</script>"
+)
+
+
+def _card_html(card: dict) -> str:
+    if card["missing"]:
+        return f'<div class="missing">card &ldquo;{_esc(card["name"])}&rdquo; not rendered yet</div>'
+    if card["is_full_doc"]:
+        srcdoc = _html.escape(card["html"], quote=True)
+        return f'<iframe class="card-frame" srcdoc="{srcdoc}"></iframe>'
+    return card["html"]  # fragment: inline as-is (inline styles only, no collision)
+
+
+def _study_section(study: dict) -> str:
+    badge_verdict = None
+    for c in study["cards"]:
+        if c["graded"]:
+            badge_verdict = c["overall"]
+            break
+    badge = (
+        f'<span class="badge {badge_verdict}">{_esc(badge_verdict)}</span>'
+        if badge_verdict else ""
+    )
+    finding = f'<span class="finding">{_esc(study["finding"])}</span>' if study["finding"] else ""
+    embeds = []
+    for c in study["cards"]:
+        open_attr = " open" if c["graded"] else ""
+        embeds.append(
+            f'<details class="card-embed"{open_attr}>'
+            f'<summary>{_esc(c["name"])} card</summary>{_card_html(c)}</details>'
+        )
+    return (
+        f'<details class="study" id="study-{_esc(study["slug"])}" open>'
+        f'<summary>{_esc(study["title"])}{badge}{finding}</summary>'
+        f'{"".join(embeds)}</details>'
+    )
+
+
 def render(summary: dict, style_css: str = "") -> str:
     head = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -87,5 +129,5 @@ def render(summary: dict, style_css: str = "") -> str:
         f"<div class=\"dag\">{_dag(summary)}</div>"
         f"{_matrix_table(summary)}"
     )
-    sections = ""  # --- per-study sections (Task 5) ---
-    return head + overview + sections + "</div></body></html>"
+    sections = "".join(_study_section(s) for s in summary["studies"])
+    return head + overview + sections + _IFRAME_JS + "</div></body></html>"

@@ -100,6 +100,28 @@ def _graded_axes(study_dir: Path, html_ref: str) -> list[dict[str, Any]]:
     return axes
 
 
+def _config_json(study: dict) -> dict[str, Any]:
+    """The study's real baseline config: the composite that drives the run
+    (from conditions.baseline) plus the comparison run settings.
+
+    Only non-null keys are included, so studies that omit a field (e.g. a
+    ParCa study with no comparison block) get a clean object rather than a
+    spray of nulls.
+    """
+    baseline = (study.get("conditions", {}) or {}).get("baseline", {}) or {}
+    comparison = study.get("comparison", {}) or {}
+    cfg: dict[str, Any] = {}
+    if baseline.get("composite"):
+        cfg["composite"] = baseline["composite"]
+    if baseline.get("params"):
+        cfg["params"] = baseline["params"]
+    if comparison.get("seeds") is not None:
+        cfg["seeds"] = comparison["seeds"]
+    if comparison.get("generations") is not None:
+        cfg["generations"] = comparison["generations"]
+    return cfg
+
+
 def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
     ws = Path(workspace_root)
     inv_dir = ws / "investigations" / slug
@@ -126,6 +148,7 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
             "prerequisites": (study.get("pipeline_gate", {}) or {}).get("prerequisites", []) or [],
             "finding": _first_finding(study),
             "cards": cards,
+            "config_json": _config_json(study),
         })
 
     # Build the verdict matrix

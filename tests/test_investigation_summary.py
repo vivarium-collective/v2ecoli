@@ -196,3 +196,42 @@ def test_cli_unknown_investigation_returns_error():
 
     rc = main(["--investigation", "no-such-inv", "--no-open"])
     assert rc == 2
+
+
+def test_aggregate_config_json_is_real_baseline_config():
+    from reports._summary.aggregate import aggregate
+
+    by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
+    cfg = by["acetate"]["config_json"]
+    assert cfg["composite"] == "v2ecoli.composites.baseline.baseline"
+    assert cfg["params"] == {"condition": "acetate"}
+    # comparison run settings folded in
+    assert cfg["seeds"] == 1
+    assert cfg["generations"] == 4
+
+
+def test_topnav_links_every_study():
+    from reports._summary.aggregate import aggregate
+    from reports._summary.render import render
+
+    html = render(aggregate(SLUG, WS))
+    assert '<nav class="topnav">' in html
+    assert 'href="#top"' in html  # overview / home link
+    for slug in ("parca", "basal", "with_aa", "succinate",
+                 "no_oxygen", "acetate", "statistical"):
+        assert f'href="#study-{slug}"' in html
+
+
+def test_config_json_replaces_config_card():
+    from reports._summary.aggregate import aggregate
+    from reports._summary.render import render
+
+    html = render(aggregate(SLUG, WS))
+    # the actual baseline config JSON is shown (HTML-escaped inside <pre>)...
+    assert "config (JSON)" in html
+    assert "v2ecoli.composites.baseline.baseline" in html
+    assert "&quot;composite&quot;" in html  # JSON keys escaped, not raw-injected
+    # ...and the config *report card* is no longer embedded as a card block
+    assert "config card" not in html
+    # graded cards still embedded
+    assert "standard card" in html

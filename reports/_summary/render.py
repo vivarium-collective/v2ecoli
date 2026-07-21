@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html as _html
+import json as _json
 from typing import Any
 
 _VERDICTS = ("within_tol", "drift", "mismatch", "ungraded")
@@ -32,6 +33,17 @@ details.study>summary{cursor:pointer;font-weight:600;padding:10px 0;list-style:n
 .card-embed{margin:8px 0 14px;border-top:1px solid var(--border,#e2e6eb);padding-top:10px}
 iframe.card-frame{width:100%;border:0}
 .missing{color:#b91c1c;font-style:italic;font-size:0.9em}
+nav.topnav{position:sticky;top:0;z-index:10;display:flex;gap:4px;flex-wrap:wrap;
+ align-items:center;padding:8px 24px;margin:0 0 0;background:var(--panel,#fff);
+ border-bottom:1px solid var(--border,#e2e6eb);box-shadow:0 1px 3px #0000000f;overflow-x:auto}
+nav.topnav a{text-decoration:none;font-size:0.82em;color:#475569;padding:3px 9px;
+ border-radius:12px;border:1px solid var(--border,#e2e6eb);white-space:nowrap}
+nav.topnav a:hover{background:var(--bg,#f1f5f9);color:#111}
+nav.topnav a.home{font-weight:700;color:#111;border-color:transparent}
+details.config-json{margin:8px 0 6px;border-top:1px solid var(--border,#e2e6eb);padding-top:10px}
+details.config-json>summary{cursor:pointer;font-weight:600;font-size:0.9em;color:#374151}
+pre.config{background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;
+ font-size:12px;line-height:1.4;max-height:420px;overflow:auto;white-space:pre;margin:8px 0 0}
 """
 
 
@@ -82,6 +94,28 @@ _IFRAME_JS = (
 )
 
 
+def _topnav(summary: dict) -> str:
+    """Sticky top menu: Overview + one link per study, anchoring to each
+    study section's id."""
+    links = [f'<a class="home" href="#top">{_esc(summary["slug"])}</a>']
+    for s in summary["studies"]:
+        links.append(f'<a href="#study-{_esc(s["slug"])}">{_esc(s["slug"])}</a>')
+    return f'<nav class="topnav">{"".join(links)}</nav>'
+
+
+def _config_block(study: dict) -> str:
+    """Render the study's real baseline config as a JSON block (replaces the
+    config report card)."""
+    cfg = study.get("config_json") or {}
+    if not cfg:
+        return ""
+    pretty = _json.dumps(cfg, indent=2, sort_keys=True)
+    return (
+        '<details class="config-json" open><summary>config (JSON)</summary>'
+        f'<pre class="config">{_esc(pretty)}</pre></details>'
+    )
+
+
 def _card_html(card: dict) -> str:
     if card["missing"]:
         return f'<div class="missing">card &ldquo;{_esc(card["name"])}&rdquo; not rendered yet</div>'
@@ -103,8 +137,11 @@ def _study_section(study: dict) -> str:
         if badge_verdict else ""
     )
     finding = f'<span class="finding">{_esc(study["finding"])}</span>' if study["finding"] else ""
-    embeds = []
+    # The config report card is replaced by the actual baseline config JSON.
+    embeds = [_config_block(study)]
     for c in study["cards"]:
+        if c["name"] == "config":
+            continue
         open_attr = " open" if c["graded"] else ""
         embeds.append(
             f'<details class="card-embed"{open_attr}>'
@@ -121,7 +158,8 @@ def render(summary: dict, style_css: str = "") -> str:
     head = (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         f"<title>{_esc(summary['title'])} — report-card summary</title>"
-        f"<style>{style_css}\n{_BASE_CSS}</style></head><body><div class=\"wrap\">"
+        f"<style>{style_css}\n{_BASE_CSS}</style></head><body>"
+        f"{_topnav(summary)}<div class=\"wrap\" id=\"top\">"
     )
     overview = (
         f"<h1>{_esc(summary['title'])}</h1>"

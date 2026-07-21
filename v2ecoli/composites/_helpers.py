@@ -144,15 +144,41 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ``visualizations=v2ecoli_default_single_cell_visualizations()`` on the
 # specific @composite_generator call.
 #
-# Note: the cell-mass / cell-volume / growth-rate / absolute-mass-components /
-# mass-fold-change TimeSeriesPlots that previously lived here used a
-# `config.observable: '<short-name>'` convention that the dashboard's
-# build_viz_composite (vivarium-workbench, lib/investigations.py) does not yet
-# understand — it only honors `inputs_map` for port→observable wiring, so
-# those plots came out with empty y-data even though the emitter recorded
-# them. They will land back here once the dashboard grows a short-name /
-# leaf-name resolver for canonical viz wiring.
-DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = []
+# The earlier port-wired TimeSeriesPlots came out with empty y-data because
+# build_viz_composite only honors `inputs_map` for port→observable wiring (no
+# short-name resolver). The specs below avoid that entirely by using
+# TimeSeriesFromObservables, which is SELF-CONTAINED — it reads runs.db directly
+# from `config.runs_db_path` (injected per-run by the dashboard's
+# _render_canonical_viz) and plots the named observables, so no port wiring is
+# needed. `observable_match` is a dashboard-side convenience: an empty
+# `observables` list resolves to all numeric observables, and an
+# `observable_match` substring selects a subset. Fold-changes (~1.0) and
+# fractions (0–1) are split so they don't share a y-axis. NetworkVisualization
+# renders the architecture diagram from the composite spec (no run data).
+DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
+    {
+        'name': 'observables',
+        'address': 'local:TimeSeriesFromObservables',
+        'config': {'title': 'Observables over time'},
+    },
+    {
+        'name': 'mass_dynamics',
+        'address': 'local:TimeSeriesFromObservables',
+        'config': {'title': 'Cell mass (fold-change)',
+                   'observable_match': 'fold_change'},
+    },
+    {
+        'name': 'mass_composition',
+        'address': 'local:TimeSeriesFromObservables',
+        'config': {'title': 'Mass composition (fractions)',
+                   'observable_match': 'fraction'},
+    },
+    {
+        'name': 'topology',
+        'address': 'local:NetworkVisualization',
+        'config': {'title': 'Process topology'},
+    },
+]
 
 
 def v2ecoli_default_single_cell_visualizations() -> list[dict]:

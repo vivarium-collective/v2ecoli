@@ -126,3 +126,18 @@ def test_render_per_study_sections_and_embedding():
     assert "iframe" in html and "srcdoc=" in html
     # auto-height shim present exactly once
     assert html.count("scrollHeight") >= 1
+
+
+def test_cli_writes_selfcontained_file(tmp_path):
+    from reports.investigation_summary import main
+
+    out = tmp_path / "summary.html"
+    rc = main(["--investigation", SLUG, "--out", str(out), "--no-open"])
+    assert rc == 0
+    text = out.read_text()
+    assert out.stat().st_size > 5000
+    # all 7 studies present, self-contained
+    for slug in ("parca", "basal", "with_aa", "succinate", "no_oxygen", "acetate", "statistical"):
+        assert f'id="study-{slug}"' in text
+    assert "<link " not in text.lower()
+    assert "script src" not in text.lower()

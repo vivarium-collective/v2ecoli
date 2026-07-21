@@ -141,3 +141,52 @@ def test_cli_writes_selfcontained_file(tmp_path):
         assert f'id="study-{slug}"' in text
     assert "<link " not in text.lower()
     assert "script src" not in text.lower()
+
+
+def test_badge_class_whitelisted():
+    from reports._summary.aggregate import aggregate
+    from reports._summary.render import render
+
+    # real graded study produces a legitimate badge class
+    html = render(aggregate(SLUG, WS))
+    assert "badge mismatch" in html
+
+    # synthetic: an attacker-controlled overall value must not land in the
+    # class attribute unescaped, even though it's still shown (escaped) as text
+    summary = {
+        "slug": "x", "title": "x", "question": "",
+        "rollup": {"PASS": 0, "PARTIAL": 0, "FAIL": 0},
+        "matrix": {"columns": [], "rows": []},
+        "studies": [{
+            "slug": "s1", "title": "S1", "finding": None,
+            "prerequisites": [],
+            "cards": [{
+                "name": "c1", "graded": True, "overall": '"><x',
+                "html": "frag", "is_full_doc": False, "missing": False, "axes": [],
+            }],
+        }],
+    }
+    bad_html = render(summary)
+    assert 'class="badge "><x"' not in bad_html
+    assert '"><x' not in bad_html.split("class=")[1].split(">")[0]
+
+
+def test_fragment_with_style_block_is_isolated(tmp_path):
+    from reports._summary.aggregate import _card_stub
+
+    card_path = tmp_path / "viz" / "report_card" / "frag.html"
+    card_path.parent.mkdir(parents=True)
+    card_path.write_text("<style>.x{color:red}</style><div>hi</div>")
+    verdict_path = tmp_path / "viz" / "report_card" / "frag.verdict.json"
+    verdict_path.write_text('{"overall": "within_tol"}')
+
+    stub = _card_stub(tmp_path, "viz/report_card/frag.html")
+    assert stub["is_full_doc"] is True
+    assert "<html" not in stub["html"].lower()
+
+
+def test_cli_unknown_investigation_returns_error():
+    from reports.investigation_summary import main
+
+    rc = main(["--investigation", "no-such-inv", "--no-open"])
+    assert rc == 2

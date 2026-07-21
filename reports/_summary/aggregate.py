@@ -60,12 +60,18 @@ def _card_stub(study_dir: Path, html_ref: str) -> dict[str, Any]:
             html = ""
             missing = True
 
+    _low = html.lower()
+    # Route any card carrying page-level markup (full doc OR a bare
+    # <style>/<script>/<link> block) through the iframe-isolation path so a
+    # fragment's styles/scripts can't bleed into the summary page.
+    is_full_doc = any(tok in _low for tok in ("<html", "<style", "<script", "<link"))
+
     return {
         "name": name,
         "overall": overall,
         "graded": overall not in (None, _UNGRADED),
         "html": html,
-        "is_full_doc": "<html" in html.lower(),
+        "is_full_doc": is_full_doc,
         "axes": [],
         "missing": missing,
     }

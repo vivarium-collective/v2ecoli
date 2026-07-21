@@ -97,8 +97,9 @@ def _study_section(study: dict) -> str:
         if c["graded"]:
             badge_verdict = c["overall"]
             break
+    badge_cls = badge_verdict if badge_verdict in _VERDICTS else ""
     badge = (
-        f'<span class="badge {badge_verdict}">{_esc(badge_verdict)}</span>'
+        f'<span class="badge {badge_cls}">{_esc(badge_verdict)}</span>'
         if badge_verdict else ""
     )
     finding = f'<span class="finding">{_esc(study["finding"])}</span>' if study["finding"] else ""

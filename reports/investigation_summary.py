@@ -40,6 +40,10 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     ws = _REPO / "workspace"
+    inv_yaml = ws / "investigations" / args.investigation / "investigation.yaml"
+    if not inv_yaml.exists():
+        print(f"error: investigation {args.investigation!r} not found ({inv_yaml})", file=sys.stderr)
+        return 2
     summary = aggregate(args.investigation, ws)
     html = render(summary, style_css=_read_style())
 
@@ -50,7 +54,10 @@ def main(argv: list[str] | None = None) -> int:
     out.write_text(html)
     print(f"wrote {out} ({out.stat().st_size:,} bytes)")
     if not args.no_open:
-        webbrowser.open(out.resolve().as_uri())
+        try:
+            webbrowser.open(out.resolve().as_uri())
+        except webbrowser.Error:
+            pass
     return 0
 
 

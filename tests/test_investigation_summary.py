@@ -93,3 +93,20 @@ def test_missing_card_marked_not_crashing(tmp_path):
     assert stub["missing"] is True
     assert stub["html"] == ""
     assert stub["graded"] is False
+
+
+def test_render_overview_and_matrix():
+    from reports._summary.aggregate import aggregate
+    from reports._summary.render import render
+
+    html = render(aggregate(SLUG, WS), style_css=":root{--x:1}")
+    assert "<!doctype html>" in html.lower()
+    assert "Does v2ecoli reproduce vEcoli" in html
+    # rollup counts present
+    assert "2 FAIL" in html and "3 PARTIAL" in html and "2 PASS" in html
+    # matrix header + a verdict-colored cell class
+    assert "growth rate (1/s)" in html
+    assert "verdict-mismatch" in html
+    # self-contained: no external stylesheet or script src
+    assert "<link " not in html.lower()
+    assert "script src" not in html.lower()

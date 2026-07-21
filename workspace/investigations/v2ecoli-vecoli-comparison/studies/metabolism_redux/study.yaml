@@ -1,13 +1,16 @@
 schema_version: 4
 name: metabolism_redux
 investigation: v2ecoli-vecoli-comparison
-title: v2ecoli reproduces vEcoli with MetabolismRedux (basal)
+title: v2ecoli reproduces vEcoli with MetabolismRedux (basal, short-horizon)
 condition: basal
 question: Does v2ecoli reproduce vEcoli on basal when both engines swap FBA Metabolism
   for MetabolismRedux?
 comparison:
   seeds: 1
-  generations: 4
+  generations: 1
+  # MetabolismRedux solves an LP per tick (far slower than FBA), so this is a
+  # short-horizon comparison (first ~300 s of basal) rather than a full 4-gen run.
+  max_steps_per_gen: 300
 # Fork-relative vEcoli config that swaps ecoli-metabolism -> ecoli-metabolism-redux
 # on BOTH engines (vEcoli applies it natively; the v2ecoli side convert+injects it).
 from_vecoli_config: configs/metabolism_redux_basal.json
@@ -55,9 +58,10 @@ findings:
 - id: metabolism_redux-standard
   kind: computational
   status: investigating
-  statement: Pending run — does v2ecoli reproduce vEcoli's mass/growth trajectories
-    on basal when both engines run MetabolismRedux in place of FBA metabolism?
+  statement: Pending short-horizon run — does v2ecoli reproduce vEcoli's early mass/growth
+    trajectory on basal (first ~300 s) when both engines run MetabolismRedux in place
+    of FBA metabolism?
   evidence:
     from_card: standard
-    observed: 'not yet run: awaiting both-engine ParCa build + 2-generation basal
-      comparison'
+    observed: 'short-horizon (300-step) both-engine MetabolismRedux comparison; full-generation
+      run is ~a day of compute (LP per tick)'

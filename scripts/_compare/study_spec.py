@@ -38,6 +38,9 @@ class StudySpec:
     from_vecoli_config: str = ""   # fork-relative vEcoli config driving a process
                                    # swap on BOTH engines (e.g. metabolism_redux);
                                    # "" = no swap (plain baseline comparison)
+    max_steps_per_gen: int = 15000  # per-generation tick budget; lower it for a
+                                    # short-horizon run of an expensive swap (e.g.
+                                    # MetabolismRedux solves an LP per tick)
 
     @property
     def graded_cards(self) -> list:
@@ -100,6 +103,7 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
         study_path=str(study_path),
         from_vecoli_config=(data.get("from_vecoli_config")
                             or comp.get("from_vecoli_config") or ""),
+        max_steps_per_gen=int(comp.get("max_steps_per_gen") or 15000),
     )
 
 

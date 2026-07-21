@@ -35,6 +35,9 @@ class StudySpec:
     ve_cache: str
     fork: str                 # V2E_VECOLI_DIR value ("" if unset)
     study_path: str
+    from_vecoli_config: str = ""   # fork-relative vEcoli config driving a process
+                                   # swap on BOTH engines (e.g. metabolism_redux);
+                                   # "" = no swap (plain baseline comparison)
 
     @property
     def graded_cards(self) -> list:
@@ -95,6 +98,8 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
         ve_cache=ctx["ve_cache"],
         fork=ctx["fork"],
         study_path=str(study_path),
+        from_vecoli_config=(data.get("from_vecoli_config")
+                            or comp.get("from_vecoli_config") or ""),
     )
 
 

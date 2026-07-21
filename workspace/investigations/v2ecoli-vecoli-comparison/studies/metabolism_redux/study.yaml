@@ -1,0 +1,63 @@
+schema_version: 4
+name: metabolism_redux
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli with MetabolismRedux (basal)
+condition: basal
+question: Does v2ecoli reproduce vEcoli on basal when both engines swap FBA Metabolism
+  for MetabolismRedux?
+comparison:
+  seeds: 1
+  generations: 4
+# Fork-relative vEcoli config that swaps ecoli-metabolism -> ecoli-metabolism-redux
+# on BOTH engines (vEcoli applies it natively; the v2ecoli side convert+injects it).
+from_vecoli_config: configs/metabolism_redux_basal.json
+report_cards:
+- viz/report_card/config.html
+- viz/report_card/standard.html
+pipeline_gate:
+  prerequisites:
+  - parca
+  enables: []
+runs:
+- name: metabolism_redux-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study metabolism_redux (both engines on MetabolismRedux)
+  status: pending
+status: build
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli's MetabolismRedux config on basal (config
+    card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli's MetabolismRedux dynamics on basal (standard
+    card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux
+    group: standard
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      condition: basal
+      swap: ecoli-metabolism-redux
+depends_on:
+- parca
+confidence: Investigating
+findings:
+- id: metabolism_redux-standard
+  kind: computational
+  status: investigating
+  statement: Pending run — does v2ecoli reproduce vEcoli's mass/growth trajectories
+    on basal when both engines run MetabolismRedux in place of FBA metabolism?
+  evidence:
+    from_card: standard
+    observed: 'not yet run: awaiting both-engine ParCa build + 2-generation basal
+      comparison'

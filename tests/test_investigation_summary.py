@@ -13,7 +13,7 @@ def test_aggregate_discovers_studies_in_dag_order():
     assert summ["question"].startswith("Does v2ecoli reproduce vEcoli")
     slugs = [s["slug"] for s in summ["studies"]]
     assert slugs == [
-        "parca", "basal", "with_aa", "succinate",
+        "parca", "basal", "metabolism_redux", "with_aa", "succinate",
         "no_oxygen", "acetate", "statistical",
     ]
 

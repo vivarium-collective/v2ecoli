@@ -62,6 +62,29 @@ def _card_stub(study_dir: Path, html_ref: str) -> dict[str, Any]:
     }
 
 
+def _graded_axes(study_dir: Path, html_ref: str) -> list[dict[str, Any]]:
+    """Flattened axes across graded groups of one card's verdict.json."""
+    vpath = _verdict_path(study_dir, html_ref)
+    if not vpath.exists():
+        return []
+    try:
+        data = json.loads(vpath.read_text())
+    except (json.JSONDecodeError, OSError):
+        return []
+    if data.get("overall") in (None, _UNGRADED):
+        return []
+    axes: list[dict[str, Any]] = []
+    for group in (data.get("groups") or {}).values():
+        for a in group.get("axes", []) or []:
+            axes.append({
+                "label": a.get("label"),
+                "verdict": a.get("verdict"),
+                "value": a.get("value"),
+                "meter": a.get("meter"),
+            })
+    return axes
+
+
 def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
     ws = Path(workspace_root)
     inv_dir = ws / "investigations" / slug
@@ -75,7 +98,11 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
         result = _canonical_result(study)
         if result in rollup:
             rollup[result] += 1
-        cards = [_card_stub(study_dir, ref) for ref in study.get("report_cards", []) or []]
+        cards = []
+        for ref in study.get("report_cards", []) or []:
+            card = _card_stub(study_dir, ref)
+            card["axes"] = _graded_axes(study_dir, ref)
+            cards.append(card)
         studies.append({
             "slug": study_slug,
             "title": study.get("title") or study.get("name") or study_slug,
@@ -86,11 +113,26 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
             "cards": cards,
         })
 
+    # Build the verdict matrix
+    columns: list[str] = []
+    rows: list[dict[str, Any]] = []
+    for s in studies:
+        cells: dict[str, str | None] = {}
+        for card in s["cards"]:
+            for axis in card["axes"]:
+                label = axis["label"]
+                if label and label not in columns:
+                    columns.append(label)
+                if label:
+                    cells[label] = axis["verdict"]
+        rows.append({"study": s["slug"], "cells": cells})
+    matrix = {"columns": columns, "rows": rows}
+
     return {
         "slug": slug,
         "title": inv.get("title") or slug,
         "question": inv.get("question") or "",
         "studies": studies,
         "rollup": rollup,
-        "matrix": {"columns": [], "rows": []},
+        "matrix": matrix,
     }

@@ -51,12 +51,21 @@ def _card_stub(study_dir: Path, html_ref: str) -> dict[str, Any]:
             overall = None
     else:
         missing = True
+
+    html = ""
+    if hpath.exists():
+        try:
+            html = hpath.read_text()
+        except OSError:
+            html = ""
+            missing = True
+
     return {
         "name": name,
         "overall": overall,
         "graded": overall not in (None, _UNGRADED),
-        "html": "",
-        "is_full_doc": False,
+        "html": html,
+        "is_full_doc": "<html" in html.lower(),
         "axes": [],
         "missing": missing,
     }

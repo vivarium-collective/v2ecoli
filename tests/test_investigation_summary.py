@@ -68,3 +68,28 @@ def test_matrix_cell_verdicts_match_source_json():
     # parca has cell mass within tolerance, no growth-rate column value
     assert rows["parca"]["cell mass (fg)"] == "within_tol"
     assert rows["parca"].get("growth rate (1/s)") is None
+
+
+def test_card_html_inlined_and_full_doc_flagged():
+    from reports._summary.aggregate import aggregate
+
+    by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
+    scards = {c["name"]: c for c in by["statistical"]["cards"]}
+    # statistical.html is a full <html> document -> flagged for iframe embedding
+    assert scards["statistical"]["is_full_doc"] is True
+    assert "<html" in scards["statistical"]["html"].lower()
+    # standard.html is a fragment (no <html>) -> inlined directly
+    acards = {c["name"]: c for c in by["acetate"]["cards"]}
+    assert acards["standard"]["is_full_doc"] is False
+    assert acards["standard"]["html"].strip() != ""
+    assert "<html" not in acards["standard"]["html"].lower()
+
+
+def test_missing_card_marked_not_crashing(tmp_path):
+    from reports._summary.aggregate import _card_stub
+
+    # a study dir with a declared card whose files don't exist
+    stub = _card_stub(tmp_path, "viz/report_card/ghost.html")
+    assert stub["missing"] is True
+    assert stub["html"] == ""
+    assert stub["graded"] is False

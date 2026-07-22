@@ -31,7 +31,16 @@
 #   RAY_STAGE_S3             S3 URI of an input dataset to fetch on EVERY node before the
 #                            job (e.g. a precomputed ParCa cache the workers read). Paired
 #                            with RAY_STAGE_DIR; the image stays data-free.
-#   RAY_STAGE_DIR            local dir to sync RAY_STAGE_S3 into (e.g. the v2ecoli out/cache)
+#   RAY_STAGE_DIR            local dir to sync RAY_STAGE_S3 into (e.g. the v2ecoli out/cache).
+#                            For `--composite vecoli` (the pristine upstream wrapper) this is
+#                            the dir holding the UPSTREAM-built simData.cPickle that the run's
+#                            --cache-dir points at (built by scripts/build_upstream_parca.py).
+#   V2E_BUILD_UPSTREAM_PARCA when '1', build the upstream ParCa locally on EVERY node BEFORE
+#                            the job (scripts/build_upstream_parca.py --outdir $V2E_VECOLI_DIR/out
+#                            --copy-to $RAY_STAGE_DIR) instead of staging it from S3. Use for a
+#                            one-shot/dev image; the normal flow is to build it ONCE offline,
+#                            upload to RAY_STAGE_S3, and let stage_inputs fetch it (cheaper than
+#                            re-fitting ParCa on each node). Heavy (minutes). Honors PARCA_CPUS.
 #   RAY_OUT_DIR              local dir the workload writes results to (e.g. the v2ecoli
 #                            .pbg/runs/... tree). Synced to RAY_OUT_S3 from EVERY node —
 #                            tasks run on the workers, so each node ships its own outputs —
@@ -121,6 +130,22 @@ stage_inputs() {
   mkdir -p "${RAY_STAGE_DIR}"
   if ! aws s3 sync "${RAY_STAGE_S3}" "${RAY_STAGE_DIR}" --only-show-errors; then
     echo "[ray-batch] FATAL: input staging from ${RAY_STAGE_S3} failed" >&2
+    exit 1
+  fi
+}
+
+# Optional SECOND input stage. Used for matched-initial-state comparison runs:
+# the v2ecoli engine reads the genuine UPSTREAM vEcoli simData (staged here) to
+# build vEcoli's per-seed initial state and overlay it onto v2 (run_comparison_
+# ensemble.py --match-initial-state --match-vecoli-simdata $RAY_STAGE_DIR_2/...),
+# so both engines start from identical molecule counts. No-op unless both set.
+stage_inputs_2() {
+  [[ -z "${RAY_STAGE_S3_2:-}" || -z "${RAY_STAGE_DIR_2:-}" ]] && return 0
+  command -v aws >/dev/null 2>&1 || { echo "[ray-batch] FATAL: aws CLI needed for input staging" >&2; exit 1; }
+  echo "[ray-batch] node ${NODE_INDEX}: staging(2) ${RAY_STAGE_S3_2} -> ${RAY_STAGE_DIR_2}"
+  mkdir -p "${RAY_STAGE_DIR_2}"
+  if ! aws s3 sync "${RAY_STAGE_S3_2}" "${RAY_STAGE_DIR_2}" --only-show-errors; then
+    echo "[ray-batch] FATAL: second input staging from ${RAY_STAGE_S3_2} failed" >&2
     exit 1
   fi
 }
@@ -224,8 +249,27 @@ MSG
   sleep "${secs}"
 }
 
+# Optional: build the upstream-vEcoli ParCa simData on this node (instead of, or
+# in addition to, staging a precomputed one from S3). For `--composite vecoli`
+# the external wrapper needs an UPSTREAM-MASTER-built simData.cPickle; the normal
+# flow stages it via stage_inputs, but a self-building image can set
+# V2E_BUILD_UPSTREAM_PARCA=1 to fit it here. Heavy (minutes). Fails hard.
+build_upstream_parca() {
+  [[ "${V2E_BUILD_UPSTREAM_PARCA:-0}" == "1" ]] || return 0
+  local vd="${V2E_VECOLI_DIR:-/app/vEcoli}"
+  local dest="${RAY_STAGE_DIR:-/app/v2ecoli/out/cache}"
+  echo "[ray-batch] node ${NODE_INDEX}: building upstream ParCa -> ${dest}/simData.cPickle"
+  if ! python /app/v2ecoli/scripts/build_upstream_parca.py \
+        --outdir "${vd}/out" --cpus "${PARCA_CPUS:-8}" --copy-to "${dest}"; then
+    echo "[ray-batch] FATAL: upstream ParCa build failed (node ${NODE_INDEX})" >&2
+    exit 1
+  fi
+}
+
 # ── Stage inputs on every node, then head vs. worker ─────────────────────────
-stage_inputs   # all nodes (head + workers) need the data before Ray scheduling
+stage_inputs           # all nodes (head + workers) need the data before Ray scheduling
+stage_inputs_2         # optional 2nd stage (e.g. upstream simData for matched-initial-state)
+build_upstream_parca   # optional self-build of the upstream simData (gated; see above)
 
 if [[ "${NODE_INDEX}" == "${MAIN_INDEX}" ]]; then
   trap upload_logs EXIT                       # ship session logs no matter how we exit

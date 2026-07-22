@@ -1,0 +1,62 @@
+schema_version: 4
+name: acetate
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on acetate
+condition: acetate
+question: Does v2ecoli reproduce vEcoli on the acetate condition?
+comparison:
+  seeds: 1
+  generations: 4
+report_cards:
+- viz/report_card/config.html
+- viz/report_card/standard.html
+pipeline_gate:
+  prerequisites:
+  - parca
+  enables: []
+runs:
+- name: acetate-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study acetate
+  status: completed
+  result: FAIL
+  outcomes:
+    standard-vs-vecoli:
+      result: FAIL
+      detail: 'report card ''standard'': mismatch'
+status: evaluated
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on acetate (config card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on acetate (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/acetate
+    group: standard
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      condition: acetate
+depends_on:
+- parca
+confidence: Refuted
+findings:
+- id: acetate-standard
+  kind: computational
+  status: contradicts
+  statement: v2ecoli reproduces vEcoli biomass on acetate within tolerance; RNA mass
+    (fg), growth rate (1/s) diverge (mismatch).
+  evidence:
+    from_card: standard
+    observed: '3 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg);
+      max median |Δ|=2.8%); RNA mass (fg): drift (median |Δ|=7.6%); growth rate (1/s):
+      mismatch (median |Δ|=17.0%)'

@@ -2,9 +2,8 @@ version = 1
 revision = 3
 requires-python = "==3.12.12"
 resolution-markers = [
-    "sys_platform == 'win32'",
+    "sys_platform != 'emscripten'",
     "sys_platform == 'emscripten'",
-    "sys_platform != 'emscripten' and sys_platform != 'win32'",
 ]
 
 [[package]]
@@ -307,14 +306,9 @@ wheels = [
 ]
 
 [[package]]
-name = "bigraph-loom"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=main#6edc48044c487d357469e26edf1d7ecdac1dd6b2" }
-
-[[package]]
 name = "bigraph-schema"
-version = "1.4.1"
-source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#d9a92adb2409921b1a0bf104da37b436fa1f5860" }
+version = "1.4.2"
+source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#87e6b7cdf5b410064e5245f22cd7138b62f64017" }
 dependencies = [
     { name = "fire" },
     { name = "numpy" },
@@ -680,7 +674,7 @@ name = "cuda-bindings"
 version = "13.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cuda-pathfinder", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "cuda-pathfinder", marker = "sys_platform != 'emscripten'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ce/67/5e7dba1ba576dd73da5dee894ca076ca5e959450dfff66d6d510a255d1f7/cuda_bindings-13.3.1-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:c7855c4868aabc0cfae28abbe83d56734bdfbd08f08fc234ac1912a12858bf49", size = 6025351, upload-time = "2026-05-29T23:11:49.685Z" },
@@ -705,34 +699,34 @@ wheels = [
 
 [package.optional-dependencies]
 cudart = [
-    { name = "nvidia-cuda-runtime", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cuda-runtime", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 cufft = [
-    { name = "nvidia-cufft", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cufft", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 cufile = [
     { name = "nvidia-cufile", marker = "sys_platform == 'linux'" },
 ]
 cupti = [
-    { name = "nvidia-cuda-cupti", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cuda-cupti", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 curand = [
-    { name = "nvidia-curand", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-curand", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 cusolver = [
-    { name = "nvidia-cusolver", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cusolver", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 cusparse = [
-    { name = "nvidia-cusparse", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cusparse", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 nvjitlink = [
-    { name = "nvidia-nvjitlink", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-nvjitlink", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 nvrtc = [
-    { name = "nvidia-cuda-nvrtc", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-cuda-nvrtc", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 nvtx = [
-    { name = "nvidia-nvtx", marker = "sys_platform == 'linux'" },
+    { name = "nvidia-nvtx", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [[package]]
@@ -884,7 +878,7 @@ wheels = [
 [[package]]
 name = "ecoli-sources"
 version = "0.0.1"
-source = { git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=bc882c1b9b1bc764f6ba7344f9ab28cc035317a9#bc882c1b9b1bc764f6ba7344f9ab28cc035317a9" }
+source = { git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=db438cadc779dc5cadf6514d30bdd928e93956ef#db438cadc779dc5cadf6514d30bdd928e93956ef" }
 dependencies = [
     { name = "anndata" },
     { name = "jupyter" },
@@ -1462,6 +1456,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+]
+
+[[package]]
+name = "investigation-contracts"
+version = "0.2.0"
+source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main#65c793fd231d952e49a9cfe4244797dadde1bedc" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "pydantic" },
 ]
 
 [[package]]
@@ -2470,7 +2473,7 @@ name = "nvidia-cublas"
 version = "13.1.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cuda-nvrtc", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-cuda-nvrtc", marker = "sys_platform != 'emscripten'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/a1/0bd24ee8c8d03adac032fd2909426a00c88f8c57961b1277ded97f91119f/nvidia_cublas-13.1.1.3-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b7a210458267ac818974c53038fbec2e969d5c99f305ab15c72522fa9f001dd5", size = 542848918, upload-time = "2026-04-08T18:46:22.985Z" },
@@ -2509,7 +2512,7 @@ name = "nvidia-cudnn-cu13"
 version = "9.20.0.48"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-cublas", marker = "sys_platform != 'emscripten'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/56/c5/83384d846b2fd17c44bd499b36c75a45ed4f095fbbb2252294e89cea5c5c/nvidia_cudnn_cu13-9.20.0.48-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:e31454ae00094b0c55319d9d15b6fa2fc50a9e1c0f5c8c80fb75258234e731e1", size = 444574296, upload-time = "2026-03-09T19:28:27.751Z" },
@@ -2521,7 +2524,7 @@ name = "nvidia-cufft"
 version = "12.0.0.61"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8b/ae/f417a75c0259e85c1d2f83ca4e960289a5f814ed0cea74d18c353d3e989d/nvidia_cufft-12.0.0.61-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:2708c852ef8cd89d1d2068bdbece0aa188813a0c934db3779b9b1faa8442e5f5", size = 214053554, upload-time = "2025-09-04T08:31:38.196Z" },
@@ -2551,9 +2554,9 @@ name = "nvidia-cusolver"
 version = "12.0.4.66"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "nvidia-cusparse", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
-    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-cublas", marker = "sys_platform != 'emscripten'" },
+    { name = "nvidia-cusparse", marker = "sys_platform != 'emscripten'" },
+    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/c3/b30c9e935fc01e3da443ec0116ed1b2a009bb867f5324d3f2d7e533e776b/nvidia_cusolver-12.0.4.66-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:02c2457eaa9e39de20f880f4bd8820e6a1cfb9f9a34f820eb12a155aa5bc92d2", size = 223467760, upload-time = "2025-09-04T08:33:04.222Z" },
@@ -2565,7 +2568,7 @@ name = "nvidia-cusparse"
 version = "12.6.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/94/5c26f33738ae35276672f12615a64bd008ed5be6d1ebcb23579285d960a9/nvidia_cusparse-12.6.3.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:80bcc4662f23f1054ee334a15c72b8940402975e0eab63178fc7e670aa59472c", size = 162155568, upload-time = "2025-09-04T08:33:42.864Z" },
@@ -2811,17 +2814,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pbg-basic-processes"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?branch=main#cbd10e73b79e4e8c7dd9e33bf84614881b559072" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "process-bigraph" },
-    { name = "sympy" },
-]
-
-[[package]]
 name = "pbg-bioreactordesign"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main#f40f82f0057d042cb06f349dbe1702306b35ddbf" }
@@ -2849,8 +2841,8 @@ dependencies = [
 
 [[package]]
 name = "pbg-emitters"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#2e5b4afc027ce61521fffd860d1df7c9bfdb7868" }
+version = "0.2.0"
+source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#00c91b2800fe684ac09bb490dfd65a8107c85b17" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -2899,14 +2891,13 @@ dependencies = [
 
 [[package]]
 name = "pbg-superpowers"
-version = "0.14.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#12688496edda4b9b0518de02f74dafeb0d5a7cc6" }
+version = "0.15.0"
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#a1c985ce279f4e42843589fd263be69aa15f2c93" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
-    { name = "pbg-basic-processes" },
     { name = "pbg-emitters" },
     { name = "process-bigraph" },
     { name = "pypdf" },
@@ -2930,7 +2921,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -3087,8 +3078,8 @@ wheels = [
 
 [[package]]
 name = "process-bigraph"
-version = "1.4.17"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#edbc0a638b484846606b626e2e8651de8df255b9" }
+version = "1.5.0"
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#355fa15c7ec44d630c5658f96dbfc94980bb7720" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },
@@ -3586,12 +3577,12 @@ wheels = [
 
 [[package]]
 name = "pywinpty"
-version = "3.0.3"
+version = "3.0.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f7/54/37c7370ba91f579235049dc26cd2c5e657d2a943e01820844ffc81f32176/pywinpty-3.0.3.tar.gz", hash = "sha256:523441dc34d231fb361b4b00f8c99d3f16de02f5005fd544a0183112bcc22412", size = 31309, upload-time = "2026-02-04T21:51:09.524Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/ef/2d27f30c59a67be7025b2d7858c8c2d282b74d66544b2384730b82de74fd/pywinpty-3.0.5.tar.gz", hash = "sha256:61db0db063de9865adbea66db294628f8577f608d9764a4c7d3384eeacc4e81b", size = 16223484, upload-time = "2026-06-11T00:11:58.93Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/d4/aeb5e1784d2c5bff6e189138a9ca91a090117459cea0c30378e1f2db3d54/pywinpty-3.0.3-cp312-cp312-win_amd64.whl", hash = "sha256:c9081df0e49ffa86d15db4a6ba61530630e48707f987df42c9d3313537e81fc0", size = 2113098, upload-time = "2026-02-04T21:54:37.711Z" },
-    { url = "https://files.pythonhosted.org/packages/b9/53/7278223c493ccfe4883239cf06c823c56460a8010e0fc778eef67858dc14/pywinpty-3.0.3-cp312-cp312-win_arm64.whl", hash = "sha256:15e79d870e18b678fb8a5a6105fd38496b55697c66e6fc0378236026bc4d59e9", size = 234901, upload-time = "2026-02-04T21:53:31.35Z" },
+    { url = "https://files.pythonhosted.org/packages/45/34/942cc95ca4e26489875aa8a95192766247a687379ec29543eebe73ec945f/pywinpty-3.0.5-cp312-cp312-win_amd64.whl", hash = "sha256:d62946adf14b15b54c0b8d785f93fe18b04da23f4ad59e2e8c4612646e9abd23", size = 2090915, upload-time = "2026-06-10T23:43:14.98Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/70/5b9053004844139ea8bd86209c57ade12b134b2782f383a095784c8531ec/pywinpty-3.0.5-cp312-cp312-win_arm64.whl", hash = "sha256:e9391c05fbfa7a992a97e831fc6849887b4014a614192e3d984a7ca59592b376", size = 815934, upload-time = "2026-06-10T23:41:42.384Z" },
 ]
 
 [[package]]
@@ -4390,6 +4381,7 @@ dependencies = [
     { name = "cvxpy" },
     { name = "dill" },
     { name = "ecoli-sources" },
+    { name = "investigation-contracts" },
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
@@ -4411,7 +4403,6 @@ dependencies = [
     { name = "unum" },
     { name = "vecoli", extra = ["dev"] },
     { name = "viva-munk" },
-    { name = "vivarium-dashboard" },
 ]
 
 [package.optional-dependencies]
@@ -4429,7 +4420,8 @@ requires-dist = [
     { name = "biopython" },
     { name = "cvxpy" },
     { name = "dill", specifier = ">=0.3" },
-    { name = "ecoli-sources", git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=bc882c1b9b1bc764f6ba7344f9ab28cc035317a9" },
+    { name = "ecoli-sources", git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=db438cadc779dc5cadf6514d30bdd928e93956ef" },
+    { name = "investigation-contracts", git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main" },
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
@@ -4456,7 +4448,6 @@ requires-dist = [
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
-    { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
 ]
 provides-extras = ["dev", "parquet", "xarray", "emitters", "ray"]
 
@@ -4568,22 +4559,6 @@ dependencies = [
     { name = "setuptools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca3036152fe5df56860a57e70f3e68ac0198dbd7df60fcb/vivarium-core-1.6.5.tar.gz", hash = "sha256:1d83faa60005304b548f623447ab8675a06bb7ed8f6b7c0bd25b4aaa3381fccb", size = 136102, upload-time = "2024-12-03T21:49:29.797Z" }
-
-[[package]]
-name = "vivarium-dashboard"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#a58f9430daf7fbc94c3e56ca3a749c6ce7237bab" }
-dependencies = [
-    { name = "bigraph-loom" },
-    { name = "bigraph-schema" },
-    { name = "jinja2" },
-    { name = "jsonschema", extra = ["format-nongpl"] },
-    { name = "numpy" },
-    { name = "pbg-superpowers" },
-    { name = "process-bigraph" },
-    { name = "pypdf" },
-    { name = "pyyaml" },
-]
 
 [[package]]
 name = "vl-convert-python"

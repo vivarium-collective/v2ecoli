@@ -99,3 +99,18 @@ def test_schema_diff_partitions_keys():
     assert d["only_in_vecoli"] == ["a", "b"]
     assert d["only_in_v2"] == ["c"]
     assert d["different"] == {"shared": (1, 9)}
+
+
+from scripts._compare.config_adapter import config_run_shape  # noqa: E402
+
+
+def test_config_run_shape_reads_n_init_sims_and_generations(tmp_path):
+    cfg = tmp_path / "configs"; cfg.mkdir()
+    (cfg / "c.json").write_text('{"n_init_sims": 4, "generations": 4}')
+    assert config_run_shape("configs/c.json", str(tmp_path)) == (4, 4)
+
+
+def test_config_run_shape_defaults_when_missing(tmp_path):
+    cfg = tmp_path / "configs"; cfg.mkdir()
+    (cfg / "c.json").write_text('{"condition": "basal", "generations": null}')
+    assert config_run_shape("configs/c.json", str(tmp_path)) == (1, 1)

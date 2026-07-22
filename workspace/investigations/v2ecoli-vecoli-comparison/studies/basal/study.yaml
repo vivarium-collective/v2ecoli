@@ -1,0 +1,61 @@
+schema_version: 4
+name: basal
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on basal
+condition: basal
+question: Does v2ecoli reproduce vEcoli on the basal condition?
+comparison:
+  seeds: 1
+  generations: 4
+report_cards:
+- viz/report_card/config.html
+- viz/report_card/standard.html
+pipeline_gate:
+  prerequisites:
+  - parca
+  enables: []
+runs:
+- name: basal-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study basal
+  status: completed
+  result: PARTIAL
+  outcomes:
+    standard-vs-vecoli:
+      result: PARTIAL
+      detail: 'report card ''standard'': drift'
+status: evaluated
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (config card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/basal
+    group: standard
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      condition: basal
+depends_on:
+- parca
+confidence: Accepted
+findings:
+- id: basal-standard
+  kind: computational
+  status: partial
+  statement: v2ecoli reproduces vEcoli biomass on basal within tolerance; growth rate
+    (1/s) diverges (drift).
+  evidence:
+    from_card: standard
+    observed: '4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
+      RNA mass (fg); max median |Δ|=2.1%); growth rate (1/s): drift (median |Δ|=9.0%)'

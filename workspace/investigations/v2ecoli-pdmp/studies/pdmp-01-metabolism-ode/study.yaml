@@ -3,89 +3,12 @@ name: pdmp-01-metabolism-ode
 investigation: v2ecoli-pdmp
 title: 'Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE'
 claim: |
-  The standalone Millard 2017 kinetic ODE (via pbg-copasi) recovers its published reference state to
-  solver tolerance. The further claim that MillardPDMPMetabolism + a consumption_matched ref-growth
-  driver "closes the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble within ±σ at t=600 s" is now
-  met on M9-glucose as of 2026-06-11 (closed-loop WATER[c] fix, commit 6a764fc; see the fix-shipped +
-  ensemble-confirmed block at the end of this claim for the final numbers); it was not met in the runs
-  below, which this log records chronologically. A multi-replicate Wasserstein-2 comparison now exists (2026-06-11, this branch):
-  N=12 PDMP replicates (consumption_matched, 600 s, distinct seeds 1000–1011) vs the N=32 Phase-0
-  M9-glucose reference ensemble, endpoint W₂ computed via the exact 1-D inverse-CDF integral with
-  bootstrap CIs. See reports/figures/pdmp-01/pdmp_vs_phase0.html and
-  reports/figures/pdmp-01/RUN_REPORT_2026-06-11.md. Endpoint W₂: cell_mass = 20.8 fg
-  (W₂/σ = 3.0, 95% CI [18.5, 23.2]); dry_mass = 1.80 fg (W₂/σ = 0.86, 95% CI [1.31, 2.41]).
-  dry_mass falls within ±σ, but cell_mass is ~3σ high, so the ±σ gate is not met for both observables.
-  Two caveats: (1) the consumption_matched LQR Riccati solve went degenerate (zero gain) on all
-  12 replicates of this run, so the metabolism was effectively uncontrolled. The PDMP "ensemble" is
-  near-deterministic (per-replicate σ ≈ 0.47 fg vs Phase-0 6.9 fg) and the W₂ is dominated by a ~20 fg
-  mean offset rather than distribution spread; (2) this is the multi-replicate W₂ that the prior
-  single-replicate z-score figure ("-18 to -600 σ") only gestured at. The actual gap is far smaller
-  than that figure implied, but still does not meet the gate.
-  Update 2026-06-11 (root-cause fixed and re-run): caveat (1)'s root cause is now fixed (commit cc6a72d).
-  The LQR linearization stored A = I + J (a finite-difference +I artifact), which made the stable Millard
-  Jacobian look anti-stable and the Riccati solve infeasible, giving a silent zero gain. With the true Jacobian J
-  + a conserved-moiety CARE shift, the controller now yields a real stabilizing gain (||K|| ≈ 4.39, 3
-  controls × 15 states, regression-tested in tests/test_lqr_riccati_stabilizable.py). The W₂ comparison was
-  then re-run with the working closed loop (this branch, commit d0f5871+; N=12 PDMP reps, consumption_matched,
-  600 s, seeds 1000–1011, vs the same N=32 Phase-0 M9-glucose reference). The controller is now active on
-  every replicate: 12/12 usable, 0 errors, 0 degeneracy-flagged, gain_degenerate=False throughout (per-tick
-  u_norm ≈ 0.05, rms deviation ≈ 0.24). Result: closing the loop did not tighten the cell_mass gap:
-  cell_mass endpoint W₂ = 20.83 fg (W₂/σ = 3.02, 95% CI [18.5, 23.2]); dry_mass W₂ = 1.80 fg (W₂/σ = 0.86,
-  95% CI [1.32, 2.41]). Versus the prior uncontrolled run (cell_mass W₂/σ = 3.0, dry_mass 0.86) the numbers
-  are statistically unchanged (within the bootstrap CI). The ensemble also gained no real variance: per-rep
-  σ ≈ 0.463 fg (was ≈ 0.47 fg), still ~15× tighter than Phase-0's 6.9 fg. The working controller stabilizes
-  the metabolism around the same equilibrium rather than spreading it. The gap is therefore a systematic ~20 fg
-  cell_mass mean offset (PDMP mean 1481.0 fg vs Phase-0 1461.1 fg), not a missing-control or missing-variance
-  problem; active glycolytic modulation does not steer the endpoint toward the Phase-0 distribution. The ±σ
-  gate remains not met. Next step is a multi-condition / offset-source investigation, not a control re-tune.
-  Offset root-caused 2026-06-11: the ~20 fg cell_mass gap is entirely in the water submass. dry_mass
-  matches Phase-0 (Δdry = -0.9 fg) but Δwater = +20.8 fg. It is a dynamics drift, not initialization:
-  both ensembles start at water fraction ≈ 0.700 at birth; Phase-0 holds it flat (0.7005→0.6998, density
-  homeostasis) but the PDMP path drifts up to 0.7045 (+0.0043) over 600 s. Cause: the consumption_matched
-  ref_growth_driver injects WATER[c] open-loop at a fixed sampled net rate (treating water like a consumed
-  precursor) rather than closed-loop regulating it to the cell density the way the baseline kFBA does, so
-  a fixed water flux cannot hold the fraction as the cell grows. Fix options: (a) give the driver a
-  listeners.mass input and inject water to hold cell density ~1100 g/L (true closed loop, robust); or
-  (b) tie the water injection to the driver's own dry-precursor injection so water mass tracks dry growth
-  (self-contained, no topology change). Either closes the offset if water fraction is held constant
-  (cell_mass would then track the already-matching dry_mass).
-  Fix shipped + ensemble-confirmed 2026-06-11 (commit 6a764fc, gate now met): fix option (a) was
-  implemented. The ref_growth_driver gains a read-only listeners.mass input and, in consumption_matched
-  mode, regulates WATER[c] closed-loop to hold the birth water fraction (target_water_mass = dry*f/(1-f)).
-  Sanity (single 600 s replicate, seed 1000): water fraction flat at 0.70000 (drift -0.00002, was +0.0043
-  open-loop); final cell_mass 1460.1 fg. Ensemble re-run of the same 600 s W₂ (this branch; N=12 PDMP reps,
-  consumption_matched, distinct seeds 1000–1011, vs the same N=32 Phase-0 M9-glucose reference; 12/12 usable,
-  0 errors, 0 degeneracy-flagged). New numbers: cell_mass endpoint W₂ = 6.93 fg (W₂/σ = 1.00,
-  95% CI [5.16, 9.00]); dry_mass W₂ = 2.27 fg (W₂/σ = 1.09, 95% CI [1.70, 2.90]). The ±σ gate (endpoint
-  W₂ ≤ 2σ_Phase-0 for both observables) is now met. cell_mass closed from W₂/σ = 3.02 → 1.00: PDMP mean
-  moved 1481.0 → 1456.8 fg (Phase-0 1461.1 fg), so the offset shrank from ~+20 fg to ~-4.4 fg, i.e. the
-  closed loop slightly overshot to just below Phase-0 rather than ~20 fg above. Second-order effect:
-  dry_mass W₂/σ ticked up from 0.86 → 1.09 (PDMP dry mean 437.7 → 437.0 fg vs Phase-0 438.6; the water
-  regulation nudged dry_mass marginally lower), but it stays within ±σ. Per-replicate spread
-  grew modestly (cell σ 0.46 → 1.21 fg, dry σ 0.46 → 0.37 fg) yet the ensemble is still much tighter than
-  Phase-0 (6.9 / 2.08 fg). The gate is now passed on a mean-offset that sits within σ, not on
-  matched variance. Remaining step before any acceptance: the gate is confirmed on M9-glucose only; the
-  multi-condition PDMP-vs-Phase-0 W₂ (M9-acetate, M9-glucose+aa) is still pending. See
-  reports/figures/pdmp-01/pdmp_vs_phase0.html and the 2026-06-11 RUN_REPORT water-fix addendum.
-  FBA-bridge flux-pin, kinetic model integrated into the WCM 2026-06-11 (v1 milestone, full WCM):
-  the metabolism replacement is now built and working. The Millard kinetic ODE
-  mechanistically sets central-carbon flux inside the WCM's FBA (not via the consumption_matched
-  driver). Mechanism (design: docs/superpowers/specs/2026-06-11-millard-fba-bridge-flux-pin-design.md;
-  built TDD across tasks 0-6, 20 tests passing): the Millard COPASI process exports central_fluxes
-  (mM/s, basico.get_reactions()['flux']); FBAFluxCoupler maps them (millard_v2ecoli_reaction_map.yaml,
-  36 central reactions) + converts units to FBA pins; ecoli-metabolism hard-pins them
-  (setReactionFluxBounds lb=ub=v) before the LP solve, relaxing infeasible pins to keep the LP solvable.
-  Result (millard_fba_bridge_harness, full WCM baseline + Millard source + coupler, M9-glucose, 120 s):
-  for the ~16-20 reactions whose pin holds, the resulting FBA flux equals the ODE-pinned bound exactly
-  (median |rel err| = 0, 100% within 10%); the kinetic ODE genuinely drives central flux in the WCM LP.
-  The hold/relax split is biologically sensible: glycolysis + pentose-phosphate hold; TCA + anaplerotic +
-  glyoxylate + acetate relax (pinning all of them simultaneously over-constrains the biomass network).
-  Viability preserved (dry_mass 379.8->389.8 fg over 120 s; all 67 central concentrations finite). This
-  is the mechanism behind the hypothesis (the ODE 'takes over central-carbon flux, FBA covers the rest'),
-  distinct from the consumption_matched water/precursor driver.
-  Open: the TCA-relaxation rate is high (pinning over-constrains); next is curating which reactions to
-  pin together + per-reaction sign/scale, then the 3-condition interface check. See
-  reports/figures/pdmp-01/fba_bridge_flux_pin.html.
+  On M9-glucose the PDMP metabolism (Millard 2017 kinetic ODE via pbg-copasi + consumption_matched driver with
+  the closed-loop WATER[c] fix, commit 6a764fc) meets the ±σ W₂ acceptance gate against the N=32 Phase-0
+  ensemble: cell_mass W₂/σ = 1.00, dry_mass W₂/σ = 1.09 (N=12 replicates, seeds 1000–1011). The FBA-bridge
+  flux-pin integrates the kinetic ODE into the WCM FBA (24 active pins) so glycolysis + pentose-phosphate hold
+  exactly while the TCA relaxes (growth-coupled); the multi-condition (acetate / +aa) W₂ and the LQR Sobol/FIM
+  audit remain pending.
 confidence: Investigating
 status: running
 phase: Decide
@@ -174,71 +97,49 @@ objective: 'Run the Millard 2017 ODE as a standalone Process Bigraph process
   correctness through pbg-copasi, Phase 4 takes over performance.
 
   '
-description: "Phase 1 of the v2ecoli → PDMP roadmap.\n\n## What v2ecoli's metabolism actually is\n\nv2ecoli's metabolism lives\
-  \ at `v2ecoli/processes/metabolism.py`\n(class `Metabolism`, wrapping `FluxBalanceAnalysisModel` →\n`wholecell.utils.modular_fba.FluxBalanceAnalysis`\
-  \ with the\n`glpk-linear` solver). Each timestep it solves a single multi-\nobjective FBA LP that combines:\n\n  1. **Biomass\
-  \ production**: `max c^T v` where `c` is the biomass\n     composition vector derived from the doubling time.\n  2. **Homeostatic\
-  \ concentration targets**: drive metabolite\n     concentrations toward `conc_dict[media + doubling_time]`\n     (with optional\
-  \ ppGpp coupling when `include_ppgpp=True`,\n     linking transcriptional regulation to metabolic capacity).\n  3. **Kinetic-constraint\
-  \ targets** (when `USE_KINETICS=True`):\n     drive enzyme-catalysed reaction flux toward Vmax×[E]\n     computed from per-reaction\
-  \ kinetic parameters and live\n     substrate concentrations, coupling translation demand\n     (which sets enzyme abundance)\
-  \ to metabolic output.\n\nConstraints: stoichiometric mass balance `S v = 0`, enzyme-\ncatalysis bounds (reactions without\
-  \ catalysts forced to v=0,\ncatalysed reactions bounded by Vmax×[E]), NGAM (non-growth-\nassociated maintenance) ATP demand,\
-  \ and exchange bounds derived\nfrom the media. Output fluxes (mmol/g_DCW/h) are converted to\nmolecule count changes via\n\
-  `stochasticRound(flux × dry_mass × dt / (MW × conv))`. The\nprocess runs LAST in the timestep (deriver-style, on the\npost-partition\
-  \ state of all other processes).\n\nThis is structurally distinct from textbook \"tFBA\" (Birch, Udell\n& Covert 2014),\
-  \ which is a sequence of LPs tracking target\ntrajectories over time. v2ecoli solves a fresh single LP per\ntimestep with\
-  \ current bounds + the multi-objective coupling\nabove; it does not carry the temporal-target-tracking structure\nBirch\
-  \ et al. describe.\n\n## What blocks likelihood-based inference today\n\nThe properties of v2ecoli's metabolism that make\
-  \ it resistant to\nBayesian inference + causal discovery:\n\n- **stochasticRound discretisation** at the LP→counts boundary:\n\
-  \  a non-smooth, RNG-dependent map applied per timestep.\n- **Implicit per-timestep \"jumps\"** when enzyme bounds change\n\
-  \  (because enzyme abundances change every step via gene\n  expression), so consecutive LP solutions jump between vertices\n\
-  \  of different polytopes — discontinuous in the FBA state.\n- **LP-vertex degeneracy**: GLPK returns an arbitrary vertex\
-  \ of\n  the optimum facet, so the chosen flux distribution at the LP\n  solution is degenerate. Re-runs with the same state\
-  \ can yield\n  different flux vectors when the optimum is non-unique.\n- **Doubling-time as both input and output** without\
-  \ a\n  separated dynamical equation — the homeostatic targets are\n  parameterised by doubling-time, but doubling-time is\n\
-  \  determined by the biomass-production rate the FBA computes.\n- **Timestep-dependent kinetic-constraint refresh** — the\n\
-  \  kinetic-constraint terms re-read enzyme abundances each step,\n  so the LP itself is non-autonomous in a way that's tied\
-  \ to\n  the discrete-time loop.\n\nThe substitution target is Millard et al. 2017\n([[millard2017]]) — a curated kinetic\
-  \ ODE of E. coli central\ncarbon and energy metabolism covering glycolysis (EMP),\ngluconeogenesis, PPP, Entner-Doudoroff,\
-  \ anaplerotic reactions,\nTCA, glyoxylate shunt, acetate metabolism, nucleotide\ninterconversion, and oxidative phosphorylation.\
-  \ The published\nmodel is calibrated for K-12 MG1655 on M9 + glucose at dilution\nrate 0.1 h⁻¹, pH 7.0, 37 °C, pO₂ > 20%.\
-  \ Calibration to other\nPhase 0 conditions (acetate, glucose+aa) is part of this study.\n\nInfrastructure: rather than re-implement\
-  \ the Millard 2017 rate\nlaws from scratch, we wrap the published SBML (BioModels\nMODEL1505110000) with **pbg-copasi**\n\
-  (https://github.com/vivarium-collective/pbg-copasi) — a\nprocess-bigraph adapter that exposes any SBML kinetic model as\n\
-  a `CopasiUTCProcess` (Uniform Time Course Process) or\n`CopasiSteadyStateStep` via the COPASI/basico simulation\nbackend.\
-  \ This lets Phase 1 run the original Millard model as a\nstandalone PB process on day one, while keeping the SBML file\n\
-  itself as the source of truth.\n\nFBA-bridge composite. Because pdmp-01 cannot rip out v2ecoli's\nmulti-objective FBA all\
-  \ at once (the rest of v2ecoli expects\nflux outputs in the existing store layout, and the FBA's\nhomeostatic + kinetic-constraint\
-  \ terms couple it to translation\n+ transcription that we're NOT touching in Phase 1), we build a\ntransitional composite\
-  \ that couples the pbg-copasi Millard\nprocess to v2ecoli's existing FBA. The two run side by side:\nthe ODE drives central-carbon\
-  \ flux predictions (glycolysis, PPP,\nTCA, oxidative phosphorylation — the network Millard covers),\nwhile v2ecoli's FBA\
-  \ handles the rest (homeostatic targets for\nnon-central metabolites, enzyme-catalysed reactions outside the\nMillard scope,\
-  \ NGAM maintenance). The bridge schema is the\ncontract to negotiate: which fluxes does the ODE export, which\ndoes the\
-  \ FBA consume, where is the seam between mechanistic-\nkinetic and optimisation-based metabolism. Once the bridge holds\n\
-  interface fidelity across all Phase 0 conditions, the seam can\nbe moved outward in subsequent studies (extend the kinetic\
-  \ ODE\ncoverage, shrink the FBA scope).\n\nThe LQR layer replaces v2ecoli's FBA biomass-production\nobjective with an explicit,\
-  \ parameterised controller around a\ngrowth-rate target. The risk flagged in the roadmap is that the\nLQR reference trajectory\
-  \ could reintroduce a teleonomic\nparameter in disguise — parametrization of the reference\ntrajectory requires careful\
-  \ justification.\n\n# Numerical considerations\nSolver. The Millard 2017 system has stiffness from the disparity\nbetween\
-  \ fast equilibration of pool intermediates (sub-second\ntimescales for some PPP/EMP metabolites) and slow growth-rate\n\
-  dynamics (>10² s). COPASI/basico defaults to LSODA (Hindmarsh\nadaptive BDF/Adams), which auto-switches between stiff and\n\
-  non-stiff modes; we keep this default. Tolerances: rtol=1e-6,\natol=1e-9 (one order tighter than basico defaults) to ensure\
-  \ the\nnumerical solution error stays below the Phase 0 MC noise floor\nper [[uq-bootstrap-cis-on-interface-stats]]. A Richardson\n\
-  step-doubling check at fresh initial conditions confirms the\nsolver achieves the claimed order before any LQR tuning starts.\n\
-  \nDistribution comparison. ODE+LQR is a deterministic process given\nits initial condition; comparison with the stochastic\
-  \ v2ecoli\nbaseline goes through the Phase 0 *ensemble* of trajectories.\nThe acceptance criterion uses Wasserstein-2 distance\
-  \ W₂(p_ODE,\np_ref) per interface variable, with tolerance derived from\nPhase 0 bootstrap CIs (we accept ODE output if\
-  \ W₂ falls within\nthe 95% CI of the Phase 0 self-MC W₂ spread — i.e., the ODE\nmust be indistinguishable from a fresh Phase\
-  \ 0 replicate of the\nsame condition).\n\nIdentifiability. Before declaring the model \"inference-ready\"\nfor Phase 3,\
-  \ we run a Fisher Information Matrix conditioning\ncheck on the causal parameters (κ(FIM) < 10⁸ required) and a\nprofile-likelihood\
-  \ width estimate per parameter. Parameters that\nfail are flagged non-identifiable and either re-parameterized\n(lump rate\
-  \ constants into effective Vmax/Km pairs) or moved to\nthe teleonomic catalog with explicit justification.\n\nLQR sensitivity.\
-  \ Sobol indices (first-order + total) on LQR\nweights with respect to steady-state growth rate and key flux\nratios. A LQR\
-  \ weight that the system is insensitive to is \"free\nparameter\" rot — flagged and removed.\n\n# Emitter\nAll Phase 1 runs\
-  \ use XArrayEmitter; output zarr stores conform\nto the Phase 0 reference schema (same variable names, same time-\naxis\
-  \ convention) so xarray.align()-based comparison is\ntrivial. The W₂ tolerance check loads paired Phase 0 + Phase 1\nzarr\
-  \ stores via xarray.open_zarr(..., chunks={'time': -1,\n'replicate': 1}) for streaming per-replicate comparison.\n"
+description: |
+  Phase 1 of the v2ecoli → PDMP roadmap: substitute v2ecoli's metabolism with the Millard 2017 kinetic ODE.
+
+  What v2ecoli's metabolism is: `v2ecoli/processes/metabolism.py` (`Metabolism` -> `FluxBalanceAnalysisModel`
+  -> `wholecell.utils.modular_fba.FluxBalanceAnalysis`, glpk-linear) solves one multi-objective FBA LP per
+  timestep combining (1) biomass production `max c^T v`; (2) homeostatic concentration targets toward
+  `conc_dict[media + doubling_time]` (optional ppGpp coupling when `include_ppgpp=True`); (3) kinetic-constraint
+  targets toward Vmax×[E] when `USE_KINETICS=True`. Constraints: `S v = 0`, enzyme-catalysis bounds, NGAM ATP
+  demand, media exchange bounds. Fluxes -> counts via `stochasticRound(flux × dry_mass × dt / (MW × conv))`;
+  the process runs LAST (deriver-style, post-partition). This differs structurally from textbook "tFBA"
+  (Birch, Udell & Covert 2014), a sequence of target-tracking LPs.
+
+  What blocks likelihood-based inference: the stochasticRound LP->counts map is non-smooth and RNG-dependent;
+  enzyme-bound changes make consecutive LP solutions jump between polytope vertices; GLPK returns an arbitrary
+  vertex of a degenerate optimum facet; doubling-time is both input (homeostatic targets) and output (biomass
+  rate) without a separated equation; and the kinetic-constraint terms re-read enzyme abundances each step, so
+  the LP is non-autonomous in a way tied to the discrete-time loop.
+
+  Substitution target: Millard et al. 2017 ([[millard2017]]), a curated kinetic ODE of E. coli central carbon
+  + energy metabolism (glycolysis/EMP, gluconeogenesis, PPP, Entner-Doudoroff, anaplerotic, TCA, glyoxylate
+  shunt, acetate, nucleotide interconversion, oxidative phosphorylation), calibrated for K-12 MG1655 on
+  M9 + glucose at dilution rate 0.1 h⁻¹, pH 7.0, 37 °C, pO₂ > 20%; calibration to acetate / glucose+aa is part
+  of this study. Rather than re-derive the rate laws, we wrap the published SBML (BioModels MODEL1505110000)
+  with pbg-copasi (https://github.com/vivarium-collective/pbg-copasi) as a `CopasiUTCProcess` /
+  `CopasiSteadyStateStep` over the COPASI/basico backend, keeping the SBML as source of truth.
+
+  FBA-bridge composite: because Phase 1 cannot rip out the multi-objective FBA at once (the rest of v2ecoli
+  reads its flux outputs, and its homeostatic + kinetic-constraint terms couple to translation/transcription
+  we are not touching), the ODE and FBA run side by side — the ODE drives central-carbon flux (the Millard
+  network) while the FBA covers the rest (non-central homeostatic targets, out-of-scope enzyme-catalysed
+  reactions, NGAM). The bridge schema is the contract; once it holds interface fidelity across all Phase 0
+  conditions the seam moves outward in later studies. The LQR layer replaces the FBA biomass-production
+  objective with a parameterised growth-rate controller (risk: the reference trajectory reintroducing a
+  teleonomic parameter in disguise).
+
+  Numerical: COPASI/basico defaults to LSODA (adaptive stiff/non-stiff, for the stiffness between sub-second
+  pool equilibration and >10² s growth dynamics) at rtol=1e-6, atol=1e-9 (one order tighter than defaults) so
+  solution error stays below the Phase 0 MC noise floor ([[uq-bootstrap-cis-on-interface-stats]]); a Richardson
+  step-doubling check confirms solver order before LQR tuning. Acceptance uses W₂(p_ODE, p_ref) per interface
+  variable within the Phase 0 bootstrap CI of the self-MC W₂ spread. Before Phase 3, causal parameters pass FIM
+  conditioning (κ(FIM) < 10⁸) + profile-likelihood width; LQR weights pass Sobol (first-order + total), and
+  weights the system is insensitive to are removed. All runs use XArrayEmitter conforming to the Phase 0
+  schema, compared via xarray.open_zarr(..., chunks={'time': -1, 'replicate': 1}).
 expected_behavior:
 - name: millard-standalone-via-copasi
   en: The Millard 2017 SBML (BioModels MODEL1505110000) runs as a standalone PB process via pbg-copasi's CopasiUTCProcess;
@@ -454,10 +355,7 @@ bibliography:
   bib_keys:
   - millard2017
   - birch2014
-  - uygun2006
   - saa2017
-  - choi2023
-  - hari2024
 report:
   confidence: design-stage
   evidence_quality: first-run-confirmed
@@ -1005,7 +903,10 @@ biological_summary: 'Replaces v2ecoli''s multi-objective FBA central-carbon meta
   2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either
   via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes
   into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble
-  within ±σ; the ~20 fg offset was traced to open-loop water drift, not the kinetics or control.'
+  within ±σ; the ~20 fg offset was traced to open-loop water drift (fraction had climbed to 0.7045), not the
+  kinetics or control, and the fix regulates WATER[c] closed-loop to hold the birth water fraction
+  (target_water_mass = dry*f/(1-f)). The FBA-bridge flux-pin keeps the WCM viable (dry_mass 379.8 -> 389.8 fg
+  over 120 s).'
 literature_anchors:
 - key: millard2017
   relevance: The kinetic ODE of central metabolism being substituted in (the calibrated source model).
@@ -1015,8 +916,6 @@ literature_anchors:
   relevance: LQR / optimal-control theory underpinning the outer growth-rate controller.
 - key: villani2008
   relevance: Wasserstein/optimal-transport basis for the W2 interface-fidelity metric.
-- key: uygun2006
-  relevance: Kinetic/identifiability modelling context for the metabolic ODE.
 model_change: 'Replace the multi-objective FBA (wholecell.utils.modular_fba, glpk-linear) central-carbon
   block with the Millard 2017 kinetic ODE + an LQR outer controller, integrated via an FBA-bridge that pins
   ODE-predicted central fluxes into the remaining WCM FBA. NOT yet accepted (requires_expert_approval: true).'

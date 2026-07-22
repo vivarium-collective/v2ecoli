@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.rollout_loss_training_narrows_the_gap",
+     "label": "rollout-loss-training-narrows-the-gap",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "> ",
+     "detail": {
+      "text": "Does rollout-loss training improve the neural surrogate over one-step\ntraining \u2014 eliminating instability AND lowering rollout error?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "sm-03-improving-the-surrogate \u2014 default tests"
+}

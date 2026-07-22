@@ -5,9 +5,13 @@ comparison is apples-to-apples (same framework, same compact emitter, same
 compute), with NO Nextflow:
 
   --composite v2ecoli  → v2ecoli's ported ``baseline()`` composite
-  --composite vecoli   → the original vEcoli model as a bigraph composite via
-                         ``build_composite_native`` (the vEcoli ``composite``
-                         branch, auto-wrapped through ``wrap_vivarium_process``)
+  --composite vecoli   → the PRISTINE upstream ``CovertLab/vEcoli`` model, run as
+                         a SINGLE process-bigraph node with vivarium-core's own
+                         Engine inside (``vivarium_ecoli_engine``; the ONLY
+                         supported vEcoli loader — faithful by construction, ZERO
+                         edits to the upstream checkout). The old colony-wrapper
+                         (``upstream``) and ``composite-softfloor`` loaders were
+                         removed; ``--vecoli-source`` accepts only vivarium-process.
 
 Each seed runs ``max_generations`` past divisions (``run_multigen_xarray``,
 daughter-following) and emits ONLY the compact comparison ``view`` (8 scalar
@@ -47,6 +51,30 @@ COMPARISON_PATHS = [
     "listeners.rna_synth_prob.total_rna_init",
 ]
 
+# Local fallback for the genuine-vEcoli ParCa simData when a run's --cache-dir
+# has no simData.cPickle (the vivarium-process vEcoli loader + matched-initial-
+# state reference both resolve to this as a last resort).
+_UPSTREAM_SIMDATA_FALLBACK = (
+    "/Users/eranagmon/code/v2ecoli/out/compare_harness/vecoli_parca/"
+    "kb/simData.cPickle")
+
+
+def _spec_from_vecoli_config() -> str | None:
+    """``from_vecoli_config`` from the comparison_spec.json baked into the image.
+
+    ``COPY . .`` in the Dockerfile puts the repo (incl. comparison_spec.json) at
+    REPO_ROOT, so the default Ray route picks up the spec's fork config WITHOUT
+    any per-job API/sms-api parameter. Returns None if absent/unreadable.
+    """
+    spec_path = REPO_ROOT / "comparison_spec.json"
+    if not spec_path.exists():
+        return None
+    try:
+        spec = json.loads(spec_path.read_text())
+    except Exception:  # noqa: BLE001
+        return None
+    return spec.get("from_vecoli_config") or None
+
 
 def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                    overrides: dict | None = None):
@@ -55,7 +83,7 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     The condition MUST be threaded through: the v2ecoli builder selects the
     condition-specific initial state (growth rate / doubling time / saved media
     from the ParCa state's condition_to_doubling_time — no refit) exactly as
-    _build_vecoli does via sim.config["condition"]. Omitting it (the old bug)
+    the vEcoli side does via sim.config["condition"]. Omitting it (the old bug)
     silently ran BASAL for every condition, so non-basal v2ecoli↔vEcoli rows
     compared a basal v2ecoli cell against a condition-specific vEcoli cell.
 
@@ -76,15 +104,63 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     """
     from v2ecoli import build_composite
     eff_cache = cache_dir
-    if condition and condition != "basal":
+    # Regenerate a per-(condition, seed) initial-state bundle from simData. This
+    # MUST include basal: the base cache_full snapshot is a SINGLE seed's basal
+    # initial state, so without regen every basal seed starts IDENTICAL (e.g.
+    # active_ribosome fixed at 12441) while genuine vEcoli resamples per seed
+    # (seed2=9947). Regenerating basal per seed reproduces vEcoli's seed-specific
+    # draw to <0.1% (9944 vs 9947), so the v2 basal ENSEMBLE varies by seed like
+    # vEcoli's. (Non-basal already regenerated; basal was the lone exception.)
+    # Falls back to the snapshot when simData is absent (e.g. a minimal cache).
+    _sd_probe = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
+    if condition and (condition != "basal" or os.path.exists(_sd_probe)):
         import pickle
         from v2ecoli.core import save_sim_input
-        cond_cache = os.path.join(cache_dir, f"cond_{condition}_seed{seed:02d}")
+        # ABSOLUTE paths: the regen below does os.chdir(_iso) for emitter isolation,
+        # so a RELATIVE bundle_dir would be written nested under the changed cwd
+        # (".regen_.../out/cache_full/cond_X") and the marker check — back at the
+        # original cwd — would never find it → silent basal fallback for EVERY
+        # condition. (The old comment claimed "bundle_dir (absolute)" but cache_dir
+        # is relative when --cache-dir is relative, as it always is here.)
+        cond_cache = os.path.abspath(os.path.join(cache_dir, f"cond_{condition}_seed{seed:02d}"))
         marker = os.path.join(cond_cache, "sim_data_cache.dill")
-        sd_path = os.path.join(cache_dir, "simData.cPickle")
-        if not os.path.exists(marker) and os.path.exists(sd_path):
+        sd_path = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
+
+        # ROBUSTNESS GUARD (all conditions): a per-condition bundle bakes media_id
+        # into its configs at generation. If a STALE bundle (built before a
+        # condition->media fix) baked the wrong media, blindly reusing it runs the
+        # WRONG media — e.g. with_aa on 'minimal' => no amino-acid uptake =>
+        # methionine starvation => RelA/ppGpp runaway (5-13x) => RNAP active
+        # fraction halved => ~14% RNA / ~7% growth-rate deficit that reads as a
+        # bogus "port divergence". The marker-exists-only check never caught this
+        # because the cache fingerprint is computed in a chdir'd dir (all hashes
+        # MISSING) and was never verified here. Derive the REQUIRED media straight
+        # from sim_data (single source of truth) and regenerate any bundle whose
+        # recorded media disagrees, so every condition self-corrects.
+        sim_data = None
+        expected_media = None
+        if os.path.exists(sd_path):
             with open(sd_path, "rb") as f:
                 sim_data = pickle.load(f)
+            expected_media = (sim_data.conditions.get(condition, {}) or {}).get("nutrients")
+
+        def _bundle_media() -> str | None:
+            try:
+                with open(os.path.join(cond_cache, "metadata.json")) as mf:
+                    return json.load(mf).get("media_id")
+            except (OSError, ValueError):
+                return None
+
+        if (os.path.exists(marker) and expected_media is not None
+                and _bundle_media() != expected_media):
+            print(
+                f"  [media-guard] {condition} seed{seed:02d}: bundle media "
+                f"{_bundle_media()!r} != required {expected_media!r}; regenerating",
+                flush=True,
+            )
+            shutil.rmtree(cond_cache, ignore_errors=True)
+
+        if not os.path.exists(marker) and os.path.exists(sd_path):
             # save_sim_input's generate_initial_state spins a default emitter that
             # writes to a FIXED relative path (.pbg/parquet-runs/default/…), so
             # parallel seeds collide → FileExistsError (+ a secondary KeyError
@@ -101,6 +177,24 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                 os.chdir(_prev)
         if os.path.exists(marker):
             eff_cache = cond_cache
+        elif condition == "basal":
+            # The base cache IS basal, so a failed/absent basal regen safely
+            # degrades to the snapshot (seed-fixed) rather than erroring.
+            eff_cache = cache_dir
+        else:
+            # FAIL LOUD instead of silently falling back to the base (basal) cache.
+            # The base ParCa is the shipped --mode FAST fixture (reduced TF condition
+            # set), so the per-condition regen produces no condition-specific bundle —
+            # and a silent basal fallback made EVERY non-basal condition run basal,
+            # which read as a 44-336% v2-vs-vEcoli "divergence" that was pure setup
+            # artifact. A condition that cannot be applied must error, not run basal.
+            raise RuntimeError(
+                f"v2ecoli condition '{condition}' could not be applied: the per-"
+                f"condition regen produced no bundle at {cond_cache} (likely because "
+                f"the ParCa cache {cache_dir!r} is the --mode fast fixture, which omits "
+                f"non-basal conditions). Build a FULL condition-complete ParCa "
+                f"(scripts/build_comparison_caches.sh) and point --cache-dir at it."
+            )
     # emitter="null": the real comparison output is captured OUT OF BAND by the
     # external XArrayEmitter that run_multigen_xarray drives (the compact 8-path
     # view → zarr). The composite's INTERNAL parquet sink is pure redundancy
@@ -111,7 +205,87 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     kwargs: dict = {"cache_dir": eff_cache, "seed": seed, "emitter": "null"}
     if overrides:
         kwargs.update(overrides)
-    return build_composite("baseline", **kwargs)
+    comp = build_composite("baseline", **kwargs)
+
+    # FAIL-LOUD media assertion (all conditions): the composite must actually run
+    # on the media the condition requires. Anything else silently mis-models the
+    # whole comparison (see the methionine-starvation chain in the media-guard
+    # note above). Cheap O(1) check straight off the built state — never trust
+    # that the cache plumbing did the right thing.
+    if expected_media is not None:
+        _ag = comp.state.get("agents", {}).get("0", comp.state) if hasattr(comp, "state") else {}
+        _got = (_ag.get("environment", {}) or {}).get("media_id")
+        if _got is not None and _got != expected_media:
+            raise RuntimeError(
+                f"v2ecoli {condition} seed{seed:02d} built on media {_got!r} but "
+                f"the condition requires {expected_media!r}. The per-condition "
+                f"bundle at {eff_cache} is stale/mislabelled — delete it and "
+                f"rebuild (the media-guard should have regenerated it)."
+            )
+    return comp
+
+
+# --------------------------------------------------------------------------- #
+# Matched-initial-state seeding.
+#
+# v2ecoli and genuine vEcoli draw their initial bulk molecule counts by
+# independent stochastic sampling, and the two codebases consume their RNG in
+# different order, so the SAME seed yields different draws. For HIGH-copy
+# species this is negligible, but for LOW-copy regulators it is not: SpoT
+# (ppGpp hydrolase, ~1-12 molecules) drove a >35% apparent acetate "divergence"
+# at seed 0 (v2 drew 12, vEcoli drew 1) that vanished once the counts matched —
+# the elongation+ppGpp models are otherwise equivalent. To make single-seed
+# v2-vs-vEcoli comparisons reflect genuine DYNAMICS rather than sampling luck,
+# overlay genuine vEcoli's initial bulk onto v2 so both engines start identical.
+# (Unique molecules — ribosomes/RNAP/chromosome — are NOT overlaid; they are
+# higher-copy and their initial counts already agree to a few percent.)
+# --------------------------------------------------------------------------- #
+def _vecoli_reference_bulk(sim_data_path: str, condition: str, seed: int,
+                           fork_dir: str | None) -> dict[str, int]:
+    """Genuine vEcoli initial bulk ``{molecule_id: count}`` for (condition, seed).
+
+    Builds the real upstream vEcoli vivarium Engine and reads its PRE-run bulk
+    state — the reference the v2ecoli run is seeded from.
+    """
+    import numpy as np
+    from v2ecoli.library.vivarium_ecoli_engine import build_vivarium_ecoli
+    h = build_vivarium_ecoli(
+        sim_data_path=sim_data_path, condition=condition, seed=seed,
+        exclude_processes=["monomer_counts_listener"], fork_dir=fork_dir)
+    bulk = np.asarray(h.engine.state.get_value()["bulk"])
+    return {str(i): int(c) for i, c in zip(bulk["id"], bulk["count"])}
+
+
+def _apply_bulk_overlay(composite, ref_bulk: dict[str, int]) -> dict:
+    """Overwrite the v2 composite's initial bulk counts IN PLACE from
+    ``ref_bulk`` (keyed by molecule id), for molecules present in BOTH engines.
+    Returns a stats dict for logging. Raises if the composite has no bulk.
+    """
+    import numpy as np
+    state = getattr(composite, "state", {}) or {}
+    agents = state.get("agents")
+    if isinstance(agents, dict) and agents:
+        agent = agents.get("0") or next(iter(agents.values()))
+    else:
+        agent = state
+    bulk = agent.get("bulk") if isinstance(agent, dict) else None
+    if bulk is None:
+        raise RuntimeError("matched-initial-state: composite has no 'bulk' to overlay")
+    arr = np.asarray(bulk)
+    ids = [str(x) for x in arr["id"]]
+    counts_new = arr["count"].copy()
+    matched = changed = 0
+    for i, name in enumerate(ids):
+        ref = ref_bulk.get(name)
+        if ref is not None:
+            matched += 1
+            if int(counts_new[i]) != ref:
+                changed += 1
+            counts_new[i] = ref
+    arr["count"][:] = counts_new  # whole-field assign → writes through to composite
+    return {"v2_bulk": len(ids), "ref_bulk": len(ref_bulk), "matched": matched,
+            "changed": changed, "v2_only": len(ids) - matched,
+            "ref_only": len(ref_bulk) - matched}
 
 
 # --------------------------------------------------------------------------- #
@@ -142,10 +316,23 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
         if ntype not in ("process", "step"):
             continue
         cfg = node.get("config")
+        # The RESULTING process-bigraph schema: the resolved port types the
+        # built process declares (inputs()/outputs()). For converted vEcoli
+        # processes this is what the bridge produced — surfaced in the report's
+        # converted-processes panel. Best-effort: never crash the sidecar.
+        interface = None
+        inst = node.get("instance")
+        if inst is not None:
+            try:
+                interface = {"inputs": dict(inst.inputs()),
+                             "outputs": dict(inst.outputs())}
+            except Exception:  # noqa: BLE001
+                interface = None
         processes.append({
             "name": name, "type": ntype, "address": node.get("address"),
             "interval": node.get("interval"),
             "config_keys": sorted(cfg.keys()) if isinstance(cfg, dict) else [],
+            "interface": interface,
         })
         topology[name] = {"inputs": node.get("inputs") or {},
                           "outputs": node.get("outputs") or {}}
@@ -207,229 +394,146 @@ def _write_json_sidecar(path: str, obj: dict) -> None:
 # cannot destabilize the working runs; when on it applies only the safely
 # name-matched subset and records the full translation in the sidecar.
 # --------------------------------------------------------------------------- #
-def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
-    """Resolve+translate a vEcoli config; return (overrides, translated_full).
-
-    ``overrides`` keeps only keys that are declared ``baseline`` generator
-    parameters (minus ``seed``, owned by the per-seed loop). For typical vEcoli
-    configs this is nearly empty — that emptiness IS the finding above.
-    """
-    from scripts._compare.config_adapter import (
-        resolve_vecoli_config, translate_vecoli_config)
+def _baseline_param_names() -> set:
+    """The declared ``baseline`` generator parameter names (for override filtering)."""
     import v2ecoli.composites  # noqa: F401  (register generators)
     from pbg_superpowers.composite_generator import _REGISTRY
-    valid: set[str] = set()
     for e in _REGISTRY.values():
         if e.name == "baseline":
-            valid = set(e.parameters)
-            break
-    resolved = resolve_vecoli_config(vecoli_config_path)
+            return set(e.parameters)
+    return set()
+
+
+def _overrides_from_resolved(resolved: dict) -> tuple[dict, dict]:
+    """Translate an ALREADY-resolved vEcoli config into baseline overrides.
+
+    Returns ``(overrides, translated_full)``. ``overrides`` keeps only keys that
+    are declared ``baseline`` generator parameters (minus ``seed``, owned by the
+    per-seed loop). For typical vEcoli configs this is nearly empty — that
+    emptiness IS the namespace finding above.
+    """
+    from scripts._compare.config_adapter import translate_vecoli_config
+    valid = _baseline_param_names()
     translated = translate_vecoli_config(resolved)
     overrides = {k: v for k, v in translated.items()
                  if k in valid and k != "seed"}
     return overrides, translated
 
 
-# Cache for the once-per-process vEcoli import + global registrations. Re-importing
-# ``ecoli.*`` per seed would re-trigger module-level emitter registration (e.g.
-# ``parquet``) into the process-global registry → "registry already contains an
-# entry for parquet" on the 2nd seed. So do the path-fix + purge + imports +
-# resolve-dispatch registration EXACTLY ONCE, then reuse the cached symbols.
-_VECOLI: dict = {}
+def _injected_from_resolved(resolved: dict, fork_repo: str,
+                            fork_sim_data: str | None) -> dict | None:
+    """Assemble a baseline ``injected_processes`` block from a resolved vEcoli
+    config, so the v2 side converts+injects the fork's add/swap processes.
 
-
-def _ensure_vecoli() -> dict:
-    """Import the vEcoli composite stack once per process; cache its symbols.
-
-    The v2ecoli image bakes the vEcoli composite-softfloor checkout at
-    ``/app/vEcoli``, but an installed vEcoli release (lacking
-    ``ecoli.composites.ecoli_composite``) may already be cached in sys.modules
-    transitively. ``sys.path.insert`` does NOT re-resolve an already-imported
-    package, so we drop every ``ecoli*`` module ONCE to force a fresh import
-    from the composite-softfloor branch. Mirrors scripts/run_vecoli_composite.py
-    (incl. the SharedProcess resolve dispatches the composite branch needs).
+    Returns None when the config declares no injection. Carries every per-port
+    knob the bridge understands (output/defer/strip/attach), so a swap is fully
+    config-described; ``fork_sim_data`` lets a swapped process pull its full
+    config from the fork's own LoadSimData.
     """
-    if _VECOLI:
-        return _VECOLI
-    vecoli_dir = str(REPO_ROOT.parent / "vEcoli")
-
-    # Force-cache the INSTALLED (Cython-COMPILED) wholecell tree BEFORE vecoli_dir
-    # goes on sys.path. The composite checkout ships wholecell SOURCE only (its
-    # Cython _build_sequences etc. are unbuilt), so once vecoli_dir is first on
-    # the path an uncached `import wholecell.utils.polymerize` would resolve to
-    # the unbuilt copy and raise "Failed to import Cython module". Importing the
-    # whole installed tree now pins every wholecell.* submodule to the compiled
-    # build; ecoli (loaded from vecoli_dir below) then reuses those cached modules.
-    import importlib as _importlib
-    import pkgutil as _pkgutil
-    import wholecell as _wholecell
-    for _mi in _pkgutil.walk_packages(_wholecell.__path__, "wholecell."):
-        try:
-            _importlib.import_module(_mi.name)
-        except Exception:
-            pass  # optional/unbuildable submodules; ecoli imports only the core ones
-
-    sys.path.insert(0, vecoli_dir)
-
-    # ecoli/__init__.py registers parquet/updaters/dividers/serializers into
-    # vivarium's PROCESS-GLOBAL registries as an import side effect. A shadow
-    # ecoli release may already have registered those keys, and vivarium's
-    # Registry.register RAISES on a duplicate key whose item object differs —
-    # which re-importing ecoli guarantees (new class/function identities). Make
-    # register idempotent (skip keys already present) so re-importing ecoli from
-    # the composite checkout below doesn't blow up on "registry already contains
-    # an entry for parquet". The freshly imported ecoli.composites.* and the
-    # soft-floor transcription still come from vecoli_dir; only the shared
-    # registry helpers fall back to whatever registered first (functionally
-    # equivalent — the soft-floor lives in transcription, not in these helpers).
-    import vivarium.core.registry as _vreg
-    if not getattr(_vreg.Registry, "_idempotent_patched", False):
-        _orig_register = _vreg.Registry.register
-
-        def _idempotent_register(self, key, item, alternate_keys=tuple()):
-            if key in self.registry:
-                return None
-            return _orig_register(self, key, item, alternate_keys)
-
-        _vreg.Registry.register = _idempotent_register
-        _vreg.Registry._idempotent_patched = True
-
-    # The composite-softfloor vEcoli expects cloud-URI helpers that the v2ecoli
-    # venv's INSTALLED wholecell.utils.filepath lacks (is_cloud_uri /
-    # cloud_path_join, added in the composite branch for S3 output). Inject them
-    # onto the installed module rather than swapping wholecell wholesale —
-    # wholecell is SHARED with the v2ecoli infra (parallel_seeds / xarray_run)
-    # and must stay the installed version for the v2ecoli engine to keep working.
-    import posixpath as _posixpath
-    import wholecell.utils.filepath as _wfp
-    if not hasattr(_wfp, "is_cloud_uri"):
-        _wfp.is_cloud_uri = lambda path: str(path).startswith(("s3://", "gs://", "gcs://"))
-    if not hasattr(_wfp, "cloud_path_join"):
-        _wfp.cloud_path_join = lambda *parts: _posixpath.join(*parts)
-
-    # Drop any cached (possibly shadow) ecoli modules so the imports below
-    # resolve from vecoli_dir (the composite-softfloor checkout).
-    for _m in [m for m in sys.modules if m == "ecoli" or m.startswith("ecoli.")]:
-        del sys.modules[_m]
-
-    from ecoli.experiments.ecoli_master_sim import EcoliSim
-    from ecoli.composites.ecoli_composite import build_composite_native
-    from ecoli.library.bigraph_types import ECOLI_TYPES, SharedProcess
-    from process_bigraph import Composite
-    from bigraph_schema import allocate_core
-    import v2ecoli.types  # noqa: F401  (register v2ecoli types/dispatches)
-
-    # SharedProcess (new in the composite branch) needs resolve dispatches.
-    from bigraph_schema.methods.resolve import resolve as _resolve
-    from bigraph_schema.schema import Tuple as _Tuple
-    from v2ecoli.types.process import ProcessInstance
-
-    # This file uses `from __future__ import annotations` (PEP 563), so the
-    # dispatch annotations below are stored as STRINGS and resolved lazily by
-    # beartype from the function's __module__ globals (which is "__main__" when
-    # the script runs directly, e.g. on a Ray worker). Defined inside this
-    # function, _Tuple/SharedProcess/ProcessInstance would be locals that vanish
-    # on return → "Forward reference '_Tuple' unimportable from module
-    # '__main__'". Publish them into the module (and __main__) globals so the
-    # forward-ref resolution succeeds, mirroring run_vecoli_composite.py's
-    # module-level definitions.
-    _main = sys.modules.get("__main__")
-    for _nm, _ty in (("_Tuple", _Tuple), ("SharedProcess", SharedProcess),
-                     ("ProcessInstance", ProcessInstance)):
-        globals()[_nm] = _ty
-        if _main is not None:
-            setattr(_main, _nm, _ty)
-
-    @_resolve.dispatch
-    def _resolve_tuple_shared(current: _Tuple, update: SharedProcess, path=None):
-        return update
-
-    @_resolve.dispatch
-    def _resolve_shared_tuple(current: SharedProcess, update: _Tuple, path=None):
-        return current
-
-    @_resolve.dispatch
-    def _resolve_pi_shared(current: ProcessInstance, update: SharedProcess, path=None):
-        return update
-
-    @_resolve.dispatch
-    def _resolve_shared_pi(current: SharedProcess, update: ProcessInstance, path=None):
-        return current
-
-    _VECOLI.update(
-        vecoli_dir=vecoli_dir, EcoliSim=EcoliSim,
-        build_composite_native=build_composite_native,
-        ECOLI_TYPES=ECOLI_TYPES, Composite=Composite, allocate_core=allocate_core,
-    )
-    return _VECOLI
+    if not (resolved.get("add_processes") or resolved.get("swap_processes")
+            or resolved.get("exclude_processes")):
+        return None
+    inj = {
+        "fork_repo": fork_repo,
+        "add_processes": resolved.get("add_processes") or [],
+        "swap_processes": resolved.get("swap_processes") or {},
+        "exclude_processes": resolved.get("exclude_processes") or [],
+        "process_configs": resolved.get("process_configs") or {},
+        "topology": resolved.get("topology") or {},
+        "time_step": float(resolved.get("time_step", 1.0)),
+        "output_ports": resolved.get("output_ports") or {},
+        "defer_ports": resolved.get("defer_ports") or {},
+        "strip_pint_ports": resolved.get("strip_pint_ports") or {},
+        "attach_pint_ports": resolved.get("attach_pint_ports") or {},
+        # Honor the config's initial state for the injected stores (so a
+        # subsystem like cell-wall gets its real murein_state counts, and its
+        # own first-update logic builds the rest).
+        "initial_state": resolved.get("initial_state") or {},
+        "initial_state_overrides": resolved.get("initial_state_overrides") or [],
+    }
+    if fork_sim_data:
+        inj["fork_sim_data"] = fork_sim_data
+    return inj
 
 
-def _build_vecoli(seed: int, condition: str, cache_dir: str):
-    """Original vEcoli model as a process-bigraph composite (no Nextflow).
+def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
+    """Resolve+translate a vEcoli config; return (overrides, translated_full).
 
-    Mirrors scripts/run_vecoli_composite.py: ``build_composite_native`` from the
-    vEcoli composite-softfloor branch (carries the ppGpp soft-floor). The import
-    + global registration happens once via ``_ensure_vecoli``; this builds a
-    fresh per-seed composite on its own ``core``.
+    Resolves via the fork's own loader (``resolve_vecoli_config``), then delegates
+    to :func:`_overrides_from_resolved`.
     """
-    v = _ensure_vecoli()
-    prev = os.getcwd()
-    os.chdir(v["vecoli_dir"])
-    try:
-        core = v["allocate_core"]()
-        core.register_types(v["ECOLI_TYPES"])
-        # EcoliSim.from_cli() parses sys.argv, which here still holds the
-        # comparison driver's args (e.g. --composite vecoli). That collides with
-        # EcoliSim's own --composite_checkpoint_* options ("ambiguous option:
-        # --composite") → argparse sys.exit(2), which inside a Ray worker shows
-        # up as WorkerCrashedError. Strip argv to just the program name (as
-        # run_vecoli_composite.py does) so from_cli() uses defaults; the
-        # condition/seed are applied via sim.config below.
-        _saved_argv = sys.argv
-        sys.argv = sys.argv[:1]
-        try:
-            sim = v["EcoliSim"].from_cli()
-        finally:
-            sys.argv = _saved_argv
-        # condition → media is set via the vEcoli sim config; lineage_seed=seed.
-        sim.config["condition"] = condition
-        sim.config["seed"] = seed
-        # Consume the SAME ParCa output as the v2ecoli composite: the ParCa step
-        # (v2ecoli build_cache → _write_sim_input_bundle) now also dumps the raw
-        # SimulationData as <cache_dir>/simData.cPickle. Point the vEcoli
-        # composite's LoadSimData at it instead of the unbuilt default
-        # /app/vEcoli/out/kb/simData.cPickle.
-        sim.config["sim_data_path"] = os.path.join(cache_dir, "simData.cPickle")
-        sim.processes = sim._retrieve_processes(
-            sim.processes, sim.add_processes, sim.exclude_processes, sim.swap_processes)
-        sim.topology = sim._retrieve_topology(
-            sim.topology, sim.processes, sim.swap_processes, sim.log_updates)
-        sim.process_configs = sim._retrieve_process_configs(sim.process_configs, sim.processes)
-        state = v["build_composite_native"](core, sim.config)
-        # NB: do NOT clear composite.to_run here. run_vecoli_composite.py clears
-        # it because it drives ecoli.run(chunk) MANUALLY; our driver
-        # (run_multigen_xarray) calls composite.run(1)/composite.run(chunk)
-        # itself, so an emptied to_run means zero steps execute → an empty zarr
-        # (group hierarchy only, no observable arrays). The v2ecoli composite
-        # leaves to_run at its default and emits correctly; mirror that.
-        composite = v["Composite"](dict(schema=dict(), state=state), core=core)
-        return composite
-    finally:
-        os.chdir(prev)
+    from scripts._compare.config_adapter import resolve_vecoli_config
+    return _overrides_from_resolved(resolve_vecoli_config(vecoli_config_path))
 
 
 def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  max_generations: int, max_steps: int, chunk: int,
                  out_root: str, seed_start: int = 0,
                  vecoli_config: str | None = None,
-                 translate_config: bool = False):
+                 translate_config: bool = False,
+                 vecoli_source: str = "vivarium-process",
+                 from_vecoli_config: str | None = None,
+                 vecoli_dir: str | None = None,
+                 match_initial_state: bool = False,
+                 match_vecoli_simdata: str | None = None):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
 
     # PART 3 (opt-in): translate the vEcoli config into baseline overrides ONCE.
     v2_overrides: dict | None = None
     v2_translated: dict | None = None
-    if composite_kind == "v2ecoli" and translate_config and vecoli_config:
+
+    # Drive the v2ecoli side from a vEcoli FORK config: resolve it ONCE (using
+    # v2ecoli's own loader so the fork needs no venv) and translate into baseline
+    # overrides. The genuine vEcoli side (vivarium-process) reads the fork's config
+    # directly via EcoliSim, so it needs no native-kwargs threading here.
+    if from_vecoli_config and composite_kind == "v2ecoli":
+        try:
+            from scripts._compare.config_adapter import resolve_vecoli_config_local
+            fork_dir = vecoli_dir or os.environ.get(
+                "V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
+            resolved = resolve_vecoli_config_local(from_vecoli_config, fork_dir)
+            v2_overrides, v2_translated = _overrides_from_resolved(resolved)
+            # Build the injected_processes block so the v2 side actually
+            # converts+injects the fork's add/swap processes (translate alone
+            # passes the raw keys through but never assembles the block).
+            inj = _injected_from_resolved(
+                resolved, fork_dir,
+                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None)
+            if inj:
+                v2_overrides = dict(v2_overrides or {})
+                v2_overrides["injected_processes"] = inj
+            print(f"[from-vecoli-config] {from_vecoli_config} → v2 overrides "
+                  f"{sorted(v2_overrides)} ({len(v2_translated)} translated keys"
+                  f"{'; +injected '+str(inj.get('add_processes') or list(inj.get('swap_processes') or {})) if inj else ''})")
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] from-vecoli-config resolve failed: {type(e).__name__} {e}")
+
+    # vEcoli side: resolve the fork config's process SWAP so the genuine vEcoli
+    # run applies it too (e.g. FBA metabolism -> MetabolismRedux). Without this,
+    # --from-vecoli-config would swap only the v2ecoli side (via injected_processes)
+    # and the comparison would confound the engine with the metabolism model.
+    ve_swap_processes: dict | None = None
+    ve_flow: dict | None = None
+    if from_vecoli_config and composite_kind == "vecoli":
+        try:
+            from scripts._compare.config_adapter import resolve_vecoli_config_local
+            fork_dir = vecoli_dir or os.environ.get(
+                "V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
+            resolved_ve = resolve_vecoli_config_local(from_vecoli_config, fork_dir)
+            ve_swap_processes = resolved_ve.get("swap_processes") or None
+            ve_flow = resolved_ve.get("flow") or None
+            if ve_swap_processes:
+                print(f"[from-vecoli-config] vecoli side applies swap_processes="
+                      f"{ve_swap_processes}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] vecoli from-vecoli-config swap resolve failed: "
+                  f"{type(e).__name__} {e}")
+
+    # Legacy opt-in: translate the vEcoli config into baseline overrides ONCE
+    # (only when --from-vecoli-config did not already populate them).
+    if (composite_kind == "v2ecoli" and translate_config and vecoli_config
+            and v2_overrides is None):
         try:
             v2_overrides, v2_translated = _translated_v2_overrides(vecoli_config)
             print(f"[translate] vEcoli→v2 overrides applied: {sorted(v2_overrides)} "
@@ -443,9 +547,71 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         # local stores: clear stale
         if "://" not in str(store_path) and Path(store_path).exists():
             shutil.rmtree(store_path)
+
+        # The genuine vEcoli side ALWAYS runs as a SINGLE pbg node with vivarium's
+        # own Engine inside (vecoli_source="vivarium-process" — the ONLY supported
+        # vEcoli loader; faithful by construction, no re-implemented partition/
+        # reconcile/division). It runs its OWN single-lineage multigen + XArrayEmitter
+        # (vivarium handles division internally; no pbg _add), emitting the SAME
+        # v2ecoli-format zarr, so it bypasses the pbg-division run_multigen_xarray below.
+        if composite_kind == "vecoli":
+            from v2ecoli.library.vivarium_ecoli_engine import run_vivarium_ecoli_pbg_multigen
+            sim_data_path = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
+            if not os.path.exists(sim_data_path):
+                sim_data_path = _UPSTREAM_SIMDATA_FALLBACK
+            res = run_vivarium_ecoli_pbg_multigen(
+                store_path=store_path, sim_data_path=sim_data_path, condition=condition,
+                seed=seed, max_generations=max_generations, max_steps_per_gen=max_steps,
+                chunk=chunk, exclude_processes=["monomer_counts_listener"],
+                swap_processes=ve_swap_processes, flow=ve_flow,
+                fork_dir=os.environ.get("V2E_VECOLI_DIR"),
+                experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
+                variant=0, lineage_seed=seed)
+            # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
+            # the stores, so the report shows the full vEcoli config too. Best-effort.
+            if seed == seed_start and res.get("build_config"):
+                try:
+                    _write_json_sidecar(
+                        f"{out_root.rstrip('/')}/vecoli_build_config.json",
+                        res["build_config"])
+                    print(f"[config] wrote vecoli_build_config.json "
+                          f"({res['build_config'].get('n_processes')} processes) "
+                          f"under {out_root}")
+                except Exception as e:  # noqa: BLE001
+                    print(f"[warn] vecoli build-config sidecar emit failed: "
+                          f"{type(e).__name__} {e}")
+            return {"seed": seed, "wall_seconds": round(time.time() - t0, 1),
+                    "store": str(store_path), "steps": None,
+                    "generations": list(range(1, res.get("generations", 0) + 1))}
+
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, condition, cache_dir,
                                        overrides=v2_overrides)
+            # Matched-initial-state seeding (opt-in): overlay genuine vEcoli's
+            # initial bulk onto v2 so both engines start from identical molecule
+            # counts — removing the stochastic low-copy sampling divergence
+            # (e.g. SpoT) that otherwise dominates single-seed comparisons.
+            if match_initial_state:
+                # Resolve the genuine-vEcoli reference simData: explicit flag >
+                # cache_dir/simData.cPickle (present in the cloud image's ParCa,
+                # same as the vivarium-process branch) > upstream local fallback.
+                if match_vecoli_simdata:
+                    ref_sd = os.path.abspath(match_vecoli_simdata)
+                else:
+                    cand = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
+                    ref_sd = cand if os.path.exists(cand) else _UPSTREAM_SIMDATA_FALLBACK
+                if not os.path.exists(ref_sd):
+                    raise RuntimeError(
+                        f"--match-initial-state needs the genuine vEcoli simData; "
+                        f"{ref_sd!r} not found. Pass --match-vecoli-simdata <path>.")
+                ref_bulk = _vecoli_reference_bulk(
+                    ref_sd, condition, seed,
+                    vecoli_dir or os.environ.get("V2E_VECOLI_DIR"))
+                stats = _apply_bulk_overlay(composite, ref_bulk)
+                print(f"[match-initial-state] seed{seed:02d} {condition}: overlaid "
+                      f"vEcoli bulk onto v2 — matched {stats['matched']}/"
+                      f"{stats['v2_bulk']} ({stats['changed']} counts changed); "
+                      f"v2-only {stats['v2_only']}, ref-only {stats['ref_only']}")
             # PART 1: emit the resolved v2ecoli build config ONCE (lowest seed)
             # as a sidecar next to the zarr stores. Best-effort — never crash.
             if seed == seed_start:
@@ -464,9 +630,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 except Exception as e:  # noqa: BLE001
                     print(f"[warn] v2 build-config sidecar emit failed: "
                           f"{type(e).__name__} {e}")
-        elif composite_kind == "vecoli":
-            composite = _build_vecoli(seed, condition, cache_dir)
         else:
+            # vecoli is handled by the vivarium-process early-return above; the
+            # only other composite_kind is v2ecoli. Anything else is a bug.
             raise ValueError(f"unknown composite_kind {composite_kind!r}")
         # include_vectors=True (the xarray_run default): the scalar counts
         # listeners.unique_molecule_counts.active_RNAP / active_ribosome share a
@@ -493,6 +659,12 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             max_steps=max_steps,
             max_generations=max_generations,
             chunk=chunk,
+            # Follow a single lineage (prune non-followed daughters each
+            # division) so EVERY generation — including the last — runs to its
+            # own division, matching genuine vEcoli. Without this, kept siblings
+            # trigger spurious division signals that truncate the final
+            # generation (v2ecoli would stop one generation short of vEcoli).
+            single_daughters=True,
         )
         return {"seed": seed, "wall_seconds": round(time.time() - t0, 1),
                 "store": str(store_path), **{k: result.get(k) for k in
@@ -516,6 +688,13 @@ def main(argv=None):
     p.add_argument("--out-root", required=True,
                    help="dir or s3:// prefix for per-seed zarr stores.")
     p.add_argument("--mode", default="ray", help="run_seeds_parallel mode (ray/serial).")
+    p.add_argument("--vecoli-source", default="vivarium-process",
+                   choices=["vivarium-process"],
+                   help="How the --composite vecoli side runs. The ONLY supported "
+                        "loader is 'vivarium-process': genuine vEcoli as a single "
+                        "pbg node with vivarium-core's Engine inside (faithful by "
+                        "construction). The old 'upstream'/'composite-softfloor' "
+                        "wrappers were removed — vivarium-process is canonical.")
     p.add_argument("--vecoli-config", default=None,
                    help="vEcoli config path to translate into v2ecoli build "
                         "overrides (PART 3; only used with --translate-vecoli-config).")
@@ -523,7 +702,31 @@ def main(argv=None):
                    help="OPT-IN: configure the v2ecoli build FROM the translated "
                         "vEcoli config (default off — keeps the working runs on "
                         "baseline defaults).")
+    p.add_argument("--from-vecoli-config", default=None,
+                   help="Path WITHIN the vEcoli fork (under V2E_VECOLI_DIR), e.g. "
+                        "configs/default.json, to drive BOTH engines from: the "
+                        "v2ecoli side gets the TRANSLATED overrides, the vecoli "
+                        "side runs the ORIGINAL config. If omitted, falls back to "
+                        "$V2E_FROM_VECOLI_CONFIG then comparison_spec.json's "
+                        "from_vecoli_config (baked into the image) — so the default "
+                        "Ray route is spec-driven with no per-job flag.")
+    p.add_argument("--match-initial-state", action="store_true",
+                   help="Seed v2ecoli's initial bulk from genuine vEcoli's (same "
+                        "condition+seed) so both engines start from IDENTICAL "
+                        "molecule counts. Removes the stochastic low-copy sampling "
+                        "divergence (e.g. SpoT) that dominates single-seed "
+                        "comparisons. No-op for the vecoli run (it IS the reference).")
+    p.add_argument("--match-vecoli-simdata", default=None,
+                   help="Path to the genuine vEcoli simData.cPickle used as the "
+                        "matched-initial-state reference (default: the upstream "
+                        "fallback). Required when that fallback is absent.")
     args = p.parse_args(argv)
+
+    # Resolve --from-vecoli-config: CLI flag > env > baked comparison_spec.json.
+    from_vc = (args.from_vecoli_config
+               or os.environ.get("V2E_FROM_VECOLI_CONFIG")
+               or _spec_from_vecoli_config())
+    vecoli_dir = os.environ.get("V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
 
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
     seeds = list(range(args.seed_start, args.seed_start + args.n_seeds))
@@ -532,8 +735,17 @@ def main(argv=None):
         cache_dir=args.cache_dir, max_generations=args.max_generations,
         max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
         seed_start=args.seed_start, vecoli_config=args.vecoli_config,
-        translate_config=args.translate_vecoli_config)
-    parallel = run_seeds_parallel(seeds, run_one, mode=args.mode)
+        translate_config=args.translate_vecoli_config,
+        vecoli_source=args.vecoli_source,
+        from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
+        match_initial_state=args.match_initial_state,
+        match_vecoli_simdata=args.match_vecoli_simdata)
+    # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
+    # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen
+    # seed is ~16GB; on the 12-core/69GB mini set 4 → 3 concurrent ≈ 48GB, safe).
+    _ray_threads = int(os.environ.get("V2E_RAY_THREADS", "0") or 0) or None
+    parallel = run_seeds_parallel(seeds, run_one, mode=args.mode,
+                                  num_threads=_ray_threads)
     summaries = getattr(parallel, "results", parallel)
     ensemble = {"composite": args.composite, "condition": args.condition,
                 "n_seeds": len(seeds), "max_generations": args.max_generations,

@@ -27,7 +27,7 @@ Two things follow from that:
 - **The repository is a pbg research workspace.** Alongside the model code live
   **investigations** (a research question) and **studies** (the simulations that
   answer it) — browsable and runnable in the
-  [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard).
+  [vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench).
   Investigations live under `workspace/investigations/` (baseline showcase,
   PDMP, colonies, and more), each publishing a self-contained
   [investigation report](#explore-v2ecoli).
@@ -60,11 +60,11 @@ There are **three** kinds of output, each from a different pipeline.
 **[→ vivarium-collective.github.io/v2ecoli/dashboard/](https://vivarium-collective.github.io/v2ecoli/dashboard/)**
 
 A read-only snapshot of the v2ecoli workspace in the
-[vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard):
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench):
 investigations & studies, the process/type **registry**, navigable **composite**
 wiring graphs (`baseline`, `parca`), and the **sources** bundle. Auto-rebuilt
 from `main` on every push. For the full interactive version (authoring, running
-studies), clone and run `vivarium-dashboard serve` locally.
+studies), clone and run `vivarium-workbench serve` locally.
 
 ### 📊 Investigation reports — *one self-contained report per research question*
 
@@ -84,9 +84,11 @@ hundreds of molecular species (ribosomes, RNA polymerase, metabolic enzymes,
 the supercoiled chromosome, flagella) packed at true abundance from a v2ecoli
 cell state. Switch between a **newborn cell** and a **pre-division cell** with
 two segregated chromosomes, toggle/isolate species by functional category, and
-**"View in VR"** on a Meta Quest. Built with
-**[pbg-parsimony](https://github.com/vivarium-collective/pbg-parsimony)** from
-the molecular counts of a simulated cell.
+**"View in VR"** on a Meta Quest. Built by the
+**[3d-ecoli](https://github.com/vivarium-collective/3d-ecoli)** workspace — which
+imports v2ecoli (for the molecular state) +
+**[pbg-parsimony](https://github.com/vivarium-collective/pbg-parsimony)** (the
+packing engine) — from the molecular counts of a simulated cell.
 
 ### 🔬 Model viewers & technical reports — *standalone HTML*
 
@@ -114,7 +116,6 @@ full list + how to regenerate each in **[docs/reports.md](docs/reports.md#3-stan
 - [What changed since vEcoli](#what-changed-since-vecoli)
 - [Performance & validation](#performance--validation)
 - [v2ecoli ↔ vEcoli comparison harness](#v2ecoli--vecoli-comparison-harness)
-- [Known limitations](#known-limitations)
 - [Repository layout](#repository-layout)
 - [Dependencies & ecosystem](#dependencies--ecosystem)
 
@@ -144,7 +145,7 @@ What you get over upstream vEcoli:
 - **A research workspace.** The repo is a pbg workspace (`workspace.yaml`):
   biology sits next to **investigations** (a shared research question) and
   **studies** (the runs that answer it) under `workspace/`, all browsable and
-  runnable in the vivarium-dashboard. Manage them with the `pbg-investigation` /
+  runnable in the vivarium-workbench. Manage them with the `pbg-investigation` /
   `pbg-study` skills.
 - **A decomposed ParCa.** The monolithic `fitSimData_1()` is broken into nine
   inspectable Steps, and the fitted `sim_data` is shipped pre-computed.
@@ -222,7 +223,7 @@ quantities at ports are `pint.Quantity`; the only place `Unum` survives is the
 upstream-interop bridge at `v2ecoli/library/unit_bridge.py`.
 
 **The `pbg_v2ecoli/` package** at the repo root is the *workspace* package the
-[vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard)
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench)
 uses. Its `build_core()` pre-registers the v2ecoli types **plus** the `EcoliWCM`
 bridge before composites are built (so the dashboard's subprocess runner can pass
 a fully-populated `core`). The model package (`v2ecoli/`) and the workspace
@@ -387,7 +388,7 @@ Choosing an emitter:
 - **Override context managers** — `with parquet_emitter(experiment_id=…) as e:`
   wraps a build and auto-flushes on exit (`v2ecoli/composites/_helpers.py`).
 
-> The vivarium-dashboard's Simulations-DB tab currently reads SQLite, not
+> The vivarium-workbench's Simulations-DB tab currently reads SQLite, not
 > Parquet/Zarr — those are for offline DuckDB / xarray analysis.
 
 ---
@@ -563,22 +564,6 @@ deterministic chain with no hand-editing. Runs land at
 
 ---
 
-## Known limitations
-
-- **Colony throughput** — the `EcoliWCM` bridge runs each cell's internal
-  composite synchronously (~0.7 s/tick), so a colony with one whole-cell runs at
-  ~2.6× realtime.
-- **Daughter state** — daughter `EcoliWCM` processes start from a fresh composite
-  rather than inheriting the mother's internal state at division.
-- **Cell-length transient** — at the WCM's starting volume the capsule-geometry
-  volume→length map gives a shorter cell than expected, so length dips before
-  climbing.
-- **Division mechanism** — the `Division` step fires via exception handling (it
-  attempts a structural modification that crashes; the bridge catches it and
-  applies the handoff). Clean structural division is on the roadmap.
-
----
-
 ## Repository layout
 
 ```
@@ -611,9 +596,10 @@ workspace.yaml     pbg workspace config
 - [bigraph-schema](https://github.com/vivarium-collective/bigraph-schema) — type system + auto-discovery
 - [pbg-superpowers](https://github.com/vivarium-collective/pbg-superpowers) — `@composite_generator`, `Visualization`
 - [pbg-emitters](https://github.com/vivarium-collective/pbg-emitters) — `ParquetEmitter`
-- [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard) — interactive workspace UI (reads `workspace.yaml` + `pbg_v2ecoli/`)
+- [vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench) — interactive workspace UI (reads `workspace.yaml` + `pbg_v2ecoli/`)
 - [vEcoli](https://github.com/CovertLab/vEcoli) — ParCa reference data & biology
 - [multi-cell](https://github.com/vivarium-collective/pymunk-process) — 2D colony physics
+- [3d-ecoli](https://github.com/vivarium-collective/3d-ecoli) — 3D structural model (imports v2ecoli + pbg-parsimony)
 
 ---
 

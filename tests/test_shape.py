@@ -1,7 +1,7 @@
 """Tests for the Shape step (capsule geometry from mass)."""
 import math
 
-from v2ecoli.structural.shape import capsule_from_mass
+from v2ecoli.cell_shape import capsule_from_mass
 
 
 def test_width_and_density_fixed_length_grows_with_mass():

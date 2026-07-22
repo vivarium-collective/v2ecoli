@@ -2,7 +2,7 @@
 
 Adds engaging, hover/zoom/toggle interactive figures ALONGSIDE the existing
 static charts, written to ``reports/figures/<study-dir>/<fig>.html`` so the
-vivarium-dashboard auto-discovers them as ``embed_visualizations`` (iframes,
+vivarium-workbench auto-discovers them as ``embed_visualizations`` (iframes,
 copied verbatim into the gh-pages publish bundle).
 
 Each file is self-contained: Plotly via CDN, an ``html,body{height:820px}``

@@ -12,4 +12,7 @@ docs/report_cards/**/*.html            linguist-generated=true -diff
 tests/fixtures/population_phenotype_basal_reference.json  linguist-generated=true -diff
 docs/report_cards/**/vecoli_reference.json               linguist-generated=true -diff
 docs/report_cards/**/literature_reference.json           linguist-generated=true -diff
-docs/report_cards/**/model_physiology.json               linguist-generated=true -diff
+# Golden model fixtures (committed sim snapshots). Glob covers all of them at the
+# tests/fixtures home; the small `provenance` block they carry is the only
+# hand-meaningful part, so this collapses the bulk (per-cell arrays) in review.
+tests/fixtures/**/model_*.json                           linguist-generated=true -diff

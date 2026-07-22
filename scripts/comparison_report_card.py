@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -61,10 +62,12 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts._compare import report
 from scripts._compare.report_card_section import build_report_card
+from v2ecoli.core import build_core
 from scripts._compare.vecoli_parquet_reader import read_vecoli_trajectory
 from scripts.compare_matched_trajectories import (
     BUCKET, PREFIX, REGION, OBS_LABEL, _legend_html, overlay_svg_multi,
-    read_v2ecoli_trajectory, read_pbg_local, _gen1_window)
+    read_v2ecoli_trajectory, read_pbg_local, read_vecoli_pbg_trajectory,
+    _gen1_window)
 
 # condition -> (v2ecoli zarr experiment dir, vEcoli parquet experiment dir).
 # v2: sim48-v2-full-* is basal-everywhere for the NON-basal dirs (the old bug);
@@ -255,12 +258,14 @@ def overview_section(cond_data: dict) -> dict:
                 f'{rel*100:.1f}%</td>')
         cv = worst(axis_v)
         cond_verdicts.append(cv)
-        # Link the row to that condition's first sub-section (its vEcoli config
-        # panel). Use the SAME report._slug on the SAME title string the section
-        # is rendered with (f"{cond} — config (vEcoli)") so the anchor resolves
+        # Link the row to that condition's "simulation runs" sub-section — it is
+        # rendered in BOTH modes (the "config (vEcoli)" panel is SKIPPED in
+        # local-pbg / pbg-vs-pbg mode, so anchoring there left the row pointing at
+        # a non-existent id and the click did nothing). Use the SAME report._slug on
+        # the SAME title string the section is rendered with so the anchor resolves
         # exactly. Whole row clickable (onclick) + the condition cell is a real
         # <a> for an accessible, hover-cued link target.
-        anchor = _slug(f"{cond} — config (vEcoli)")
+        anchor = _slug(f"{cond} — simulation runs")
         body_rows.append(
             f'<tr onclick="location.hash=\'#{anchor}\'" style="cursor:pointer">'
             f'<td style="padding:6px 11px;font-weight:650">'
@@ -468,6 +473,15 @@ def _read_v2ecoli_build_config(v2_dir: str) -> dict | None:
     options) straight from the built Composite document. Returns None if absent
     (older runs that predate the sidecar — the caller falls back to zarr attrs).
     """
+    # Local run dir first (pbg-vs-pbg / local-pbg modes write the sidecar
+    # straight to <v2_dir>); fall back to S3 for cloud runs.
+    local = os.path.join(v2_dir, "v2ecoli_build_config.json")
+    if os.path.exists(local):
+        try:
+            with open(local) as fh:
+                return json.load(fh)
+        except Exception:  # noqa: BLE001
+            return None
     import boto3
     s3 = boto3.client("s3", region_name=REGION)
     key = f"{PREFIX}/{v2_dir}/v2ecoli_build_config.json"
@@ -589,46 +603,184 @@ def config_sections_for(cond: str, v2_dir: str, ve_dir: str) -> list[dict]:
             "html": f"<p style='color:#6b7280'>config not found for {cond} "
                     f"(no workflow_config.json under {ve_dir}/cond_{cond}).</p>"})
 
-    # Prefer the new build-config sidecar (full resolved process set +
-    # topology straight from the Composite); fall back to the zarr-attrs run
-    # config for older runs that predate it. Label which one is shown.
+    # The v2ecoli config panel itself is rendered by v2_config_section (every
+    # mode); here we only resolve v2_cfg/source for the config-DIFF below.
     v2_build = _read_v2ecoli_build_config(v2_dir)
     if v2_build is not None:
         v2_cfg, v2_source = v2_build, "build-config sidecar"
-        sec = report.config_panel_section(v2_cfg)
-        sec["title"] = f"{cond} — config (v2ecoli)"
-        sec["desc"] = (
-            f"v2ecoli RESOLVED build config for condition '{cond}', from the "
-            f"v2ecoli_build_config.json sidecar the run emitted straight off the "
-            f"built Composite (process set, per-process config keys, topology, "
-            f"time_step, condition, seed, options).")
-        sections.append(sec)
     else:
         v2_cfg = _read_v2ecoli_config(v2_dir)
         v2_source = "zarr-attrs run config (sidecar absent)"
-        if v2_cfg is not None:
-            sec = report.config_panel_section(v2_cfg)
-            sec["title"] = f"{cond} — config (v2ecoli)"
-            sec["desc"] = (
-                f"v2ecoli RUN config for condition '{cond}', recovered from the "
-                f"compact zarr's lineage-node attrs (the build-config sidecar was "
-                f"absent — this is the run config: condition, seed, time_step, "
-                f"max_duration, variant, generation).")
-            sections.append(sec)
-        else:
-            v2_cfg = None
-            sections.append({
-                "title": f"{cond} — config (v2ecoli)", "kind": "content",
-                "desc": f"v2ecoli run config for condition '{cond}'.",
-                "html": f"<p style='color:#6b7280'>config not found for {cond} "
-                        f"(no sidecar and no recoverable run config in "
-                        f"{v2_dir} zarr attrs).</p>"})
 
     # CONFIG DIFF panel — vEcoli resolved vs v2ecoli build config.
     diff = config_diff_section(cond, ve_cfg, v2_cfg, v2_source)
     diff["title"] = f"{cond} — config diff"
     sections.append(diff)
     return sections
+
+
+def _process_interfaces(v2_build: dict | None) -> dict[str, dict]:
+    """Map process name AND address → its resolved interface ({inputs,outputs})
+    from the build-config sidecar, so a converted process can be looked up by
+    whichever identifier the injection spec used."""
+    out: dict[str, dict] = {}
+    for p in (v2_build or {}).get("processes") or []:
+        iface = p.get("interface")
+        if not iface:
+            continue
+        for k in (p.get("name"), p.get("address")):
+            if k:
+                out[k] = iface
+    return out
+
+
+def _schema_table(iface: dict | None) -> str:
+    """Render a converted process's RESULTING process-bigraph schema: each
+    input/output port → its resolved type. Returns '' when unavailable."""
+    from scripts._compare.report import _e
+    if not iface:
+        return ("<div style='color:#6b7280;font-size:12px;padding:2px 0 6px'>"
+                "resulting schema unavailable (process instance not captured).</div>")
+
+    def _rows(ports: dict, kind: str) -> str:
+        if not ports:
+            return (f"<tr><td style='color:#6b7280'>{kind}</td>"
+                    f"<td style='color:#6b7280' colspan='2'>(none)</td></tr>")
+        rs = []
+        for i, (port, typ) in enumerate(ports.items()):
+            tstr = typ if isinstance(typ, str) else json.dumps(typ, default=str)
+            rs.append(f"<tr><td style='color:#6b7280'>{kind if i == 0 else ''}</td>"
+                      f"<td style='padding:2px 10px'><code>{_e(port)}</code></td>"
+                      f"<td style='padding:2px 10px;color:#334155'>"
+                      f"<code>{_e(tstr if len(tstr) <= 80 else tstr[:77] + '…')}</code>"
+                      f"</td></tr>")
+        return "".join(rs)
+    return ("<table style='border-collapse:collapse;font-size:12px;margin:2px 0 8px'>"
+            "<tbody>"
+            + _rows(iface.get("inputs") or {}, "inputs")
+            + _rows(iface.get("outputs") or {}, "outputs")
+            + "</tbody></table>")
+
+
+def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None:
+    """Surface the fork processes converted + injected into the v2ecoli composite,
+    with each one's RESULTING process-bigraph schema (resolved port types).
+
+    Sourced from the build-config sidecar's ``options.overrides.injected_processes``
+    (written by run_comparison_ensemble): the add_processes + swap_processes that
+    the bridge auto-converted from vivarium-1.0 to process-bigraph and wired into
+    baseline. The resulting schema comes from each process's captured
+    ``interface`` (inputs()/outputs()) in the sidecar's ``processes`` list.
+    Returns None when the run injected nothing.
+    """
+    inj = (((v2_build or {}).get("options") or {}).get("overrides") or {}).get(
+        "injected_processes")
+    if not inj:
+        return None
+    adds = list(inj.get("add_processes") or [])
+    swaps = dict(inj.get("swap_processes") or {})
+    if not adds and not swaps:
+        return None
+    fork = inj.get("fork_repo", "?")
+    ifaces = _process_interfaces(v2_build)
+    rows = []
+
+    def _card(name: str, mode: str, note: str) -> str:
+        return (f"<tr><td><code>{name}</code></td><td>{mode}</td><td>{note}</td>"
+                f"<td>vivarium-1.0 → process-bigraph</td></tr>"
+                f"<tr><td colspan='4' style='padding:0 0 6px 18px'>"
+                f"<div style='font-size:12px;color:#6b7280;margin:2px 0'>"
+                f"resulting schema:</div>{_schema_table(ifaces.get(name))}</td></tr>")
+    for name in adds:
+        rows.append(_card(name, "add", "—"))
+    for old, new in swaps.items():
+        rows.append(_card(new, "swap", f"replaces <code>{old}</code>"))
+    table = ("<table><thead><tr><th>process</th><th>mode</th><th>note</th>"
+             "<th>conversion</th></tr></thead><tbody>"
+             + "".join(rows) + "</tbody></table>")
+    return {
+        "title": f"{cond} — converted processes",
+        "kind": "content",
+        "nav_group": "Config",
+        "desc": (f"Fork (vEcoli) processes auto-converted by the v2ecoli bridge "
+                 f"(<code>wrap_vivarium_process</code>) and injected into the "
+                 f"v2ecoli composite for '{cond}', from fork <code>{fork}</code>. "
+                 f"Each row shows the conversion plus the RESULTING process-bigraph "
+                 f"schema (resolved input/output port types). Each ran in the "
+                 f"v2ecoli engine of this comparison."),
+        "html": table,
+    }
+
+
+def v2_config_section(cond: str, v2_build: dict | None) -> dict | None:
+    """The FULL resolved v2ecoli build config for ONE condition, rendered from a
+    build-config dict — process set, per-process config keys, topology wiring,
+    time_step, and the build options. Renders in EVERY mode (it needs no
+    Nextflow config), so a run that injected processes shows its real config
+    instead of reading as a bare condition label. Returns None without a build."""
+    if not v2_build:
+        return None
+    sec = report.config_panel_section(v2_build)
+    sec["title"] = f"{cond} — config (v2ecoli)"
+    sec["nav_group"] = cond
+    procs = v2_build.get("processes") or []
+    inj = (((v2_build.get("options") or {}).get("overrides") or {})
+           .get("injected_processes") or {})
+    injected = list(inj.get("add_processes") or []) + \
+        list((inj.get("swap_processes") or {}).values())
+    note = (f" Includes {len(injected)} injected process"
+            f"{'es' if len(injected) != 1 else ''}: "
+            f"{', '.join(injected)}." if injected else "")
+    sec["desc"] = (
+        f"v2ecoli RESOLVED build config for '{cond}' — {len(procs)} processes "
+        f"actually built into the composite (with per-process config keys + "
+        f"topology), time_step {v2_build.get('time_step')}, from the "
+        f"v2ecoli_build_config.json sidecar emitted off the built Composite.{note}")
+    return sec
+
+
+def vecoli_config_section(cond: str, ve_build: dict | None) -> dict | None:
+    """The FULL resolved vEcoli config for ONE condition, rendered from the
+    vecoli_build_config.json sidecar (the EcoliSim.config the genuine-vEcoli pbg
+    run actually used — its real process set, exclude list, media, time_step).
+    Renders in EVERY mode, so the report shows what vEcoli truly ran (e.g. its
+    default baseline, when the v2 side injected a v2-only process). Returns None
+    without a build."""
+    if not ve_build:
+        return None
+    sec = report.config_panel_section(ve_build)
+    sec["title"] = f"{cond} — config (vEcoli)"
+    sec["nav_group"] = cond
+    n = len(ve_build.get("processes") or []) + len(ve_build.get("steps") or [])
+    sec["desc"] = (
+        f"vEcoli RESOLVED config for '{cond}' — {n} processes+steps the "
+        f"genuine-vEcoli engine actually ran (from EcoliSim.config; vEcoli runs "
+        f"most mechanism as partitioned requester/evolver steps), time_step "
+        f"{ve_build.get('time_step')}, media {ve_build.get('media_id')}, captured "
+        f"into the vecoli_build_config.json sidecar. This is vEcoli's OWN config; "
+        f"compare it against the v2ecoli config panel to see any divergence.")
+    return sec
+
+
+def _read_vecoli_build_config(ve_dir: str) -> dict | None:
+    """The resolved vEcoli config sidecar (vecoli_build_config.json) the
+    genuine-vEcoli pbg run emits next to its zarr. Local dir first, then S3.
+    Returns None when absent (older runs that predate the sidecar)."""
+    local = os.path.join(ve_dir, "vecoli_build_config.json")
+    if os.path.exists(local):
+        try:
+            with open(local) as fh:
+                return json.load(fh)
+        except Exception:  # noqa: BLE001
+            return None
+    import boto3
+    s3 = boto3.client("s3", region_name=REGION)
+    key = f"{PREFIX}/{ve_dir}/vecoli_build_config.json"
+    try:
+        obj = s3.get_object(Bucket=BUCKET, Key=key)
+        return json.loads(obj["Body"].read())
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def runs_section(cond: str, per_obs: dict, plot_trajs: dict,
@@ -685,6 +837,51 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
+def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
+                          studies_root="workspace/investigations"):
+    """Overview + per-study assigned-card sections, driven by study specs (the
+    study-YAML-only model — no manifest). Each StudySpec carries name (store key),
+    condition, seeds/gens and cards; the `config` card renders the study's run
+    spec. Writes one report_card_verdict.json per study (each card a group). When
+    verdict_root is None it is derived from the studies' investigation."""
+    from scripts._compare.verdict import write_condition_verdict
+    from scripts._compare.viz_cards import write_report_cards
+    core = build_core()
+    if verdict_root is None and specs:
+        verdict_root = f"docs/report_cards/{specs[0].invest_name}"
+    overview = overview_section(cond_data); overview["nav_group"] = "Overall"
+    sections = [overview]
+    for spec in specs:
+        name = spec.name
+        if name not in cond_data:
+            print(f"[assemble] skip study {name!r}: no store under --out", flush=True)
+            continue
+        per_obs, plot_trajs, v2_bounds = cond_data[name]
+        v2_dir, ve_dir = conds.get(name, ("", ""))
+        state = {"name": name, "condition": spec.condition, "seeds": spec.seeds,
+                 "generations": spec.gens, "variant": 0, "observables": per_obs,
+                 "plot_trajs": plot_trajs, "v2_bounds": v2_bounds,
+                 "config": {"condition": spec.condition, "seeds": spec.seeds,
+                            "generations": spec.gens, "cards": spec.cards},
+                 "v2_dir": v2_dir, "ve_dir": ve_dir}
+        card_verdicts, viz = {}, []
+        for card in spec.cards:
+            step = core.link_registry[f"{card}_report_card"](config={}, core=core)
+            out = step.update(state)
+            sections.append({"title": f"{name} — {card}", "kind": "content",
+                             "html": out["card_html"], "nav_group": name})
+            card_verdicts[card] = {"verdict": out.get("verdict", "ungraded"),
+                                   "axes": out.get("axes") or []}
+            viz.append({"name": card, "html": out["card_html"],
+                        "verdict": card_verdicts[card]["verdict"],
+                        "axes": card_verdicts[card]["axes"]})
+        if verdict_root:
+            write_condition_verdict(verdict_root, name, card_verdicts)
+        if studies_root:
+            write_report_cards(Path(studies_root) / spec.invest_name / "studies" / name, viz)
+    return sections
+
+
 def _load_experiments(out_dir: str) -> dict | None:
     """Read condition -> [v2_dir, ve_dir] written by comparison_harness.sh launch.
 
@@ -714,12 +911,51 @@ def main(argv=None):
                         'process-bigraph composites). Reads both via read_pbg_local '
                         'and emits the overview + report-card + per-condition '
                         'trajectory/eval sections (skips the S3/Nextflow-only panels).')
+    p.add_argument("--local-pbg-dir", default=None,
+                   help='MULTI-SEED local pbg-vs-pbg mode: JSON {cond:[v2_dir, ve_dir]} '
+                        'of LOCAL directories each holding per-seed v2ecoli-format zarr '
+                        '(v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr). Reads seeds '
+                        '0..--local-pbg-seeds-1 via read_pbg_local. Use for local 4x4x5.')
+    p.add_argument("--local-pbg-seeds", type=int, default=4,
+                   help="number of seeds (0..N-1) for --local-pbg-dir (default 4).")
+    p.add_argument("--pbg-vs-pbg", action="store_true",
+                   help='S3 pbg-vs-pbg mode (the default upstream-wrapper route): '
+                        'BOTH engines emit v2ecoli-format zarr to S3 — v2 under '
+                        'v2ecoli_seed*.zarr, vecoli under vecoli_seed*.zarr in its '
+                        'own experiment dir. Reads both via the zarr reader from S3 '
+                        '(condition dirs from experiments.json / --conditions-json) '
+                        'and skips the Nextflow-only config panels. Use this to '
+                        'render the standardized report for any pbg-vs-pbg run.')
     p.add_argument("-o", "--out", default="out/full_compare",
                    help="output directory (also read for experiments.json)")
+    p.add_argument("--investigation", default=None,
+                   help="path or name of an investigation (study-YAML-only mode): "
+                        "renders each study's assigned cards and writes one "
+                        "report_card_verdict.json per study.")
+    p.add_argument("--study", default=None,
+                   help="with --investigation, render only this study (by name).")
     args = p.parse_args(argv)
 
     local_pbg = bool(args.local_pbg)
-    if local_pbg:                                     # 0. pbg-vs-pbg local zarr
+    local_pbg_dir = bool(args.local_pbg_dir)
+    pbg_vs_pbg = bool(args.pbg_vs_pbg)
+    investigation_mode = bool(args.investigation)
+    # these modes drop the S3/Nextflow-only panels (vecoli side is a pbg zarr, not
+    # a Nextflow workflow_config.json); local reads from disk, pbg_vs_pbg from S3.
+    skip_nextflow = (local_pbg or local_pbg_dir or pbg_vs_pbg
+                     or investigation_mode)
+    if investigation_mode:                            # -2. study-YAML-only
+        from scripts._compare.study_spec import load_investigation as _load_inv
+        _ctx, _specs = _load_inv(args.investigation)
+        if args.study:
+            _specs = [s for s in _specs if s.name == args.study]
+            if not _specs:
+                raise SystemExit(f"study {args.study!r} not in investigation")
+        conds = {s.name: (f"{args.out}/{s.name}", f"{args.out}/{s.name}")
+                 for s in _specs}
+    elif local_pbg_dir:                               # 0b. multi-seed local dirs
+        conds = json.loads(args.local_pbg_dir)
+    elif local_pbg:                                   # 0. pbg-vs-pbg local zarr
         conds = json.loads(args.local_pbg)
     elif args.conditions_json:                        # 1. explicit override
         conds = json.loads(args.conditions_json)
@@ -730,14 +966,25 @@ def main(argv=None):
         else:                                         # 3. baked-in CONDITIONS default
             conds = {k: list(v) for k, v in CONDITIONS.items()}
     conds = {k: tuple(v) for k, v in conds.items()}
-    if args.only.strip().lower() != "all":
+    # In manifest mode the manifest's `configs` ARE the selection — don't let
+    # --only (default 'basal') silently drop the other configs.
+    if not investigation_mode and args.only.strip().lower() != "all":
         want = [c.strip() for c in args.only.split(",") if c.strip()]
         conds = {k: conds[k] for k in want if k in conds}
     if not conds:
         raise SystemExit("no conditions selected")
     print(f"Conditions: {list(conds)}\n")
 
-    if local_pbg:
+    if local_pbg_dir or investigation_mode:
+        # MULTI-SEED local: each cond maps to [v2_dir, ve_dir]; read per-seed
+        # v2ecoli-format zarr (v2ecoli_seed<NN>.zarr / vecoli_seed<NN>.zarr) for
+        # seeds 0..N-1 through the same local reader. Enables the local 4x4x5
+        # and manifest-driven runs whose per-config dirs live under args.out.
+        cond_data = build(
+            conds, seeds=list(range(args.local_pbg_seeds)),
+            read_v2=lambda d, s: read_pbg_local(f"{d}/v2ecoli_seed{s:02d}.zarr", OBSERVABLES),
+            read_ve=lambda d, s: read_pbg_local(f"{d}/vecoli_seed{s:02d}.zarr", OBSERVABLES))
+    elif local_pbg:
         # Both engines as process-bigraph composites → both read v2ecoli-format
         # zarr from a LOCAL path; the json maps each cond to a single seed's
         # stores, so the per-seed loop runs once.
@@ -745,6 +992,14 @@ def main(argv=None):
             conds, seeds=[0],
             read_v2=lambda d, s: read_pbg_local(d, OBSERVABLES),
             read_ve=lambda d, s: read_pbg_local(d, OBSERVABLES))
+    elif pbg_vs_pbg:
+        # The default upstream-wrapper route: BOTH engines emit v2ecoli-format
+        # zarr to S3 (v2 -> v2ecoli_seed*.zarr, vecoli -> vecoli_seed*.zarr),
+        # each in its own experiment dir. Read both via the zarr reader from S3.
+        cond_data = build(
+            conds,
+            read_v2=lambda d, s: read_v2ecoli_trajectory(d, s, OBSERVABLES),
+            read_ve=lambda d, s: read_vecoli_pbg_trajectory(d, s, OBSERVABLES))
     else:
         cond_data = build(conds)
     graded = list(conds)  # conditions whose data feeds the report card
@@ -760,35 +1015,61 @@ def main(argv=None):
     # contradictory. The Overview matrix is the high-level view; verdict.json
     # stays as the machine-readable artifact for tooling/dashboard.
     vjson, card_html, _card_section = report_card(cond_data, conditions=graded)
-    overview = overview_section(cond_data)
-    overview["nav_group"] = "Overall"
-    sections = [overview]
-    # 2. ParCa / initial-state comparison — its own nav entry. Skipped in
-    #    local-pbg mode (it reads each engine's S3 store attrs / Nextflow config).
-    if not local_pbg:
+    if investigation_mode:
+        # Study-YAML-only: per-study card assignment via assemble_from_studies.
+        sections = assemble_from_studies(_specs, cond_data, conds)
+    else:
+        overview = overview_section(cond_data)
+        overview["nav_group"] = "Overall"
+        sections = [overview]
+        # 2. ParCa / initial-state comparison — its own nav entry. Renders for ALL
+        #    modes (incl. pbg-vs-pbg): it reads the t~0 emitted masses straight from
+        #    the loaded trajectories (cond_data), NOT any Nextflow config — and in the
+        #    matched-initial-state comparison it IS the headline evidence (both engines
+        #    start from identical molecule counts → t~0 masses agree).
         parca = parca_section(cond_data)
         parca["nav_group"] = "ParCa comparison"
         sections.append(parca)
-    # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
-    #    config -> simulation runs -> evaluation. All of a condition's sections
-    #    share nav_group=<cond>, so they fold into ONE nav button per condition.
-    #    The config panels read S3/Nextflow workflow_config.json, so they are
-    #    omitted in local-pbg mode (both engines are local pbg composites).
-    for cond in conds:
-        v2_dir, ve_dir = conds[cond]
-        per_obs, plot_trajs, v2_bounds = cond_data[cond]
-        cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
-                         eval_section(cond, per_obs)]
-        if not local_pbg:
-            cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
-                             + cond_sections)
-        for s in cond_sections:
-            s["nav_group"] = cond
-        sections += cond_sections
+        # 3. One block PER CONDITION, fixed order, each reading top-to-bottom as
+        #    config -> simulation runs -> evaluation. All of a condition's sections
+        #    share nav_group=<cond>, so they fold into ONE nav button per condition.
+        #    The config panels read S3/Nextflow workflow_config.json, so they are
+        #    omitted in local-pbg mode (both engines are local pbg composites).
+        for cond in conds:
+            v2_dir, ve_dir = conds[cond]
+            per_obs, plot_trajs, v2_bounds = cond_data[cond]
+            v2_build = _read_v2ecoli_build_config(v2_dir)
+            cond_sections = [runs_section(cond, per_obs, plot_trajs, v2_bounds),
+                             eval_section(cond, per_obs)]
+            # Converted-processes panel (with each converted process's RESULTING
+            # schema) AND the full v2ecoli config panel render in EVERY mode —
+            # both read the v2ecoli build-config sidecar, not any Nextflow config.
+            # So a 'basal' run that injected processes shows its real process set
+            # and the conversions, not just the bare condition label.
+            conv = converted_processes_section(cond, v2_build)
+            if conv is not None:
+                cond_sections = [conv] + cond_sections
+            v2cfg = v2_config_section(cond, v2_build)
+            if v2cfg is not None:
+                cond_sections = [v2cfg] + cond_sections
+            # vEcoli config panel — every mode, from the vecoli sidecar (what
+            # genuine vEcoli actually ran). So both engines show full config.
+            ve_build = _read_vecoli_build_config(ve_dir)
+            vecfg = vecoli_config_section(cond, ve_build)
+            if vecfg is not None:
+                cond_sections = [vecfg] + cond_sections
+            # vEcoli Nextflow config panel + config diff — only when the
+            # workflow_config.json is available (genuine S3/Nextflow runs).
+            if not skip_nextflow:
+                cond_sections = (config_sections_for(cond, v2_dir, ve_dir)
+                                 + cond_sections)
+            for s in cond_sections:
+                s["nav_group"] = cond
+            sections += cond_sections
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     title = (f"vEcoli-pbg ↔ v2ecoli-pbg — process-bigraph comparison ({gen})"
-             if local_pbg
+             if skip_nextflow
              else f"v2ecoli ↔ vEcoli — standardized comparison ({gen})")
     html = report.render_report(sections, title=title)
 

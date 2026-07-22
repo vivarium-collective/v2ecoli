@@ -5,7 +5,7 @@ title: Rebuild the ParCa in full from the ecoli-sources flat files
 created: '2026-06-09'
 status: complete   # legacy back-compat; canonical axes below
 
-# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+# v4 schema (vivarium_workbench.lib.investigations._validate_study_v4_redesign):
 #   REQUIRED top-level: schema_version, name, question, conditions, tests, status
 #   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
 # Missing any of these → dashboard marks study as "invalid".

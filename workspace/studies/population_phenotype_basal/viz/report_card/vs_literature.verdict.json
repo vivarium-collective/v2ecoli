@@ -1,0 +1,276 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli baseline (blessed baseline, gen\u22653)",
+ "reference_model": "experimental literature (ecoli-sources validation_data)",
+ "generated": "",
+ "overall": "mismatch",
+ "groups": {
+  "physiology": {
+   "verdict": "mismatch",
+   "axes": [
+    {
+     "id": "physiology.growth_rate",
+     "label": "Growth rate (\u03bc)",
+     "verdict": "within_tol",
+     "value": 0.8137845855558572,
+     "meter": "0.8138 vs measured 0.677\u20130.81 (\u0394mid +14%)",
+     "detail": {
+      "measured_lo": 0.677,
+      "measured_hi": 0.81,
+      "measured_mid": 0.71425,
+      "n_sources": 4,
+      "theoretical_max": null,
+      "first_principles_violation": false,
+      "rel_to_mid": 0.13935538754757737
+     }
+    },
+    {
+     "id": "physiology.biomass_yield",
+     "label": "Biomass yield (Yxs)",
+     "verdict": "mismatch",
+     "value": 0.825746175353658,
+     "meter": "0.826 > theoretical max 0.538 \u2014 first-principles violation",
+     "detail": {
+      "measured_lo": 0.355,
+      "measured_hi": 0.444,
+      "measured_mid": 0.41475,
+      "n_sources": 4,
+      "theoretical_max": 0.538,
+      "first_principles_violation": true,
+      "rel_to_mid": 0.9909491871094829
+     }
+    },
+    {
+     "id": "physiology.glucose_uptake",
+     "label": "Glucose uptake (q_glc)",
+     "verdict": "mismatch",
+     "value": 5.14296869449459,
+     "meter": "5.143 vs measured 8.46\u201310.6 (\u0394mid -46%)",
+     "detail": {
+      "measured_lo": 8.46,
+      "measured_hi": 10.58,
+      "measured_mid": 9.5325,
+      "n_sources": 4,
+      "theoretical_max": null,
+      "first_principles_violation": false,
+      "rel_to_mid": -0.46048059853190776
+     }
+    }
+   ]
+  },
+  "metabolism": {
+   "verdict": "mismatch",
+   "axes": [
+    {
+     "id": "metabolism.o2_uptake",
+     "label": "O\u2082 uptake (OUR)",
+     "verdict": "mismatch",
+     "value": 0.48099674816858784,
+     "meter": "0.481 vs measured 11.6\u201315 (\u0394mid -97%)",
+     "detail": {
+      "measured_lo": 11.585,
+      "measured_hi": 15.02,
+      "measured_mid": 13.868333333333334,
+      "n_sources": 3,
+      "theoretical_max": null,
+      "first_principles_violation": false,
+      "rel_to_mid": -0.9653169031485215
+     }
+    },
+    {
+     "id": "metabolism.co2_evolution",
+     "label": "CO\u2082 evolution (CER)",
+     "verdict": "mismatch",
+     "value": 1.7076626313424115,
+     "meter": "1.708 vs measured 16.8\u201316.8 (\u0394mid -90%)",
+     "detail": {
+      "measured_lo": 16.84,
+      "measured_hi": 16.84,
+      "measured_mid": 16.84,
+      "n_sources": 1,
+      "theoretical_max": null,
+      "first_principles_violation": false,
+      "rel_to_mid": -0.898594855620997
+     }
+    },
+    {
+     "id": "metabolism.acetate_secretion",
+     "label": "Acetate secretion",
+     "verdict": "mismatch",
+     "value": 0.0,
+     "meter": "0 vs measured 3.91\u20137.03 (\u0394mid -100%)",
+     "detail": {
+      "measured_lo": 3.91,
+      "measured_hi": 7.03,
+      "measured_mid": 5.502,
+      "n_sources": 3,
+      "theoretical_max": null,
+      "first_principles_violation": false,
+      "rel_to_mid": -1.0
+     }
+    },
+    {
+     "id": "metabolism.central_carbon_flux",
+     "label": "Central-carbon fluxes (vs Crown 2015)",
+     "verdict": "mismatch",
+     "value": 0.30286727043957984,
+     "meter": "R\u00b2 = 0.3029 \u00b7 23 reactions",
+     "detail": {
+      "r2": 0.30286727043957984,
+      "n_matched": 23
+     }
+    },
+    {
+     "id": "metabolism.glycolysis_split",
+     "label": "Glycolysis split (EMP / oxPPP / ED)",
+     "verdict": "within_tol",
+     "value": 0.015174778723523557,
+     "meter": "TV = 0.015 \u00b7 model [EMP 73%, oxPPP 27%, ED 0%] vs ref [EMP 73%, oxPPP 26%, ED 1%] \u00b7 residual +4%",
+     "detail": {
+      "tv": 0.015174778723523557,
+      "residual": 0.03841834002872513,
+      "model_fractions": {
+       "EMP": 0.7268396142897283,
+       "oxPPP": 0.27316020390697837,
+       "ED": 1.818032933017746e-07
+      },
+      "ref_fractions": {
+       "EMP": 0.7276875809359368,
+       "oxPPP": 0.2579854251834548,
+       "ED": 0.014326993880608386
+      },
+      "routing_verdict": "within_tol",
+      "residual_verdict": "within_tol",
+      "branch_names": [
+       "EMP",
+       "oxPPP",
+       "ED"
+      ]
+     }
+    },
+    {
+     "id": "metabolism.isocitrate_split",
+     "label": "Isocitrate fate (oxidative TCA / glyoxylate)",
+     "verdict": "drift",
+     "value": 0.09160205967130433,
+     "meter": "TV = 0.092 \u00b7 model [oxidative_TCA 96%, glyoxylate 4%] vs ref [oxidative_TCA 87%, glyoxylate 13%] \u00b7 residual +0%",
+     "detail": {
+      "tv": 0.09160205967130433,
+      "residual": 0.0,
+      "model_fractions": {
+       "oxidative_TCA": 0.9615374662315591,
+       "glyoxylate": 0.038462533768440874
+      },
+      "ref_fractions": {
+       "oxidative_TCA": 0.8699354065602548,
+       "glyoxylate": 0.13006459343974522
+      },
+      "routing_verdict": "drift",
+      "residual_verdict": "within_tol",
+      "branch_names": [
+       "oxidative_TCA",
+       "glyoxylate"
+      ]
+     }
+    },
+    {
+     "id": "metabolism.accoa_split",
+     "label": "Acetyl-CoA fate (TCA / acetate / biosynthesis)",
+     "verdict": "mismatch",
+     "value": 0.5860000350920288,
+     "meter": "TV = 0.586 \u00b7 model [TCA 22%, acetate 0%, biosynthesis 78%] vs ref [TCA 17%, acetate 59%, biosynthesis 25%] \u00b7 residual +0%",
+     "detail": {
+      "tv": 0.5860000350920288,
+      "residual": 0.0,
+      "model_fractions": {
+       "TCA": 0.21526526151155767,
+       "acetate": 0.0,
+       "biosynthesis": 0.7847347384884423
+      },
+      "ref_fractions": {
+       "TCA": 0.16692137630937134,
+       "acetate": 0.5860000350920288,
+       "biosynthesis": 0.24707858859859982
+      },
+      "routing_verdict": "mismatch",
+      "residual_verdict": "within_tol",
+      "branch_names": [
+       "TCA",
+       "acetate",
+       "biosynthesis"
+      ]
+     }
+    }
+   ]
+  },
+  "proteome": {
+   "verdict": "drift",
+   "axes": [
+    {
+     "id": "proteome.abundance",
+     "label": "Protein abundance (copies/cell)",
+     "verdict": "drift",
+     "value": 0.7460256765417883,
+     "meter": "r = 0.746",
+     "detail": {
+      "r": 0.7460256765417883,
+      "n": 1781
+     }
+    }
+   ]
+  },
+  "composition": {
+   "verdict": "drift",
+   "axes": [
+    {
+     "id": "composition.macromolecular",
+     "label": "Macromolecular composition (% dry weight)",
+     "verdict": "drift",
+     "value": 0.11888936788739939,
+     "meter": "TV = 0.119 \u00b7 model [protein 44%, rna 13%, dna 2%, other 42%] vs ref [protein 55%, rna 12%, dna 3%, other 30%] \u00b7 residual +0%",
+     "detail": {
+      "tv": 0.11888936788739939,
+      "residual": 1.1102230246251565e-16,
+      "model_fractions": {
+       "protein": 0.4365769829185162,
+       "rna": 0.12807268046565598,
+       "dna": 0.018325799194084388,
+       "other": 0.4170245374217435
+      },
+      "ref_fractions": {
+       "protein": 0.548649675,
+       "rna": 0.1233533,
+       "dna": 0.025142475,
+       "other": 0.30285455000000006
+      },
+      "routing_verdict": "drift",
+      "residual_verdict": "within_tol",
+      "branch_names": [
+       "protein",
+       "rna",
+       "dna",
+       "other"
+      ]
+     }
+    }
+   ]
+  },
+  "metabolite_pools": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "pools.per_metabolite",
+     "label": "Per-metabolite concentration (mol/L)",
+     "verdict": "within_tol",
+     "value": 0.9265899230663216,
+     "meter": "r = 0.927",
+     "detail": {
+      "r": 0.9265899230663216,
+      "n": 91
+     }
+    }
+   ]
+  }
+ },
+ "title": "Basal-condition physiology \u2014 v2ecoli vs experimental literature"
+}

@@ -15,12 +15,28 @@
 #
 #   comparison_spec.json schema:
 #     {"v2ecoli": {"repo","commit","branch"},
-#      "vecoli":  {"repo","commit","branch"},
+#      "vecoli":  {"repo","commit","branch"},   # the upstream vEcoli FORK to WRAP
+#      "vecoli_engine": "upstream-wrapper"|"nextflow",   # default upstream-wrapper
+#      "from_vecoli_config": "configs/default.json",     # optional; drives BOTH engines
 #      "defaults": {"seeds": N, "gens": M},
 #      "conditions": [{"name","config","seeds","gens"}, ...]}
 #   Field resolution: per-condition seeds/gens  >  defaults  >  CLI --seeds/--gens.
 #   `config` is the vEcoli config filename; v2ecoli gets --condition <name> + the
 #   standard api_simulation_default_aws_cdk.json.
+#
+# vecoli_engine routes (the headline one-command contract):
+#   upstream-wrapper (DEFAULT) — register ONE v2ecoli image (it bundles the spec's
+#     vEcoli fork, cloned at build via the vecoli.{repo,commit} build-args). Per
+#     condition, launch composite=v2ecoli AND composite=vecoli on Ray, BOTH on that
+#     one simulator id; BOTH emit v2ecoli-format zarr; report reads both via zarr
+#     (--pbg-vs-pbg). So `comparison_harness.sh all --spec <fork>.json` is the whole
+#     pbg-vs-pbg pipeline. To compare a NEW fork: edit vecoli.{repo,commit} +
+#     from_vecoli_config, rebuild the image, rerun. No code change, no agent.
+#   nextflow (legacy) — register vEcoli separately (Nextflow, parquet output) and
+#     run it via its own sim id; report reads vEcoli parquet.
+#
+# --dry-run (launch): print the POSTs that WOULD be made for BOTH composites,
+#   send nothing, need no creds — to verify the route/URLs offline.
 #
 # Subcommands:
 #   register   register BOTH engines from the spec (v2ecoli->Ray, vEcoli->Nextflow,
@@ -75,9 +91,14 @@ DEFAULT_SPEC="$REPO_ROOT/comparison_spec.json"
 
 V2_SIM="" ; VE_SIM="" ; VE_SIM_GIVEN=0 ; SEEDS="4" ; GENS="2" ; CONDITIONS="$DEFAULT_CONDITIONS"
 ONLY="all" ; COMMIT="" ; BRANCH="" ; REPO="$DEFAULT_REPO" ; TAG="cmp" ; TIMEOUT="7200"
-SPEC="" ; SPEC_GIVEN=0
+SPEC="" ; SPEC_GIVEN=0 ; DRY=0
 # engine refs (populated from the spec by _load_spec_engines)
 V2_REPO="" ; V2_COMMIT="" ; V2_BRANCH="" ; VE_REPO="" ; VE_COMMIT="" ; VE_BRANCH=""
+# vecoli engine route: "upstream-wrapper" (default — vEcoli run as a Ray
+# composite=vecoli job on the SAME v2ecoli image/sim id, both engines emit
+# v2ecoli-format zarr) or "nextflow" (legacy — separate Nextflow registration +
+# parquet output). Read from the spec; legacy/no-spec stays nextflow.
+VE_ENGINE="nextflow"
 
 log() { echo "[harness] $*" ; }
 die() { echo "[harness] ERROR: $*" >&2 ; exit 1 ; }
@@ -150,6 +171,8 @@ _load_spec_engines() {
   line="$("$PYJ" "$REPO_ROOT/scripts/_read_spec.py" "$SPEC" engine vecoli)" \
     || die "could not parse vecoli engine from $SPEC"
   IFS=$'\t' read -r VE_REPO VE_COMMIT VE_BRANCH <<<"$line"
+  VE_ENGINE="$("$PYJ" "$REPO_ROOT/scripts/_read_spec.py" "$SPEC" vecoli-engine 2>/dev/null)"
+  [ -n "$VE_ENGINE" ] || VE_ENGINE="upstream-wrapper"
 }
 
 # Poll a registered build to completion/failure. $1=label $2=sim_id
@@ -197,6 +220,14 @@ cmd_register() {
     fi
     if [ "$VE_SIM_GIVEN" -eq 1 ]; then
       log "vEcoli: using --ve-sim $VE_SIM (skipping registration)"
+    elif [ "$VE_ENGINE" = "upstream-wrapper" ]; then
+      # The vEcoli side is the PRISTINE upstream fork WRAPPED INSIDE the v2ecoli
+      # image (cloned at build via the spec's vecoli.{repo,commit} build-args) and
+      # run as a Ray composite=vecoli job — so it shares the v2ecoli simulator id.
+      # ONE image registration covers both engines; no Nextflow registration.
+      VE_SIM="$V2_SIM"
+      mkdir -p "$OUT" ; echo "$VE_SIM" >"$OUT/.ve_sim_id"
+      log "vEcoli (upstream-wrapper): reusing v2ecoli sim id $VE_SIM (composite=vecoli on the same image)"
     else
       _register_engine vEcoli "$VE_REPO" "$VE_COMMIT" "$VE_BRANCH" "$OUT/.ve_sim_id"
       VE_SIM="$REG_SIM_ID"
@@ -212,14 +243,21 @@ cmd_register() {
 }
 
 cmd_launch() {
-  _preflight
+  [ "$DRY" -eq 1 ] || _preflight
+  [ -n "$SPEC" ] && [ "$VE_ENGINE" = "nextflow" ] && [ -z "$V2_REPO" ] && _load_spec_engines
   # resolve sim ids: explicit flag > persisted register output
   [ -n "$V2_SIM" ] || { [ -f "$OUT/.v2_sim_id" ] && V2_SIM="$(cat "$OUT/.v2_sim_id")"; }
+  [ -n "$V2_SIM" ] || { [ "$DRY" -eq 1 ] && V2_SIM="<V2_SIM>"; }
   [ -n "$V2_SIM" ] || die "launch needs --v2-sim ID (run 'register' first)"
   if [ "$VE_SIM_GIVEN" -eq 0 ] && [ -z "$VE_SIM" ] && [ -f "$OUT/.ve_sim_id" ]; then
     VE_SIM="$(cat "$OUT/.ve_sim_id")"
   fi
-  [ -n "$VE_SIM" ] || VE_SIM="47"   # legacy fallback when no spec/registration
+  # upstream-wrapper: the vEcoli side runs as composite=vecoli on the SAME image,
+  # so it shares the v2ecoli simulator id (no separate registration).
+  if [ "$VE_ENGINE" = "upstream-wrapper" ] && [ "$VE_SIM_GIVEN" -eq 0 ]; then
+    VE_SIM="$V2_SIM"
+  fi
+  [ -n "$VE_SIM" ] || VE_SIM="47"   # legacy nextflow fallback when no spec/registration
   mkdir -p "$OUT"
   # Build the launch rows: name<TAB>config<TAB>seeds<TAB>gens .
   local rows
@@ -232,17 +270,31 @@ cmd_launch() {
     rows="$(local c; for c in $CONDITIONS; do printf '%s\tcond_%s.json\t%s\t%s\n' "$c" "$c" "$SEEDS" "$GENS"; done)"
     log "launch (legacy): v2-sim=$V2_SIM ve-sim=$VE_SIM seeds=$SEEDS gens=$GENS conditions: $CONDITIONS"
   fi
+  log "vecoli engine route: $VE_ENGINE"
+  [ "$DRY" -eq 1 ] && log "DRY-RUN: printing the POSTs that WOULD be made (no requests sent)"
   : >"$OUT/.exp.tsv"
   local cond cfg cseeds cgens v2_url ve_url v2_body ve_body v2_id ve_id
   while IFS=$'\t' read -r cond cfg cseeds cgens; do
     [ -n "$cond" ] || continue
-    # clear stale K8s resources that collide by Nextflow config name (idempotent)
-    if command -v kubectl >/dev/null 2>&1; then
+    # clear stale K8s resources that collide by Nextflow config name (idempotent);
+    # only the legacy Nextflow route creates them. Skip on dry-run.
+    if [ "$DRY" -eq 0 ] && [ "$VE_ENGINE" = "nextflow" ] && command -v kubectl >/dev/null 2>&1; then
       kubectl delete job,configmap -n "$K8S_NS" \
         "nf-cond-${cond}" "nf-cond-${cond}-config" --ignore-not-found >/dev/null 2>&1 || true
     fi
     v2_url="$BASE/api/v1/simulations?simulator_id=${V2_SIM}&experiment_id=${TAG}-v2-${cond}&composite=v2ecoli&condition=${cond}&num_seeds=${cseeds}&num_generations=${cgens}&max_generations=${cgens}&simulation_config_filename=${CONF}"
-    ve_url="$BASE/api/v1/simulations?simulator_id=${VE_SIM}&experiment_id=${TAG}-ve-${cond}&num_seeds=${cseeds}&num_generations=${cgens}&simulation_config_filename=${cfg}"
+    if [ "$VE_ENGINE" = "upstream-wrapper" ]; then
+      # vEcoli as a Ray composite=vecoli job on the SAME v2ecoli image/sim id —
+      # emits v2ecoli-format zarr (vecoli_seed*.zarr), NOT Nextflow parquet.
+      ve_url="$BASE/api/v1/simulations?simulator_id=${VE_SIM}&experiment_id=${TAG}-ve-${cond}&composite=vecoli&condition=${cond}&num_seeds=${cseeds}&num_generations=${cgens}&max_generations=${cgens}&simulation_config_filename=${CONF}"
+    else
+      ve_url="$BASE/api/v1/simulations?simulator_id=${VE_SIM}&experiment_id=${TAG}-ve-${cond}&num_seeds=${cseeds}&num_generations=${cgens}&simulation_config_filename=${cfg}"
+    fi
+    if [ "$DRY" -eq 1 ]; then
+      printf '[dry-run] %-10s POST (v2ecoli) %s\n' "$cond" "$v2_url"
+      printf '[dry-run] %-10s POST (vecoli ) %s\n' "$cond" "$ve_url"
+      continue
+    fi
     v2_body="$(_post "$v2_url")" ; v2_id="$(_json_get experiment_id <<<"$v2_body")"
     ve_body="$(_post "$ve_url")" ; ve_id="$(_json_get experiment_id <<<"$ve_body")"
     [ -n "$v2_id" ] || die "v2ecoli submit for '$cond' returned no experiment_id: $v2_body"
@@ -252,6 +304,10 @@ cmd_launch() {
       "$cond" "$cseeds" "$cgens" "$cfg" "$v2_id" "$ve_id"
     sleep 2
   done <<<"$rows"
+  if [ "$DRY" -eq 1 ]; then
+    log "DRY-RUN complete (no $EXP_JSON written)"
+    return 0
+  fi
   V2_SIM="$V2_SIM" VE_SIM="$VE_SIM" SEEDS="$SEEDS" GENS="$GENS" \
     V2_REPO="$V2_REPO" V2_COMMIT="$V2_COMMIT" V2_BRANCH="$V2_BRANCH" \
     VE_REPO="$VE_REPO" VE_COMMIT="$VE_COMMIT" VE_BRANCH="$VE_BRANCH" \
@@ -282,12 +338,18 @@ df=int(d.get('seeds',$SEEDS) or $SEEDS)
       ls="$(aws s3 ls --recursive "s3://$BUCKET/$PREFIX/$v2_exp/" 2>/dev/null)"
       v2done="$(printf '%s\n' "$ls" | grep -E '_seed[0-9]+\.zarr/.*/c/' \
                 | grep -oE '_seed[0-9]+\.zarr' | sort -u | wc -l | tr -d ' ')"
-      # vEcoli: distinct lineage_seed under parquet history (fallback: any history pq)
       ls="$(aws s3 ls --recursive "s3://$BUCKET/$PREFIX/$ve_exp/" 2>/dev/null)"
-      vedone="$(printf '%s\n' "$ls" | grep -E "cond_${cond}/.*\.pq" \
-                | grep -oE 'lineage_seed=[0-9]+' | sort -u | wc -l | tr -d ' ')"
-      if [ "${vedone:-0}" -eq 0 ] && printf '%s\n' "$ls" | grep -qE "cond_${cond}/.*history/.*\.pq"; then
-        vedone="$need"
+      if [ "$VE_ENGINE" = "upstream-wrapper" ]; then
+        # vEcoli (composite=vecoli): distinct vecoli_seedNN.zarr stores with chunks.
+        vedone="$(printf '%s\n' "$ls" | grep -E 'vecoli_seed[0-9]+\.zarr/.*/c/' \
+                  | grep -oE 'vecoli_seed[0-9]+\.zarr' | sort -u | wc -l | tr -d ' ')"
+      else
+        # legacy Nextflow: distinct lineage_seed under parquet history (fallback: any history pq)
+        vedone="$(printf '%s\n' "$ls" | grep -E "cond_${cond}/.*\.pq" \
+                  | grep -oE 'lineage_seed=[0-9]+' | sort -u | wc -l | tr -d ' ')"
+        if [ "${vedone:-0}" -eq 0 ] && printf '%s\n' "$ls" | grep -qE "cond_${cond}/.*history/.*\.pq"; then
+          vedone="$need"
+        fi
       fi
       printf '[harness]   %-10s v2 %s/%s  ve %s/%s\n' "$cond" "${v2done:-0}" "$need" "${vedone:-0}" "$need"
       if [ "${v2done:-0}" -lt "$need" ] || [ "${vedone:-0}" -lt "$need" ]; then
@@ -307,7 +369,11 @@ cmd_report() {
   _preflight_creds
   [ -f "$EXP_JSON" ] && log "reading launched experiment ids from $EXP_JSON" \
     || log "no $EXP_JSON — report card falls back to its CONDITIONS default"
-  "$PY" "$REPO_ROOT/scripts/comparison_report_card.py" --only "$ONLY" --out "$OUT"
+  # upstream-wrapper: BOTH engines emit v2ecoli-format zarr to S3, so the report
+  # reads both via the zarr reader (--pbg-vs-pbg). Legacy nextflow stays default.
+  local extra=""
+  [ "$VE_ENGINE" = "upstream-wrapper" ] && extra="--pbg-vs-pbg"
+  "$PY" "$REPO_ROOT/scripts/comparison_report_card.py" --only "$ONLY" --out "$OUT" $extra
 }
 
 # ---- arg parsing ----
@@ -331,6 +397,7 @@ while [ $# -gt 0 ]; do
     --branch) BRANCH="$2"; shift 2;;
     --repo) REPO="$2"; shift 2;;
     --tag) TAG="$2"; shift 2;;
+    --dry-run) DRY=1; shift;;
     -h|--help) _print_help; exit 0;;
     *) die "unknown flag: $1";;
   esac
@@ -340,7 +407,14 @@ done
 if [ "$SPEC_GIVEN" -eq 0 ] && [ -z "$SPEC" ] && [ -f "$DEFAULT_SPEC" ]; then
   SPEC="$DEFAULT_SPEC"
 fi
-[ -z "$SPEC" ] || log "using manifest: $SPEC"
+# Resolve the vecoli engine route once so every subcommand (register/launch/wait/
+# report) agrees on it. With a spec it comes from vecoli_engine (default
+# upstream-wrapper); without one, the legacy Nextflow route stands.
+if [ -n "$SPEC" ] && [ -f "$SPEC" ]; then
+  VE_ENGINE="$("$PYJ" "$REPO_ROOT/scripts/_read_spec.py" "$SPEC" vecoli-engine 2>/dev/null)"
+  [ -n "$VE_ENGINE" ] || VE_ENGINE="upstream-wrapper"
+fi
+[ -z "$SPEC" ] || log "using manifest: $SPEC (vecoli engine: $VE_ENGINE)"
 
 case "$SUB" in
   register) cmd_register ;;

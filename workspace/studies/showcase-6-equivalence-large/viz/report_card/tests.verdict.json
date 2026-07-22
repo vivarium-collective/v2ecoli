@@ -1,0 +1,65 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "mismatch",
+ "groups": {
+  "primary": {
+   "verdict": "mismatch",
+   "axes": [
+    {
+     "id": "tests.physiology_equivalent_to_vecoli",
+     "label": "physiology-equivalent-to-vecoli",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "report_card_group_within_tol",
+     "detail": {
+      "text": "Is v2's physiology group (doubling time, cell mass/volume, oriC, replication timing) equivalent to vEcoli within tolerance at 16\u00d716?"
+     }
+    },
+    {
+     "id": "tests.composition_equivalent_to_vecoli",
+     "label": "composition-equivalent-to-vecoli",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "report_card_group_within_tol",
+     "detail": {
+      "text": "Are v2's biomass mass fractions (protein / RNA / DNA) equivalent to vEcoli within tolerance at 16\u00d716?"
+     }
+    },
+    {
+     "id": "tests.ribosomes_equivalent_to_vecoli",
+     "label": "ribosomes-equivalent-to-vecoli",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "report_card_group_within_tol",
+     "detail": {
+      "text": "Are v2's ribosome axes (total, active fraction, elongation rate, production) equivalent to vEcoli within tolerance at 16\u00d716?"
+     }
+    },
+    {
+     "id": "tests.exchange_fluxes_equivalent_to_vecoli",
+     "label": "exchange-fluxes-equivalent-to-vecoli",
+     "verdict": "mismatch",
+     "value": null,
+     "meter": "report_card_group_within_tol",
+     "detail": {
+      "text": "Are v2's exchange fluxes equivalent to vEcoli at 16\u00d716, or does the"
+     }
+    },
+    {
+     "id": "tests.gene_expression_correlates_vecoli",
+     "label": "gene-expression-correlates-vecoli",
+     "verdict": "mismatch",
+     "value": null,
+     "meter": "report_card_group_within_tol",
+     "detail": {
+      "text": "Does v2's transcriptome/proteome correlate with vEcoli at 16\u00d716 (and does the outlier-gene set stay coherent)?"
+     }
+    }
+   ]
+  }
+ },
+ "title": "showcase-6-equivalence-large \u2014 default tests"
+}

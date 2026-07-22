@@ -22,212 +22,72 @@ tags:
 - active-inference
 - xarray-emitter
 created: '2026-05-24'
-question: 'Can the compiled, likelihood-equipped PDMP WCM support Bayesian
-
-  model comparison for gene-function annotation — recovering known
-
-  E. coli gene functions on a benchmark set with credible intervals
-
-  that shrink with sample size, and driving an active causal-
-
-  inference loop that selects in-silico interventions to maximally
-
-  discriminate between candidate mechanisms?
-
-  '
-hypothesis: 'Framing gene-function annotation as Bayesian model comparison
-
-  with marginal likelihoods estimated via Russian Roulette /
-
-  doubly-intractable estimators, combined with active Bayesian
-
-  causal inference that proposes targeted in-silico interventions
-
-  (knockouts, overexpression) and selects experiments by expected
-
-  information gain, recovers the known functions of a benchmark
-
-  set of E. coli genes with credible-interval widths that decrease
-
-  predictably as sample size grows, at a per-annotation compute
-
-  cost that extrapolates to feasible genome-wide scaling.
-
-  '
-objective: 'Implement the marginal-likelihood estimator (Russian Roulette /
-
-  doubly-intractable methods) on top of the Phase 3 likelihood
-
-  accumulator and Phase 4 compiled runtime; build the active causal
-
-  inference loop (propose intervention, predict outcomes under
-
-  candidate mechanisms, score by expected information gain); curate
-
-  a benchmark set of E. coli genes with well-established functions;
-
-  measure posterior recovery rate, credible-interval width vs.
-
-  sample size, and compute cost per annotation; produce a full
-
-  resource estimate for genome-wide scaling.
-
-  '
-description: 'Phase 5 of the v2ecoli → PDMP roadmap. This is the final phase,
-
-  pursuing the DUF ARC original goal of
-
-  simulation-based causal discovery in WCMs. It depends on every
-
-  preceding phase: the PDMP for process likelihoods (Phase 2), the
-
-  observation-likelihood library and accumulator (Phase 3), and the
-
-  compiled high-throughput runtime to make marginal-likelihood
-
-  estimation feasible (Phase 4).
-
-
-  The Bayesian-model-comparison framing puts each candidate gene-
-
-  function annotation in competition: each defines a different
-
-  WCM, marginalize over parameters, and compare via marginal
-
-  likelihoods. Russian Roulette estimators (Lyne et al. 2015)
-
-  provide unbiased estimates of these otherwise intractable
-
-  marginals.
-
-
-  Active causal inference (Toth et al. 2022) handles the experiment-
-
-  design loop: rather than passively observing, the agent proposes
-
-  interventions whose outcomes will most sharply distinguish
-
-  competing annotations. This makes annotation hypothesis-driven,
-
-  following the DUF ARC vision.
-
-
-  The benchmark gene set should contain ≥20 E. coli genes with
-
-  literature-established functions across diverse mechanism
-
-  classes (kinases, transcription factors, transporters, structural
-
-  proteins, etc.) so that the validation isn''t restricted to a
-
-  single functional category.
-
+question: |
+  Can the compiled, likelihood-equipped PDMP WCM support Bayesian model comparison for gene-function
+  annotation — recovering known E. coli gene functions on a benchmark set with credible intervals that
+  shrink with sample size, and driving an active causal-inference loop that selects in-silico
+  interventions to maximally discriminate between candidate mechanisms?
+hypothesis: |
+  Framing gene-function annotation as Bayesian model comparison — with marginal likelihoods estimated via
+  Russian Roulette / doubly-intractable estimators, plus active Bayesian causal inference that proposes
+  targeted in-silico interventions (knockouts, overexpression) and selects experiments by expected
+  information gain — recovers the known functions of a benchmark set of E. coli genes with credible-
+  interval widths that decrease predictably as sample size grows, at a per-annotation compute cost that
+  extrapolates to feasible genome-wide scaling.
+objective: |
+  Implement the marginal-likelihood estimator (Russian Roulette / doubly-intractable) on the Phase 3
+  accumulator and Phase 4 compiled runtime, build the active causal-inference loop (propose intervention,
+  predict outcomes under candidate mechanisms, score by expected information gain), and curate a benchmark
+  set of E. coli genes with established functions. Measure posterior recovery rate, credible-interval
+  width vs. sample size, and compute cost per annotation, and produce a resource estimate for genome-wide
+  scaling.
+description: |
+  Phase 5 of the v2ecoli → PDMP roadmap and the final phase, pursuing the DUF ARC goal of
+  simulation-based causal discovery in WCMs. It depends on every preceding phase: the PDMP for process
+  likelihoods (Phase 2), the observation-likelihood library and accumulator (Phase 3), and the compiled
+  high-throughput runtime that makes marginal-likelihood estimation feasible (Phase 4). Each candidate
+  gene-function annotation defines a different WCM; we marginalize over parameters and compare via
+  marginal likelihoods, with Russian Roulette estimators (Lyne et al. 2015) giving unbiased estimates of
+  the otherwise intractable marginals. Active causal inference (Toth et al. 2022) runs the experiment-
+  design loop, proposing interventions whose outcomes most sharply distinguish competing annotations. The
+  benchmark set holds ≥20 E. coli genes with literature-established functions across diverse mechanism
+  classes (kinases, transcription factors, transporters, structural proteins).
 
   # Numerical considerations
+  Marginal likelihood numerics. Russian Roulette (Lyne et al. 2015) gives unbiased estimators of
+  intractable normalizing constants Z = ∫ p(D|θ) p(θ) dθ via a truncated geometric series with importance
+  weights. The estimator can have unbounded variance, so we monitor empirical variance over batches and
+  require an ESS-equivalent N_eff ≥ 100 per Z estimate; below that the result is flagged and we use a
+  tighter proposal or fall back to thermodynamic integration / nested sampling with documented bias.
 
-  Marginal likelihood numerics. Russian Roulette (Lyne et al. 2015)
+  Bayes factor confidence intervals. Report log Bayes factors with a 95% bootstrap CI from the RR
+  variance bound, not point estimates. Conclusions fire only if the CI sits entirely above the
+  Jeffreys-scale threshold (|log BF| > 1, "substantial evidence").
 
-  produces unbiased estimators of intractable normalizing
+  SBC at the model-comparison level. Extend SBC to model comparison: for K=500 synthetic datasets each
+  generated under a known true annotation, the recovered posterior model probability should be uniform
+  conditional on the true model index (Talts et al. 2018, Cook et al. 2006). A non-uniform rank histogram
+  signals miscalibration before we trust it on novel annotations.
 
-  constants Z = ∫ p(D|θ) p(θ) dθ via a truncated geometric series
+  Active inference numerics. Expected information gain (EIG) is estimated via nested Monte Carlo (outer
+  over experiments, inner over (θ, y) pairs). Standard NMC has bias O(1/N_inner), so we use
+  Donsker-Varadhan or DAD-MINE variational lower bounds where feasible, else NMC with explicit bias
+  bounds. Every intervention proposal carries its EIG ± MCSE; the loop never selects an intervention whose
+  EIG CI overlaps zero.
 
-  with importance weights. The estimator can have unbounded
+  False discovery control. Benchmark recoveries report per-annotation posterior probability and a
+  Benjamini-Hochberg FDR at the gene-set level; a q-value ≤ 0.1 is required before declaring a benchmark
+  recovery successful.
 
-  variance, so we monitor the empirical variance over batches and
-
-  require an ESS-equivalent number of likelihood evaluations
-
-  N_eff ≥ 100 per Z estimate. If N_eff < 100 the result is flagged
-
-  and either (a) a tighter proposal is used, or (b) we fall back
-
-  to thermodynamic integration / nested sampling with documented
-
-  bias.
-
-
-  Bayes factor confidence intervals. We report log Bayes factors
-
-  with a 95% bootstrap CI from the RR variance bound, not point
-
-  estimates. Conclusions ("annotation A vs B is supported") only
-
-  fire if the CI sits entirely above the Jeffreys-scale threshold
-
-  (|log BF| > 1, "substantial evidence").
-
-
-  SBC at the model-comparison level. We extend SBC to model
-
-  comparison itself: for K=500 synthetic datasets each generated
-
-  under a known true annotation, the recovered posterior model
-
-  probability should be uniform conditional on the true model
-
-  index (Talts et al. 2018, Cook et al. 2006). A non-uniform
-
-  rank histogram signals systematic miscalibration of the
-
-  comparison pipeline before we trust it on novel annotations.
-
-
-  Active inference numerics. Expected information gain (EIG) is
-
-  estimated via nested Monte Carlo (outer over experiments, inner
-
-  over (θ, y) pairs). Standard NMC has bias O(1/N_inner), so we use
-
-  Donsker-Varadhan or DAD-MINE style variational lower bounds
-
-  where computationally feasible, falling back to NMC with explicit
-
-  bias bounds otherwise. Every intervention proposal carries its
-
-  EIG estimate ± MCSE; the loop never selects an intervention
-
-  whose EIG CI overlaps zero.
-
-
-  False discovery control. On benchmark recoveries, we report
-
-  per-annotation posterior probability AND a Benjamini-Hochberg
-
-  FDR at the gene-set level — q-value ≤ 0.1 required before
-
-  declaring a benchmark recovery successful.
-
-
-  Convergence rate of credible-interval widths. The claim that
-
-  credible interval widths shrink with sample size is only useful
-
-  if the rate is reported. Sub-√n is the standard MCMC rate
-
-  (variance of posterior mean ∝ 1/n_eff_samples); slower than
-
-  n^{-1/2} indicates a problem (poor mixing, non-identifiability)
-
-  and triggers diagnosis.
-
+  Convergence rate of credible-interval widths. Report the shrinkage rate: sub-√n is the standard MCMC
+  rate (posterior-mean variance ∝ 1/n_eff_samples); slower than n^{-1/2} indicates poor mixing or
+  non-identifiability and triggers diagnosis.
 
   # Emitter
-
-  Each candidate-annotation run writes a zarr store containing
-
-  (a) the marginal-likelihood RR estimator trajectory, (b) per-
-
-  annotation posterior, (c) intervention-selection record + EIG
-
-  estimates. The benchmark gene-set sweep aggregates per-gene
-
-  zarr stores into a single zarr group per benchmark — readable
-
-  via xarray.open_mfdataset() for the BH-FDR summary at the
-
-  gene-set level.
-
-  '
+  Each candidate-annotation run writes a zarr store with (a) the RR marginal-likelihood estimator
+  trajectory, (b) the per-annotation posterior, and (c) the intervention-selection record + EIG
+  estimates. The benchmark gene-set sweep aggregates per-gene zarr stores into one zarr group per
+  benchmark, readable via xarray.open_mfdataset() for the gene-set-level BH-FDR summary.
 expected_behavior:
 - name: annotation-bayes-model-compare
   en: Marginal likelihoods are estimated via Russian Roulette / doubly-intractable methods with quantified variance bounds;
@@ -394,19 +254,6 @@ variants:
     K: 500
 interventions: []
 runs: []
-bibliography:
-  bib_keys:
-  - lyne2015
-  - toth2022
-  - vowels2022
-  - peters2022
-  - bongers2022
-  - blom2023
-  - tejada2025
-  - yang2024
-  - gherman2025
-  - bertin2025
-  - dreyfuss2013
 report:
   confidence: design-stage
   evidence_quality: scaffold
@@ -773,15 +620,6 @@ enforced_params:
 biological_summary: 'Aims to use the inferable PDMP whole-cell model for functional discovery: compare
   candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover
   known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.'
-literature_anchors:
-- key: peters2022
-  relevance: Causal-inference / structure-discovery foundations.
-- key: lyne2015
-  relevance: Russian-roulette / unbiased marginal-likelihood estimation for model comparison.
-- key: vowels2022
-  relevance: Survey of causal-discovery methods framing the approach.
-- key: toth2022
-  relevance: Active / Bayesian experimental design (expected information gain) for intervention selection.
 model_change: 'No change to the cell model — Phase 5 adds an analysis layer (Bayesian model comparison +
   active causal discovery) on top of the inferable PDMP. The annotation-as-causal-model mapping is the new commitment.'
 implementation_requirements:

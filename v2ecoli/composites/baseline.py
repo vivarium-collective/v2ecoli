@@ -886,22 +886,17 @@ def baseline(
     _seed_state_from_defaults(cell_state)
     seed_mass_listener(cell_state, core)
 
-    inject_flow_dependencies(
-        cell_state, flow_order, layers=execution_layers)
-
     # Shape step (Skalnik et al. 2023): derive the capsule cell geometry from
-    # mass each tick — length from volume = mass/density, fixed width. A passive
-    # listener (reads listeners.mass.cell_mass, writes listeners.shape), added
-    # after dependency injection so it imposes no ordering constraints; it just
-    # reports the current geometry, so the envelope tracks growth over the sim.
+    # mass — length from volume = mass/density, fixed width. Reads the whole
+    # listeners.mass sub-store, writes the top-level 'shape' store. Added as a
+    # FINAL execution layer (after the mass listener) so inject_flow_dependencies
+    # wires it into the per-tick flow: it recomputes length/volume from the
+    # current cell_mass every step, so the envelope tracks growth over the sim.
+    # (The 'shape' store is seeded with all keys: a map[float] store only merges
+    # onto existing keys.)
     if core is not None:
-        from v2ecoli.structural.shape import ShapeStep, zero_shape
+        from v2ecoli.cell_shape import ShapeStep, zero_shape
         core.register_link("ShapeStep", ShapeStep)
-        # Top-level 'shape' output store (same pattern as the structural step's
-        # 'pack'). Wire the whole listeners.mass sub-store as the input; the step
-        # reads cell_mass from it (wiring a sub-store, not a scalar leaf, is what
-        # schema realization supports — see ShapeStep.inputs). Seed the store with
-        # all shape keys: a map[float] store only merges onto existing keys.
         cell_state['shape'] = zero_shape()
         cell_state['shape_step'] = {
             '_type': 'step',
@@ -911,17 +906,35 @@ def baseline(
             'inputs': {'mass': ['listeners', 'mass']},
             'outputs': {'shape': ['shape']},
         }
-        flow_order.append('shape_step')
+        execution_layers = execution_layers + [['shape_step']]
+        flow_order = [step for layer in execution_layers for step in layer]
 
-    if injected_processes and injected_processes.get("add_processes"):
+    inject_flow_dependencies(
+        cell_state, flow_order, layers=execution_layers)
+
+    if injected_processes and (
+            injected_processes.get("add_processes")
+            or injected_processes.get("swap_processes")
+            or injected_processes.get("exclude_processes")):
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))
         from scripts._compare.inject import (
-            resolve_injections, apply_injected_processes)
-        specs = resolve_injections(injected_processes["fork_repo"],
-                                   injected_processes)
-        apply_injected_processes(cell_state, flow_order, core, specs)
+            resolve_injections, apply_injected_processes, remove_processes)
+        # Add half: convert + inject the new processes (add_processes plus the
+        # TARGETS of swap_processes). resolve_injections needs the fork repo only
+        # when there is something to add.
+        if (injected_processes.get("add_processes")
+                or injected_processes.get("swap_processes")):
+            specs = resolve_injections(injected_processes["fork_repo"],
+                                       injected_processes)
+            apply_injected_processes(cell_state, flow_order, core, specs)
+        # Remove half: drop the swapped-out SOURCES and any exclude_processes, so
+        # a swap is a true replace (not a co-existing add).
+        remove_processes(cell_state, flow_order,
+                         list((injected_processes.get("swap_processes") or {}).keys()))
+        remove_processes(cell_state, flow_order,
+                         list(injected_processes.get("exclude_processes") or []))
 
     state = {
         'agents': {'0': cell_state},

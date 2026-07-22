@@ -96,6 +96,12 @@ def build_core():
         core.register_link("BiRDTransportHours", BiRDTransportHours)
     except Exception:
         pass
+    # Report-card Steps (resolved by name in the comparison harness).
+    try:
+        from scripts._compare.report_cards import REPORT_CARD_STEPS
+        core.register_links(REPORT_CARD_STEPS)
+    except Exception:  # noqa: BLE001 — never let card registration break build_core
+        pass
     return core
 
 
@@ -227,7 +233,17 @@ def _write_sim_input_bundle(loader, bundle_dir):
     with open(simdata_path, 'wb') as f:
         _pickle.dump(loader.sim_data, f, protocol=_pickle.HIGHEST_PROTOCOL)
 
-    save_json({'unique_names': unique_names},
+    # Record the media this bundle was BUILT for. A per-condition bundle bakes
+    # media_id into its configs at generation; recording it here lets a later
+    # run cheaply detect a stale/wrong-media bundle (e.g. a with_aa bundle that
+    # baked 'minimal' before the condition->media fix) without loading the
+    # 164MB dill. Pull it from the same configs the composite actually runs on.
+    _bundle_media_id = None
+    try:
+        _bundle_media_id = configs.get('media_update', {}).get('media_id')
+    except AttributeError:
+        pass
+    save_json({'unique_names': unique_names, 'media_id': _bundle_media_id},
               os.path.join(bundle_dir, 'metadata.json'))
     write_cache_version(bundle_dir)
     print(f"Sim-input bundle saved to {bundle_dir}")

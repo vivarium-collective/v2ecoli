@@ -21,14 +21,7 @@ question: |
 
 executive:
   what_is_this: |
-    A one-study report-card comparison that grades the v2ecoli baseline
-    central-carbon exchange-flux vector against kinetic reference sources with
-    the PR #134 grader (flux_scatter: identity-line R^2 on signed,
-    glucose-normalized, matched fluxes).
-      • ketchup-exchange-comparison (EXECUTED) — grade the baseline exchange
-        vector against KETCHUP k-ecoli74, k-ecoli307, the Millard 2017 ODE, and
-        the live v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness), with
-        the KETCHUP FDH dynamic NADH(t) fit as a supporting figure.
+    Does the v2ecoli baseline reproduce central-carbon exchange fluxes? One report-card study grades the baseline exchange-flux vector (signed, glucose-normalized, matched) against KETCHUP k-ecoli74 and k-ecoli307, the Millard 2017 ODE, and the live Millard FBA bridge, scored by identity-line R^2 (flux_scatter grader, PR #134).
   verdict_status: characterized
   verdict: |
     PARTIAL match across four kinetic reference models: matched exchanges agree

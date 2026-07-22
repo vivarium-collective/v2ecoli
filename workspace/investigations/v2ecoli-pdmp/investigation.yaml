@@ -77,9 +77,7 @@ lead: '**What this is:** This report is a roadmap for turning v2ecoli from a suc
 
   '
 executive:
-  what_is_this: 'A six-phase investigation that incrementally transforms v2ecoli from a hybrid algorithmic
-    WCM into a piecewise-deterministic Markov process. Each phase replaces one component of the WCM
-    (metabolism, stochastics, likelihoods, runtime, inference layer) while leaving the rest intact.'
+  what_is_this: 'Incrementally transforms v2ecoli from a hybrid algorithmic whole-cell model into a piecewise-deterministic Markov process. Six phases each swap one WCM component -- characterization, a metabolism ODE, jump processes, an inference layer, a compiled runtime, and causal discovery -- while leaving the rest intact.'
   verdict: 'Updated 2026-06-12. The investigation''s central thesis — that v2ecoli''s
     hybrid WCM can be incrementally turned into a likelihood-bearing PDMP-class model while
     staying viable — now has working, test-backed evidence on its first three phases, with

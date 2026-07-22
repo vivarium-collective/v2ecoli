@@ -48,7 +48,7 @@ conditions:
       condition: basal
 depends_on:
 - parca
-confidence: Investigating
+confidence: Accepted
 findings:
 - id: basal-standard
   kind: computational
@@ -58,4 +58,4 @@ findings:
   evidence:
     from_card: standard
     observed: '4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
-      RNA mass (fg); max median |Δ|=2.5%); growth rate (1/s): drift (median |Δ|=6.7%)'
+      RNA mass (fg); max median |Δ|=2.1%); growth rate (1/s): drift (median |Δ|=9.0%)'

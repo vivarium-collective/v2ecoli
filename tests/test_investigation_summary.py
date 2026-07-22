@@ -60,7 +60,7 @@ def test_matrix_cell_verdicts_match_source_json():
     # acetate growth rate is a mismatch in the source verdict.json
     src = json.loads(
         (WS / "investigations" / SLUG / "studies" / "acetate"
-         / "viz" / "report_card" / "standard.verdict.json").read_text()
+         / "viz" / "report_card" / "standard.verdict.json").read_text(encoding='utf-8')
     )
     axis = {a["label"]: a["verdict"] for a in src["groups"]["standard"]["axes"]}
     assert rows["acetate"]["growth rate (1/s)"] == axis["growth rate (1/s)"] == "mismatch"
@@ -134,7 +134,7 @@ def test_cli_writes_selfcontained_file(tmp_path):
     out = tmp_path / "summary.html"
     rc = main(["--investigation", SLUG, "--out", str(out), "--no-open"])
     assert rc == 0
-    text = out.read_text()
+    text = out.read_text(encoding='utf-8')
     assert out.stat().st_size > 5000
     # all 7 studies present, self-contained
     for slug in ("parca", "basal", "with_aa", "succinate", "no_oxygen", "acetate", "statistical"):

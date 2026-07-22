@@ -11,7 +11,7 @@ _UNGRADED = "ungraded"
 
 
 def _load_yaml(path: Path) -> dict:
-    with path.open() as fh:
+    with path.open(encoding='utf-8') as fh:
         return yaml.safe_load(fh) or {}
 
 
@@ -46,7 +46,7 @@ def _card_stub(study_dir: Path, html_ref: str) -> dict[str, Any]:
     missing = not hpath.exists()
     if vpath.exists():
         try:
-            overall = json.loads(vpath.read_text()).get("overall")
+            overall = json.loads(vpath.read_text(encoding='utf-8')).get("overall")
         except (json.JSONDecodeError, OSError):
             overall = None
     else:
@@ -55,7 +55,7 @@ def _card_stub(study_dir: Path, html_ref: str) -> dict[str, Any]:
     html = ""
     if hpath.exists():
         try:
-            html = hpath.read_text()
+            html = hpath.read_text(encoding='utf-8')
         except OSError:
             html = ""
             missing = True
@@ -83,7 +83,7 @@ def _graded_axes(study_dir: Path, html_ref: str) -> list[dict[str, Any]]:
     if not vpath.exists():
         return []
     try:
-        data = json.loads(vpath.read_text())
+        data = json.loads(vpath.read_text(encoding='utf-8'))
     except (json.JSONDecodeError, OSError):
         return []
     if data.get("overall") in (None, _UNGRADED):

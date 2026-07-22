@@ -21,7 +21,7 @@ _REPO = Path(__file__).resolve().parents[1]
 def _read_style() -> str:
     css = _REPO / "reports" / "assets" / "style.css"
     try:
-        text = css.read_text()
+        text = css.read_text(encoding='utf-8')
     except OSError:
         return ""
     # keep only the :root{...} token block so the summary matches the report palette
@@ -51,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         _REPO / "reports" / "summaries" / f"{args.investigation}_summary.html"
     )
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(html)
+    out.write_text(html, encoding='utf-8')
     print(f"wrote {out} ({out.stat().st_size:,} bytes)")
     if not args.no_open:
         try:

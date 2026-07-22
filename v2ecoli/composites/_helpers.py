@@ -144,15 +144,76 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ``visualizations=v2ecoli_default_single_cell_visualizations()`` on the
 # specific @composite_generator call.
 #
-# Note: the cell-mass / cell-volume / growth-rate / absolute-mass-components /
-# mass-fold-change TimeSeriesPlots that previously lived here used a
-# `config.observable: '<short-name>'` convention that the dashboard's
-# build_viz_composite (vivarium-workbench, lib/investigations.py) does not yet
-# understand — it only honors `inputs_map` for port→observable wiring, so
-# those plots came out with empty y-data even though the emitter recorded
-# them. They will land back here once the dashboard grows a short-name /
-# leaf-name resolver for canonical viz wiring.
-DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = []
+# History: the earlier port-wired TimeSeriesPlots came out with empty y-data
+# (build_viz_composite only honors `inputs_map` for port→observable wiring); a
+# self-contained TimeSeriesFromObservables set that read runs.db directly
+# replaced them, but those were generic line plots. The current set renders the
+# REAL native analyses via ParquetAnalysisView (see below), which reads the
+# run's hive-partitioned parquet sweep + hydrated ParCa sim_data — the same
+# analyses that produced the showcase-2 figure gallery. NetworkVisualization
+# still renders the architecture diagram from the composite spec (no run data).
+DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
+    # Native-analysis gallery: each panel is a real v2ecoli analysis
+    # (v2ecoli/workflow/analyses/) rendered by ParquetAnalysisView from the run's
+    # hive-partitioned parquet sweep (installed by the dashboard's
+    # inject_analysis_parquet_emitters) + a hydrated ParCa sim_data. The
+    # dashboard injects `sweep_dir` + `sim_data_path` per run. These reproduce the
+    # showcase-2 figure gallery live in the Composite Explorer instead of the
+    # generic observable line plots. An analysis whose scale needs more cells than
+    # a one-off run produced (multivariant/multiseed) degrades to the single
+    # available cell; ParquetAnalysisView renders an explanatory panel on any
+    # missing prerequisite rather than failing the whole tab.
+    {
+        'name': 'mass_fraction_summary',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Mass fraction summary',
+                   'analysis': 'mass_fraction_summary_view'},
+    },
+    {
+        'name': 'cell_mass',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Cell mass over time', 'analysis': 'cell_mass'},
+    },
+    {
+        'name': 'mass_fraction_voronoi',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Mass composition (Voronoi)',
+                   'analysis': 'mass_fraction_voronoi'},
+    },
+    {
+        'name': 'replication',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Chromosome replication', 'analysis': 'replication'},
+    },
+    {
+        'name': 'ribosome_components',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Ribosome components',
+                   'analysis': 'ribosome_components'},
+    },
+    {
+        'name': 'central_carbon_metabolism',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Central carbon metabolism (FBA)',
+                   'analysis': 'central_carbon_metabolism_scatter'},
+    },
+    {
+        'name': 'protein_counts_validation',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Protein counts vs. proteomics',
+                   'analysis': 'protein_counts_validation'},
+    },
+    {
+        'name': 'doubling_time',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Doubling time', 'analysis': 'doubling_time_line'},
+    },
+    {
+        'name': 'topology',
+        'address': 'local:NetworkVisualization',
+        'config': {'title': 'Process topology'},
+    },
+]
 
 
 def v2ecoli_default_single_cell_visualizations() -> list[dict]:

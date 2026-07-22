@@ -150,8 +150,7 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # replaced them, but those were generic line plots. The current set renders the
 # REAL native analyses via ParquetAnalysisView (see below), which reads the
 # run's hive-partitioned parquet sweep + hydrated ParCa sim_data — the same
-# analyses that produced the showcase-2 figure gallery. NetworkVisualization
-# still renders the architecture diagram from the composite spec (no run data).
+# analyses that produced the showcase-2 figure gallery.
 DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
     # Native-analysis gallery: each panel is a real v2ecoli analysis
     # (v2ecoli/workflow/analyses/) rendered by ParquetAnalysisView from the run's
@@ -207,11 +206,6 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
         'name': 'doubling_time',
         'address': 'local:ParquetAnalysisView',
         'config': {'title': 'Doubling time', 'analysis': 'doubling_time_line'},
-    },
-    {
-        'name': 'topology',
-        'address': 'local:NetworkVisualization',
-        'config': {'title': 'Process topology'},
     },
 ]
 

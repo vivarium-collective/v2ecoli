@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: showcase-3-variant-decide</title>
+<title>Study: metabolism_redux</title>
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/progress-track.css">
 </head>
@@ -10,11 +10,11 @@
 <main class="study-page">
 <header class="study-header">
   <h1 class="study-title">
-    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">showcase-3</span><span class="study-name" id="study-name" data-slug="showcase-3-variant-decide" title="showcase-3-variant-decide">Which perturbation best demonstrates v2ecoli&#39;s response — reviewers to choose</span>
+    <span class="study-name" id="study-name" data-slug="metabolism_redux" title="metabolism_redux">v2ecoli reproduces vEcoli with MetabolismRedux (basal, short-horizon)</span>
     
     
     
-    <span class="status-pill gate-status gate-status-pending" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: pending</span>
+    <span class="status-pill status-build" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">build</span>
     
     
     
@@ -26,73 +26,12 @@
 
 
 
-<div id="readiness-panel" data-slug="showcase-3-variant-decide"></div>
+<div id="readiness-panel" data-slug="metabolism_redux"></div>
 
 
 
 
 
-
-<style>
-.status-detail-panel{margin:8px 0 14px 0;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
-.status-detail-panel h2{margin:0 0 6px 0;font-size:0.82em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:600}
-.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
-.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
-.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
-/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
-.gate-status-blocked          { background:#e5e7eb; color:#374151 }
-.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
-.gate-status-passed           { background:#d1fae5; color:#065f46 }
-.gate-status-failed           { background:#fee2e2; color:#991b1b }
-.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
-.status-pill.gate-status{font-weight:500}
-</style>
-<details class="status-detail-panel" aria-label="Multi-axis status detail" open>
-  <summary class="study-fold-summary">Status detail (Pass A multi-axis)</summary>
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Design</span>
-    <span class="status-chip ">complete</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Implementation</span>
-    <span class="status-chip ">not_run</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Simulation</span>
-    <span class="status-chip ">not_run</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Evaluation</span>
-    <span class="status-chip ">not_run</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Gate</span>
-    <span class="status-chip gate-status-pending">pending</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Expert review</span>
-    <span class="status-chip ">pending</span>
-  </div>
-  
-  
-</details>
 
 
 
@@ -113,7 +52,7 @@
 .spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
 .spine-div{font-weight:600;color:#92400e}
 </style>
-<div id="spine-summary" class="spine-summary" data-slug="showcase-3-variant-decide"></div>
+<div id="spine-summary" class="spine-summary" data-slug="metabolism_redux"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
@@ -249,7 +188,7 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">not_started</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
@@ -264,12 +203,12 @@
         <label class="narrative-row">
           <span class="narrative-label">Evidence quality</span>
           <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
-                 value="design-only"
+                 value=""
                  placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">(computed from findings in the report)
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">BLOCKED on a runtime issue, not wiring. Both engines correctly swap FBA Metabolism -&gt; MetabolismRedux (vEcoli native via EcoliSim; v2ecoli via convert+inject bridge). The v2-side run is fast on tick 1 (~1.3 s) but degrades to 25-45 s/tick from tick 2 on, making even a 300-step run impractical (~a day for a full 2-gen run).
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
@@ -294,14 +233,12 @@
       </h2>
       <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                 data-narrative-path="biological_summary"
-                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">This study commits no perturbation. It frames an explicit reviewer choice among
-four mechanistically-distinct levers — a global regulatory toggle (ppGpp), a
-dose-response parameter sweep (a transcription/translation knob), an
-environmental change (carbon source), and a targeted single-gene expression
-knob (dnaA / TU00259[c]) — each of which would exercise a different part of the
-v2ecoli whole cell&#39;s response. The biology of each candidate lives in the
-followup_study_proposals below.
-</textarea>
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+      
+      <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+        <em>Derived from findings (shown in the report when no override is set):</em>
+        <p style="margin:4px 0 0">BLOCKED on a runtime issue, not wiring. Both engines correctly swap FBA Metabolism -&gt; MetabolismRedux (vEcoli native via EcoliSim; v2ecoli via convert+inject bridge). The v2-side run is fast on tick 1 (~1.3 s) but degrades to 25-45 s/tick from tick 2 on, making even a 300-step run impractical (~a day for a full 2-gen run).</p>
+      </div>
       
     </div>
 
@@ -313,12 +250,7 @@ followup_study_proposals below.
     <div class="overview-section">
       
       <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Which perturbation best demonstrates v2ecoli&#39;s response — reviewers to
-choose? Building on the wild-type baseline (showcase-2), this study stops at
-a DECISION: it commits no variant. Four candidate perturbations are proposed;
-reviewers pick which one (or more) best demonstrates v2ecoli&#39;s perturbation
-response. No simulation runs until a variant is chosen.
-
+        <strong>Question.</strong> Does v2ecoli reproduce vEcoli on basal when both engines swap FBA Metabolism for MetabolismRedux?
       </div>
       
       
@@ -329,6 +261,46 @@ response. No simulation runs until a variant is chosen.
     
     <h2 class="overview-label">Findings &amp; open debts</h2>
 
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
+        Each card states a finding, links the evidence (run + test + value), shows the literature/expert comparison, and marks whether v2ecoli's behavior <em>confirms</em>, <em>contradicts</em>, <em>partially</em> agrees with, or is <em>novel</em> vs the reference.
+      </p>
+      
+      
+      
+      <div class="finding-card finding-kind-methodological finding-status-blocked">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">metabolism_redux-perf-blocker</span>
+          <span class="finding-kind">methodological</span>
+          <span class="finding-status-text">blocked literature</span>
+        </div>
+        <div class="finding-statement">BLOCKED on a runtime issue, not wiring. Both engines correctly swap FBA Metabolism -&gt; MetabolismRedux (vEcoli native via EcoliSim; v2ecoli via convert+inject bridge). The v2-side run is fast on tick 1 (~1.3 s) but degrades to 25-45 s/tick from tick 2 on, making even a 300-step run impractical (~a day for a full 2-gen run).</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> Profiled root cause (systematic): the slowdown is LSODA inside two_component_system/equilibrium, which recurse (dt/2 + solver retries) on negative concentrations. RULED OUT with evidence: (1) bridge units are CORRECT — redux reads cell_mass=1269 fg, boundary.external[GLC]=11.1 mM, counts_to_molar sane; (2) output_ports over-declaration (tested, no effect); (3) negative bulk counts (a clamp floored counts at 0 and fired 0 times — bulk never goes negative). The negatives are INTERNAL to the ODE integration. PRECISE root cause (traced to the line): TwoComponentSystem is a Step with NO allocator; its update() fallback (two_component_system.py:227, comment &#34;no allocator to protect against this now&#34;) re-solves over STEADY_STATE_HORIZON_S=10_000 s with dt/2 recursion (~13 levels) x a 6-solver retry list (_IVP_METHODS) whenever the ODE requests more molecules than available (molecules_required &gt; molecule_counts) — that is the 25-45 s. Tick 1 does 0 solve calls (fallback never fires from the clean matched-init state); after redux&#39;s first update ~20 of the 41 two-component molecules sit at 0 and the redux-modified rates over-consume, so the fallback fires EVERY tick. FBA rarely trips it. Fix paths: (a) run injected redux through the partition/allocator so requests are capped (the real fix); (b) make two-component&#39;s fallback cheap (lower STEADY_STATE_HORIZON_S / trim _IVP_METHODS / cap recursion); (c) redux-specific ParCa so redux starts near its own homeostasis. · 
+          
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      
+    </div>
     
 
     
@@ -384,11 +356,11 @@ response. No simulation runs until a variant is chosen.
         
         
         <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
+          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
           <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">Which perturbation most clearly demonstrates v2ecoli&#39;s response is an OPEN reviewer choice; no variant is committed in this scaffold.</div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">replication</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">only 2 replicates — add seeds for a robustness claim</div>
           </div>
         </div>
         
@@ -408,7 +380,7 @@ response. No simulation runs until a variant is chosen.
         </p>
         
         <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>showcase-2-baseline-figures</code>
+          <code>parca</code>
         </div>
         
         
@@ -416,15 +388,6 @@ response. No simulation runs until a variant is chosen.
       </div>
       
 
-      
-      <div class="overview-section">
-        <h3 class="overview-label">Key assumptions</h3>
-        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-          <li style="margin:2px 0">The wild-type baseline (showcase-2) is validated before any perturbation is
-run, so each candidate variant is a clean delta against a trusted reference.
-</li>
-        </ul>
-      </div>
       
 
       
@@ -437,7 +400,8 @@ run, so each candidate variant is a clean delta against a trusted reference.
         
         
         <p style="margin:0">
-          <strong>1</strong> tests defined
+          <strong>2</strong> tests defined —
+            <span class="classification-pill classification-primary">2 primary</span>
           <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
         </p>
       </div>
@@ -451,27 +415,6 @@ run, so each candidate variant is a clean delta against a trusted reference.
       
 
       
-      
-      <div class="overview-section literature-anchors">
-        <h3 class="overview-label">Literature anchors</h3>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-          The biological expectations this study tests, mapped to the
-          model observable that will measure each one. Full citations
-          live in the Tests tab.
-        </p>
-        <ul class="literature-anchor-list">
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-        </ul>
-      </div>
       
 
       <div class="overview-section">
@@ -491,19 +434,19 @@ run, so each candidate variant is a clean delta against a trusted reference.
 
       <div class="study-counts-strip">
         <div class="count-cell">
-          <strong>4</strong>
+          <strong>1</strong>
           <span class="count-label">simulations</span>
         </div>
         <div class="count-cell">
-          <strong>2</strong>
+          <strong>0</strong>
           <span class="count-label">readouts</span>
         </div>
         <div class="count-cell">
-          <strong>1</strong>
+          <strong>0</strong>
           <span class="count-label">requirements</span>
         </div>
         <div class="count-cell">
-          <strong>0</strong>
+          <strong>2</strong>
           <span class="count-label">runs</span>
         </div>
       </div>
@@ -532,14 +475,20 @@ run, so each candidate variant is a clean delta against a trusted reference.
     
     <div class="cond-block">
       <div class="cond-block-title">
-        showcase-3-variant-decide
+        metabolism_redux
         
         <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
-                onclick="_openCompositeLoom('baseline')">🧬 baseline — configure & run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 baseline.baseline — configure & run ↗</button>
         
       </div>
       
-      <div class="muted" style="font-size:0.88em;margin-top:2px">default parameters</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>basal</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">swap</span>=<code>ecoli-metabolism-redux</code></span>
+        
+      </div>
       
     </div>
     
@@ -558,110 +507,27 @@ run, so each candidate variant is a clean delta against a trusted reference.
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>baseline</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.baseline.baseline</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>basal</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">swap</span>=<code>ecoli-metabolism-redux</code></span>
+        
+      </div>
       
     </div>
     
 
     
-    <div class="cond-block">
-      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(4)</span></div>
-      <table class="cond-table">
-        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
-        <tbody>
-          
-          <tr>
-            <td><code>ppgpp-regulation-off</code></td>
-            <td>
-              <em class="muted">(inherits baseline)</em>
-            </td>
-            <td>
-              
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          <tr>
-            <td><code>parameter-sweep-linspace</code></td>
-            <td>
-              <em class="muted">(inherits baseline)</em>
-            </td>
-            <td>
-              
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          <tr>
-            <td><code>media-condition-change</code></td>
-            <td>
-              <em class="muted">(inherits baseline)</em>
-            </td>
-            <td>
-              
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          <tr>
-            <td><code>dnaa-expression-knob</code></td>
-            <td>
-              <em class="muted">(inherits baseline)</em>
-            </td>
-            <td>
-              
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-        </tbody>
-      </table>
-    </div>
-    
 
     
   </div>
   
 
   
-  <div class="overview-section">
-    <h3>Model change</h3>
-    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
-    
-    
-    
-    
-    
-    
-    
-  </div>
-  
 
-  
-  <div class="overview-section">
-    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(1 items)</span></h3>
-    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
-    
-    
-    
-    <div style="margin:8px 0;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8;white-space:pre-wrap;line-height:1.5">Single-cache for ppGpp-off / linspace sweep / dnaA knob (reuse the showcase-1
-glucose cache); the media-condition change needs its OWN full ParCa cache per
-condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
-    
-    
-  </div>
   
   
   
@@ -689,133 +555,46 @@ condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
       <tbody>
       
         <tr>
-          <td style="vertical-align:top"><strong>showcase-3-variant-decide</strong></td>
-          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('baseline')">🧬 baseline ↗</button></td>
-          <td style="vertical-align:top"><span class="muted">default parameters</span></td>
-          <td style="vertical-align:top" class="muted small">—</td>
-          <td style="vertical-align:top"><span class="muted">not run</span></td>
+          <td style="vertical-align:top"><strong>metabolism_redux</strong></td>
+          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 baseline.baseline ↗</button></td>
+          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>basal</code></span> <span class="cond-pill"><span class="cond-pill-k">swap</span>=<code>ecoli-metabolism-redux</code></span> </td>
+          <td style="vertical-align:top" class="muted small">2 run(s)</td>
+          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">pending</span></td>
         </tr>
       
       </tbody>
     </table>
     
-    
+    <p class="muted small" style="margin-top:6px">2 recorded run(s): <code>metabolism_redux-comparison</code> (pending), <code></code> (pending)</p>
   </div>
   
 
   
-  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(4 runs planned)</span></h3>
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
   <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
   
   
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">candidate-ppgpp-off</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
+      <strong style="font-size:1.05em">metabolism_redux-baseline</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      <span class="muted" style="font-size:0.85em">condition: basal</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline.baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <code>set when the reviewer selects this candidate</code>
+      · <strong>Seeds:</strong> <em>not set</em>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      
-      
-    </p>
-    
-    
-    
-  </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">candidate-parameter-sweep-linspace</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <code>set when the reviewer selects this candidate</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      
-      
-    </p>
-    
-    
-    
-  </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">candidate-media-condition-change</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <code>set when the reviewer selects this candidate</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      
-      
-    </p>
-    
-    
-    
-  </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">candidate-dnaa-expression-knob</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>baseline</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <code>set when the reviewer selects this candidate</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      
-      
+      <strong>Tests applied:</strong> 2 · 
+      <strong>Runs recorded:</strong> 2 (<code>metabolism_redux-comparison</code>)
     </p>
     
     
@@ -863,7 +642,91 @@ condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
       </thead>
       <tbody>
         
-        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
+        
+        
+        <tr id="run-metabolism_redux-comparison"
+            data-run-id=""
+            data-spec-id=""
+            data-store-path=""
+            data-started-at="">
+          <td>
+            baseline
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">—</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-pending">pending</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+            
+              <span class="muted">—</span>
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="">View</button>
+            <button class="btn-delete-run" data-run-id="">Delete</button>
+          </td>
+        </tr>
+        
+        
+        
+        <tr id="run-metabolism_redux-comparison"
+            data-run-id="metabolism_redux-comparison"
+            data-spec-id="metabolism_redux"
+            data-store-path=""
+            data-started-at="">
+          <td>
+            baseline
+            
+              <div class="muted" style="font-size:0.78em">metabolism_redux-comparison</div>
+            
+          </td>
+          <td>
+            <code style="font-size:0.82em">metabolism_redux</code>
+            
+          </td>
+          <td></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td style="font-size:0.85em;white-space:nowrap"></td>
+          <td>
+            <span class="run-status run-status-pending">pending</span>
+            
+          </td>
+          
+          <td class="run-test-results" style="font-size:0.82em;white-space:nowrap">
+            
+            
+            
+            
+              <span class="muted">—</span>
+            
+          </td>
+          <td>
+            
+            <span class="muted" style="font-size:0.82em">—</span>
+            
+          </td>
+          <td>
+            <button class="btn-view-run" data-run-id="metabolism_redux-comparison">View</button>
+            <button class="btn-delete-run" data-run-id="metabolism_redux-comparison">Delete</button>
+          </td>
+        </tr>
         
       </tbody>
     </table>
@@ -875,7 +738,7 @@ condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
   <div class="observables-section">
     <h3 class="section-title">Readouts</h3>
     <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
-    <div id="readouts-table" data-study="showcase-3-variant-decide">
+    <div id="readouts-table" data-study="metabolism_redux">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -885,30 +748,6 @@ condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
   <div class="viz-section">
 
     
-    
-    <div class="embed-viz-section" style="margin-bottom:24px">
-      <h3 class="section-title">Embedded visualizations</h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-        Self-contained HTML pages produced by the study's runner. Each iframe
-        below is a standalone artefact you can also open in a separate tab.
-      </p>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Units Atlas (interactive)</strong>
-          <a href="/v2ecoli/dashboard/reports/figures/showcase-3-variant-decide/units_atlas.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range.</p>
-        
-        <iframe src="/v2ecoli/dashboard/reports/figures/showcase-3-variant-decide/units_atlas.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Units Atlas (interactive)"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-    </div>
     
 
     <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
@@ -925,14 +764,14 @@ condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
       <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=showcase-3-variant-decide">Download all (.zip)</a>
+         href="/api/study-analysis-zip?study=metabolism_redux">Download all (.zip)</a>
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
       Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
-    <div id="data-files" data-study="showcase-3-variant-decide">
+    <div id="data-files" data-study="metabolism_redux">
       <p class="empty-message">Loading result files…</p>
     </div>
   </div>
@@ -962,6 +801,10 @@ condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
   
   
   
+    
+  
+    
+  
   
   <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
     
@@ -972,28 +815,58 @@ condition (~2.5 min each) — the cost trade-off flagged for reviewers.</div>
     
     
     
-    <li class="expected-behavior-item" id="bt-reviewer-selects-perturbation-variant"
+    <li class="expected-behavior-item" id="bt-config-vs-vecoli"
         data-test-kind="behavioral"
         
-        data-pytest-node="reviewer-selects-perturbation-variant"
-        data-classification="decision"
+        data-pytest-node="config-vs-vecoli"
+        data-classification="primary"
         data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-decision">decision</span>
-        <strong style="font-size: 0.9em;">reviewer-selects-perturbation-variant</strong>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">config-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Have reviewers selected which perturbation variant(s) to run to demonstrate v2ecoli&#39;s response?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli&#39;s MetabolismRedux config on basal (config card)?</div>
+      
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-standard-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="standard-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">standard-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli&#39;s MetabolismRedux dynamics on basal (standard card)?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Placeholder decision gate. Resolves when a reviewer picks one (or more) of\nthe four candidate perturbations (ppGpp-off, linspace parameter sweep,\nmedia/condition change, dnaA expression knob). No quantitative pass/fail \u2014\nthe outcome is the chosen variant, which then becomes a committed run.\n", "kind": "reviewer_decision"}
-expect:  {"op": "reviewer_selected_variant"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux", "group": "standard", "kind": "report_card_axis"}
+expect:  null</pre>
       </details>
       
       
@@ -1096,6 +969,18 @@ expect:  {"op": "reviewer_selected_variant"}</pre>
     
     
     
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
+      
+      
+    </div>
+    
     
 
   </div>
@@ -1104,125 +989,6 @@ expect:  {"op": "reviewer_selected_variant"}</pre>
   <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
 
     
-    
-    
-    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-      <h3 class="overview-label">Discovery implications</h3>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-      
-      <div class="di-uncertainties">
-        
-        
-        <div class="di-unc di-unc-remaining">
-          <h4>● Remaining uncertainties</h4>
-          <ul><li>Which perturbation most clearly demonstrates v2ecoli&#39;s response is an OPEN reviewer choice; no variant is committed in this scaffold.</li></ul>
-        </div>
-        
-      </div>
-      
-
-      
-
-      
-
-      
-      
-      
-      <div class="di-group">
-        <h3>Follow-up study proposals
-          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-          <span class="muted" style="font-weight:normal;font-size:0.85em">(4)</span></h3>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-        <div class="followup-list">
-          
-          
-          <div class="di-card di-fup-card">
-            <div class="followup-header">
-              <strong class="followup-title">ppGpp regulation toggle OFF</strong>
-              <span class="di-chip">perturbation</span>
-              <span class="di-chip">reviewer-decision</span>
-              <span class="di-chip di-gain-high">gain: high</span>
-              
-            </div>
-            <div class="di-card-why">On the showcase-2 wild-type baseline, disable the ppGpp regulatory layer
-(ppgpp_regulation = off) and run the same multiseed/multigen ensemble.
-Compare growth rate, ribosome/RNAP allocation, and expression against the
-baseline.
-</div>
-            
-            <div class="followup-actions" style="margin-top:8px">
-              <button class="btn-seed-followup"
-                      onclick="_seedFollowupProposal('showcase-3-variant-decide', "variant-ppgpp-regulation-off")">➕ Add to investigation</button>
-            </div>
-          </div>
-          
-          
-          <div class="di-card di-fup-card">
-            <div class="followup-header">
-              <strong class="followup-title">Parameter sweep via linspace (transcription/translation knob)</strong>
-              <span class="di-chip">parameter-sweep</span>
-              <span class="di-chip">reviewer-decision</span>
-              <span class="di-chip di-gain-high">gain: high</span>
-              
-            </div>
-            <div class="di-card-why">Sweep one transcription/translation knob (e.g. a global RNAP or ribosome
-elongation-rate factor) across a linspace of values on the baseline cache,
-one parameterized run per point, and plot the dose-response (growth rate /
-mass fractions vs the swept value).
-</div>
-            
-            <div class="followup-actions" style="margin-top:8px">
-              <button class="btn-seed-followup"
-                      onclick="_seedFollowupProposal('showcase-3-variant-decide', "variant-parameter-sweep-linspace")">➕ Add to investigation</button>
-            </div>
-          </div>
-          
-          
-          <div class="di-card di-fup-card">
-            <div class="followup-header">
-              <strong class="followup-title">Media / condition change (e.g. glucose→succinate or +amino-acids)</strong>
-              <span class="di-chip">condition-change</span>
-              <span class="di-chip">reviewer-decision</span>
-              <span class="di-chip di-gain-high">gain: high</span>
-              
-            </div>
-            <div class="di-card-why">Switch the growth condition and run the baseline ensemble in the new
-media. FLAG: each condition needs its OWN full ParCa cache (~2.5 min per
-condition), so this multiplies the build cost vs the single-cache options.
-</div>
-            
-            <div class="followup-actions" style="margin-top:8px">
-              <button class="btn-seed-followup"
-                      onclick="_seedFollowupProposal('showcase-3-variant-decide', "variant-media-condition-change")">➕ Add to investigation</button>
-            </div>
-          </div>
-          
-          
-          <div class="di-card di-fup-card">
-            <div class="followup-header">
-              <strong class="followup-title">dnaA expression knob (TU00259[c] transcription-init override)</strong>
-              <span class="di-chip">gene-perturbation</span>
-              <span class="di-chip">reviewer-decision</span>
-              <span class="di-chip di-gain-medium">gain: medium</span>
-              
-            </div>
-            <div class="di-card-why">Apply the Mechanism-A runtime override
-sim_data.genetic_perturbations[&#34;TU00259[c]&#34;] = V (carried over from the
-dnaa-replication investigation) on the baseline cache and run the ensemble;
-read the DnaA pool / replication-initiation response vs the baseline.
-</div>
-            
-            <div class="followup-actions" style="margin-top:8px">
-              <button class="btn-seed-followup"
-                      onclick="_seedFollowupProposal('showcase-3-variant-decide', "variant-dnaa-expression-knob")">➕ Add to investigation</button>
-            </div>
-          </div>
-          
-        </div>
-      </div>
-      
-    </div>
     
 
     
@@ -1241,7 +1007,7 @@ read the DnaA pool / replication-initiation response vs the baseline.
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
-window._studyName = "showcase-3-variant-decide";
+window._studyName = "metabolism_redux";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.
@@ -1369,9 +1135,9 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "baseline";
+  var compositeRef = "v2ecoli.composites.baseline.baseline";
   
-  var slug = window._studyName || "showcase-3-variant-decide";
+  var slug = window._studyName || "metabolism_redux";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
   // Read-only bundle: there's no live backend to run on — hide the remote-run
   // launcher (the Configure & Run widget already renders a disabled preview).

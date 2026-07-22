@@ -1703,10 +1703,118 @@
 
   function _rrProg() { return document.getElementById('remote-run-progress'); }
   function _rrBtn() { return document.getElementById('remote-run-btn'); }
-  function _rrResetBtn() { var b = _rrBtn(); if (b) { b.disabled = false; b.textContent = '▶ Run on remote'; } }
-  function _rrErr(msg) { var p = _rrProg(); if (p) { p.hidden = false; p.innerHTML = '<div class="inv-run-err">' + msg + '</div>'; } _rrResetBtn(); }
+  function _rrResetBtn() { var b = _rrBtn(); if (b) { b.disabled = false; b.textContent = window._remoteRunPinned ? '▶ Run on remote (pinned)' : '▶ Run on remote'; } }
 
-  function _renderRemoteRunProgress(opts) {
+  // Pinned mode: relabel the run card + flip _submitRemoteRun to the no-push,
+  // no-login pinned path. Called on study-detail load (live backend only).
+  function _initRemoteRunPinned() {
+    var panel = document.getElementById('remote-run-panel');
+    if (!panel) return;
+    fetch('/api/remote-run-config').then(function(r) { return r.json(); }).then(function(cfg) {
+      if (!cfg) return;
+      // Truthful Origin: label the card with the config-derived deployment name
+      // (VIVARIUM_WORKBENCH_REMOTE_DEPLOYMENT) instead of a hardcoded "smsvpctest".
+      // Applies in BOTH pinned and stock modes.
+      if (cfg.deployment) {
+        var h3d = panel.querySelector('h3');
+        if (h3d && !cfg.pinned) h3d.textContent = 'Run on remote (' + escapeHtmlForTests(cfg.deployment) + ')';
+        window._remoteRunDeployment = cfg.deployment;
+      }
+      if (!cfg.pinned) return;
+      window._remoteRunPinned = true;
+      var shortSha = String(cfg.commit || '').slice(0, 12);
+      var label = (cfg.branch || 'main') + (shortSha ? ' @ ' + shortSha : '');
+      var h3 = panel.querySelector('h3');
+      var p = panel.querySelector('p.muted');
+      var btn = _rrBtn();
+      if (h3) h3.textContent = 'Run against pinned build (' + label + ')';
+      if (p) p.innerHTML = 'Runs on the Ray backend against the pinned, already-built simulator '
+        + '(<code>' + escapeHtmlForTests(label) + '</code>). Results land as a run on this study. '
+        + 'No push or GitHub login required.'
+        + (cfg.build_error ? '<br><span class="inv-run-err">⚠ ' + escapeHtmlForTests(cfg.build_error) + '</span>' : '');
+      if (btn) btn.textContent = '▶ Run on remote (pinned)';
+    }).catch(function() { /* leave the stock build-first card as-is */ });
+  }
+  window._initRemoteRunPinned = _initRemoteRunPinned;
+  function _rrErr(msg) { _stopRrTween(); var p = _rrProg(); if (p) { p.hidden = false; p.innerHTML = '<div class="inv-run-err">' + msg + '</div>'; } _rrResetBtn(); }
+
+  // ---- Progress-track adapter (Plan 7 / WS-2) ----------------------------
+  // _renderRemoteRunProgress keeps its existing {build, run, note, landBtn,
+  // landed, runDetail, phase} opts contract (so its ~11 call sites are
+  // unchanged) but now drives the reusable ProgressTrack milestone bar instead
+  // of the two-row text stepper. The one new opt threaded by the pollers is
+  // `phase` (the raw sms-api phase) so we can tell Queued from Running — the
+  // dashboard collapses both to run:'running' otherwise.
+  var _RR_STAGE_KEYS = ['resolve', 'submit', 'queued', 'running', 'done', 'landed'];
+  // Typical wall-clock per long stage (SAVE_SLOT "Pinned-build live facts":
+  // Ray-provision+ParCa ≈ 8 min queued, compute ≈ 5 min running). Drives the
+  // honest time-based soft-fill only; the bar snaps to the milestone on the
+  // real transition.
+  var _RR_TYPICAL_MS = { resolve: 120000, submit: 15000, queued: 480000, running: 300000 };
+
+  function _rrSoftFor(key) {
+    var t = _RR_TYPICAL_MS[key];
+    if (!t) return null;
+    _remoteRunState._stageStarts = _remoteRunState._stageStarts || {};
+    if (!_remoteRunState._stageStarts[key]) _remoteRunState._stageStarts[key] = Date.now();
+    return { startedAt: _remoteRunState._stageStarts[key], typicalMs: t };
+  }
+
+  // Translate the build/run/phase opts into a ProgressTrack `stages` model.
+  function _rrDeriveStages(opts) {
+    var pinned = !!window._remoteRunPinned;
+    var stages = [
+      { key: 'resolve', label: pinned ? 'Resolve' : 'Build' },
+      { key: 'submit', label: 'Submit' },
+      { key: 'queued', label: 'Queued' },
+      { key: 'running', label: 'Running' },
+      { key: 'done', label: 'Done' },
+      { key: 'landed', label: 'Landed' },
+    ];
+    var m = { mode: 'stages', stages: stages, done: [], active: null, failed: null, soft: null };
+    if (opts.landed) { m.done = _RR_STAGE_KEYS.slice(); return m; }        // fully landed
+    if (opts.build === 'failed') { m.failed = 'resolve'; return m; }
+    if (opts.build !== 'done') { m.active = 'resolve'; m.soft = _rrSoftFor('resolve'); return m; }
+    m.done.push('resolve');
+    if (opts.run === 'failed') {
+      m.done.push('submit');
+      m.failed = (opts.phase === 'queued') ? 'queued' : 'running';
+      if (m.failed === 'running') m.done.push('queued');
+      return m;
+    }
+    if (opts.landBtn || opts.run === 'done') {                            // run complete; landing is the outstanding manual step
+      m.done.push('submit', 'queued', 'running', 'done');
+      return m;
+    }
+    if (opts.run === 'running') {
+      m.done.push('submit');
+      if (opts.phase === 'queued') { m.active = 'queued'; m.soft = _rrSoftFor('queued'); }
+      else { m.done.push('queued'); m.active = 'running'; m.soft = _rrSoftFor('running'); }
+      return m;
+    }
+    m.active = 'submit'; m.soft = _rrSoftFor('submit');                    // build done, run pending → submitting
+    return m;
+  }
+
+  // Soft-fill tween: repaints only the active segment ~4×/s while a soft stage
+  // is running (ProgressTrack.tick is a no-op DOM-diff otherwise). Cancels on
+  // terminal/failed/reset or if the mount leaves the DOM.
+  var _rrTween = null;
+  function _stopRrTween() { if (_rrTween) { clearInterval(_rrTween); _rrTween = null; } }
+  function _startRrTween() {
+    if (_rrTween) return;
+    _rrTween = setInterval(function () {
+      var mount = _remoteRunState._ptMount, m = _remoteRunState._ptModel;
+      if (!mount || !document.body.contains(mount) || !m || !window.ProgressTrack || !(m.active && m.soft)) {
+        _stopRrTween(); return;
+      }
+      window.ProgressTrack.tick(mount, m);
+    }, 250);
+  }
+
+  // Legacy two-row stepper — retained as a graceful fallback if ProgressTrack
+  // failed to load (e.g. a stale cached page missing the new <script>).
+  function _renderRemoteRunProgressLegacy(opts) {
     var p = _rrProg(); if (!p) return;
     p.hidden = false;
     var icon = {pending: '⋯', running: '▶', queued: '⋯', built: '✓', done: '✓', failed: '✗', unreachable: '⚠'};
@@ -1725,6 +1833,33 @@
       + land + landed;
   }
 
+  function _renderRemoteRunProgress(opts) {
+    var p = _rrProg(); if (!p) return;
+    p.hidden = false;
+    if (!window.ProgressTrack) { _renderRemoteRunProgressLegacy(opts); return; }
+    // Shell: [.rr-track][.rr-extras] — ProgressTrack owns only the track
+    // subtree, so the land button / landed banner survive its rebuild-on-change.
+    var track = p.querySelector('.rr-track');
+    var extras = p.querySelector('.rr-extras');
+    if (!track || !extras) {
+      p.innerHTML = '<div class="rr-track"></div><div class="rr-extras"></div>';
+      track = p.querySelector('.rr-track');
+      extras = p.querySelector('.rr-extras');
+    }
+    var model = _rrDeriveStages(opts);
+    model.note = opts.note || '';
+    model.detail = opts.runDetail || opts.buildDetail || '';
+    _remoteRunState._ptModel = model;
+    _remoteRunState._ptMount = track;
+    window.ProgressTrack.render(track, model);
+    var land = opts.landBtn
+      ? '<button type="button" class="btn-mini" id="remote-run-land-btn" onclick="_landRemoteRun()">⬇ Land results locally</button>' : '';
+    var landed = opts.landed
+      ? '<div class="inv-run-progress-banner"><strong>✓ Landed</strong> <code>' + escapeHtmlForTests(opts.landed) + '</code> — refresh to see it.</div>' : '';
+    extras.innerHTML = land + landed;
+    if (model.active && model.soft) _startRrTween(); else _stopRrTween();
+  }
+
   function _submitRemoteRun(ev) {
     ev.preventDefault();
     var form = ev.target;
@@ -1737,6 +1872,28 @@
         run_parca: !!form.run_parca.checked,
       },
     };
+    if (window._remoteRunPinned) {
+      // Pinned mode: no push/build/login — resolve the already-built simulator
+      // and go straight to submit (phase "built" comes back immediately).
+      if (btn) { btn.disabled = true; btn.textContent = 'Resolving pinned build…'; }
+      fetch('/api/remote-run-pinned-build', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({study: _remoteRunState.study}),
+      }).then(function(r) { return r.json().then(function(j) { return {status: r.status, body: j}; }); })
+        .then(function(res) {
+          if (res.status !== 202 || !res.body.simulator_id) {
+            _rrErr('Could not resolve pinned build: ' + escapeHtmlForTests((res.body && res.body.error) || res.status)); return;
+          }
+          _remoteRunState.simulator_id = res.body.simulator_id;
+          _remoteRunState.commit = res.body.commit;
+          _renderRemoteRunProgress({build: 'done', run: 'running',
+            note: '<strong>Using pinned build.</strong> <span class="muted">'
+              + escapeHtmlForTests((res.body.branch || '') + ' @ ' + String(res.body.commit || '').slice(0, 12))
+              + '</span> Submitting run…'});
+          _submitRun();
+        }).catch(function(err) { _rrErr('Network error: ' + escapeHtmlForTests(String(err))); });
+      return false;
+    }
     if (btn) { btn.disabled = true; btn.textContent = 'Starting build…'; }
     fetch('/api/remote-run-build', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1765,7 +1922,7 @@
         .then(function(r) { return r.json().then(function(j) { return {status: r.status, body: j}; }); })
         .then(function(res) {
           if (res.status === 502 || (res.body && res.body.reachable === false)) {
-            _renderRemoteRunProgress({build: _remoteRunState._buildPhase || 'running', run: _remoteRunState._runPhase || 'pending',
+            _renderRemoteRunProgress({build: _remoteRunState._buildPhase || 'running', run: _remoteRunState._runPhase || 'pending', phase: _remoteRunState._runPhase,
               note: '<strong class="inv-run-err">⚠ ' + escapeHtmlForTests((res.body && res.body.reason) || 'sms-api unreachable') + '</strong> <span class="muted">retrying…</span>'});
             _remoteRunTimer = setTimeout(tick, 4000); return;
           }
@@ -1834,7 +1991,7 @@
         _rrResetBtn(); return;
       }
       var label = body.phase === 'queued' ? 'Queued on AWS Batch…' : 'Running…';
-      _renderRemoteRunProgress({build: 'done', run: 'running', runDetail: body.raw_status,
+      _renderRemoteRunProgress({build: 'done', run: 'running', runDetail: body.raw_status, phase: body.phase,
         note: '<strong>' + label + '</strong> <span class="muted">(' + simRef + ')</span>'});
       again();
     });

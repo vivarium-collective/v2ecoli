@@ -2,6 +2,14 @@
 (function () {
   "use strict";
 
+  // Prefix a root-absolute /api path with the dashboard base path (e.g. /workbench)
+  // so composite-explore run/resolve/status calls reach the workbench under the
+  // co-tenant ALB instead of misrouting to sms-api → 404. No-op at root; composes
+  // safely with the global _base_path_shim (which skips already-prefixed URLs).
+  function _api(p) {
+    return (window.DataSource && window.DataSource.apiUrl) ? window.DataSource.apiUrl(p) : p;
+  }
+
   // Module-level so EVERY render function can call it. It was previously only
   // defined nested inside the investigation-report builder, but called from
   // sibling scopes (tick / study-card / v4 renderers) — which threw
@@ -3930,7 +3938,7 @@
     if (window._ceHistoryFetching) return;
     window._ceHistoryFetching = true;
     var id = window._ceCurrent.id;
-    fetch('/api/composite-runs?spec_id=' + encodeURIComponent(id))
+    fetch(_api('/api/composite-runs?spec_id=' + encodeURIComponent(id)))
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var runs = data.runs || [];
@@ -4017,7 +4025,7 @@
     var body = document.getElementById('ce-compare-body');
     body.innerHTML = '<p class="empty-state">Loading&hellip;</p>';
     Promise.all(ids.map(function(id) {
-      return fetch('/api/composite-run/' + encodeURIComponent(id))
+      return fetch(_api('/api/composite-run/' + encodeURIComponent(id)))
         .then(function(r) { return r.json(); });
     })).then(function(results) {
       var runs = ids.map(function(id, i) {
@@ -4104,7 +4112,7 @@
       _ceShowState(run_id, step, cached);
       return;
     }
-    fetch('/api/composite-run/' + encodeURIComponent(run_id))
+    fetch(_api('/api/composite-run/' + encodeURIComponent(run_id)))
       .then(function(r) { return r.json(); })
       .then(function(data) {
         var trajectory = data.trajectory || [];
@@ -4252,8 +4260,8 @@
       p = window.DataSource.loadCompositeResolve(id);
     } else {
       // Live mode: fetch resolve endpoint with overrides.
-      var url = '/api/composite-resolve?id=' + encodeURIComponent(id) +
-        '&overrides=' + encodeURIComponent(JSON.stringify(window._ceCurrent.overrides));
+      var url = _api('/api/composite-resolve?id=' + encodeURIComponent(id) +
+        '&overrides=' + encodeURIComponent(JSON.stringify(window._ceCurrent.overrides)));
       // Parse defensively: an unguarded r.json() on a non-2xx / non-JSON
       // response throws "SyntaxError: The string did not match the expected
       // pattern" (Safari) → a useless "Network error". Unregistered refs 404;
@@ -4343,6 +4351,9 @@
         );
         // Render parameter editor
         _ceRenderParameters(data.parameters);
+        // Characterization: fold in emitted observables + measured wall-time so
+        // the Composites tab tells you what this composite emits and costs.
+        if (typeof _ceLoadCharacterization === 'function') _ceLoadCharacterization(data.id);
         // Render state JSON (Document tab now lives inside the iframe — this
         // outer #ce-state-json element was removed when the outer tab strip
         // was retired. Null-guard for resilience if it's ever reintroduced.)
@@ -4358,11 +4369,96 @@
       });
   }
 
+  // Characterization surfacing (Phase 3): fold a composite's emitted observables
+  // (GET /api/observables) + measured wall-time (last completed run's runs_meta
+  // timing, keyed by current param-signature) into the Composites-tab view. Both
+  // reuse existing endpoints — no new backend. Degrades quietly in snapshot mode.
+  function _ceLoadCharacterization(id) {
+    var outEl = document.getElementById('ce-outputs');
+    var wtEl = document.getElementById('ce-walltime');
+    if (document.body.classList.contains('snapshot')) {
+      if (outEl) outEl.textContent = 'Available on a live dashboard.';
+      if (wtEl) wtEl.textContent = 'unavailable in read-only view';
+      return;
+    }
+    // --- Outputs / observables ---
+    if (outEl) {
+      outEl.textContent = 'Loading…';
+      fetch(_api('/api/observables?ref=' + encodeURIComponent(id)))
+        .then(function(r) { return r.text().then(function(t) {
+          var d = null; try { d = t ? JSON.parse(t) : null; } catch (e) { d = null; }
+          return { ok: r.ok, status: r.status, d: d };
+        }); })
+        .then(function(res) {
+          if (!res.ok || !res.d) {
+            outEl.textContent = (res.d && res.d.error) ? res.d.error : 'No observables reported.';
+            return;
+          }
+          var leaves = res.d.leaves || [];
+          var catalogs = res.d.catalogs || {};
+          var catKeys = Object.keys(catalogs);
+          if (!leaves.length && !catKeys.length) {
+            outEl.textContent = 'This composite emits no observables.';
+            return;
+          }
+          var html = '';
+          if (leaves.length) {
+            html += '<div><em>' + leaves.length + ' leaf observable' +
+              (leaves.length === 1 ? '' : 's') + '</em>: ' +
+              leaves.slice(0, 40).map(function(x) { return '<code>' + _esc(x) + '</code>'; }).join(', ') +
+              (leaves.length > 40 ? ' …' : '') + '</div>';
+          }
+          if (catKeys.length) {
+            html += '<div style="margin-top:4px"><em>' + catKeys.length + ' catalog' +
+              (catKeys.length === 1 ? '' : 's') + '</em>: ' +
+              catKeys.slice(0, 20).map(function(k) {
+                var n = (catalogs[k] || []).length;
+                return '<code>' + _esc(k) + '</code> (' + n + ')';
+              }).join(', ') + '</div>';
+          }
+          outEl.innerHTML = html;
+        })
+        .catch(function() { outEl.textContent = 'Could not load observables.'; });
+    }
+    // --- Measured wall-time (last completed run matching current params) ---
+    if (wtEl) {
+      var curParams = JSON.stringify((window._ceCurrent && window._ceCurrent.overrides) || {});
+      fetch(_api('/api/composite-runs?spec_id=' + encodeURIComponent(id)))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var runs = (data && data.runs) || [];
+          var match = null;
+          for (var i = 0; i < runs.length; i++) {
+            var rr = runs[i];
+            if (rr.status !== 'completed' || rr.completed_at == null || rr.started_at == null) continue;
+            // Prefer a param-signature match; fall back to the most recent completed run.
+            if (JSON.stringify(rr.params || {}) === curParams) { match = rr; break; }
+            if (!match) match = rr;
+          }
+          if (!match) { wtEl.textContent = 'unknown (no completed run yet)'; return; }
+          var secs = Math.max(0, match.completed_at - match.started_at);
+          var exact = JSON.stringify(match.params || {}) === curParams;
+          wtEl.textContent = _ceFmtDuration(secs) +
+            ' (' + (match.n_steps != null ? match.n_steps + ' steps' : 'last run') +
+            (exact ? ', these params' : ', other params') + ')';
+        })
+        .catch(function() { wtEl.textContent = 'unknown'; });
+    }
+  }
+  window._ceLoadCharacterization = _ceLoadCharacterization;
+
+  function _ceFmtDuration(secs) {
+    if (secs < 1) return (secs * 1000).toFixed(0) + ' ms';
+    if (secs < 60) return secs.toFixed(1) + ' s';
+    var m = Math.floor(secs / 60), s = Math.round(secs % 60);
+    return m + ' min ' + s + ' s';
+  }
+
   function _legacyLoadCompositeSvg(ref) {
     var el = document.getElementById('composite-explore-svg-legacy');
     if (!el) return;
     el.innerHTML = '<p style="color:#888">Loading SVG…</p>';
-    fetch('/api/composite-resolve?id=' + encodeURIComponent(ref))
+    fetch(_api('/api/composite-resolve?id=' + encodeURIComponent(ref)))
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.svg) {
@@ -4530,7 +4626,7 @@
     var overrides = _ceCollectOverrides();
     var resultsEl = document.getElementById('ce-test-results');
     resultsEl.innerHTML = '<p class="empty-state">Starting run&hellip;</p>';
-    fetch('/api/composite-test-run', {
+    fetch(_api('/api/composite-test-run'), {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -6223,9 +6319,13 @@
           .then(function(j) { return j.entries || []; })
           .catch(function() { return []; });
         var chartFetches = (iset.studies || []).map(function(s) {
-          return fetch('/api/study-charts/' + encodeURIComponent(s.name))
-            .then(function(r) { return r.ok ? r.json() : {charts: []}; })
-            .then(function(j) { return {name: s.name, charts: j.charts || []}; })
+          // Via DataSource so snapshot mode reads api/study-charts/<slug>.json at
+          // the bundle basePath; raw fetch would 404 on a hosted read-only site.
+          return ((window.DataSource && window.DataSource.loadStudyCharts)
+            ? window.DataSource.loadStudyCharts(s.name)
+            : fetch('/api/study-charts/' + encodeURIComponent(s.name))
+                .then(function(r) { return r.ok ? r.json() : {charts: []}; }))
+            .then(function(j) { return {name: s.name, charts: (j && j.charts) || []}; })
             .catch(function() { return {name: s.name, charts: []}; });
         });
         // Current coordinated generation — stamps the report's provenance
@@ -8592,7 +8692,7 @@
                +   sweepChart
                +   refBlock
                +   (f.next_action ? '<div class="finding-next"><strong>→ Next:</strong> ' + _multiline(f.next_action) + '</div>' : '')
-               +   (f.seeded_study ? '<div class="finding-seeded"><strong>→ seeded study:</strong> <a href="/studies/' + encodeURIComponent(f.seeded_study) + '">' + _h(f.seeded_study) + '</a></div>' : '')
+               +   (f.seeded_study ? '<div class="finding-seeded"><strong>→ seeded study:</strong> <a href="' + _studyHref(f.seeded_study) + '">' + _h(f.seeded_study) + '</a></div>' : '')
                +   techDisclosure
                + '</div>';
         }
@@ -10152,6 +10252,38 @@
         ? '<p class="reproduce-line muted small">Reproduce: ' + _runChip(_reproBase) + '</p>'
         : '';
 
+      // FRAMEWORK FIX: the v4 narrative-spine renderer had no charts/embeds
+      // section, so any study that did not trip isV3 (a schema_version 3/4
+      // study authored with findings/tests/baseline but none of
+      // purpose|simulation_set|behavior_tests|pipeline_gate|readouts|
+      // implementation_requirements) silently dropped its figures even though
+      // /api/study-charts returned them. Render both here too, mirroring
+      // v3StudySection, so charts/visualizations are never lost by the routing.
+      var v4Charts = (chartsByStudy && chartsByStudy[s.name]) || [];
+      var v4ChartsHtml = v4Charts.length
+        ? '<div id="study-' + slug + '-charts"><h3>Visualisations from the latest run</h3>'
+          + _renderChartCardsHtml(v4Charts, slug) + '</div>'
+        : '';
+      var v4Embeds = (embedsByStudy && embedsByStudy[s.name]) || [];
+      var v4EmbedsHtml = v4Embeds.length
+        ? '<div class="study-embeds" id="study-' + slug + '-embeds"><h3>Interactive visualizations</h3>'
+          + v4Embeds.map(function(emb) {
+              var escaped = String((emb && emb.html) || '')
+                .replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+              var frame = escaped
+                ? '<iframe srcdoc="' + escaped + '" loading="lazy" scrolling="no" '
+                  + 'style="width:100%;border:0;min-height:420px" '
+                  + 'title="' + _h((emb && emb.name) || 'visualization') + '"></iframe>'
+                : (emb && emb.url
+                    ? '<p><a href="' + _h(emb.url) + '">' + _h(emb.name || emb.url) + '</a></p>'
+                    : '');
+              return '<div class="study-embed">'
+                + ((emb && emb.title) ? '<div class="chart-title" style="font-weight:600;margin-bottom:4px">' + _h(emb.title) + '</div>' : '')
+                + frame + '</div>';
+            }).join('')
+          + '</div>'
+        : '';
+
       return ''
         + '<details class="study-fold" id="study-fold-' + slug + '">'
         + foldSummary
@@ -10171,6 +10303,9 @@
                     + '<p class="muted small">Each row is a precise, testable prediction. Status indicates whether the supporting code is in place today (implemented) or gated on upstream work (gated / stub).</p>'
                     + '<table class="eb"><thead><tr><th>Name</th><th>Prediction</th><th>Status</th><th>Citations</th></tr></thead>'
                     + '<tbody>' + ebRows + '</tbody></table></div>' : '')
+
+        +   v4EmbedsHtml       // Interactive visualizations (embed_visualizations)
+        +   v4ChartsHtml       // Charts / figures from the latest run (framework fix)
 
         +   (variants ? '<div id="' + sidVa + '"><h3>Variants (perturbations to be tested)</h3>' + variants + '</div>' : '')
 
@@ -14625,6 +14760,49 @@
     );
   }
 
+  // Client-side column sort for the Simulations DB table. Purely a rendering
+  // concern on top of the server-ordered (newest-first) _simRows — clicking a
+  // sortable <th> toggles asc/desc and re-runs _applySimFilter, which applies
+  // _sortSimRows to the filtered rows before rendering.
+  let _simSortState = { key: null, dir: 'desc' };
+
+  function _simSortValue(row, key) {
+    if (key === 'time') return row.completed_at || row.started_at || 0;
+    if (key === 'emitter_type') return (row.emitter_type || '').toLowerCase();
+    if (key === 'origin') return (row.remote_origin || 'local').toLowerCase();
+    if (key === 'study') return (row.study_slug || '').toLowerCase();
+    if (key === 'investigation') return (row.investigation_slug || '').toLowerCase();
+    if (key === 'run') return (row.label || row.run_id || '').toLowerCase();
+    if (key === 'status') return (row.status || '').toLowerCase();
+    return '';
+  }
+
+  function _sortSimRows(rows, key, dir) {
+    if (!key) return rows;
+    const s = rows.slice().sort(function (a, b) {
+      var va = _simSortValue(a, key), vb = _simSortValue(b, key);
+      if (va < vb) return -1;
+      if (va > vb) return 1;
+      return 0;
+    });
+    return dir === 'desc' ? s.reverse() : s;
+  }
+
+  function _onSimHeaderClick(th) {
+    var key = th.getAttribute('data-sort-key');
+    if (!key) return;
+    if (_simSortState.key === key) {
+      _simSortState.dir = _simSortState.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      _simSortState = { key: key, dir: 'asc' };
+    }
+    document.querySelectorAll('#page-simulations th[data-sort-key]')
+      .forEach(function (h) { h.removeAttribute('data-sort-dir'); });
+    th.setAttribute('data-sort-dir', _simSortState.dir);   // CSS ::after renders ▲/▼
+    _applySimFilter();
+  }
+  window._onSimHeaderClick = _onSimHeaderClick;
+
   // Populate the Study + Emitter dropdowns from the data (preserving any
   // current selection), then render rows through the active filters.
   function _applySimFilter() {
@@ -14643,6 +14821,8 @@
       if (emitterVal && (r.emitter_type || 'SQLite') !== emitterVal) return false;
       return true;
     });
+
+    visible = _sortSimRows(visible, _simSortState.key, _simSortState.dir);
 
     var tbody = document.getElementById('sim-tbody');
     var table = document.getElementById('sim-table');
@@ -15052,12 +15232,12 @@
 
     function tick() {
       Promise.all([
-        fetch('/api/composite-run/' + encodeURIComponent(run_id) + '/status')
+        fetch(_api('/api/composite-run/' + encodeURIComponent(run_id) + '/status'))
           .then(function(r) {
             if (r.status === 404) return { _gone: true };
             return r.json();
           }),
-        fetch('/api/composite-run/' + encodeURIComponent(run_id))
+        fetch(_api('/api/composite-run/' + encodeURIComponent(run_id)))
           .then(function(r) { return r.ok ? r.json() : { trajectory: [] }; })
           .catch(function() { return { trajectory: [] }; }),
       ]).then(function(parts) {
@@ -15397,9 +15577,13 @@
           .then(function (j) { return j.entries || []; })
           .catch(function () { return []; });
         var chartFetches = (iset.studies || []).map(function (s) {
-          return fetch('/api/study-charts/' + encodeURIComponent(s.name))
-            .then(function (r) { return r.ok ? r.json() : {charts: []}; })
-            .then(function (j) { return {name: s.name, charts: j.charts || []}; })
+          // Via DataSource so snapshot mode reads api/study-charts/<slug>.json at
+          // the bundle basePath; raw fetch would 404 on a hosted read-only site.
+          return ((window.DataSource && window.DataSource.loadStudyCharts)
+            ? window.DataSource.loadStudyCharts(s.name)
+            : fetch('/api/study-charts/' + encodeURIComponent(s.name))
+                .then(function (r) { return r.ok ? r.json() : {charts: []}; }))
+            .then(function (j) { return {name: s.name, charts: (j && j.charts) || []}; })
             .catch(function () { return {name: s.name, charts: []}; });
         });
         var ghRepoFetch = fetch('/api/github-repo')
@@ -15415,7 +15599,33 @@
           .then(function (arr) {
             var chartsByStudy = {};
             arr[2].forEach(function (c) { chartsByStudy[c.name] = c.charts; });
-            return _buildInvestigationReportHtml(iset, arr[0], arr[1], chartsByStudy, undefined, null, arr[3], undefined, undefined, arr[4]);
+            // Fetch each study's embed_visualizations HTML and inline it so the
+            // generated report carries the interactive figures (Plotly hover/
+            // zoom/legend) offline, not just the static charts. The publisher
+            // basePath-prefixes embed.url, so a plain fetch resolves in a hosted
+            // snapshot too; in local mode it hits the same-origin /workspace path.
+            var specs = arr[0];
+            var embedFetches = specs.map(function (spec) {
+              var embeds = (spec && spec.embed_visualizations) || [];
+              var perStudy = embeds.map(function (embed) {
+                if (!embed || !embed.url) return Promise.resolve(null);
+                return fetch(embed.url, {headers: {Accept: 'text/html'}})
+                  .then(function (r) { return r.ok ? r.text() : null; })
+                  .then(function (text) {
+                    return text ? {name: embed.name || '', description: embed.description || '',
+                                   url: embed.url, html: text, stale: embed.stale === true} : null;
+                  })
+                  .catch(function () { return null; });
+              });
+              return Promise.all(perStudy).then(function (results) {
+                return {name: spec && spec.name, embeds: results.filter(Boolean)};
+              });
+            });
+            return Promise.all(embedFetches).then(function (embedResults) {
+              var embedsByStudy = {};
+              embedResults.forEach(function (e) { if (e && e.name) embedsByStudy[e.name] = e.embeds; });
+              return _buildInvestigationReportHtml(iset, specs, arr[1], chartsByStudy, embedsByStudy, null, arr[3], undefined, undefined, arr[4]);
+            });
           });
       });
   }

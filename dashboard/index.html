@@ -578,11 +578,11 @@ window.addEventListener('pageshow', function (e) {
   <div class="viv-main">
 
     <!-- Read-only snapshot banner — hidden in local mode; shown when body.snapshot is set.
-         The link points at the vivarium-dashboard repo (clone + `vivarium-dashboard
-         serve` to run the full interactive dashboard locally); there is no hosted
+         The link points at the vivarium-workbench repo (clone + `vivarium-workbench
+         serve` to run the full interactive workbench locally); there is no hosted
          interactive version. -->
     <div id="snapshot-banner">
-      <span>Read-only snapshot &mdash; run the dashboard locally for the full interactive version.</span>
+      <span>Read-only snapshot &mdash; run the workbench locally for the full interactive version.</span>
       <a id="snapshot-interactive-link"
          href="https://github.com/vivarium-collective/vivarium-workbench#readme"
          target="_blank" rel="noopener">Get vivarium-workbench on GitHub →</a>
@@ -1144,17 +1144,23 @@ window.addEventListener('pageshow', function (e) {
     No simulation runs found.
   </div>
 
+  <style>
+    #sim-table th[data-sort-key]:hover { background:#e5e7eb; }
+    #sim-table th[data-sort-dir="asc"]::after { content:" \25B2"; }
+    #sim-table th[data-sort-dir="desc"]::after { content:" \25BC"; }
+  </style>
+
   <table id="sim-table" style="width:100%; table-layout:fixed; border-collapse: collapse; font-size: 13px; display: none;">
     <thead>
       <tr style="background:#f3f4f6;">
-        <th style="text-align:left; padding:6px 8px; width:130px;">Investigation</th>
-        <th style="text-align:left; padding:6px 8px; width:130px;">Study</th>
-        <th style="text-align:left; padding:6px 8px;">Run</th>
+        <th data-sort-key="investigation" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:130px; cursor:pointer;">Investigation</th>
+        <th data-sort-key="study" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:130px; cursor:pointer;">Study</th>
+        <th data-sort-key="run" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; cursor:pointer;">Run</th>
         <th style="text-align:left; padding:6px 8px; width:150px;">Location</th>
-        <th style="text-align:left; padding:6px 8px; width:90px;">Origin</th>
-        <th style="text-align:left; padding:6px 8px; width:80px;">Emitter</th>
-        <th style="text-align:left; padding:6px 8px; width:104px;">Time</th>
-        <th style="text-align:left; padding:6px 8px; width:84px;">Status</th>
+        <th data-sort-key="origin" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:90px; cursor:pointer;">Origin</th>
+        <th data-sort-key="emitter_type" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:80px; cursor:pointer;">Emitter</th>
+        <th data-sort-key="time" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:104px; cursor:pointer;">Time</th>
+        <th data-sort-key="status" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:84px; cursor:pointer;">Status</th>
         <th style="text-align:center; padding:6px 8px; width:158px;">Actions</th>
       </tr>
     </thead>
@@ -1272,6 +1278,20 @@ window.addEventListener('pageshow', function (e) {
       <p id="ce-description" class="muted"></p>
       <p><strong>ID:</strong> <code id="ce-id"></code></p>
       <p><strong>Module:</strong> <code id="ce-module"></code> <span id="ce-kind" class="kind-badge"></span></p>
+    </div>
+
+    <!-- Characterization: what this composite EMITS + what it COSTS. The Composites
+         tab characterizes a composite so you know how to use it in a study — it is
+         not a production launcher. Outputs come from GET /api/observables; the
+         measured wall-time comes from the last completed run's runs_meta timing
+         (started_at/completed_at), keyed by the current param-signature. -->
+    <div class="panel" id="ce-characterization">
+      <h4 style="margin-top:0">Characterization</h4>
+      <p style="margin:2px 0"><strong>Est. wall-time:</strong> <span id="ce-walltime" class="muted">unknown (no run yet)</span></p>
+      <div style="margin-top:8px">
+        <strong>Outputs / observables</strong>
+        <div id="ce-outputs" class="muted" style="margin-top:4px">Loading…</div>
+      </div>
     </div>
 
     <!-- Loom explorer: bigraph-loom iframe (Setup & Run tab lives inside) -->

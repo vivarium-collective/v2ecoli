@@ -23,20 +23,28 @@ def _run_engines(spec, out: str, mode: str) -> None:
     --max-steps as a TOTAL across gens; vEcoli interprets it PER-generation."""
     out_c = f"{out}/{spec.name}"
     ref_sd = f"{spec.ve_cache}/simData.cPickle"
-    v2_cap = str(spec.gens * PER_GEN_STEPS)
+    per_gen = spec.max_steps_per_gen        # study-overridable (default 15000)
+    v2_cap = str(spec.gens * per_gen)
+    # A study may drive a process swap on BOTH engines from a fork-relative vEcoli
+    # config (e.g. metabolism_redux): the v2 side convert+injects it, the vecoli
+    # side applies it natively via EcoliSim. "" = plain baseline comparison.
+    swap_flags = (["--from-vecoli-config", spec.from_vecoli_config]
+                  if spec.from_vecoli_config else [])
     subprocess.run([PY, "scripts/run_comparison_ensemble.py",
                     "--composite", "v2ecoli", "--condition", spec.condition,
                     "--cache-dir", spec.v2_cache, "--n-seeds", str(spec.seeds),
                     "--max-generations", str(spec.gens), "--max-steps", v2_cap,
                     "--chunk", "60", "--mode", mode,
                     "--match-initial-state", "--match-vecoli-simdata", ref_sd,
+                    *swap_flags,
                     "--out-root", out_c], cwd=REPO, check=True)
     subprocess.run([PY, "scripts/run_comparison_ensemble.py",
                     "--composite", "vecoli", "--condition", spec.condition,
                     "--cache-dir", spec.ve_cache, "--n-seeds", str(spec.seeds),
                     "--max-generations", str(spec.gens), "--max-steps",
-                    str(PER_GEN_STEPS), "--chunk", "60", "--mode", mode,
+                    str(per_gen), "--chunk", "60", "--mode", mode,
                     "--vecoli-source", "vivarium-process",
+                    *swap_flags,
                     "--out-root", out_c], cwd=REPO, check=True)
 
 

@@ -19,6 +19,7 @@ comparison:
 studies:
 - parca
 - basal
+- metabolism_redux
 - with_aa
 - succinate
 - no_oxygen

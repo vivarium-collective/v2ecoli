@@ -1,0 +1,84 @@
+schema_version: 4
+name: metabolism_redux
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli with MetabolismRedux (basal, short-horizon)
+condition: basal
+question: Does v2ecoli reproduce vEcoli on basal when both engines swap FBA Metabolism
+  for MetabolismRedux?
+comparison:
+  seeds: 1
+  generations: 1
+  # MetabolismRedux solves an LP per tick (far slower than FBA), so this is a
+  # short-horizon comparison (first ~300 s of basal) rather than a full 4-gen run.
+  max_steps_per_gen: 300
+# Fork-relative vEcoli config that swaps ecoli-metabolism -> ecoli-metabolism-redux
+# on BOTH engines (vEcoli applies it natively; the v2ecoli side convert+injects it).
+from_vecoli_config: configs/metabolism_redux_basal.json
+report_cards:
+- viz/report_card/config.html
+- viz/report_card/standard.html
+pipeline_gate:
+  prerequisites:
+  - parca
+  enables: []
+runs:
+- name: metabolism_redux-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study metabolism_redux (both engines on MetabolismRedux)
+  status: pending
+status: build
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli's MetabolismRedux config on basal (config
+    card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli's MetabolismRedux dynamics on basal (standard
+    card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux
+    group: standard
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      condition: basal
+      swap: ecoli-metabolism-redux
+depends_on:
+- parca
+confidence: Investigating
+findings:
+- id: metabolism_redux-perf-blocker
+  kind: methodological
+  status: blocked
+  statement: BLOCKED on a runtime issue, not wiring. Both engines correctly swap FBA
+    Metabolism -> MetabolismRedux (vEcoli native via EcoliSim; v2ecoli via convert+inject
+    bridge). The v2-side run is fast on tick 1 (~1.3 s) but degrades to 25-45 s/tick from
+    tick 2 on, making even a 300-step run impractical (~a day for a full 2-gen run).
+  evidence:
+    from_card: standard
+    observed: 'Profiled root cause (systematic): the slowdown is LSODA inside
+      two_component_system/equilibrium, which recurse (dt/2 + solver retries) on negative
+      concentrations. RULED OUT with evidence: (1) bridge units are CORRECT — redux reads
+      cell_mass=1269 fg, boundary.external[GLC]=11.1 mM, counts_to_molar sane; (2) output_ports
+      over-declaration (tested, no effect); (3) negative bulk counts (a clamp floored counts
+      at 0 and fired 0 times — bulk never goes negative). The negatives are INTERNAL to the
+      ODE integration. PRECISE root cause (traced to the line): TwoComponentSystem is a Step
+      with NO allocator; its update() fallback (two_component_system.py:227, comment "no
+      allocator to protect against this now") re-solves over STEADY_STATE_HORIZON_S=10_000 s
+      with dt/2 recursion (~13 levels) x a 6-solver retry list (_IVP_METHODS) whenever the ODE
+      requests more molecules than available (molecules_required > molecule_counts) — that is
+      the 25-45 s. Tick 1 does 0 solve calls (fallback never fires from the clean matched-init
+      state); after redux''s first update ~20 of the 41 two-component molecules sit at 0 and
+      the redux-modified rates over-consume, so the fallback fires EVERY tick. FBA rarely trips
+      it. Fix paths: (a) run injected redux through the partition/allocator so requests are
+      capped (the real fix); (b) make two-component''s fallback cheap (lower STEADY_STATE_HORIZON_S
+      / trim _IVP_METHODS / cap recursion); (c) redux-specific ParCa so redux starts near its
+      own homeostasis.'

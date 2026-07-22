@@ -509,6 +509,27 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         except Exception as e:  # noqa: BLE001
             print(f"[warn] from-vecoli-config resolve failed: {type(e).__name__} {e}")
 
+    # vEcoli side: resolve the fork config's process SWAP so the genuine vEcoli
+    # run applies it too (e.g. FBA metabolism -> MetabolismRedux). Without this,
+    # --from-vecoli-config would swap only the v2ecoli side (via injected_processes)
+    # and the comparison would confound the engine with the metabolism model.
+    ve_swap_processes: dict | None = None
+    ve_flow: dict | None = None
+    if from_vecoli_config and composite_kind == "vecoli":
+        try:
+            from scripts._compare.config_adapter import resolve_vecoli_config_local
+            fork_dir = vecoli_dir or os.environ.get(
+                "V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
+            resolved_ve = resolve_vecoli_config_local(from_vecoli_config, fork_dir)
+            ve_swap_processes = resolved_ve.get("swap_processes") or None
+            ve_flow = resolved_ve.get("flow") or None
+            if ve_swap_processes:
+                print(f"[from-vecoli-config] vecoli side applies swap_processes="
+                      f"{ve_swap_processes}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] vecoli from-vecoli-config swap resolve failed: "
+                  f"{type(e).__name__} {e}")
+
     # Legacy opt-in: translate the vEcoli config into baseline overrides ONCE
     # (only when --from-vecoli-config did not already populate them).
     if (composite_kind == "v2ecoli" and translate_config and vecoli_config
@@ -542,6 +563,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 store_path=store_path, sim_data_path=sim_data_path, condition=condition,
                 seed=seed, max_generations=max_generations, max_steps_per_gen=max_steps,
                 chunk=chunk, exclude_processes=["monomer_counts_listener"],
+                swap_processes=ve_swap_processes, flow=ve_flow,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
                 variant=0, lineage_seed=seed)

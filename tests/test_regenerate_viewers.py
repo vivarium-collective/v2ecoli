@@ -2,6 +2,13 @@ import json
 from pathlib import Path
 import importlib.util
 
+import pytest
+
+# regenerate_viewers.py resolves composites via vivarium_workbench, which the
+# fast-tests CI job omits (--no-install-package vivarium-workbench). Skip the
+# whole module when it is absent instead of failing on ModuleNotFoundError.
+pytest.importorskip("vivarium_workbench")
+
 SCRIPT = Path(__file__).parent.parent / "scripts" / "regenerate_viewers.py"
 
 def _load_mod():

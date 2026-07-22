@@ -3,6 +3,11 @@
 <meta charset="UTF-8"><title>v2ecoli</title>
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/snapshot-readonly.css">
+<!-- Per-tab session identity (session-per-tab). Loaded FIRST, as a classic
+     blocking script, so the window.fetch override is in place before any other
+     script or inline fetch runs — every same-origin request then carries this
+     tab's X-VW-Session header. -->
+<script src="/v2ecoli/dashboard/assets/session.js"></script>
 <script>
 // Per-workspace branding (rail logo, title, brand text) is resolved
 // server-side at GET / and is NOT re-applied by any client script. The
@@ -727,15 +732,13 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: STUDIES ===== -->
 <section id="page-investigations" class="page" data-page="investigations">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <h2 class="page-title" style="margin:0">Investigations</h2>
+  <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px">
     <div style="display:flex;gap:8px;align-items:center">
       <input id="investigations-filter" type="search" placeholder="Filter investigations…"
              aria-label="Filter investigations" oninput="_filterInvestigations()"
              style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;min-width:220px">
     </div>
   </div>
-  <p class="page-lead" id="investigation-page-lead">Select an investigation to open its study graph.</p>
 
   <!-- List view: grouped investigation cards (Active / Closed). The grid lives on
        the per-group .investigations-grid wrappers built by _renderInvestigationSets. -->

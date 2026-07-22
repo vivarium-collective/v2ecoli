@@ -70,10 +70,15 @@ findings:
       cell_mass=1269 fg, boundary.external[GLC]=11.1 mM, counts_to_molar sane; (2) output_ports
       over-declaration (tested, no effect); (3) negative bulk counts (a clamp floored counts
       at 0 and fired 0 times — bulk never goes negative). The negatives are INTERNAL to the
-      ODE integration. Conclusion: injecting MetabolismRedux perturbs the metabolic state
-      enough that the FBA-tuned downstream signaling ODEs (two-component, equilibrium) go
-      stiff from tick 2 on. Likely lead: redux runs against an FBA-fit initial state (not a
-      redux-fit ParCa), producing a transient the FBA-tuned ODEs cannot integrate cheaply.
-      This is an architecture-level dynamics mismatch, not a config/bridge bug. Fix paths:
-      redux-specific ParCa; redux-appropriate ODE tolerances/step caps; or full
-      partition/allocator integration instead of raw injection.'
+      ODE integration. PRECISE root cause (traced to the line): TwoComponentSystem is a Step
+      with NO allocator; its update() fallback (two_component_system.py:227, comment "no
+      allocator to protect against this now") re-solves over STEADY_STATE_HORIZON_S=10_000 s
+      with dt/2 recursion (~13 levels) x a 6-solver retry list (_IVP_METHODS) whenever the ODE
+      requests more molecules than available (molecules_required > molecule_counts) — that is
+      the 25-45 s. Tick 1 does 0 solve calls (fallback never fires from the clean matched-init
+      state); after redux''s first update ~20 of the 41 two-component molecules sit at 0 and
+      the redux-modified rates over-consume, so the fallback fires EVERY tick. FBA rarely trips
+      it. Fix paths: (a) run injected redux through the partition/allocator so requests are
+      capped (the real fix); (b) make two-component''s fallback cheap (lower STEADY_STATE_HORIZON_S
+      / trim _IVP_METHODS / cap recursion); (c) redux-specific ParCa so redux starts near its
+      own homeostasis.'

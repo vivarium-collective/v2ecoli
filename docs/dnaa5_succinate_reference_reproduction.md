@@ -5,7 +5,7 @@ the `dnaa5_stepped_adair_100_100_50_10_3_3_3_3_unlock60_sustain1_seed{1,4}_12gen
 lineages summarised in
 `dnaa5_stepped_adair_100_100_50_10_3_3_3_3_unlock60_sustain1_seeds1and4_report.pdf`.
 
-Pinned to commit `b577de4b` on `feat/aim2-dnaa-oric`.
+Pinned to commit `b577de4b` on `feat/aim2-dnaa-oric-box-binding`.
 
 ---
 

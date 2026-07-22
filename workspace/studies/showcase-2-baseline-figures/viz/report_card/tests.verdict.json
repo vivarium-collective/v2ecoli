@@ -1,0 +1,55 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.doubling_time_in_band",
+     "label": "doubling-time-in-band",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [35, 55]",
+     "detail": {
+      "text": "Is the ensemble doubling time within the physiological band for the baseline growth condition?"
+     }
+    },
+    {
+     "id": "tests.mass_fraction_physiological",
+     "label": "mass-fraction-physiological",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [0.4, 0.55]",
+     "detail": {
+      "text": "Are the cell mass fractions (protein / RNA / DNA / etc.) physiological?"
+     }
+    },
+    {
+     "id": "tests.fba_flux_correlates_toya2010",
+     "label": "fba-flux-correlates-toya2010",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "correlates",
+     "detail": {
+      "text": "Do the baseline FBA fluxes correlate with the Toya 2010 measured central-carbon fluxes?"
+     }
+    },
+    {
+     "id": "tests.proteome_correlates_schmidt_wisniewski",
+     "label": "proteome-correlates-schmidt-wisniewski",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "correlates",
+     "detail": {
+      "text": "Does the baseline proteome correlate with the Schmidt 2016 / Wisniewski measured proteome?"
+     }
+    }
+   ]
+  }
+ },
+ "title": "showcase-2-baseline-figures \u2014 default tests"
+}

@@ -4,8 +4,10 @@ investigation: v2ecoli-baseline-showcase   # owning investigation (back-referenc
 title: "v1↔v2 equivalence at scale: a large (16×16) baseline ensemble graded against vEcoli"
 created: '2026-06-12'
 status: in_progress   # legacy back-compat; canonical axes below
+report_card_refs:
+  vs_vecoli: docs/report_cards/v2ecoli-vecoli-comparison/basal_4x4/report_card_verdict.json
 
-# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+# v4 schema (vivarium_workbench.lib.investigations._validate_study_v4_redesign):
 #   REQUIRED top-level: schema_version, name, question, conditions, tests, status
 #   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
 

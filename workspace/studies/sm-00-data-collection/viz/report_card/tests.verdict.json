@@ -1,0 +1,25 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.ensemble_builds_broad_transition_dataset",
+     "label": "ensemble-builds-broad-transition-dataset",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "in [6.0, 6.0]",
+     "detail": {
+      "text": "Does the sampler produce a transition dataset covering all six target\nobservable groups with finite values?\n"
+     }
+    }
+   ]
+  }
+ },
+ "title": "sm-00-data-collection \u2014 default tests"
+}

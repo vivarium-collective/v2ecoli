@@ -21,7 +21,7 @@ links into all three.
 **[→ vivarium-collective.github.io/v2ecoli/dashboard/](https://vivarium-collective.github.io/v2ecoli/dashboard/)**
 
 A **read-only** snapshot of the v2ecoli workspace rendered by the
-[vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard)
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench)
 SPA. Browse:
 
 - **Investigations & studies** — the research questions and the runs that answer
@@ -32,15 +32,15 @@ SPA. Browse:
   `parca`) via the embedded [bigraph-loom](https://github.com/vivarium-collective/bigraph-loom) viewer.
 - **Sources** — the ecoli-sources input bundle, each with a link.
 
-**How it's built.** `vivarium-dashboard-publish` exports the workspace into a
+**How it's built.** `vivarium-workbench-publish` exports the workspace into a
 self-contained static bundle (per-resource JSON + page shells + assets) that any
 static server can host. The `publish-dashboard.yml` workflow rebuilds it from
 `main` and publishes it to `gh-pages:dashboard/`.
 
 > The hosted version is **view-only**. For the full interactive dashboard —
 > authoring investigations, running studies, editing wiring — clone the repo and
-> run `vivarium-dashboard serve` locally (see the
-> [vivarium-dashboard README](https://github.com/vivarium-collective/vivarium-dashboard#readme)).
+> run `vivarium-workbench serve` locally (see the
+> [vivarium-workbench README](https://github.com/vivarium-collective/vivarium-workbench#readme)).
 
 ---
 

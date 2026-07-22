@@ -4,7 +4,7 @@ Mirrors :func:`v2ecoli.library.xarray_run.run_multigen_xarray` for the SQLite
 emitter branch. Workspace-side (v2ecoli) because the daughter-walk rule
 ("first sorted new agent_id after parent disappears") and the
 ``agents/<id>/`` lineage convention are biological/v2ecoli choices, not
-framework contracts — keeping them out of vivarium-dashboard avoids the
+framework contracts — keeping them out of vivarium-workbench avoids the
 anti-pattern flagged in dashboard PR #104.
 
 **Why external emitter driving (not in-composite injection)**
@@ -266,7 +266,7 @@ def run_multigen_sqlite(
         owns the emitter lifecycle.
       run_id: simulation_id stamp for runs_meta + history rows.
       db_file: path to the sqlite db. Schema is set up by
-        ``vivarium_dashboard.lib.composite_runs.connect``; this runner
+        ``vivarium_workbench.lib.composite_runs.connect``; this runner
         only writes history rows.
       emit_paths: list of dotted/slash paths to capture from the
         followed agent. Optional `agents/<id>/` prefix is stripped.

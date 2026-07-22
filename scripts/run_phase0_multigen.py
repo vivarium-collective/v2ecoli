@@ -3,7 +3,7 @@
 Uses v2ecoli.library.sqlite_run.run_multigen_sqlite to capture per-generation
 listener trajectories. Output: per-seed sqlite db at
 .pbg/runs/phase0-multigen/seed_NN/run.db (queryable via standard sqlite
-tools or vivarium_dashboard.lib.composite_runs).
+tools or vivarium_workbench.lib.composite_runs).
 
 Wall projection from 600-step single-gen baseline (48s wall): for 3 generations
 (~2100 ticks), expect ~3 min wall per replicate. N=4 → ~12 min total serial.

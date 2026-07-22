@@ -16,8 +16,8 @@ expert_review_status: not_requested
 
 # ─── Redesigned-v4 spine ───
 # Top-level question, conditions, and status are required by the
-# vivarium-dashboard "redesigned" v4 validator
-# (vivarium_dashboard/lib/investigations.py::_validate_study_v4_redesign).
+# vivarium-workbench "redesigned" v4 validator
+# (vivarium_workbench/lib/investigations.py::_validate_study_v4_redesign).
 # Their presence flips the loader away from the legacy "v3 + extras"
 # validator (which required `tests:` to be a mapping). Hybrid mirror
 # of the pdmp-* pattern: keep the rich v3 spec body intact + add the

@@ -3,12 +3,12 @@
 PR #69 landed the investigation on main: 7 studies, the 3-arm Beulig comparison
 (WCM-FBA · Millard-kinetic · iML1515-genome-scale) with report cards, mbp-06's
 15-gap synthesis, the Millard ATP fix, and the 7→5 composite consolidation. The
-headline result — a ~3-order batch-scale gap, robust across seeds — is established.
+main result — a ~3-order batch-scale gap holding across seeds — is established.
 
-This PR resumes the work on the documented follow-ups (priority order):
+This PR resumes the documented follow-ups (priority order):
 
-1. **Both-daughters population runner** — the real path past the single-lineage
-   plateau to Beulig-scale biomass. The one item that would move the headline
+1. **Both-daughters population runner** — the path past the single-lineage
+   plateau to Beulig-scale biomass; the one item that would move the main
    result. (mbp-06 axis A, `batch-scale-accumulation-architectural`.)
 2. **Full multi-gen production runs** — fix the `run_multigen_sqlite` dir bug
    (`.pbg/parquet-runs/default/history/` not created → WCM truncates at gen 2),

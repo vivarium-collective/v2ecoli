@@ -17,7 +17,7 @@ how vEcoli locks listener types via USE_UINT16/USE_UINT32) — that's a
 known iteration step the user must do per composite until the
 listener-dtype-override list is exhaustive. Tracking as a follow-up.
 
-**Dashboard interop note.** Until the vivarium-dashboard parquet-reader
+**Dashboard interop note.** Until the vivarium-workbench parquet-reader
 PR lands, the dashboard's auto-discovery of default-baseline charts
 still reads ``runs.db`` (sqlite) — so do NOT remove
 ``run_default_baseline.py`` yet. After the dashboard PR merges, the

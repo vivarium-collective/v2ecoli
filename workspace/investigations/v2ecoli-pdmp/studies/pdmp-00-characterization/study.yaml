@@ -3,14 +3,11 @@ name: pdmp-00-characterization
 investigation: v2ecoli-pdmp
 title: Phase 0 — Characterization and Interface Extraction
 claim: |
-  v2ecoli's `seed` parameter only seeded the allocator, so multi-seed ensembles were bit-identical;
-  fixing per-process RNG seeding (crc32(process_name, master_seed)) makes trajectories genuinely
-  diverge — confirmed on a fresh N=6 × 250 model-second M9-glucose PILOT ensemble (.pbg/runs/phase0-traj/,
-  ATP[c] CV ≈ 0.029% across seeds), and tests/test_seed_diversity.py passes on the merged branch so the
-  RNG-diversity result survives the main-merge. The canonical 192-run reference ensemble (3 conditions ×
-  N=64, 600 s) is NOT committed in this checkout — it is being RE-RUN; the cross-condition ATP ratios
-  (glucose:acetate 3.85×, +aa:glucose 1.97×) reported earlier await the re-run before they can be
-  re-asserted as the Markov-blanket validation standard.
+  Fixing per-process RNG seeding (crc32(process_name, master_seed)) makes multi-seed ensembles genuinely
+  diverge — v2ecoli's bare `seed` only seeded the allocator, so ensembles were bit-identical (confirmed on
+  an N=6 × 250 model-second M9-glucose pilot, .pbg/runs/phase0-traj/, ATP[c] CV ≈ 0.029%;
+  tests/test_seed_diversity.py passes). The canonical 192-run reference ensemble (3 conditions × N=64, 600 s)
+  is not committed in this checkout and is being re-run.
 confidence: Investigating
 status: running
 phase: Decide
@@ -27,146 +24,43 @@ tags:
 - zarr
 - multi-gen
 created: '2026-05-24'
-question: 'What is the Markov blanket of every major v2ecoli subprocess
-
-  (metabolism, transcription, translation, replication, division,
-
-  membrane), and how should every WCM state variable be categorized
-
-  (ODE-amenable, stochastic discrete, teleonomic, or coupling
-
-  artifact) so that subsequent phases have a typed interface
-
-  contract to validate against?
-
-  '
-hypothesis: 'Each major v2ecoli subprocess has a well-defined Markov blanket
-
-  that can be expressed as a typed Process Bigraph interface schema,
-
-  and per-step compute time is dominated by marshalling overhead
-
-  (nested-dict state traversal, type-coercion between stores and
-
-  process internals) rather than essential biological computation —
-
-  motivating the column-centric runtime refactor in Phase 4.
-
-  '
-objective: 'Run v2ecoli in diagnostic mode under ≥3 environmental conditions
-
-  (M9-glucose, M9-acetate, M9-glucose+amino-acid supplementation),
-
-  categorize every state variable, extract typed PB interface schemas
-
-  for each major subprocess, deploy the Xarray-format emitter to
-
-  record full interface time-series, and profile per-step compute to
-
-  separate marshalling overhead from essential computation.'
-description: 'Phase 0 of the v2ecoli → PDMP roadmap. The deliverables of this
-
-  study become the validation standard for every subsequent phase:
-
-  a replacement subprocess (Phase 1 ODE metabolism, Phase 2 jump
-
-  transcription, etc.) is accepted when its interface statistics
-
-  match the Phase 0 reference Xarray dataset within tolerance.
-
-
-  No biological mechanism is changed in this study — v2ecoli is run
-
-  as-is. The artefacts produced are (a) the typed interface schema
-
-  library, (b) the reference Xarray datasets across the ≥3 chosen
-
-  conditions, and (c) the per-step profiling report.
-
-
-  Conditions are not yet locked; tentative set: aerobic M9 + glucose
-
-  (the canonical reference), aerobic M9 + acetate (slower growth,
-
-  gluconeogenic flux), aerobic M9 + glucose + amino-acid mix (faster
-
-  growth, partial relief on translation). The DUF report Sec. 4.1.1
-
-  notes "approximately a dozen environmental conditions" exist in
-
-  the current WCM; we sample three that span the metabolic regime.
-
-
-  # Numerical considerations
-
-  The reference Xarray datasets are not single trajectories — they
-
-  are *ensembles*. For each (condition, seed) pair we run N=64
-
-  independent stochastic replicates (justification: the standard
-
-  error of an estimated mean falls as σ/√N ≈ σ/8 = 12.5% of σ, fine
-
-  enough to set a Wasserstein-2 tolerance band that downstream
-
-  phases can target without overfitting to MC noise). Replicate
-
-  count revisited after running pilot N=8 batches and measuring
-
-  per-observable variance — N is increased per-observable if MCSE
-
-  exceeds 10% of the inter-condition effect size.
-
-
-  Per-step compute profiling reports mean ± std over ≥1000 step
-
-  samples per condition (not single measurements), with separate
-
-  buckets for: (i) FBA LP solve time (`wholecell.utils.modular_fba`, glpk-linear), (ii) stochastic-draw RNG
-
-  cost, (iii) store↔process marshalling, (iv) topology traversal,
-
-  (v) emitter I/O. A bootstrap 95% CI on each bucket isolates
-
-  signal from machine jitter.
-
-
-  Variable categorization is recorded with a *numerical-sensitivity
-
-  tier* per variable: ODE-amenable variables carry an estimated
-
-  contribution to the Jacobian spectral radius (rough stiffness
-
-  signal); stochastic-discrete variables carry an empirical
-
-  per-step coefficient of variation; coupling-artifact variables
-
-  carry a coupling-strength index (the L∞ norm of the partial
-
-  derivatives across the artificial boundary).
-
-
-  # Emitter
-
-  All runs use **XArrayEmitter** (workspace default on this branch;
-
-  wired in dashboard via PR #70). The reference dataset is a
-
-  zarr store per (condition, replicate, generation) tuple, opened
-
-  downstream via xarray.open_zarr() with explicit chunking on the
-
-  time axis so Phase 1+ phases can stream-compare distributions
-
-  without loading the whole ensemble into memory. max_generations
-
-  in workspace.yaml is set to 8 (covers the multi-generation
-
-  lineage statistics that division-time / inheritance-distribution
-
-  validation in Phase 2 will consume).
-
-  '
+question: 'What is the Markov blanket of every major v2ecoli subprocess (metabolism, transcription,
+  translation, replication, division, membrane), and how should every WCM state variable be categorized
+  (ODE-amenable, stochastic discrete, teleonomic, or coupling artifact) so that subsequent phases have a
+  typed interface contract to validate against?'
+hypothesis: 'Each major v2ecoli subprocess has a well-defined Markov blanket expressible as a typed Process
+  Bigraph interface schema, and per-step compute time is dominated by marshalling overhead (nested-dict state
+  traversal, type-coercion between stores and process internals) rather than essential biological computation
+  — motivating the column-centric runtime refactor in Phase 4.'
+objective: 'Run v2ecoli in diagnostic mode under ≥3 environmental conditions (M9-glucose, M9-acetate,
+  M9-glucose+amino-acid supplementation), categorize every state variable, extract typed PB interface schemas
+  for each major subprocess, deploy the Xarray-format emitter to record full interface time-series, and
+  profile per-step compute to separate marshalling overhead from essential computation.'
+description: |
+  Phase 0 of the v2ecoli → PDMP roadmap; its deliverables become the validation standard for every later
+  phase (a replacement subprocess is accepted when its interface statistics match the Phase 0 reference
+  Xarray dataset within tolerance). No biology is changed — v2ecoli runs as-is; the artefacts are the typed
+  interface schema library, the reference Xarray datasets across the ≥3 conditions, and the per-step
+  profiling report.
+
+  Conditions (tentative, spanning the metabolic regime the DUF report Sec. 4.1.1 notes has "approximately a
+  dozen"): aerobic M9 + glucose (canonical reference), M9 + acetate (slower growth, gluconeogenic flux), and
+  M9 + glucose + amino-acid mix (faster growth, partial relief on translation).
+
+  The reference datasets are ensembles, not single trajectories: N=64 independent stochastic replicates per
+  (condition, seed) put the standard error of the mean at σ/√N ≈ σ/8 = 12.5% of σ, enough to set a
+  Wasserstein-2 tolerance band without overfitting to MC noise; N is revisited after pilot N=8 batches and
+  raised per-observable if MCSE exceeds 10% of the inter-condition effect size. Per-step compute is profiled
+  as mean ± std over ≥1000 step samples (bootstrap 95% CI) into five buckets: FBA LP solve
+  (`wholecell.utils.modular_fba`, glpk-linear), RNG draws, store↔process marshalling, topology traversal, and
+  emitter I/O. Each categorized variable carries a numerical-sensitivity tier — Jacobian spectral-radius
+  contribution (ODE-amenable), per-step CV (stochastic-discrete), or coupling-strength L∞ norm
+  (coupling-artifact).
+
+  All runs use XArrayEmitter (workspace default; wired in the dashboard via PR #70); the reference dataset is
+  a zarr store per (condition, replicate, generation) opened downstream via xarray.open_zarr() with time-axis
+  chunking, and max_generations in workspace.yaml is set to 8 to cover the multi-generation lineage
+  statistics Phase 2 will consume.
 expected_behavior:
 - name: variables-categorized
   en: Every state variable in the WCM's process internals + stores is labelled ODE-amenable / stochastic-discrete / teleonomic
@@ -316,7 +210,7 @@ runs:
     snapshot_stride_s: 5
   summary: 'Real Phase-0 reference ensemble: N=32 × 600 s × 3 conditions (96 runs), 2026-06-11, Ray fan-out
     (sequential for +aa). Endpoint cell/dry mass ordered by doubling time (glucose+aa > glucose > acetate);
-    cross-seed CV 0.1–1.3%. HONEST SCOPE: N=32, NOT the N≥64 canonical gating target; raw per-seed stores
+    cross-seed CV 0.1–1.3%. Scope: N=32, not the N≥64 canonical gating target; raw per-seed stores
     gitignored, committed artifacts = provenance JSON + figures. See phase0_ensemble_provenance.json.'
   outcomes:
     growth-rate-condition-monotone:
@@ -329,9 +223,9 @@ runs:
         bit-identical. tests/test_seed_diversity.py passes. The per-process RNG-seeding degeneracy is fixed.'
     reference-ensemble-N64:
       result: FAIL
-      note: 'Gating criterion NOT met: only N=32 per condition ran (provenance: "Do NOT cite as N=64");
+      note: 'Gating criterion not met: only N=32 per condition ran (provenance: "Do NOT cite as N=64");
         the N≥64 ensemble + MCSE-vs-effect-size ratio was not produced. This is the study''s gate and it
-        is unmet — verdict kept honest at in_progress, not passed.'
+        is unmet; verdict kept at in_progress, not passed.'
     markov-blanket-covers-all-major-processes:
       result: SKIP
       note: 'Design deliverable not produced: the typed PB interface schemas for the 6 subprocesses are a
@@ -347,14 +241,12 @@ bibliography:
   - birch2014
   - stumpf2021
 report:
-  main_insight: Phase 0 produces the Markov-blanket reference dataset that gates every later phase — a Phase-N replacement
+  main_insight: Phase 0 produces the Markov-blanket reference dataset that gates every later phase. A Phase-N replacement
     subprocess is only accepted when its interface statistics match the Phase 0 zarr ensemble within tolerance.
-  caveat: 'Pre-execution scaffold. The acceptance bands cited in this study (W₂ ratio < 0.05, stiffness
-    κ > 10⁴, MCSE < 10% of inter-condition effect size, the ±σ / |z|≤2 operationalization) are currently
-    ad-hoc and uncited — provenance pending; none is asserted as met. Concrete tolerance bands will be
-    fitted from the N≥64 replicate runs once the diagnostic harness lands and the canonical reference is
-    committed.'
-  conclusion: Predicted — every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, teleonomic, or
+  caveat: 'Pre-execution scaffold: the acceptance bands (W₂ ratio < 0.05, stiffness κ > 10⁴, MCSE < 10% of
+    inter-condition effect size, ±σ / |z|≤2) are ad-hoc, uncited, and none asserted as met; concrete bands
+    will be fitted from the N≥64 runs once the diagnostic harness lands and the canonical reference is committed.'
+  conclusion: Predicted; every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, teleonomic, or
     coupling-artifact; per-step compute will decompose into measurable marshalling vs. essential buckets across ≥3 conditions.
   confidence: design-stage
   evidence_quality: bootstrap-run-confirmed
@@ -448,15 +340,15 @@ readouts:
   status: running
   path: studies/pdmp-00-characterization/phase0_ensemble_provenance.json
   units: per-seed endpoint JSON + per-tick listener trajectory JSON (raw stores gitignored; committed run log = provenance JSON)
-  notes: 'COMMITTED RUN LOG: phase0_ensemble_provenance.json records the real N=32 × 600 s, 3-condition
-    (M9-glucose / M9-acetate / M9-glucose+aa) Phase-0 ensemble — 96 runs total, 2026-06-11, Ray fan-out
+  notes: 'Committed run log: phase0_ensemble_provenance.json records the real N=32 × 600 s, 3-condition
+    (M9-glucose / M9-acetate / M9-glucose+aa) Phase-0 ensemble: 96 runs total, 2026-06-11, Ray fan-out
     (sequential for +aa to dodge a parquet-emitter makedirs race). Endpoint cell/dry mass ordered by
     doubling time as expected (glucose+aa 25 min > glucose 44 min > acetate 136 min); cross-seed CV
     0.1–1.3%; per-process RNG-seeding fix gives distinct-but-tight replicates (not bit-identical).
-    HONEST SCOPE: N=32 per condition, NOT the N=64 canonical target (the provenance explicitly says
-    "Do NOT cite as N=64"), so the investigation gating criterion (N≥64) is NOT met. The raw per-seed
+    Scope: N=32 per condition, not the N=64 canonical target (the provenance explicitly says
+    "Do NOT cite as N=64"), so the investigation gating criterion (N≥64) is not met. The raw per-seed
     stores (.pbg/runs/phase0-traj{,-acetate,-with_aa}/seed_*/{summary,trajectory}.json) are gitignored /
-    NOT committed in this checkout; the committed artifacts are this provenance JSON + the phase0_*REAL /
+    not committed in this checkout; the committed artifacts are this provenance JSON + the phase0_*REAL /
     phase0_*AUTO figures. Multi-generation zarr via XArrayEmitter is still pending (composite.run() does
     not auto-attach the emitter; task #39).'
 - name: interface-schemas
@@ -488,9 +380,9 @@ planned_runs:
 - name: fix-per-process-rng-seeding
   status: fixed
   n_steps: (infrastructure fix, no simulation steps)
-  details: 'FIXED 2026-05-24. Per-process RNG seed derivation added in v2ecoli/composites/baseline.py via _derive_process_seed(master_seed,
+  details: 'Fixed 2026-05-24. Per-process RNG seed derivation added in v2ecoli/composites/baseline.py via _derive_process_seed(master_seed,
     base_name) = crc32(process_name, master_seed). Mirrors the pattern already used in v2ecoli/steps/division.py:CellDivision.
-    Verified by tests/test_seed_diversity.py — seed=0 vs seed=1 produces divergent trajectories while per-(seed) reproducibility
+    Verified by tests/test_seed_diversity.py: seed=0 vs seed=1 produces divergent trajectories while per-(seed) reproducibility
     is preserved (test_seed_determinism still passes). Unblocks Phase 0 N≥64 ensemble. Original bug: baseline''s `seed` parameter
     only seeded `allocator_rng` (baseline.py:408); the other 14 stochastic processes (TranscriptInitiation, Metabolism, Complexation,
     etc.) inherited a single cache-derived seed from the ParCa cache, so multi-seed ensembles collapsed to bit-identical trajectories.'
@@ -502,11 +394,11 @@ planned_runs:
   status: running
   n_steps: 600
   details: '3 conditions × N=64 replicates; produces the canonical reference dataset (Gating criterion).
-    RE-RUNNING — the canonical 192-run ensemble is NOT committed in this checkout. Earlier-reported
+    Re-running: the canonical 192-run ensemble is not committed in this checkout. Earlier-reported
     per-condition results (M9-glucose 64/64 ATP CV 0.64%; M9-acetate 64/64 ATP CV 0.87%, 1 seed crashed
     at t=141 on Negative counts_unallocated; M9-glucose+aa 64/64 ATP CV 0.09%) are from a prior
     uncommitted run and await re-run before being re-asserted. What is verified here today is a fresh
-    N=6 × 250 s M9-glucose pilot (ATP[c] CV ≈ 0.029%) — single condition, not the 3×64×600 s reference.
+    N=6 × 250 s M9-glucose pilot (ATP[c] CV ≈ 0.029%), a single condition, not the 3×64×600 s reference.
     Per-condition ParCa caches built via scripts/build_cache.py --media-condition {acetate|with_aa}.
     Multi-generation pass + full XArrayEmitter zarr trajectories deferred to a follow-up
     (composite.run() doesn''t auto-attach the emitter; tracked as task #39).'
@@ -577,10 +469,10 @@ simulation_set:
   status: blocks-ensemble
   base_model: v2ecoli.composites.diagnostic.diagnostic
   duration_steps: (infrastructure fix, no simulation steps)
-  details: 'DISCOVERED 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline''s `seed` parameter only seeds `allocator_rng`
+  details: 'Discovered 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline''s `seed` parameter only seeds `allocator_rng`
     (baseline.py:408). All other 55 stochastic processes (transcription, translation, division-threshold, protein-degradation,
     equilibrium, two-component-system, complexation, RNA-maturation, transcript-initiation, polypeptide-initiation, chromosome-replication,
-    tf-binding, tf-unbinding, chromosome-structure) seed from the cached sim_data — shared across runs. Net: 3 seeds → bit-identical
+    tf-binding, tf-unbinding, chromosome-structure) seed from the cached sim_data, shared across runs. Net: 3 seeds produced bit-identical
     trajectories (CV across seeds: 0.000% on every observable). Fix: each stochastic process seeds its RNG from hash(master_seed,
     process_name). Until fixed, Phase 0''s N≥64 ensemble target is moot. See reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
     for the diagnostic.'
@@ -641,7 +533,7 @@ tests:
 - name: ensemble-rng-seeding-divergence
   classification: primary
   description: Two baseline runs at master_seed=0 and master_seed=1, holding all else equal, produce trajectories whose ATP[c]
-    and dry_mass time series diverge — coefficient of variation across N=4 seeds > 1% at t=100s. Without this property, every
+    and dry_mass time series diverge, with coefficient of variation across N=4 seeds > 1% at t=100s. Without this property, every
     multi-seed ensemble in this investigation is a single trajectory in disguise.
   measure:
     source: scripts/run_phase0_pilot_ensemble.py
@@ -661,7 +553,7 @@ tests:
   description: 'For each of the 3 Phase 0 conditions (M9-glucose, M9-acetate, M9-glucose+aa), an N=64 stochastic ensemble
     × ≥1 generation × 600 model-seconds exists as a zarr store on disk. MCSE on every reported interface observable < 10%
     of the smallest pairwise inter-condition effect size. Gating criterion for the investigation: every downstream phase validates
-    against THIS dataset.'
+    against this dataset.'
   measure:
     source: .pbg/runs/phase0-reference/store.zarr
     observable: interface_dataset
@@ -710,13 +602,13 @@ tests:
   cites: []
   cites_note: 'Engineering heuristic threshold (marshalling > 35% of per-step wall time) motivating the
     Phase-4 column-centric refactor; an internal performance criterion, not a literature-sourced band.
-    No published source exists for this fraction — recorded as an honest provenance gap, not invented.
+    No published source exists for this fraction; recorded as a provenance gap, not invented.
     (A later Phase-4 probe independently measured ~76% framework overhead, but that is internal evidence,
     not a citation.)'
 - name: growth-rate-condition-monotone
   classification: diagnostic
   description: 'Mean growth rate (1/h) ordered across the 3 conditions matches biology: M9+glucose+aa > M9+glucose > M9+acetate.
-    Sanity check that the ParCa condition cache wiring works — if this fails, downstream Phase 1+ comparisons are meaningless.'
+    Sanity check that the ParCa condition cache wiring works; if this fails, downstream Phase 1+ comparisons are meaningless.'
   measure:
     source: .pbg/runs/phase0-reference/store.zarr
     observable: instantaneous_growth_rate
@@ -746,26 +638,26 @@ embed_visualizations:
     downloaded report as iframe srcdoc. Representative single-cell baseline (~14% of one doubling cycle).
 discovery_implications:
   resolved_uncertainties:
-  - 'The per-process RNG-seeding bug — diagnosed via a 3-seed pilot that produced CV 0.000% across seeds
-    — is fixed (each stochastic process seeds from crc32(process_name, master_seed)); multi-seed
+  - 'The per-process RNG-seeding bug (diagnosed via a 3-seed pilot that produced CV 0.000% across seeds)
+    is fixed (each stochastic process seeds from crc32(process_name, master_seed)); multi-seed
     ensembles now diverge (CV > 1% at t=100 s), so every downstream ensemble is a genuine sample, not
     one trajectory in disguise.'
-  - 'A fresh N=6 x 250 model-second M9-glucose PILOT ensemble (.pbg/runs/phase0-traj/) ran successfully
-    on the merged branch with trajectories that genuinely diverge across seeds (ATP[c] CV ~ 0.029%) —
-    a single-condition pilot, explicitly NOT the 3-condition x N=64 x 600 s canonical reference, which
-    is NOT committed in this checkout and is being RE-RUN. Earlier cross-condition ATP ratios
+  - 'A fresh N=6 x 250 model-second M9-glucose pilot ensemble (.pbg/runs/phase0-traj/) ran successfully
+    on the merged branch with trajectories that genuinely diverge across seeds (ATP[c] CV ~ 0.029%);
+    a single-condition pilot, explicitly not the 3-condition x N=64 x 600 s canonical reference, which
+    is not committed in this checkout and is being re-run. Earlier cross-condition ATP ratios
     (glucose:acetate 3.85x, +aa:glucose 1.97x) are from a prior uncommitted run and await the re-run
     before being re-asserted.'
   remaining_uncertainties:
   - 'Multi-generation zarr trajectories via XArrayEmitter are not yet produced (composite.run() does not
-    auto-attach the emitter; task #39) — only single-generation endpoint + per-tick listener JSON exists
+    auto-attach the emitter; task #39); only single-generation endpoint + per-tick listener JSON exists
     today, so the multi-gen lineage statistics Phase 2 needs are missing.'
   - 'The typed PB Markov-blanket interface schemas (6 subprocesses) and the per-step marshalling-vs-
     essential compute profile are specified as planned readouts but not yet emitted as deliverables.'
   alternate_hypotheses:
   - id: essential-compute-dominates
     statement: 'Per-step wall time is dominated by essential biological computation (the FBA LP solve),
-      not by store-process marshalling — which would refute the Phase-4 column-centric motivation.'
+      not by store-process marshalling, which would refute the Phase-4 column-centric motivation.'
     why_plausible: 'The 55-process WCM runs a multi-objective FBA LP every tick, and LP solves are
       classically the expensive step in constraint-based metabolic models.'
     mechanism_elements_affected:
@@ -777,7 +669,7 @@ discovery_implications:
     evidence_for: []
     evidence_against:
     - 'Phase 4 sprint 2 later measured 13,817 isinstance + 4,213 __array_finalize__ calls/tick (76%
-      framework overhead) — marshalling, not the LP, dominates.'
+      framework overhead): marshalling, not the LP, dominates.'
   mechanism_update_proposals:
   - mechanism_node_or_edge: per-process-rng-seeding
     update_type: revise
@@ -820,8 +712,8 @@ findings:
   kind: computational
   status: confirms
   statement: 'A real 3-condition Phase-0 reference ensemble exists (M9-glucose / acetate /
-    +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim. HONEST SCOPE: N=32,
-    NOT the N>=64 canonical gating target, so the investigation gate is NOT met by this ensemble.'
+    +aa, N=32 x 600s each), replacing the previously-uncommitted 192-run claim. Scope: N=32,
+    not the N>=64 canonical gating target, so the investigation gate is not met by this ensemble.'
   evidence:
     from_run: 'phase0-traj{,-acetate,-with_aa} (N=32 x 600s, 96 runs)'
     observed: '96 trajectory runs (N=32 x 3 conditions); cell/dry/water masses finite and ordered by
@@ -832,7 +724,7 @@ findings:
 # --- v4 narrative spine (filled from existing study content; honest, no new results) ---
 runtime:
   notes: 'Bootstrap: 10 steps ~58 s (~6 s/step) via dashboard. Real reference ensemble: N=32 × 600 s ×
-    3 conditions on the Mac mini (12 cores, 64 GB) — M9-glucose 294.9 s, M9-acetate 259.3 s,
+    3 conditions on the Mac mini (12 cores, 64 GB): M9-glucose 294.9 s, M9-acetate 259.3 s,
     M9-glucose+aa 1796 s (sequential to avoid a parquet-emitter makedirs race); Ray fan-out, 2 threads/worker.'
   hardware: Mac mini (darwin, 12 cores, 64 GB)
 assumptions:
@@ -846,7 +738,7 @@ enforced_params:
   value: XArrayEmitter is the workspace default; the committed N=32 ensemble used parquet persistence
 - name: n_steps
   value: 600 model-seconds per replicate (reference ensemble); 10 (bootstrap)
-biological_summary: 'No biology is changed in Phase 0 — v2ecoli (55-process partitioned whole-cell model)
+biological_summary: 'No biology is changed in Phase 0: v2ecoli (55-process partitioned whole-cell model)
   is run as-is to characterise what state each subprocess exchanges. The one biological sanity signal is
   growth-rate ordering across media: glucose+aa (doubling 25 min) > glucose (44 min) > acetate (136 min),
   which the N=32 ensemble reproduces in endpoint cell/dry mass.'
@@ -865,7 +757,7 @@ implementation_requirements:
 - XArrayEmitter wired into composite.run() for multi-generation zarr trajectories (task #39 — still open).
 - Per-condition ParCa caches (built via scripts/build_cache.py --media-condition {acetate|with_aa}).
 - Profiling harness wrapping each process invocation (timeit + tracemalloc) for the per-step compute decomposition (planned).
-design_pivot_required: 'No pivot. The approach holds; the remaining work is execution — reach N≥64,
+design_pivot_required: 'No pivot. The approach holds; the remaining work is execution: reach N≥64,
   emit multi-generation zarr, write the 6 interface schemas, and run the profiling probe.'
 conclusion_verdicts:
 - claim: Per-process RNG seeding fixes the bit-identical-ensemble degeneracy.

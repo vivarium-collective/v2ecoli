@@ -84,7 +84,7 @@ WS_FILE = WS_ROOT / "workspace.yaml"
 
 # Resolve workspace directories via the optional `layout:` map in workspace.yaml
 # (unset keys default to their flat top-level name). Keep in sync with the
-# WorkspacePaths resolver (vivarium_dashboard.lib.workspace_paths).
+# WorkspacePaths resolver (vivarium_workbench.lib.workspace_paths).
 _LAYOUT_DEFAULTS = {
     "studies": "studies", "investigations": "investigations",
     "composites": "composites", "references": "references",

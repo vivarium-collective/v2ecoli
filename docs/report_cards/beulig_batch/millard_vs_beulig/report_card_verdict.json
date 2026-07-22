@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "reactor_bird_coupled_millard",
   "reference_model": "Beulig 2025 WT batch prefix",
-  "generated": "2026-06-15 05:47Z",
+  "generated": "2026-06-18 02:11Z",
   "overall": "mismatch",
   "groups": {
     "growth": {
@@ -12,10 +12,10 @@
           "id": "growth.biomass_gDW_per_L",
           "label": "Biomass (OD x 0.34)",
           "verdict": "mismatch",
-          "value": 0.012688967095342708,
+          "value": 0.012689014944510005,
           "meter": "\u0394 = -12.91 (99.9% rel)",
           "detail": {
-            "rel": 0.999017881803766
+            "rel": 0.9990178781002702
           }
         }
       ]
@@ -27,17 +27,17 @@
           "id": "substrate.GUR",
           "label": "Glucose uptake rate",
           "verdict": "mismatch",
-          "value": 1.5457382832502014,
-          "meter": "\u0394 = -12.9 (89.3% rel)",
+          "value": 0.5026853740447959,
+          "meter": "\u0394 = -13.95 (96.5% rel)",
           "detail": {
-            "rel": 0.893012828823611
+            "rel": 0.9652069908964709
           }
         },
         {
           "id": "substrate.glucose_conc",
           "label": "Glucose concentration (remaining medium)",
           "verdict": "mismatch",
-          "value": 22.199984994522115,
+          "value": 22.19999741865881,
           "meter": "\u0394 = +22.2 (inf% rel)",
           "detail": {
             "rel": Infinity
@@ -52,20 +52,20 @@
           "id": "gas_transfer.OTR",
           "label": "O2 transfer rate (OTR)",
           "verdict": "mismatch",
-          "value": 0.0015661809989378492,
+          "value": 0.00016258079510624523,
           "meter": "\u0394 = -8496 (100.0% rel)",
           "detail": {
-            "rel": 0.9999998156479826
+            "rel": 0.9999999808629415
           }
         },
         {
           "id": "gas_transfer.CTR",
           "label": "CO2 transfer rate (CTR)",
           "verdict": "mismatch",
-          "value": 0.0,
+          "value": 0.00014317006263032497,
           "meter": "\u0394 = -156.8 (100.0% rel)",
           "detail": {
-            "rel": 1.0
+            "rel": 0.9999990870550065
           }
         },
         {
@@ -168,11 +168,6 @@
       ]
     }
   },
-  "scope": "SHORT-RUN SMOKE (5 steps, cells_per_agent=1e+10); NOT the full ~33h Beulig batch production run (follow-up execution). Biological magnitudes are far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
-  "wall_s": 8.2,
-  "charts": [
-    "overlay_growth.png",
-    "overlay_OTR.png",
-    "overlay_CTR.png"
-  ]
+  "scope": "SHORT-RUN SMOKE (2 steps, cells_per_agent=1e+10); NOT the full ~33h Beulig batch production run (follow-up execution). Biological magnitudes are far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
+  "wall_s": 8.6
 }

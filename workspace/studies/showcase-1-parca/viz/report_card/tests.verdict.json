@@ -1,0 +1,45 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "primary": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tests.parca_builds_full_51_conditions",
+     "label": "parca-builds-full-51-conditions",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "==",
+     "detail": {
+      "text": "Does --mode full fit all 51 TF conditions (the full-mode proof, vs ~7 in fast/debug)?"
+     }
+    },
+    {
+     "id": "tests.cache_bundle_complete",
+     "label": "cache-bundle-complete",
+     "verdict": "within_tol",
+     "value": null,
+     "meter": "all_present",
+     "detail": {
+      "text": "Does the cache bundle contain all four artifacts (initial_state.json, sim_data_cache.dill, metadata, cache_version)?"
+     }
+    },
+    {
+     "id": "tests.sim_data_reproduces_parca_comparison",
+     "label": "sim_data-reproduces-parca-comparison",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "matches_reference",
+     "detail": {
+      "text": "Does the rebuilt sim_data reproduce the parca_compare reference?"
+     }
+    }
+   ]
+  }
+ },
+ "title": "showcase-1-parca \u2014 default tests"
+}

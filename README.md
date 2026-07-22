@@ -2,7 +2,7 @@
 
 > **Explore in your browser — no install:**
 > &nbsp;🖥️ **[Interactive dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/)** (browse the whole workspace)
-> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?file=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/ecoli_3d.pack.json)** (interactive whole-cell structural model — opens directly; **"View in VR"** on a Meta Quest)
+> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json)** (interactive whole-cell structural model — switch between a newborn cell and a pre-division cell with two segregated chromosomes; opens directly; **"View in VR"** on a Meta Quest)
 > &nbsp;·&nbsp; 📊 **[Baseline Showcase report](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)** ⭐ (best starting point)
 > &nbsp;·&nbsp; 🗂️ **[Report gallery](https://vivarium-collective.github.io/v2ecoli/)**
 > — see **[Explore v2ecoli](#explore-v2ecoli)** for what each one is.
@@ -27,7 +27,7 @@ Two things follow from that:
 - **The repository is a pbg research workspace.** Alongside the model code live
   **investigations** (a research question) and **studies** (the simulations that
   answer it) — browsable and runnable in the
-  [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard).
+  [vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench).
   Investigations live under `workspace/investigations/` (baseline showcase,
   PDMP, colonies, and more), each publishing a self-contained
   [investigation report](#explore-v2ecoli).
@@ -60,11 +60,11 @@ There are **three** kinds of output, each from a different pipeline.
 **[→ vivarium-collective.github.io/v2ecoli/dashboard/](https://vivarium-collective.github.io/v2ecoli/dashboard/)**
 
 A read-only snapshot of the v2ecoli workspace in the
-[vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard):
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench):
 investigations & studies, the process/type **registry**, navigable **composite**
 wiring graphs (`baseline`, `parca`), and the **sources** bundle. Auto-rebuilt
 from `main` on every push. For the full interactive version (authoring, running
-studies), clone and run `vivarium-dashboard serve` locally.
+studies), clone and run `vivarium-workbench serve` locally.
 
 ### 📊 Investigation reports — *one self-contained report per research question*
 
@@ -76,6 +76,19 @@ then browse the rest from the
 [report gallery](https://vivarium-collective.github.io/v2ecoli/) or interactively
 in the [dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/). Full
 list with research questions: **[docs/reports.md](docs/reports.md#2-investigation-reports-auto-generated)**.
+
+### 🧬 3D whole-cell structural model — *molecular-scale, in your browser*
+
+An interactive **[3D structural model of the *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json)** —
+hundreds of molecular species (ribosomes, RNA polymerase, metabolic enzymes,
+the supercoiled chromosome, flagella) packed at true abundance from a v2ecoli
+cell state. Switch between a **newborn cell** and a **pre-division cell** with
+two segregated chromosomes, toggle/isolate species by functional category, and
+**"View in VR"** on a Meta Quest. Built by the
+**[3d-ecoli](https://github.com/vivarium-collective/3d-ecoli)** workspace — which
+imports v2ecoli (for the molecular state) +
+**[pbg-parsimony](https://github.com/vivarium-collective/pbg-parsimony)** (the
+packing engine) — from the molecular counts of a simulated cell.
 
 ### 🔬 Model viewers & technical reports — *standalone HTML*
 
@@ -102,7 +115,7 @@ full list + how to regenerate each in **[docs/reports.md](docs/reports.md#3-stan
 - [ParCa](#parca)
 - [What changed since vEcoli](#what-changed-since-vecoli)
 - [Performance & validation](#performance--validation)
-- [Known limitations](#known-limitations)
+- [v2ecoli ↔ vEcoli comparison harness](#v2ecoli--vecoli-comparison-harness)
 - [Repository layout](#repository-layout)
 - [Dependencies & ecosystem](#dependencies--ecosystem)
 
@@ -132,7 +145,7 @@ What you get over upstream vEcoli:
 - **A research workspace.** The repo is a pbg workspace (`workspace.yaml`):
   biology sits next to **investigations** (a shared research question) and
   **studies** (the runs that answer it) under `workspace/`, all browsable and
-  runnable in the vivarium-dashboard. Manage them with the `pbg-investigation` /
+  runnable in the vivarium-workbench. Manage them with the `pbg-investigation` /
   `pbg-study` skills.
 - **A decomposed ParCa.** The monolithic `fitSimData_1()` is broken into nine
   inspectable Steps, and the fitted `sim_data` is shipped pre-computed.
@@ -210,7 +223,7 @@ quantities at ports are `pint.Quantity`; the only place `Unum` survives is the
 upstream-interop bridge at `v2ecoli/library/unit_bridge.py`.
 
 **The `pbg_v2ecoli/` package** at the repo root is the *workspace* package the
-[vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard)
+[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench)
 uses. Its `build_core()` pre-registers the v2ecoli types **plus** the `EcoliWCM`
 bridge before composites are built (so the dashboard's subprocess runner can pass
 a fully-populated `core`). The model package (`v2ecoli/`) and the workspace
@@ -375,7 +388,7 @@ Choosing an emitter:
 - **Override context managers** — `with parquet_emitter(experiment_id=…) as e:`
   wraps a build and auto-flushes on exit (`v2ecoli/composites/_helpers.py`).
 
-> The vivarium-dashboard's Simulations-DB tab currently reads SQLite, not
+> The vivarium-workbench's Simulations-DB tab currently reads SQLite, not
 > Parquet/Zarr — those are for offline DuckDB / xarray analysis.
 
 ---
@@ -469,19 +482,85 @@ dry-mass trajectories agree to within a fraction of a percent (707.2 fg vs
 
 ---
 
-## Known limitations
+## v2ecoli ↔ vEcoli comparison harness
 
-- **Colony throughput** — the `EcoliWCM` bridge runs each cell's internal
-  composite synchronously (~0.7 s/tick), so a colony with one whole-cell runs at
-  ~2.6× realtime.
-- **Daughter state** — daughter `EcoliWCM` processes start from a fresh composite
-  rather than inheriting the mother's internal state at division.
-- **Cell-length transient** — at the WCM's starting volume the capsule-geometry
-  volume→length map gives a shorter cell than expected, so length dips before
-  climbing.
-- **Division mechanism** — the `Division` step fires via exception handling (it
-  attempts a structural modification that crashes; the bridge catches it and
-  applies the handoff). Clean structural division is on the roadmap.
+A single, reproducible entry point that validates v2ecoli as a **faithful port**
+of vEcoli by running BOTH engines on GovCloud and grading them with one canonical
+report card. The whole flow is `scripts/comparison_harness.sh`
+(`register` → `launch` → `report`, or `all`).
+
+**What it compares — matched timepoints, not snapshots.** v2ecoli and vEcoli share
+the same ParCa, processes, and initial state, so they should track each other. The
+harness lines both engines up on a shared simulation-seconds axis and grades
+**matched generation-1 timepoints**. It does *not* compare end-of-run snapshots —
+those catch the two cells at different cell-cycle phases (one may have just
+divided) and produce ±100% artifacts that are pure phase, not divergence. At
+matched basal timepoints the masses track to ~1%.
+
+**Grading — the canonical report card.** `scripts/comparison_report_card.py` feeds
+per-seed gen-1 means into `v2ecoli.library.report_card.grade_card`, which emits a
+machine-readable `verdict.json` (schema `report_card_verdict/v1`, **vEcoli =
+reference model**). Each of the 7 axes (cell / dry / protein / RNA mass +
+growth_rate + active_RNAP + active_ribosome) gets a Welch **t-test** plus a
+relative-Δ band: `within_tol` (≤5%), `drift` (≤10%), or `mismatch` (>10%);
+absent observables are reported `ungraded`, not faked.
+
+### Reproduce it
+
+Prereqs (one-time per session):
+
+```bash
+aws sso login --profile stanford-sso
+# SSM tunnel to sms-api on localhost:8080 (run in its own terminal — flaky under a harness)
+nohup bash ~/code/sms-cdk/scripts/ptools-proxy.sh -s smsvpctest >/tmp/ptools.log 2>&1 &
+```
+
+Then the whole chain (5 conditions × 2 engines, defaults 4 seeds × 2 generations):
+
+```bash
+# register v2ecoli at the current commit (vEcoli is fixed sim id 47), launch, report:
+bash scripts/comparison_harness.sh all                       # register→launch→report
+# …or step by step:
+bash scripts/comparison_harness.sh register                  # → v2ecoli simulator_id
+bash scripts/comparison_harness.sh launch --v2-sim <ID> --seeds 4 --gens 2
+#   …wait for the runs to finish on S3…
+bash scripts/comparison_harness.sh report --only all
+```
+
+`launch` POSTs each run to sms-api — v2ecoli via **Ray** (`composite=v2ecoli`,
+`condition=<c>`), vEcoli via **Nextflow** (`simulation_config_filename=cond_<c>.json`,
+clearing the stale `nf-cond-<c>` K8s job/configmap first) — and writes the
+per-condition experiment ids it created to `out/full_compare/experiments.json`.
+`report` exports env AWS creds (aiobotocore's SSO refresh is unreliable; s3fs +
+duckdb need real env creds) and reads that file, so launch → report is one
+deterministic chain with no hand-editing. Runs land at
+`s3://smsvpctest-shared-sharedbucket60d199d6-abfvwv0day91/vecoli-output/<exp>/`
+(us-gov-west-1; v2ecoli zarr, vEcoli parquet under `cond_<c>/history`).
+
+### Output artifacts (`out/full_compare/`)
+
+- `standardized_comparison_report.html` — the multi-section report (overview →
+  ParCa/initial-state → report card → per-condition matched-trajectory overlays);
+  also copied to `~/Downloads/`.
+- `report_card.html` — the standalone rendered card.
+- `verdict.json` — the machine-readable `report_card_verdict/v1` verdict.
+- `experiments.json` — the launched experiment ids the report read from.
+
+### Known caveats
+
+- **`total_rna_init` is excluded** — it is a unit mismatch between the engines,
+  not a real divergence.
+- **`active_RNAP` / `active_ribosome`** require `include_vectors=True` in
+  `scripts/run_comparison_ensemble.py` (their scalar counts share a leaf name with
+  the unique-molecule coordinate vectors, so the old `include_vectors=False`
+  dropped them); emitters that don't export them show `ungraded`.
+- **vEcoli runs via Nextflow, not the in-process native composite** — the
+  `build_composite_native` path is wrapped in `run_comparison_ensemble.py` but is
+  effectively dead for production comparison; the launched vEcoli reference is the
+  Nextflow workflow (`simulator_id=47`, `vEcoli@62924758`).
+- Until the per-condition-initial-state v2ecoli runs (`sim59-v2fix-*`) land, only
+  **basal** is a fully valid v2↔vE comparison; the other conditions are launched
+  but their v2ecoli initial state was basal in the older `sim48-*` runs.
 
 ---
 
@@ -517,9 +596,10 @@ workspace.yaml     pbg workspace config
 - [bigraph-schema](https://github.com/vivarium-collective/bigraph-schema) — type system + auto-discovery
 - [pbg-superpowers](https://github.com/vivarium-collective/pbg-superpowers) — `@composite_generator`, `Visualization`
 - [pbg-emitters](https://github.com/vivarium-collective/pbg-emitters) — `ParquetEmitter`
-- [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard) — interactive workspace UI (reads `workspace.yaml` + `pbg_v2ecoli/`)
+- [vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench) — interactive workspace UI (reads `workspace.yaml` + `pbg_v2ecoli/`)
 - [vEcoli](https://github.com/CovertLab/vEcoli) — ParCa reference data & biology
 - [multi-cell](https://github.com/vivarium-collective/pymunk-process) — 2D colony physics
+- [3d-ecoli](https://github.com/vivarium-collective/3d-ecoli) — 3D structural model (imports v2ecoli + pbg-parsimony)
 
 ---
 

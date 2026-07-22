@@ -132,7 +132,7 @@ def validate_investigation(inv_yaml: Path, ws_root: Path) -> tuple[list[str], li
     # this script still runs without the dashboard install (just skips rule 7).
     try:
         import importlib
-        _inv_mod = importlib.import_module("vivarium_dashboard.lib.investigations")
+        _inv_mod = importlib.import_module("vivarium_workbench.lib.investigations")
         _load_spec = _inv_mod.load_spec
         _InvErr = _inv_mod.InvestigationSpecError
     except Exception:  # noqa: BLE001

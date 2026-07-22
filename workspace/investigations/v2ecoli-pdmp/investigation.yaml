@@ -49,7 +49,7 @@ hypothesis: 'A six-phase incremental replacement — (0) Markov-blanket
 
   '
 lead: '**What this is:** This report is a roadmap for turning v2ecoli from a successful but algorithmically assembled whole-cell
-  simulation into a cleaner mathematical model. The goal is not to replace the biology, but to preserve what v2ecoli already
+  simulation into a more tractable mathematical model. The goal is not to replace the biology, but to preserve what v2ecoli already
   knows while making the model easier to analyze, fit to data, compile, and use for causal inference.
 
 
@@ -61,7 +61,7 @@ lead: '**What this is:** This report is a roadmap for turning v2ecoli from a suc
 
   algorithmic simulator rather than a numerical integrator of a
 
-  mathematically defined dynamical system. This is the load-bearing
+  mathematically defined dynamical system. This is the central
 
   obstacle to Bayesian parameter inference and computational causal
 
@@ -77,39 +77,31 @@ lead: '**What this is:** This report is a roadmap for turning v2ecoli from a suc
 
   '
 executive:
-  what_is_this: 'A six-phase investigation that incrementally transforms v2ecoli from
-
-    a hybrid algorithmic WCM into a piecewise-deterministic Markov
-
-    process. Each phase replaces one component of the WCM (metabolism,
-
-    stochastics, likelihoods, runtime, inference layer) while leaving
-
-    the rest intact.
-
-    '
+  what_is_this: 'Incrementally transforms v2ecoli from a hybrid algorithmic whole-cell model into a piecewise-deterministic Markov process. Six phases each swap one WCM component -- characterization, a metabolism ODE, jump processes, an inference layer, a compiled runtime, and causal discovery -- while leaving the rest intact.'
   verdict: 'Updated 2026-06-12. The investigation''s central thesis — that v2ecoli''s
     hybrid WCM can be incrementally turned into a likelihood-bearing PDMP-class model while
     staying viable — now has working, test-backed evidence on its first three phases, with
     Phases 4-5 as a clearly-scoped roadmap. PHASE 0 (pdmp-00): the per-process RNG-seeding fix
-    is real and test-backed (ensembles genuinely diverge), and a real 3-condition Phase-0
-    reference ensemble (M9-glucose/acetate/+aa, N=32 x 600 s) is committed. PHASE 1 (pdmp-01):
-    the +/-sigma W2 acceptance gate is MET on M9-glucose (cell_mass W2/sigma 3.02 -> 1.00 after a
+    is real and test-backed (tests/test_seed_diversity.py passes; ensembles genuinely diverge), and a
+    real 3-condition Phase-0 reference ensemble (M9-glucose/acetate/+aa, N=32 x 600 s, 96 runs) is
+    committed (canonical N=64 x 3-condition reference + multi-generation zarr remain the open tail). PHASE 1 (pdmp-01):
+    the +/-sigma W2 acceptance gate is met on M9-glucose (cell_mass W2/sigma 3.02 -> 1.00 after a
     closed-loop WATER[c] fix; root-caused a silently-zero-gain LQR and an open-loop water-injection
-    bug along the way). More importantly, the FBA-bridge flux-pin INTEGRATES the Millard 2017
-    kinetic ODE into the WCM (composite millard_fba_bridge_harness): the ODE mechanistically and
-    TRANSFORMATIVELY drives the WCM''s full glycolytic + pentose-phosphate backbone (held pins
-    match the ODE exactly and differ >10% from the unpinned FBA), while the TCA cycle is honestly
+    bug along the way). The FBA-bridge flux-pin integrates the Millard 2017
+    kinetic ODE into the WCM (composite millard_fba_bridge_harness): the ODE drives the WCM''s full
+    glycolytic + pentose-phosphate backbone (held pins
+    match the ODE exactly and differ >10% from the unpinned FBA), while the TCA cycle is
     characterized as growth-coupled (its flux is set by WCM biomass demand, not the standalone
-    kinetic model). PHASE 2 (pdmp-02): the cell_mass trajectory-distribution-match gate FAILED
-    (an honest negative result) and the redirect to count-level listeners is now EMPIRICALLY
-    CONFIRMED — across-seed variance is ~30x larger at the per-event count (rna_init_event) than
-    in aggregate mass/pool observables, which the homeostat washes out. PHASE 3 (pdmp-03): a real
+    kinetic model); remaining work is the multi-condition gate (acetate/+aa), TCA growth-coupling, and PYK
+    variant-pinning. PHASE 2 (pdmp-02): the cell_mass trajectory-distribution-match gate failed
+    and the redirect to count-level listeners is now empirically
+    confirmed — across-seed variance is ~30x larger at the per-event count (rna_init_event) than
+    in aggregate mass/pool observables, which the homeostat washes out (scripts/phase2_count_variance.py). PHASE 3 (pdmp-03): a real
     ABC-SMC (importance weights + perturbation kernel + adaptive-epsilon) plus Simulation-Based
-    Calibration and a posterior-predictive check are BUILT and their gates PASS on a WCM-calibrated
+    Calibration and a posterior-predictive check are built and their gates PASS on a WCM-calibrated
     count likelihood: posterior recovery (theta=1.2 -> 90%% CI [1.198,1.201], shrinks ~1/sqrt(n)),
     SBC rank-histogram uniformity (K=150, chi2 p=0.576), PPC coverage 0.91, and a 2-parameter joint
-    inference with per-parameter SBC. Honest scope: validated on the count LIKELIHOOD, not the full
+    inference with per-parameter SBC. Scope: validated on the count likelihood, not the full
     WCM in the ABC loop (deferred to Phase 4); the SBC gate twice rejected under-converged inference
     before passing, i.e. it works. PHASE 4 (pdmp-04): per-tick profiling is real (76%% of per-tick
     time outside process_update; 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update
@@ -119,66 +111,18 @@ executive:
     gene-function annotation is a design-stage roadmap that depends on Phases 3-4. Net: the
     kinetic-model->WCM integration and the inference methodology are demonstrated and validated;
     the remaining work (compiled runtime, multi-modal full-WCM inference, gene-function recovery)
-    is honestly scoped, not yet built.
+    is scoped, not yet built.
 
     '
   verdict_status: in-progress
-  verdict_detail: |
-    Per-phase rollup (updated 2026-06-12) — the state a reviewer lands on first.
-
-    • Phase 0 (pdmp-00) — RNG-seed-diversity fix is REAL and test-backed
-      (ensembles were bit-identical before; tests/test_seed_diversity.py passes). A
-      real 3-condition Phase-0 reference ensemble (M9-glucose/acetate/+aa, N=32 x
-      600 s, 96 runs) is committed. The canonical N=64 x 600 s x 3-condition
-      reference + multi-generation zarr trajectories remain the open tail.
-    • Phase 1 (pdmp-01) — ±σ W2 ACCEPTANCE GATE MET on M9-glucose
-      (cell_mass W2/σ 3.02 -> 1.00 after a closed-loop WATER[c] fix; a silently-
-      zero-gain LQR and an open-loop water-injection bug were root-caused and
-      fixed). The standalone Millard 2017 ODE recovers its published reference via
-      pbg-copasi. The FBA-BRIDGE FLUX-PIN integrates the Millard kinetic ODE into
-      the WCM (composite millard_fba_bridge_harness): it transformatively drives the
-      full glycolytic + pentose-phosphate backbone (held pins match the ODE exactly,
-      differ >10% from the unpinned FBA); the TCA is growth-coupled (relaxes).
-      Remaining: multi-condition gate (acetate/+aa), TCA growth-coupling, PYK
-      variant-pinning.
-    • Phase 2 (pdmp-02) — the cell_mass trajectory-distribution-match gate
-      FAILED (Poisson W2 grows 9.73 -> 49.46) — an honest, load-bearing negative
-      result: cell_mass is the WRONG observable for jump-process variance (the
-      consumption_matched homeostat washes per-tick variance out). The redirect to
-      count-level listeners is now EMPIRICALLY CONFIRMED: across-seed variance is
-      ~30x larger at the per-event count (rna_init_event) than in aggregate
-      mass/pool observables (scripts/phase2_count_variance.py).
-    • Phase 3 (pdmp-03) — phase Build. A real ABC-SMC (importance weights +
-      perturbation kernel + adaptive-ε) plus SBC and PPC are BUILT and their gates
-      PASS on a WCM-calibrated count likelihood: posterior recovery (θ=1.2 -> 90%%
-      CI [1.198,1.201], shrinks ~1/sqrt(n)), SBC rank-histogram uniformity (K=150,
-      χ2 p=0.576), PPC coverage 0.91, plus a 2-parameter joint inference with
-      per-parameter SBC. Honest scope: validated on the count LIKELIHOOD, not the
-      full WCM in the ABC loop (deferred to Phase 4). The SBC gate twice rejected
-      under-converged inference before passing — it works.
-    • Phase 4 (pdmp-04) — phase Design. Per-tick profiling is genuine (76%% of
-      per-tick time outside process_update; 13,817 isinstance + 4,213
-      __array_finalize__ + 52 process_update calls/tick). The earlier "~1500x"
-      speedup was corrected to an illustrative projection (a compiled column-centric
-      runtime was never built or timed). Building that runtime is the planned
-      deliverable and the unblock for full-WCM-in-the-loop inference.
-    • Phase 5 (pdmp-05) — phase Design. Bayesian gene-function annotation is a
-      design-stage roadmap that depends on Phases 3-4; not yet built.
-
-    Net: the kinetic-model->WCM integration (the FBA bridge) and the inference
-    methodology (ABC-SMC + SBC + PPC) are demonstrated and validated on Phases 0-3;
-    Phases 4-5 (compiled runtime, multi-modal full-WCM inference, gene-function
-    recovery) are honestly scoped roadmap, not yet built. verdict_status stays
-    in-progress until the full-WCM end-to-end gate is closed.
   decisions_needed:
   - question: Should Phase-3+ inference anchor on count-level listeners or on aggregate cell_mass / log-likelihood?
     status: RESOLVED — count-level listeners
     context: |
-      Closeout finding from Phase 2 sprints 6–9, confirmed by Phase 3 sprints 12-13: on a self-generated
-      3×3 toy grid (N=4, 60 s), the combined count vector sqrt(d_rna² + d_ribosome²) gives a larger
-      next-nearest-CELL grid-separation ratio (3.06×) than aggregate log-likelihood (2.39×). These are
-      grid-separation diagnostics, not a posterior or credible interval; the "~100× sharper" figure is a
-      hardcoded literal, not computed. Count-level listeners remain the right direction for inference.
+      Phase 2 sprints 6–9, confirmed by Phase 3 sprints 12-13: on a self-generated 3×3 toy grid (N=4, 60 s),
+      the combined count vector sqrt(d_rna² + d_ribosome²) gives a larger next-nearest-CELL grid-separation
+      ratio (3.06×) than aggregate log-likelihood (2.39×) — grid-separation diagnostics, not a posterior
+      (the "~100× sharper" figure is a hardcoded literal). Count-level listeners are the right direction.
   - question: Is the Phase-4 performance attack a column-centric runtime or per-Process Catalyst.jl JIT?
     status: OPEN — column-centric runtime is the leading hypothesis, not yet built or timed
     context: |
@@ -186,7 +130,7 @@ executive:
       __array_finalize__/tick dominate, suggesting per-Process compilation buys at most ~10% of per-tick
       time. The "~1500× at N=10³" figure is an illustrative projection (toy factor 3× × N by construction
       in phase4_wcm_baseline_projection.py); the column-centric runtime was never built or timed, so this
-      is NOT a measured speedup.
+      is not a measured speedup.
   - question: Can Phase 5 (Bayesian gene-function annotation) reach its gate within the current design space?
     status: OPEN
     context: |
@@ -229,11 +173,7 @@ inputs:
   - birch2014
   - stumpf2021
   - saa2017
-  - choi2023
-  - hari2024
   - talts2018sbc
-  - lyne2015
-  - toth2022
   expert_docs:
   - name: duf-final-report
     path: workspace/references/expert/duf_final_report_2026.pdf
@@ -242,7 +182,7 @@ inputs:
 scientific_argument:
   main_claim: 'The PDMP class — ODE segments interrupted by discrete jump events —
 
-    is the right mathematical model class for a next-generation E. coli
+    is the appropriate mathematical model class for a next-generation E. coli
 
     WCM: it has process likelihoods by construction, enforces an
 
@@ -260,12 +200,12 @@ scientific_argument:
   - Vivarium's algebraic-effect interpretation (DUF Sec. 4.2.2) opens a path to extending it into a probabilistic programming
     language for observe / intervene effects in Phase 3.
   - 'Phase 1 empirical — MillardPDMPMetabolism + JAX/Diffrax + consumption_matched ref-growth driver landed (PR #72,
-    merged 2026-05-30), but the ±σ acceptance is NOT met: the cited figure (reports/figures/pdmp-01/pdmp_vs_phase0.html)
+    merged 2026-05-30), but the ±σ acceptance is not met: the cited figure (reports/figures/pdmp-01/pdmp_vs_phase0.html)
     shows cell_mass ~ -20σ / dry_mass ~ -18σ (up to -600σ) outside the band, and a real multi-replicate W₂ was never
     computed (compare_pdmp_vs_phase0.py is a single-replicate z-score). Phase 1 is being re-run for verification.'
   - 'Phase 2 empirical — per-promoter and per-protein Poisson tau-leap landed in `poisson` mode. A max |Δcell_mass| = 150 fg
     between configs (transient, single trajectory pair) was measured on the cell_mass quantity (scripts/trajectory_divergence.py,
-    sprint 4) — not at rnap_data. The acceptance gate pdmp-trajectory-distribution-match FAILED (Poisson W₂ grows 9.73 → 49.46).'
+    sprint 4) — not at rnap_data. The acceptance gate pdmp-trajectory-distribution-match failed (Poisson W₂ grows 9.73 → 49.46).'
   - 'Phase 3 pipeline empirical — emission → LikelihoodCollector → XArrayEmitter zarr → xarray.Dataset(replicate × time
     × channel) readback → mean-to-mean ε calibration → SMC sequential refinement was built (genuine infrastructure). The
     "observed" data are generated at the scale=1.0 grid node, so any apparent collapse to that node is tautological, not a
@@ -293,7 +233,7 @@ scientific_argument:
     never built or timed. Choosing it over per-Process Catalyst.jl JIT is a hypothesis, not a validated result.'
   - 'Phase 5 sprint 1 (Bayes-factor stub) — model-comparison shape works on Phase-3 ABC infrastructure: 5-hypothesis sweep
     of transcript_init_prob_scale, exp(-d/2σ²) marginal-likelihood proxy with σ=sprint-8 noise floor, posterior peaks at
-    truth (28.8%). Honest weak signal — log BF +0.32 vs runner-up θ=1.15 (within Jeffreys "weak" band). Confirms identifiability
+    truth (28.8%). Weak signal — log BF +0.32 vs runner-up θ=1.15 (within Jeffreys "weak" band). Confirms identifiability
     floor: posterior cannot peak sharper than the noise-floor σ allows.'
   - 'Phase 5 sprint 2 (pseudo-marginal + bias diagnostic) — sprint 1''s biased "distance-of-the-mean" estimator overstated
     the signal. Unbiased per-replicate kernel average shrinks truth posterior from 28.8% → 24.4% (essentially the 20% uniform
@@ -365,13 +305,13 @@ scientific_argument:
     wall time.
   - Phases 1–2 are designated parallelizable with Phase 4; Phase 3 strictly depends on Phase 2; Phase 5 depends on all preceding
     phases.
-  - 'Phase 2 observable-choice — cell_mass is the WRONG observable for jump-process variance. The consumption_matched
+  - 'Phase 2 observable-choice — cell_mass is the wrong observable for jump-process variance. The consumption_matched
     homeostat washes per-tick variance out by construction. Three controller-tuning attempts (tau-EMA, open-loop, sparse)
     all failed; Phase 3 correctly pivoted to count-level listeners.'
   - 'Phase 3 self-calibration — emitted log-likelihood is `log P(simulated | simulated_param)`, not the ABC-correct
     `log P(observed | proposed)`. Log-likelihood-based ABC works but is the strictly weaker tool vs the count-based
     metric Phase 3 sprints 12-13 established.'
-  - 'Phase 4 projection is NOT a measured speedup — the "3000×" and "~1500×" figures are an illustrative projection: the
+  - 'Phase 4 projection is not a measured speedup — the "3000×" and "~1500×" figures are an illustrative projection: the
     script hardcodes a toy factor 3× and sets column-centric wall = per_tick/3.0 with no N-dependence, so total speedup =
     3× × N by construction. The column-centric runtime was never built or timed; treat these numbers as a toy
     order-of-magnitude motivation, not a result.'
@@ -384,151 +324,41 @@ scientific_argument:
     Δlog=+0.011 nats; as N→∞, the log BF CI tightens around that near-zero gap, not toward a decisive threshold. Levers
     in order of impact: (1) wider hypothesis spacing, (2) richer observable (Phase-3 sprint 13 combined count vector),
     (3) tighter ε; (4) N — last and least useful at the current setup.'
-biological_story: 'E. coli grows by integrating metabolism, gene expression, replication,
-
-  and division — processes that operate on very different timescales
-
-  and admit very different mathematical idealizations. The current
-
-  v2ecoli WCM fuses these into a fixed-step loop in which a single
-
-  multi-objective FBA linear program solves metabolism on each
-
-  timestep (`wholecell.utils.modular_fba` with GLPK-linear: biomass
-
-  production + homeostatic concentration targets + optional kinetic-
-
-  constraint targets driving enzyme-catalysed flux toward Vmax×[E];
-
-  output fluxes converted to molecule count changes via
-
-  `stochasticRound`), discrete-time Poisson draws fire transcription
-
-  and translation events scaled by timestep, a teleonomic doubling-
-
-  time target triggers division, and an allocator step gates each
-
-  layer''s access to shared bulk pools (the allocator computes
-
-  partition requests; metabolism runs LAST in the timestep, deriver-
-
-  style, on the post-partition state). This composition reproduces
-
-  growth across roughly a dozen conditions, but its trajectory is
-
-  not the trajectory of any well-defined dynamical system — it is
-
-  the trajectory of an algorithm.
+biological_story: 'E. coli grows by integrating metabolism, gene expression, replication, and division —
+  processes on very different timescales that admit different mathematical idealizations. The current v2ecoli
+  WCM fuses these into a fixed-step loop: a single multi-objective FBA linear program solves metabolism each
+  timestep (`wholecell.utils.modular_fba` with GLPK-linear: biomass production + homeostatic concentration
+  targets + optional kinetic-constraint targets driving enzyme-catalysed flux toward Vmax×[E]; output fluxes
+  converted to molecule count changes via `stochasticRound`), discrete-time Poisson draws fire transcription
+  and translation events scaled by timestep, a teleonomic doubling-time target triggers division, and an
+  allocator gates each layer''s access to shared bulk pools (metabolism runs LAST in the timestep,
+  deriver-style, on the post-partition state). This reproduces growth across roughly a dozen conditions, but
+  its trajectory is that of an algorithm, not of any well-defined dynamical system.
 
 
-  A PDMP separates this composition into two clean parts: deterministic
-
-  evolution between events (ODE flow on continuous state) and discrete
-
-  jumps at event times (state-dependent probability kernels on
-
-  countable state). Mass action kinetics for central carbon
-
-  metabolism, like Millard et al. 2017''s curated ODE model, naturally
-
-  inhabit the deterministic flow. Gene-expression events, division,
-
-  and resource competition naturally inhabit the jump layer. The
-
-  PDMP formalism makes both layers inspectable, compilable, and —
-
-  crucially — likelihood-bearing.
-
-  '
+  A PDMP separates this into deterministic evolution between events (ODE flow on continuous state) and discrete
+  jumps at event times (state-dependent probability kernels on countable state). Mass-action kinetics for
+  central carbon metabolism, like Millard et al. 2017''s curated ODE model, naturally inhabit the deterministic
+  flow; gene-expression events, division, and resource competition inhabit the jump layer. The PDMP formalism
+  makes both layers inspectable, compilable, and likelihood-bearing.'
 at_a_glance:
 - study: pdmp-00-characterization
-  role: 'Markov-blanket interface extraction + the reference ensembles. The per-process RNG-seeding fix is real and
-    test-backed; a real 3-condition Phase-0 reference ensemble (M9-glucose/acetate/+aa, N=32 x 600 s) is committed.'
+  role: 'Markov-blanket interface extraction + reference ensembles; the RNG-seeding fix is test-backed and the 3-condition N=32 Phase-0 ensemble is committed.'
 - study: pdmp-01-metabolism-ode
-  role: 'Replace v2ecoli''s multi-objective FBA with the Millard 2017 kinetic ODE. The ±σ W2 gate is MET on M9-glucose
-    (cell_mass W2/σ 3.02 -> 1.00). The FBA-bridge flux-pin (composite millard_fba_bridge_harness) integrates the kinetic
-    ODE into the WCM, transformatively driving the glycolytic + pentose-phosphate backbone; the TCA is growth-coupled.'
+  role: 'Replace v2ecoli''s multi-objective FBA with the Millard 2017 kinetic ODE; the ±σ W2 gate is met on M9-glucose and the FBA-bridge flux-pin (millard_fba_bridge_harness) drives the glycolytic + pentose-phosphate backbone while the TCA is growth-coupled.'
 - study: pdmp-02-jump-processes
-  role: 'Replace discrete-time stochastics with continuous-time jumps. The cell_mass trajectory-match gate FAILED (an honest
-    negative: cell_mass is the wrong observable). The redirect to count-level listeners is empirically confirmed: jump
-    variance is ~30x larger at the per-event count (rna_init_event) than in aggregate observables.'
+  role: 'Replace discrete-time stochastics with continuous-time jumps; the cell_mass gate failed (wrong observable) and the redirect to count-level listeners is confirmed (~30x more variance at rna_init_event).'
 - study: pdmp-03-inference
-  role: 'Observation likelihoods + ABC-SMC inference. A real ABC-SMC + SBC + PPC is BUILT; its gates PASS on a WCM-calibrated
-    count likelihood (posterior recovery, SBC χ2 p=0.576, PPC 0.91) plus a 2-parameter identifiability check. Full-WCM-in-loop
-    inference is deferred to the Phase-4 compiled runtime (honest scope).'
+  role: 'Observation likelihoods + ABC-SMC inference; a real ABC-SMC + SBC + PPC passes its gates on a WCM-calibrated count likelihood, with full-WCM-in-loop inference deferred to the Phase-4 compiled runtime.'
 - study: pdmp-04-compilation
-  role: 'Compiled column-centric runtime for ≥10³ parallel trajectories. Per-tick profiling is real; the earlier "~1500x"
-    was corrected to an illustrative projection. Building the compiled runtime is the planned deliverable (Design stage) and
-    the unblock for full-WCM-in-the-loop inference.'
+  role: 'Compiled column-centric runtime for ≥10³ parallel trajectories; per-tick profiling is real and building the runtime is the planned Design-stage deliverable and the unblock for full-WCM-in-loop inference.'
 - study: pdmp-05-causal-discovery
-  role: 'Bayesian gene-function annotation via marginal likelihood + active causal inference. Design-stage roadmap; depends
-    on Phases 3-4 and is not yet built.'
-how_to_read: '**The story of the six phases.** The phases move from diagnosis to replacement to inference. Phase 0 defines
-  what v2ecoli currently does. Phases 1 and 2 replace the two major dynamical layers: metabolism and stochastic events. Phase
-  3 adds likelihoods so the model can be fit to data. Phase 4 makes the model fast enough to run many trajectories. Phase
-  5 uses that machinery for causal gene-function discovery.
-
-
-  Each downstream phase assumes upstream phases have passed their primary tests — the tests on each study card are the contract.
-
-
-  Read studies in order — pdmp-00 → pdmp-05. Each later study presumes
-
-  the deliverables of the previous one (typed interfaces, ODE metabolism,
-
-  PDMP runner, likelihood accumulator, compiled runtime). The Phase 0
-
-  Markov-blanket interface datasets are the canonical validation standard
-
-  for every later study: a replacement subprocess is accepted when its
-
-  interface statistics match the reference within tolerance.'
-how_we_run_pdmps: "This section is the operational complement to the conceptual phase\nbreakdown — concretely, HOW the PDMP\
-  \ runs on a machine.\n\n## Phase-by-phase runner topology\n\nPhase 0–1 (Design-stage runs we have today):\n  - Composites\
-  \ live under `v2ecoli/composites/*.composite.yaml`\n    (declarative state + processes + parameters).\n  - Run via the dashboard's\
-  \ `POST /api/composite-test-run` with\n    spec_id `<pkg>.composites.<name>` + steps + overrides. The\n    run-runner finds\
-  \ the composite (generator first, file second),\n    resolves placeholder parameters, instantiates a\n    `process_bigraph.Composite`,\
-  \ and steps it.\n  - Emitter is auto-attached from workspace.yaml\n    `runtime.default_emitter: xarray` → trajectories\
-  \ land at\n    `<workspace>/.pbg/runs/<run_id>/store.zarr/` (zarr group per\n    study × replicate × generation).\n  - Cache\
-  \ for the v2ecoli WCM is symlinked from a shared ParCa build\n    so we don't pay the ~30 min rebuild on each worktree (see\n\
-  \    out/cache → /code/v2ecoli/out/cache convention).\n\nPhase 2 (Design → Build):\n  - Continuous-time jump processes plug\
-  \ in as new PB Processes that\n    declare local state + a `propensities` callback (one rate per\n    jump channel). The\
-  \ runner uses a hybrid exact-SSA / τ-leaping\n    driver: exact next-reaction for rare promoter firings; τ-leaping\n   \
-  \ for high-rate elongation, with the leap condition\n    max(Δλ/λ) < 0.03 monitored every step.\n  - ODE flow between jumps\
-  \ re-uses Phase 1's pbg-copasi process for\n    central metabolism plus any continuous components of the\n    gene-expression\
-  \ machinery (ribosome elongation as a continuous\n    Markov chain when stochastic-discrete isn't needed).\n  - Division\
-  \ event is a first-passage problem solved by stochastic\n    bisection on the cell-volume observable; validated on an OU\
-  \ test\n    problem before being wired in.\n\nPhase 3 (likelihood substrate):\n  - Likelihood accumulator runs in the same\
-  \ process graph as the\n    PDMP; its `inputs:` block subscribes to ODE-segment + jump-event\n    stores, computes log-likelihood\
-  \ contributions incrementally\n    (log-space + log-sum-exp + pairwise/Kahan summation to keep\n    cross-cell population\
-  \ reductions deterministic), writes to a\n    zarr `log_likelihood` group.\n  - ABC-SMC driver runs OUTSIDE the PB composite\
-  \ — it spawns many\n    PDMP runs in parallel, collects summary statistics, runs the SMC\n    step in numpy/scipy, and feeds\
-  \ the next generation of parameter\n    proposals back to fresh PB runs.\n\nPhase 4 (compiled):\n  - Catalyst.jl + ModelingToolkit\
-  \ consume a PB → Catalyst export\n    (the new bridge process this study writes). The compiled Julia\n    runner is invoked\
-  \ via the same PB composite interface — its\n    `inputs/outputs` look identical to the Phase 2 Python runner,\n    but\
-  \ the implementation calls into Julia via PythonCall/PyJulia.\n  - Column-centric runtime: instead of nested-dict state,\
-  \ every\n    observable is a pre-allocated numpy array indexed by\n    (trajectory, time). Stepping is a vectorised call\
-  \ across the\n    trajectory axis; downstream emitter writes whole rows to zarr.\n\n## RNG, seeds, replicates\n\n- Each\
-  \ replicate has a unique seed (`overrides.seed = <int>`).\n  The composite's stochastic processes (FBA stochasticRound,\
-  \ jump\n  timing) draw from a numpy `default_rng(seed)`-derived stream.\n- Ensembles are scheduled as N independent runs\
-  \ with seeds\n  0..N-1 (the canonical Phase 0 reference TARGET is N=64 per condition × 3 conditions =\n  192 runs; the committed ensemble is N=32 = 96 runs — do NOT cite as N=64). The dashboard's run-runner\
-  \ enforces a CONCURRENCY_CAP\n  so we don't OOM; long ensembles run as a serial queue.\n- PDMP segments are reproducible\
-  \ bit-identically when re-simulated\n  with the same (state, seed) — this is the Markov-property\n  verification gate.\n\
-  \n## Storage / persistence\n\n- Trajectories: zarr stores under `.pbg/runs/<run_id>/store.zarr/`\n  (chunked on time axis,\
-  \ opened downstream via\n  `xarray.open_zarr(..., chunks={'time': -1, 'trajectory': 1})`\n  for streaming per-replicate\
-  \ comparison without loading the whole\n  ensemble in memory).\n- Run metadata: `.pbg/runs/<run_id>/request.json` (the launch\
-  \ spec),\n  `run.log` (full stderr+stdout), `viz.json` (rendered viz cards),\n  and the run registry in `.pbg/composite-runs.db`\
-  \ (sqlite).\n- Reference datasets are git-tracked under `out/` for small CSVs\n  (basico-direct experiments) and via DVC\
-  \ / data-mirror for the\n  large WCM zarr stores (TBD when ensemble sizes start mattering).\n\n## Wall-clock estimates\n\
-  \nPer-step compute (mean over the bootstrap runs):\n  - v2ecoli WCM baseline (55 partitioned processes):  ~6 s / step\n\
-  \  - Millard ODE via pbg-copasi (single PB update):     <0.05 s / step\n  - Future Phase 4 compiled PDMP (target):     \
-  \       <0.01 s / step\n                                                      / trajectory\n\nPer-deliverable estimates:\n\
-  \  - Phase 0 reference ensemble (3 cond × N=64 × 600 steps):\n    ~3.5 days serial @ 6 s/step; ~3 hr on a 32-core node\n\
-  \  - Phase 1 standalone Millard validation: minutes (already ran)\n  - Phase 1 FBA-bridge 3-condition validation: ~30 min\n\
-  \  - Phase 3 ABC-SMC on synthetic (N=1000 particles × 50 SMC\n    iterations × 600-step PDMP runs): ~weeks on a single machine;\n\
-  \    Phase 4 compilation reduces this to hours\n\n## Practical \"how to run\" recipes\n\nFor an investigator picking this\
-  \ up: see `studies/<slug>/study.yaml`\n`planned_runs:` blocks for the per-study run-by-run methodology\nwith concrete steps,\
-  \ durations, and gating criteria.\n"
+  role: 'Bayesian gene-function annotation via marginal likelihood + active causal inference; a design-stage roadmap depending on Phases 3-4, not yet built.'
+how_to_read: 'Read the studies in order, pdmp-00 → pdmp-05: each later study presumes the deliverables of the
+  previous one (typed interfaces, ODE metabolism, PDMP runner, likelihood accumulator, compiled runtime), and
+  the tests on each study card are the contract. The Phase 0 Markov-blanket interface datasets are the canonical
+  validation standard for every later study — a replacement subprocess is accepted when its interface statistics
+  match the reference within tolerance.'
 glossary:
 - term: PDMP
   definition: 'Piecewise-Deterministic Markov Process — ODE flow between discrete jump events governed by state-dependent
@@ -566,6 +396,14 @@ glossary:
   definition: Unbiased Monte Carlo estimator for doubly-intractable Bayesian likelihoods, used in Phase 5 for marginal-likelihood
     gene-function comparison.
 guidelines:
+  operational_notes:
+  - 'Composites live under `v2ecoli/composites/*.composite.yaml`; runs go via the dashboard `POST /api/composite-test-run`
+    (spec_id `<pkg>.composites.<name>` + steps + overrides), and XArrayEmitter trajectories land at
+    `<workspace>/.pbg/runs/<run_id>/store.zarr/`, opened downstream via `xarray.open_zarr()`.'
+  - 'Each replicate uses a unique `overrides.seed`; ensembles run as N independent seeds 0..N-1 under a CONCURRENCY_CAP.
+    The canonical Phase-0 target is N=64 x 3 conditions = 192 runs; the committed ensemble is N=32 = 96 runs (do NOT cite as N=64).'
+  - 'Per-step compute: v2ecoli WCM baseline ~6 s/step; Millard ODE via pbg-copasi <0.05 s/step; the Phase-4 compiled PDMP target is <0.01 s/step/trajectory.'
+  - '`out/cache` is symlinked from a shared ParCa build so each worktree skips the ~30 min rebuild; per-study `planned_runs:` blocks hold the run-by-run methodology.'
   literature_anchors:
   - '[[millard2017]] — Phase 1 ODE substrate. Use the published rate laws and biomass reaction; calibrate against the strain/condition
     reported (K-12 MG1655, M9 + glucose, dilution rate 0.1/h).'

@@ -1,0 +1,50 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli",
+ "reference_model": "behavioral spec",
+ "generated": "",
+ "overall": "ungraded",
+ "groups": {
+  "primary": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.per_cell_mass_grows_through_division",
+     "label": "per-cell-mass-grows-through-division",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "",
+     "detail": {
+      "text": ""
+     }
+    },
+    {
+     "id": "tests.population_biomass_scales_with_cells_per_agent",
+     "label": "population-biomass-scales-with-cells-per-agent",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "",
+     "detail": {
+      "text": ""
+     }
+    }
+   ]
+  },
+  "supporting": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "tests.single_lineage_cell_count_bounded",
+     "label": "single-lineage-cell-count-bounded",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "",
+     "detail": {
+      "text": ""
+     }
+    }
+   ]
+  }
+ },
+ "title": "mbp-02-population-aggregation \u2014 default tests"
+}

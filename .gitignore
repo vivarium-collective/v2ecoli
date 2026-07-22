@@ -46,6 +46,10 @@ reports/assets/*
 !reports/assets/.keep
 # pre-resolved composite states shipped to the read-only dashboard (tracked)
 !reports/composite-state/
+# investigation report-card summary generator (tracked source; generated
+# reports/summaries/*.html stays ignored)
+!reports/investigation_summary.py
+!reports/_summary/
 investigations/*/viz/
 .dashboard.log
 # Dashboard re-render targets (regenerated on demand by /api/render)
@@ -65,3 +69,11 @@ reports/assets/*
 # published artefacts.
 docs/superpowers/notes/
 /out
+
+# Report-card render OUTPUTS — regenerated deterministically from the committed
+# golden fixtures (tests/fixtures/<card>/) + the ecoli-sources pin. The model
+# fixtures are tracked; these rendered artifacts are not (the HTML alone is ~1 MB).
+docs/report_cards/**/report_card.html
+docs/report_cards/**/report_card_verdict.json
+docs/report_cards/**/*_reference.json
+workspace/investigations/*/studies/*/viz/report_card/

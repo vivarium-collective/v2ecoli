@@ -69,5 +69,14 @@
         "ecoli-metabolism-redux": {
             "boundary": "mM"
         }
+    },
+    "output_ports": {
+        "ecoli-metabolism-redux": [
+            "bulk",
+            "environment",
+            "listeners",
+            "next_update_time",
+            "polypeptide_elongation"
+        ]
     }
 }

@@ -48,7 +48,7 @@ conditions:
       condition: succinate
 depends_on:
 - parca
-confidence: Investigating
+confidence: Refuted
 findings:
 - id: succinate-standard
   kind: computational

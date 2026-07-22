@@ -52,13 +52,7 @@ description: |
 
 executive:
   what_is_this: |
-    An HPC scaling-readiness investigation for the colony composite: N copies
-    of the full 55-process whole-cell model (EcoliWCM) in one pymunk 2D physics
-    environment. colonies-01 built the single-machine foundation; colonies-02
-    tested it with natural division and the Ray protocol and uncovered an
-    unbounded per-cell RSS leak; colonies-03 fixed three contributing leaks but
-    the dominant one (native/C) is still open; colonies-04 (cross-node HPC) is
-    planned and gated on resolving it.
+    How many whole-cell E. coli agents fit per HPC node, and at what per-cell wall-time and memory? Runs N copies of the full 55-process EcoliWCM in one pymunk 2D physics environment. The single-machine foundation (colonies-01 through 03) works and three memory leaks are fixed; the dominant native/C per-cell RSS leak is still open and gates cross-node HPC (colonies-04).
   verdict: |
     Foundation built; HPC deployment blocked on a memory leak. The colony grows
     and divides correctly (natural division 1→2→4 after fixing mother-removal

@@ -11,6 +11,7 @@ Run locally (the ParCa cache must be on disk so heavy composites resolve):
     PYTHONPATH=. .venv/bin/python scripts/regenerate_viewers.py
 """
 import json
+import math
 import shutil
 import sys
 from dataclasses import dataclass
@@ -69,16 +70,101 @@ def trim_state_for_view(obj, *, max_list: int = 8):
     return obj
 
 
+# --- composite-state JSON serialization -------------------------------------
+# Inlined from the (now-removed) vivarium_workbench.lib.json_serialize so this
+# standalone script has NO workbench dependency — that package was dropped from
+# v2ecoli in 5d83d168 ("viewer moved to pbg-ptools"). This is a byte-for-byte
+# copy of that module's serializer: it turns numpy arrays/scalars, Path, and
+# sets into JSON-native values (composite states are full of numpy bulk-count
+# arrays), preserves structured-array field names, and replaces non-finite
+# floats (inf/nan) with null so a browser's JSON.parse accepts the output.
+
+
+def _structured_array_to_json(o: object) -> object | None:
+    """Serialize a NumPy structured array preserving its field names; else None.
+
+    An array with an ``id`` field (bulk molecules) becomes an ``{id: count}``
+    map (or ``{id: record}`` without a count field); otherwise a list of
+    field-keyed records. Returns None for anything that isn't a structured
+    array, so the caller falls through to its normal handling.
+    """
+    names = getattr(getattr(o, "dtype", None), "names", None)
+    if not names or getattr(o, "ndim", 0) < 1:
+        return None
+    try:
+        rows = o.tolist()  # type: ignore[attr-defined]  # list of per-row tuples
+        records = [dict(zip(names, row)) for row in rows]
+    except Exception:
+        return None
+    if "id" in names:
+        if "count" in names:
+            return {str(r["id"]): r["count"] for r in records}
+        return {str(r["id"]): {k: v for k, v in r.items() if k != "id"} for r in records}
+    return records
+
+
+def _json_default(o: object) -> object:
+    """JSON fallback for objects json.dumps can't handle: numpy structured
+    arrays (field names preserved), plain numpy arrays/scalars, sets, Path.
+    Falls back to repr() so a bad object surfaces a string, not a crash."""
+    structured = _structured_array_to_json(o)
+    if structured is not None:
+        return structured
+    # numpy duck-typing without importing numpy (cheaper boot)
+    tolist = getattr(o, "tolist", None)
+    if callable(tolist):
+        try:
+            return tolist()
+        except Exception:
+            pass
+    if hasattr(o, "item") and callable(o.item):
+        try:
+            return o.item()  # numpy scalar → python scalar
+        except Exception:
+            pass
+    if isinstance(o, (set, frozenset)):
+        return sorted(o, key=str)
+    if isinstance(o, Path):
+        return str(o)
+    return repr(o)
+
+
+def _json_sanitize(obj):
+    """Recursively replace non-finite floats (inf/-inf/nan) with None. Non-native
+    objects are normalized once through _json_default so inf/nan buried inside
+    them is caught too — but only when that yields a JSON-native value, else the
+    original is left for the final json.dumps(default=_json_default) pass (so we
+    don't recurse forever on e.g. a pint Quantity)."""
+    if obj is None or isinstance(obj, (int, str)):  # int covers bool
+        return obj
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _json_sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_sanitize(v) for v in obj]
+    converted = _json_default(obj)
+    if isinstance(converted, (dict, list, tuple, float, int, str)) or converted is None:
+        return _json_sanitize(converted)
+    return obj
+
+
+def _json_body(data) -> bytes:
+    """Serialize ``data`` to spec-compliant JSON bytes. Fast path dumps with
+    allow_nan=False; only on a non-finite float does it walk the structure to
+    replace inf/nan with null, so all-finite payloads pay nothing extra."""
+    try:
+        return json.dumps(data, default=_json_default, allow_nan=False).encode()
+    except ValueError:
+        return json.dumps(
+            _json_sanitize(data), default=_json_default, allow_nan=False
+        ).encode()
+
+
 def write_state(state: dict, slug: str, data_dir: Path) -> Path:
     data_dir.mkdir(parents=True, exist_ok=True)
     out = data_dir / f"{slug}.state.json"
-    # Serialize EXACTLY as the dashboard's /api/composite-state does, via its
-    # _json_body: _json_default turns numpy arrays/scalars, Path, and sets into
-    # JSON-native values (composite states are full of numpy bulk-count arrays),
-    # and allow_nan=False + the _json_sanitize fallback replaces inf/nan with
-    # null. Plain json.dumps chokes on the ndarrays. loom's ?stateUrl= reader
-    # expects the {"state": <bigraph-state>} wrapper.
-    from vivarium_workbench.lib.json_serialize import _json_body
+    # loom's ?stateUrl= reader expects the {"state": <bigraph-state>} wrapper.
     out.write_bytes(_json_body({"state": state}))
     return out
 

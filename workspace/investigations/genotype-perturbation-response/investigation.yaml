@@ -52,7 +52,9 @@ executive:
       - genotype-03-aa-pathway-stress [PLANNED] — knockouts of amino-acid
         pathway genes, probing the mechanistic AA supply parameter-fitting
         interaction flagged in RFC-007. A targeted look at an anticipated
-        failure mode.
+        failure mode, carried as two checks: a build-integrity check on the
+        genotype's ParCa study (did the kcat recalculation stay sane), and a
+        downstream physiology check.
       - genotype-04-ko-mechanism-comparison [PLANNED] — the same genes knocked
         out translationally and at the ParCa level; characterize where and how
         far the two mechanisms diverge.
@@ -97,7 +99,7 @@ at_a_glance:
   studies:
   - genotype-01-null-control: no-op perturbation plus one non-essential knockout; machinery sanity check before results are interpreted
   - genotype-02-essentiality-panel: single-gene knockout panel across known-essential / non-essential / conditional genes; characterize the model's response using published essentiality as structure to read against
-  - genotype-03-aa-pathway-stress: knockouts of amino-acid pathway genes, probing the mechanistic AA supply parameter-fitting interaction flagged in RFC-007
+  - genotype-03-aa-pathway-stress: knockouts of amino-acid pathway genes, probing the mechanistic AA supply parameter-fitting interaction flagged in RFC-007; checked at ParCa build time (fitting integrity) and downstream (physiology)
   - genotype-04-ko-mechanism-comparison: translation-level vs ParCa-level knockout of the same gene set; characterize the divergence, including the transcriptional burden the translational mechanism retains
   - genotype-05-knockdown-dose-response: graded knockdown over a multiplier series; characterize the shape of the response
 
@@ -111,7 +113,7 @@ studies:
 acceptance_criteria:
 - {study: genotype-01-null-control, behavior: no-op-perturbation-matches-baseline-and-non-essential-ko-is-viable}
 - {study: genotype-02-essentiality-panel, behavior: knockout-panel-response-characterized-against-published-essentiality}
-- {study: genotype-03-aa-pathway-stress, behavior: aa-pathway-knockout-effect-on-supply-parameterization-characterized}
+- {study: genotype-03-aa-pathway-stress, behavior: aa-pathway-knockout-effect-on-supply-parameterization-characterized-at-build-and-physiology}
 - {study: genotype-04-ko-mechanism-comparison, behavior: translation-vs-parca-knockout-divergence-characterized}
 - {study: genotype-05-knockdown-dose-response, behavior: knockdown-response-shape-characterized-across-multiplier-series}
 
@@ -128,6 +130,22 @@ notes:
     panel will likely need to trade seeds and generations down to buy genotype
     breadth; that trade should be made against a measured variance decomposition
     rather than by assumption.
+  study_structure: |
+    Each genotype is run as a build-ParCa study — a study whose baseline
+    composite is `parca`, pointed at the genotype's generated ecoli-sources
+    bundle — following the `showcase-1-parca` pattern in the
+    v2ecoli-baseline-showcase investigation (Eran's steer, 2026-07-21). A
+    curated panel is then a set of such studies seeded from a common root, each
+    with its own report card; genotype = bundle = ParCa build = study. This is
+    the platform-native form of the perturbations-as-bundle-variants identity,
+    and it means the curated studies here need no genome-wide runner — they are
+    hand-authored `parca` composites (the runner is for programmatic scale, out
+    of this investigation's scope; see the design spec's execution-model section).
+    Two report-card kinds live on these studies: a build-integrity card (did the
+    ParCa fit cleanly / cache complete / fitted params in range — the natural
+    home for study 03's AA-fitting check) and the response cards that
+    characterize physiology.
+
   going_deeper: |
     Deliberately deferred. Once the mechanisms are trusted — the machinery
     verified by the design spec's test matrix, and the descriptive pass above

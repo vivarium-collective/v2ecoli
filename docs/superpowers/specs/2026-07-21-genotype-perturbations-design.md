@@ -152,6 +152,44 @@ Two paths, one per perturbation type, chosen to match the biology:
 Retire `gene_deletions` as a parca-option once the generator path is canonical;
 keeping both re-introduces the duplication this is meant to remove.
 
+### Execution model — build-ParCa studies and the runner (two scales)
+
+A genotype that is a generated bundle can be surfaced two ways, and the design
+wants both because they serve different scales.
+
+**As an investigation of build-ParCa studies** (Eran's steer, 2026-07-21). The
+`v2ecoli-baseline-showcase` investigation already has a study whose baseline
+composite *is* `parca` — `showcase-1-parca` builds the ParCa from the
+ecoli-sources flat files and grades the build itself (51 conditions fit, cache
+bundle complete, reproduces the `parca_compare` reference). A genotype panel is
+the same shape: one build-ParCa study per genotype, seeded from a common root,
+each with a report card. This is exactly the
+`perturbations-as-bundle-variants` identity in the platform's own nouns —
+genotype = bundle = ParCa build = study. It is the right surface for **curated
+panels** (the essentiality and AA-pathway studies — tens of genotypes, each
+individually interesting and worth its own card), and it needs no new runner:
+each study is a `parca` composite pointed at a generated bundle.
+
+**As a `parca_variants` runner** (Tranche B). Study-per-genotype does not scale
+to a genome-wide SFBA-target screen — thousands of genotypes, none wanting a
+hand-authored study. There the top-level `parca_variants: []` list is the
+programmatic surface: N bundles, N ParCa builds, two-level indexing, one metadata
+merge. Same identity, different scale.
+
+The two are complementary, not alternatives. The runner is also what makes the
+build-ParCa-study view reproducible *at count* — the curated studies can be
+authored by hand today (once Tranche C's generator exists), and the runner backs
+the same builds when a panel grows past the point of hand-authoring.
+
+**A build-integrity card, distinct from the response cards.** Grading the
+*build* — did this genotype's ParCa fit cleanly, did the cache complete, did the
+fitted parameters stay in range — is a different card from grading the
+genotype's physiological *response*, and it is the natural home for the
+amino-acid-fitting risk below: a KO that corrupts the mechanistic AA supply
+parameterization is a build-time failure, catchable on the ParCa study before
+any downstream physiology is read. `showcase-1-parca`'s build tests are the
+template.
+
 ## Normalization and ordering semantics
 
 RFC-007 Appendix A's technical note on RNAP/ribosome allocation is a design
@@ -256,14 +294,32 @@ more confidence than it has: passing the test matrix above establishes that
 coordinates and expression vectors are edited correctly, not that the resulting
 sim_data is physiologically sound.
 
+Much of this failure mode surfaces at **build time**, not in physiology, which
+is where the build-integrity card above earns its keep: a trp-gene KO that
+corrupts the kcat recalculation shows up as a ParCa study that fits badly (or
+fails to converge, or drives a fitted parameter out of range) before any cell is
+simulated. That makes the AA-fitting check partly a build-integrity assertion on
+the genotype's ParCa study, and partly a downstream physiology check — the
+investigation's study carries both halves.
+
 ## Sequencing
 
-A → B → C. Tranche A is independently deliverable and gives a working KD/OE/KO
-surface with no new infrastructure. B is the enabling rail for C and is already
-designed. C carries the coordinate work and the AA-fitting risk.
+A → C → B. Tranche A is independently deliverable and gives a working KD/OE/KO
+surface with no new infrastructure. C is the ParCa-level generator plus the
+coordinate work and the AA-fitting risk; once its generator exists, a genotype
+is a bundle and a curated panel can be run as hand-authored build-ParCa studies
+(the execution-model section above) **without waiting on B**. B is the runner
+that backs the same builds at genome-wide scale and makes them reproducible at
+count; it is already designed but is only load-bearing once a panel grows past
+hand-authoring.
+
+This reorders the earlier A → B → C: Eran's build-ParCa-study pattern means the
+curated descriptive panels no longer depend on the runner, so C (which they do
+need) comes first and B follows when scale demands it.
 
 The scientific investigation is scaffolded now but runs after C, since the
-essentiality panel and the AA-pathway stress test both need ParCa-level KO.
+essentiality panel and the AA-pathway stress test both need the ParCa-level KO
+generator.
 
 That investigation is deliberately a **descriptive** first pass — characterize
 how the model responds, with several checks per study that can surface

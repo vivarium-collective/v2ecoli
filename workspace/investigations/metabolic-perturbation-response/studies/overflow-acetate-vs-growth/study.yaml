@@ -3,14 +3,16 @@ name: overflow-acetate-vs-growth
 investigation: metabolic-perturbation-response   # owning investigation (back-reference)
 title: "Does v2ecoli reproduce the aerobic acetate-overflow curve (acetate vs growth rate) — Basan 2015?"
 created: '2026-06-15'
-status: planned
+status: in-progress
 kind: confirmatory   # tests a pre-declared experimental relationship (Basan 2015 overflow curve)
 
-# Canonical 6-axis status. SCAFFOLD: design in progress; nothing built or run yet.
+# Canonical 6-axis status. Baseline-FBA arm run + graded (2026-07-22); the two
+# Millard arms are still unbuilt, and the titration premise needs revisiting
+# (see `caveats` below) before the verdict carries much weight.
 design_status: in-progress
-implementation_status: planned
-simulation_status: not-run
-evaluation_status: not-evaluated
+implementation_status: partial      # baseline-FBA arm only; Millard arms unbuilt
+simulation_status: run              # 6-cap light sweep, 1 seed x 2 gens
+evaluation_status: evaluated        # baseline arm graded: mismatch (no overflow)
 gate_status: planned
 expert_review_status: pending
 
@@ -21,10 +23,35 @@ question: |
   Millard kinetic ODE, and the v2ecoli+Millard FBA-bridge arms compare?
 
 report:
-  title: "overflow-acetate-vs-growth — v2ecoli acetate response vs Basan 2015 (scaffold)"
-  verdict: not-yet-run
-  confidence: low
-  evidence_quality: aspirational
+  title: "overflow-acetate-vs-growth — v2ecoli acetate response vs Vemuri 2006 / Basan 2015"
+  verdict: mismatch          # baseline-FBA arm: no overflow across the sweep
+  confidence: low            # see `caveats` — the titration does not move growth rate
+  evidence_quality: preliminary
+  caveats: |
+    Two findings from the 2026-07-22 run limit how much this verdict carries.
+
+    1. THE TITRATION DOES NOT TITRATE GROWTH. Across a 5.6x glucose-uptake range
+       (caps 1-6; the cap binds exactly at 1-4, goes slack above ~5.6) the emergent
+       growth rate moves only 0.954 -> 0.925 /h, non-monotonically. Division runs on
+       the D-period replication clock (`d_period=True`, the vEcoli default), where the
+       dry-mass threshold is deliberately ignored (v2ecoli/steps/division.py:181-190),
+       so mean division time — and hence the mu this study reads out — is set by
+       replication timing, not carbon supply. The acetate-vs-growth-rate framing
+       assumes carbon uptake drives mu; in this model it does not. The graded x-range
+       is therefore ~0.03 /h wide, all of it above the reference onset (lac 0.408).
+
+    2. CARBON BALANCE FAILS UNDER A BINDING CAP. At cap=1 the model takes up
+       6.0 mmolC/gDCW/h as glucose and secretes 11.6 mmolC/gDCW/h as CO2 — about 2x
+       the carbon in, while still growing — tripping the assumption-free
+       `violation_C_created` flag. CO2 output RISES as glucose is restricted
+       (11.62 / 5.00 / 1.82 at caps 1 / 2 / 6). Biomass yield tracks the same
+       non-physicality: 5.30 / 2.59 / 0.92 gDW/g glucose at caps 1 / 2 / 6, against a
+       literature range of 0.36-0.54 and a thermodynamic ceiling near 0.5. Undiagnosed.
+
+    The verdict below (acetate = 0.0 at every cap, so "no overflow") is the PREDICTED
+    baseline-FBA outcome and is consistent with the basal card, but it is graded on a
+    degenerate sweep. Read it as "overflow physiology is absent", not as a quantitative
+    curve comparison.
   objective: |
     Sweep the carbon-uptake knob (glucose uptake rate / glucose concentration)
     and read out the acetate-secretion and O2 response as a function of the
@@ -44,12 +71,15 @@ report:
     → emergent growth rate (a chemostat would invert this: clamp growth, let
     uptake follow). Arms reuse the composites from ketchup-baseline-comparison:
     baseline FBA (v2ecoli.composites.baseline), the Millard kinetic ODE, and the
-    live FBA-bridge (millard_fba_bridge_harness). Reference = the Basan 2015
-    Fig-1 source data (investigation input basan2015-acetate-vs-growth, populated);
-    grade against the `uptake_titration` series — `ptsG_glucose` is the direct
-    apples-to-apples match for a glucose-cache sweep. Acetate units (mM/OD600/h)
-    need an external OD600→gDCW factor to compare to the model's mmol/gDCW/h
-    (see inputs/notes/basan2015.md).
+    live FBA-bridge (millard_fba_bridge_harness). Reference = the ecoli-sources
+    `perturbation__overflow__acetate_vs_growth` slot: Vemuri 2006 (MG1655
+    glucose-limited chemostat) is the PRIMARY graded curve — it co-measures glucose
+    uptake, so the acetate-carbon yield Y_ac = (2·acetate)/(6·glucose) is raw per
+    point; Basan 2015 `ptsG_glucose` (NCM3722) rides along as context via the SI
+    closed form, plus an independent MG1655 ¹³C anchor. Grading is shape-first on the
+    dimensionless Y_ac, which cancels per-OD vs per-gDCW on both sides — so the
+    OD600→gDCW factor flagged in inputs/notes/basan2015.md is NOT needed (resolved
+    2026-06-24; that note is superseded).
     Key test: overflow is a constraint phenomenon — plain growth-max FBA respires
     fully and excretes no acetate (the ketchup baseline finding), so this grades
     whether v2ecoli encodes the proteome/respiration limit that makes overflow

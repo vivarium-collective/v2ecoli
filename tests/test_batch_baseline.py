@@ -334,3 +334,55 @@ def test_dispatch_uses_the_run_sweep_dir_end_to_end(monkeypatch):
     assert batch["out_dir"] == "/ws/.pbg/runs/r1/parquet/r1"
     assert batch["outputs"]["viz_dir"] == "/ws/.pbg/runs/r1/parquet/r1/viz"
     assert batch["seeds"]["00"]["store_path"].startswith("/ws/.pbg/runs/r1/parquet/r1/")
+
+
+# --- emitter wiring ----------------------------------------------------------
+
+def test_emitter_captures_the_completed_batch(monkeypatch):
+    """The run's Results tab reads what the emitter recorded, so the emitter
+    Step must run AFTER the batch runner.
+
+    It didn't: `batch` was declared as both an input and an output of the
+    runner, and build_step_network deliberately skips self-loops ("self-loops
+    can't trigger"), so NOTHING was registered as producing `batch`. The
+    emitter's dependency on it counted as satisfied before the runner had run,
+    both landed in the same layer, and every run emitted the empty pre-dispatch
+    store. triggers() makes `batch` a silent input, restoring the edge.
+    """
+    from process_bigraph import Composite
+    from vivarium_workbench.lib import composite_runs as cr
+
+    from v2ecoli.composites.batch_baseline import batch_baseline
+    from v2ecoli.core import build_core
+
+    monkeypatch.setattr(
+        bbr, "dispatch_batch",
+        lambda **kw: {"completed": True, "n_seeds": 1, "mode": "stub"})
+
+    core = build_core()
+    state = batch_baseline(core=core, n_seeds=1, analyses="none")["state"]
+    state = cr.inject_emitter_for_paths(state, ["batch", "global_time"])
+    composite = Composite({"state": state}, core=core)
+    composite.run(1)
+
+    rows = composite.state["user_emitter"]["instance"].history
+    assert len(rows) == 1
+    emitted = rows[0]["batch"]
+    assert emitted.get("completed") is True, (
+        "the emitter recorded the batch store BEFORE the runner wrote it — "
+        "the run's Results tab would show an empty batch")
+    assert emitted.get("mode") == "stub"
+    # What the emitter recorded IS the run's final state, not a snapshot of it.
+    live = composite.state["batch"]
+    assert {k: v for k, v in emitted.items() if k != "_value"} == \
+           {k: v for k, v in live.items() if k != "_value"}
+
+
+def test_runner_declares_no_scheduling_triggers():
+    """Guard the contract directly: batch must not be a scheduling input."""
+    from v2ecoli.composites._helpers import _make_instance
+    from v2ecoli.core import build_core
+
+    runner = _make_instance(BatchBaselineRunner, {"n_seeds": 1}, build_core())
+    assert runner.triggers() == {}
+    assert "batch" in runner.inputs()      # still received, just silent

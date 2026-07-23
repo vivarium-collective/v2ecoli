@@ -400,6 +400,23 @@ class BatchBaselineRunner(Step):
         # dashboard composite-runner rebuilding the Step from the document).
         return {"batch": InPlaceDict()}
 
+    def triggers(self) -> dict[str, Any]:
+        """No trigger ports — ``batch`` is a SILENT input.
+
+        The Step still receives ``batch`` (the guard above reads it); it just
+        stops being a *scheduling* input. That matters because
+        ``build_step_network`` deliberately does not register a Step as the
+        producer of a path it also consumes ("self-loops can't trigger"). With
+        ``batch`` on both sides, nothing was recorded as producing ``batch``, so
+        a downstream emitter's dependency on it counted as satisfied before this
+        Step had run: the emitter landed in the SAME layer, read the store
+        before the batch was dispatched, and the run's Results tab showed
+        ``batch: {}`` no matter how many steps it ran. Declaring no triggers
+        restores the edge — this Step runs in the first layer, the emitter in
+        the next, and the emitted row carries the batch summary.
+        """
+        return {}
+
     def outputs(self) -> dict[str, Any]:
         return {"batch": InPlaceDict()}
 

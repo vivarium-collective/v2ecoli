@@ -7,13 +7,18 @@ cd "$(dirname "$0")/.."
 PY=.venv/bin/python
 A=out/analysis
 
-echo "=== 1/3 succinate asynchrony (sat-init vs mass-clock control) ==="
-$PY scripts/analyze_initiation_asynchrony.py \
+echo "=== 1/5 succinate initiation SYNCHRONY (within-cell, sat-init vs mass-clock) ==="
+$PY scripts/analyze_initiation_synchrony.py \
   --mech 'out/dnaa5_succ_mech_seed*_parquet/*/history' \
   --control 'out/dnaa5_succ_ctrl_seed*_parquet/*/history' \
-  --out $A/asynchrony_succinate.svg --title "succinate" 2>&1 | grep -vE "Setting|skipping|numcodecs|Warning"
+  --out $A/synchrony_succinate.svg --title "succinate" 2>&1 | grep -vE "Setting|skipping|numcodecs|Warning"
 
-echo "=== 2/3 succinate division distributions ==="
+echo "=== 1b/5 DnaA-ATP sawtooth trajectory (signature view) ==="
+$PY scripts/plot_dnaa_trajectory.py \
+  --exp-root out/dnaa5_succ_mech_seed1_parquet/dnaa5_succ_mech_seed1 \
+  --out $A/trajectory_succinate.svg --title "succinate (seed 1)" 2>&1 | grep -vE "Setting|skipping|numcodecs|Warning"
+
+echo "=== 2/5 succinate division distributions ==="
 $PY scripts/analyze_division_distributions.py \
   --log 'out/dnaa5_succ_mech_seed*.log' \
   --out $A/division_succinate.svg --title "succinate (sat-init)" 2>&1 | grep -vE "Setting|skipping|numcodecs|Warning"
@@ -24,9 +29,12 @@ $PY scripts/analyze_division_distributions.py \
   --out $A/division_basal.svg --title "basal (sat-init)" 2>&1 | grep -vE "Setting|skipping|numcodecs|Warning"
 
 echo "=== copy figures into study charts/ ==="
-cp $A/asynchrony_succinate.png workspace/studies/dnaa-10-async-quantification/charts/
-cp $A/division_succinate.png   workspace/studies/dnaa-10-async-quantification/charts/
-cp $A/division_basal.png       workspace/studies/dnaa-11-basal-mechanistic/charts/
+D10=workspace/studies/dnaa-10-async-quantification/charts
+cp $A/synchrony_succinate.png     $D10/
+cp $A/trajectory_succinate.png    $D10/
+cp $A/division_succinate.png      $D10/
+[ -f $A/reproduction_scorecard.png ] && cp $A/reproduction_scorecard.png $D10/
+cp $A/division_basal.png          workspace/studies/dnaa-11-basal-mechanistic/charts/
 echo "  copied."
 
 echo "=== headline numbers (for the study verdicts) ==="

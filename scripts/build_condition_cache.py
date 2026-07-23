@@ -201,10 +201,16 @@ def build(condition: str, fixture: str, cache_dir: str,
               f"{d_period_seconds} s ({d_period_seconds/60} min)")
 
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
-    save_sim_input(sim_data, cache_dir,
-                   condition=media_condition, fixed_media=fixed_media,
-                   c_period_minutes=c_period_minutes,
-                   d_period_seconds=d_period_seconds)
+    # NOTE: this branch's save_sim_input predates the C/D-period override kwargs;
+    # they're unused here (both None), so pass only the supported args.
+    _save_kwargs = dict(condition=media_condition, fixed_media=fixed_media)
+    import inspect as _inspect
+    _sig = _inspect.signature(save_sim_input).parameters
+    if c_period_minutes is not None and "c_period_minutes" in _sig:
+        _save_kwargs["c_period_minutes"] = c_period_minutes
+    if d_period_seconds is not None and "d_period_seconds" in _sig:
+        _save_kwargs["d_period_seconds"] = d_period_seconds
+    save_sim_input(sim_data, cache_dir, **_save_kwargs)
     write_cache_version(cache_dir, repo_root=repo_root)
 
     manifest = {

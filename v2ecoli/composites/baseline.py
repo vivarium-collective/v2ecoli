@@ -103,13 +103,15 @@ BASE_EXECUTION_LAYERS = [
     # Layer 4: protein degradation (standalone — no resource competition)
     ['ecoli-protein-degradation'],
 
-    # Layer 4b: standalone initiation/replication/complexation
-    ['ecoli-complexation', 'ecoli-chromosome-replication',
+    # Layer 4b: standalone initiation/complexation
+    ['ecoli-complexation',
      'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
-    # RNA degradation still partitioned (shares water with other processes)
-    ['ecoli-rna-degradation_requester'],
+    # allocator_2: rna-degradation + chromosome replication partitioned together
+    # (chromosome replication is now a PartitionedProcess with the sat-init gate;
+    # it competes for replisome subunits/dNTPs — matches vEcoli's flow).
+    ['ecoli-rna-degradation_requester', 'ecoli-chromosome-replication_requester'],
     ['allocator_2'],
-    ['ecoli-rna-degradation_evolver'], FLUSH,
+    ['ecoli-rna-degradation_evolver', 'ecoli-chromosome-replication_evolver'], FLUSH,
 
     # Layer 5: partition layer 3 -- elongation requesters (parallel)
     ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
@@ -419,7 +421,6 @@ def _get_step_config(
         'ecoli-rna-maturation': RnaMaturation,
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
-        'ecoli-chromosome-replication': ChromosomeReplication,
     }
 
     SIMPLE_STEPS = {

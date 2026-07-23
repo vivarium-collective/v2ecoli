@@ -42,6 +42,7 @@ from pbg_emitters.lifecycle import (
 from v2ecoli.processes.rna_degradation import RnaDegradation
 from v2ecoli.processes.transcript_elongation import TranscriptElongation
 from v2ecoli.processes.polypeptide_elongation import SteadyStatePolypeptideElongation
+from v2ecoli.processes.chromosome_replication import ChromosomeReplication
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +123,10 @@ PARTITIONED_PROCESSES = {
     'ecoli-rna-degradation': RnaDegradation,
     'ecoli-transcript-elongation': TranscriptElongation,
     'ecoli-polypeptide-elongation': SteadyStatePolypeptideElongation,
+    # aim2 dnaa5: chromosome replication is now a PartitionedProcess (sat-init
+    # gate replaces the mass-clock), so it partitions replisome subunits/dNTPs
+    # in the allocator_2 layer alongside rna-degradation (matching vEcoli flow).
+    'ecoli-chromosome-replication': ChromosomeReplication,
 }
 
 ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())

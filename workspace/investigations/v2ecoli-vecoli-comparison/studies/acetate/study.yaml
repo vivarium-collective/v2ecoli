@@ -5,11 +5,12 @@ title: v2ecoli reproduces vEcoli on acetate
 condition: acetate
 question: Does v2ecoli reproduce vEcoli on the acetate condition?
 comparison:
-  seeds: 1
+  seeds: 4
   generations: 4
 report_cards:
 - viz/report_card/config.html
 - viz/report_card/standard.html
+- viz/report_card/statistical.html
 pipeline_gate:
   prerequisites:
   - parca

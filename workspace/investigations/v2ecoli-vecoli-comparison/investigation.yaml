@@ -16,6 +16,8 @@ comparison:
     cards:
     - config
     - standard
+    - statistical
+    seeds: 4
 studies:
 - parca
 - basal

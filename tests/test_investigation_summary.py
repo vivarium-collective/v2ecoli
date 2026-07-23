@@ -30,7 +30,7 @@ def test_aggregate_per_study_metadata_and_rollup():
     assert by["statistical"]["prerequisites"] == ["basal"]
     assert "RNA mass" in (by["acetate"]["finding"] or "")
     # config + standard cards discovered for acetate; parca card for parca
-    assert {c["name"] for c in by["acetate"]["cards"]} == {"config", "standard"}
+    assert {c["name"] for c in by["acetate"]["cards"]} == {"config", "standard", "statistical"}
     assert {c["name"] for c in by["parca"]["cards"]} == {"parca"}
     # config card is ungraded, standard is graded
     acards = {c["name"]: c for c in by["acetate"]["cards"]}
@@ -206,7 +206,7 @@ def test_aggregate_config_json_is_real_baseline_config():
     assert cfg["composite"] == "v2ecoli.composites.baseline.baseline"
     assert cfg["params"] == {"condition": "acetate"}
     # comparison run settings folded in
-    assert cfg["seeds"] == 1
+    assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
     assert cfg["generations"] == 4
 
 

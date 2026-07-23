@@ -23,9 +23,9 @@ runs:
   status: completed
   result: PARTIAL
   outcomes:
-    standard-vs-vecoli:
-      result: PARTIAL
-      detail: 'report card ''standard'': drift'
+    statistical-vs-vecoli:
+      result: PENDING
+      detail: 'report card ''statistical'': ungraded'
 status: evaluated
 tests:
 - name: config-vs-vecoli
@@ -38,10 +38,15 @@ tests:
   card: standard
   classification: primary
   question: Does v2ecoli reproduce vEcoli on no_oxygen (standard card)?
+- name: statistical-vs-vecoli
+  kind: report_card
+  card: statistical
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (statistical card)?
   measure:
     kind: report_card_axis
     card: docs/report_cards/v2ecoli-vecoli-comparison/no_oxygen
-    group: standard
+    group: statistical
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline.baseline

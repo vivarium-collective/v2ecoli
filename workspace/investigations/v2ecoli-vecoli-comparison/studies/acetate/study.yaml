@@ -49,7 +49,7 @@ conditions:
       condition: acetate
 depends_on:
 - parca
-confidence: Refuted
+confidence: Investigating  # single-seed "Refuted" retired; re-grading on 4-seed statistical (gold standard)
 findings:
 - id: acetate-standard
   kind: computational

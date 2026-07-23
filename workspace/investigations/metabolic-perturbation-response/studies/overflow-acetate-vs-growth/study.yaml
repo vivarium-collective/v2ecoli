@@ -194,7 +194,7 @@ tests:
     detail: "Yxs = mu / (|q_glc| * M_glc). Band from the ecoli-sources basal__biomass_yield slot (Varma 1993 0.538 / Varma 1994 0.355 / LaCroix 2015 0.440 / Long 2017 0.444 / Kavvas 2022 0.420 gDW/g_glucose); the thermodynamic ceiling is ~0.5."
   cites: [basan2015]
   pass_if:
-    op: within_range
+    op: in_range
     range: [0.355, 0.538]
 
 pipeline_gate:

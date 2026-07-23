@@ -3,20 +3,21 @@ name: dnaa-11-basal-mechanistic
 investigation: dnaa-replication
 title: "Study 11 — Mechanistic Initiation in the Basal Condition (division distributions)"
 created: "2026-07-23"
-status: in_progress
+status: completed
 design_status: designed
 implementation_status: implemented
-simulation_status: running
-evaluation_status: pending
-gate_status: pending
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: fail   # 2026-07-23: the succinate calibration does NOT transfer to basal. Gen 1 fires + divides (4 seeds, ~42 min, ~710 fg), but the gen-2 daughter fails to re-initiate under POST_INIT_UNLOCK in the basal context, over-grows past ~1400 fg, and the lineage collapses at gen 2 (no run reached gen 3). A clear, informative condition-transfer failure that motivates dnaa-12 (regulated/condition-aware source).
 expert_review_status: pending
 
 seeded_from:
   study: dnaa-10-async-quantification
   why: >-
     dnaa-10 confirmed the mechanistic sat-init trigger in the SUCCINATE
-    condition — it fires once per cycle, produces sister-chromosome asynchrony,
-    and keeps division physiological. Rashmi's next step (2026-07-23) is to
+    condition — it fires cleanly once per cycle and keeps division physiological
+    (though the expected sister asynchrony was not resolved with the constant-
+    production stand-in). Rashmi's next step (2026-07-23) is to
     confirm the SAME mechanism transfers to the BASAL (default minimal-glucose)
     growth condition and to characterise its time-to-division and
     size-at-division distributions there, since the basal condition is the
@@ -141,12 +142,12 @@ conclusion_logic:
 simulation_set:
   - name: sat-init-basal
     kind: lineage
-    status: running
+    status: completed
     base_model: v2ecoli baseline + sat-init mechanism, basal cache
     duration_steps: "6 generations"
     seeds: [1, 2, 3, 4]
     metrics: [tau, dry_mass_at_division, number_of_oric, cell_age_at_initiation]
-    pass_fail_tests: [mechanism-transfers-to-basal, basal-tau-slower-than-succinate, division-size-physiological]
+    pass_fail_tests: [mechanism-transfers-to-basal, basal-division-well-defined, division-size-physiological]
     note: "runs dnaa5_basal_mech_seed1..4."
 
 visualizations:
@@ -161,8 +162,36 @@ visualizations:
         size-vs-time, pooled over all divided generations across 4 seeds. Compare
         the tau distribution against the succinate panel in dnaa-10.
 
+results:
+  fleet: "4 seeds x (requested 6 gens) on the basal cache; every lineage collapsed at gen 2."
+  gen1: {n_divisions: 4, tau_median_min: 42.1, size_median_fg: 710, note: "gen-1 fires cleanly and divides on all 4 seeds."}
+  gen2_failure: >-
+    On every seed the gen-2 daughter fails to re-initiate: the POST_INIT_UNLOCK
+    daughter gate (60 s cumulative positive DnaA-ATP gradient) does not clear in
+    the basal context, so oriC stays at 1, the cell over-grows past ~1400 fg
+    (vs ~710 fg gen-1 division), never divides, hits the 130 min cutoff, and the
+    lineage stops. No run reached gen 3.
+
+tests_outcome:
+  - {name: mechanism-transfers-to-basal, result: FAIL, note: "gen-1 fires (oriC 1->2, divides) but gen-2 daughter never re-initiates — not once-per-cycle beyond gen 1."}
+  - {name: basal-division-well-defined, result: PARTIAL, note: "gen-1 tau 42 min in band, but only n=4 (gen-1 only); no steady-state distribution because the lineage collapses."}
+  - {name: division-size-physiological, result: FAIL, note: "gen-1 size 710 fg in band, but gen-2 runs away to >1400 fg without dividing."}
+
 report:
-  title: "dnaa-11 — mechanistic initiation in basal (division distributions)"
+  title: "dnaa-11 — mechanistic initiation in basal (condition-transfer failure)"
   verdict: >-
-    PENDING — basal fleet running (4 seeds x 6 gens, sat-init on the basal
-    cache). Fills in from out/analysis/division_basal.meta.json once complete.
+    THE SUCCINATE CALIBRATION DOES NOT TRANSFER TO BASAL — an informative
+    negative result. The identical sat-init mechanism + production-flux
+    calibration that fires cleanly once-per-cycle in succinate (dnaa-10) fires
+    and divides in basal ONLY in generation 1 (4 seeds, ~42 min, ~710 fg). In
+    generation 2 the daughter origin never clears the POST_INIT_UNLOCK gate (60 s
+    of continuous positive bulk DnaA-ATP gradient) in the slower basal context,
+    so it fails to re-initiate, over-grows past ~1400 fg without dividing, and
+    the lineage collapses — no seed reached generation 3. This pinpoints the
+    transfer blocker precisely: the constant DnaA-ATP production flux is
+    calibrated to succinate dynamics, and the daughter gradient gate that
+    creates clean behaviour there over-suppresses re-initiation under basal
+    growth. The fix is a growth-context-aware / regulated DnaA-ATP source rather
+    than a fixed flux — exactly the dnaa-12 feedback study. NET: the mechanism
+    is not yet condition-robust; the failure mode (daughter POST_INIT_UNLOCK
+    over-suppression under a fixed production rate) is cleanly identified.

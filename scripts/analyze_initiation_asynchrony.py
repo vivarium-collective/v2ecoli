@@ -83,6 +83,32 @@ def pairwise_delays(ages_by_run):
     return np.array(d)
 
 
+def ages_by_generation(history_globs):
+    """{generation: [init age (min) across seeds]} — the cohort view."""
+    from itertools import groupby
+    con = duckdb.connect()
+    byg = {}
+    roots = sorted(set(p.rstrip("/") for g in history_globs for p in glob.glob(g)))
+    for root in roots:
+        if not glob.glob(f"{root}/**/*.pq", recursive=True):
+            continue
+        rows = con.execute(f"""
+            SELECT generation, agent_id, global_time,
+                   listeners__replication_data__number_of_oric AS noric
+            FROM read_parquet('{root}/**/*.pq', hive_partitioning=true)
+            WHERE listeners__replication_data__number_of_oric IS NOT NULL
+            ORDER BY generation, agent_id, global_time
+        """).fetchall()
+        for (gen, _aid), grp in groupby(rows, key=lambda r: (r[0], r[1])):
+            g = list(grp)
+            t = np.array([x[2] for x in g], float) / 60.0
+            n = np.array([x[3] for x in g], float)
+            inc = np.where(np.diff(n) > 0.5)[0]
+            if len(inc):
+                byg.setdefault(gen, []).append(float(t[inc[0] + 1]))
+    return byg
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mech", action="append", required=True,
@@ -111,7 +137,7 @@ def main():
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, (axL, axR) = plt.subplots(1, 2, figsize=(12.5, 4.6))
+    fig, (axL, axM, axR) = plt.subplots(1, 3, figsize=(16.5, 4.6))
 
     # Left: initiation-age distribution (spread == asynchrony)
     if len(mech_all):
@@ -129,7 +155,26 @@ def main():
         axL.legend(frameon=False, fontsize=9)
     axL.set_xlabel("cell age at initiation (min)")
     axL.set_ylabel("count")
-    axL.set_title("Initiation-age distribution\n(broader = more asynchronous)", fontsize=11)
+    axL.set_title("Initiation-age distribution\n(sat-init = tight & reproducible; mass-clock drifts)", fontsize=11)
+
+    # Middle: initiation age vs generation — the homeostasis view
+    mech_g = ages_by_generation(args.mech)
+    ctrl_g = ages_by_generation(args.control) if args.control else {}
+    def plot_gen(ax, byg, color, label):
+        gens = sorted(byg)
+        if not gens:
+            return
+        meds = [np.median(byg[g]) for g in gens]
+        errs = [np.std(byg[g]) for g in gens]
+        ax.errorbar(gens, meds, yerr=errs, marker="o", color=color, lw=2,
+                    capsize=3, label=label)
+    plot_gen(axM, mech_g, "#2563eb", "sat-init")
+    plot_gen(axM, ctrl_g, "#9ca3af", "mass-clock")
+    axM.set_xlabel("generation")
+    axM.set_ylabel("cell age at initiation (min)")
+    axM.set_title("Initiation timing across generations\n(sat-init holds ~27 min; mass-clock drifts & collapses)",
+                  fontsize=11)
+    axM.legend(frameon=False, fontsize=9)
 
     # Right: inter-initiation (sister) delay distribution — the bar graph
     if len(mech_delay):
@@ -149,22 +194,30 @@ def main():
     axR.set_ylabel("count")
     axR.set_title("Sister inter-initiation-time distribution", fontsize=11)
 
-    fig.suptitle("Replication-initiation asynchrony"
+    fig.suptitle("Replication-initiation timing (asynchrony question)"
                  + (f" — {args.title}" if args.title else ""),
                  fontsize=13, x=0.02, ha="left")
     fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(args.out, format="svg", bbox_inches="tight")
     png = args.out.rsplit(".", 1)[0] + ".png"
     fig.savefig(png, dpi=110, bbox_inches="tight")
-    meta = {"title": f"Replication-initiation asynchrony ({args.title})" if args.title
-                     else "Replication-initiation asynchrony",
-            "caption": "Left: cell-age-at-initiation distribution — the mass clock "
-                       "fires synchronously (sharp), sat-init spreads it. Right: "
-                       "the resulting inter-initiation delay between sister oriCs; "
-                       "the mass-clock control sits near 0, sat-init shifts positive.",
+    ctrl_all = np.array([x for v in (ctrl_ages or {}).values() for x in v]) if ctrl_ages else np.array([])
+    meta = {"title": f"Replication-initiation timing ({args.title})" if args.title
+                     else "Replication-initiation timing",
+            "caption": "Contrary to the naive expectation, the sat-init mechanism "
+                       "gives TIGHT, reproducible initiation timing (~27 min, "
+                       "within-generation std <1 min, stable across 6 generations), "
+                       "while the mass-clock control DRIFTS generation-to-generation "
+                       "(19->53 min then collapsing to ~3 min) — losing cell-cycle "
+                       "homeostasis. NOTE: the tightness is partly an artifact of the "
+                       "constant DnaA-ATP production stand-in (a deterministic timer); "
+                       "true sister asynchrony needs a regulated/stochastic source + "
+                       "dual-daughter tracking (dnaa-12).",
             "n_initiations": int(len(mech_all)),
-            "init_age_std_min": (float(np.std(mech_all)) if len(mech_all) else None),
-            "sister_delay_median_min": (float(np.median(mech_delay)) if len(mech_delay) else None),
+            "mech_init_age_std_min": (float(np.std(mech_all)) if len(mech_all) else None),
+            "ctrl_init_age_std_min": (float(np.std(ctrl_all)) if len(ctrl_all) else None),
+            "mech_sister_delay_median_min": (float(np.median(mech_delay)) if len(mech_delay) else None),
+            "ctrl_sister_delay_median_min": (float(np.median(ctrl_delay)) if ctrl_delay is not None and len(ctrl_delay) else None),
             "n_delay_pairs": int(len(mech_delay))}
     json.dump(meta, open(args.out.rsplit(".", 1)[0] + ".meta.json", "w"))
     print("wrote", args.out, "and", png)

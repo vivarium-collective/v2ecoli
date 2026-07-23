@@ -3,12 +3,12 @@ name: dnaa-10-async-quantification
 investigation: dnaa-replication
 title: "Study 10 — Initiation Asynchrony & Division Distributions (succinate)"
 created: "2026-07-23"
-status: in_progress
+status: completed
 design_status: designed
 implementation_status: implemented
-simulation_status: running
-evaluation_status: pending
-gate_status: pending
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: partial   # 2026-07-23: mechanism FIRES once-per-cycle on the stock cache (24 divisions, 4 seeds x 6 gens) — primary success. But the EXPECTED asynchrony is NOT observed: the sat-init trigger gives TIGHT reproducible timing (init-age std 1.3 min) while the mass-clock control DRIFTS (std 17.8 min). The constant-production stand-in acts as a deterministic timer, confounding the asynchrony test; true sister-asynchrony needs a regulated source + dual-daughter tracking (dnaa-12).
 expert_review_status: pending
 
 seeded_from:
@@ -176,7 +176,7 @@ conclusion_logic:
 simulation_set:
   - name: sat-init-mechanism
     kind: lineage
-    status: running
+    status: completed
     base_model: v2ecoli baseline + sat-init mechanism (production flux 0.2/s)
     duration_steps: "6 generations"
     seeds: [1, 2, 3, 4]
@@ -185,7 +185,7 @@ simulation_set:
     note: "runs dnaa5_succ_mech_seed1..4 (out/*_parquet + logs)."
   - name: mass-clock-control
     kind: lineage
-    status: running
+    status: completed
     base_model: v2ecoli baseline (inherited cell-mass clock)
     duration_steps: "6 generations"
     seeds: [1, 2, 3, 4]
@@ -200,11 +200,15 @@ visualizations:
     source_run: dnaa5_succ_mech_seed1..4 vs dnaa5_succ_ctrl_seed1..4
     config:
       title: >-
-        Replication-initiation asynchrony (succinate). LEFT: cell-age-at-initiation
-        distribution — the mass clock fires synchronously (sharp), the sat-init gate
-        spreads it. RIGHT: the resulting inter-initiation delay between sister oriCs —
-        the mass-clock control sits near 0, sat-init shifts positive (the requested
-        bar graph). Pooled over 4 seeds x 6 generations.
+        Replication-initiation TIMING (succinate) — result is inverted from the
+        naive hypothesis. LEFT: cell-age-at-initiation distribution — sat-init is
+        TIGHT (~27 min, std 1.3 min), the mass clock is spread (std 17.8 min).
+        MIDDLE: initiation age across generations — sat-init holds ~27 min while
+        the mass clock drifts (19->53 min then collapses to ~3 min), losing
+        cell-cycle homeostasis. RIGHT: the inter-initiation delay bar graph —
+        confounded by that mass-clock drift, so it does NOT isolate true sister
+        asynchrony (the constant-production stand-in acts as a deterministic
+        timer). Pooled over 4 seeds x 6 generations.
   - name: dnaa10_division_distributions
     address: image:charts/division_succinate.png
     chart: charts/division_succinate.png
@@ -215,9 +219,59 @@ visualizations:
         time-to-division and dry-mass-at-division distributions, plus size-vs-time,
         pooled over all divided generations across 4 seeds.
 
+results:
+  fleet: "4 seeds x 6 generations, sat-init mechanism + mass-clock control + basal (12 lineages, all exit 0)."
+  mechanism_fires: "PASS — succinate sat-init produced 24 divisions (all 4 seeds x 6 gens), oriC clean 1<->2, one initiation per cycle on the STOCK cache."
+  initiation_timing:
+    sat_init_age_median_min: 26.9
+    sat_init_age_std_min: 1.3
+    mass_clock_age_std_min: 17.8
+    sat_init_sister_delay_median_min: 1.5
+    mass_clock_sister_delay_median_min: 21.6
+    finding: >-
+      Inverted from the naive hypothesis. The sat-init mechanism gives TIGHT,
+      reproducible initiation timing (~27 min, within-generation std <1 min,
+      stable across all 6 generations), while the mass clock DRIFTS across
+      generations (19->36->44->53 min then collapsing to ~3 min). The mechanism
+      is the STABILISING influence here, not the source of asynchrony.
+  division:
+    n_divisions: 24
+    tau_gen1_min: 84.8
+    tau_steady_state_min: 43
+    tau_pooled_median_min: 44.2
+    size_median_fg: 501
+    size_cv: 0.22
+    finding: >-
+      Gen 1 is an 85 min cold-start transient; daughters settle to a steady ~43
+      min cycle at ~500 fg division mass. Well-defined and reproducible.
+
+tests_outcome:
+  - {name: mechanism-fires-once-per-cycle, result: PASS, note: "24 divisions, oriC 1<->2, one init/cycle on stock cache."}
+  - {name: initiation-is-asynchronous, result: FAIL, note: "sat-init std 1.3 min << mass-clock std 17.8 min — mechanism is MORE synchronous, not less. Hypothesis refuted as implemented."}
+  - {name: sister-delay-shifts-positive, result: INVALID, note: "premise broken: the mass-clock control delay (21.6 min) exceeds the sat-init delay (1.5 min); the cross-cell metric is confounded by the mass clock's generational drift."}
+  - {name: division-still-physiological, result: PARTIAL, note: "steady-state tau ~43 min (below the naive 82 min succinate doubling) but well-defined; gen-1 85 min. Divisions occur, size band physiological (~500 fg)."}
+
 report:
-  title: "dnaa-10 — mechanistic-initiation asynchrony & division distributions (succinate)"
+  title: "dnaa-10 — mechanistic-initiation timing & division distributions (succinate)"
   verdict: >-
-    PENDING — fleet running (4 seeds x 6 gens, sat-init + mass-clock control).
-    Fills in from out/analysis/asynchrony_succinate.meta.json and
-    division_succinate.meta.json once the runs complete.
+    MECHANISM WORKS, ASYNCHRONY HYPOTHESIS REFUTED (as implemented) — a
+    productive, honest result. PRIMARY SUCCESS: the ported DnaA-ATP/oriC
+    sat-init trigger fires cleanly once per cell cycle on the STOCK succinate
+    cache (24 divisions over 4 seeds x 6 gens, oriC 1<->2), which required first
+    diagnosing and fixing why it never fired (zero DnaA-ATP pool + zero
+    oriC-labelled boxes — two never-committed reference artifacts; fixed with an
+    off-by-default production flux + oriC proximity labelling). The DIVISION
+    DISTRIBUTIONS are well-characterised: an 85 min gen-1 cold start settling to
+    a steady ~43 min cycle at ~500 fg. The ASYNCHRONY the study set out to
+    quantify is NOT observed: the sat-init mechanism gives tight, reproducible
+    initiation timing (age std 1.3 min) while the mass-clock control is the one
+    that drifts (std 17.8 min, 19->53 min then collapse). This is because (a)
+    the constant DnaA-ATP production stand-in behaves as a deterministic timer,
+    swamping the stochastic/gradient-gate asynchrony that POST_INIT_UNLOCK would
+    contribute, and (b) single-daughter lineage tracking cannot isolate the two
+    true sisters of one division. The clean sister-asynchrony measurement is
+    therefore deferred to dnaa-12: replace the deterministic production with a
+    regulated (autoregulated) + stochastic DnaA-ATP source and track both
+    daughters. NET: the mechanism is a viable, homeostatic replacement for the
+    mass clock on stock caches; the asynchrony question is well-posed and its
+    blocker precisely identified.

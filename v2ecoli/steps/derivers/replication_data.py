@@ -77,14 +77,15 @@ class ReplicationData(Step):
                     'dnaa_box_pool_label': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'dnaa_box_bound_form': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'dnaa_box_coordinates': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    # Asynchronous initiation (Rashmi 2026-07-01): PER-ORIGIN oriC-low
-                    # DnaA-ATP saturation. Two aligned arrays — the oriC domain
-                    # indices and, for each, the count of bound-ATP oriC-low boxes
-                    # sharing that domain. chromosome_replication reads these to fire
-                    # each origin independently when ITS own low sites saturate (8/8),
-                    # instead of doubling all origins in one synchronous tick.
-                    'oriC_domain_index': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'oriC_low_bound_atp_by_origin': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    # Per-oriC-domain oriC_low DnaA-ATP counts (parallel arrays).
+                    # Consumed by chromosome_replication's per-oriC sat-init gate.
+                    'oric_low_atp_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'oric_low_atp_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    # Per-oriC-domain adaptive-K_half trace emitted by
+                    # dnaa_box_binding. Parallel arrays: one K_half value per
+                    # domain that carried oric_low sites on the tick.
+                    'oric_khalf_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'oric_khalf_values': {'_type': 'overwrite[array[float]]', '_default': []},
                 },
             },
         }
@@ -121,22 +122,17 @@ class ReplicationData(Step):
         ol_free, ol_atp, _ol_adp = _pool_counts(2)  # ATP-only pool
         pr_free, pr_atp, pr_adp = _pool_counts(3)
 
-        # Per-origin oriC-low bound-ATP (for asynchronous initiation): count
-        # bound-ATP oriC-low boxes (pool 2, form 1) grouped by the box's
-        # domain_index, aligned to the oriC domain indices. Per-origin counts are
-        # naturally stochastic (each origin's 8 boxes are filled by independent
-        # random selection in dnaa_box_binding), so origins cross the 8/8
-        # saturation threshold at slightly different ticks.
-        (oric_domain_index,) = attrs(states["oriCs"], ["domain_index"])
-        oric_domain_index = np.asarray(oric_domain_index, dtype=np.int64)
+        # Per-domain oriC_low ATP-bound counts (for per-oriC sat-init gate).
+        # Emit parallel arrays: domain index and count for each domain that
+        # has any oriC_low ATP-bound sites. Domains with zero are implicit.
         ol_atp_mask = (pool_label == 2) & (bound_form == 1)
-        ol_atp_domains = np.asarray(domain_index, dtype=np.int64)[ol_atp_mask]
-        if oric_domain_index.size:
-            ol_by_origin = np.array(
-                [int(np.count_nonzero(ol_atp_domains == d)) for d in oric_domain_index],
-                dtype=np.int64)
+        if ol_atp_mask.any():
+            _doms, _cnts = np.unique(domain_index[ol_atp_mask], return_counts=True)
+            oric_low_atp_domains = _doms.astype(np.int64)
+            oric_low_atp_counts = _cnts.astype(np.int64)
         else:
-            ol_by_origin = np.asarray([], dtype=np.int64)
+            oric_low_atp_domains = np.array([], dtype=np.int64)
+            oric_low_atp_counts = np.array([], dtype=np.int64)
 
         update = {
             "listeners": {
@@ -166,8 +162,8 @@ class ReplicationData(Step):
                         bound_form, dtype=np.int64),
                     "dnaa_box_coordinates": np.asarray(
                         coordinates, dtype=np.int64),
-                    "oriC_domain_index": oric_domain_index,
-                    "oriC_low_bound_atp_by_origin": ol_by_origin,
+                    "oric_low_atp_domains": oric_low_atp_domains,
+                    "oric_low_atp_counts": oric_low_atp_counts,
                 }
             }
         }

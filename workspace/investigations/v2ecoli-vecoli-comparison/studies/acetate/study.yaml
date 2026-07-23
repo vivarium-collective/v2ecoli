@@ -48,7 +48,7 @@ conditions:
       condition: acetate
 depends_on:
 - parca
-confidence: Investigating
+confidence: Refuted
 findings:
 - id: acetate-standard
   kind: computational

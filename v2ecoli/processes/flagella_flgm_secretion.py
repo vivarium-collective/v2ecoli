@@ -33,7 +33,6 @@ Ordered in the composite flow:
     ecoli-complexation -> ecoli-flagella-flgm-secretion -> ecoli-transcript-initiation
 """
 
-import numpy as np
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts

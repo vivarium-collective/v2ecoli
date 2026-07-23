@@ -16,7 +16,6 @@ Usage:
 """
 import argparse
 import os
-import time
 
 import numpy as np
 
@@ -185,7 +184,6 @@ def _mpl():
 
 
 def _shade(ax, rows):
-    import matplotlib.pyplot as plt
     gens = sorted({r["gen"] for r in rows})
     colors = ["#eef4ff", "#fff4ee", "#eefff2", "#f7eeff"]
     for r in rows:
@@ -276,9 +274,9 @@ def main():
 
     ng_off = len({r["gen"] for r in off}); ng_on = len({r["gen"] for r in on})
     print(f"\nOFF generations: {ng_off}  ON generations: {ng_on}")
-    print(f"OFF flagella by gen-end: " +
+    print("OFF flagella by gen-end: " +
           ", ".join(f"g{g}={[r['flag'] for r in off if r['gen']==g][-1]}" for g in sorted({r['gen'] for r in off})))
-    print(f"ON  flagella by gen-end: " +
+    print("ON  flagella by gen-end: " +
           ", ".join(f"g{g}={[r['flag'] for r in on if r['gen']==g][-1]}" for g in sorted({r['gen'] for r in on})))
 
 

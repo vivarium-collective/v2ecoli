@@ -20,29 +20,7 @@ hypothesis: |
 
 executive:
   what_is_this: |
-    A multi-study forward UQ investigation using the pbg-uq package to identify
-    dominant sources of parameter-driven variance in the v2ecoli whole-cell
-    baseline. The program proceeds in a structured graph:
-
-    1. param-uq-00-screen (EXECUTED): low/high screen of 7 config-reachable
-       knobs, keeping the 3 that move instantaneous growth rate (>2% response)
-       as the effective UQ surface.
-
-    2. param-uq-01-elongation (EXECUTED): PCE-based forward UQ on the 3 effective
-       knobs (120-step window, n=30+10, 3 PCRV seeds); corrects an earlier
-       artifact (v2ecoli PR #197).
-
-    3. param-uq-02-observables (EXECUTED): repeats the UQ over a 360-step window,
-       where the mass observables become responsive.
-
-    4. param-uq-03-growth-stratified (PLANNED): cell-cycle-stratified Sobol
-       (10 θ bins, birth→division; RFC006 strategy 4), needing multi-generation
-       runs (~2760 steps/gen) and a pbg-uq strategy extension.
-
-    5. param-uq-04-deep-params (PLANNED): extends to deeper SimulationDataEcoli
-       physiological parameters (RNAP fractions, FBA weights, mass fractions) via
-       sim_data-level injection + per-sample ParCa cache rebuild (new pbg-uq
-       injection adapter).
+    Forward global-sensitivity UQ (pbg-uq) finding which sim_data parameters drive variance in the v2ecoli baseline. A low/high screen kept the 3 knobs that move growth rate; PCE forward UQ ran over 120- and 360-step windows; a cell-cycle-stratified Sobol study over multi-generation runs is planned.
   verdict: |
     The ribosome's translation basal_elongation_rate dominates variance in
     instantaneous growth rate among the effective config-reachable elongation knobs.

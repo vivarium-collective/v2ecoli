@@ -20,15 +20,7 @@ hypothesis: |
 
 executive:
   what_is_this: |
-    A four-study investigation that builds a neural-network surrogate of the
-    v2ecoli baseline with pbg-torch
-    (github.com/vivarium-collective/pbg-torch), then holds it to a skeptical
-    standard against trivial baselines.
-
-    1. sm-00-data-collection: roll out an 8-seed baseline ensemble into a broad ~11.5k-observable pbg-torch TransitionDataset.
-    2. sm-01-nn-surrogate: does the surrogate beat trivial baselines (persistence, mean-delta, linear) under leave-one-trajectory-out CV?
-    3. sm-02-utility-and-limits: what the cheap linear emulator is worth — amortized break-even vs. the simulator, and the limits.
-    4. sm-03-improving-the-surrogate: can multi-step rollout-loss training close the gap?
+    Can a neural net emulate the v2ecoli baseline? Four studies with pbg-torch: collect an 8-seed rollout dataset, train a surrogate and test it against trivial baselines (persistence, mean-delta, linear) under leave-one-trajectory-out CV, weigh the linear emulator's amortized break-even against the simulator, and try multi-step rollout-loss training.
   verdict: |
     Held to trivial baselines under 8-fold cross-validation, the neural surrogate
     does not justify itself: one-step R²≈1.000 is a persistence artifact, and in

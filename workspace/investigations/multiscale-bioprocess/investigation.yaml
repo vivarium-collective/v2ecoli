@@ -419,15 +419,7 @@ discipline:
 # to Evaluate-ready.
 executive:
   what_is_this: |
-    A v2ecoli investigation putting the single-cell whole-cell model into
-    a bench-scale bioreactor: time-varying environment hook (mbp-01),
-    population aggregation with representative-sampling scaling (mbp-02),
-    BiRD reactor coupling (mbp-03), multigeneration coupled runs (mbp-04),
-    a structured sim-vs-Beulig comparison report (mbp-05, evaluation
-    phase), gap analysis feeding the next iteration (mbp-06), and a
-    kinetic-metabolism (Millard 2017) drop-in engine with 3-arm Beulig
-    report cards (mbp-07).
-
+    Puts the v2ecoli single-cell model inside a bench-scale bioreactor. Seven studies build up the coupling: a time-varying environment hook, population aggregation with representative-sampling scaling, BiRD reactor coupling, multigeneration runs, a sim-vs-Beulig comparison, gap analysis, and a Millard 2017 kinetic-metabolism drop-in with 3-arm Beulig report cards.
   verdict: |
     **Build phase complete for mbp-01 and mbp-02; ready for Evaluate
     tooling.** Reviewer feedback through 2026-05-28 is processed (digest +

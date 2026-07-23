@@ -33,38 +33,7 @@ question: |
 
 executive:
   what_is_this: |
-    A six-study walkthrough of the v2ecoli pipeline, built as a demonstration
-    rather than a hypothesis test. The arc runs
-    ecoli-sources → ParCa → calibrated baseline → perturbation sweep →
-    next-direction decision:
-      • showcase-1-parca [PLANNED] — rebuild the ParCa in full from the ~133
-        ecoli-sources flat files (--mode full, 51 TF conditions) and confirm the
-        cache bundle reproduces parca_compare.
-      • showcase-2-baseline-figures [PLANNED] — run the wild-type baseline
-        single-cell→division ensemble (multiseed + multigen, Ray-parallel,
-        XArray/zarr emit) and confirm it reproduces wild-type E. coli properties
-        (doubling time, mass fractions, Toya 2010 FBA flux, Schmidt/Wisniewski
-        proteome).
-      • showcase-3-variant-decide [PLANNED] — reviewer decision on which of four
-        candidate perturbations (ppGpp-off, parameter sweep, media change, dnaA
-        knob) best demonstrates v2ecoli's response.
-      • showcase-4-variant-comparison [EXECUTED] — run all four candidates as one
-        5-variant x 2-seed sweep (baseline + ppgpp-off + dnaA-2x + elong-down +
-        media-succinate) and rank how far each moves the cell off baseline; 8
-        cross-variant comparison figures.
-      • showcase-5-next-direction-decide [PLANNED] — reviewer decision on the
-        next direction, seeded from the showcase-4 ranking.
-      • showcase-6-equivalence-large [EXECUTED] — 16x16 v1<->v2 equivalence
-        ensemble graded against the vEcoli reference across 21 axes; PARTIAL —
-        exchange-flux (O2/CO2) and gene-expression sit below the strict band
-        (localized, expected divergence, issue #143), so the report card reads
-        MISMATCH.
-    Units are integrated throughout: every study carries interactive Plotly
-    figures (scripts/make_showcase_interactive_figures.py) whose axes and hover
-    reads are labelled with the declared schema unit (fg, uM, 1/s, fL), plus an
-    embedded interactive Units Atlas grouping every unit-bearing baseline readout
-    by physical dimension. This folds in and replaces the former standalone
-    units-atlas investigation.
+    A demonstration walkthrough of the v2ecoli pipeline: ecoli-sources to ParCa to a calibrated baseline to a perturbation to a next-direction decision. Six studies rebuild the ParCa in full, run the wild-type baseline ensemble (multiseed/multigen, checked against doubling time, mass fractions, Toya 2010 FBA flux, and Schmidt/Wisniewski proteome), then compare variants and test large-ensemble equivalence.
   verdict_status: in-progress
   decisions_needed:
   - question: "Which variant should we run to demonstrate v2ecoli's perturbation response?"

@@ -114,9 +114,13 @@ BATCH_RUNNER_STEP_NAME = "batch_runner"
         },
         "out_dir": {
             "type": "string",
-            "default": DEFAULT_OUT_DIR,
-            "description": "Output root: the shared hive-partitioned parquet "
-                           "sweep and the per-lineage zarr stores land here.",
+            "default": "",
+            "description": "Output root for the parquet sweep, the per-lineage "
+                           "zarr stores and the analysis outputs. Empty = this "
+                           f"run's own directory when launched from the "
+                           f"workbench (so its Visualizations tab finds the "
+                           f"sweep and runs don't overwrite each other), else "
+                           f"{DEFAULT_OUT_DIR}.",
         },
         "experiment_id": {
             "type": "string",
@@ -170,7 +174,7 @@ def batch_baseline(
     max_duration: float = DEFAULT_MAX_DURATION,
     variants: dict | None = None,
     cache_dir: str = DEFAULT_CACHE_DIR,
-    out_dir: str = DEFAULT_OUT_DIR,
+    out_dir: str = "",
     experiment_id: str = DEFAULT_EXPERIMENT_ID,
     emitter: str = DEFAULT_EMITTER,
     analyses: Any = DEFAULT_ANALYSES,
@@ -189,7 +193,8 @@ def batch_baseline(
         max_duration: per-generation sim-time cap (seconds).
         variants: vEcoli-style variant grid crossed with the seed range.
         cache_dir: ParCa cache directory.
-        out_dir: output root for the parquet sweep + zarr stores.
+        out_dir: output root for the parquet sweep + zarr stores;
+            empty resolves at run time (see resolve_out_dir).
         experiment_id: id stamped into partitions and store names.
         emitter: "both" | "parquet" | "xarray".
         analyses: "applicable" | "none" | explicit {scale: {name: params}}.

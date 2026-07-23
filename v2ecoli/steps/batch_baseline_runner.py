@@ -37,6 +37,26 @@ DEFAULT_N_GENERATIONS = 1
 DEFAULT_BASE_SEED = 0
 DEFAULT_CACHE_DIR = "out/cache"
 DEFAULT_OUT_DIR = "out/batch_baseline"
+
+
+def resolve_out_dir(out_dir: "str | None" = None) -> str:
+    """Where this batch writes its sweep, stores and analysis outputs.
+
+    An explicit ``out_dir`` always wins. Otherwise, when the composite is being
+    run BY the workbench, use the run's own sweep dir
+    (``$VIVARIUM_WORKBENCH_SWEEP_DIR`` = ``<run_dir>/parquet/<run_id>``, the
+    exact path the run hands ParquetAnalysisView). Two things follow: the run's
+    Visualizations tab finds the parquet history the declared analyses read
+    (writing to the fixed workspace default instead left every panel saying "no
+    parquet history under the run's sweep dir yet"), and each run keeps its own
+    outputs instead of overwriting the previous run's. Outside a workbench run
+    the fixed default stands.
+    """
+    if out_dir:
+        return out_dir
+    return os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR") or DEFAULT_OUT_DIR
+
+
 DEFAULT_EXPERIMENT_ID = "batch_baseline"
 # Per-GENERATION sim-time cap in seconds — vEcoli's ``max_duration``, which
 # v2ecoli's LineageProcess applies per generation. A division ends a generation
@@ -135,7 +155,7 @@ def build_workflow_config(
     time_step: float = DEFAULT_TIME_STEP,
     max_duration: float = DEFAULT_MAX_DURATION,
     cache_dir: str = DEFAULT_CACHE_DIR,
-    out_dir: str = DEFAULT_OUT_DIR,
+    out_dir: str = "",
     experiment_id: str = DEFAULT_EXPERIMENT_ID,
     emitter: str = DEFAULT_EMITTER,
     parallel: "str | None" = DEFAULT_PARALLEL,
@@ -157,7 +177,7 @@ def build_workflow_config(
     """
     config: dict[str, Any] = {
         "experiment_id": experiment_id,
-        "out_dir": out_dir,
+        "out_dir": resolve_out_dir(out_dir),
         "cache_dir": cache_dir,
         "n_init_sims": int(n_seeds),
         "generations": int(n_generations),
@@ -259,7 +279,7 @@ def dispatch_batch(
     time_step: float = DEFAULT_TIME_STEP,
     max_duration: float = DEFAULT_MAX_DURATION,
     cache_dir: str = DEFAULT_CACHE_DIR,
-    out_dir: str = DEFAULT_OUT_DIR,
+    out_dir: str = "",
     experiment_id: str = DEFAULT_EXPERIMENT_ID,
     emitter: str = DEFAULT_EMITTER,
     parallel: "str | None" = DEFAULT_PARALLEL,
@@ -277,6 +297,7 @@ def dispatch_batch(
     if run_workflow_fn is None:
         from v2ecoli.workflow.run import run_workflow as run_workflow_fn
 
+    out_dir = resolve_out_dir(out_dir)
     config = build_workflow_config(
         n_seeds=n_seeds, n_generations=n_generations, base_seed=base_seed,
         single_daughters=single_daughters, time_step=time_step,
@@ -358,7 +379,9 @@ class BatchBaselineRunner(Step):
         self.time_step = float(cfg.get("time_step") or DEFAULT_TIME_STEP)
         self.max_duration = float(cfg.get("max_duration") or DEFAULT_MAX_DURATION)
         self.cache_dir = cfg.get("cache_dir") or DEFAULT_CACHE_DIR
-        self.out_dir = cfg.get("out_dir") or DEFAULT_OUT_DIR
+        # Left empty on purpose: resolve_out_dir picks the workbench run's own
+        # sweep dir at RUN time, which isn't known when the document is built.
+        self.out_dir = cfg.get("out_dir") or ""
         self.experiment_id = cfg.get("experiment_id") or DEFAULT_EXPERIMENT_ID
         self.emitter = cfg.get("emitter") or DEFAULT_EMITTER
         self.variants = dict(cfg.get("variants") or {})

@@ -304,3 +304,33 @@ def test_dispatch_skips_sim_data_pairing_when_no_analyses_run(tmp_path):
                    out_dir=str(out), analyses="none",
                    run_workflow_fn=_stub_workflow((0,)))
     assert not (out / "simData.cPickle").exists()
+
+
+# --- run-scoped output dir ---------------------------------------------------
+
+def test_out_dir_defaults_to_the_workbench_run_sweep_dir(monkeypatch):
+    """A workbench run points ParquetAnalysisView at <run_dir>/parquet/<run_id>;
+    writing the sweep anywhere else leaves every declared visualization saying
+    'no parquet history under the run's sweep dir yet' (the bug this fixes), and
+    lets consecutive runs overwrite one another."""
+    from v2ecoli.steps.batch_baseline_runner import (
+        DEFAULT_OUT_DIR, resolve_out_dir)
+
+    monkeypatch.delenv("VIVARIUM_WORKBENCH_SWEEP_DIR", raising=False)
+    assert resolve_out_dir() == DEFAULT_OUT_DIR
+    assert resolve_out_dir("") == DEFAULT_OUT_DIR
+
+    monkeypatch.setenv("VIVARIUM_WORKBENCH_SWEEP_DIR", "/ws/.pbg/runs/r1/parquet/r1")
+    assert resolve_out_dir() == "/ws/.pbg/runs/r1/parquet/r1"
+    # An explicit out_dir always wins over the run's.
+    assert resolve_out_dir("out/mine") == "out/mine"
+
+
+def test_dispatch_uses_the_run_sweep_dir_end_to_end(monkeypatch):
+    monkeypatch.setenv("VIVARIUM_WORKBENCH_SWEEP_DIR", "/ws/.pbg/runs/r1/parquet/r1")
+    batch = dispatch_batch(n_seeds=1, n_generations=1, analyses="none",
+                           run_workflow_fn=_stub_workflow((0,)))
+    assert _stub_workflow.last_config["out_dir"] == "/ws/.pbg/runs/r1/parquet/r1"
+    assert batch["out_dir"] == "/ws/.pbg/runs/r1/parquet/r1"
+    assert batch["outputs"]["viz_dir"] == "/ws/.pbg/runs/r1/parquet/r1/viz"
+    assert batch["seeds"]["00"]["store_path"].startswith("/ws/.pbg/runs/r1/parquet/r1/")

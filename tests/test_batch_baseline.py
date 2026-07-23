@@ -350,7 +350,6 @@ def test_emitter_captures_the_completed_batch(monkeypatch):
     store. triggers() makes `batch` a silent input, restoring the edge.
     """
     from process_bigraph import Composite
-    from vivarium_workbench.lib import composite_runs as cr
 
     from v2ecoli.composites.batch_baseline import batch_baseline
     from v2ecoli.core import build_core
@@ -361,7 +360,15 @@ def test_emitter_captures_the_completed_batch(monkeypatch):
 
     core = build_core()
     state = batch_baseline(core=core, n_seeds=1, analyses="none")["state"]
-    state = cr.inject_emitter_for_paths(state, ["batch", "global_time"])
+    # The emitter the workbench injects for the run's selected paths, inlined
+    # (mirrors vivarium_workbench.lib.composite_runs.inject_emitter_for_paths)
+    # so this test doesn't depend on the workbench being installed.
+    state["user_emitter"] = {
+        "_type": "step",
+        "address": "local:RAMEmitter",
+        "config": {"emit": {"batch": "node", "global_time": "node"}},
+        "inputs": {"batch": ["batch"], "global_time": ["global_time"]},
+    }
     composite = Composite({"state": state}, core=core)
     composite.run(1)
 

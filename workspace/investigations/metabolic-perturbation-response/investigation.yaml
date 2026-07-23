@@ -2,7 +2,7 @@ schema_version: 2
 name: metabolic-perturbation-response
 title: "Does v2ecoli reproduce known metabolic perturbation-response phenotypes vs curated experimental claims?"
 created: '2026-06-15'
-status: planning
+status: in-progress
 
 # A behavioral-report-card investigation, generalizing the PR #134 basal report
 # card from the model's basal STATE to its RESPONSE under a metabolic
@@ -46,21 +46,52 @@ executive:
         (+ O2) response vs growth rate against Basan 2015. (study 1)
       • (planned) carbon-source swaps — discrete environmental perturbations.
       • (planned) metabolic gene knockouts — genetic perturbations.
-  verdict_status: planning
+  verdict_status: in-progress
   verdict_detail: |
-    Scaffold only. The framework piece (`curve_response` criterion) and the first
-    study (overflow) are not yet built. Posture: characterize the agreement first
-    (state + trend, regression-guarded); model-improvement attempts are invited,
-    opportunistic follow-up studies, not a baked deliverable.
+    Study 1 (overflow) has its baseline-FBA arm run and graded as of 2026-07-22;
+    the framework piece (`curve_response`) is built and tested. Posture unchanged:
+    characterize the agreement first (state + trend, regression-guarded);
+    model-improvement attempts are invited, opportunistic follow-up studies, not a
+    baked deliverable.
+
+    Headline: the baseline FBA shows NO aerobic acetate overflow anywhere in a
+    glucose-uptake titration (acetate 0.0 at all six caps; card verdict mismatch),
+    confirming the ketchup-baseline-comparison prior. But the run also falsified
+    the study's own design assumption — the uptake knob titrates uptake without
+    moving growth rate, because division runs on the replication clock — and
+    surfaced a hard carbon-balance violation under a binding cap. Those two are
+    now the investigation's centre of gravity: a model that creates carbon cannot
+    be meaningfully asked a carbon-partitioning question. The remaining arms
+    (Millard kinetic ODE, FBA-bridge) are unbuilt.
   decisions_needed:
   - question: "Does the v2ecoli baseline FBA exhibit ANY aerobic acetate overflow, or is acetate identically zero across the glucose-uptake sweep?"
-    status: "OPEN — the ketchup-baseline-comparison finding (acetate 0.0) predicts none; the overflow study quantifies it."
+    status: "RESOLVED 2026-07-22 — identically zero. Acetate = 0.0 mmol/gDCW/h at all six glucose-uptake caps (1-6); the card grades mismatch, 'no overflow'. See overflow-acetate-vs-growth finding `overflow-absent-across-titration`."
     context: |
       The motivating prior is the ketchup-baseline-comparison characterization:
       v2ecoli's baseline secretes no acetate (0.0 per 100 glucose) where the
       KETCHUP cores secrete ~+71. The overflow study turns that single-point
       observation into a graded response curve over a glucose-uptake titration,
       across the baseline-FBA / Millard / FBA-bridge arms.
+
+      RESOLUTION: the prior held exactly. The baseline-FBA arm secretes no acetate
+      anywhere in the titration, so the single-point observation generalises to the
+      whole response curve. Caveat carried forward: the sweep's growth-rate axis
+      spans only ~0.03 /h (see `gur-knob-does-not-titrate-growth`), so this answers
+      "is overflow present" but not "is the overflow CURVE right". The Millard and
+      FBA-bridge arms remain unbuilt and unanswered.
+  - question: "Where does the uncounted carbon come from under a binding uptake cap, and is it the same defect as the basal card's biomass-yield violation?"
+    status: "OPEN (new 2026-07-22) — surfaced by the overflow run; candidate for a dedicated metabolism-correctness investigation rather than a study in this one."
+    context: |
+      The GUR titration showed the model creating carbon under a binding cap: at
+      cap=1 it takes up 6.0 mmolC/gDCW/h and secretes 11.83, CO2 output RISING as
+      glucose is restricted, with carbon closure degrading 1.11 -> 7.93 as the cap
+      tightens. Biomass yield tracks it (0.92 -> 5.30 gDW/g glucose vs a 0.355-0.538
+      literature band). The basal vs_literature card already reports a yield
+      violation at the slack cap, so both cards are plausibly reporting one
+      underlying bookkeeping defect. See findings `carbon-created-under-binding-uptake-cap`
+      and `biomass-yield-exceeds-thermodynamic-limit`. SCOPE DECISION PENDING — this
+      is a model-correctness question, not a perturbation-response one, and it gates
+      the overflow study rather than depending on it.
 
 scientific_argument:
   main_claim: |
@@ -70,7 +101,9 @@ scientific_argument:
     regression-trackable characterization of where the model reproduces and
     diverges from known physiology — starting with aerobic acetate overflow.
   evidence_for:
-  - "PLANNED — overflow-acetate-vs-growth: sweep glucose uptake rate across the baseline-FBA / Millard / FBA-bridge arms; grade acetate (and O2) vs growth rate against Basan 2015."
+  - "DONE (baseline-FBA arm, 2026-07-22) — overflow-acetate-vs-growth: a 6-point glucose-uptake titration, graded by curve_response against Vemuri 2006 (primary) / Basan 2015 (context). Verdict mismatch: acetate 0.0 at every cap, no overflow. The method works end-to-end — knob -> run -> extract -> grade -> verdict."
+  - "PARTIAL — the same run falsified the study's growth-rate axis (the knob does not move mu) and tripped an assumption-free carbon-creation flag, showing the report-card machinery also surfaces model-correctness defects, not just agreement/disagreement with a reference."
+  - "PLANNED — the Millard kinetic-ODE and FBA-bridge arms of the same study."
   caveats:
   - "This is a CHARACTERIZATION (does the model reproduce the experimental response?), graded as state + trend — not a model pass/fail. A model↔experiment gap is a calibration target the report INVITES work on, not a defect verdict."
   - "Resolution (recalibrating the model to close a gap) is an opportunistic follow-up study seeded from a gap finding, never a precondition of the characterization."
@@ -95,7 +128,7 @@ biological_story: |
 
 at_a_glance:
   studies:
-  - overflow-acetate-vs-growth: "(planned, study 1) sweep glucose uptake rate; grade acetate-secretion-vs-growth-rate against Basan 2015 across the baseline-FBA / Millard / FBA-bridge arms (reused from ketchup-baseline-comparison)."
+  - overflow-acetate-vs-growth: "(study 1, baseline-FBA arm DONE 2026-07-22 — verdict mismatch, no overflow at any of 6 glucose-uptake caps; Millard / FBA-bridge arms unbuilt) sweep glucose uptake rate; grade the acetate-carbon yield vs growth rate against Vemuri 2006 / Basan 2015. Two unplanned findings dominate: the knob does not move growth rate, and carbon balance fails under a binding cap."
 
 # Investigation-scoped inputs (pbg-superpowers 0.14 investigation inputs). The
 # curated experimental claims this investigation grades against live here, so the

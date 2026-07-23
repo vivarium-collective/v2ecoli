@@ -210,6 +210,53 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
 ]
 
 
+# A seeds × generations batch produces the cell groupings the single-cell set
+# can only degrade to, so it adds the multigeneration + multiseed analyses on
+# top of it — the same figures vEcoli's workflow emits from its multiGeneration
+# and multiSeed analysis channels. Same rendering path (ParquetAnalysisView over
+# the run's hive parquet sweep + hydrated ParCa sim_data), so a panel whose scale
+# the batch didn't actually cover (a 1-seed run asking for multiseed) renders an
+# explanatory panel rather than failing the tab.
+DEFAULT_BATCH_VISUALIZATIONS: list[dict] = DEFAULT_SINGLE_CELL_VISUALIZATIONS + [
+    {
+        'name': 'mass_growth_across_generations',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Mass growth across generations',
+                   'analysis': 'mass_growth_across_generations'},
+    },
+    {
+        'name': 'ribosome_usage',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Ribosome usage (lineage)',
+                   'analysis': 'ribosome_usage'},
+    },
+    {
+        'name': 'ribosome_production',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Ribosome production (lineage)',
+                   'analysis': 'ribosome_production'},
+    },
+    {
+        'name': 'new_gene_counts',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'New gene counts (lineage)',
+                   'analysis': 'new_gene_counts'},
+    },
+    {
+        'name': 'doubling_time_distribution',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Doubling time distribution (across seeds)',
+                   'analysis': 'doubling_time_distribution'},
+    },
+    {
+        'name': 'subgenerational_expression',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Subgenerational expression (across seeds)',
+                   'analysis': 'subgenerational_expression_table'},
+    },
+]
+
+
 def v2ecoli_default_single_cell_visualizations() -> list[dict]:
     """The legacy workflow + topology viz spec, available for explicit opt-in.
 

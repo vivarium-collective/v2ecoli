@@ -132,18 +132,22 @@ def main() -> int:
             failed.append((cid, err))
             print(f"  FAIL  {cid}  ({err})")
             continue
-        # `resolve_composite` only ever READS a committed artifact (no generator
-        # declares `default_state_ref`), so on its own this script can never
-        # produce state for a composite that has none yet — it would just echo
-        # the existing file back, or write a `state: null` degraded payload for
-        # a NEW composite and print OK. Build the document for real (same
-        # subprocess seam the live /api/composite-state uses) whenever resolve
-        # comes back stateless.
-        if not isinstance(data.get("state"), dict):
-            data["state"] = _live_state(build_composite_state, ws_root, cid)
-            if isinstance(data.get("state"), dict):
-                data["wiring_status"] = "ready"
-                data["notice"] = None
+        # REGENERATE means rebuild — always take a fresh live build (the same
+        # subprocess seam the live /api/composite-state uses) and only fall back
+        # to whatever `resolve_composite` returned if that build fails.
+        # `resolve_composite` reads the COMMITTED artifact for any generator
+        # (none declares `default_state_ref`), so trusting its state here would
+        # make this script echo the file it is supposed to be replacing: a
+        # composite whose parameters changed would keep its stale wiring, and a
+        # brand-new one would get a `state: null` degraded payload written out
+        # under an OK line.
+        built = _live_state(build_composite_state, ws_root, cid)
+        if isinstance(built, dict):
+            data["state"] = built
+            data["wiring_status"] = "ready"
+            data["notice"] = None
+        elif isinstance(data.get("state"), dict):
+            print(f"  note  {cid}: live build unavailable — keeping committed state")
         # NEVER write a stateless payload: the Composite Explorer's fallback
         # reads this file, so a committed `state: null` freezes "not generated
         # yet" into git and hides the real failure behind a plausible artifact.

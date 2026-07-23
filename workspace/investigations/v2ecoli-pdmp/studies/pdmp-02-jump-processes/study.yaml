@@ -3,14 +3,10 @@ name: pdmp-02-jump-processes
 investigation: v2ecoli-pdmp
 title: 'Phase 2 — Jump Process Layer: Discrete-Time → Continuous-Time Stochastic'
 claim: |
-  Per-promoter and per-protein Poisson tau-leap samplers land in `poisson` mode. The acceptance gate
-  `pdmp-trajectory-distribution-match` FAILED: the cell_mass Poisson Wasserstein-2 grows monotonically
-  9.73 → 15.35 → 49.46. The finding is negative but legitimate: cell_mass is the wrong
-  observable for jump-process variance. The consumption_matched homeostat washes per-tick variance out
-  by construction, so Phase-3 inference must anchor on count-level listeners, not mass. The "150 fg"
-  figure is max |Δ cell_mass| = 150 fg between configs, a transient on a single trajectory pair
-  computed in scripts/trajectory_divergence.py on the cell_mass quantity. It is not measured at the
-  rnap_data listener, and it cuts against this study's own thesis that cell_mass is the wrong observable.
+  The `pdmp-trajectory-distribution-match` gate FAILED on cell_mass: the Poisson tau-leap Wasserstein-2
+  grows monotonically 9.73 → 15.35 → 49.46. This is a legitimate negative result — cell_mass is the
+  wrong observable because the consumption_matched homeostat washes per-tick variance out, so Phase-3
+  inference must anchor on count-level listeners, not mass.
 confidence: Investigating
 status: running
 phase: Decide
@@ -26,189 +22,61 @@ tags:
 - gillespie
 - xarray-emitter
 created: '2026-05-24'
-question: 'Can v2ecoli''s discrete-time stochastic layer (Poisson gene-
-
-  expression draws scaled by timestep/doubling time, the teleonomic
-
-  division trigger, and the globally-acting resource reallocation
-
-  correction) be replaced by a coherent continuous-time jump
-
-  process that, coupled with the Phase 1 metabolism ODE, satisfies
-
-  the Markov property of a piecewise-deterministic Markov process?
-
-  '
-hypothesis: '(a) Replacing scaled-Poisson gene-expression draws with continuous-
-
-  time jump processes governed by explicit propensity functions
-
-  derived from measured kinetic constants (initiation, elongation,
-
-  degradation rates) reproduces the v2ecoli baseline trajectory
-
-  distribution within tolerance. (b) Replacing the teleonomic
-
-  doubling-time division trigger with a first-passage threshold
-
-  crossing in cell volume or total protein mass reproduces the
-
-  observed division-time distribution. (c) Replacing the global
-
-  resource reallocation step with affinity-based competition jumps
-
-  conserves mass and yields a PDMP: deterministic ODE flow
-
-  between jumps with state-dependent kernels at jumps.
-
-  '
-objective: 'Implement transcription_jump, translation_jump, and
-
-  division_threshold as Process Bigraph processes; replace the
-
-  global resource correction with jump-based competition reactions;
-
-  couple all jump processes with the Phase 1 metabolism ODE under
-
-  an integrated PDMP runner in Vivarium; verify the Markov property
-
-  (deterministic between jumps, specified kernels at jumps);
-
-  compare trajectory distributions vs. the v2ecoli baseline across
-
-  the Phase 0 conditions.
-
-  '
-description: 'Phase 2 of the v2ecoli → PDMP roadmap. The current discrete-time
-
-  layer is the most numerically suspect part of v2ecoli:
-
-  parametrization of stochastic draws depends on the ratio of the
-
-  fixed timestep to the teleonomic "doubling time" parameter
-
-  (DUF Sec. 4.1.1), and the global reallocation step exists to
-
-  paper over mass conservation violations introduced by the
-
-  composition of independent processes (DUF Sec. 2.1).
-
-
-  A PDMP-class formulation has neither: events occur at random
-
-  times drawn from explicit propensity functions, division is a
-
-  first-passage time of a continuous observable, and competition
-
-  for shared resources is encoded as state-dependent jump kernels
-
-  rather than a corrective fix-up step. The mathematical contract
-
-  to verify is that, between any two jumps, the state evolves
-
-  deterministically according to the coupled ODE (Phase 1
-
-  metabolism + any continuous components of expression machinery),
-
-  and that jumps occur at times specified by ∫ λ(s) ds = E for
-
-  E ~ Exp(1).
-
+question: |
+  Can v2ecoli's discrete-time stochastic layer (Poisson gene-expression draws scaled by
+  timestep/doubling time, the teleonomic division trigger, and the globally-acting resource
+  reallocation correction) be replaced by a coherent continuous-time jump process that, coupled with
+  the Phase 1 metabolism ODE, satisfies the Markov property of a piecewise-deterministic Markov process?
+hypothesis: |
+  (a) Replacing scaled-Poisson gene-expression draws with continuous-time jump processes governed by
+  explicit propensity functions from measured kinetic constants (initiation, elongation, degradation
+  rates) reproduces the v2ecoli baseline trajectory distribution within tolerance. (b) Replacing the
+  teleonomic doubling-time division trigger with a first-passage threshold crossing in cell volume or
+  total protein mass reproduces the observed division-time distribution. (c) Replacing the global
+  resource reallocation step with affinity-based competition jumps conserves mass and yields a PDMP:
+  deterministic ODE flow between jumps with state-dependent kernels at jumps.
+objective: |
+  Implement transcription_jump, translation_jump, and division_threshold as Process Bigraph processes,
+  replace the global resource correction with jump-based competition reactions, and couple all jump
+  processes with the Phase 1 metabolism ODE under an integrated PDMP runner. Verify the Markov property
+  (deterministic between jumps, specified kernels at jumps) and compare trajectory distributions vs. the
+  v2ecoli baseline across the Phase 0 conditions.
+description: |
+  Phase 2 of the v2ecoli → PDMP roadmap. The discrete-time layer is the most numerically suspect part of
+  v2ecoli: stochastic-draw parametrization depends on the ratio of the fixed timestep to the teleonomic
+  "doubling time" (DUF Sec. 4.1.1), and the global reallocation step exists to paper over
+  mass-conservation violations from composing independent processes (DUF Sec. 2.1). A PDMP formulation
+  has neither: events occur at random times from explicit propensity functions, division is a
+  first-passage time of a continuous observable, and resource competition is state-dependent jump
+  kernels. The contract to verify is that between any two jumps the state evolves deterministically under
+  the coupled ODE, with jumps at times set by ∫ λ(s) ds = E for E ~ Exp(1).
 
   # Numerical considerations
+  Stochastic integration. Gillespie SSA is exact but slow at single-cell mRNA/protein propensity scales
+  (10²–10⁴ events / s). The per-process choice (exact SSA vs. τ-leaping vs. hybrid) trades variance
+  against compute: ribosome-elongation uses τ-leaping with τ set so the leap condition (Δλ/λ < 0.03)
+  holds; rare promoter firing uses exact next-reaction.
 
-  Stochastic integration. Naive Gillespie SSA is exact but slow at
+  Exponential-clock validation. The core correctness test is that the cumulative hazard ∫ λ(s) ds at
+  successive events is Exp(1)-distributed — an Anderson-Darling test over ≥10⁴ inter-event intervals per
+  jump process (α = 0.05). A failed test indicates a propensity bug.
 
-  the propensity scales of mRNA/protein dynamics in a single cell
+  First-passage validation. Division is a first-passage time for volume crossing a threshold. Before the
+  full WCM we validate the integrator on an Ornstein-Uhlenbeck process with exact Bessel-function FPT:
+  the empirical FPT must match the analytical CDF to KS distance < 0.02 over N=10⁴ trajectories.
 
-  (10²–10⁴ events / s). The implementation choice (exact SSA vs.
+  Distribution-match resolution. Trajectory ensembles vs. baseline are compared with W₂ on summary
+  statistics (growth rate, mean per-gene mRNA/protein, division-time CV). N=200 PDMP trajectories per
+  condition gives W₂ MCSE ≈ σ_W₂/√200 ≈ 0.07 σ_W₂ — enough to detect deviations of ≥0.2 σ; sample size
+  is revisited if MCSE > 10% of the inter-baseline effect size.
 
-  τ-leaping vs. hybrid Anderson modified-next-reaction) trades
-
-  variance against compute and is justified per-process: e.g.,
-
-  ribosome-elongation events use τ-leaping with τ chosen so the
-
-  leap-condition (Δλ/λ < 0.03) holds; rare promoter-firing events
-
-  use exact next-reaction. Each choice carries a documented weak-
-
-  order and strong-order convergence claim.
-
-
-  Exponential-clock validation. The fundamental test of correctness
-
-  for a stochastic-jump implementation is that the cumulative
-
-  hazard ∫ λ(s) ds at successive events is Exp(1)-distributed.
-
-  We run this Anderson-Darling test over ≥10⁴ inter-event
-
-  intervals per jump process (α = 0.05). A failed test
-
-  indicates a propensity bug.
-
-
-  First-passage validation. Cell division is a first-passage time
-
-  for volume crossing a threshold under the ODE+jump combined
-
-  dynamics. Before deploying on the full WCM we validate the
-
-  first-passage implementation on an analytical test problem
-
-  (Ornstein-Uhlenbeck process, exact Bessel-function FPT
-
-  distribution) — the empirical FPT distribution from our
-
-  integrator must match the analytical CDF to KS distance < 0.02
-
-  over N=10⁴ trajectories.
-
-
-  Distribution-match resolution. Comparing trajectory ensembles
-
-  vs. v2ecoli baseline uses W₂ on summary statistic distributions
-
-  (growth rate, mean per-gene mRNA, mean per-gene protein,
-
-  division-time CV). N=200 PDMP trajectories per condition gives
-
-  W₂ MCSE ≈ σ_W₂/√200 ≈ 0.07 σ_W₂ — fine enough to detect
-
-  systematic deviations of ≥0.2 σ in the underlying distributions.
-
-  Sample size revisited if MCSE > 10% of the inter-baseline effect
-
-  size.
-
-
-  PDMP integrator validity. The Markov property is a structural
-
-  claim; we test it by re-simulating individual segments with the
-
-  same (state, RNG seed) and confirming bit-identical determinism
-
-  between jumps. A failure indicates a leaky abstraction.
-
+  PDMP integrator validity. The Markov property is tested by re-simulating segments with the same
+  (state, RNG seed) and confirming bit-identical determinism between jumps.
 
   # Emitter
-
-  XArrayEmitter records every jump event as a row in a separate
-
-  zarr group (''jumps'') alongside the continuous trajectory group
-
-  (''continuous''), so the discrete-event time series and the ODE
-
-  segments can both be queried with xarray. max_generations=8 in
-
-  workspace.yaml accommodates the multi-generation division-time
-
-  CV / mother-daughter inheritance distributions that we compare
-
-  to v2ecoli baseline.
-
-  '
+  XArrayEmitter records each jump event as a row in a separate zarr group ('jumps') alongside the
+  continuous trajectory group ('continuous'). max_generations=8 in workspace.yaml accommodates the
+  multi-generation division-time CV / mother-daughter inheritance distributions compared to baseline.
 expected_behavior:
 - name: jump-process-from-kinetics
   en: Every jump process (transcription, translation, division, competition) has a propensity function derived from measured
@@ -359,15 +227,13 @@ report:
     match v2ecoli baseline summaries within W₂ tolerance.
   main_insight: 'The PDMP contract is the key test for stochastic correctness: between-jump deterministic ODE flow
     + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches propensity bugs.'
-  caveat: 'τ-leaping for high-rate processes trades unbiasedness for compute. The leap condition (max Δλ/λ
-    < 0.03) is monitored at every step and processes get switched to exact SSA when violated >0.1% of the
-    time. On provenance: the per-sprint σ/μ/W2 summary table (base_mu/base_sd/pdmp_mu/pdmp_sd/w2_cm,
-    incl. the cell_mass W2 progression 9.73 → 15.35 → 49.46) is hand-entered in
-    scripts/phase2_progress_report.py (marked "Hardcoded here" so the report survives source-HTML churn);
-    it is transcribed, not recomputed at render time. Report figures are limited to the artifacts committed in this
-    checkout (initiation-mode comparisons, event-rate / per-TU distributions, trajectory-divergence, ensemble-validation);
-    the multi-gen inheritance / Gillespie / waiting-time figure set regenerates from a re-run of the phase0-multigen and
-    jump-process pilots.'
+  caveat: 'τ-leaping trades unbiasedness for compute: the leap condition (max Δλ/λ < 0.03) is monitored
+    every step and the process switches to exact SSA when violated >0.1% of the time. Provenance: the
+    per-sprint σ/μ/W2 table (base_mu/base_sd/pdmp_mu/pdmp_sd/w2_cm, incl. the cell_mass W2 progression
+    9.73 → 15.35 → 49.46) is hand-entered in scripts/phase2_progress_report.py ("Hardcoded here"),
+    transcribed not recomputed at render. Report figures cover only the artifacts committed in this
+    checkout; the multi-gen inheritance / Gillespie / waiting-time figures regenerate from a re-run of
+    the phase0-multigen and jump-process pilots.'
   key_metrics:
   - label: Anderson-Darling Exp(1) per jump
     status: stub
@@ -801,11 +667,12 @@ enforced_params:
   value: not built; jump-process layer is planned; current evidence is baseline-run diagnostics
 - name: gate
   value: blocked on the Phase-1 metabolism substitution + a count-level distribution-match gate
-biological_summary: 'Aims to represent the cell''s discrete molecular events (transcription/translation
-  initiation, division, resource competition) as a continuous-time stochastic jump process rather than
-  fixed-timestep updates. The key empirical finding so far is biological: aggregate observables (cell/dry
-  mass, pools) wash out per-event variance via homeostatic regulation (~0.03% cross-seed CV), while the
-  direct event counts (rna_init) carry ~30× more variance, so the stochasticity lives at the count level.'
+biological_summary: |
+  Represents the cell's discrete molecular events (transcription/translation initiation, division,
+  resource competition) as a continuous-time stochastic jump process rather than fixed-timestep updates.
+  The empirical finding so far: aggregate observables (cell/dry mass, pools) wash out per-event variance
+  via homeostatic regulation (~0.03% cross-seed CV), while direct event counts (rna_init) carry ~30×
+  more variance, so the stochasticity lives at the count level.
 literature_anchors:
 - key: kuritz2017
   relevance: Inference/identifiability framing for stochastic single-cell dynamics.

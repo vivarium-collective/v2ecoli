@@ -19,8 +19,13 @@ comparison:
 studies:
 - parca
 - basal
+- metabolism_redux
 - with_aa
 - succinate
 - no_oxygen
 - acetate
 - statistical
+executive:
+  what_is_this: |
+    Does v2ecoli reproduce vEcoli across nutrient conditions? Each study runs both engines from matched ParCa initial states and grades v2ecoli against a live vEcoli reference on the standard observables -- cell, dry, protein and RNA mass, and growth rate. ParCa initial-state agreement, basal (all four masses within tolerance; growth rate drifts ~9%), and the basal 4-seed statistical-equivalence study are accepted; acetate and succinate are refuted (biomass matches, but RNA mass drifts and growth rate mismatches); no_oxygen and with_aa remain open; the MetabolismRedux swap is investigated but blocked on downstream ODE stiffness.
+

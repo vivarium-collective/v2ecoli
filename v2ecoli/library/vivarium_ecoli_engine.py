@@ -55,6 +55,8 @@ def build_vivarium_ecoli(
     seed: int = 0,
     time_step: float = 1.0,
     exclude_processes: list | None = None,
+    swap_processes: dict | None = None,
+    flow: dict | None = None,
     fork_dir: str | None = None,
     initial_overlay: dict | None = None,
 ) -> EngineHandle:
@@ -111,6 +113,19 @@ def build_vivarium_ecoli(
     if exclude_processes:
         existing = list(sim.config.get("exclude_processes", []) or [])
         sim.config["exclude_processes"] = existing + list(exclude_processes)
+    # Process swap (e.g. FBA metabolism -> MetabolismRedux): EcoliSim applies
+    # ``swap_processes`` natively at build_ecoli() the same way vEcoli's own
+    # configs/metabolism_redux.json does, and ``flow`` reorders the swapped
+    # process's dependents. Merge so a caller-supplied swap composes with any
+    # config default rather than clobbering it.
+    if swap_processes:
+        merged_swap = dict(sim.config.get("swap_processes", {}) or {})
+        merged_swap.update(swap_processes)
+        sim.config["swap_processes"] = merged_swap
+    if flow:
+        merged_flow = dict(sim.config.get("flow", {}) or {})
+        merged_flow.update(flow)
+        sim.config["flow"] = merged_flow
 
     # Capture the per-media expectedDryMassIncreaseDict (drives the division
     # threshold) the same way upstream_division does — via the composer's sim_data.
@@ -294,6 +309,8 @@ def build_vivarium_ecoli_composite(
     seed: int = 0,
     time_step: float = 1.0,
     exclude_processes: list | None = None,
+    swap_processes: dict | None = None,
+    flow: dict | None = None,
     fork_dir: str | None = None,
     core=None,
     agent_id: str = "0",
@@ -317,6 +334,7 @@ def build_vivarium_ecoli_composite(
     VivariumEcoliProcess._PENDING_HANDLE = build_vivarium_ecoli(
         sim_data_path=sim_data_path, condition=condition, seed=int(seed),
         time_step=float(time_step), exclude_processes=list(exclude_processes or []) or None,
+        swap_processes=swap_processes or None, flow=flow or None,
         fork_dir=fork_dir or None, initial_overlay=initial_overlay)
     proc = VivariumEcoliProcess(config={
         "sim_data_path": sim_data_path, "condition": condition, "seed": int(seed),
@@ -431,6 +449,8 @@ def run_vivarium_ecoli_pbg_multigen(
     time_step: float = 1.0,
     chunk: int = 20,
     exclude_processes: list | None = None,
+    swap_processes: dict | None = None,
+    flow: dict | None = None,
     fork_dir: str | None = None,
     mass_multiplier: float = 1.0,
     core=None,
@@ -486,6 +506,7 @@ def run_vivarium_ecoli_pbg_multigen(
         comp, info = build_vivarium_ecoli_composite(
             sim_data_path=sim_data_path, condition=condition, seed=seed + gen,
             time_step=time_step, exclude_processes=exclude_processes,
+            swap_processes=swap_processes, flow=flow,
             fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
             initial_overlay=overlay)
         proc = info["process"]

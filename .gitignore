@@ -46,6 +46,10 @@ reports/assets/*
 !reports/assets/.keep
 # pre-resolved composite states shipped to the read-only dashboard (tracked)
 !reports/composite-state/
+# investigation report-card summary generator (tracked source; generated
+# reports/summaries/*.html stays ignored)
+!reports/investigation_summary.py
+!reports/_summary/
 investigations/*/viz/
 .dashboard.log
 # Dashboard re-render targets (regenerated on demand by /api/render)

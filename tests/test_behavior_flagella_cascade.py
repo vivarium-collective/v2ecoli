@@ -7,7 +7,6 @@ test lives alongside the wired ``flagella_regulation`` feature.
 """
 
 import numpy as np
-import pytest
 
 from v2ecoli.library.schema import MetadataArray
 from v2ecoli.processes.flagella_transcription_regulation import (

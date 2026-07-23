@@ -39,32 +39,154 @@ question: >-
   size-at-division than the open-loop trigger of dnaa-10/dnaa-11?
 
 background: >-
-  The mechanism already publishes the hooks: dnaa_box_binding computes a
-  promoter_fraction over the POOL_PROMOTER_HIGH boxes (the dnaA-promoter
-  occupancy) and a bound-pool hydrolysis count routed to equilibrium.py.
-  transcript_initiation.py can repress the dnaA transcription unit when those
-  promoter boxes are DnaA-bound (negative autoregulation, first wired in
-  dnaa-4). RIDA is the reverse: after a fork passes, Hda-DnaA on the sliding
-  clamp accelerates DnaA-ATP -> DnaA-ADP, dropping the active pool below the
-  re-initiation threshold and enforcing eclipse. Together they turn the
-  open-loop trigger into a closed-loop oscillator.
+  The DnaA-ATP/ADP cycle in E. coli is governed by a well-characterised set of
+  chromosomal and protein feedbacks (biology reference
+  workspace/references/dnaa/molecular_information_replication_initiation.pdf:
+  "RIDA, DDAH/datA, DARS1/2, DnaA intrinsic ATPase, Kd ~30 nM ATP / ~100 nM ADP,
+  hydrolysis 0.046/min"; oric_sequence.pdf for the 11-box order). The mechanism
+  already publishes hooks: dnaa_box_binding computes promoter_fraction over the
+  POOL_PROMOTER_HIGH boxes (dnaA-promoter occupancy) and a bound-pool hydrolysis
+  count routed to equilibrium.py; transcript_initiation.py can repress the dnaA
+  TU when those promoter boxes are DnaA-bound (autoregulation, first wired in
+  dnaa-4). Two of Haochen's review findings constrain the design and MUST be
+  respected (feedback-2026-06-27-haochen):
+  (H2) the oriC cluster reset at initiation happens by FORK PASSAGE — oriC-bound
+       DnaA is released to the cytoplasm as the fork passes, propagated by
+       chromosome_structure.py — NOT by k_h hydrolysis (k_h runs uniformly in the
+       background and is NOT a reset lever). So do not model re-init control as an
+       oriC-local hydrolysis boost.
+  (H3) with the mechanistic oriC-saturation trigger, clean once-per-cycle already
+       works WITHOUT SeqA/RIDA; the OPEN levers are (a) the DnaA-ATP fraction,
+       which sits below the Boesen [0.2,0.5] band and is set by the recharge rate
+       k_r (a DARS-like reactivation), and (b) firing is a brief fill-spike rather
+       than a sustained saturation plateau. These are the real targets of the
+       feedback layer, not re-initiation blocking per se.
 
 mechanism: >-
-  Two feedbacks layered on the dnaa-10 configuration:
-  (1) dnaA-promoter negative autoregulation — couple promoter_fraction back to
-      the dnaA source so a high active-DnaA pool suppresses further DnaA
-      synthesis (replacing the constant production flux with an
-      expression-coupled source).
-  (2) RIDA — a post-initiation transient boost to the DnaA-ATP -> DnaA-ADP
-      hydrolysis rate on the newly replicated origin, gated for a fixed eclipse
-      window after each firing.
+  Layer the specific known DnaA-ATP regulatory feedbacks onto the dnaa-10
+  sat-init configuration, in the phased order below (see feedback_mechanisms for
+  the full catalog with biology + model hooks). The organising principle: the
+  DnaA-ATP pool is set by a balance of a regulated SOURCE (synthesis born as
+  DnaA-ATP + DARS reactivation of DnaA-ADP) against SINKS (RIDA, datA/DDAH,
+  intrinsic ATPase, chromosomal-box titration), with dnaA-promoter
+  autoregulation closing the transcription loop and fork-passage reset + SeqA
+  eclipse governing re-initiation timing. Phase 0 first replaces the constant
+  DnaA-ATP production stand-in (dnaa-10/11 blocker) with a promoter_fraction-
+  modulated, expression-coupled source so every downstream feedback has a target
+  to act on. Gene-dosage terms (datA, DARS, chromosomal boxes, dnaA copy) scale
+  with replication state, closing the loop between initiation and the pool.
   DEPENDENCY (honest scoping): the constant production flux
   (V2ECOLI_DNAA_ATP_PRODUCTION_PER_S) used in dnaa-10/11 has no target for the
-  autoregulation feedback to act on. Realising feedback (1) requires the pool
-  to come from a regulated SOURCE — either a rebuilt apo+ATP kinetic ParCa
-  cache (the never-committed reference artifact) or a new expression-coupled
-  production term whose rate is modulated by promoter_fraction. That source
-  term is the first implementation task of this study.
+  autoregulation feedback to act on. Phase 0 (regulated source) is therefore the
+  prerequisite for every other phase and the first implementation task.
+
+feedback_mechanisms:
+  negative:   # inactivate DnaA-ATP or block re-initiation
+    - id: dnaA-promoter-autoregulation
+      sign: negative
+      biology: >-
+        DnaA (ATP & ADP) binds its own promoter (boxes 1-4 + a-c) and represses
+        dnaA transcription — the primary synthesis-level negative loop.
+      model_hook: >-
+        promoter_fraction (POOL_PROMOTER_HIGH occupancy, already computed by
+        dnaa_box_binding) modulates the Phase-0 regulated source / the dnaA TU
+        synth prob in transcript_initiation.py. Partially wired in dnaa-4.
+      grounding: "biology ref (dnaA promoter boxes 1-4 + a-c); dnaa-4"
+      priority: 1
+    - id: RIDA
+      sign: negative
+      biology: >-
+        Regulatory Inactivation of DnaA: Hda + the beta sliding clamp on an
+        ACTIVE fork catalyse DnaA-ATP -> DnaA-ADP. The dominant post-initiation
+        negative feedback; active only while replication is ongoing.
+      model_hook: >-
+        A DnaA-ATP->ADP hydrolysis term GATED ON FORK PRESENCE (n_active_forks
+        from chromosome_structure), NOT an oriC-local boost (respects Haochen H2).
+        Scales with fork count.
+      grounding: "biology ref (RIDA); dnaa-7 (RIDA operating point 0.5-0.7 found)"
+      priority: 2
+    - id: datA-DDAH
+      sign: negative
+      biology: >-
+        The datA locus (near oriC, strong DnaA-box cluster) with IHF titrates and
+        promotes hydrolysis of DnaA-ATP (datA-Dependent DnaA-ATP Hydrolysis). Its
+        capacity doubles right after oriC fires (datA is replicated early) — a
+        gene-dosage timer that pulls the pool down just after initiation.
+      model_hook: >-
+        A high-capacity titration+hydrolysis sink whose capacity scales with datA
+        copy number (gene dosage from replication state).
+      grounding: "biology ref (DDAH/datA); proposed_inputs data-cooperative-titration (pending expert accept)"
+      priority: 3
+    - id: SeqA-sequestration
+      sign: negative
+      biology: >-
+        SeqA binds hemimethylated GATC clusters at oriC and the dnaA promoter for
+        the post-initiation eclipse (~1/3 cycle), blocking re-initiation and
+        transiently repressing dnaA transcription.
+      model_hook: >-
+        Eclipse window on oriC re-initiation eligibility. POST_INIT_UNLOCK_S=60 is
+        the current proxy; SeqA would make it hemimethylation-timed. NOTE dnaa-7
+        found SeqA eclipse ALONE insufficient — pair with RIDA.
+      grounding: "biology ref; dnaa-7-seqa-sequestration"
+      priority: 4
+    - id: chromosomal-box-titration
+      sign: negative
+      biology: >-
+        ~300 high-affinity chromosomal DnaA boxes buffer free DnaA; total capacity
+        scales with chromosome/gene copy number, so the sink grows during
+        replication (a gene-dosage buffer).
+      model_hook: >-
+        Already present as POOL_CHROMOSOMAL_HIGH (Kd~1 nM); make its site count
+        track replicated gene dosage rather than a fixed 302.
+      grounding: "biology ref (11 oriC + ~300 chromosomal boxes); dnaa-3"
+      priority: 5
+    - id: intrinsic-ATPase
+      sign: negative
+      biology: >-
+        Slow uncatalysed DnaA-ATP -> DnaA-ADP hydrolysis (k_h ~0.046/min; tuned
+        0.025 in dnaa-9). A uniform background drain, NOT the cluster-reset lever.
+      model_hook: "V2ECOLI_DNAA_HYDROLYSIS_RATE_PER_MIN (already in dnaa_box_binding)."
+      grounding: "biology ref (Kd 30/100 nM, 0.046/min); dnaa-9; Haochen H2 (not a reset lever)"
+      priority: 6
+    - id: fork-passage-cluster-reset
+      sign: reset
+      biology: >-
+        At initiation the fork passes oriC and the bound DnaA cluster is released
+        to the cytoplasm — this is the actual cluster reset (Haochen H2), distinct
+        from hydrolysis.
+      model_hook: "Already implemented — propagated by chromosome_structure.py on fork passage. Keep; do not replace with hydrolysis."
+      grounding: "Haochen H2 (confirmed in code)"
+      priority: 0
+  positive:   # reactivate DnaA-ATP or prime initiation
+    - id: DARS1-DARS2
+      sign: positive
+      biology: >-
+        DnaA Reactivating Sequences: chromosomal loci that catalyse nucleotide
+        exchange DnaA-ADP -> DnaA-ATP, rejuvenating the active pool between
+        rounds. DARS2 is growth-phase (Fis/IHF) regulated. THIS is Haochen's H3
+        recharge-rate k_r lever that sets the DnaA-ATP fraction into [0.2,0.5].
+      model_hook: >-
+        A DnaA-ADP -> DnaA-ATP exchange term (rate k_r), optionally gene-dosage /
+        growth-phase scaled. Primary lever for the open DnaA-ATP-fraction band.
+      grounding: "biology ref (DARS1/2); Haochen H3 open item (k_r recharge)"
+      priority: 2
+    - id: de-novo-synthesis-as-ATP
+      sign: positive
+      biology: >-
+        Newly translated DnaA loads ATP (cytoplasmic ATP >> ADP), so de-novo
+        synthesis is a DnaA-ATP source — coupled to the (autoregulated) dnaA
+        expression rate.
+      model_hook: "The Phase-0 regulated source term itself; born into MONOMER0-160[c] (DnaA-ATP)."
+      grounding: "biology ref; Phase 0"
+      priority: 1
+    - id: acidic-phospholipids
+      sign: positive
+      biology: >-
+        Anionic membrane phospholipids promote DnaA-ADP/apo -> DnaA-ATP
+        reactivation at the membrane. Secondary to DARS; often omitted.
+      model_hook: "Optional constant reactivation term; likely folded into k_r. Low priority."
+      grounding: "biology ref (acidic phospholipids)"
+      priority: 9
 
 conditions:
   baseline:
@@ -76,31 +198,53 @@ conditions:
       growth_condition: succinate
       note: "dnaa-10 sat-init configuration as the open-loop reference."
   variants:
-    - name: autoregulation-only
-      diff_from_baseline: "Replace constant flux with promoter_fraction-modulated DnaA source (negative autoregulation)."
+    - name: phase0-regulated-source
+      diff_from_baseline: "Replace the constant DnaA-ATP production flux with a promoter_fraction-modulated, expression-coupled source (de-novo-synthesis-as-ATP + dnaA-promoter-autoregulation). PREREQUISITE for all other phases."
       run: null
-      note: "Planned — not yet run."
-    - name: autoregulation-plus-rida
-      diff_from_baseline: "Autoregulation + post-initiation RIDA hydrolysis boost (eclipse window)."
+      note: "Planned. Unblocks autoregulation; the source has a target to repress."
+    - name: phase1-add-DARS-recharge
+      diff_from_baseline: "Phase 0 + DARS1/2 DnaA-ADP->ATP exchange (rate k_r). Target: lift the DnaA-ATP fraction into Boesen [0.2,0.5] (Haochen H3 lever)."
       run: null
-      note: "Planned — not yet run."
+      note: "Planned. Directly addresses the open ATP-fraction band."
+    - name: phase2-add-RIDA
+      diff_from_baseline: "Phase 1 + RIDA (fork-gated DnaA-ATP->ADP hydrolysis, NOT oriC-local per Haochen H2). Target: enforce one-init-per-cycle at steady k_r without hand-tuning."
+      run: null
+      note: "Planned. dnaa-7 found RIDA 0.5-0.7 clean; re-test under the closed loop."
+    - name: phase3-add-datA-genedosage
+      diff_from_baseline: "Phase 2 + datA/DDAH gene-dosage titration+hydrolysis sink (capacity doubles just after oriC fires)."
+      run: null
+      note: "Planned. The post-initiation pool dip timer; pending expert accept of the datA input."
+    - name: phase4-SeqA-eclipse
+      diff_from_baseline: "Phase 3 + SeqA hemimethylation-timed eclipse replacing the POST_INIT_UNLOCK_S proxy."
+      run: null
+      note: "Optional. dnaa-7: SeqA alone insufficient — only meaningful paired with RIDA."
   model_settings: []
 
 enforced_params:
   params:
     growth_condition: succinate
     initiation_trigger: mechanistic-sat-init
-    feedback_autoregulation: true
-    feedback_rida: true
+    regulated_source: promoter_fraction_modulated   # Phase 0 (replaces constant flux)
+    feedback_autoregulation: true                    # dnaA-promoter negative loop
+    feedback_dars_recharge_k_r: true                 # DARS1/2 DnaA-ADP->ATP (H3 fraction lever)
+    feedback_rida_fork_gated: true                   # RIDA (fork-gated, not oriC-local per H2)
+    feedback_datA_gene_dosage: optional              # datA/DDAH titration sink
+    feedback_seqA_eclipse: optional                  # replaces POST_INIT_UNLOCK proxy
+    dnaA_atp_fraction_target: [0.2, 0.5]             # Boesen band (Haochen H3)
+    reset_mechanism: fork_passage                    # Haochen H2 — NOT hydrolysis
     seeds: [1, 2, 3, 4]
     generations: 6
-  source: dnaa-10 config + feedback layer (to implement)
+  source: dnaa-10 config + phased feedback layer (see feedback_mechanisms)
 
 readouts:
   - name: DnaA-ATP pool (free)
     store_path: listeners.dnaA_binding.free_DnaA_ATP_nM
     units: nM
     status: primary
+  - name: DnaA-ATP fraction
+    identifier: free_DnaA_ATP_nM / (free_DnaA_ATP_nM + free_DnaA_ADP_nM)
+    units: fraction
+    status: primary   # Haochen H3 target: [0.2, 0.5] Boesen band, set by DARS k_r
   - name: number of oriC
     store_path: listeners.replication_data.number_of_oric
     units: count
@@ -123,11 +267,19 @@ tests:
       generation-to-generation drift in peak DnaA-ATP is small.
     measure: {kind: cv, metric: free_DnaA_ATP_peak_nM_across_gens}
     pass_if: {op: less_than, value: 0.25}
+  - name: atp-fraction-in-boesen-band
+    classification: primary
+    description: >-
+      DARS recharge (k_r) lifts the steady DnaA-ATP fraction into [0.2,0.5] — the
+      open lever Haochen flagged (H3); dnaa-9 held it below the band at ~0.08-0.13.
+    measure: {kind: median, metric: dnaA_atp_fraction_steady}
+    pass_if: {op: in_range, low: 0.2, high: 0.5}
   - name: one-initiation-per-cycle-held
     classification: primary
     description: >-
-      RIDA eclipse prevents re-initiation — oriC stays 1<->2 with zero
-      re-initiation ticks even without hand-tuning the production rate.
+      Fork-gated RIDA (NOT oriC-local, per Haochen H2) prevents re-initiation —
+      oriC stays 1<->2 with zero re-initiation ticks even without hand-tuning the
+      production rate.
     measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
     pass_if: {op: max_le, value: 2}
   - name: tighter-division-distribution
@@ -155,9 +307,25 @@ visualizations: []
 report:
   title: "dnaa-12 — feedback mechanisms on the mechanistic trigger (planned follow-up)"
   verdict: >-
-    DESIGNED — not yet run. This is the planned follow-up after dnaa-10
-    (succinate) and dnaa-11 (basal). First implementation task: replace the
-    constant DnaA-ATP production stand-in with a promoter_fraction-modulated
-    (autoregulated) source so the negative-feedback loop has a target, then
-    layer RIDA post-initiation hydrolysis. Sequenced after the basal
-    confirmation per Rashmi's ordering.
+    DESIGNED — not yet run. Planned follow-up after dnaa-10 (succinate) and
+    dnaa-11 (basal). The plan now enumerates the SPECIFIC known DnaA-ATP
+    regulatory feedbacks (feedback_mechanisms catalog), grounded in the biology
+    reference (RIDA, datA/DDAH, DARS1/2, intrinsic ATPase, dnaA-promoter
+    autoregulation) and Haochen's 2026-06-27 review, phased Phase 0-4:
+    Phase 0 — regulated, promoter-modulated DnaA-ATP source (unblocks the whole
+      loop; replaces the dnaa-10/11 constant-flux stand-in that has no feedback
+      target and caused the basal collapse).
+    Phase 1 — DARS1/2 recharge (k_r): lift the DnaA-ATP fraction into the Boesen
+      [0.2,0.5] band — Haochen's H3 open lever (dnaa-9 sat at ~0.08-0.13).
+    Phase 2 — RIDA, FORK-GATED not oriC-local (respects Haochen H2: reset is by
+      fork passage, not hydrolysis): enforce one-init-per-cycle at steady k_r.
+    Phase 3 — datA/DDAH gene-dosage titration sink (post-initiation pool dip).
+    Phase 4 — SeqA hemimethylation eclipse (optional; dnaa-7 showed SeqA alone
+      insufficient — only with RIDA).
+    Two hard constraints from Haochen carried into the design: (H2) do NOT model
+    the cluster reset as oriC-local hydrolysis — it is fork passage, already in
+    chromosome_structure.py; (H3) the ATP-fraction fix is the DARS recharge rate,
+    not a cooperativity/K knob. Expert docs:
+    workspace/references/dnaa/molecular_information_replication_initiation.pdf +
+    feedback-2026-06-27-haochen/. The datA titration mechanism is still a PENDING
+    proposed_input awaiting expert accept.

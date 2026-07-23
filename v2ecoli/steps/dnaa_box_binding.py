@@ -100,6 +100,22 @@ PI_ID = "Pi[c]"
 PROTON_ID = "PROTON[c]"
 WATER_ID = "WATER[c]"
 
+# --- Demonstration DnaA-ATP production source -------------------------------
+# The published reference reproduction relied on a specially-built
+# "apo+ATP kinetic" ParCa cache that seeded and continuously replenished the
+# bulk DnaA-ATP pool (MONOMER0-160[c]). That cache was never committed
+# upstream, so the stock v2ecoli cache produces ZERO DnaA-ATP and the sat-init
+# mechanism can never engage (free_DnaA_ATP stays 0). When
+# V2ECOLI_DNAA_ATP_PRODUCTION_PER_S > 0 we inject a constant DnaA-ATP
+# production flux (molecules / s) into the bulk on each tick — a transparent
+# stand-in for that missing kinetic source, so the Adair ladder / sat-init /
+# daughter POST_INIT_UNLOCK dynamics can be exercised and characterised. The
+# pool still rises within a generation (satisfying the positive-gradient gate)
+# and is split at division, so each generation re-accumulates and fires. OFF
+# (0.0) by default — it does not alter stock behaviour.
+ATP_PRODUCTION_PER_S = float(
+    os.environ.get("V2ECOLI_DNAA_ATP_PRODUCTION_PER_S", "0.0"))
+
 # Pool labels (must match Phase 1 initial_conditions.py).
 POOL_CHROMOSOMAL_HIGH = 0
 POOL_ORIC_HIGH = 1
@@ -1562,6 +1578,14 @@ class DnaABoxBinding(Step):
             bulk_update.append((self._atp_idx, int(delta_atp_bulk)))
         if delta_adp_bulk != 0:
             bulk_update.append((self._adp_idx, int(delta_adp_bulk)))
+        # Demonstration DnaA-ATP production flux (see ATP_PRODUCTION_PER_S).
+        # Stands in for the unavailable apo+ATP kinetic cache so the pool can
+        # rise and drive the sat-init gate. OFF unless the env var is set.
+        if ATP_PRODUCTION_PER_S > 0.0:
+            produced = self._stochastic_round(
+                ATP_PRODUCTION_PER_S * float(states["timestep"]))
+            if produced:
+                bulk_update.append((self._atp_idx, int(produced)))
         # dnaa-3 Phase 2b: Pi / PROTON / WATER for bound-pool hydrolysis are
         # NOW produced by the equilibrium step (bf8b82e). Writing them here
         # was bypassing FBA accounting → metabolism over-allocated biomass

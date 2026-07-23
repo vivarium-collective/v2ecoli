@@ -834,6 +834,21 @@ def initialize_replication(
         elif _ci in _prom_high:
             pool_label[_i] = 3
 
+    # Proximity fallback (dnaa-oric demonstration): the reference ParCa emitted
+    # explicit oriC-high / oriC-low / promoter-high affinity motif coordinates,
+    # but that ParCa build was never committed upstream — the stock fixture's
+    # motif_coordinates carries only the generic "DnaA_box" set, so the loop
+    # above labels every box chromosomal (0) and there are ZERO oriC sites for
+    # the sat-init gate to watch. When no oriC-low site was tagged, designate
+    # the origin-proximal boxes by |coordinate| distance to oriC (position 0):
+    # the 3 closest are the high-affinity R-boxes, the next 8 stand in for the
+    # low-affinity I/tau/C ladder. Gated on the explicit coords being absent, so
+    # a proper reference cache is untouched.
+    if not (_oric_high or _oric_low) and n_DnaA_box >= 11:
+        _order = np.argsort(np.abs(np.asarray(DnaA_box_coordinates, dtype=np.int64)))
+        for _rank, _idx in enumerate(_order[:11]):
+            pool_label[int(_idx)] = 1 if _rank < 3 else 2
+
     unique_molecules["DnaA_box"] = create_new_unique_molecules(
         "DnaA_box",
         n_DnaA_box,

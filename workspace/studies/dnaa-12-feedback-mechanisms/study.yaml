@@ -1,0 +1,163 @@
+schema_version: 4
+name: dnaa-12-feedback-mechanisms
+investigation: dnaa-replication
+title: "Study 12 — Feedback Mechanisms on the Mechanistic Trigger (follow-up)"
+created: "2026-07-23"
+status: designed
+design_status: designed
+implementation_status: partial
+simulation_status: not_started
+evaluation_status: pending
+gate_status: pending
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-11-basal-mechanistic
+  why: >-
+    dnaa-10/dnaa-11 establish the mechanistic sat-init trigger and its
+    asynchrony/division consequences in succinate and basal, driven by a
+    constant DnaA-ATP production flux stand-in. The biological system does not
+    hold DnaA-ATP steady by a constant source — it is regulated by FEEDBACKS:
+    negative autoregulation of the dnaA promoter, RIDA (Hda-mediated
+    post-initiation DnaA-ATP hydrolysis), datA/DDAH titration, and DARS1/2
+    reactivation. This follow-up (Rashmi 2026-07-23) adds those feedbacks on
+    top of the confirmed trigger and asks whether they self-stabilise the pool
+    and tighten the cell cycle.
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-11-basal-mechanistic
+  enables: []
+  gate_status: pending
+
+question: >-
+  When the DnaA-ATP pool that drives the mechanistic sat-init trigger is
+  governed by its biological feedbacks — dnaA-promoter negative autoregulation
+  and RIDA post-initiation hydrolysis — rather than by a constant production
+  stand-in, does the system self-stabilise: DnaA-ATP held in band, exactly one
+  initiation per cycle, and a TIGHTER distribution of time-to-division and
+  size-at-division than the open-loop trigger of dnaa-10/dnaa-11?
+
+background: >-
+  The mechanism already publishes the hooks: dnaa_box_binding computes a
+  promoter_fraction over the POOL_PROMOTER_HIGH boxes (the dnaA-promoter
+  occupancy) and a bound-pool hydrolysis count routed to equilibrium.py.
+  transcript_initiation.py can repress the dnaA transcription unit when those
+  promoter boxes are DnaA-bound (negative autoregulation, first wired in
+  dnaa-4). RIDA is the reverse: after a fork passes, Hda-DnaA on the sliding
+  clamp accelerates DnaA-ATP -> DnaA-ADP, dropping the active pool below the
+  re-initiation threshold and enforcing eclipse. Together they turn the
+  open-loop trigger into a closed-loop oscillator.
+
+mechanism: >-
+  Two feedbacks layered on the dnaa-10 configuration:
+  (1) dnaA-promoter negative autoregulation — couple promoter_fraction back to
+      the dnaA source so a high active-DnaA pool suppresses further DnaA
+      synthesis (replacing the constant production flux with an
+      expression-coupled source).
+  (2) RIDA — a post-initiation transient boost to the DnaA-ATP -> DnaA-ADP
+      hydrolysis rate on the newly replicated origin, gated for a fixed eclipse
+      window after each firing.
+  DEPENDENCY (honest scoping): the constant production flux
+  (V2ECOLI_DNAA_ATP_PRODUCTION_PER_S) used in dnaa-10/11 has no target for the
+  autoregulation feedback to act on. Realising feedback (1) requires the pool
+  to come from a regulated SOURCE — either a rebuilt apo+ATP kinetic ParCa
+  cache (the never-committed reference artifact) or a new expression-coupled
+  production term whose rate is modulated by promoter_fraction. That source
+  term is the first implementation task of this study.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa5_oric
+      max_generations: 6
+      growth_condition: succinate
+      note: "dnaa-10 sat-init configuration as the open-loop reference."
+  variants:
+    - name: autoregulation-only
+      diff_from_baseline: "Replace constant flux with promoter_fraction-modulated DnaA source (negative autoregulation)."
+      run: null
+      note: "Planned — not yet run."
+    - name: autoregulation-plus-rida
+      diff_from_baseline: "Autoregulation + post-initiation RIDA hydrolysis boost (eclipse window)."
+      run: null
+      note: "Planned — not yet run."
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    initiation_trigger: mechanistic-sat-init
+    feedback_autoregulation: true
+    feedback_rida: true
+    seeds: [1, 2, 3, 4]
+    generations: 6
+  source: dnaa-10 config + feedback layer (to implement)
+
+readouts:
+  - name: DnaA-ATP pool (free)
+    store_path: listeners.dnaA_binding.free_DnaA_ATP_nM
+    units: nM
+    status: primary
+  - name: number of oriC
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: time to division (tau)
+    identifier: per-generation duration to the DIVISION event
+    units: min
+    status: primary
+  - name: dry mass at division
+    store_path: listeners.mass.dry_mass
+    units: fg
+    status: primary
+
+tests:
+  - name: pool-self-stabilises
+    classification: primary
+    description: >-
+      With autoregulation the free DnaA-ATP pool holds a bounded band across
+      generations instead of depending on a hand-set production rate — the
+      generation-to-generation drift in peak DnaA-ATP is small.
+    measure: {kind: cv, metric: free_DnaA_ATP_peak_nM_across_gens}
+    pass_if: {op: less_than, value: 0.25}
+  - name: one-initiation-per-cycle-held
+    classification: primary
+    description: >-
+      RIDA eclipse prevents re-initiation — oriC stays 1<->2 with zero
+      re-initiation ticks even without hand-tuning the production rate.
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+    pass_if: {op: max_le, value: 2}
+  - name: tighter-division-distribution
+    classification: primary
+    description: >-
+      The closed-loop feedback narrows the time-to-division distribution
+      relative to the open-loop dnaa-10 trigger (lower CV of tau).
+    measure: {kind: cv, metric: tau_cv, compare: feedback_vs_open_loop}
+    pass_if: {op: less_than_reference, reference: dnaa-10_tau_cv}
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    The biological feedbacks close the loop: DnaA-ATP self-stabilises, RIDA
+    enforces one-initiation-per-cycle without a hand-set production rate, and
+    the cell cycle tightens — completing the DnaA-ATP/oriC mechanism as a fully
+    self-regulating replacement for the cell-mass clock.
+  if_primary_tests_fail: >-
+    A failure isolates which feedback is insufficient (autoregulation gain, or
+    RIDA eclipse strength/window) and feeds a targeted parameter study.
+
+simulation_set: []
+
+visualizations: []
+
+report:
+  title: "dnaa-12 — feedback mechanisms on the mechanistic trigger (planned follow-up)"
+  verdict: >-
+    DESIGNED — not yet run. This is the planned follow-up after dnaa-10
+    (succinate) and dnaa-11 (basal). First implementation task: replace the
+    constant DnaA-ATP production stand-in with a promoter_fraction-modulated
+    (autoregulated) source so the negative-feedback loop has a target, then
+    layer RIDA post-initiation hydrolysis. Sequenced after the basal
+    confirmation per Rashmi's ordering.

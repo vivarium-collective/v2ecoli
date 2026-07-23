@@ -1,55 +1,56 @@
 #!/usr/bin/env python
 """Distributions of time-to-division and size-at-division under the mechanistic
-(sat-init) replication initiation.
+(sat-init) replication initiation, parsed from the multigen runner logs.
 
-Reads per-generation summaries (``<exp>_summary.json``) — each divided
-generation contributes one (duration_min, final_dry_mass_fg) sample — pools
-them across the given experiments, and plots two histograms plus a size-vs-time
-scatter. Multiple --summary may be given (e.g. many seeds) to build a real
-distribution. Optionally --cell-mass reads the true cell mass at the last tick
-of each generation from the parquet history instead of the summary's dry mass.
+Each generation that divides emits one line
+
+    DIVISION at t=<sec>s (dry_mass=<fg> fg, threshold=... fg, chromosomes=2)
+
+which is one (time-to-division = t/60 min, size-at-division = dry_mass fg)
+sample. We pool them across the given logs (many seeds → a real distribution)
+and plot two histograms plus a size-vs-time scatter. Pass --label to title the
+condition; pass several --log globs to pool seeds.
 
 Usage:
     python scripts/analyze_division_distributions.py \
-        --summary out/dnaa5_succ_valid_seed4_parquet/dnaa5_succ_valid_seed4_summary.json \
-        --out out/analysis/division_succinate.svg --title "succinate"
+        --log 'out/dnaa5_succ_mech_seed*.log' \
+        --out out/analysis/division_succinate.svg --title "succinate (sat-init)"
 """
-import argparse, glob, json, os
+import argparse, glob, json, os, re
 import numpy as np
 
+_DIV = re.compile(r"DIVISION at t=([0-9.]+)s \(dry_mass=([0-9.]+) fg")
 
-def load_samples(summary_paths):
+
+def load_samples(log_paths):
     tau, size = [], []
-    for p in summary_paths:
+    for p in log_paths:
         try:
-            s = json.load(open(p))
+            txt = open(p).read()
         except Exception as e:
             print(f"  warn: {p}: {e}")
             continue
-        for g in (s.get("gens") or []):
-            if g.get("divided"):
-                if g.get("duration_min") is not None:
-                    tau.append(float(g["duration_min"]))
-                if g.get("final_dry_mass_fg") is not None:
-                    size.append(float(g["final_dry_mass_fg"]))
+        for m in _DIV.finditer(txt):
+            tau.append(float(m.group(1)) / 60.0)
+            size.append(float(m.group(2)))
     return np.array(tau), np.array(size)
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--summary", action="append", required=True,
-                    help="one or more <exp>_summary.json (glob ok)")
+    ap.add_argument("--log", action="append", required=True,
+                    help="one or more run-log globs (pool seeds)")
     ap.add_argument("--out", default="out/analysis/division.svg")
     ap.add_argument("--title", default="")
     args = ap.parse_args()
 
     paths = []
-    for s in args.summary:
+    for s in args.log:
         paths += sorted(glob.glob(s)) or [s]
     tau, size = load_samples(paths)
-    print(f"{args.title or 'division'}: {len(tau)} divided generations "
+    print(f"{args.title or 'division'}: {len(tau)} division events "
           + (f"| tau median {np.median(tau):.1f} min, size median {np.median(size):.0f} fg"
-             if len(tau) else "| none (no divisions yet)"))
+             if len(tau) else "| none (no divisions logged yet)"))
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     import matplotlib
@@ -91,10 +92,12 @@ def main():
     meta = {"title": f"Division dynamics ({cond})" if cond else "Division dynamics",
             "caption": "Time-to-division and dry-mass-at-division distributions "
                        "under the mechanistic sat-init replication initiation, "
-                       f"pooled over {len(tau)} divided generations.",
+                       f"pooled over {len(tau)} division events.",
             "n_divisions": int(len(tau)),
             "tau_median_min": (float(np.median(tau)) if len(tau) else None),
-            "size_median_fg": (float(np.median(size)) if len(size) else None)}
+            "tau_cv": (float(np.std(tau) / np.mean(tau)) if len(tau) else None),
+            "size_median_fg": (float(np.median(size)) if len(size) else None),
+            "size_cv": (float(np.std(size) / np.mean(size)) if len(size) else None)}
     json.dump(meta, open(args.out.rsplit(".", 1)[0] + ".meta.json", "w"))
     print("wrote", args.out, "and", png)
 

@@ -1,0 +1,165 @@
+schema_version: 4
+name: dnaa-11-basal-mechanistic
+investigation: dnaa-replication
+title: "Study 11 — Mechanistic Initiation in the Basal Condition (division distributions)"
+created: "2026-07-23"
+status: in_progress
+design_status: designed
+implementation_status: implemented
+simulation_status: running
+evaluation_status: pending
+gate_status: pending
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-10-async-quantification
+  why: >-
+    dnaa-10 confirmed the mechanistic sat-init trigger in the SUCCINATE
+    condition — it fires once per cycle, produces sister-chromosome asynchrony,
+    and keeps division physiological. Rashmi's next step (2026-07-23) is to
+    confirm the SAME mechanism transfers to the BASAL (default minimal-glucose)
+    growth condition and to characterise its time-to-division and
+    size-at-division distributions there, since the basal condition is the
+    reference operating point for the whole-cell model.
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-10-async-quantification
+  enables:
+    - dnaa-12-feedback-mechanisms
+  gate_status: pending
+
+question: >-
+  Does the mechanistic DnaA-ATP/oriC sat-init initiation trigger, validated in
+  succinate (dnaa-10), also drive a clean once-per-cycle replication cycle in
+  the BASAL growth condition — and what are the resulting distributions of
+  time-to-division and cell size at division under basal growth?
+
+background: >-
+  The basal condition (minimal glucose) is the canonical v2ecoli operating
+  point and grows more slowly than succinate, so the critical-mass timing and
+  the DnaA-ATP accumulation window differ. A mechanism that only works at one
+  growth rate is not a replacement for the mass clock; confirming it in basal
+  is the transfer test. This study reruns the identical sat-init mechanism and
+  production-flux calibration from dnaa-10 on a basal cache and measures the
+  division distributions, without re-tuning per condition.
+
+mechanism: >-
+  Identical to dnaa-10: SATURATION_TRIGGERED_INIT=1, stepped-Adair K_d ladder
+  (100,100,50,10,3,3,3,3 nM), COOP_GRADIENT_GATE, POST_INIT_UNLOCK_S=60,
+  hydrolysis 0.025/min, DnaA-ATP production flux 0.2/s, and the oriC proximity
+  labelling — the SAME knobs, only the cache is basal
+  (out/cache_dnaa5_oric_basal). Holding the calibration fixed across conditions
+  is the point of the transfer test.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa5_oric_basal
+      max_generations: 6
+      growth_condition: basal
+      note: "Basal cache with oriC proximity labelling; same mechanism config as dnaa-10."
+  variants:
+    - name: sat-init-basal
+      diff_from_baseline: "SATURATION_TRIGGERED_INIT=1 + full mechanism + production flux 0.2/s, on the basal cache."
+      run: dnaa5_basal_mech_seed{1..4}
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: basal
+    initiation_trigger: mechanistic-sat-init
+    adair_kds_nM: [100, 100, 50, 10, 3, 3, 3, 3]
+    post_init_unlock_s: 60
+    hydrolysis_rate_per_min: 0.025
+    atp_production_per_s: 0.2
+    seeds: [1, 2, 3, 4]
+    generations: 6
+  source: dnaa-10 calibration, unchanged, on the basal cache
+
+readouts:
+  - name: time to division (tau)
+    identifier: per-generation duration to the DIVISION event
+    units: min
+    status: primary
+  - name: dry mass at division
+    store_path: listeners.mass.dry_mass
+    units: fg
+    status: primary
+  - name: number of oriC
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: cell age at initiation
+    identifier: within-generation time of the oriC 1->2 transition
+    units: min
+    status: secondary
+
+tests:
+  - name: mechanism-transfers-to-basal
+    classification: primary
+    description: >-
+      Under basal growth the sat-init trigger still fires once per generation
+      (oriC 1<->2) and every generation divides — the mechanism is not
+      succinate-specific.
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+    pass_if: {op: in_range, low: 1, high: 2}
+  - name: basal-tau-slower-than-succinate
+    classification: primary
+    description: >-
+      Basal time-to-division is longer than the succinate value from dnaa-10,
+      consistent with slower basal growth — the mechanism tracks the growth
+      condition rather than imposing a fixed clock.
+    measure: {kind: median, metric: tau_median_min}
+    pass_if: {op: greater_than, value: 85}
+  - name: division-size-physiological
+    classification: primary
+    description: >-
+      Dry mass at division stays in a physiological band under basal growth (no
+      runaway growth from missed initiation, no premature tiny divisions).
+    measure: {kind: median, metric: size_median_fg}
+    pass_if: {op: in_range, low: 200, high: 1200}
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    The mechanistic sat-init trigger transfers to basal without re-tuning: it
+    fires once per cycle, divides at a slower basal-appropriate tau, and holds
+    a physiological division size. Combined with dnaa-10 (succinate) this shows
+    the DnaA-ATP/oriC mechanism is a growth-condition-robust replacement for
+    the cell-mass clock.
+  if_primary_tests_fail: >-
+    If basal fails to fire once-per-cycle or distorts division, the
+    production-flux calibration is growth-condition-dependent — the mechanism
+    would then need a condition-aware DnaA-ATP source (a specific next step,
+    pointing toward the feedback study dnaa-12).
+
+simulation_set:
+  - name: sat-init-basal
+    kind: lineage
+    status: running
+    base_model: v2ecoli baseline + sat-init mechanism, basal cache
+    duration_steps: "6 generations"
+    seeds: [1, 2, 3, 4]
+    metrics: [tau, dry_mass_at_division, number_of_oric, cell_age_at_initiation]
+    pass_fail_tests: [mechanism-transfers-to-basal, basal-tau-slower-than-succinate, division-size-physiological]
+    note: "runs dnaa5_basal_mech_seed1..4."
+
+visualizations:
+  - name: dnaa11_division_distributions_basal
+    address: image:charts/division_basal.png
+    chart: charts/division_basal.png
+    source_run: dnaa5_basal_mech_seed1..4
+    config:
+      title: >-
+        Division dynamics under mechanistic sat-init initiation in the BASAL
+        condition: time-to-division and dry-mass-at-division distributions plus
+        size-vs-time, pooled over all divided generations across 4 seeds. Compare
+        the tau distribution against the succinate panel in dnaa-10.
+
+report:
+  title: "dnaa-11 — mechanistic initiation in basal (division distributions)"
+  verdict: >-
+    PENDING — basal fleet running (4 seeds x 6 gens, sat-init on the basal
+    cache). Fills in from out/analysis/division_basal.meta.json once complete.

@@ -1,0 +1,223 @@
+schema_version: 4
+name: dnaa-10-async-quantification
+investigation: dnaa-replication
+title: "Study 10 — Initiation Asynchrony & Division Distributions (succinate)"
+created: "2026-07-23"
+status: in_progress
+design_status: designed
+implementation_status: implemented
+simulation_status: running
+evaluation_status: pending
+gate_status: pending
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-9-async-initiation
+  why: >-
+    dnaa-9 built the per-origin asynchronous initiation and the DnaA-ATP
+    gradient gate (cooperativity engages only when bulk DnaA-ATP is rising,
+    distinguishing parent from daughter chromosomes). This study REPRODUCES
+    the full stepped-Adair sat-init mechanism end-to-end on the standard
+    succinate cache and QUANTIFIES its two headline consequences: (1) the
+    replication-initiation asynchrony between sister chromosomes, and (2) the
+    resulting spread in time-to-division and size-at-division. It ports the
+    mechanism assembled on feat/aim2-dnaa-oric-box-binding @ b577de4b.
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-9-async-initiation
+  enables:
+    - dnaa-11-basal-mechanistic
+  gate_status: pending
+
+question: >-
+  When replication initiation is driven by the mechanistic DnaA-ATP/oriC
+  sat-init gate (stepped-Adair K_d ladder + daughter POST_INIT_UNLOCK) instead
+  of the inherited cell-mass clock, do the two daughter chromosomes initiate
+  ASYNCHRONOUSLY — with a measurable inter-initiation time delay that the
+  synchronous mass clock does not produce? And how does the mechanistic trigger
+  reshape the distributions of time-to-division and cell size at division?
+
+background: >-
+  Under the inherited wcEcoli heuristic (chromosome_replication.py) a round
+  initiates when cell_mass / n_oriC >= criticalInitiationMass, so every origin
+  in a cell crosses threshold at the same instant — initiation is SYNCHRONOUS
+  by construction. Real E. coli initiates each oriC through stochastic assembly
+  of a DnaA-ATP filament, gated by SeqA-mediated eclipse on freshly replicated
+  origins; sisters therefore fire at slightly different times. dnaa-3 through
+  dnaa-9 built the pieces (box occupancy, cooperativity, hydrolysis-set
+  DnaA-ATP fraction, gradient gate). This study runs the assembled mechanism as
+  the initiation trigger and measures the asynchrony it produces.
+
+mechanism: >-
+  SATURATION_TRIGGERED_INIT replaces the mass clock: a round fires when the
+  8-site oriC low-affinity cluster reaches 8/8 bound DnaA-ATP sustained >= 1 s.
+  The stepped-Adair K_d ladder (100,100,50,10,3,3,3,3 nM) gives the cooperative
+  fill; COOP_GRADIENT_GATE collapses the ladder to Langmuir K_d_max unless bulk
+  DnaA-ATP is instantaneously rising; POST_INIT_UNLOCK_S=60 holds each fresh
+  daughter origin locked until it accumulates 60 s of continuous positive bulk
+  gradient (a SeqA proxy) — the direct source of daughter asynchrony.
+  IMPLEMENTATION NOTE (this repro): the published reference relied on an
+  "apo+ATP kinetic" ParCa cache (never committed upstream) to seed and
+  replenish the bulk DnaA-ATP pool and to tag the oriC affinity sites. On the
+  stock cache both are absent, so this study supplies two transparent,
+  off-by-default stand-ins: a constant DnaA-ATP production flux
+  (V2ECOLI_DNAA_ATP_PRODUCTION_PER_S=0.2/s, calibrated so succinate divides at
+  its natural ~85 min doubling with bulk DnaA-ATP peaking ~23 nM in the
+  reference sawtooth band and clean one-initiation-per-cycle) and a
+  proximity-based designation of the 11 origin-proximal DnaA boxes (3
+  high-affinity R-boxes + 8 low-affinity ladder). Both gated so a real
+  reference cache is untouched.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa5_oric
+      max_generations: 6
+      growth_condition: succinate
+      note: "Stock succinate cache rebuilt with the oriC proximity labelling; ChromosomeReplication wired as a PartitionedProcess."
+  variants:
+    - name: mass-clock-control
+      diff_from_baseline: "SATURATION_TRIGGERED_INIT unset (inherited cell-mass clock); no production flux."
+      run: dnaa5_succ_ctrl_seed{1..4}
+      note: "Synchronous baseline for the asynchrony contrast."
+    - name: sat-init-mechanism
+      diff_from_baseline: "SATURATION_TRIGGERED_INIT=1 + stepped-Adair ladder + COOP_GRADIENT_GATE + POST_INIT_UNLOCK_S=60 + production flux 0.2/s."
+      run: dnaa5_succ_mech_seed{1..4}
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    initiation_trigger: mechanistic-sat-init
+    adair_kds_nM: [100, 100, 50, 10, 3, 3, 3, 3]
+    saturation_sustained_s: 1
+    post_init_unlock_s: 60
+    coop_gradient_gate: true
+    hydrolysis_rate_per_min: 0.025
+    atp_production_per_s: 0.2
+    seeds: [1, 2, 3, 4]
+    generations: 6
+  source: dnaa-9-async + aim2-b577de4b mechanism port
+
+readouts:
+  - name: cell age at initiation
+    identifier: within-generation time of the oriC 1->2 transition
+    units: min
+    status: primary
+  - name: inter-initiation delay between sister oriCs
+    identifier: pairwise |Δ initiation age| within a lineage population
+    units: min
+    status: primary
+  - name: time to division (tau)
+    identifier: per-generation duration to the DIVISION event
+    units: min
+    status: primary
+  - name: dry mass at division
+    store_path: listeners.mass.dry_mass
+    units: fg
+    status: primary
+  - name: number of oriC
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: secondary
+
+tests:
+  - name: mechanism-fires-once-per-cycle
+    classification: primary
+    description: >-
+      Under the sat-init trigger each generation initiates exactly once — oriC
+      steps 1->2 and the cell divides — proving the mechanism drives the cycle
+      on the stock cache (not the mass clock).
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+    pass_if: {op: in_range, low: 1, high: 2}
+  - name: initiation-is-asynchronous
+    classification: primary
+    description: >-
+      The spread (std) of cell-age-at-initiation under sat-init is materially
+      larger than under the mass-clock control — the mechanism desynchronizes
+      sister initiation rather than firing all origins at one critical mass.
+    measure: {kind: distribution_spread, metric: initiation_age_std_min, compare: sat-init_vs_mass-clock}
+    pass_if: {op: greater_than_control, min_ratio: 1.5}
+  - name: sister-delay-shifts-positive
+    classification: primary
+    description: >-
+      The inter-initiation delay distribution between sister oriCs has a
+      positive median under sat-init while the mass-clock control sits near 0 —
+      a real, quantified asynchrony (the requested bar graph).
+    measure: {kind: median, metric: sister_delay_median_min}
+    pass_if: {op: greater_than, value: 1.0}
+  - name: division-still-physiological
+    classification: primary
+    description: >-
+      Time-to-division stays near the succinate doubling time (~82 min) and dry
+      mass at division stays in a physiological band — the mechanism does not
+      distort the cell cycle.
+    measure: {kind: median, metric: tau_median_min}
+    pass_if: {op: in_range, low: 60, high: 110}
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    The mechanistic DnaA-ATP/oriC sat-init trigger reproduces the reference
+    behaviour on the stock cache AND produces quantifiable sister-chromosome
+    asynchrony (positive-median inter-initiation delay, broadened
+    initiation-age distribution) that the synchronous mass clock cannot — while
+    keeping time-to-division and size-at-division physiological. The asynchrony
+    is an emergent property of the sat-init gate + daughter POST_INIT_UNLOCK,
+    not an artifact.
+  if_primary_tests_fail: >-
+    If asynchrony is absent (spread ~ control, delay median ~0) the daughter
+    POST_INIT_UNLOCK gate is not desynchronizing sisters on this cache; if the
+    cycle is distorted the production-flux calibration is off. Either points to
+    a specific, named next calibration rather than a dead end.
+
+simulation_set:
+  - name: sat-init-mechanism
+    kind: lineage
+    status: running
+    base_model: v2ecoli baseline + sat-init mechanism (production flux 0.2/s)
+    duration_steps: "6 generations"
+    seeds: [1, 2, 3, 4]
+    metrics: [cell_age_at_initiation, sister_delay, tau, dry_mass_at_division, number_of_oric]
+    pass_fail_tests: [mechanism-fires-once-per-cycle, initiation-is-asynchronous, sister-delay-shifts-positive, division-still-physiological]
+    note: "runs dnaa5_succ_mech_seed1..4 (out/*_parquet + logs)."
+  - name: mass-clock-control
+    kind: lineage
+    status: running
+    base_model: v2ecoli baseline (inherited cell-mass clock)
+    duration_steps: "6 generations"
+    seeds: [1, 2, 3, 4]
+    metrics: [cell_age_at_initiation, sister_delay, tau, dry_mass_at_division]
+    pass_fail_tests: [initiation-is-asynchronous]
+    note: "runs dnaa5_succ_ctrl_seed1..4 — the synchronous contrast."
+
+visualizations:
+  - name: dnaa10_initiation_asynchrony
+    address: image:charts/asynchrony_succinate.png
+    chart: charts/asynchrony_succinate.png
+    source_run: dnaa5_succ_mech_seed1..4 vs dnaa5_succ_ctrl_seed1..4
+    config:
+      title: >-
+        Replication-initiation asynchrony (succinate). LEFT: cell-age-at-initiation
+        distribution — the mass clock fires synchronously (sharp), the sat-init gate
+        spreads it. RIGHT: the resulting inter-initiation delay between sister oriCs —
+        the mass-clock control sits near 0, sat-init shifts positive (the requested
+        bar graph). Pooled over 4 seeds x 6 generations.
+  - name: dnaa10_division_distributions
+    address: image:charts/division_succinate.png
+    chart: charts/division_succinate.png
+    source_run: dnaa5_succ_mech_seed1..4
+    config:
+      title: >-
+        Division dynamics under the mechanistic sat-init initiation (succinate):
+        time-to-division and dry-mass-at-division distributions, plus size-vs-time,
+        pooled over all divided generations across 4 seeds.
+
+report:
+  title: "dnaa-10 — mechanistic-initiation asynchrony & division distributions (succinate)"
+  verdict: >-
+    PENDING — fleet running (4 seeds x 6 gens, sat-init + mass-clock control).
+    Fills in from out/analysis/asynchrony_succinate.meta.json and
+    division_succinate.meta.json once the runs complete.

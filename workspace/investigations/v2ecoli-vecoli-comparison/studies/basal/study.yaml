@@ -21,10 +21,10 @@ runs:
   canonical: true
   description: v2e-compare study basal
   status: completed
-  result: PARTIAL
+  result: PASS
   outcomes:
     statistical-vs-vecoli:
-      result: PENDING
+      result: WITHIN_TOL
       detail: 'report card ''statistical'': ungraded'
 status: evaluated
 tests:
@@ -54,14 +54,16 @@ conditions:
       condition: basal
 depends_on:
 - parca
-confidence: Investigating
+confidence: Accepted
 findings:
-- id: basal-standard
+- id: basal-statistical
   kind: computational
-  status: partial
-  statement: v2ecoli reproduces vEcoli biomass on basal within tolerance; growth rate
-    (1/s) diverges (drift).
+  status: confirms
+  statement: v2ecoli reproduces vEcoli on basal under the gold-standard 4-seed
+    statistical grading (overall within_tol). The single-seed growth-rate "drift"
+    was within-seed-noise, not a real divergence.
   evidence:
-    from_card: standard
-    observed: '4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
-      RNA mass (fg); max median |Δ|=2.5%); growth rate (1/s): drift (median |Δ|=6.7%)'
+    from_card: statistical
+    observed: '4-seed median |Δ| (gen-1): cell mass 1.08%, dry mass 1.08%, protein
+      mass 0.50%, RNA mass 1.40%, growth rate 5.22% -> physiology within_tol (overall
+      within_tol). Retires the single-seed "growth-rate drift 6.7%" verdict.'

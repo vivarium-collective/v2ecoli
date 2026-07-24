@@ -19,8 +19,7 @@ created: '2026-06-20'
 # on the ParCa cache; it enables 03 (the FlgM feedback that gates the Class III onset).
 pipeline_gate:
   prerequisites:
-  - parca
-  - flagella-01-overexpression-baseline
+  - flagella-01-overexpression-baseline   # parca is transitive via 01 — keep the chain single-file
   enables:
   - flagella-03-flgm-flia-feedback
 

@@ -19,8 +19,7 @@ created: '2026-06-20'
 # FlgM secretion gate closes the loop the SUM-gate opens) and on the ParCa cache.
 pipeline_gate:
   prerequisites:
-  - parca
-  - flagella-02-sumgate-cascade
+  - flagella-02-sumgate-cascade   # parca is transitive via 01 -> 02 — keep the chain single-file
   enables: []
 
 status: in_progress

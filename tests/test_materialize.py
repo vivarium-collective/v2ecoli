@@ -36,10 +36,11 @@ def test_materialized_fields_one_test_per_graded_card():
     # all three cards produce a report_card module
     assert len(f["tests"]) == 3
     assert {t["kind"] for t in f["tests"]} == {"report_card"}
-    # only graded cards carry a measure
+    # only graded cards carry a measure — gold standard: parca gates (t=0);
+    # config + single-seed standard are informational-only.
     graded = [t for t in f["tests"] if "measure" in t]
     groups = [t["measure"]["group"] for t in graded]
-    assert groups == ["parca", "standard"]             # parca + standard gate; config informational
+    assert groups == ["parca"]
     t = graded[0]
     assert t["measure"]["kind"] == "report_card_axis"
     assert t["measure"]["card"] == f"{CARD_ROOT}/basal_4x4"
@@ -72,7 +73,8 @@ def test_materialize_declares_report_card_test_modules(tmp_path):
     assert {t["kind"] for t in data["tests"]} == {"report_card"}
     assert tests["config-vs-vecoli"]["card"] == "config"
     assert "measure" not in tests["config-vs-vecoli"]            # informational
-    assert tests["standard-vs-vecoli"]["measure"]["kind"] == "report_card_axis"
+    assert "measure" not in tests["standard-vs-vecoli"]          # single-seed: illustrative only (gold standard)
+    assert tests["parca-vs-vecoli"]["measure"]["kind"] == "report_card_axis"   # parca gates t=0
     assert "behavior_tests" not in data                          # replaced by tests
     assert data["conditions"]["baseline"]["composite"] == "v2ecoli.composites.baseline.baseline"
 

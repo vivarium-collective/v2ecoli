@@ -1,0 +1,105 @@
+{
+  "schema": "report_card_verdict/v1",
+  "model_ref": "v2ecoli@sim48/59",
+  "reference_model": "vEcoli (fork)",
+  "generated": "",
+  "overall": "within_tol",
+  "groups": {
+    "physiology": {
+      "verdict": "within_tol",
+      "axes": [
+        {
+          "id": "physiology.cell_mass",
+          "label": "Cell mass",
+          "verdict": "within_tol",
+          "value": 4161.815406567334,
+          "meter": "\u0394 = +0.9% \u00b7 p = 0.790 \u00b7 d = +0.20",
+          "detail": {
+            "p": 0.7900836870918346,
+            "t": 0.28251532168190574,
+            "cohens_d": 0.19976849975037436,
+            "delta_rel": 0.008865616854356327
+          }
+        },
+        {
+          "id": "physiology.growth_rate",
+          "label": "Growth rate",
+          "verdict": "within_tol",
+          "value": 0.0005213471023861243,
+          "meter": "\u0394 = +1.7% \u00b7 p = 0.525 \u00b7 d = +0.50",
+          "detail": {
+            "p": 0.5251911362062637,
+            "t": 0.7006670921752869,
+            "cohens_d": 0.49544645223139894,
+            "delta_rel": 0.01703561312595105
+          }
+        },
+        {
+          "id": "physiology.dry_mass",
+          "label": "Dry mass",
+          "verdict": "within_tol",
+          "value": 1250.0368159723375,
+          "meter": "\u0394 = +0.9% \u00b7 p = 0.790 \u00b7 d = +0.20",
+          "detail": {
+            "p": 0.7898324243944117,
+            "t": 0.2828733053396116,
+            "cohens_d": 0.20002163242228804,
+            "delta_rel": 0.00888231980109492
+          }
+        },
+        {
+          "id": "physiology.protein_mass",
+          "label": "Protein mass",
+          "verdict": "within_tol",
+          "value": 493.3795719384679,
+          "meter": "\u0394 = -0.0% \u00b7 p = 0.999 \u00b7 d = -0.00",
+          "detail": {
+            "p": 0.9987207549138923,
+            "t": -0.0016719991410979063,
+            "cohens_d": -0.0011822819308033494,
+            "delta_rel": -5.380119542377656e-05
+          }
+        },
+        {
+          "id": "physiology.rna_mass",
+          "label": "RNA mass",
+          "verdict": "within_tol",
+          "value": 203.8794370990406,
+          "meter": "\u0394 = +0.4% \u00b7 p = 0.890 \u00b7 d = +0.10",
+          "detail": {
+            "p": 0.890137498257103,
+            "t": 0.14488337697412904,
+            "cohens_d": 0.10244801833961026,
+            "delta_rel": 0.004355461383471457
+          }
+        }
+      ]
+    },
+    "ribosomes": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "ribosomes.active_ribosome",
+          "label": "Active ribosome",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "transcription": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "transcription.active_RNAP",
+          "label": "Active RNAP",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    }
+  }
+}

@@ -240,20 +240,38 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
 # (Unique molecules — ribosomes/RNAP/chromosome — are NOT overlaid; they are
 # higher-copy and their initial counts already agree to a few percent.)
 # --------------------------------------------------------------------------- #
-def _vecoli_reference_bulk(sim_data_path: str, condition: str, seed: int,
-                           fork_dir: str | None) -> dict[str, int]:
-    """Genuine vEcoli initial bulk ``{molecule_id: count}`` for (condition, seed).
+def _vecoli_reference_state(sim_data_path: str, condition: str, seed: int,
+                            fork_dir: str | None):
+    """Genuine vEcoli PRE-run initial state for (condition, seed):
+    ``(ref_bulk {molecule_id: count}, ref_unique {name: structured_array})``.
 
-    Builds the real upstream vEcoli vivarium Engine and reads its PRE-run bulk
-    state — the reference the v2ecoli run is seeded from.
+    Builds the real upstream vEcoli vivarium Engine and reads its pre-run bulk
+    AND unique-molecule state — the reference the v2ecoli run is seeded from.
+    The unique block is captured so a matched run can equalise the UNIQUE initial
+    state (active_RNAP/active_ribosome/RNA/chromosome) too, not just bulk: v2's
+    initial APORNAP-CPLX proteome is compressed toward basal off-condition, so
+    the derived unique active_RNAP starts wrong even after a bulk-only overlay.
     """
     import numpy as np
     from v2ecoli.library.vivarium_ecoli_engine import build_vivarium_ecoli
     h = build_vivarium_ecoli(
         sim_data_path=sim_data_path, condition=condition, seed=seed,
         exclude_processes=["monomer_counts_listener"], fork_dir=fork_dir)
-    bulk = np.asarray(h.engine.state.get_value()["bulk"])
-    return {str(i): int(c) for i, c in zip(bulk["id"], bulk["count"])}
+    sv = h.engine.state.get_value()
+    bulk = np.asarray(sv["bulk"])
+    ref_bulk = {str(i): int(c) for i, c in zip(bulk["id"], bulk["count"])}
+    # Keep each unique array's data AND its MetadataArray metadata (the next
+    # unique-index counter) so the overlay can re-wrap it in v2's MetadataArray
+    # without losing the free-index bookkeeping the UniqueNumpyUpdater relies on.
+    ref_unique = {k: (np.asarray(v).copy(), getattr(v, "metadata", None))
+                  for k, v in (sv.get("unique") or {}).items()}
+    return ref_bulk, ref_unique
+
+
+def _vecoli_reference_bulk(sim_data_path: str, condition: str, seed: int,
+                           fork_dir: str | None) -> dict[str, int]:
+    """Genuine vEcoli initial bulk ``{molecule_id: count}`` (bulk only)."""
+    return _vecoli_reference_state(sim_data_path, condition, seed, fork_dir)[0]
 
 
 def _apply_bulk_overlay(composite, ref_bulk: dict[str, int]) -> dict:
@@ -286,6 +304,65 @@ def _apply_bulk_overlay(composite, ref_bulk: dict[str, int]) -> dict:
     return {"v2_bulk": len(ids), "ref_bulk": len(ref_bulk), "matched": matched,
             "changed": changed, "v2_only": len(ids) - matched,
             "ref_only": len(ref_bulk) - matched}
+
+
+def _apply_unique_overlay(composite, ref_unique: dict) -> dict:
+    """Replace the v2 composite's initial UNIQUE-molecule arrays IN PLACE with
+    vEcoli's (``ref_unique`` from :func:`_vecoli_reference_state`), for every
+    unique type present in both. The dtypes are identical between the engines, so
+    the whole self-consistent vEcoli unique block (active_RNAP, active_ribosome,
+    nascent RNA, and the chromosome structure their coordinates/indices reference)
+    is copied wholesale — keeping internal cross-references (unique_index,
+    RNAP_index, mRNA_index, domain_index) consistent. This equalises the derived
+    transcription/translation machinery that a bulk-only overlay leaves wrong
+    (the compressed initial active_RNAP that drives the off-condition RNA/growth
+    divergence). Returns a per-type ``{name: (before, after)}`` stats dict.
+    """
+    import numpy as np
+    state = getattr(composite, "state", {}) or {}
+    agents = state.get("agents")
+    if isinstance(agents, dict) and agents:
+        agent = agents.get("0") or next(iter(agents.values()))
+    else:
+        agent = state
+    uni = agent.get("unique") if isinstance(agent, dict) else None
+    if not isinstance(uni, dict):
+        raise RuntimeError("matched-unique-state: composite has no 'unique' dict")
+    from v2ecoli.library.schema import MetadataArray
+    stats = {}
+    skipped = []
+    for name, (data, meta) in ref_unique.items():
+        if name not in uni:
+            continue
+        v2_arr = np.asarray(uni[name])
+        data = np.asarray(data)
+        # Only overlay types whose dtype MATCHES v2's slot. v2 adds engine-specific
+        # fields to some chromosome-structure types (e.g. DnaA_box.pool_label) that
+        # genuine vEcoli lacks; overlaying those would strip the field and crash the
+        # consuming process. The types that actually diverge — active_RNAP,
+        # active_ribosome, nascent RNA — are dtype-identical and cross-reference only
+        # each other (all overlaid) plus chromosome_domain (near-identical per
+        # condition+seed), so restricting to matched dtypes is both safe and
+        # sufficient. Chromosome-structure counts already agree between engines.
+        if data.dtype != v2_arr.dtype:
+            skipped.append(name)
+            continue
+        before = int(v2_arr.shape[0])
+        data = data.copy()
+        if meta is None:
+            # Next unique-index counter = max active unique_index + 1 (so newly
+            # created molecules never collide with the overlaid ones).
+            if data.dtype.names and "unique_index" in data.dtype.names \
+                    and "_entryState" in data.dtype.names:
+                active = data["unique_index"][data["_entryState"].view(np.bool_)]
+                meta = int(active.max()) + 1 if active.size else 0
+            else:
+                meta = 0
+        uni[name] = MetadataArray(data, meta)  # replace slot → writes through
+        stats[name] = (before, int(data.shape[0]))
+    if skipped:
+        stats["_skipped_dtype_mismatch"] = skipped
+    return stats
 
 
 # --------------------------------------------------------------------------- #
@@ -475,6 +552,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  from_vecoli_config: str | None = None,
                  vecoli_dir: str | None = None,
                  match_initial_state: bool = False,
+                 match_unique_state: bool = False,
                  match_vecoli_simdata: str | None = None):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
@@ -604,7 +682,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                     raise RuntimeError(
                         f"--match-initial-state needs the genuine vEcoli simData; "
                         f"{ref_sd!r} not found. Pass --match-vecoli-simdata <path>.")
-                ref_bulk = _vecoli_reference_bulk(
+                ref_bulk, ref_unique = _vecoli_reference_state(
                     ref_sd, condition, seed,
                     vecoli_dir or os.environ.get("V2E_VECOLI_DIR"))
                 stats = _apply_bulk_overlay(composite, ref_bulk)
@@ -612,6 +690,17 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                       f"vEcoli bulk onto v2 — matched {stats['matched']}/"
                       f"{stats['v2_bulk']} ({stats['changed']} counts changed); "
                       f"v2-only {stats['v2_only']}, ref-only {stats['ref_only']}")
+                if match_unique_state:
+                    ustats = _apply_unique_overlay(composite, ref_unique)
+                    rnap = ustats.get("active_RNAP")
+                    skipped = ustats.get("_skipped_dtype_mismatch", [])
+                    n_types = len([k for k in ustats if not k.startswith("_")])
+                    rnap_msg = (f"active_RNAP {rnap[0]}->{rnap[1]}"
+                                if rnap else "active_RNAP not overlaid")
+                    print(f"[match-unique-state] seed{seed:02d} {condition}: overlaid "
+                          f"vEcoli unique onto v2 — {n_types} types ({rnap_msg}); "
+                          f"skipped {len(skipped)} dtype-mismatch {skipped}; "
+                          f"equalises the derived transcription/translation machinery")
             # PART 1: emit the resolved v2ecoli build config ONCE (lowest seed)
             # as a sidecar next to the zarr stores. Best-effort — never crash.
             if seed == seed_start:
@@ -716,6 +805,14 @@ def main(argv=None):
                         "molecule counts. Removes the stochastic low-copy sampling "
                         "divergence (e.g. SpoT) that dominates single-seed "
                         "comparisons. No-op for the vecoli run (it IS the reference).")
+    p.add_argument("--match-unique-state", action="store_true",
+                   help="With --match-initial-state, ALSO overlay vEcoli's initial "
+                        "UNIQUE-molecule state (active_RNAP/active_ribosome/nascent "
+                        "RNA/chromosome), not just bulk. A bulk-only overlay leaves "
+                        "the derived active_RNAP wrong (v2's initial APORNAP-CPLX "
+                        "proteome is compressed toward basal off-condition), which "
+                        "drives the off-condition RNA/growth divergence. No-op for "
+                        "the vecoli run.")
     p.add_argument("--match-vecoli-simdata", default=None,
                    help="Path to the genuine vEcoli simData.cPickle used as the "
                         "matched-initial-state reference (default: the upstream "
@@ -739,6 +836,7 @@ def main(argv=None):
         vecoli_source=args.vecoli_source,
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
         match_initial_state=args.match_initial_state,
+        match_unique_state=args.match_unique_state,
         match_vecoli_simdata=args.match_vecoli_simdata)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen

@@ -20,7 +20,7 @@ def _make_invest(tmp_path):
           vecoli_dir_env: V2E_TEST_FORK
           v2_cache: out/cache_full
           ve_cache: out/compare_harness/vecoli_parca
-          defaults: {cards: [config, parca, standard]}
+          defaults: {cards: [config, parca, standard, statistical]}
         studies: [basal, basal_4x4, missing_one]
     """)
     _write(inv / "studies/basal/study.yaml", """
@@ -58,8 +58,10 @@ def test_study_inherits_default_cards_when_omitted(tmp_path):
     inv = _make_invest(tmp_path)
     _, specs = load_investigation(str(inv))
     basal = next(s for s in specs if s.name == "basal")
-    assert basal.cards == ["config", "parca", "standard"]   # from investigation defaults
-    assert basal.graded_cards == ["parca", "standard"]      # parca + standard gate; config informational
+    assert basal.cards == ["config", "parca", "standard", "statistical"]  # from investigation defaults
+    # Gold standard: parca (t=0) + multi-seed statistical gate; config + single-seed
+    # standard are illustrative-only (standard dropped from GRADED).
+    assert basal.graded_cards == ["parca", "statistical"]
 
 
 def test_study_card_override_and_graded_subset(tmp_path):

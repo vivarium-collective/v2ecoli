@@ -21,7 +21,7 @@ runs:
   canonical: true
   description: v2e-compare study with_aa
   status: completed
-  result: PARTIAL
+  result: MISMATCH
   outcomes:
     statistical-vs-vecoli:
       result: PENDING
@@ -56,12 +56,21 @@ depends_on:
 - parca
 confidence: Investigating
 findings:
-- id: with_aa-standard
+- id: with_aa-statistical
   kind: computational
-  status: partial
-  statement: v2ecoli reproduces vEcoli biomass on with_aa within tolerance; RNA mass
-    (fg) diverges (drift).
+  status: contradicts
+  statement: Under the gold-standard 4-seed statistical grading, with_aa is a STRONGLY
+    significant mismatch with the sign REVERSED vs acetate — on rich amino acids
+    v2ecoli grows SLOWER (growth rate Δ-16.1%, p=0.003) with LESS RNA (Δ-21.3%,
+    p=0.001, d=-4.4) than vEcoli. Protein mass reproduces. This is not a carbon
+    gradient — v2 mis-sets growth-rate/rRNA allocation in nutrient shifts BOTH ways
+    (over-grows on poor carbon, under-grows on rich AA), matching only at basal (the
+    ParCa fit point). Signature of a nutrient-responsive growth-regulation divergence;
+    ppGpp growth-law coupling (rRNA is the most-off observable) is the prime suspect.
   evidence:
-    from_card: standard
-    observed: '4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
-      growth rate (1/s); max median |Δ|=2.7%); RNA mass (fg): drift (median |Δ|=7.5%)'
+    from_card: statistical
+    observed: '4-seed gen-1 (Welch t-test): protein mass within_tol (Δ-4.0%, p=0.30);
+      cell mass drift (Δ-5.3%, p=0.19); dry mass drift (Δ-5.3%, p=0.19); growth rate
+      MISMATCH (Δ-16.1%, p=0.003, d=-4.56); RNA mass MISMATCH (Δ-21.3%, p=0.001,
+      d=-4.42). Overall mismatch; two axes at p<0.01. Sign reversed vs acetate.'
+  _superseded_from_card: standard

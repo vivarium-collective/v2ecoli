@@ -157,6 +157,13 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
     for s in studies:
         cells: dict[str, str | None] = {}
         for card in s["cards"]:
+            # The per-observable matrix is built from the standard/parca cards
+            # (which share the "cell mass (fg)" observable labels). The multi-seed
+            # statistical card uses a different group structure + labels ("Cell
+            # mass", plus ribosome/transcription axes) and is surfaced as its own
+            # report card, not flattened into this grid.
+            if card.get("name") == "statistical":
+                continue
             for axis in card["axes"]:
                 label = axis["label"]
                 if label and label not in columns:

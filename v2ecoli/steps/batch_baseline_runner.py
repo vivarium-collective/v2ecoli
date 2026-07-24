@@ -162,6 +162,7 @@ def build_workflow_config(
     variants: "dict | None" = None,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
+    base_config_overrides: "dict | None" = None,
 ) -> dict:
     """Translate the composite's parameters into a v2ecoli workflow config.
 
@@ -196,6 +197,11 @@ def build_workflow_config(
         # Lets the flush place analyses/visualizations/report cards into this
         # study's report dir even when out_dir isn't under studies/<slug>/.
         config["study"] = study
+    if base_config_overrides:
+        # Applied to every branch by expand_branches (panel-wide, under the
+        # variant grid) — how KO_batch_baseline knocks a gene out across all
+        # seeds without forking a comparison arm.
+        config["base_config_overrides"] = dict(base_config_overrides)
     return config
 
 
@@ -286,6 +292,7 @@ def dispatch_batch(
     variants: "dict | None" = None,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
+    base_config_overrides: "dict | None" = None,
     run_workflow_fn: "Callable[..., dict] | None" = None,
 ) -> dict:
     """Run the seeds × generations batch and assemble the ``batch`` result dict.
@@ -303,7 +310,8 @@ def dispatch_batch(
         single_daughters=single_daughters, time_step=time_step,
         max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
         experiment_id=experiment_id, emitter=emitter, parallel=parallel,
-        variants=variants, analyses=analyses, study=study)
+        variants=variants, analyses=analyses, study=study,
+        base_config_overrides=base_config_overrides)
 
     # Before the run, so the flush that follows it inside run_workflow can
     # resolve the sweep's sim_data (see link_sim_data).
@@ -364,6 +372,11 @@ class BatchBaselineRunner(Step):
         # single bigraph-schema type covers.
         "analyses": {"_default": DEFAULT_ANALYSES},
         "study": "string",
+        # Config overrides applied to every branch (panel-wide) — e.g. the
+        # translation-efficiency patch KO_batch_baseline builds. Untyped: the
+        # value is an arbitrary {'<proc>.<key>': value} map, and some values
+        # (a numpy efficiencies array) no bigraph-schema type covers.
+        "base_config_overrides": {"_default": {}},
     }
     topology = {
         "batch": ("batch",),
@@ -388,6 +401,7 @@ class BatchBaselineRunner(Step):
         analyses = cfg.get("analyses")
         self.analyses = DEFAULT_ANALYSES if analyses is None else analyses
         self.study = cfg.get("study") or ""
+        self.base_config_overrides = dict(cfg.get("base_config_overrides") or {})
         # None => default "ray"; "" / "sequential" / "none" => sequential (None).
         p = cfg.get("parallel")
         if p is None:
@@ -439,5 +453,6 @@ class BatchBaselineRunner(Step):
             variants=self.variants,
             analyses=self.analyses,
             study=self.study,
+            base_config_overrides=self.base_config_overrides,
         )
         return {"batch": result}

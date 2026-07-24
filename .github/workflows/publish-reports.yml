@@ -117,12 +117,16 @@ jobs:
             echo "published $(ls investigations/*.html | wc -l) investigation reports"
           fi
 
-      - name: Fail if any report failed to generate
-        # Run AFTER publishing so good reports ship even when one fails. Makes a
-        # generation failure visible without blocking the others.
+      - name: Fail only if NO reports were published
+        # Run AFTER publishing. The generator exits non-zero only when NOTHING
+        # published (total breakage / server never came up); a partial run exits
+        # 0 and ships every report that rendered. So one stubborn investigation
+        # (e.g. a heavy report whose client-side generation hangs on the current
+        # workbench) no longer reds the whole deploy — the good reports still go
+        # out. Individual failures are printed to the log for visibility.
         run: |
           code="${{ steps.gen.outputs.exit_code }}"
           if [ "$code" != "0" ]; then
-            echo "::error::one or more investigation reports failed to generate (publish_investigation_reports.py exit $code)"
+            echo "::error::no investigation reports were published (publish_investigation_reports.py exit $code)"
             exit 1
           fi

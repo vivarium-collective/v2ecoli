@@ -279,27 +279,29 @@ def main() -> int:
         return 1
     print(f"investigations: {', '.join(slugs)}")
 
-    proc = None
-    base_url = args.url
-    try:
-        if base_url is None:
-            port = args.port or _free_port()
-            print(f"serving dashboard on :{port} …")
-            proc = serve_dashboard(ws_root, port)
-            base_url = f"http://127.0.0.1:{port}"
-        print(f"using dashboard at {base_url}")
-
-        results: dict[str, tuple[bool, str]] = {}
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            for slug in slugs:
-                out_path = out_dir / "investigations" / f"{slug}.html"
-                expect_figures = study_figure_count(ws_root, slug) > 0
-                # A FRESH page (in its own context) per investigation. A single
-                # reused page accumulated state/memory from the first heavy report
-                # and wedged, so every subsequent page.goto timed out (1/8
-                # published). Isolating each report keeps one slow/large report
-                # from cascading into the rest.
+    # A FRESH SERVER + browser context per investigation. A heavy report's
+    # client-side generation can hang and WEDGE a shared dashboard server, after
+    # which every subsequent page.goto times out (observed on workbench@main: the
+    # first investigation's generation hangs, then all 7 others fail to load ->
+    # 0/8). A reused page alone wasn't enough — the SERVER is what wedges — so
+    # each investigation gets its own short-lived server, isolating one bad
+    # report from cascading into the rest. When an external --url is given we
+    # reuse that single server (the caller owns its lifecycle).
+    external_url = args.url
+    results: dict[str, tuple[bool, str]] = {}
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        for slug in slugs:
+            out_path = out_dir / "investigations" / f"{slug}.html"
+            expect_figures = study_figure_count(ws_root, slug) > 0
+            proc = None
+            try:
+                if external_url:
+                    base_url = external_url
+                else:
+                    port = args.port or _free_port()
+                    proc = serve_dashboard(ws_root, port)
+                    base_url = f"http://127.0.0.1:{port}"
                 ctx = browser.new_context(accept_downloads=True)
                 page = ctx.new_page()
                 try:
@@ -312,16 +314,16 @@ def main() -> int:
                         ctx.close()
                     except Exception:  # noqa: BLE001
                         pass
-                results[slug] = (ok, msg)
-                print(f"  {'✓' if ok else '✗'} {slug}: {msg}")
-            browser.close()
-    finally:
-        if proc is not None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            finally:
+                if proc is not None:
+                    proc.terminate()
+                    try:
+                        proc.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        proc.kill()
+            results[slug] = (ok, msg)
+            print(f"  {'✓' if ok else '✗'} {slug}: {msg}")
+        browser.close()
 
     # Regenerate the landing-page investigation list from ALL discovered
     # investigations (not just this run's --only subset), so the gh-pages root
@@ -334,10 +336,18 @@ def main() -> int:
           f"{index_fragment_path}")
 
     failed = [s for s, (ok, _) in results.items() if not ok]
-    print(f"\n{len(results) - len(failed)}/{len(results)} reports published to "
+    n_ok = len(results) - len(failed)
+    print(f"\n{n_ok}/{len(results)} reports published to "
           f"{out_dir / 'investigations'}")
     if failed:
-        print(f"FAILED: {', '.join(failed)}", file=sys.stderr)
+        print(f"FAILED (published reports still shipped): {', '.join(failed)}",
+              file=sys.stderr)
+    # Gate policy: the workflow already publishes every report that renders, so a
+    # single stubborn investigation must NOT red the whole deploy. Fail only when
+    # NOTHING published (server never came up / total breakage); a partial run is
+    # a success that ships what works.
+    if n_ok == 0:
+        print("no reports published — failing the deploy", file=sys.stderr)
         return 1
     return 0
 

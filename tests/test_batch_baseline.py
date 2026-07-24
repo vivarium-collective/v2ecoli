@@ -414,3 +414,26 @@ def test_batch_ports_use_registered_type_name_for_pbg_roundtrip():
     assert runner.inputs()["batch"] == "inplace_dict"
     assert runner.outputs()["batch"] == "inplace_dict"
     assert isinstance(runner.inputs()["batch"], str)
+
+
+def test_inplace_dict_store_serializes_its_merged_result_keys():
+    """serialize_state() must capture an inplace_dict store's merged data.
+
+    run_pbg's SOLE output artifact on the remote-dispatch path is
+    Composite.serialize_state(); if it drops the batch runner's merged result to
+    {"_value": {}}, a successful GovCloud run produces an empty batch. Guard the
+    serialize dispatch that emits the merged (non-schema) keys.
+    """
+    from process_bigraph import Composite
+    from v2ecoli.core import build_core
+
+    core = build_core()
+    comp = Composite({"state": {"batch": {"_type": "inplace_dict"}}}, core=core)
+    # mimic InPlaceDict.apply deep-merging a Step's result onto the store node
+    comp.state["batch"].update({"completed": True, "n_seeds": 1, "seeds": {0: {"path": "x"}}})
+
+    out = comp.serialize_state()["batch"]
+    assert out.get("completed") is True
+    assert out.get("n_seeds") == 1
+    assert out.get("seeds") == {0: {"path": "x"}}
+    assert "_value" not in out

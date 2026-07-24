@@ -40,6 +40,23 @@ def _serialize_method(schema: Method, state):
         return schema._serialize_state(state)
     return str(state)
 
+@_serialize.dispatch
+def _serialize_inplace_dict(schema: InPlaceDict, state):
+    """Emit an InPlaceDict store's merged data keys.
+
+    ``InPlaceDict.apply`` deep-merges an update's keys directly onto the store
+    node dict (alongside the declared ``_value`` schema key), so the live store
+    ends up holding dynamic result keys. The structural serializer only emits the
+    declared ``_value`` sub-node, dropping those keys — which silently loses a
+    Step's result when ``Composite.serialize_state()`` is the sole output artifact
+    (e.g. sms-api ``run_pbg`` on the remote-dispatch path, where the batch result
+    would otherwise serialize to ``{"_value": {}}``). Emit the merged data keys;
+    ``_``-prefixed keys are schema-internal metadata, not data.
+    """
+    if not isinstance(state, dict):
+        return state
+    return {k: v for k, v in state.items() if not str(k).startswith("_")}
+
 # Register align_parameters for custom array types so that string type
 # expressions like 'bulk_array[id:string|count:integer|...]' and
 # 'unique_array[domain_index:integer|...]' can be parsed by bigraph-schema.

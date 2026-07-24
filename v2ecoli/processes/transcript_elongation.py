@@ -68,6 +68,7 @@ from v2ecoli.library.data_predicates import monotonically_increasing
 from v2ecoli.steps.partition import PartitionedProcess
 from ecoli.processes.unique_update import UniqueUpdate
 from v2ecoli.library.schema_types import RNA_ARRAY, ACTIVE_RNAP_ARRAY
+from bigraph_schema.contract import ProcessContract
 
 
 # Register default topology for this process, associating it with process name
@@ -128,6 +129,106 @@ class TranscriptElongation(PartitionedProcess):
         "  tRNA attenuation (optional): p_stop = f([charged_tRNA]/[total_tRNA]),\n"
         "    early-terminated RNAPs recycled and partial transcripts discarded.\n"
         "  ν = elongation rate (nt/s); dt = timestep; wᵢ = nucleotide weights."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "PartitionedProcess: calculate_request sizes the NTP request from the "
+            "sequences each active RNAP could transcribe this tick; evolve_state "
+            "polymerizes with the allocated NTPs, advances RNAP coordinates, "
+            "terminates finished transcripts, and (optionally) attenuates tRNA operons."
+        ),
+        inputs={
+            'environment': (
+                "reads media_id to select the media-dependent RNAP elongation rate "
+                "ν used when building the transcribable sequences."
+            ),
+            'RNAs': (
+                "reads TU_index, transcript_length and is_full_transcript of each "
+                "partial RNA to build the sequences to elongate this tick."
+            ),
+            'active_RNAPs': (
+                "reads each RNAP's coordinates, direction and unique_index to map "
+                "RNAPs to their partial transcripts and advance their positions; an "
+                "empty set short-circuits the tick."
+            ),
+            'bulk': (
+                "reads available NTP (ATP/CTP/GTP/UTP) counts to bound the request "
+                "(calculate_request) and the polymerization reaction limit (evolve_state)."
+            ),
+            'bulk_total': (
+                "reads total charged-tRNA counts (for attenuation) to convert to "
+                "concentration when computing stop probabilities."
+            ),
+            'listeners': (
+                "reads listeners.mass.cell_mass to form the counts→molar factor for "
+                "the tRNA-attenuation stop-probability calculation."
+            ),
+            'attenuation_config': (
+                "reads whether tRNA attenuation is enabled and its stop-probability "
+                "function / attenuated-RNA indices / location lookup."
+            ),
+        },
+        outputs={
+            'bulk': (
+                "consumes NTPs, releases PPi per polymerization step, returns "
+                "inactive RNAP for terminated/attenuated/stalled RNAPs, and adds "
+                "completed non-mRNA transcripts (and fragment bases if recycling stalls)."
+            ),
+            'RNAs': (
+                "sets updated transcript_length and mass submasses, marks completed "
+                "transcripts as full, and deletes terminated non-mRNA / attenuated / "
+                "stalled partial transcripts."
+            ),
+            'active_RNAPs': (
+                "sets advanced coordinates and deletes RNAPs that terminated, "
+                "attenuated, or (if enabled) stalled."
+            ),
+            'listeners': (
+                "writes elongation diagnostics: count_rna_synthesized, "
+                "count_NTPs_used, attenuation_probability/counts_attenuated, "
+                "ntp pool/used, and rnap_data (actual_elongations, did_terminate, "
+                "termination_loss, did_stall)."
+            ),
+        },
+        config={
+            'rnaPolymeraseElongationRateDict': "media → RNAP elongation rate ν (nt/s) that sets how far each RNAP can move per tick.",
+            'rnaSequences': "padded per-TU nucleotide-index sequences used by buildSequences/polymerize.",
+            'rnaLengths': "annotated per-TU lengths (nt); termination fires when transcript_length reaches this.",
+            'ntWeights': "per-nucleotide molecular weights wᵢ used to compute transcript mass increase.",
+            'endWeight': "mass added once, when a transcript is first initiated (5′-end weight).",
+            'ntp_ids': "bulk ids of the four NTPs consumed during elongation.",
+            'ppi': "bulk id of inorganic pyrophosphate (PPi) released per polymerization step.",
+            'inactive_RNAP': "bulk id of the inactive-RNAP pool that terminated/attenuated/stalled RNAPs return to.",
+            'is_mRNA': "per-TU mask; partial mRNAs stay as unique molecules on termination while other RNA types become bulk counts.",
+            'replichore_lengths': "right/left replichore lengths (nt); wrap RNAP coordinates that cross the origin/terminus.",
+            'variable_elongation': "whether per-position variable elongation rates (e.g. amplified rRNA) are used.",
+            'make_elongation_rates': "builds the per-sequence elongation-rate array from the media rate and timestep.",
+            'recycle_stalled_elongation': "whether RNAPs on NTP-limited (stalled) transcripts are recycled to the inactive pool with their bases returned.",
+            'get_attenuation_stop_probabilities': "fitted function mapping charged-tRNA concentration to per-operon early-termination probability p_stop.",
+            'attenuated_rna_indices': "TU indices eligible for tRNA-attenuation early termination.",
+            'fragmentBases': "bulk ids of NTP fragments returned when a stalled transcript is discarded.",
+        },
+        symbols={
+            'ν': "RNAP elongation rate (nucleotides/s)",
+            'dt': "simulation timestep (s)",
+            'wᵢ': "molecular weight of nucleotide i (fg per molecule / g·mol⁻¹)",
+            'Δmass': "transcript mass increase from elongation this tick (fg)",
+            'Δlen': "number of nucleotides added to a transcript this tick (nt)",
+            'p_stop': "early-termination (attenuation) probability of an attenuated tRNA operon (dimensionless, 0–1)",
+            'NTP': "ribonucleoside triphosphate consumed per elongation step (count)",
+            'PPi': "inorganic pyrophosphate released per elongation step (count)",
+            'charged_tRNA': "charged (aminoacylated) tRNA concentration feeding the attenuation function (mol/L)",
+            'total_tRNA': "total tRNA concentration in the attenuation ratio (mol/L)",
+        },
+        assumptions=[
+            "NTP pools are allocated across all active RNAPs by the polymerize algorithm to maximize total elongation subject to the available-NTP reaction limit.",
+            "An RNAP terminates exactly when its transcript_length reaches the annotated TU length.",
+            "Partial mRNAs are already functional and are kept as unique molecules; completed non-mRNA transcripts become bulk molecules.",
+            "tRNA attenuation is optional; when enabled, RNAPs stochastically terminate early based on the charged/total tRNA ratio and their partial transcripts are discarded.",
+            "RNAP coordinates wrap at the replichore boundaries (origin/terminus).",
+        ],
+        references=[],
     )
 
     name = NAME

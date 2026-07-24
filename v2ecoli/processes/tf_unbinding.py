@@ -29,6 +29,7 @@ from v2ecoli.library.ecoli_step import EcoliStep as Step
 # topology_registry removed
 from v2ecoli.library.schema import bulk_name_to_idx, attrs, numpy_schema
 from v2ecoli.library.schema_types import PROMOTER_ARRAY
+from bigraph_schema.contract import ProcessContract
 
 # Register default topology for this process, associating it with process name
 NAME = "ecoli-tf-unbinding"
@@ -53,6 +54,49 @@ class TfUnbinding(Step):
         "    bound_TF ← 0     (reset promoter occupancy matrix)\n"
         "    Δmass_i = -∑_j bound_TF[i,j] · m_j   (mass moved promoter submass → bulk)\n"
         "  bound_TF: promoters × TF species;  m_j: mass (fg) of active TF j."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "Deterministically releases every DNA-bound TF back to the free active "
+            "bulk pool, zeroes the promoter occupancy matrix, and removes the "
+            "corresponding TF mass from promoter submass — run before signalling so "
+            "TFs can re-equilibrate before TfBinding re-binds them."
+        ),
+        inputs={
+            'promoters': (
+                "reads the bound_TF occupancy matrix (and current submass fields) "
+                "to count how many of each TF are bound; empty → no-op."
+            ),
+            'bulk': "provides the free active-TF pool that released TFs are added back to.",
+            'global_time': "reads simulation time to decide (with next_update_time) whether this tick fires.",
+            'timestep': "reads the tick length to schedule the next update time.",
+            'next_update_time': "reads the scheduled fire time gating update_condition.",
+        },
+        outputs={
+            'bulk': "adds n_released_j molecules of each TF j back to the free active pool.",
+            'promoters': (
+                "resets bound_TF to zero and decrements each promoter's submass "
+                "fields by the released TF mass."
+            ),
+            'next_update_time': "writes the next scheduled fire time (global_time + timestep).",
+        },
+        config={
+            'tf_ids': "list of transcription-factor species whose [c] active forms are released.",
+            'active_tf_masses': "per-TF active-molecule mass m_j (fg) removed from promoter submass on release.",
+            'submass_indices': "maps promoter submass fields to columns of the released-mass matrix.",
+        },
+        symbols={
+            'n_released_j': "count of TF j molecules released from DNA to the free active pool",
+            'bound_TF[i,j]': "1 if TF j is bound at promoter i, else 0 (indicator)",
+            'Δmass_i': "mass removed from promoter i submass on release (fg)",
+            'm_j': "mass of one active TF j molecule (fg)",
+        },
+        assumptions=[
+            "Release is deterministic and total: every bound TF is freed each time the process fires.",
+            "TF mass is conserved — it moves from promoter submass back to the bulk active pool.",
+        ],
+        references=[],
     )
 
     name = NAME

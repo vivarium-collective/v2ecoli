@@ -58,6 +58,7 @@ from v2ecoli.library.schema_types import PROMOTER_ARRAY
 
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
+from bigraph_schema.contract import ProcessContract
 
 # topology_registry removed
 
@@ -86,6 +87,83 @@ class TfBinding(Step):
         "    Δmass_i = ∑_j ΔTF[i,j] · m_j     (mass moved bulk → promoter submass)\n"
         "  N_j: available promoter sites for TF j;  m_j: mass (fg) of active TF j.\n"
         "  MarA (PD00365): n_active = 34 · [marR-tet]/([marR]+[marR-tet])."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "Recomputes promoter occupancy each tick: releases all currently bound "
+            "TFs, computes a per-TF binding probability, then stochastically re-binds "
+            "a limited number of promoter sites and moves the TF mass onto them."
+        ),
+        inputs={
+            'promoters': (
+                "reads each promoter's TU_index and bound_TF to know current "
+                "occupancy and which promoters each TF may bind; an empty promoter "
+                "set short-circuits the tick."
+            ),
+            'bulk': (
+                "reads free active-TF counts (per TF species) that, together with "
+                "released bound TFs, bound the number of promoters that can be occupied."
+            ),
+            'bulk_total': (
+                "reads total active/inactive TF counts (and marR / marR-tet counts "
+                "for MarA) used to evaluate the binding-probability function."
+            ),
+            'listeners': (
+                "reads the rna_synth_prob listener group it also writes back into."
+            ),
+            'global_time': "reads simulation time to decide (with next_update_time) whether this tick fires.",
+            'timestep': "reads the tick length to schedule the next update time.",
+            'next_update_time': "reads the scheduled fire time gating update_condition.",
+        },
+        outputs={
+            'bulk': (
+                "returns every bound TF to the free active pool, then decrements it "
+                "again by the number of promoters each TF newly binds."
+            ),
+            'promoters': (
+                "sets the recomputed bound_TF occupancy matrix and updates each "
+                "promoter's submass fields by the net TF mass bound/released."
+            ),
+            'listeners': (
+                "writes p_promoter_bound, n_promoter_bound, n_actual_bound, "
+                "n_available_promoters (and optionally the heavy n_bound_TF_per_TU matrix)."
+            ),
+            'next_update_time': "writes the next scheduled fire time (global_time + timestep).",
+        },
+        config={
+            'tf_ids': "list of transcription-factor species handled; sets n_TF.",
+            'tf_to_tf_type': "per-TF regulatory type ('0CS' always-bound, '1CS', '2CS') selecting how p_bound is computed.",
+            'p_promoter_bound_tf': "fitted function mapping active/inactive TF counts to the single-promoter binding probability p_bound_j.",
+            'delta_prob': "sparse TF-effect matrix (deltaI/deltaJ/shape) used to derive which TUs each TF regulates and n_TU.",
+            'active_to_bound': "maps a 1CS TF to its DNA-bound form for locating the inactive-TF species.",
+            'active_to_inactive_tf': "maps a 2CS TF to its unphosphorylated (inactive) species.",
+            'get_unbound': "resolves the unbound species id for a self-binding 1CS TF.",
+            'bulk_mass_data': "per-molecule masses used to build each active TF's mass (fg) moved on binding.",
+            'bulk_molecule_ids': "bulk id list used to locate each TF's mass entry.",
+            'submass_indices': "maps promoter submass fields to columns of the TF mass matrix.",
+            'n_avogadro': "Avogadro constant for the count→mass conversion of TF masses.",
+            'emit_n_bound_TF_per_TU': "toggles the heavy per-TU×per-TF binding-count listener (~900 KB/tick).",
+        },
+        symbols={
+            'p_bound_j': "probability a single promoter site is occupied by TF j (dimensionless, 0–1)",
+            'n_active_j': "count of active TF j",
+            'n_inactive_j': "count of inactive TF j",
+            'n_to_bind_j': "number of promoter sites TF j should occupy this tick (count)",
+            'N_j': "number of available promoter sites for TF j (count)",
+            'n_available_TF_j': "number of free+released TF j molecules available to bind (count)",
+            'Δmass_i': "net TF mass transferred to/from promoter i submass (fg)",
+            'ΔTF[i,j]': "change in bound-state of TF j at promoter i (+1 bind / −1 release)",
+            'm_j': "mass of one active TF j molecule (fg)",
+        },
+        assumptions=[
+            "All DNA-bound TFs are first released to the free active pool each tick, then binding is recomputed from scratch.",
+            "0CS (constitutive) TFs bind with probability 1; 1CS/2CS TFs use the fitted p_promoter_bound_tf on their active vs inactive counts.",
+            "Per-promoter binding is a Bernoulli trial (via stochastic rounding); the number actually bound is capped by the available TF molecules.",
+            "Which promoter sites are occupied is chosen uniformly at random among the TF's regulated promoters.",
+            "MarA (PD00365) active count is set to 34·[marR-tet]/([marR]+[marR-tet]), reflecting tetracycline de-repression of marRAB.",
+        ],
+        references=[],
     )
 
     name = NAME

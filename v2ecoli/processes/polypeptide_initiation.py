@@ -40,6 +40,8 @@ Mathematical Model
 import numpy as np
 from scipy.stats import poisson as scipy_poisson
 
+from bigraph_schema.contract import ProcessContract
+
 # simulate_process removed
 from v2ecoli.library.schema import (
     numpy_schema,
@@ -86,6 +88,60 @@ class PolypeptideInitiation(Step):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Assembles free 30S + 50S subunits into active 70S ribosomes on "
+            "mRNAs. Activates round(f·n_total) − n_active ribosomes and "
+            "distributes them across mRNAs by a translation-efficiency-weighted "
+            "multinomial, with a per-mRNA ribosome-footprint overcrowding cap."
+        ),
+        symbols={
+            "f": "media-dependent target active-ribosome fraction (dimensionless, 0-1)",
+            "n_total": "total ribosome pool = n_70S + min(n_30S, n_50S) (count)",
+            "n_70S": "currently active 70S ribosomes (count)",
+            "n_30S": "free 30S subunits (count)",
+            "n_50S": "free 50S subunits (count)",
+            "n_activate": "ribosomes to activate this tick = round(f·n_total) − n_active (count)",
+            "ηₖ": "translation efficiency of mRNA/monomer k (dimensionless relative weight)",
+            "n_copiesₖ": "cistron/transcript copy count of mRNA k (count)",
+            "p_k": "per-mRNA initiation probability ηₖ·n_copiesₖ / ∑ⱼ ηⱼ·n_copiesⱼ (dimensionless)",
+            "footprint": "active-ribosome footprint size, default ≈24 nt (nt; divided by 3 → aa)",
+            "mRNA_len": "transcript length of an mRNA (nt)",
+        },
+        inputs={
+            "environment": "reads media_id to look up the media-dependent active-ribosome fraction f",
+            "listeners": "reads ribosome_data.effective_elongation_rate from the previous tick to set the elongation rate used in the activation-probability / overcrowding calculation (falls back to media rate on tick 0)",
+            "active_ribosome": "reads the active 70S unique molecules to count currently-active ribosomes (part of n_total) and ribosomes already on each mRNA (footprint/overcrowding spacing)",
+            "RNA": "reads mRNA unique molecules (TU_index, transcript_length, can_translate, is_full_transcript, unique_index) to compute per-cistron mRNA counts and assign newly-initiated ribosomes to specific transcripts",
+            "bulk": "reads free 30S and 50S subunit counts, bounding how many ribosomes can be activated",
+            "timestep": "tick length dt (s), used in the activation-probability and max-p footprint calculation",
+        },
+        outputs={
+            "bulk": "decrements free 30S and 50S each by the number of ribosomes initiated",
+            "active_ribosome": "adds one new 70S per initiation with protein_index, peptide_length=0, mRNA_index, and pos_on_mRNA at the cistron start",
+            "listeners": "writes ribosome_data: did_initialize, per-monomer init events, target/actual translation probabilities, mRNA_is_overcrowded, max_p / max_p_per_protein, whether the activation count was reduced, and (poisson mode) the per-tick log-likelihood",
+        },
+        config={
+            "active_ribosome_footprint_size": "ribosome footprint on the transcript (nt); sets the minimum spacing that flags an mRNA as overcrowded (divided by 3 to an aa-length divisor)",
+            "active_ribosome_fraction": "map media_id → target active-ribosome fraction f",
+            "translation_efficiencies": "per-monomer translation efficiency ηₖ weighting the initiation probabilities",
+            "elongation_rates": "map media_id → ribosome elongation rate; fallback rate feeding the activation-probability model",
+            "protein_lengths": "per-protein length used to estimate translation time and expected termination in the activation-probability solve",
+            "cistron_to_monomer_mapping": "index map from cistrons to protein monomers used to weight initiation probabilities",
+            "cistron_tu_mapping_matrix": "sparse matrix mapping transcription-unit counts to cistron counts",
+            "variable_elongation": "toggles per-protein variable elongation rates when building elongation rates",
+            "ribosome30S": "bulk id of the 30S subunit consumed on initiation",
+            "ribosome50S": "bulk id of the 50S subunit consumed on initiation",
+            "pdmp_initiation_mode": "'discrete' (legacy multinomial, Σ fixed to n_activate) or 'poisson' (independent per-monomer Poisson tau-leap, resource-capped by the inactive-ribosome pool)",
+            "polypeptide_init_prob_scale": "poisson mode: scalar multiplying each per-protein initiation rate before Poisson sampling (1.0 = unperturbed)",
+        },
+        assumptions=[
+            "30S/50S subunits are consumed only by translation initiation — no other process competes, so it runs as a plain Step with no partitioning.",
+            "Each initiation consumes exactly one 30S and one 50S and starts the ribosome at peptide length 0.",
+            "An mRNA is overcrowded when ribosome spacing mRNA_len/(n_ribos+1) falls below the footprint; overcrowded probabilities are capped and rescaled (or the activation count is reduced).",
+        ],
+    )
 
     config_schema = {
         'active_ribosome_footprint_size': {'_type': 'quantity[nt]', '_default': 24.0},

@@ -62,6 +62,7 @@ from v2ecoli.library.quantity_helpers import as_quantity, fg_magnitude
 from v2ecoli.library.unit_bridge import pint_to_unum
 
 from bigraph_schema import deep_merge
+from bigraph_schema.contract import ProcessContract
 
 # vivarium-ecoli imports
 from v2ecoli.library.schema import (
@@ -119,6 +120,83 @@ class BasePolypeptideElongation(PartitionedProcess):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Partitioned process. calculate_request computes the ribosome "
+            "elongation rate (model-specific: fixed/media-set, or ppGpp- and "
+            "tRNA-charging-modulated in subclasses), builds the per-ribosome "
+            "amino-acid sequences for the tick and requests the amino acids "
+            "(and tRNAs/ATP for the charging model). evolve_state runs the "
+            "polymerize algorithm over the allocated amino acids, advances "
+            "peptide length and mRNA position, terminates finished ribosomes "
+            "into 30S/50S + monomer, and reports GTP to hydrolyze."
+        ),
+        symbols={
+            "ν": "ribosome elongation rate (aa/s)",
+            "dt": "timestep (s)",
+            "seqs": "per-ribosome upcoming amino-acid sequences from buildSequences(protSeqs, ribo_pos, ν·dt)",
+            "Δlen": "per-ribosome peptide elongation achieved this tick = polymerize(seqs, aa, limit) (aa)",
+            "aa": "free amino-acid counts available to the polymerize algorithm (count)",
+            "limit": "polymerize resource limit (set large here; the real cap is handled in metabolism)",
+            "n_elongations": "total amino-acid incorporation reactions this tick (count)",
+            "gtpPerElongation": "GTP hydrolyzed per amino acid incorporated (≈4.2, EF-Tu/EF-G cycling)",
+            "GTP_consumed": "total GTP to hydrolyze = n_elongations · gtpPerElongation (count)",
+            "ppGpp": "guanosine tetraphosphate; its concentration throttles ν when regulation is on",
+            "RelA": "ppGpp synthetase; synthesizes ppGpp from uncharged tRNA signal",
+            "SpoT": "ppGpp hydrolase / basal synthetase (degradation + basal synthesis terms)",
+            "uncharged_tRNA": "uncharged tRNA driving RelA-dependent ppGpp synthesis",
+        },
+        inputs={
+            "environment": "reads media_id to select the media-dependent basal ribosome elongation rate",
+            "listeners": "reads mass.cell_mass and mass.dry_mass to convert counts to concentrations and to scale the amino-acid supply for the expected proteome doubling",
+            "active_ribosome": "reads active ribosomes (protein_index, peptide_length, pos_on_mRNA) to build elongation sequences; writes back advanced lengths/positions/mass and deletes terminated ribosomes",
+            "bulk": "reads and (post-allocation) consumes amino acids, tRNAs/ATP (charging model), water, and ppGpp reactants; produces finished protein monomers and released 30S/50S subunits",
+            "bulk_total": "reads unpartitioned total counts (amino-acid pool sizes, enzyme/tRNA totals) for supply and concentration calculations",
+            "polypeptide_elongation": "process_state store carrying gtp_to_hydrolyze, aa_count_diff, and aa_exchange_rates between request and the metabolism process",
+            "timestep": "tick length dt (s); elongation is capped at 22 aa/tick",
+        },
+        outputs={
+            "bulk": "consumes amino acids used (−aas_used) and water per peptide bond, produces terminated protein monomers, and releases one 30S and one 50S per terminated ribosome (plus charging/ppGpp reactant changes in subclasses)",
+            "active_ribosome": "advances peptide_length and pos_on_mRNA by the elongation achieved, adds incorporated-amino-acid mass, and deletes ribosomes that reached their protein's terminal length",
+            "listeners": "writes ribosome_data (effective_elongation_rate read by polypeptide_initiation next tick, actual_elongations, termination stats, aa_counts) and growth_limits (aas_used, aa_allocated, net_charged, fraction_trna_charged, pool/request sizes)",
+            "polypeptide_elongation": "writes gtp_to_hydrolyze (= gtpPerElongation·n_elongations) and aa_count_diff / aa_exchange_rates passed to metabolism",
+        },
+        config={
+            "basal_elongation_rate": "basal/maximum ribosome elongation rate ν (aa/s), ≈22; caps the media-scaled rate",
+            "ribosomeElongationRate": "current ribosome elongation rate (aa/s), updated each tick from the model",
+            "ribosomeElongationRateDict": "map media_id → basal elongation rate (aa/s) for the Base/Supply models",
+            "elongation_max": "maximum elongation rate (aa/s) used as max_elong_rate in the tRNA-charging solve",
+            "variable_elongation": "toggles per-protein variable elongation rates in make_elongation_rates and polymerize",
+            "gtpPerElongation": "GTP hydrolyzed per amino acid (Base/Supply add +2 for charging removed from GAM; SteadyState uses the raw value)",
+            "translation_aa_supply": "map media_id → per-mass amino-acid supply rate (mol/fg/min) capping the request in the Supply model",
+            "ppgpp_regulation": "enable ppGpp-dependent modulation of the elongation rate and ppGpp turnover",
+            "disable_ppgpp_elongation_inhibition": "when true, keep ppGpp metabolism but do not let ppGpp throttle the elongation rate",
+            "elong_rate_by_ppgpp": "fitted function [ppGpp]→elongation rate (aa/s) evaluated when ppGpp inhibition is active",
+            "k_RelA": "RelA ppGpp synthesis rate constant",
+            "KD_RelA": "RelA dissociation constant for the uncharged-tRNA activation term",
+            "k_SpoT_syn": "SpoT basal ppGpp synthesis rate constant",
+            "k_SpoT_deg": "SpoT ppGpp degradation rate constant",
+            "KI_SpoT": "SpoT degradation inhibition constant",
+            "kS": "aminoacyl-tRNA synthetase charging rate constant (charging model)",
+            "KMaa": "Michaelis constant for amino acids in the charging kinetics",
+            "KMtf": "Michaelis constant for tRNA in the charging kinetics",
+            "krta": "ribosome–charged-tRNA association constant in the elongation-rate solve",
+            "krtf": "ribosome–free-tRNA constant in the elongation-rate solve",
+            "charging_stoich_matrix": "stoichiometry of the tRNA charging reaction (aa+ATP+tRNA → charged_tRNA+AMP+PPi)",
+            "aa_from_trna": "matrix projecting per-tRNA quantities onto a per-amino-acid basis",
+            "aa_from_synthetase": "matrix projecting synthetase counts onto a per-amino-acid basis",
+            "mechanistic_translation_supply": "use mechanistic (enzyme-based) amino-acid supply instead of the fitted proteome-doubling estimate",
+            "mechanistic_aa_transport": "use mechanistic amino-acid import/export kinetics at the boundary",
+            "aa_supply_in_charging": "include the amino-acid supply closure inside the tRNA-charging solve",
+        },
+        assumptions=[
+            "Elongation is capped at 22 aa per tick (the sequence matrix is padded with 22 PAD_VALUEs), so timesteps > 1 s under-count the effective rate.",
+            "One GTP-driven EF-Tu/EF-G cycle costs gtpPerElongation GTP per amino acid; GTP hydrolysis itself is charged in the metabolism process for growth-associated maintenance.",
+            "One water is released per peptide bond formed and none for the first residue of a newly initialized polypeptide.",
+            "The Base model requests exactly the amino acids implied by the upcoming sequence at max elongation and does not model tRNA charging (fraction_charged = 0); the TranslationSupply and SteadyState subclasses override the elongation-rate and amino-acid-count hooks (supply cap / charging-derived rate) but inherit this same contract.",
+        ],
+    )
 
     config_schema = {
         'KD_RelA': {'_type': 'float', '_default': 0.26},

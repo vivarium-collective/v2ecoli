@@ -41,6 +41,8 @@ competition), so this runs as a plain Step with a single Gillespie call.
 import numpy as np
 from stochastic_arrow import StochasticSystem
 
+from bigraph_schema.contract import ProcessContract
+
 # simulate_process removed
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
@@ -64,6 +66,45 @@ class Complexation(Step):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Assembles monomers into macromolecular complexes via a single "
+            "Gillespie SSA (StochasticSystem) run over the whole timestep, "
+            "using a stoichiometry matrix S and per-reaction rate constants k."
+        ),
+        symbols={
+            "S": "stoichiometry matrix (reactions × molecules); |S_ij| reactant multiplicity",
+            "k": "vector of per-reaction propensity rate constants k_j (1/s)",
+            "k_j": "rate constant of reaction j (1/s)",
+            "x_i": "count of molecule species i (count)",
+            "S_ij": "stoichiometric coefficient of species i in reaction j",
+            "a_j": "propensity of reaction j = k_j·∏_i C(x_i, |S_ij|) (1/s)",
+            "dt": "timestep over which the SSA is integrated (s)",
+            "occurrences": "number of times each reaction fired over dt (count)",
+            "Δx": "net molecule-count change = S·occurrences (count)",
+        },
+        inputs={
+            "bulk": "reads the counts of the monomer/complex molecules that participate in complexation reactions; these are the SSA state vector x(t)",
+            "timestep": "SSA integration interval dt (s) passed to StochasticSystem.evolve",
+        },
+        outputs={
+            "bulk": "applies the net count change Δx = x(t+dt) − x(t): consumes reactant monomers and produces complexes",
+            "listeners": "writes complexation_listener.complexation_events — the per-reaction occurrence counts from the SSA run",
+        },
+        config={
+            "stoichiometry": "stoichiometry matrix S (reactions × molecules) defining each complexation reaction",
+            "rates": "per-reaction propensity rate constants k (1/s)",
+            "molecule_names": "bulk ids of the molecules indexed by S (maps SSA state to bulk positions)",
+            "reaction_ids": "identifiers of the complexation reactions (columns/rows of S)",
+            "complex_ids": "identifiers of the assembled complex products",
+        },
+        assumptions=[
+            "Complexes form spontaneously and complexation reactions are fast, completing within one timestep.",
+            "Each complex's reactants are complex-specific, so there is no shared-resource competition — a single Gillespie call suffices and it runs as a plain Step.",
+            "Complex dissociation and shuffling are not modeled here.",
+        ],
+    )
 
     config_schema = {
         'complex_ids': {'_type': 'list[string]', '_default': []},

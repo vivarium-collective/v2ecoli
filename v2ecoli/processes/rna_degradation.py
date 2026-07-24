@@ -51,6 +51,8 @@ base composition.
 
 import numpy as np
 
+from bigraph_schema.contract import ProcessContract
+
 from v2ecoli.library.schema import (
     bulk_name_to_idx,
     counts,
@@ -92,6 +94,77 @@ class RnaDegradation(PartitionedProcess):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Partitioned process. calculate_request sizes RNA degradation from "
+            "competitive Michaelis–Menten endoRNase kinetics (per-class "
+            "stochastic draws distributed by saturation fraction fᵢ, bounded by "
+            "supply) and reserves the RNAs, water and fragment bases needed; "
+            "evolve_state applies endonucleolytic cleavage (Δfragments = "
+            "S_endo·n_deg) then exonucleolytic digestion of fragment bases into "
+            "NMPs."
+        ),
+        symbols={
+            "rᵢ": "concentration [rᵢ] of RNA species i (mol/L)",
+            "Kmᵢ": "fitted Michaelis–Menten constant for RNA species i (mol/L)",
+            "fᵢ": "endoRNase saturation fraction for RNA i = ([rᵢ]/Kmᵢ)/(1+∑ⱼ[rⱼ]/Kmⱼ) (dimensionless)",
+            "kcat_endo": "catalytic rate constant of endoRNases (1/s)",
+            "EndoRNase": "endoRNase enzyme; [EndoRNase] its concentration/count",
+            "νᵢ": "endonucleolytic degradation flux of RNA i = kcat_endo·[EndoRNase]·fᵢ",
+            "n_deg_c": "total RNAs to degrade for class c ∈ {mRNA, tRNA, rRNA} (count)",
+            "dt": "timestep (s)",
+            "V": "cell volume from cell_mass/cell_density (L)",
+            "N_A": "Avogadro constant (1/mol), for counts↔concentration conversion",
+            "n_deg": "per-species vector of RNAs degraded this tick (count)",
+            "S_endo": "endo cleavage stoichiometry matrix (metabolites × RNAs): NMP fragments + PPi",
+            "C_exo": "exoRNase digestion capacity this tick = ∑n_exo·kcat_exo·dt (bases)",
+            "n_exo": "exoRNase enzyme counts (count)",
+            "kcat_exo": "catalytic rate constant of exoRNases (1/s)",
+            "FragmentBase": "polymerized nucleotide fragment released by endo cleavage",
+            "H2O": "water consumed hydrolyzing RNA and fragment bases (count)",
+            "NMP": "free nucleotide monophosphate released by exo digestion (count)",
+            "H⁺": "proton released per fragment base digested (count)",
+        },
+        inputs={
+            "bulk": "reads RNA counts, charged-tRNA counts (added to uncharged), endoRNase and exoRNase enzyme counts, fragment-base counts, and water; endo/exo counts and Kms set the degradation rates, and after partitioning the allocated RNA/water/fragment counts drive the reactions",
+            "RNAs": "reads unique mRNA entries (TU_index, can_translate, is_full_transcript) to add translatable mRNAs to the degradation pool, deactivate cleaved mRNAs, and delete full inactive transcripts",
+            "listeners": "reads mass.cell_mass to convert molecule counts to concentrations (V = cell_mass/cell_density) for the Michaelis–Menten rates",
+            "timestep": "tick length dt (s) scaling the per-class degradation draws and the exoRNase capacity",
+        },
+        outputs={
+            "bulk": "decrements degraded bulk RNAs, adds endo-cleavage fragment bases + PPi, digests fragment bases into NMPs (+H⁺), and consumes H2O for endo and exo hydrolysis",
+            "RNAs": "sets can_translate=False on endonucleolytically cleaved unique mRNAs and deletes full inactive mRNAs that are degraded",
+            "listeners": "writes rna_degradation_listener: per-cistron and (optionally) per-RNA degraded counts, nucleotides_from_degradation, fraction_active_endoRNases (∑fᵢ), diff_relative_first_order_decay, and fragment_bases_digested",
+        },
+        config={
+            "Kcat_endoRNases": "per-endoRNase catalytic rate constants kcat_endo (1/s)",
+            "Kms": "per-RNA Michaelis–Menten constants Kmᵢ (mol/L), fitted to recapitulate first-order decay",
+            "kcat_exoRNase": "exoRNase catalytic rate constant kcat_exo (1/s) setting exo digestion capacity",
+            "rna_deg_rates": "first-order RNA degradation rates (1/s) used to report divergence from first-order decay",
+            "is_mRNA": "boolean mask selecting mRNA-class RNAs (degraded as unique/deactivated)",
+            "is_tRNA": "boolean mask selecting tRNA-class RNAs",
+            "is_rRNA": "boolean mask selecting rRNA-class RNAs",
+            "is_miscRNA": "boolean mask selecting miscRNAs",
+            "degrade_misc": "when true, degrade miscRNAs together with mRNAs (as one transient class)",
+            "cell_density": "cell density ρ (g/L) converting cell_mass → volume for concentrations",
+            "n_avogadro": "Avogadro constant N_A (1/mol) for counts↔concentration conversion",
+            "nt_counts": "per-RNA nucleotide composition, forming the NMP rows of S_endo",
+            "rna_lengths": "per-RNA length (nt) setting water needed for hydrolysis and total NMP yield",
+            "endoRNase_ids": "bulk ids of endoRNases whose counts drive endonucleolytic flux",
+            "exoRNase_ids": "bulk ids of exoRNases whose counts set exonucleolytic capacity",
+            "charged_trna_names": "charged tRNA ids added to uncharged tRNA counts when sizing tRNA degradation",
+            "uncharged_trna_indexes": "indices where charged-tRNA counts are folded into the RNA pool",
+            "cistron_tu_mapping_matrix": "maps degraded transcription-unit counts to per-cistron degraded counts",
+            "polymerized_ntp_ids": "fragment-base (polymerized NTP) ids produced by endo cleavage and digested by exo",
+            "nmp_ids": "NMP ids produced by exonucleolytic digestion",
+        },
+        assumptions=[
+            "Km values are fitted so the steady-state Michaelis–Menten rate recapitulates first-order RNA decay kd_i·r_i.",
+            "Bulk RNAs (tRNA/rRNA) are degraded immediately; unique mRNAs are deactivated on cleavage but not deleted until they are full transcripts, simplifying transcript elongation.",
+            "Cleaved RNA nucleotides are lumped as one linear chain of fragment bases (5' phosphate removed as PPi); exo digestion has no sequence specificity — one H2O consumed and one H⁺ released per base, and if C_exo ≥ total bases all fragments are digested, else a composition-weighted multinomial subsample.",
+        ],
+    )
 
     config_schema = {
         'Kcat_endoRNases': {'_type': 'quantity[array[float],1/s]', '_default': np.array([], dtype=float)},

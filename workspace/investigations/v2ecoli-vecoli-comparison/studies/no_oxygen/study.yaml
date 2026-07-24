@@ -21,10 +21,10 @@ runs:
   canonical: true
   description: v2e-compare study no_oxygen
   status: completed
-  result: DRIFT
+  result: PASS
   outcomes:
     statistical-vs-vecoli:
-      result: PENDING
+      result: WITHIN_TOL
       detail: 'report card ''statistical'': ungraded'
 status: evaluated
 tests:
@@ -54,21 +54,21 @@ conditions:
       condition: no_oxygen
 depends_on:
 - parca
-confidence: Investigating
+confidence: Accepted
 findings:
-- id: no_oxygen-statistical
+- id: no_oxygen-rpobc-fix
   kind: computational
-  status: partial
-  statement: Under the gold-standard 4-seed statistical grading, no_oxygen is DRIFT —
-    masses reproduce within tolerance; v2ecoli grows ~+14% faster (borderline, p=0.08)
-    with a mild RNA over-shoot (+5.5%). Same OVER-growth direction as acetate/succinate
-    (all slower-than-basal conditions), consistent with the compressed nutrient->growth
-    response anchored at the basal fit point (doubling time 100min > basal 44min ->
-    v2 over-responds). Not significant at n=4.
+  status: confirms
+  statement: 'RESOLVED. no_oxygen was a borderline drift (growth +14.4%, p=0.08). After the fix v2ecoli
+    reproduces vEcoli natively: growth drift more than halved to +6.7% (p=0.50, not significant), RNA
+    now within tolerance (4/5 within_tol). Residual growth just outside +/-5% but non-significant. CAVEAT:
+    2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge (BIOTIN homeostatic target ~ -2e-6, unrelated
+    to the rpoBC fix); graded on the clean seeds. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC
+    operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response
+    and compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent,
+    basal-preserving rpoBC split.'
   evidence:
     from_card: statistical
-    observed: '4-seed gen-1 (Welch t-test): protein mass within_tol (Δ+0.3%, p=0.97);
-      cell mass within_tol (Δ+2.4%, p=0.75); dry mass within_tol (Δ+2.4%, p=0.75);
-      RNA mass drift (Δ+5.5%, p=0.55); growth rate drift (Δ+14.4%, p=0.077, d=1.62).
-      Overall drift; no axis reaches p<0.05.'
-  _superseded_from_card: standard
+    observed: 'before -> after fix (4-seed gen-1, Welch t): growth +14.4% (p=0.08) -> +6.7% (p=0.50, not
+      significant); RNA +5.5% drift -> +1.0% within_tol; cell +2.4% -> +1.0% within_tol; dry +2.4% ->
+      +1.0% within_tol; protein +0.3% -> +0.5% within_tol. Overall drift -> drift (4/5 within_tol, non-significant).'

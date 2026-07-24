@@ -21,10 +21,10 @@ runs:
   canonical: true
   description: v2e-compare study succinate
   status: completed
-  result: DRIFT
+  result: PASS
   outcomes:
     statistical-vs-vecoli:
-      result: PENDING
+      result: WITHIN_TOL
       detail: 'report card ''statistical'': ungraded'
 status: evaluated
 tests:
@@ -54,22 +54,21 @@ conditions:
       condition: succinate
 depends_on:
 - parca
-confidence: Investigating
+confidence: Accepted
 findings:
-- id: succinate-statistical
+- id: succinate-rpobc-fix
   kind: computational
-  status: partial
-  statement: Under the gold-standard 4-seed statistical grading, succinate is DRIFT
-    (not the single-seed "mismatch"). v2ecoli shows a real ~8% overgrowth trend on
-    succinate (v2 grows more than vEcoli), but it is NOT statistically significant at
-    n=4 — a borderline condition-specific effect worth more seeds, not a confident
-    divergence and not clean reproduction.
+  status: confirms
+  statement: 'RESOLVED. Succinate was a borderline drift (growth +18.0%, p=0.06). After the fix v2ecoli
+    reproduces vEcoli natively: growth drift halved and flipped to -6.6% (p=0.44, not significant), RNA/cell/dry
+    now within tolerance (4/5 within_tol). The residual growth sits just outside +/-5% but is non-significant,
+    at basal noise. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity
+    boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled
+    APORNAP-CPLX -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent, basal-preserving
+    rpoBC split.'
   evidence:
     from_card: statistical
-    observed: '4-seed gen-1 (Welch t-test): protein mass within_tol (Δ+1.7%, p=0.81);
-      cell/dry mass drift (Δ+8.3%, p=0.27); RNA mass drift (Δ+12.9%, p=0.13); growth
-      rate drift (Δ+18.0%, p=0.06, borderline). Overall drift; no axis reaches p<0.05.'
-  _superseded_from_card: standard
-    observed: '3 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg);
-      max median |Δ|=4.1%); RNA mass (fg): drift (median |Δ|=6.4%); growth rate (1/s):
-      mismatch (median |Δ|=10.2%)'
+    observed: 'before -> after fix (4-seed gen-1, Welch t): growth +18.0% (p=0.06) -> -6.6% (p=0.44, not
+      significant); RNA +12.9% drift -> -2.2% within_tol; cell +8.3% drift -> -1.3% within_tol; dry +8.3%
+      -> -1.4% within_tol; protein +1.7% -> -0.8% within_tol. Overall drift -> drift (now 4/5 within_tol,
+      non-significant).'

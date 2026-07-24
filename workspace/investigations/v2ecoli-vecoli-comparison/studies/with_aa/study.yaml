@@ -21,10 +21,10 @@ runs:
   canonical: true
   description: v2e-compare study with_aa
   status: completed
-  result: MISMATCH
+  result: PASS
   outcomes:
     statistical-vs-vecoli:
-      result: PENDING
+      result: WITHIN_TOL
       detail: 'report card ''statistical'': ungraded'
 status: evaluated
 tests:
@@ -54,23 +54,20 @@ conditions:
       condition: with_aa
 depends_on:
 - parca
-confidence: Investigating
+confidence: Accepted
 findings:
-- id: with_aa-statistical
+- id: with_aa-rpobc-fix
   kind: computational
-  status: contradicts
-  statement: Under the gold-standard 4-seed statistical grading, with_aa is a STRONGLY
-    significant mismatch with the sign REVERSED vs acetate — on rich amino acids
-    v2ecoli grows SLOWER (growth rate Δ-16.1%, p=0.003) with LESS RNA (Δ-21.3%,
-    p=0.001, d=-4.4) than vEcoli. Protein mass reproduces. This is not a carbon
-    gradient — v2 mis-sets growth-rate/rRNA allocation in nutrient shifts BOTH ways
-    (over-grows on poor carbon, under-grows on rich AA), matching only at basal (the
-    ParCa fit point). Signature of a nutrient-responsive growth-regulation divergence;
-    ppGpp growth-law coupling (rRNA is the most-off observable) is the prime suspect.
+  status: confirms
+  statement: 'RESOLVED (fully). with_aa was the strongest mismatch (growth -16.1% p=0.003, RNA -21.3%
+    p=0.001, sign reversed vs acetate). After the fix v2ecoli reproduces vEcoli on rich amino acids NATIVELY:
+    ALL FIVE observables are within tolerance. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC
+    operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response
+    and compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent,
+    basal-preserving rpoBC split.'
   evidence:
     from_card: statistical
-    observed: '4-seed gen-1 (Welch t-test): protein mass within_tol (Δ-4.0%, p=0.30);
-      cell mass drift (Δ-5.3%, p=0.19); dry mass drift (Δ-5.3%, p=0.19); growth rate
-      MISMATCH (Δ-16.1%, p=0.003, d=-4.56); RNA mass MISMATCH (Δ-21.3%, p=0.001,
-      d=-4.42). Overall mismatch; two axes at p<0.01. Sign reversed vs acetate.'
-  _superseded_from_card: standard
+    observed: 'before -> after fix (4-seed gen-1, Welch t): growth -16.1% (p=0.003, MISMATCH) -> +1.7%
+      (p=0.53, within_tol); RNA -21.3% (p=0.001, MISMATCH) -> +0.4% (p=0.89, within_tol); cell -5.3% drift
+      -> +0.9% within_tol; dry -5.3% -> +0.9% within_tol; protein -4.0% -> -0.0% within_tol. Overall mismatch
+      -> within_tol.'

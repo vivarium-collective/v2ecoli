@@ -56,14 +56,15 @@ depends_on:
 - parca
 confidence: Accepted
 findings:
-- id: basal-statistical
+- id: basal-rpobc-fix
   kind: computational
   status: confirms
-  statement: v2ecoli reproduces vEcoli on basal under the gold-standard 4-seed
-    statistical grading (overall within_tol). The single-seed growth-rate "drift"
-    was within-seed-noise, not a real divergence.
+  statement: 'CONTROL — v2ecoli reproduces vEcoli on basal (the ParCa fit point) both before and after
+    the rpoBC fix (overall within_tol). Confirms the fix preserves the already-correct basal condition.
+    Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary
+    solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX
+    -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.'
   evidence:
     from_card: statistical
-    observed: '4-seed median |Δ| (gen-1): cell mass 1.08%, dry mass 1.08%, protein
-      mass 0.50%, RNA mass 1.40%, growth rate 5.22% -> physiology within_tol (overall
-      within_tol). Retires the single-seed "growth-rate drift 6.7%" verdict.'
+    observed: 'after fix (4-seed gen-1): all observables within_tol (cell/dry +1.x%, protein/RNA <1.5%,
+      growth ~+5% at seed-noise level). Unchanged from before the fix.'

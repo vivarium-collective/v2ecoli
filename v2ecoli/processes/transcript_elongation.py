@@ -34,11 +34,11 @@ TU length. Completed RNAs are marked as full transcripts.
 **tRNA attenuation** (optional)
 
 For attenuated tRNA operons, RNAPs can stochastically terminate early
-based on the charged/uncharged tRNA ratio. The stop probability for
-each attenuated RNA depends on the concentration of its cognate
-charged tRNA:
+based on the concentration of charged tRNA. The stop probability for
+each attenuated RNA depends on the (absolute) concentration of its
+cognate charged tRNA:
 
-    p_stop = f([charged_tRNA] / [total_tRNA])
+    p_stop = f([charged_tRNA])
 
 where f is a fitted attenuation function. RNAPs that stop early are
 recycled and their partial transcripts are discarded.
@@ -126,7 +126,7 @@ class TranscriptElongation(PartitionedProcess):
         "    seqs = buildSequences(rnaSeqs, RNAP_pos, ν·dt);  Δlen = polymerize(seqs, NTP, limit)\n"
         "    NTP → NMP_incorporated + PPi;   Δmass = ∑ᵢ Δntᵢ·wᵢ  [fg]\n"
         "  Termination: transcript len = TU_len → full transcript; RNAP recycled.\n"
-        "  tRNA attenuation (optional): p_stop = f([charged_tRNA]/[total_tRNA]),\n"
+        "  tRNA attenuation (optional): p_stop = f([charged_tRNA]),\n"
         "    early-terminated RNAPs recycled and partial transcripts discarded.\n"
         "  ν = elongation rate (nt/s); dt = timestep; wᵢ = nucleotide weights."
     )
@@ -171,7 +171,7 @@ class TranscriptElongation(PartitionedProcess):
         },
         outputs={
             'bulk': (
-                "consumes NTPs, releases PPi per polymerization step, returns "
+                "consumes NTPs, releases PPi (net = elongations − initiations, since the initiating nucleotide of each newly started transcript retains its 5′ triphosphate), returns "
                 "inactive RNAP for terminated/attenuated/stalled RNAPs, and adds "
                 "completed non-mRNA transcripts (and fragment bases if recycling stalls)."
             ),
@@ -198,7 +198,7 @@ class TranscriptElongation(PartitionedProcess):
             'ntWeights': "per-nucleotide molecular weights wᵢ used to compute transcript mass increase.",
             'endWeight': "mass added once, when a transcript is first initiated (5′-end weight).",
             'ntp_ids': "bulk ids of the four NTPs consumed during elongation.",
-            'ppi': "bulk id of inorganic pyrophosphate (PPi) released per polymerization step.",
+            'ppi': "bulk id of inorganic pyrophosphate (PPi) released during elongation (net = elongations − transcript initiations).",
             'inactive_RNAP': "bulk id of the inactive-RNAP pool that terminated/attenuated/stalled RNAPs return to.",
             'is_mRNA': "per-TU mask; partial mRNAs stay as unique molecules on termination while other RNA types become bulk counts.",
             'replichore_lengths': "right/left replichore lengths (nt); wrap RNAP coordinates that cross the origin/terminus.",
@@ -217,15 +217,14 @@ class TranscriptElongation(PartitionedProcess):
             'Δlen': "number of nucleotides added to a transcript this tick (nt)",
             'p_stop': "early-termination (attenuation) probability of an attenuated tRNA operon (dimensionless, 0–1)",
             'NTP': "ribonucleoside triphosphate consumed per elongation step (count)",
-            'PPi': "inorganic pyrophosphate released per elongation step (count)",
-            'charged_tRNA': "charged (aminoacylated) tRNA concentration feeding the attenuation function (mol/L)",
-            'total_tRNA': "total tRNA concentration in the attenuation ratio (mol/L)",
+            'PPi': "inorganic pyrophosphate released during elongation, net of transcript-initiating nucleotides that retain their 5′ triphosphate (count)",
+            'charged_tRNA': "absolute charged (aminoacylated) tRNA concentration passed directly to the attenuation stop-probability function f (mol/L)",
         },
         assumptions=[
             "NTP pools are allocated across all active RNAPs by the polymerize algorithm to maximize total elongation subject to the available-NTP reaction limit.",
             "An RNAP terminates exactly when its transcript_length reaches the annotated TU length.",
             "Partial mRNAs are already functional and are kept as unique molecules; completed non-mRNA transcripts become bulk molecules.",
-            "tRNA attenuation is optional; when enabled, RNAPs stochastically terminate early based on the charged/total tRNA ratio and their partial transcripts are discarded.",
+            "tRNA attenuation is optional; when enabled, RNAPs stochastically terminate early with per-operon probability f([charged_tRNA]) — the fitted function of absolute charged-tRNA concentration, not a charged/total ratio — and their partial transcripts are discarded.",
             "RNAP coordinates wrap at the replichore boundaries (origin/terminus).",
         ],
         references=[],

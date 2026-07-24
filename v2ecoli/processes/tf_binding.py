@@ -110,7 +110,8 @@ class TfBinding(Step):
                 "for MarA) used to evaluate the binding-probability function."
             ),
             'listeners': (
-                "reads the rna_synth_prob listener group it also writes back into."
+                "declared so the process can overwrite-merge into the rna_synth_prob "
+                "listener group; no listener value is read by update (write-only port)."
             ),
             'global_time': "reads simulation time to decide (with next_update_time) whether this tick fires.",
             'timestep': "reads the tick length to schedule the next update time.",

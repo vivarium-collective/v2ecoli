@@ -1,21 +1,27 @@
-"""BatchBaselineRunner — dispatch N independent baseline lineages in parallel.
+"""BatchBaselineRunner — dispatch N baseline lineages across seeds + generations.
 
 A one-shot orchestrator Step for the ``batch_baseline`` composite. On its first
-invocation it fans ``n_seeds`` whole-cell baseline runs (each an
-``n_generations``-generation lineage) across Ray workers via
-``run_seeds_parallel`` — the proven embarrassingly-parallel seed fan-out (one
-worker PROCESS per seed, with a SAFE sequential fallback when Ray is absent).
-Each seed persists its own multigen xarray-zarr store; the Step writes per-seed
-store paths + summary observables into a top-level ``batch`` store.
+invocation it hands a vEcoli-shaped config to :func:`v2ecoli.workflow.run.run_workflow`,
+which is v2ecoli's port of vEcoli's Nextflow lineage workflow: ``n_init_sims``
+seeds × ``generations`` generations, one Ray worker process per seed (with a
+SAFE sequential fallback when Ray is absent), every cell emitting into one
+shared hive-partitioned parquet sweep, then a single post-simulation flush over
+that sweep on the driver.
+
+Delegating (rather than fanning out here) is what makes the batch produce the
+same artifacts a vEcoli workflow run would: the flush dispatches the ported
+Analyses at every scale the batch actually covers — ``single`` per cell,
+``multigeneration`` across a lineage, ``multiseed`` across seeds,
+``multivariant`` across a variant grid — plus the registered Visualizations and
+report cards, placing each output in the owning study's report dir.
 
 Heavy by design: firing this Step launches full whole-cell simulations. It is
 IDEMPOTENT — once ``batch.completed`` is set it no-ops, so running the composite
 for any number of steps dispatches the workflow exactly once.
 
-Building the ``batch_baseline`` document is cheap (no ParCa) because every
-per-seed ``build_composite("baseline", ...)`` happens at RUN time, inside
-``run_one`` — which is a module-level (picklable) function so Ray can ship it to
-a fresh worker process.
+Building the ``batch_baseline`` document stays cheap (no ParCa cache needed):
+every per-seed ``baseline`` build happens at RUN time, inside the workflow's
+``LineageProcess``.
 """
 from __future__ import annotations
 
@@ -30,148 +36,334 @@ DEFAULT_N_SEEDS = 4
 DEFAULT_N_GENERATIONS = 1
 DEFAULT_BASE_SEED = 0
 DEFAULT_CACHE_DIR = "out/cache"
-DEFAULT_OUT_ROOT = "out/batch_baseline"
-# Generous per-generation tick cap; a division ends a generation well before it
-# (baseline divides at ~2700 ticks), so this only bounds a non-dividing run.
-DEFAULT_MAX_STEPS_PER_GEN = 3000
-DEFAULT_PARALLEL = "ray"
+DEFAULT_OUT_DIR = "out/batch_baseline"
 
 
-def _default_run_one(
-    seed: int,
-    *,
-    n_generations: int,
-    cache_dir: str,
-    max_steps_per_gen: int,
-    out_root: str,
-) -> dict:
-    """Build + run ONE baseline lineage for ``n_generations`` generations,
-    persisting an xarray-zarr store. Top-level (picklable) so Ray can ship it to
-    a worker; does its own per-worker setup and uses absolute-ish paths.
+def resolve_out_dir(out_dir: "str | None" = None) -> str:
+    """Where this batch writes its sweep, stores and analysis outputs.
 
-    Returns ``{"seed", "store_path", "summary"}`` where ``summary`` carries the
-    generations reached, ticks run, and final cell mass (fg).
+    An explicit ``out_dir`` always wins. Otherwise, when the composite is being
+    run BY the workbench, use the run's own sweep dir
+    (``$VIVARIUM_WORKBENCH_SWEEP_DIR`` = ``<run_dir>/parquet/<run_id>``, the
+    exact path the run hands ParquetAnalysisView). Two things follow: the run's
+    Visualizations tab finds the parquet history the declared analyses read
+    (writing to the fixed workspace default instead left every panel saying "no
+    parquet history under the run's sweep dir yet"), and each run keeps its own
+    outputs instead of overwriting the previous run's. Outside a workbench run
+    the fixed default stands.
     """
-    from process_bigraph import Composite  # noqa: F401 (kept for parity/debug)
-    from v2ecoli import build_composite
-    from v2ecoli.core import build_core
-    from v2ecoli.library.xarray_run import run_multigen_xarray
-    from v2ecoli.workflow.lineage import DEFAULT_XARRAY_VIEW
+    if out_dir:
+        return out_dir
+    return os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR") or DEFAULT_OUT_DIR
 
-    out_dir = os.path.join(out_root, f"seed_{int(seed):02d}")
+
+DEFAULT_EXPERIMENT_ID = "batch_baseline"
+# Per-GENERATION sim-time cap in seconds — vEcoli's ``max_duration``, which
+# v2ecoli's LineageProcess applies per generation. A division ends a generation
+# well before it (baseline divides at ~2700 s), so this only bounds a
+# non-dividing run.
+DEFAULT_MAX_DURATION = 3600.0
+DEFAULT_TIME_STEP = 1.0
+DEFAULT_SINGLE_DAUGHTERS = True
+DEFAULT_PARALLEL = "ray"
+# "both" = hive parquet (what the DuckDB analyses read) AND a per-lineage
+# xarray-zarr store (what the workspace's xarray emitter + the dashboard's
+# per-run charts read). "parquet" / "xarray" pick just one.
+DEFAULT_EMITTER = "both"
+DEFAULT_ANALYSES = "applicable"
+
+# Registered but not a real analysis — a test fixture that would otherwise
+# render an empty panel into every multivariant batch.
+_ANALYSIS_DENYLIST = frozenset({"dummy"})
+
+
+def applicable_analysis_scales(
+    *,
+    n_seeds: int,
+    n_generations: int,
+    single_daughters: bool = DEFAULT_SINGLE_DAUGHTERS,
+    variants: "dict | None" = None,
+) -> list[str]:
+    """The analysis scales a batch of this shape actually has the cells for.
+
+    Mirrors vEcoli's workflow, which only wires an analysis channel when the run
+    produces the grouping it consumes: ``single`` always (one cell's timeseries),
+    ``multigeneration`` once a lineage runs more than one generation,
+    ``multiseed`` once there is more than one seed, ``multidaughter`` only when
+    both daughters are simulated, ``multivariant`` only under a variant grid.
+    """
+    scales = ["single"]
+    if int(n_generations) > 1:
+        scales.append("multigeneration")
+    if int(n_seeds) > 1:
+        scales.append("multiseed")
+    if not single_daughters:
+        scales.append("multidaughter")
+    if variants:
+        scales.append("multivariant")
+    return scales
+
+
+def build_analysis_options(
+    analyses: "str | dict | None" = DEFAULT_ANALYSES,
+    *,
+    n_seeds: int,
+    n_generations: int,
+    single_daughters: bool = DEFAULT_SINGLE_DAUGHTERS,
+    variants: "dict | None" = None,
+) -> dict:
+    """Resolve the ``analyses`` parameter into a workflow ``analysis_options`` map.
+
+    ``analyses`` is either an explicit ``{scale: {name: params}}`` mapping (used
+    verbatim), the string ``"applicable"`` (every registered analysis at the
+    scales this batch covers — see :func:`applicable_analysis_scales`), or
+    ``"none"`` / empty (no analyses; the flush then only writes visualizations
+    and report cards).
+    """
+    if isinstance(analyses, dict):
+        return {k: dict(v or {}) for k, v in analyses.items() if v}
+    choice = (analyses or "").strip().lower()
+    if choice in ("", "none", "off", "false"):
+        return {}
+    if choice != "applicable":
+        raise ValueError(
+            f"analyses={analyses!r} — expected 'applicable', 'none', or an "
+            "explicit {scale: {name: params}} mapping")
+
+    # Import for the registration side effects: every ported analysis module
+    # populates ANALYSIS_REGISTRY on import.
+    import v2ecoli.workflow.analyses  # noqa: F401
+    from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY
+
+    wanted = set(applicable_analysis_scales(
+        n_seeds=n_seeds, n_generations=n_generations,
+        single_daughters=single_daughters, variants=variants))
+    options: dict[str, dict] = {}
+    for name, cls in ANALYSIS_REGISTRY.items():
+        if name in _ANALYSIS_DENYLIST or cls.scale not in wanted:
+            continue
+        options.setdefault(cls.scale, {})[name] = {}
+    return options
+
+
+def build_workflow_config(
+    *,
+    n_seeds: int = DEFAULT_N_SEEDS,
+    n_generations: int = DEFAULT_N_GENERATIONS,
+    base_seed: int = DEFAULT_BASE_SEED,
+    single_daughters: bool = DEFAULT_SINGLE_DAUGHTERS,
+    time_step: float = DEFAULT_TIME_STEP,
+    max_duration: float = DEFAULT_MAX_DURATION,
+    cache_dir: str = DEFAULT_CACHE_DIR,
+    out_dir: str = "",
+    experiment_id: str = DEFAULT_EXPERIMENT_ID,
+    emitter: str = DEFAULT_EMITTER,
+    parallel: "str | None" = DEFAULT_PARALLEL,
+    variants: "dict | None" = None,
+    analyses: "str | dict | None" = DEFAULT_ANALYSES,
+    study: str = "",
+) -> dict:
+    """Translate the composite's parameters into a v2ecoli workflow config.
+
+    The composite exposes the knobs under the names a batch user thinks in
+    (``n_seeds``, ``n_generations``, ``base_seed``); the workflow consumes
+    vEcoli's own key names. The mapping is deliberately explicit here so the two
+    vocabularies stay traceable::
+
+        n_seeds        -> n_init_sims          (vEcoli: sims per variant)
+        n_generations  -> generations
+        base_seed      -> lineage_seed         (first seed; seeds are contiguous)
+        max_duration   -> max_duration_per_gen (LineageProcess caps per generation)
+    """
+    config: dict[str, Any] = {
+        "experiment_id": experiment_id,
+        "out_dir": resolve_out_dir(out_dir),
+        "cache_dir": cache_dir,
+        "n_init_sims": int(n_seeds),
+        "generations": int(n_generations),
+        "lineage_seed": int(base_seed),
+        "single_daughters": bool(single_daughters),
+        "time_step": float(time_step),
+        "max_duration_per_gen": float(max_duration),
+        "emitter": emitter or DEFAULT_EMITTER,
+        "parallel": parallel or None,
+        "variants": dict(variants or {}),
+        "analysis_options": build_analysis_options(
+            analyses, n_seeds=n_seeds, n_generations=n_generations,
+            single_daughters=single_daughters, variants=variants),
+    }
+    if study:
+        # Lets the flush place analyses/visualizations/report cards into this
+        # study's report dir even when out_dir isn't under studies/<slug>/.
+        config["study"] = study
+    return config
+
+
+def link_sim_data(out_dir: str, cache_dir: str) -> "str | None":
+    """Make the sweep self-describing by pairing it with its ParCa ``sim_data``.
+
+    The analyses resolve sim_data by looking for a sweep-local
+    ``simData*.cPickle`` FIRST — "the exact pairing, preferred"
+    (:func:`v2ecoli.workflow.analysis_runner.resolve_sim_data`) — and only then
+    fall back to ``$V2ECOLI_SIM_DATA`` or a global ``out/kb`` build. A batch runs
+    every lineage from ``cache_dir``, so that cache's pickle IS the exact
+    pairing; without this link the flush aborts with "no sim_data pickle under
+    <out_dir>" even though the right one is sitting in the cache the run used.
+
+    Symlinks (the pickle is ~100 MB); falls back to a copy where symlinks are
+    unavailable. Returns the linked path, or None when there is nothing to link
+    or the sweep already carries its own pickle.
+    """
+    src = os.path.join(cache_dir, "simData.cPickle")
+    if not os.path.isfile(src):
+        return None
+    dest = os.path.join(out_dir, "simData.cPickle")
+    if os.path.exists(dest):
+        return dest
     os.makedirs(out_dir, exist_ok=True)
-    store_path = os.path.join(out_dir, "store.zarr")
-
-    core = build_core()
-    composite = build_composite("baseline", core=core, seed=int(seed),
-                                cache_dir=cache_dir)
-
-    view = [dict(e, root=tuple(e["root"])) for e in DEFAULT_XARRAY_VIEW]
-    metadata_base = {
-        "experiment_id": f"batch_baseline_seed{int(seed):02d}",
-        "variant": 0,
-        "lineage_seed": int(seed),
-        "time_step": 1.0,
-        "max_duration": float(max_steps_per_gen),
-    }
-    result = run_multigen_xarray(
-        composite,
-        store_path=store_path,
-        view=view,
-        metadata_base=metadata_base,
-        max_steps=int(max_steps_per_gen) * int(n_generations),
-        max_generations=int(n_generations),
-    )
-
-    # Final cell mass (fg) from the followed cell's mass listener (best-effort —
-    # a missing listener must not fail the whole batch). ``cell_mass`` is a pint
-    # Quantity in femtograms, so take its magnitude (float(Quantity) raises).
-    final_mass = None
     try:
-        agents = (composite.state or {}).get("agents") or {}
-        cell = next(iter(agents.values()))
-        cell_mass = cell["listeners"]["mass"]["cell_mass"]
-        final_mass = float(getattr(cell_mass, "magnitude", cell_mass))
-    except Exception:
-        pass
+        os.symlink(os.path.abspath(src), dest)
+    except OSError:
+        import shutil
+        shutil.copyfile(src, dest)
+    return dest
 
-    gens = result.get("generations") or []
-    return {
-        "seed": int(seed),
-        "store_path": store_path,
-        "summary": {
+
+def _lineage_store_path(out_dir: str, experiment_id: str, seed: int,
+                        variant: int = 0) -> str:
+    """Where LineageProcess writes a lineage's xarray-zarr store (mirrors its
+    own naming) — reported per seed so downstream readers don't have to guess."""
+    return os.path.join(out_dir, f"{experiment_id}_v{int(variant)}_s{int(seed)}.zarr")
+
+
+def _per_seed_results(result: dict, *, seeds: list[int], out_dir: str,
+                      experiment_id: str, emitter: str) -> dict:
+    """Fold the workflow's ``branches`` (keyed ``variant=<v>/seed=<s>``) into the
+    batch store's per-seed view, adding the zarr store path when one was written."""
+    branches = result.get("branches") or {}
+    per_seed: dict[str, dict] = {}
+    for key, branch in branches.items():
+        seed = None
+        variant = 0
+        for part in str(key).split("/"):
+            field, _, value = part.partition("=")
+            if field == "seed" and value.lstrip("-").isdigit():
+                seed = int(value)
+            elif field == "variant" and value.lstrip("-").isdigit():
+                variant = int(value)
+        if seed is None:
+            continue
+        gens = ((branch.get("summary") or {}).get("generations")) or []
+        entry: dict[str, Any] = {
+            "branch": key,
+            "complete": bool(branch.get("complete")),
             "generations_reached": len(gens),
-            "steps": int(result.get("steps", 0)),
-            "final_cell_mass_fg": final_mass,
-        },
-    }
+        }
+        if emitter in ("xarray", "both"):
+            store = _lineage_store_path(out_dir, experiment_id, seed, variant)
+            entry["store_path"] = store
+        per_seed[f"{seed:02d}"] = entry
+    # Seeds the workflow never reported at all (worker died) still appear, so a
+    # partial batch is visibly partial instead of silently short.
+    for seed in seeds:
+        per_seed.setdefault(f"{seed:02d}", {"error": "run produced no result"})
+    return per_seed
 
 
 def dispatch_batch(
     *,
-    n_seeds: int,
-    n_generations: int,
-    base_seed: int,
-    cache_dir: str,
-    max_steps_per_gen: int,
-    out_root: str,
-    parallel: str | None,
-    run_one: Callable[..., Any] | None = None,
+    n_seeds: int = DEFAULT_N_SEEDS,
+    n_generations: int = DEFAULT_N_GENERATIONS,
+    base_seed: int = DEFAULT_BASE_SEED,
+    single_daughters: bool = DEFAULT_SINGLE_DAUGHTERS,
+    time_step: float = DEFAULT_TIME_STEP,
+    max_duration: float = DEFAULT_MAX_DURATION,
+    cache_dir: str = DEFAULT_CACHE_DIR,
+    out_dir: str = "",
+    experiment_id: str = DEFAULT_EXPERIMENT_ID,
+    emitter: str = DEFAULT_EMITTER,
+    parallel: "str | None" = DEFAULT_PARALLEL,
+    variants: "dict | None" = None,
+    analyses: "str | dict | None" = DEFAULT_ANALYSES,
+    study: str = "",
+    run_workflow_fn: "Callable[..., dict] | None" = None,
 ) -> dict:
-    """Fan ``n_seeds`` baseline lineages across Ray (or sequentially) and
-    assemble the ``batch`` result dict.
+    """Run the seeds × generations batch and assemble the ``batch`` result dict.
 
-    ``run_one`` is resolved at call time (defaults to the module's
-    ``_default_run_one``) so tests can inject a lightweight stub or monkeypatch
-    the module attribute without touching ParCa.
+    ``run_workflow_fn`` is resolved at call time (defaults to
+    :func:`v2ecoli.workflow.run.run_workflow`) so tests can inject a lightweight
+    stub without touching ParCa or launching simulations.
     """
-    from v2ecoli.library.parallel_seeds import run_seeds_parallel
+    if run_workflow_fn is None:
+        from v2ecoli.workflow.run import run_workflow as run_workflow_fn
 
-    if run_one is None:
-        run_one = _default_run_one
+    out_dir = resolve_out_dir(out_dir)
+    config = build_workflow_config(
+        n_seeds=n_seeds, n_generations=n_generations, base_seed=base_seed,
+        single_daughters=single_daughters, time_step=time_step,
+        max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
+        experiment_id=experiment_id, emitter=emitter, parallel=parallel,
+        variants=variants, analyses=analyses, study=study)
+
+    # Before the run, so the flush that follows it inside run_workflow can
+    # resolve the sweep's sim_data (see link_sim_data).
+    if config["analysis_options"]:
+        try:
+            link_sim_data(out_dir, cache_dir)
+        except OSError as e:  # noqa: BLE001 — never fail a batch over a link
+            print(f"batch_baseline: could not pair sim_data with the sweep: {e}")
+
+    result = run_workflow_fn(config) or {}
 
     seeds = list(range(int(base_seed), int(base_seed) + int(n_seeds)))
-    res = run_seeds_parallel(
-        seeds,
-        run_one,
-        mode=parallel,
-        run_kwargs={
-            "n_generations": int(n_generations),
-            "cache_dir": cache_dir,
-            "max_steps_per_gen": int(max_steps_per_gen),
-            "out_root": out_root,
-        },
-    )
-
-    per_seed: dict[str, dict] = {}
-    for seed, r in zip(seeds, res.results):
-        key = f"{seed:02d}"
-        if not isinstance(r, dict):
-            per_seed[key] = {"error": "run produced no result"}
-            continue
-        per_seed[key] = {"store_path": r.get("store_path"), **(r.get("summary") or {})}
-
+    flush = result.get("flush") or {}
     return {
         "completed": True,
         "n_seeds": int(n_seeds),
         "n_generations": int(n_generations),
-        "mode": res.mode,
-        "wall_s": res.wall_s,
-        "seeds": per_seed,
+        "complete": bool(result.get("complete")),
+        "mode": (result.get("parallel") or {}).get("mode") or "sequential",
+        "wall_s": (result.get("parallel") or {}).get("wall_s") or result.get("elapsed"),
+        "out_dir": out_dir,
+        "emitter": config["emitter"],
+        "analysis_scales": sorted(config["analysis_options"]),
+        "seeds": _per_seed_results(
+            result, seeds=seeds, out_dir=out_dir,
+            experiment_id=experiment_id, emitter=config["emitter"]),
+        # What the post-sim flush actually produced. `placed` lists the outputs
+        # copied into the owning study's report dir — empty when no study owns
+        # the run, in which case `viz_dir` is where the analyses and
+        # visualizations still live (run_analyses always writes there first).
+        "outputs": {
+            "viz_dir": os.path.join(out_dir, "viz"),
+            "placed": list(flush.get("placed") or []),
+            "skipped": list(flush.get("skipped") or []),
+            "error": flush.get("error"),
+        },
     }
 
 
 class BatchBaselineRunner(Step):
-    """One-shot Step that dispatches the parallel baseline batch (see module)."""
+    """One-shot Step that dispatches the seeds × generations batch (see module)."""
 
     config_schema = {
         "n_seeds": "integer",
         "n_generations": "integer",
         "base_seed": "integer",
+        "single_daughters": "boolean",
+        "time_step": "float",
+        "max_duration": "float",
         "cache_dir": "string",
-        "max_steps_per_gen": "integer",
-        "out_root": "string",
-        "parallel": "string",  # "ray" (default) | "" for sequential
+        "out_dir": "string",
+        "experiment_id": "string",
+        "emitter": "string",          # "both" (default) | "parquet" | "xarray"
+        "parallel": "string",         # "ray" (default) | "" for sequential
+        "variants": "map",
+        # Untyped-with-default (the config_overrides pattern): the value is
+        # either a string choice or a {scale: {name: params}} mapping, which no
+        # single bigraph-schema type covers.
+        "analyses": {"_default": DEFAULT_ANALYSES},
+        "study": "string",
     }
     topology = {
         "batch": ("batch",),
@@ -182,9 +374,20 @@ class BatchBaselineRunner(Step):
         self.n_seeds = int(cfg.get("n_seeds") or DEFAULT_N_SEEDS)
         self.n_generations = int(cfg.get("n_generations") or DEFAULT_N_GENERATIONS)
         self.base_seed = int(cfg.get("base_seed") or DEFAULT_BASE_SEED)
+        sd = cfg.get("single_daughters")
+        self.single_daughters = DEFAULT_SINGLE_DAUGHTERS if sd is None else bool(sd)
+        self.time_step = float(cfg.get("time_step") or DEFAULT_TIME_STEP)
+        self.max_duration = float(cfg.get("max_duration") or DEFAULT_MAX_DURATION)
         self.cache_dir = cfg.get("cache_dir") or DEFAULT_CACHE_DIR
-        self.max_steps_per_gen = int(cfg.get("max_steps_per_gen") or DEFAULT_MAX_STEPS_PER_GEN)
-        self.out_root = cfg.get("out_root") or DEFAULT_OUT_ROOT
+        # Left empty on purpose: resolve_out_dir picks the workbench run's own
+        # sweep dir at RUN time, which isn't known when the document is built.
+        self.out_dir = cfg.get("out_dir") or ""
+        self.experiment_id = cfg.get("experiment_id") or DEFAULT_EXPERIMENT_ID
+        self.emitter = cfg.get("emitter") or DEFAULT_EMITTER
+        self.variants = dict(cfg.get("variants") or {})
+        analyses = cfg.get("analyses")
+        self.analyses = DEFAULT_ANALYSES if analyses is None else analyses
+        self.study = cfg.get("study") or ""
         # None => default "ray"; "" / "sequential" / "none" => sequential (None).
         p = cfg.get("parallel")
         if p is None:
@@ -197,6 +400,23 @@ class BatchBaselineRunner(Step):
         # dashboard composite-runner rebuilding the Step from the document).
         return {"batch": InPlaceDict()}
 
+    def triggers(self) -> dict[str, Any]:
+        """No trigger ports — ``batch`` is a SILENT input.
+
+        The Step still receives ``batch`` (the guard above reads it); it just
+        stops being a *scheduling* input. That matters because
+        ``build_step_network`` deliberately does not register a Step as the
+        producer of a path it also consumes ("self-loops can't trigger"). With
+        ``batch`` on both sides, nothing was recorded as producing ``batch``, so
+        a downstream emitter's dependency on it counted as satisfied before this
+        Step had run: the emitter landed in the SAME layer, read the store
+        before the batch was dispatched, and the run's Results tab showed
+        ``batch: {}`` no matter how many steps it ran. Declaring no triggers
+        restores the edge — this Step runs in the first layer, the emitter in
+        the next, and the emitted row carries the batch summary.
+        """
+        return {}
+
     def outputs(self) -> dict[str, Any]:
         return {"batch": InPlaceDict()}
 
@@ -208,9 +428,16 @@ class BatchBaselineRunner(Step):
             n_seeds=self.n_seeds,
             n_generations=self.n_generations,
             base_seed=self.base_seed,
+            single_daughters=self.single_daughters,
+            time_step=self.time_step,
+            max_duration=self.max_duration,
             cache_dir=self.cache_dir,
-            max_steps_per_gen=self.max_steps_per_gen,
-            out_root=self.out_root,
+            out_dir=self.out_dir,
+            experiment_id=self.experiment_id,
+            emitter=self.emitter,
             parallel=self.parallel,
+            variants=self.variants,
+            analyses=self.analyses,
+            study=self.study,
         )
         return {"batch": result}

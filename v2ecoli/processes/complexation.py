@@ -17,18 +17,19 @@ Mathematical Model
 Complexation is simulated as a continuous-time Markov chain (Gillespie
 algorithm) via the ``StochasticSystem`` class from ``stochastic_arrow``.
 
-Given a stoichiometry matrix S (molecules x reactions) and a rate vector k,
-the system evolves molecule counts x(t) over the timestep dt:
+Given a stoichiometry matrix S (reactions x molecules; the stochastic_arrow
+convention where each row is a reaction) and a rate vector k, the system
+evolves molecule counts x(t) over the timestep dt:
 
     x(t + dt) = StochasticSystem.evolve(dt, x(t), k)
 
 Each reaction j fires stochastically with propensity:
 
-    a_j = k_j * product_i(x_i choose |S_ij|)   for all reactant species i
+    a_j = k_j * product_i(x_i choose |S_ji|)   for all reactant species i
 
 The net molecule count change is:
 
-    delta_x = x(t + dt) - x(t) = S @ occurrences
+    delta_x = x(t + dt) - x(t) = S.T @ occurrences
 
 Each complex's reactants are complex-specific (no shared resource
 competition), so this runs as a plain Step with a single Gillespie call.
@@ -58,9 +59,9 @@ class Complexation(Step):
 
     description = (
         "Complexation — spontaneous monomer→complex assembly (Gillespie SSA).\n\n"
-        "Continuous-time Markov chain over reactions (stoichiometry S, rates k):\n"
+        "Continuous-time Markov chain over reactions (stoichiometry S, rows=reactions, rates k):\n"
         "    x(t+dt) = StochasticSystem.evolve(dt, x(t), k)\n"
-        "    propensity a_j = k_j · ∏_i C(x_i, |S_ij|);   Δx = S·occurrences.\n"
+        "    propensity a_j = k_j · ∏_i C(x_i, |S_ji|);   Δx = outcome − x(t) = Sᵀ·occurrences.\n"
         "Reactants are complex-specific (no shared-resource competition)."
     )
 
@@ -74,15 +75,15 @@ class Complexation(Step):
             "using a stoichiometry matrix S and per-reaction rate constants k."
         ),
         symbols={
-            "S": "stoichiometry matrix (reactions × molecules); |S_ij| reactant multiplicity",
+            "S": "stoichiometry matrix, reactions × molecules (stochastic_arrow convention: row j is reaction j, column i is molecule i)",
             "k": "vector of per-reaction propensity rate constants k_j (1/s)",
             "k_j": "rate constant of reaction j (1/s)",
             "x_i": "count of molecule species i (count)",
-            "S_ij": "stoichiometric coefficient of species i in reaction j",
-            "a_j": "propensity of reaction j = k_j·∏_i C(x_i, |S_ij|) (1/s)",
+            "S_ji": "stoichiometric coefficient of molecule i in reaction j (entry at row j, column i of S)",
+            "a_j": "propensity of reaction j = k_j·∏_i C(x_i, |S_ji|) (1/s)",
             "dt": "timestep over which the SSA is integrated (s)",
             "occurrences": "number of times each reaction fired over dt (count)",
-            "Δx": "net molecule-count change = S·occurrences (count)",
+            "Δx": "net molecule-count change = outcome − x(t) = Sᵀ·occurrences (count); computed directly from evolve's outcome, not a literal matrix product",
         },
         inputs={
             "bulk": "reads the counts of the monomer/complex molecules that participate in complexation reactions; these are the SSA state vector x(t)",

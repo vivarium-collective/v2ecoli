@@ -153,11 +153,11 @@ class BasePolypeptideElongation(PartitionedProcess):
             "active_ribosome": "reads active ribosomes (protein_index, peptide_length, pos_on_mRNA) to build elongation sequences; writes back advanced lengths/positions/mass and deletes terminated ribosomes",
             "bulk": "reads and (post-allocation) consumes amino acids, tRNAs/ATP (charging model), water, and ppGpp reactants; produces finished protein monomers and released 30S/50S subunits",
             "bulk_total": "reads unpartitioned total counts (amino-acid pool sizes, enzyme/tRNA totals) for supply and concentration calculations",
-            "polypeptide_elongation": "process_state store carrying gtp_to_hydrolyze, aa_count_diff, and aa_exchange_rates between request and the metabolism process",
+            "polypeptide_elongation": "declared bidirectional process_state port; this process only WRITES it (gtp_to_hydrolyze, aa_count_diff, aa_exchange_rates carried to the metabolism process) — calculate_request/evolve_state never read it, so it is not an input in practice",
             "timestep": "tick length dt (s); elongation is capped at 22 aa/tick",
         },
         outputs={
-            "bulk": "consumes amino acids used (−aas_used) and water per peptide bond, produces terminated protein monomers, and releases one 30S and one 50S per terminated ribosome (plus charging/ppGpp reactant changes in subclasses)",
+            "bulk": "consumes amino acids used (−aas_used); releases water per peptide bond formed (+nElongations − nInitialized, a condensation product); produces terminated protein monomers; and releases one 30S and one 50S per terminated ribosome (plus charging/ppGpp reactant changes in subclasses)",
             "active_ribosome": "advances peptide_length and pos_on_mRNA by the elongation achieved, adds incorporated-amino-acid mass, and deletes ribosomes that reached their protein's terminal length",
             "listeners": "writes ribosome_data (effective_elongation_rate read by polypeptide_initiation next tick, actual_elongations, termination stats, aa_counts) and growth_limits (aas_used, aa_allocated, net_charged, fraction_trna_charged, pool/request sizes)",
             "polypeptide_elongation": "writes gtp_to_hydrolyze (= gtpPerElongation·n_elongations) and aa_count_diff / aa_exchange_rates passed to metabolism",

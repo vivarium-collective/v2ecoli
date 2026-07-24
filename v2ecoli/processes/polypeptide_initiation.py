@@ -79,11 +79,13 @@ class PolypeptideInitiation(Step):
 
     description = (
         "Polypeptide Initiation — assembles 30S+50S → 70S ribosomes on mRNAs.\n\n"
-        "    n_activate = round(f·n_total) − n_active;   n_total = n_70S + min(n_30S, n_50S)\n"
-        "    p_k = ηₖ·n_copiesₖ / ∑ⱼ ηⱼ·n_copiesⱼ        (per-mRNA initiation prob)\n"
-        "    overcrowded ⟺ mRNA_len/(n_ribos+1) < footprint (≈24 nt) → p_k := 0\n"
+        "    n_inactive = min(n_30S, n_50S)                     (assemblable-ribosome pool)\n"
+        "    p_act = calculate_activation_prob(f, ν, lengths, p, dt)  (elongation/termination-rate balance targeting f)\n"
+        "    n_activate = int(p_act · n_inactive)               (ribosomes activated this tick)\n"
+        "    p_k = ηₖ·n_copiesₖ / ∑ⱼ ηⱼ·n_copiesⱼ                (per-monomer initiation prob)\n"
+        "    max_p = ν·dt / (footprint · n_activate);   overcrowded ⟺ p_k > max_p·n_copiesₖ → capped/rescaled\n"
         "    n_new ~ Multinomial(n_activate, p);  each consumes one 30S + one 50S.\n"
-        "  f = media-dependent active fraction; ηₖ = translation efficiency."
+        "  f = media-dependent active fraction; ηₖ = translation efficiency; ν = ribosome elongation rate (aa/s)."
     )
 
     name = NAME
@@ -92,29 +94,34 @@ class PolypeptideInitiation(Step):
     contract = ProcessContract(
         summary=(
             "Assembles free 30S + 50S subunits into active 70S ribosomes on "
-            "mRNAs. Activates round(f·n_total) − n_active ribosomes and "
-            "distributes them across mRNAs by a translation-efficiency-weighted "
-            "multinomial, with a per-mRNA ribosome-footprint overcrowding cap."
+            "mRNAs. Takes an assemblable-ribosome pool n_inactive = min(free "
+            "30S, free 50S) and activates n_activate = int(p_act · n_inactive), "
+            "where p_act = calculate_activation_prob(...) is an "
+            "elongation-rate/termination-rate balance targeting the "
+            "media-dependent active fraction f (active ribosomes are NOT read). "
+            "The activated ribosomes are distributed across mRNAs by a "
+            "translation-efficiency-weighted multinomial p_k, with a per-mRNA "
+            "ribosome-footprint overcrowding probability cap."
         ),
         symbols={
             "f": "media-dependent target active-ribosome fraction (dimensionless, 0-1)",
-            "n_total": "total ribosome pool = n_70S + min(n_30S, n_50S) (count)",
-            "n_70S": "currently active 70S ribosomes (count)",
             "n_30S": "free 30S subunits (count)",
             "n_50S": "free 50S subunits (count)",
-            "n_activate": "ribosomes to activate this tick = round(f·n_total) − n_active (count)",
-            "ηₖ": "translation efficiency of mRNA/monomer k (dimensionless relative weight)",
-            "n_copiesₖ": "cistron/transcript copy count of mRNA k (count)",
-            "p_k": "per-mRNA initiation probability ηₖ·n_copiesₖ / ∑ⱼ ηⱼ·n_copiesⱼ (dimensionless)",
+            "n_inactive": "assemblable-ribosome pool = min(n_30S, n_50S) — bounds how many ribosomes can be activated (count)",
+            "p_act": "activation probability from calculate_activation_prob — an elongation-rate/expected-termination-rate balance that hits target fraction f (dimensionless, 0-1)",
+            "n_activate": "ribosomes to activate this tick = int(p_act · n_inactive) (count)",
+            "ν": "ribosome elongation rate (aa/s) from the previous tick's effective rate (media fallback on tick 0), feeding p_act and max_p",
+            "ηₖ": "translation efficiency of monomer k (dimensionless relative weight)",
+            "n_copiesₖ": "cistron/transcript copy count of monomer k (count)",
+            "p_k": "per-monomer initiation probability ηₖ·n_copiesₖ / ∑ⱼ ηⱼ·n_copiesⱼ (dimensionless)",
             "footprint": "active-ribosome footprint size, default ≈24 nt (nt; divided by 3 → aa)",
-            "mRNA_len": "transcript length of an mRNA (nt)",
+            "max_p": "per-monomer maximum initiation probability from the footprint cap = ν·dt / (footprint · n_activate); overcrowded when p_k exceeds max_p·n_copiesₖ (dimensionless)",
         },
         inputs={
             "environment": "reads media_id to look up the media-dependent active-ribosome fraction f",
-            "listeners": "reads ribosome_data.effective_elongation_rate from the previous tick to set the elongation rate used in the activation-probability / overcrowding calculation (falls back to media rate on tick 0)",
-            "active_ribosome": "reads the active 70S unique molecules to count currently-active ribosomes (part of n_total) and ribosomes already on each mRNA (footprint/overcrowding spacing)",
+            "listeners": "reads ribosome_data.effective_elongation_rate from the previous tick to set the elongation rate ν used in the activation-probability / overcrowding calculation (falls back to media rate on tick 0)",
             "RNA": "reads mRNA unique molecules (TU_index, transcript_length, can_translate, is_full_transcript, unique_index) to compute per-cistron mRNA counts and assign newly-initiated ribosomes to specific transcripts",
-            "bulk": "reads free 30S and 50S subunit counts, bounding how many ribosomes can be activated",
+            "bulk": "reads free 30S and 50S subunit counts; their minimum is the assemblable-ribosome pool n_inactive that bounds how many ribosomes can be activated",
             "timestep": "tick length dt (s), used in the activation-probability and max-p footprint calculation",
         },
         outputs={
@@ -123,7 +130,7 @@ class PolypeptideInitiation(Step):
             "listeners": "writes ribosome_data: did_initialize, per-monomer init events, target/actual translation probabilities, mRNA_is_overcrowded, max_p / max_p_per_protein, whether the activation count was reduced, and (poisson mode) the per-tick log-likelihood",
         },
         config={
-            "active_ribosome_footprint_size": "ribosome footprint on the transcript (nt); sets the minimum spacing that flags an mRNA as overcrowded (divided by 3 to an aa-length divisor)",
+            "active_ribosome_footprint_size": "ribosome footprint on the transcript (nt), divided by 3 to an aa-length divisor; sets the max_p probability cap that flags a monomer's mRNA as overcrowded",
             "active_ribosome_fraction": "map media_id → target active-ribosome fraction f",
             "translation_efficiencies": "per-monomer translation efficiency ηₖ weighting the initiation probabilities",
             "elongation_rates": "map media_id → ribosome elongation rate; fallback rate feeding the activation-probability model",
@@ -139,7 +146,7 @@ class PolypeptideInitiation(Step):
         assumptions=[
             "30S/50S subunits are consumed only by translation initiation — no other process competes, so it runs as a plain Step with no partitioning.",
             "Each initiation consumes exactly one 30S and one 50S and starts the ribosome at peptide length 0.",
-            "An mRNA is overcrowded when ribosome spacing mRNA_len/(n_ribos+1) falls below the footprint; overcrowded probabilities are capped and rescaled (or the activation count is reduced).",
+            "A monomer's mRNA is overcrowded when its initiation probability p_k exceeds the footprint cap max_p·n_copiesₖ, where max_p = ν·dt / (footprint · n_activate); overcrowded probabilities are capped and rescaled onto the rest, or (if that cannot resolve it) the activation count n_activate is reduced. This is a probability cap, not a ribosome-spacing test — active ribosomes already on each mRNA are never counted.",
         ],
     )
 

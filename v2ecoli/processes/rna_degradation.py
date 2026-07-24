@@ -122,7 +122,7 @@ class RnaDegradation(PartitionedProcess):
             "n_exo": "exoRNase enzyme counts (count)",
             "kcat_exo": "catalytic rate constant of exoRNases (1/s)",
             "FragmentBase": "polymerized nucleotide fragment released by endo cleavage",
-            "H2O": "water consumed hydrolyzing RNA and fragment bases (count)",
+            "H2O": "water consumed hydrolyzing fragment bases in exonucleolytic digestion (one per base; endonucleolytic cleavage consumes none) (count)",
             "NMP": "free nucleotide monophosphate released by exo digestion (count)",
             "H⁺": "proton released per fragment base digested (count)",
         },
@@ -133,7 +133,7 @@ class RnaDegradation(PartitionedProcess):
             "timestep": "tick length dt (s) scaling the per-class degradation draws and the exoRNase capacity",
         },
         outputs={
-            "bulk": "decrements degraded bulk RNAs, adds endo-cleavage fragment bases + PPi, digests fragment bases into NMPs (+H⁺), and consumes H2O for endo and exo hydrolysis",
+            "bulk": "decrements degraded bulk RNAs, adds endo-cleavage fragment bases + PPi (endo cleavage consumes no water — its stoich water row is 0), then digests fragment bases into NMPs (+H⁺), consuming one H2O per fragment base in the exonucleolytic step",
             "RNAs": "sets can_translate=False on endonucleolytically cleaved unique mRNAs and deletes full inactive mRNAs that are degraded",
             "listeners": "writes rna_degradation_listener: per-cistron and (optionally) per-RNA degraded counts, nucleotides_from_degradation, fraction_active_endoRNases (∑fᵢ), diff_relative_first_order_decay, and fragment_bases_digested",
         },

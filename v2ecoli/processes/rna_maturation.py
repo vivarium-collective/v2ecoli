@@ -14,10 +14,10 @@ stoichiometry matrix S (mature_RNAs x unprocessed_RNAs, CSR format):
 
     n_mature = S @ n_unprocessed
 
-Each maturation reaction also releases pyrophosphate (PPi) from the 5' end
-and may produce nucleotide fragments:
+Each maturation reaction also consumes pyrophosphate (PPi) — it is added
+onto the 5' ends of the mature RNAs — and may produce nucleotide fragments:
 
-    n_ppi_released = ppi_per_reaction . n_unprocessed
+    n_ppi_consumed = ppi_per_reaction . n_unprocessed
     n_degraded_nts = degraded_nt_counts^T @ n_unprocessed
 
 Reactions only proceed if the required maturation enzymes are present,
@@ -56,7 +56,7 @@ class RnaMaturation(Step):
     description = (
         "RNA Maturation — stoichiometric processing of unprocessed tRNA/rRNA into mature forms.\n\n"
         "    reaction_off = (E · enzyme_present) < n_required;   n_unproc[off] = 0\n"
-        "    n_mature = S · n_unproc;   ppi = ppi_per_rxn · n_unproc\n"
+        "    n_mature = S · n_unproc;   ppi = ppi_per_rxn · n_unproc  (PPi consumed, added to 5' ends)\n"
         "    rRNA variant consolidation: Δnts = Δnt_countsᵀ · n_variant;  NMP +Δ, H2O −Σ, H⁺ +Σ\n"
         "  S: stoich (mature × unprocessed, CSR); E: enzyme-requirement (rxns × enzymes);\n"
         "  Δnt_counts: NMP difference variant vs canonical 16S/23S/5S."
@@ -80,8 +80,8 @@ class RnaMaturation(Step):
             "n_required": "minimum enzyme count required per maturation reaction (count)",
             "n_unproc": "counts of unprocessed RNA per reaction (count); zeroed where reaction is off",
             "n_mature": "counts of mature RNA produced = S·n_unproc (count)",
-            "ppi": "pyrophosphate released from the 5' end per maturation reaction (count)",
-            "ppi_per_rxn": "PPi released per unprocessed RNA reaction (count)",
+            "ppi": "pyrophosphate consumed — added onto the 5' ends of the mature RNAs per maturation reaction (count)",
+            "ppi_per_rxn": "PPi consumed (incorporated) per unprocessed RNA reaction (count)",
             "n_variant": "copy counts of a genomic rRNA variant being consolidated (count)",
             "Δnt_counts": "NMP nucleotide-count difference, variant vs canonical 16S/23S/5S (nt)",
             "Δnts": "net NMPs added on consolidation = Δnt_countsᵀ·n_variant (nt)",
@@ -91,17 +91,17 @@ class RnaMaturation(Step):
         },
         inputs={
             "bulk": "reads counts of unprocessed RNAs, the maturation enzymes (to gate reactions), and the 16S/23S/5S rRNA variants to consolidate",
-            "bulk_total": "reads the unpartitioned total bulk counts (this Step has no allocator, so it reads full counts directly)",
+            "bulk_total": "declared port aliased to the same ('bulk',) store as `bulk`; present in inputs()/topology for framework symmetry, but update() reads the full unpartitioned counts through the `bulk` port, not this one",
         },
         outputs={
-            "bulk": "produces mature RNAs (+S·n_unproc), consumes unprocessed RNAs, releases PPi, moves each rRNA variant onto its canonical species, and adds/removes NMPs with balancing H2O (−) and H⁺ (+)",
+            "bulk": "produces mature RNAs (+S·n_unproc), consumes unprocessed RNAs, consumes PPi (−ppi_update; added onto the mature-RNA 5' ends), moves each rRNA variant onto its canonical species, and adds/removes NMPs with balancing H2O (−) and H⁺ (+)",
             "listeners": "writes rna_maturation_listener: total_maturation_events, total_degraded_ntps, per-species unprocessed_rnas_consumed, mature_rnas_generated, and maturation_enzyme_counts",
         },
         config={
             "stoich_matrix": "maturation stoichiometry S (mature_RNAs × unprocessed_RNAs, CSR)",
             "enzyme_matrix": "enzyme-requirement matrix E (reactions × enzymes)",
             "n_required_enzymes": "minimum enzyme counts per reaction; reactions with (E·enzyme_present) below this are turned off",
-            "n_ppi_added": "PPi released per maturation reaction",
+            "n_ppi_added": "PPi consumed (added onto the 5' ends) per maturation reaction",
             "degraded_nt_counts": "nucleotide fragments released per unprocessed RNA (contributes to added bases / degraded ntps)",
             "delta_nt_counts_16s": "NMP difference between each 16S variant and the canonical 16S",
             "delta_nt_counts_23s": "NMP difference between each 23S variant and the canonical 23S",
@@ -134,7 +134,7 @@ class RnaMaturation(Step):
         'main_23s_rRNA_id': 'string',
         'main_5s_rRNA_id': 'string',
         'mature_rna_ids': 'list[string]',
-        'n_ppi_added': 'array[integer]',             # PPi released per maturation reaction
+        'n_ppi_added': 'array[integer]',             # PPi consumed (added to 5' ends) per maturation reaction
         'n_required_enzymes': 'array[integer]',      # minimum enzymes needed per reaction
         'nmps': 'list[string]',
         'ppi': 'string',

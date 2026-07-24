@@ -34,6 +34,7 @@ physically consistent with the reduced allocation.
 import numpy as np
 from scipy.integrate import solve_ivp
 
+from bigraph_schema.contract import ProcessContract
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 
@@ -65,6 +66,56 @@ class TwoComponentSystem(Step):
         "Under-allocation: re-solve to long-horizon steady state (10000 s), extract\n"
         "this timestep's Δx to stay physically consistent with reduced counts.\n"
         "x: counts of histidine kinases, response regulators, and their phospho-forms."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "Phosphotransfer signaling: integrate the ODE system for histidine "
+            "kinase / response-regulator phosphorylation over the timestep and "
+            "apply the net molecule-count changes. Runs as a plain Step (its "
+            "molecules are process-private, so no allocator competition)."
+        ),
+        math=[
+            "counts→conc: y = x /(V·N_A);   dy/dt = S_full · r(y);   Δx = (y(dt) − y(0))·V·N_A",
+        ],
+        symbols={
+            "x": "molecule counts of histidine kinases, response regulators, and phospho-forms (count)",
+            "dx/dt": "time derivative of the molecule state",
+            "f(x)": "phosphotransfer reaction rate law (net RHS of the ODE)",
+            "Δx": "net count change applied over the timestep (count)",
+            "dt": "integration horizon = simulation timestep (s)",
+            "S_full": "full stoichiometry matrix, molecules × reactions (dimensionless)",
+            "r": "reaction-rate vector r(y,t) from rates_fn (concentration/s)",
+            "y": "concentration state = counts/(cell volume · N_A) (mol/L)",
+            "V": "cell volume = cell_mass/cell_density (L)",
+            "N_A": "Avogadro number (1/mol)",
+        },
+        inputs={
+            "bulk": "Reads counts of histidine kinases, response regulators, and their phospho-forms → initial ODE concentrations; writes back integer net count changes Δx.",
+            "listeners": "Reads mass.cell_mass to compute cell volume for the counts↔concentration conversion.",
+            "timestep": "Sets the integration horizon dt for the ODE solve.",
+        },
+        outputs={
+            "bulk": "Writes the net phosphotransfer count changes Δx (rounded to int) across all tracked molecules.",
+        },
+        config={
+            "moleculeNames": "Molecule species (histidine kinases, response regulators, phospho-forms) tracked by the ODE.",
+            "cell_density": "Cell density (g/L) → cell volume for the counts↔concentration conversion.",
+            "n_avogadro": "Avogadro number for counts↔concentration conversion.",
+            "rates_fn": "Reaction-rate law r(y,t) forming the ODE RHS dy/dt = S_full·r(y).",
+            "rates_jac_fn": "Analytic Jacobian of the rate law, supplied to the stiff BDF/Radau solver.",
+            "stoich_matrix_full": "Full stoichiometry matrix S_full (molecules × reactions).",
+            "dependency_matrix": "Maps independent-molecule changes to changes for all molecules.",
+            "independent_molecule_indexes": "Indices of the independent molecules integrated directly.",
+            "atp_reaction_reactant_mask": "Mask of ATP-reactant molecules used to cap phosphorylation by available ATP.",
+            "independent_molecules_atp_index": "Index of ATP within the independent molecules for the availability cap.",
+        },
+        assumptions=[
+            "Phosphotransfer molecules are process-private (no resource competition), so the process runs as a plain Step.",
+            "The stiff ODE is solved with solve_ivp, trying LSODA/BDF/Radau/RK45/RK23/DOP853 and halving the horizon if concentrations go negative.",
+            "ATP-consuming phosphorylation is capped by the minimum available ATP-reactant count.",
+            "On under-allocation (required counts > available), the system is re-solved to a 10000 s steady state and this step's Δx is extracted for physical consistency.",
+        ],
     )
 
     name = NAME

@@ -60,6 +60,7 @@ NOTE:
 from typing import Any, Optional
 import warnings
 
+from bigraph_schema.contract import ProcessContract
 import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
@@ -156,6 +157,77 @@ class Metabolism(Step):
         "  bounds from nutrient uptake, enzyme kcat capacity, NGAM maintenance.\n"
         "Flux→counts: Δn = stochasticRound(v · m_dry · dt / (MW · κ)).\n"
         "Optional ppGpp growth coupling and kinetic (kcat) flux constraints."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "Flux-balance analysis (FBA): each step maximize the biomass "
+            "objective subject to steady-state mass balance and flux bounds "
+            "from nutrient uptake, enzyme kcat capacity, and NGAM maintenance; "
+            "convert the resulting fluxes to bulk molecule-count changes. Runs "
+            "deriver-like after all other processes (not partitioned)."
+        ),
+        symbols={
+            "c": "FBA objective coefficients — biomass production weights (dimensionless)",
+            "v": "reaction flux vector solved by the LP (mmol/g_DCW/h)",
+            "S": "stoichiometric matrix, metabolites × reactions (dimensionless)",
+            "v_lb": "lower flux bounds (mmol/g_DCW/h): uptake, kcat capacity, NGAM maintenance",
+            "v_ub": "upper flux bounds (mmol/g_DCW/h)",
+            "Δn": "per-metabolite molecule-count change applied to bulk this step (count)",
+            "m_dry": "cell dry mass, from listeners.mass.dry_mass (g)",
+            "dt": "simulation timestep (s)",
+            "MW": "metabolite molecular weight (g/mmol)",
+            "κ": "flux→concentration conversion coefficient = dry/cell mass·density·dt (g·s/L)",
+            "NGAM": "non-growth-associated maintenance ATP flux, pinned as a bound (mmol/g/h)",
+            "ppGpp": "guanosine tetraphosphate; when include_ppgpp, an objective target coupling regulation to growth (mM)",
+        },
+        inputs={
+            "bulk": "Reads metabolite, catalyst, and kinetic enzyme/substrate counts → internal concentrations, catalyst reaction upper bounds, and kinetic targets; writes back the FBA-derived Δmetabolite counts.",
+            "bulk_total": "Reads total (pre-partition) amino-acid counts to update tRNA-charging concentration targets.",
+            "listeners": "Reads mass.cell_mass/dry_mass (cell volume, counts_to_molar, flux↔conc coefficient κ) and rna_mass/protein_mass (RNA:protein ratio for biomass targets); writes fba_results, enzyme_kinetics, and fba_bridge diagnostics.",
+            "environment": "Reads media_id and exchange_data (constrained max uptake rates + unconstrained importers) to set external molecule availability for the LP.",
+            "boundary": "Reads external[aa] concentrations to decide which amino acids are present in the media (mechanistic AA-transport gating).",
+            "polypeptide_elongation": "Reads gtp_to_hydrolyze (translation GTP maintenance flux), aa_count_diff (AA supply/consumption for target updates), and aa_exchange_rates (mechanistic AA uptake rates).",
+            "pinned_flux_targets": "Reads {fba_reaction_id: flux} hard pins from the Millard-ODE coupler; pins those bounds before the solve and relaxes any pin that makes the LP infeasible.",
+            "global_time": "Clock read used to gate the update and stamp next_update_time.",
+            "timestep": "Integration/flux-to-count timestep dt (s).",
+            "next_update_time": "Scheduled next-run time gating update_condition.",
+        },
+        outputs={
+            "bulk": "Writes stochastically-rounded, zero-floored Δmetabolite counts from the FBA output_molecule_changes.",
+            "environment": "Writes exchange = per-nutrient molecule-count delta exchanged with the environment store.",
+            "listeners": "Writes fba_results (objective value, reaction/exchange fluxes, shadow prices, reduced costs, conc/target updates), enzyme_kinetics (actual/target fluxes, counts_to_molar), and fba_bridge.relaxed_reactions.",
+            "next_update_time": "Writes global_time + timestep for the next scheduled solve.",
+        },
+        config={
+            "include_ppgpp": "If True, add ppGpp as a homeostatic concentration target coupling regulation to the growth objective.",
+            "mechanistic_aa_transport": "If True, apply mechanistic amino-acid uptake constraints from elongation aa_exchange_rates.",
+            "use_trna_charging": "If True, update amino-acid concentration targets from tRNA-charging supply/demand each step.",
+            "ngam": "Non-growth-associated maintenance ATP flux (mmol/g/h), pinned as the maintenance reaction bound.",
+            "dark_atp": "Growth-associated maintenance ATP (mmol/g); GAM = dark_atp × cell_dry_mass_fraction.",
+            "cell_dry_mass_fraction": "Dry fraction of cell mass; multiplies dark_atp to give the GAM maintenance cost.",
+            "cell_density": "Cell density (g/L); cell volume = cell_mass/density → counts_to_molar and the flux↔conc coefficient.",
+            "doubling_time": "Baseline doubling time setting the initial biomass concentration targets.",
+            "nutrientToDoublingTime": "Map media_id → doubling time, selecting media-specific biomass concentration targets.",
+            "avogadro": "Avogadro number for counts↔moles conversion.",
+            "import_constraint_threshold": "External concentration above which a nutrient is treated as available for uptake.",
+            "removed_aa_uptake": "Amino acids whose environmental uptake is disabled.",
+            "media_id": "Default media id used when the environment media is unmapped.",
+            "base_reaction_ids": "Base (lumped) reaction ids; the FBA→base mapping aggregates split/reverse fluxes for reporting.",
+            "fba_reaction_ids_to_base_reaction_ids": "Map each FBA reaction (incl. reverse) to its base reaction, with sign, for base_reaction_fluxes.",
+        },
+        assumptions=[
+            "Steady-state mass balance (S·v = 0) is imposed each timestep: metabolite pools are quasi-steady relative to dt.",
+            "Runs deriver-like after all other processes update internal state; not partitioned (no request/allocate arbitration).",
+            "FBA fluxes (mmol/g_DCW/h) are converted to counts via dry mass, dt, and counts_to_molar, then stochastically rounded and floored at zero.",
+            "Enzyme capacity is modeled by catalyst presence: a reaction with no catalyst present gets an upper flux bound of zero.",
+            "Amino-acid uptake is capped to the homeostatic concentration need to prevent AAs acting as an unbounded carbon/nitrogen source.",
+            "Objective is homeostatic, or mixed homeostatic+kinetic when kcat constraints are enabled (kinetic_objective_weight > 0).",
+        ],
+        references=[
+            "wcEcoli whole-cell model FBA (wholecell.utils.modular_fba.FluxBalanceAnalysis)",
+            "Homeostatic + kinetic mixed FBA objective, Covert lab E. coli whole-cell model",
+        ],
     )
 
     name = NAME

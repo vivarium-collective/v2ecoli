@@ -55,6 +55,7 @@ import numpy as np
 
 # simulate_process removed
 
+from bigraph_schema.contract import ProcessContract
 from v2ecoli.library.data_predicates import (
     monotonically_increasing,
     monotonically_decreasing,
@@ -86,6 +87,48 @@ class ProteinDegradation(Step):
         "  kᵢ: first-order degradation rate (1/s); nᵢ: copies of protein i;\n"
         "  aᵢⱼ: count of AA j per protein i; Lᵢ = ∑ⱼ aᵢⱼ (residues);\n"
         "  S: stoichiometry (metabolites × proteins), +AA release, −(Lᵢ−1) H2O."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "First-order Poisson hydrolysis of protein monomers: each step draw "
+            "the number of copies of each protein that degrade, then apply the "
+            "stoichiometric release of amino acids and consumption of water. "
+            "Single-pass Step (no resource competition, no request/allocate cycle)."
+        ),
+        symbols={
+            "nᵢ_deg": "copies of protein i degraded this step = min(Poisson(kᵢ·dt·nᵢ), nᵢ) (count)",
+            "kᵢ": "first-order degradation rate constant for protein i (1/s)",
+            "nᵢ": "current copies of protein i (count)",
+            "dt": "timestep (s)",
+            "S": "degradation stoichiometry, metabolites × proteins (+AA release rows, −(Lᵢ−1) H2O row)",
+            "n_deg": "vector of per-protein degradation counts",
+            "Lᵢ": "length of protein i in residues, = Σⱼ aᵢⱼ",
+            "aᵢⱼ": "count of amino acid j in one copy of protein i",
+            "AAⱼ": "amino acid species j released on hydrolysis (count)",
+            "H2O": "water consumed: (Lᵢ−1) molecules per degraded copy of protein i",
+        },
+        inputs={
+            "bulk": "Reads current protein counts nᵢ to draw Poisson degradation counts; writes back −nᵢ_deg proteins, +released amino acids, and −(Lᵢ−1)·nᵢ_deg water via the stoichiometry matrix.",
+            "timestep": "Provides dt scaling the per-protein Poisson degradation rate.",
+        },
+        outputs={
+            "bulk": "Writes the stoichiometric metabolite deltas (amino-acid release, water consumption) and the per-protein count decrements.",
+        },
+        config={
+            "raw_degradation_rate": "Per-protein first-order degradation rate constants kᵢ (1/s).",
+            "protein_lengths": "Chain length Lᵢ (residues) per protein; sets water consumed = Lᵢ−1 per hydrolysis.",
+            "amino_acid_counts": "Amino-acid composition matrix aᵢⱼ (AA j per protein i); forms the AA-release rows of S.",
+            "protein_ids": "Protein species identities, defining the columns of the stoichiometry matrix.",
+            "amino_acid_ids": "Amino-acid species identities, defining the AA rows of the stoichiometry matrix.",
+            "water_id": "Bulk id of water, whose row carries the −(Lᵢ−1) peptide-bond-hydrolysis stoichiometry.",
+        },
+        assumptions=[
+            "Degradation is a first-order Poisson process, independent per protein species, capped at the available copy count.",
+            "Each degraded chain of length L consumes (L−1) water molecules (N−1 peptide-bond hydrolyses) and releases its constituent amino acids.",
+            "Protein complexes and explicit protease mechanisms are not modeled (TODO in source).",
+            "Single-pass: no resource competition, so no request/allocate/evolve cycle is used.",
+        ],
     )
 
     name = NAME

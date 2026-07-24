@@ -9,6 +9,7 @@ Division: Detects division condition, splits state, produces daughter
 import numpy as np
 import binascii
 
+from bigraph_schema.contract import ProcessContract
 from bigraph_schema.schema import Overwrite, Float
 
 from v2ecoli.steps.base import V2Step
@@ -27,6 +28,37 @@ class MarkDPeriod(V2Step):
 
     name = "mark_d_period"
     config_schema = {}
+
+    contract = ProcessContract(
+        summary=(
+            "Raise the division flag once the D period has elapsed after "
+            "chromosome replication completes: when global_time reaches the "
+            "earliest untriggered chromosome division_time, mark that "
+            "chromosome triggered and set divide=True."
+        ),
+        math=[
+            "divide := True  and  has_triggered_division[k] := True   when  t_global ≥ min(division_time[¬has_triggered])",
+        ],
+        symbols={
+            "t_global": "global simulation time (s)",
+            "division_time": "per-chromosome scheduled division time = replication completion + D period (s)",
+        },
+        inputs={
+            "full_chromosome": "Reads division_time and has_triggered_division; selects the earliest untriggered division_time and marks it triggered.",
+            "global_time": "Compared against the earliest untriggered division_time to decide whether to fire.",
+            "divide": "Downstream division flag, set True when the D-period deadline is reached.",
+        },
+        outputs={
+            "full_chromosome": "Writes the updated has_triggered_division array (the fired chromosome marked True).",
+            "divide": "Writes True when the earliest untriggered chromosome's division_time has been reached.",
+            "global_time": "Passed through unchanged (mirrored port).",
+        },
+        assumptions=[
+            "division_time is scheduled at replication completion + D_period.",
+            "Only the single earliest untriggered chromosome is marked per step.",
+            "Requires at least two chromosome rows before it can fire.",
+        ],
+    )
 
     def initialize(self, config):
         self.parameters = config or {}
@@ -84,6 +116,55 @@ class Division(V2Step):
 
     name = "division"
     config_schema = {}
+
+    contract = ProcessContract(
+        summary=(
+            "Detect the division condition and split the mother cell into two "
+            "daughters via process-bigraph _add/_remove structural updates: bulk "
+            "molecules split binomially, unique molecules partitioned by "
+            "chromosome domain, daughter composites rebuilt from baseline()."
+        ),
+        math=[
+            "d_period (default): divide  iff  divide_flag ∧ n_chrom ≥ 2   (dry-mass threshold ignored)",
+            "legacy: divide  iff  m_dry ≥ threshold ∧ n_chrom ≥ 2",
+            "threshold = m_dry,0 + Δm_dry · μ_div,   μ_div ~ Normal(1.0, 0.1)",
+            "on trigger: bulk ~ Binomial(n, ½) split;  unique partitioned by chromosome domain → daughters (d0,d1) via _add/_remove",
+        ],
+        symbols={
+            "n_chrom": "number of full chromosomes (Σ _entryState); division requires ≥ 2",
+            "m_dry": "cell dry mass, from listeners.mass.dry_mass (fg)",
+            "threshold": "dry-mass division threshold (fg); consulted only on the legacy path",
+            "Δm_dry": "media-specific dry-mass increment added per generation (fg)",
+            "μ_div": "division mass multiplier ~ Normal(1.0, 0.1), CRC32-seeded",
+            "divide_flag": "D-period flag raised by MarkDPeriod at the chromosome's division_time",
+            "n": "molecule copy count of a bulk species, split ~ Binomial(n, ½) between daughters",
+        },
+        inputs={
+            "listeners": "Reads mass.dry_mass to evaluate the division trigger (legacy mass threshold) and to seed daughter mass listeners.",
+            "unique": "Reads full_chromosome _entryState for the n_chrom ≥ 2 gate; the whole unique tree is partitioned by chromosome domain into the two daughters.",
+            "divide": "Reads the D-period flag; under d_period (default) division fires when this is set and n_chrom ≥ 2.",
+            "division_threshold": "Reads the dry-mass threshold on the legacy path; initialized on first step from media-specific increment × μ_div.",
+            "bulk": "Reads the mother's bulk state, split binomially into the two daughters.",
+            "environment": "Reads the mother's environment state, carried into both daughter cell states.",
+            "boundary": "Reads the mother's boundary state, carried into both daughter cell states.",
+            "media_id": "Selects the media-specific dry-mass increment for the legacy threshold initialization.",
+            "global_time": "Read as the division timestamp stamped onto both daughters.",
+        },
+        outputs={
+            "agents": "Writes a structural update: _remove the mother agent and _add two rebuilt daughter cell composites (fresh process instances + divided biological state).",
+            "division_threshold": "Writes the computed dry-mass division threshold on the legacy (mass_distribution) path.",
+        },
+        assumptions=[
+            "Under d_period=True (vEcoli default) division fires D-period after replication completes (via the divide flag), and the dry-mass threshold is ignored; otherwise the legacy mass-distribution threshold is used.",
+            "Division requires at least two full chromosomes.",
+            "Bulk molecules split binomially (p=0.5); unique molecules are partitioned by chromosome domain.",
+            "The division mass multiplier μ_div is drawn once from Normal(1.0, 0.1) (CRC32-seeded) for the mass_distribution threshold.",
+            "Daughters are rebuilt via baseline() with the divided biological state overlaid; the parquet emitter is re-pointed per daughter to avoid clobbering the parent's history.",
+        ],
+        references=[
+            "vEcoli ecoli/processes/cell_division.py (d_period division semantics)",
+        ],
+    )
 
     def initialize(self, config):
         self.parameters = config or {}

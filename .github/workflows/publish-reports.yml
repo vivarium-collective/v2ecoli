@@ -47,16 +47,8 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12.9
 
-      - name: Install dependencies (incl. vivarium-workbench)
-        # Unlike the test jobs, the report generator NEEDS vivarium-workbench
-        # (it serves the SPA). v2ecoli DROPPED vivarium-workbench as a runtime
-        # dependency (the viewer moved to pbg-ptools), so `uv sync` no longer
-        # installs it — install it ad-hoc for this deploy job only, exactly like
-        # Playwright below. The generate step runs with `uv run --no-sync` so a
-        # re-sync to the lock can't uninstall this out-of-lock package.
-        run: |
-          uv sync --extra dev || uv sync
-          uv pip install "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-dashboard.git@main"
+      - name: Install dependencies
+        run: uv sync --extra dev || uv sync
 
       - name: Install Playwright + Chromium
         # Playwright is only needed by this deploy job, so install it into the
@@ -64,6 +56,18 @@ jobs:
         run: |
           uv pip install playwright
           uv run playwright install --with-deps chromium
+
+      - name: Ensure the publish CLI is current (latest main)
+        # This DEPLOY job renders the workbench SPA headlessly, so it needs
+        # vivarium-workbench even though v2ecoli's RUNTIME dropped it as a
+        # dependency (viewer moved to pbg-ptools). Mirror the green
+        # publish-dashboard.yml exactly: ad-hoc install workbench@main, and run
+        # the generator inside the activated venv (below) rather than via `uv
+        # run`, which would re-sync to uv.lock and undo this install. Installed
+        # AFTER the Playwright step's `uv run`, which itself re-syncs. The runtime
+        # stays decoupled — only this deploy job pulls workbench.
+        run: |
+          uv pip install --reinstall-package vivarium-workbench "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-workbench.git@main"
 
       - name: Generate investigation reports
         id: gen
@@ -73,7 +77,10 @@ jobs:
         # script's exit code is recorded for the final status gate.
         run: |
           set +e
-          uv run --no-sync python scripts/publish_investigation_reports.py \
+          # Activated venv (not `uv run`): `uv run` re-syncs to uv.lock, undoing
+          # the ad-hoc workbench@main install and dropping `vivarium-workbench serve`.
+          source .venv/bin/activate
+          python scripts/publish_investigation_reports.py \
             --workspace . --out reports/published
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 

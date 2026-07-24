@@ -53,7 +53,18 @@ def resolve_out_dir(out_dir: "str | None" = None) -> str:
     """
     if out_dir:
         return out_dir
-    return os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR") or DEFAULT_OUT_DIR
+    sweep = os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR")
+    if sweep:
+        return sweep
+    # On the sms-api compose / Ray-on-Batch path, run_pbg sets PBG_RESULTS_DIR to
+    # the dir the entrypoint syncs to S3 (RAY_OUT_DIR). Land the sweep, stores and
+    # analyses there so they're actually collected — the fixed workspace default
+    # would write outside the synced dir and the results would never leave the
+    # container.
+    results = os.environ.get("PBG_RESULTS_DIR")
+    if results:
+        return os.path.join(results, "batch_baseline")
+    return DEFAULT_OUT_DIR
 
 
 DEFAULT_EXPERIMENT_ID = "batch_baseline"

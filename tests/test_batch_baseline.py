@@ -437,3 +437,18 @@ def test_inplace_dict_store_serializes_its_merged_result_keys():
     assert out.get("n_seeds") == 1
     assert out.get("seeds") == {0: {"path": "x"}}
     assert "_value" not in out
+
+
+def test_resolve_out_dir_falls_back_to_compose_results_dir(monkeypatch):
+    """Under sms-api run_pbg, land the sweep in PBG_RESULTS_DIR (S3-synced), not
+    the unsynced workspace default."""
+    from v2ecoli.steps.batch_baseline_runner import resolve_out_dir, DEFAULT_OUT_DIR
+    monkeypatch.delenv("VIVARIUM_WORKBENCH_SWEEP_DIR", raising=False)
+    monkeypatch.setenv("PBG_RESULTS_DIR", "/tmp/pbg_out")
+    assert resolve_out_dir() == "/tmp/pbg_out/batch_baseline"
+    assert resolve_out_dir("explicit") == "explicit"          # explicit always wins
+    monkeypatch.setenv("VIVARIUM_WORKBENCH_SWEEP_DIR", "/ws/sweep")
+    assert resolve_out_dir() == "/ws/sweep"                    # workbench dir wins over compose
+    monkeypatch.delenv("VIVARIUM_WORKBENCH_SWEEP_DIR", raising=False)
+    monkeypatch.delenv("PBG_RESULTS_DIR", raising=False)
+    assert resolve_out_dir() == DEFAULT_OUT_DIR                # neither set -> default

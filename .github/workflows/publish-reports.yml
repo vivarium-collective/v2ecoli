@@ -49,10 +49,14 @@ jobs:
 
       - name: Install dependencies (incl. vivarium-workbench)
         # Unlike the test jobs, the report generator NEEDS vivarium-workbench
-        # (it serves the SPA). The dashboard's hatchling build works again now
-        # that bigraph-schema is un-pinned, so a full sync is fine; the `|| uv
-        # sync` fallback keeps the job alive if an optional extra fails to build.
-        run: uv sync --extra dev || uv sync
+        # (it serves the SPA). v2ecoli DROPPED vivarium-workbench as a runtime
+        # dependency (the viewer moved to pbg-ptools), so `uv sync` no longer
+        # installs it — install it ad-hoc for this deploy job only, exactly like
+        # Playwright below. The generate step runs with `uv run --no-sync` so a
+        # re-sync to the lock can't uninstall this out-of-lock package.
+        run: |
+          uv sync --extra dev || uv sync
+          uv pip install "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-dashboard.git@main"
 
       - name: Install Playwright + Chromium
         # Playwright is only needed by this deploy job, so install it into the
@@ -69,7 +73,7 @@ jobs:
         # script's exit code is recorded for the final status gate.
         run: |
           set +e
-          uv run python scripts/publish_investigation_reports.py \
+          uv run --no-sync python scripts/publish_investigation_reports.py \
             --workspace . --out reports/published
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 

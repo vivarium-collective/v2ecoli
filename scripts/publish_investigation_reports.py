@@ -292,15 +292,26 @@ def main() -> int:
         results: dict[str, tuple[bool, str]] = {}
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page(accept_downloads=True)
             for slug in slugs:
                 out_path = out_dir / "investigations" / f"{slug}.html"
                 expect_figures = study_figure_count(ws_root, slug) > 0
+                # A FRESH page (in its own context) per investigation. A single
+                # reused page accumulated state/memory from the first heavy report
+                # and wedged, so every subsequent page.goto timed out (1/8
+                # published). Isolating each report keeps one slow/large report
+                # from cascading into the rest.
+                ctx = browser.new_context(accept_downloads=True)
+                page = ctx.new_page()
                 try:
                     ok, msg = export_report(page, base_url, slug, out_path,
                                             expect_figures)
                 except Exception as e:  # noqa: BLE001 — report per-slug, keep going
                     ok, msg = False, f"exception: {e}"
+                finally:
+                    try:
+                        ctx.close()
+                    except Exception:  # noqa: BLE001
+                        pass
                 results[slug] = (ok, msg)
                 print(f"  {'✓' if ok else '✗'} {slug}: {msg}")
             browser.close()

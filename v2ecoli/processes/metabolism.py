@@ -155,7 +155,12 @@ class Metabolism(Step):
         "    max cᵀv   s.t.  S·v = 0,   v_lb ≤ v ≤ v_ub\n"
         "  S: stoichiometry (metabolites×reactions); c: biomass objective;\n"
         "  bounds from nutrient uptake, enzyme kcat capacity, NGAM maintenance.\n"
-        "Flux→counts: Δn = stochasticRound(v · m_dry · dt / (MW · κ)).\n"
+        "The FBA returns per-metabolite concentration changes Δc (mmol/L, the\n"
+        "output_molecule_changes). Flux→counts uses counts_to_molar = 1/(N_A·V_cell)\n"
+        "(the mM-per-count factor); its inverse maps Δc back to a count change:\n"
+        "    Δn = stochasticRound(n₀ + Δc/counts_to_molar) − n₀   (zero-floored),\n"
+        "  i.e. Δc·N_A·V_cell counts added to the initial count n₀. Exchange\n"
+        "  fluxes are reported on a gDCW basis via κ = m_dry/m_cell·density·dt.\n"
         "Optional ppGpp growth coupling and kinetic (kcat) flux constraints."
     )
 
@@ -174,10 +179,14 @@ class Metabolism(Step):
             "v_lb": "lower flux bounds (mmol/g_DCW/h): uptake, kcat capacity, NGAM maintenance",
             "v_ub": "upper flux bounds (mmol/g_DCW/h)",
             "Δn": "per-metabolite molecule-count change applied to bulk this step (count)",
-            "m_dry": "cell dry mass, from listeners.mass.dry_mass (g)",
+            "Δc": "FBA per-metabolite concentration change this step (output_molecule_changes, mmol/L)",
+            "n₀": "initial per-metabolite count before the step, from bulk (count)",
+            "counts_to_molar": "count→concentration factor = 1/(N_A·V_cell) (mM per count); its inverse (N_A·V_cell) converts Δc to a count change",
+            "N_A": "Avogadro constant, from config avogadro (1/mol)",
+            "V_cell": "cell volume = cell_mass/cell_density (L)",
+            "m_dry": "cell dry mass, from listeners.mass.dry_mass (g); feeds the exchange-flux coefficient κ",
             "dt": "simulation timestep (s)",
-            "MW": "metabolite molecular weight (g/mmol)",
-            "κ": "flux→concentration conversion coefficient = dry/cell mass·density·dt (g·s/L)",
+            "κ": "exchange flux↔gDCW-basis coefficient = m_dry/m_cell·density·dt (g·s/L); used for exchange-flux reporting and the NGAM bound, NOT the metabolite count conversion",
             "NGAM": "non-growth-associated maintenance ATP flux, pinned as a bound (mmol/g/h)",
             "ppGpp": "guanosine tetraphosphate; when include_ppgpp, an objective target coupling regulation to growth (mM)",
         },
@@ -219,7 +228,7 @@ class Metabolism(Step):
         assumptions=[
             "Steady-state mass balance (S·v = 0) is imposed each timestep: metabolite pools are quasi-steady relative to dt.",
             "Runs deriver-like after all other processes update internal state; not partitioned (no request/allocate arbitration).",
-            "FBA fluxes (mmol/g_DCW/h) are converted to counts via dry mass, dt, and counts_to_molar, then stochastically rounded and floored at zero.",
+            "The FBA returns per-metabolite concentration changes (mmol/L); these are converted to counts via counts_to_molar = 1/(N_A·V_cell), then stochastically rounded and floored at zero. Exchange fluxes use the separate κ = m_dry/m_cell·density·dt gDCW-basis coefficient.",
             "Enzyme capacity is modeled by catalyst presence: a reaction with no catalyst present gets an upper flux bound of zero.",
             "Amino-acid uptake is capped to the homeostatic concentration need to prevent AAs acting as an unbounded carbon/nitrogen source.",
             "Objective is homeostatic, or mixed homeostatic+kinetic when kcat constraints are enabled (kinetic_objective_weight > 0).",

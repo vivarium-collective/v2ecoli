@@ -117,7 +117,7 @@ class ProteinDegradation(Step):
         },
         config={
             "raw_degradation_rate": "Per-protein first-order degradation rate constants kᵢ (1/s).",
-            "protein_lengths": "Chain length Lᵢ (residues) per protein; sets water consumed = Lᵢ−1 per hydrolysis.",
+            "protein_lengths": "Vestigial: read into self.protein_lengths but never used in update(). Water consumed per hydrolysis is NOT set from this — the −(Lᵢ−1) H2O row is derived from amino_acid_counts as −(Σⱼ aᵢⱼ − 1), i.e. Lᵢ = Σⱼ aᵢⱼ.",
             "amino_acid_counts": "Amino-acid composition matrix aᵢⱼ (AA j per protein i); forms the AA-release rows of S.",
             "protein_ids": "Protein species identities, defining the columns of the stoichiometry matrix.",
             "amino_acid_ids": "Amino-acid species identities, defining the AA rows of the stoichiometry matrix.",

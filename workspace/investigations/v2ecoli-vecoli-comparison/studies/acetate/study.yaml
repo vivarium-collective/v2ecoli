@@ -21,7 +21,7 @@ runs:
   canonical: true
   description: v2e-compare study acetate
   status: completed
-  result: FAIL
+  result: MISMATCH
   outcomes:
     statistical-vs-vecoli:
       result: PENDING
@@ -56,13 +56,19 @@ depends_on:
 - parca
 confidence: Investigating
 findings:
-- id: acetate-standard
+- id: acetate-statistical
   kind: computational
   status: contradicts
-  statement: v2ecoli reproduces vEcoli biomass on acetate within tolerance; RNA mass
-    (fg), growth rate (1/s) diverge (mismatch).
+  statement: Under the gold-standard 4-seed statistical grading, acetate is the ONE
+    condition with a STATISTICALLY SIGNIFICANT divergence — v2ecoli's growth rate on
+    acetate runs ~40% high vs vEcoli (p=0.049, d=1.79), surviving the multi-seed gate
+    that retired basal/succinate's single-seed flags. Protein mass reproduces;
+    cell/dry/RNA mass show a (non-significant) ~8-14% overgrowth trend. This is a real
+    port divergence on the poorest carbon source and is the priority for root-causing.
   evidence:
-    from_card: standard
-    observed: '3 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg);
-      max median |Δ|=2.8%); RNA mass (fg): drift (median |Δ|=7.6%); growth rate (1/s):
-      mismatch (median |Δ|=17.0%)'
+    from_card: statistical
+    observed: '4-seed gen-1 (Welch t-test): protein mass within_tol (Δ+2.3%, p=0.77);
+      cell mass drift (Δ+8.1%, p=0.38); dry mass drift (Δ+8.1%, p=0.38); RNA mass drift
+      (Δ+13.8%, p=0.25); growth rate MISMATCH (Δ+40.2%, p=0.049, d=1.79 — significant).
+      Overall mismatch. Only axis across all conditions to reach p<0.05.'
+  _superseded_from_card: standard

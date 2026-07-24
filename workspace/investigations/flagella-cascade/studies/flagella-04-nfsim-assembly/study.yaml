@@ -1,6 +1,10 @@
-schema_version: 3
+schema_version: 4
 name: flagella-04-nfsim-assembly
 title: "Aim 2B — rule-based flagellar assembly via NFsim (pbg-nfsim)"
+question: >-
+  Does NFsim rule-based assembly build flagella through ordered, conditional
+  intermediates (export apparatus -> motor/basal body -> hook -> complete flagellum)
+  that stochastic Gillespie complexation cannot enforce?
 description: |
   Maya's Specific Aim 2B: replace the stochastic Gillespie complexation (which fires
   as soon as substrates are available and cannot enforce ordered, conditional
@@ -12,6 +16,15 @@ topic: assembly
 tags: [flagella, assembly, nfsim, bionetgen, rule-based, complexation, aim2b, pbg-nfsim, just-in-time]
 created: '2026-06-20'
 
+# Aim 2B runs PARALLEL to the transcription arm (01-03): it is a STANDALONE NFsim +
+# monomer-production model, not coupled to the WCM/ParCa, so it has no prerequisite
+# among the other studies. Its real prerequisite is the pbg-nfsim install. Coupling
+# it into the WCM (so the SUM-gate would feed it) is the future edge that would make
+# it depend on 02/03.
+pipeline_gate:
+  prerequisites: []
+  enables: []
+
 status: in_progress
 phase: Simulate
 
@@ -20,7 +33,51 @@ implementation_status: complete    # pbg-nfsim installed; driver brings in the e
 simulation_status: ran             # production+complexation run, complete flagella assembled
 evaluation_status: partial
 gate_status: pending
-expert_review_status: not_requested
+expert_review_status: requested    # Maya Abdalla reviewed 2026-07-24 (feedback imported)
+
+# Standalone NFsim run — NOT emitted to the Simulations DB (no WCM composite / emitter).
+runs:
+- name: nfsim-flagella-assembly-2400s
+  kind: analysis
+  canonical: true
+  description: standalone pbg-nfsim + monomer-production composite, 2400 s (not WCM-coupled, not in the Simulations DB)
+  status: completed
+  result: PASS
+  outcomes:
+    ordered-assembly:
+      result: CONFIRMED
+      detail: "export=2, motor=1, hook=12, complete flagella=9 at 2400 s"
+
+findings:
+- id: flagella-04-bionetgen-runs
+  kind: computational
+  status: confirms
+  statement: >-
+    The pbg-nfsim NFSimProcess runs the flagella BNGL (237 rules, 7 sequential
+    reactions) under BioNetGen and returns observable trajectories (MODEL runs).
+  evidence:
+    observed: "BioNetGen executes; observable trajectories returned over the 2400 s run"
+    expected: "NFsim wraps the flagella_complexation.bngl model and produces observables"
+- id: flagella-04-ordered-assembly
+  kind: computational
+  status: confirms
+  statement: >-
+    Assembly intermediates appear in order (export apparatus -> motor -> hook) and
+    complete flagella accumulate — the ordered, conditional construction that a plain
+    Gillespie complexation cannot enforce (BIOLOGY-level: just-in-time hierarchy).
+  evidence:
+    observed: "2400 s: export=2, motor=1, hook=12, complete flagella=9, appearing in assembly order"
+    expected: "basal body before hook before filament; complete flagella accumulate"
+- id: flagella-04-not-wcm-coupled
+  kind: computational
+  status: inconclusive
+  statement: >-
+    This is a STANDALONE assembly model — it is not yet coupled into the WCM, so it
+    does not test whether SUM-gate-regulated monomer supply drives ordered assembly
+    end to end. That coupling is the unstarted full Aim 2B.
+  evidence:
+    observed: "monomers fed by a simple MonomerProduction step, not by WCM transcription"
+    expected: "full Aim 2B would replace ecoli-complexation inside the WCM with NFsim"
 
 visualizations:
 - address: image:charts/01_nfsim_assembly.svg

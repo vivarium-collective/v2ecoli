@@ -84,6 +84,37 @@ biological_story: |
   investigation embeds that gate in the whole-cell model so flagellar expression is
   governed mechanistically rather than by hand-tuned overrides.
 
+study_order:
+  # The studies DO have an ordering dependence (rendered per-study as pipeline_gate
+  # prerequisites/enables). Two arms under one ParCa cache:
+  #   TRANSCRIPTION ARM (Aim 2A):  parca -> 01 -> 02 -> 03
+  #     01 (byte-neutral baseline + overexpression reference) must land first — it is
+  #        the control every regulated result is measured against.
+  #     02 (SUM-gate writes Class II>III overrides) builds on that baseline.
+  #     03 (FlgM secretion gate + FliA feedback) closes the loop 02 opens, so it
+  #        depends on 02's cascade being wired.
+  #   ASSEMBLY ARM (Aim 2B):  04 (NFsim) runs PARALLEL / standalone — no dependency
+  #        on the transcription studies today; it becomes downstream of 02/03 only
+  #        once NFsim is coupled into the WCM (future edge).
+  arms:
+    transcription: [flagella-01-overexpression-baseline, flagella-02-sumgate-cascade, flagella-03-flgm-flia-feedback]
+    assembly: [flagella-04-nfsim-assembly]
+
+report_cards_status:
+  # Answer to "report cards?": the flagella studies have NONE yet, and generating
+  # real ones (like the v2ecoli-vecoli-comparison config/standard/statistical cards)
+  # requires a scoring harness + acceptance BANDS, which flagella does not have — the
+  # cascade has no vEcoli-comparison target and no literature-calibrated bands wired.
+  # We deliberately did NOT fabricate cards. Instead each study now carries structured
+  # `findings` (with observed/expected evidence) + `runs` as its evidence surface.
+  # Proposed card axes once bands exist (a science input from Maya):
+  #   01: feature-off neutrality (0 overrides), unregulated flagella count vs biological target
+  #   02: Class II>III override ratio, onset-lag (needs low-IC), cross-generation stability
+  #   03: FlgM depletion fraction, free-FliA fold-change vs a literature band
+  #   04: assembly-order correctness, complete-flagella yield vs expected
+  proposed: true
+  blocking_input: literature/vEcoli acceptance bands for the axes above
+
 glossary:
   # Plain-language definitions for reviewers (from Maya's 2026-07-24 review).
   - term: "features=[]  /  features=['flagella_regulation']"

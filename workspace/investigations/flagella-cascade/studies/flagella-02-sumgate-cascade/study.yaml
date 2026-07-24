@@ -1,6 +1,10 @@
-schema_version: 3
+schema_version: 4
 name: flagella-02-sumgate-cascade
 title: "Aim 2A — Kalir & Alon SUM-gate: Class II -> Class III temporal ordering"
+question: >-
+  When the flagella_regulation SUM-gate is ON, does Class II promoter activity
+  rise before and stay above Class III (the Kalir & Alon temporal order), and does
+  that ordering survive a cell division?
 description: |
   Core of Maya's Specific Aim 2A. Runs the baseline composite with the opt-in
   `flagella_regulation` feature and asks whether the Kalir & Alon (Cell 2004)
@@ -9,6 +13,16 @@ description: |
 topic: regulation
 tags: [flagella, transcription-regulation, kalir-alon, sum-gate, classII, classIII, sigma28, flhDC, aim2a, ported-from-vecoli-biofilm]
 created: '2026-06-20'
+
+# Where this study sits in the investigation DAG (renders as prerequisites/enables).
+# 02 depends on 01's byte-neutral baseline (the reference it is measured against) and
+# on the ParCa cache; it enables 03 (the FlgM feedback that gates the Class III onset).
+pipeline_gate:
+  prerequisites:
+  - parca
+  - flagella-01-overexpression-baseline
+  enables:
+  - flagella-03-flgm-flia-feedback
 
 status: in_progress
 phase: Evaluate
@@ -24,6 +38,51 @@ simulation_status: ran             # completed 600 s run persisted to the Simula
 evaluation_status: partial
 gate_status: pending
 expert_review_status: requested    # Maya Abdalla reviewed 2026-07-24 (feedback imported)
+
+# Tracked simulations backing this study's figures (Simulations DB).
+runs:
+- name: flagella-02-sumgate-cascade__regON__seed0__600s
+  kind: simulation
+  canonical: true
+  description: baseline composite, features=[flagella_regulation], seed 0, out/cache_full, 600 s
+  status: completed
+  result: PASS
+  outcomes:
+    classII-above-classIII:
+      result: CONFIRMED
+      detail: "Class II mean override 3.83e-4 > Class III 3.04e-4 throughout the run"
+
+findings:
+- id: flagella-02-gate-writes-overrides
+  kind: computational
+  status: confirms
+  statement: >-
+    With the feature ON the Kalir & Alon SUM-gate writes nonzero init_prob_override
+    onto the flagella Class II/III promoters within the first ticks, and
+    transcript_initiation substitutes it where > 0 — the MODEL mechanism fires.
+  evidence:
+    observed: "17 nonzero promoter overrides after 10 s (feature ON)"
+    expected: "nonzero overrides on the 7 Class II + 9 Class III flagellar TUs once the gate is wired"
+- id: flagella-02-classII-before-classIII
+  kind: computational
+  status: confirms
+  statement: >-
+    Mean Class II init_prob_override sits above Class III for the whole run and the
+    ordering is re-established after a cell division — the experimentally observed
+    Class II -> Class III hierarchy (BIOLOGY-level success).
+  evidence:
+    observed: "600 s single-gen: Class II 3.83e-4 vs Class III 3.04e-4; 2-gen: ordering re-established in the daughter"
+    expected: "Class II (FlhDC-weighted) > Class III (FliA-weighted) — Kalir & Alon, Cell 2004"
+- id: flagella-02-temporal-lag-needs-low-IC
+  kind: computational
+  status: inconclusive
+  statement: >-
+    A clean TEMPORAL lag (Class III rising later, not merely lower) is not resolved
+    from the default already-flagellated cache — only the magnitude ordering is; the
+    onset delay needs a low-flagella initial condition (demonstrated in flagella-03).
+  evidence:
+    observed: "default cache starts ~30 flagella + high FliA/FlgM, so Class III is already partly active at t=0"
+    expected: "Class III ~ 0 until FlgM export frees FliA — visible only from a pre-assembly start"
 
 visualizations:
 - address: image:charts/01_sumgate_classII_classIII.svg

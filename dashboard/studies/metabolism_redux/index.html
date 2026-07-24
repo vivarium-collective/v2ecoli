@@ -402,8 +402,8 @@
         
         
         <p style="margin:0">
-          <strong>2</strong> tests defined —
-            <span class="classification-pill classification-primary">2 primary</span>
+          <strong>3</strong> tests defined —
+            <span class="classification-pill classification-primary">3 primary</span>
           <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
         </p>
       </div>
@@ -561,13 +561,13 @@
           <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 baseline.baseline ↗</button></td>
           <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>basal</code></span> <span class="cond-pill"><span class="cond-pill-k">swap</span>=<code>ecoli-metabolism-redux</code></span> </td>
           <td style="vertical-align:top" class="muted small">2 run(s)</td>
-          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">pending</span></td>
+          <td style="vertical-align:top"><span class="sim-status-pill sim-status-ran">recorded</span></td>
         </tr>
       
       </tbody>
     </table>
     
-    <p class="muted small" style="margin-top:6px">2 recorded run(s): <code>metabolism_redux-comparison</code> (pending), <code></code> (pending)</p>
+    <p class="muted small" style="margin-top:6px">2 recorded run(s): <code>metabolism_redux-comparison</code> (—), <code></code> (completed)</p>
   </div>
   
 
@@ -580,7 +580,7 @@
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
       <strong style="font-size:1.05em">metabolism_redux-baseline</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <span class="sim-status-pill sim-status-completed">completed</span>
       <span class="muted" style="font-size:0.85em">condition: basal</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
@@ -595,7 +595,7 @@
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 2 · 
+      <strong>Tests applied:</strong> 3 · 
       <strong>Runs recorded:</strong> 2 (<code>metabolism_redux-comparison</code>)
     </p>
     
@@ -663,7 +663,7 @@
           <td style="font-size:0.85em;white-space:nowrap"></td>
           <td style="font-size:0.85em;white-space:nowrap"></td>
           <td>
-            <span class="run-status run-status-pending">pending</span>
+            <span class="run-status run-status-"></span>
             
           </td>
           
@@ -707,7 +707,7 @@
           <td style="font-size:0.85em;white-space:nowrap"></td>
           <td style="font-size:0.85em;white-space:nowrap"></td>
           <td>
-            <span class="run-status run-status-pending">pending</span>
+            <span class="run-status run-status-completed">completed</span>
             
           </td>
           
@@ -855,7 +855,7 @@
         <strong style="font-size: 0.9em;">config-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli&#39;s MetabolismRedux config on basal (config card)?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux (config card)?</div>
       
       
       
@@ -885,12 +885,42 @@
         <strong style="font-size: 0.9em;">standard-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli&#39;s MetabolismRedux dynamics on basal (standard card)?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux (standard card)?</div>
+      
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-statistical-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="statistical-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">statistical-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux (statistical card)?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux", "group": "standard", "kind": "report_card_axis"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux", "group": "statistical", "kind": "report_card_axis"}
 expect:  null</pre>
       </details>
       
@@ -1029,7 +1059,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/feat/statistical-gold-standard" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
 window._studyName = "metabolism_redux";

@@ -2,6 +2,6 @@
   "mode": "snapshot",
   "smsApiBase": "",
   "repo": "https://github.com/vivarium-collective/v2ecoli",
-  "commit": "5acf68df637013ae9008a83dd2c755e7e3da0e49",
-  "generated_from_ref": "main"
+  "commit": "01a4d921374054a716799990072a69ed5abd21f5",
+  "generated_from_ref": "feat/statistical-gold-standard"
 }

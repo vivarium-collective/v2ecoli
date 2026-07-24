@@ -190,7 +190,7 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">failed</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
@@ -210,7 +210,7 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">v2ecoli reproduces vEcoli biomass on succinate within tolerance; RNA mass (fg), growth rate (1/s) diverge (mismatch).
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">RESOLVED. Succinate was a borderline drift (growth +18.0%, p=0.06). After the fix v2ecoli reproduces vEcoli natively: growth drift halved and flipped to -6.6% (p=0.44, not significant), RNA/cell/dry now within tolerance (4/5 within_tol). The residual growth sits just outside +/-5% but is non-significant, at basal noise. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
@@ -239,7 +239,7 @@
       
       <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
         <em>Derived from findings (shown in the report when no override is set):</em>
-        <p style="margin:4px 0 0">v2ecoli reproduces vEcoli biomass on succinate within tolerance; RNA mass (fg), growth rate (1/s) diverge (mismatch).</p>
+        <p style="margin:4px 0 0">RESOLVED. Succinate was a borderline drift (growth +18.0%, p=0.06). After the fix v2ecoli reproduces vEcoli natively: growth drift halved and flipped to -6.6% (p=0.44, not significant), RNA/cell/dry now within tolerance (4/5 within_tol). The residual growth sits just outside +/-5% but is non-significant, at basal noise. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.</p>
       </div>
       
     </div>
@@ -272,20 +272,20 @@
       
       
       
-      <div class="finding-card finding-kind-computational finding-status-contradicts">
+      <div class="finding-card finding-kind-computational finding-status-confirms">
         <div class="finding-header">
-          <span class="finding-status-glyph">✗</span>
-          <span class="finding-id">succinate-standard</span>
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">succinate-rpobc-fix</span>
           <span class="finding-kind">computational</span>
-          <span class="finding-status-text">contradicts literature</span>
+          <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">v2ecoli reproduces vEcoli biomass on succinate within tolerance; RNA mass (fg), growth rate (1/s) diverge (mismatch).</div>
+        <div class="finding-statement">RESOLVED. Succinate was a borderline drift (growth +18.0%, p=0.06). After the fix v2ecoli reproduces vEcoli natively: growth drift halved and flipped to -6.6% (p=0.44, not significant), RNA/cell/dry now within tolerance (4/5 within_tol). The residual growth sits just outside +/-5% but is non-significant, at basal noise. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.</div>
         
         
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> 3 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg); max median |Δ|=4.1%); RNA mass (fg): drift (median |Δ|=6.4%); growth rate (1/s): mismatch (median |Δ|=10.2%) · 
+          <strong>observed:</strong> before -&gt; after fix (4-seed gen-1, Welch t): growth +18.0% (p=0.06) -&gt; -6.6% (p=0.44, not significant); RNA +12.9% drift -&gt; -2.2% within_tol; cell +8.3% drift -&gt; -1.3% within_tol; dry +8.3% -&gt; -1.4% within_tol; protein +1.7% -&gt; -0.8% within_tol. Overall drift -&gt; drift (now 4/5 within_tol, non-significant). · 
           
           
           
@@ -402,8 +402,8 @@
         
         
         <p style="margin:0">
-          <strong>2</strong> tests defined —
-            <span class="classification-pill classification-primary">2 primary</span>
+          <strong>3</strong> tests defined —
+            <span class="classification-pill classification-primary">3 primary</span>
           <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
         </p>
       </div>
@@ -591,7 +591,7 @@
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 2 · 
+      <strong>Tests applied:</strong> 3 · 
       <strong>Runs recorded:</strong> 2 (<code>succinate-comparison</code>)
     </p>
     
@@ -673,8 +673,8 @@
                 
               
               
-              <span class="fail" title="authored fail">✗ 1</span>
               
+              <span class="muted">—</span>
               <span class="muted" style="font-size:0.85em"> (authored)</span>
             
           </td>
@@ -763,6 +763,105 @@
     </div>
 
     
+    
+    <div class="embed-viz-section" style="margin-bottom:24px">
+      <h3 class="section-title">Embedded visualizations</h3>
+      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+        Self-contained HTML pages produced by the study's runner. Each iframe
+        below is a standalone artefact you can also open in a separate tab.
+      </p>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">00-succinate-observables</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/succinate/00-succinate-observables.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/00-succinate-observables.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="00-succinate-observables"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">01-fix-headline</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/succinate/01-fix-headline.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (9 KB) from reports/figures/succinate/.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/01-fix-headline.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="01-fix-headline"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">02-growth-before-after</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/succinate/02-growth-before-after.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/02-growth-before-after.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="02-growth-before-after"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">03-rna-before-after</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/succinate/03-rna-before-after.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/03-rna-before-after.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="03-rna-before-after"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">04-rnap-rootcause</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/succinate/04-rnap-rootcause.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/04-rnap-rootcause.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="04-rnap-rootcause"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">05-nutrient-gradient</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/succinate/05-nutrient-gradient.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/05-nutrient-gradient.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="05-nutrient-gradient"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
     
 
     <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
@@ -883,29 +982,59 @@
         
         data-pytest-node="standard-vs-vecoli"
         data-classification="primary"
-        data-result="FAIL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">standard-vs-vecoli</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on succinate (standard card)?</div>
       
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-statistical-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="statistical-vs-vecoli"
+        data-classification="primary"
+        data-result="WITHIN_TOL"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">statistical-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on succinate (statistical card)?</div>
+      
       <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
         <strong>Latest result:</strong>
         
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: report card &#39;standard&#39;: mismatch</code>
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: report card &#39;statistical&#39;: ungraded</code>
         
       </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/succinate", "group": "standard", "kind": "report_card_axis"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/succinate", "group": "statistical", "kind": "report_card_axis"}
 expect:  null</pre>
       </details>
       
@@ -1044,7 +1173,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/feat/statistical-gold-standard" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
 window._studyName = "succinate";

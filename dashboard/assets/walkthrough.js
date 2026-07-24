@@ -245,6 +245,39 @@
   }
   window._studyHref = _studyHref;
 
+  // Size an embedded study iframe to the space actually left below it, instead
+  // of the hardcoded calc(100vh - 220px) guess at how tall the chrome above is.
+  // That guess was ~150px short on a 1000px viewport: an 850px porthole onto a
+  // 2100px report, so the report's scrollbar sat inside the page's scrollbar
+  // with a strip of dead space under it. These embeds keep their OWN scroll
+  // context on purpose (the study's .study-tabs are position:sticky and stick to
+  // the iframe's top), so the fix is to make the porthole reach the bottom of
+  // the window — not to auto-grow the iframe, which would strand the tabs.
+  // `panel` is the embed's wrapper (header + iframe). Measuring the header
+  // WITHIN the panel keeps this independent of scroll position — reading the
+  // frame's viewport top instead would race the smooth scrollIntoView that
+  // opens the embed and, mid-flight, compute a negative height that clamps to
+  // the minimum (the bug this replaced).
+  function _fitEmbedToViewport(frame, panel, minH) {
+    if (!frame) return;
+    var fit = function () {
+      if (!frame.isConnected) return;
+      var chrome = 0;
+      if (panel) {
+        var pr = panel.getBoundingClientRect(), fr = frame.getBoundingClientRect();
+        chrome = Math.max(0, Math.round(fr.top - pr.top));   // the embed's own header
+      }
+      var h = Math.max(minH || 480, Math.round(window.innerHeight - chrome - 24));
+      frame.style.height = h + 'px';
+    };
+    fit();
+    if (!frame._fitBound) {
+      window.addEventListener('resize', fit);
+      frame._fitBound = true;
+    }
+  }
+  window._fitEmbedToViewport = _fitEmbedToViewport;
+
   function _openStudyEmbedded(name) {
     if (!name) return;
     var frame = document.getElementById('study-detail-frame');
@@ -263,6 +296,7 @@
     if (nameEl) nameEl.textContent = name;
     window._studyDetailCurrent = name;
     panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+    _fitEmbedToViewport(frame, panel, 560);
   }
   window._openStudyEmbedded = _openStudyEmbedded;
 
@@ -775,8 +809,13 @@
       var bibId = 'bibtex-' + (key || Math.random().toString(36).slice(2));
       bibBlock = '<details style="margin-top:6px">' +
         '<summary style="cursor:pointer;font-size:0.82em;color:#475569">BibTeX</summary>' +
+        // Wrap instead of scroll: a BibTeX entry's `title = {…}` line runs
+        // 200-400px past the panel, and overflow:auto turned every reference
+        // into its own horizontal scrollbar. Wrapping costs a line and removes
+        // the scrollbar entirely.
         '<pre id="' + _esc(bibId) + '" style="background:#f8fafc;border:1px solid #e2e8f0;' +
-        'border-radius:4px;padding:8px;font-size:0.78em;overflow:auto;margin:6px 0">' +
+        'border-radius:4px;padding:8px;font-size:0.78em;margin:6px 0;' +
+        'white-space:pre-wrap;overflow-wrap:anywhere">' +
         _esc(bibtex) + '</pre>' +
         '<button class="action-btn" style="font-size:0.78em;padding:1px 8px" ' +
         'onclick="_copyBibtex(\'' + _esc(bibId) + '\', this)">Copy BibTeX</button>' +
@@ -4944,18 +4983,44 @@
     _filterInvestigations();
   }
 
-  // Client-side filter for the landing list: matches the query against each
-  // card's title + slug + status (data-attrs), updates per-group counts, hides
-  // empty groups, and toggles the "no matches" line. No re-fetch, no re-render.
+  // Client-side filter for the Investigations landing list. UNIFIED with the
+  // side-rail studies search (same _tokensMatch engine, same AND-first/OR-
+  // fallback): an investigation card shows when the investigation itself OR any
+  // of its member studies matches — so searching "basal" surfaces the
+  // v2ecoli-vEcoli comparison investigation via its `basal` study. Updates
+  // per-group counts, hides empty groups, toggles the "no matches" line.
   function _filterInvestigations() {
     var input = document.getElementById('investigations-filter');
-    var q = ((input && input.value) || '').trim().toLowerCase();
+    var tokens = _tokenize(input && input.value);
+    var cards = document.querySelectorAll('#investigations-list .investigation-set-card');
+
+    // iset slug -> member study objects, for study-aware matching.
+    var studiesByIset = {};
+    (window._isetIndex || []).forEach(function(iset) {
+      studiesByIset[iset.name] = (iset.studies || [])
+        .map(function(slug) {
+          return (window._investigations || []).find(function(s) { return s.name === slug; });
+        }).filter(Boolean);
+    });
+
+    function _cardMatches(card, requireAll) {
+      var slug = card.getAttribute('data-iset-slug') || '';
+      var title = card.getAttribute('data-iset-title') || '';
+      var status = card.getAttribute('data-iset-status') || '';
+      if (_tokensMatch(_searchHay([title, slug, status]), tokens, requireAll)) return true;
+      return (studiesByIset[slug] || []).some(function(s) {
+        return _tokensMatch(_studyHay(s, title), tokens, requireAll);
+      });
+    }
+
+    // AND-first, OR-fallback across investigations AND their studies.
+    var requireAll = !!tokens.length && Array.prototype.some.call(cards, function(c) {
+      return _cardMatches(c, true);
+    });
+
     var anyVisible = false;
-    document.querySelectorAll('#investigations-list .investigation-set-card').forEach(function(card) {
-      var hay = (card.getAttribute('data-iset-title') || '') + ' ' +
-                (card.getAttribute('data-iset-slug') || '') + ' ' +
-                (card.getAttribute('data-iset-status') || '');
-      var show = !q || hay.indexOf(q) !== -1;
+    cards.forEach(function(card) {
+      var show = !tokens.length || _cardMatches(card, requireAll);
       card.style.display = show ? '' : 'none';
       if (show) anyVisible = true;
     });
@@ -6281,6 +6346,7 @@
     if (nameEl) nameEl.textContent = name;
     panel.style.display = '';
     panel.scrollIntoView({behavior: 'smooth', block: 'start'});
+    _fitEmbedToViewport(frame, panel, 600);
   }
   window._openStudyInsideInvestigation = _openStudyInsideInvestigation;
 
@@ -12128,16 +12194,85 @@
         + '</div>';
     }
 
+    // Live study-search filter (the #viv-rail-study-search input). Token-AND
+    // over a broad per-study haystack (name/title/objective/tags + the group
+    // title), so e.g. "basal simulation" finds the `basal` study in the
+    // v2ecoli-vEcoli comparison investigation. While searching, non-matching
+    // groups are hidden and matching groups are force-expanded so hits show.
+    var q = (window._railStudyQuery || '').trim().toLowerCase();
+    var tokens = q ? q.split(/\s+/) : [];
+    var searching = tokens.length > 0;
+
+    // AND-first, OR-fallback. Prefer studies matching EVERY token (precise); but
+    // if nothing matches all tokens, fall back to matching ANY token so a natural
+    // phrase like "basal simulation" still surfaces the `basal` study even when
+    // "simulation" appears in none of its fields.
+    var requireAll = searching && ordered.some(function(g) {
+      return g.studies.some(function(s) { return _studyMatchesQuery(s, g.title, tokens, true); });
+    });
+
     var html = ordered.map(function(g, i) {
-      // With no active investigation, open the first group so the rail isn't
+      var studies = g.studies;
+      if (searching) {
+        studies = g.studies.filter(function(s) {
+          return _studyMatchesQuery(s, g.title, tokens, requireAll);
+        });
+        if (!studies.length) return '';   // hide groups with no match
+        g = { name: g.name, title: g.title, studies: studies, _ungrouped: g._ungrouped };
+      }
+      // While searching, force groups open so matches are visible. Otherwise:
+      // with no active investigation, open the first group so the rail isn't
       // entirely collapsed on load.
-      return _railGroupHtml(g, !hasActive && i === 0);
+      return _railGroupHtml(g, searching || (!hasActive && i === 0));
     }).join('');
+
+    if (!html && searching) {
+      html = '<div class="viv-rail-empty" style="font-size:0.85em;color:#94a3b8;'
+           + 'padding:6px 14px;font-style:italic">No studies match “' + _esc(q) + '”.</div>';
+    }
 
     host.innerHTML = html
       || '<div class="viv-rail-empty" style="font-size:0.85em;color:#94a3b8;'
        + 'padding:6px 14px;font-style:italic">No studies yet.</div>';
   }
+
+  // A study matches the rail search when EVERY whitespace-delimited token of the
+  // query is a substring of its combined searchable text (study fields + the
+  // investigation/group title it's rendered under). Broad + forgiving on purpose.
+  // ── Shared search engine ────────────────────────────────────────────
+  // ONE implementation for every search box (side-rail studies, Investigations
+  // tab, Studies grid) so behaviour never diverges. Token match with the caller
+  // deciding AND (requireAll) vs OR across its candidate set — enabling the
+  // AND-first/OR-fallback pattern used everywhere.
+  function _tokenize(q) {
+    q = String(q || '').trim().toLowerCase();
+    return q ? q.split(/\s+/) : [];
+  }
+  function _searchHay(parts) {
+    return parts.filter(Boolean).map(String).join(' ').toLowerCase();
+  }
+  function _tokensMatch(hay, tokens, requireAll) {
+    if (!tokens || !tokens.length) return true;
+    return requireAll
+      ? tokens.every(function(t) { return hay.indexOf(t) !== -1; })
+      : tokens.some(function(t) { return hay.indexOf(t) !== -1; });
+  }
+  // A study's searchable haystack (+ optional extra text, e.g. its group title).
+  function _studyHay(s, extra) {
+    return _searchHay([s.name, s.title, s.slug, s.objective, s.question,
+      s.description, s.summary, s.status,
+      Array.isArray(s.tags) ? s.tags.join(' ') : '', extra]);
+  }
+
+  function _studyMatchesQuery(s, groupTitle, tokens, requireAll) {
+    return _tokensMatch(_studyHay(s, groupTitle), tokens, requireAll);
+  }
+
+  // Study-search input handler: store the query and re-render the rail groups.
+  window._filterRailStudies = function(value) {
+    window._railStudyQuery = String(value || '');
+    _renderRailInvestigationGroups();
+  };
 
   // Per-workspace localStorage key for the remembered investigation. The URL
   // path differs per hosted workspace (base-path), so it namespaces cleanly.
@@ -12238,16 +12373,16 @@
     var grid = document.getElementById('investigations-grid');
     if (!grid) return;
     var f = window._investigationsFilter;
-    var q = f.search.toLowerCase();
     var dag = _buildInvestigationDag(window._investigations);
     window._investigationsChildren = dag.children;
     window._investigationsDepth = dag.depth;
+    // Same shared engine + AND-first/OR-fallback as the rail / Investigations tab.
+    var tokens = _tokenize(f.search);
+    var requireAll = !!tokens.length && window._investigations.some(function(inv) {
+      return _tokensMatch(_studyHay(inv), tokens, true);
+    });
     var filtered = window._investigations.filter(function(inv) {
-      if (q) {
-        var hay = (inv.name + ' ' + (inv.description || '') + ' ' +
-                    (inv.tags || []).join(' ')).toLowerCase();
-        if (hay.indexOf(q) < 0) return false;
-      }
+      if (tokens.length && !_tokensMatch(_studyHay(inv), tokens, requireAll)) return false;
       if (f.tags.size > 0) {
         var match = (inv.tags || []).some(function(t) { return f.tags.has(t); });
         if (!match) return false;
@@ -14862,12 +14997,38 @@
     var studyVal = studySel ? studySel.value : '';
     var emitterVal = emitterSel ? emitterSel.value : '';
 
+    // Dropdown filters first (Investigation / Study / Emitter).
     var visible = rows.filter(function (r) {
       if (invVal && _simInvestigation(r) !== invVal) return false;
       if (studyVal && _simStudy(r) !== studyVal) return false;
       if (emitterVal && (r.emitter_type || 'SQLite') !== emitterVal) return false;
       return true;
     });
+
+    // Free-text search (#sim-text-filter) over each run's searchable fields
+    // (study, investigation, run name/label/id, spec, status, emitter, origin),
+    // combined with the dropdowns above. AND-first, OR-fallback: prefer runs
+    // matching EVERY token; if none do, match ANY token so a natural phrase
+    // still surfaces relevant runs.
+    var textEl = document.getElementById('sim-text-filter');
+    var textTokens = textEl && textEl.value.trim()
+      ? textEl.value.trim().toLowerCase().split(/\s+/) : [];
+    if (textTokens.length) {
+      var _simHay = function (r) {
+        return [
+          _simStudy(r), _simInvestigation(r), r.status, r.emitter_type,
+          _simOriginLabel(r), r.sim_name, r.label, r.run_id, r.spec_id
+        ].filter(Boolean).join(' ').toLowerCase();
+      };
+      var andRows = visible.filter(function (r) {
+        var h = _simHay(r);
+        return textTokens.every(function (t) { return h.indexOf(t) !== -1; });
+      });
+      visible = andRows.length ? andRows : visible.filter(function (r) {
+        var h = _simHay(r);
+        return textTokens.some(function (t) { return h.indexOf(t) !== -1; });
+      });
+    }
 
     visible = _sortSimRows(visible, _simSortState.key, _simSortState.dir);
 
@@ -14903,6 +15064,9 @@
       }
     }
   }
+
+  // Exposed for the #sim-text-filter input's inline oninput handler.
+  window._applySimFilter = _applySimFilter;
 
   // Rebuild the Study + Emitter <select> option lists from the current data.
   function _populateSimFilters() {

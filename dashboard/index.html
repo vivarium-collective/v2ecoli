@@ -364,6 +364,8 @@ window.addEventListener('pageshow', function (e) {
   font-size: 11px; color: #6b7280; margin-top: 2px;
 }
 .viv-iset-menu-row-current-tag { color: #1e40af; font-weight: 600; font-family: inherit; }
+.viv-iset-menu-row-newtab { color: #9ca3af; font-size: 12px; margin-left: 2px; flex: 0 0 auto; }
+.viv-iset-menu-row:hover .viv-iset-menu-row-newtab { color: #2563eb; }
 .viv-iset-menu-loading, .viv-iset-menu-empty, .viv-iset-menu-error {
   padding: 10px 12px; color: #6b7280; font-size: 12px;
 }
@@ -431,7 +433,7 @@ window.addEventListener('pageshow', function (e) {
         <span class="viv-workspace-switcher-glyph">●</span>
         <span class="viv-ws-text">
           <strong>v2ecoli</strong>
-          <span class="viv-ws-branch" title="v2ecoli · branch: main">main</span>
+          <span class="viv-ws-branch" title="v2ecoli · branch: feat/statistical-gold-standard">feat/statistical-gold-standard</span>
         </span>
       </div>
     </div>
@@ -558,6 +560,14 @@ window.addEventListener('pageshow', function (e) {
     <!-- Studies of the active investigation, dependency-ordered. -->
     <div class="viv-rail-section" id="viv-rail-studies-section">
       <div class="viv-rail-section-label">Studies</div>
+      <!-- Live study search: filters the grouped-by-investigation list below.
+           Lives OUTSIDE #viv-rail-investigations (which is re-rendered on every
+           keystroke) so the input keeps focus. -->
+      <input id="viv-rail-study-search" type="search" placeholder="Search studies…"
+             autocomplete="off" spellcheck="false" aria-label="Search studies"
+             oninput="window._filterRailStudies && window._filterRailStudies(this.value)"
+             style="width:calc(100% - 24px);margin:2px 12px 6px;padding:4px 8px;font-size:0.82em;
+                    color:#374151;border:1px solid #e5e7eb;border-radius:4px;background:#fff;box-sizing:border-box;" />
       <div id="viv-rail-investigations">
         <p class="viv-rail-empty" style="font-size:0.85em;color:#9ca3af;padding:4px 12px">Loading…</p>
       </div>
@@ -732,12 +742,15 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: STUDIES ===== -->
 <section id="page-investigations" class="page" data-page="investigations">
-  <div style="display:flex;align-items:center;justify-content:flex-end;gap:12px">
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="investigations-filter" type="search" placeholder="Filter investigations…"
-             aria-label="Filter investigations" oninput="_filterInvestigations()"
-             style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;min-width:220px">
-    </div>
+  <!-- Prominent unified search: matches investigations AND their studies (same
+       engine as the side-rail studies search — see _filterInvestigations). -->
+  <div style="margin:0 0 16px">
+    <input id="investigations-filter" type="search"
+           placeholder="Search investigations and studies…"
+           aria-label="Search investigations and studies" oninput="_filterInvestigations()"
+           style="width:100%;box-sizing:border-box;padding:11px 16px;border:1px solid #d1d5db;
+                  border-radius:10px;font-size:1.05em;background:#fff;
+                  box-shadow:0 1px 2px rgba(0,0,0,0.04);">
   </div>
 
   <!-- List view: grouped investigation cards (Active / Closed). The grid lives on
@@ -1082,6 +1095,11 @@ window.addEventListener('pageshow', function (e) {
   </p>
 
   <div style="margin: 8px 0 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+    <input id="sim-text-filter" type="search" placeholder="Search runs…"
+           autocomplete="off" spellcheck="false" aria-label="Search simulations"
+           oninput="window._applySimFilter && window._applySimFilter()"
+           style="padding:5px 10px; font-size:13px; border:1px solid #d1d5db;
+                  border-radius:4px; min-width:180px; flex:1 1 220px; max-width:340px;" />
     <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
       Investigation
       <select id="sim-inv-filter" style="padding:4px 8px; font-size:13px;
@@ -1593,7 +1611,7 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
      DataSource global that renderers call to fetch narrative data.
      local-server mode (default) fetches from the same-origin /api/* endpoints.
      Hosted mode (sub-projects #2/#3) will set a different config here. -->
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/feat/statistical-gold-standard" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script src="/v2ecoli/dashboard/assets/render-helpers.js"></script>
 <script src="/v2ecoli/dashboard/assets/client.js" onerror="/* live mode unavailable */"></script>
@@ -1608,6 +1626,9 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
      for CLI tooling. -->
 <script src="/v2ecoli/dashboard/assets/investigation-switcher.js"></script>
 <script src="/v2ecoli/dashboard/assets/branch-source.js"></script>
+<!-- Encode this tab's workspace materialization state in the favicon + title
+     (session-per-tab): ready / ⏳ preparing / ⚠️ failed. -->
+<script src="/v2ecoli/dashboard/assets/session-status.js"></script>
 <script>
 // Initialize drop zones once walkthrough.js is loaded.
 document.addEventListener("DOMContentLoaded", function() {

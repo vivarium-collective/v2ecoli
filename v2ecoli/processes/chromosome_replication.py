@@ -207,7 +207,7 @@ class ChromosomeReplication(Step):
             "ppi": "Bulk id of pyrophosphate released per polymerized nucleotide.",
             "polymerized_dntp_weights": "Per-dNTP polymerized masses used to compute Δm_DNA per fork.",
             "sequences": "Template DNA sequences the forks polymerize against.",
-            "replication_coordinate": "Genomic coordinates anchoring the replication templates.",
+            "replication_coordinate": "Genomic coordinates anchoring the replication templates (stored at init; unused in this build's update path).",
             "D_period": "C+D-period timer added to global_time to schedule division on a new full chromosome.",
             "no_child_place_holder": "Sentinel domain index marking a chromosome domain with no children yet.",
         },

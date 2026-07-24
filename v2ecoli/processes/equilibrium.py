@@ -149,7 +149,7 @@ class Equilibrium(Step):
             "stoichMatrix": "Stoichiometry matrix S (molecules × reactions) mapping fluxes ν to count changes Δx.",
             "moleculeNames": "Bulk ids of the equilibrium species, in the row order of S.",
             "reaction_ids": "Reaction ids in the column order of S (used to locate the DnaA hydrolysis reaction).",
-            "complex_ids": "Bulk ids of the TF–ligand complex products formed by binding.",
+            "complex_ids": "Bulk ids of the TF–ligand complex products formed by binding (stored at init; unused in this build's update path).",
             "cell_density": "Cell density dividing cell_mass to obtain the volume V for count↔concentration conversion.",
             "n_avogadro": "Avogadro's number N_A converting between counts and molar concentrations.",
             "fluxesAndMoleculesToSS": "Legacy opaque solver returning steady-state counts and fluxes when rates_fn is absent.",

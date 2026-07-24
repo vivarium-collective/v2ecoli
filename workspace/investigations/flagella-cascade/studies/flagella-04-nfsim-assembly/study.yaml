@@ -27,12 +27,21 @@ visualizations:
   chart: charts/01_nfsim_assembly.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-nfsim-assembly/run_nfsim_assembly.py --seconds 2400 --sample 120
   description: |
+    Which model is this? (answers Maya's "NFsim run on what baseline WCM, with or
+    without regulation?"): NEITHER — this is a STANDALONE NFsim + monomer-production
+    composite, NOT coupled to the WCM baseline at all. There is no flagella_regulation
+    on/off here because there is no WCM transcription in this run; monomers are fed by
+    a simple MonomerProduction step and NFsim assembles them. Coupling NFsim into the
+    WCM to replace ecoli-complexation (so regulation would then feed it) is the
+    unstarted next step (full Aim 2B).
     Left — staged appearance of assembly intermediates in assembly order (export
     apparatus -> motor/basal body -> hook -> complete flagellum), the ordered
     hierarchical complexation NFsim enforces and Gillespie cannot. Right — free
-    monomer pools (FliF/FlgE/FliC) feeding the assembled complete flagella. 2400 s
-    composed production+complexation run; final: export=2, motor=1, hook=12,
-    complete flagella=9.
+    monomer pools (FliF/FlgE/FliC) vs assembled complete flagella, now on a SYMLOG
+    y-axis so the handful of complete flagella stay visible against the thousands of
+    free FlgE monomers (Maya's "scale seems unfair" — fixed). 2400 s composed
+    production+complexation run; final: export=2, motor=1, hook=12, complete
+    flagella=9.
 - address: image:charts/02_nfsim_assembly_stacked.svg
   chart: charts/02_nfsim_assembly_stacked.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-nfsim-assembly/run_nfsim_assembly.py --seconds 2400 --sample 120
@@ -76,11 +85,34 @@ behavior_tests:
       and complete flagella accumulate over the run.
     status: passing      # 2400 s run: export=2, motor=1, hook=12, complete flagella=9
 
+success_criteria:
+  model:
+    - The pbg-nfsim NFSimProcess runs the flagella BNGL (237 rules) under BioNetGen
+      and returns observable trajectories (verified).
+    - Assembly intermediates appear in order (export -> motor -> hook) and complete
+      flagella accumulate (verified — 2400 s -> 9 complete flagella).
+  biology:
+    - Rule-based assembly enforces the ordered, conditional dependencies (basal body
+      before hook before filament) that a plain Gillespie complexation cannot — the
+      just-in-time hierarchical construction.
+    - FUTURE (full Aim 2B) — NFsim coupled INTO the WCM replacing ecoli-complexation,
+      so the SUM-gate-driven monomer supply feeds rule-based assembly end to end.
+
+# OPEN DECISION (Maya, 2026-07-24): "Should we make NFsim its own investigation?"
+# Recommendation: keep it here for now as Aim 2B (it shares Maya's Aim-2 framing and
+# the flagellar biology), but split it into a dedicated `flagella-nfsim-assembly`
+# investigation ONCE it is coupled into the WCM — at that point it becomes a distinct
+# methods thread (rule-based vs Gillespie complexation) with its own acceptance
+# criteria, rather than a standalone example. Tracked for the maintainers' call.
+
 notes: |
+  Maya's own note (2026-07-24): "I have not worked on this fully yet" — this study is
+  the least mature of the four; it runs the STANDALONE pbg-nfsim example, and the
+  WCM-coupling is unstarted. Reviews of this study should be read in that light.
+
   Brought in from https://github.com/vivarium-collective/pbg-nfsim (the example
   already existed there). Installed via `uv pip install -e` into the workspace venv
   alongside `bionetgen`. bionetgen 0.8.6 imports the removed
   `pkg_resources.packaging` on Python 3.12 — the driver shims it from the
-  standalone `packaging` package before importing pbg_nfsim. This study runs the
-  NFsim assembly STANDALONE (the example); coupling it into the WCM to replace
-  ecoli-complexation (full Aim 2B) is the next step.
+  standalone `packaging` package before importing pbg_nfsim. Coupling it into the
+  WCM to replace ecoli-complexation (full Aim 2B) is the next step.

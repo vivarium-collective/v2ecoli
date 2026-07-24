@@ -84,6 +84,100 @@ biological_story: |
   investigation embeds that gate in the whole-cell model so flagellar expression is
   governed mechanistically rather than by hand-tuned overrides.
 
+glossary:
+  # Plain-language definitions for reviewers (from Maya's 2026-07-24 review).
+  - term: "features=[]  /  features=['flagella_regulation']"
+    meaning: |
+      The composite's opt-in feature list. Empty [] = regulation OFF (stock WCM).
+      ['flagella_regulation'] = the Kalir & Alon SUM-gate is wired ON. The name
+      flagella_regulation was taken directly from Maya's vEcoli config script.
+  - term: "regulation ON vs OFF"
+    meaning: |
+      ON = the two flagella Steps (SUM-gate + FlgM secretion) are active and writing
+      promoter init_prob_override. OFF = they are not wired at all. Several baseline
+      figures show BOTH (OFF as the reference, ON for comparison) — that is why a
+      "baseline" study can contain an ON trace.
+  - term: "byte-neutral (seam-neutral)"
+    meaning: |
+      With the feature OFF the model output is bit-for-bit identical to pre-port
+      main — the port adds nothing observable until switched on. This is what lets
+      every downstream difference be attributed to the cascade, not the port.
+  - term: "baseline vs variant"
+    meaning: |
+      A study's baseline is its reference composite/config (here, with or without
+      flagella_regulation). A variant is a perturbation OFF that baseline (e.g. a
+      changed rate or initial pool). "No variants run" means only the baseline has
+      been simulated — not that nothing ran.
+  - term: "low-IC (low initial condition)"
+    meaning: |
+      A run seeded from Maya's flagellum_initial_value.json (4 flagella, 500 free
+      FliA, 800 FlgM) instead of the default already-flagellated cache — used to
+      expose the assembly-gated Class II -> III onset the default start hides.
+  - term: "Class I / II / III"
+    meaning: |
+      The flagellar transcription hierarchy. Class I = master regulator FlhD4C2.
+      Class II = hook-basal-body genes + fliA (sigma-28). Class III = filament
+      (fliC), motor (motAB), chemotaxis (cheAW) — fired only after FlgM export
+      frees FliA.
+  - term: "stale"
+    meaning: "Outdated — generated from an earlier cache/run and superseded."
+
+testing_standard:
+  # Maya's review ask: "study 1 had 4 tests, study 2 has 2 — make a 'standards'
+  # testing criteria." Every study's behavior_tests + success_criteria are now
+  # organized into these shared categories so acceptance is comparable across
+  # studies. Tests remain hand-authored (a mix of standard categories + claims
+  # unique to each study); this taxonomy is the standard, not an auto-generator.
+  categories:
+    - id: model-runs
+      description: The composite runs to completion (through division) without error.
+    - id: model-mechanism
+      description: The mechanism does what it is wired to do (e.g. the gate writes
+        overrides; secretion depletes FlgM) — a MODEL-level success.
+    - id: biology-correct
+      description: The behaviour matches the known biology (temporal ordering,
+        bounded FliA, ordered assembly) — a BIOLOGY-level success, Maya's
+        distinction between "the model captured the dynamics" and "the result is
+        biologically what we would call successful."
+    - id: robustness
+      description: The result holds across seeds / generations / initial conditions.
+  two_tier_acceptance: |
+    Each study now carries success_criteria split into `model:` and `biology:`
+    (Maya's idea). Model success = the simulation behaves and the mechanism fires.
+    Biology success = the outcome is what a biologist would accept (ordering across
+    generations, counts toward biological levels, response to perturbation) — often
+    a stated FUTURE target, which keeps model-plumbing wins honest about not yet
+    being biological validation.
+
+open_decisions:
+  - id: nfsim-own-investigation
+    raised_by: MA
+    date: '2026-07-24'
+    question: "Should NFsim (study 04) be its own investigation?"
+    recommendation: |
+      Keep under flagella-cascade as Aim 2B while it is a standalone example; split
+      into a dedicated flagella-nfsim-assembly investigation once it is coupled into
+      the WCM (then it becomes a distinct rule-based-vs-Gillespie methods thread with
+      its own acceptance criteria). Maintainers' call.
+  - id: report-study-differentiation
+    raised_by: MA
+    date: '2026-07-24'
+    question: "Make the studies more visually distinct (bigger fonts / clearer
+      per-study differentiation) in the investigation report."
+    recommendation: |
+      Report-template (vivarium-workbench) change, not a study-yaml change — logged
+      for the dashboard maintainers. Interim mitigation applied here: each study's
+      title + description now leads with its Aim (2A/2B) and a one-line scope so the
+      studies read as distinct sections.
+
+review_log:
+  - reviewer: Maya Abdalla (MA)
+    date: '2026-07-24'
+    source: inline-feedback widget (27 annotations, imported to feedback/)
+    response: |
+      All 27 annotations addressed — see feedback/RESPONSES.md for the
+      point-by-point mapping of each comment to the action taken.
+
 studies:
   - flagella-01-overexpression-baseline
   - flagella-02-sumgate-cascade

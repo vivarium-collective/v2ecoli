@@ -106,9 +106,14 @@ def figure(rec):
 
     for key, label, color in MONOMERS:
         b.plot(t, rec[key], "-", color=color, label=label)
-    b.plot(t, rec["flagella"], "-o", ms=3, color="#d62728", label="complete flagella")
-    b.set_title("Free monomer pools vs assembled flagella")
-    b.set_xlabel("time (min)"); b.set_ylabel("count"); b.legend(fontsize=8)
+    b.plot(t, rec["flagella"], "-o", ms=4, color="#d62728", lw=2, label="complete flagella")
+    # Free monomer pools (thousands of FlgE etc.) dwarf the handful of assembled
+    # flagella on a linear axis — Maya's "scale seems unfair, can't see the complete
+    # flagella." A symlog y-axis keeps the low-count assembled structures legible
+    # alongside the large free-monomer pools.
+    b.set_yscale("symlog", linthresh=10)
+    b.set_title("Free monomer pools vs assembled flagella  (symlog y — pools ≫ flagella)")
+    b.set_xlabel("time (min)"); b.set_ylabel("count (symlog)"); b.legend(fontsize=8)
     fig.tight_layout()
 
     out = f"{STUDY_DIR}/charts/01_nfsim_assembly.svg"

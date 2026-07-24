@@ -11,41 +11,64 @@ tags: [flagella, transcription-regulation, kalir-alon, sum-gate, classII, classI
 created: '2026-06-20'
 
 status: in_progress
-phase: Simulate
+phase: Evaluate
 
 design_status: complete
 implementation_status: complete    # both Steps ported, wired as flagella_regulation feature, cache rebuilt
-simulation_status: partial         # smoke runs OK (feature on writes overrides); timing sweep pending
-evaluation_status: not_evaluated
+simulation_status: ran             # completed 600 s run persisted to the Simulations DB
+                                   # (run flagella-02-sumgate-cascade__regON__seed0__600s,
+                                   # feature ON, out/cache_full); multigen figures also generated.
+                                   # NOTE: this resolves the earlier "says not run but shows plots"
+                                   # contradiction — the figures always came from real runs; the
+                                   # status field simply lagged. It is now a tracked DB run.
+evaluation_status: partial
 gate_status: pending
-expert_review_status: not_requested
+expert_review_status: requested    # Maya Abdalla reviewed 2026-07-24 (feedback imported)
 
 visualizations:
 - address: image:charts/01_sumgate_classII_classIII.svg
   chart: charts/01_sumgate_classII_classIII.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
   description: |
-    Left — mean Class II vs Class III init_prob_override from the Kalir & Alon
-    SUM-gate over 600 s (Class II, FlhDC-weighted, sits above Class III,
-    FliA-weighted). Right — per-gene init_prob_override heatmap (top block: 7
-    Class II TUs incl. flhD/fliA; bottom block: 9 Class III TUs incl. fliC/flgM),
-    showing the gate driving each operon individually.
+    SINGLE generation, 600 s (10 min). Left — mean Class II vs Class III
+    init_prob_override from the Kalir & Alon SUM-gate (Class II, FlhDC-weighted,
+    sits above Class III, FliA-weighted). Right — per-gene init_prob_override
+    heatmap (top block: 7 Class II TUs incl. flhD/fliA; bottom block: 9 Class III
+    TUs incl. fliC/flgM), showing the gate driving each operon individually.
+    On the 600 s window: it is under one doubling time (~40 min ≈ 2400 s), so this
+    figure shows the WITHIN-generation ordering only; the cross-generation view is
+    the multigen figure below (2 generations). A longer single run would mostly
+    re-confirm the same steady ordering — the informative extension is more
+    generations/seeds, which the multigen and (study 01) seed-band figures provide.
 - address: image:charts/02_multigen_classII_classIII.svg
   chart: charts/02_multigen_classII_classIII.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
   description: |
-    Mean Class II vs Class III init_prob_override across TWO generations
-    (generations shaded; division dashed). The Class II > Class III ordering is
-    maintained through the division boundary and re-established in the daughter
-    generation — the SUM-gate is stable across the cell cycle.
+    TWO generations (Maya's read from the shading is correct) — mean Class II vs
+    Class III init_prob_override, generations shaded, division dashed. The
+    Class II > Class III ordering is maintained through the division boundary and
+    re-established in the daughter — the SUM-gate is stable across the cell cycle.
+    On the transient BURSTS (~14 min and ~60 min, Maya's question): they coincide
+    with the division boundaries (dashed lines), not with a steady-state feature.
+    At division the promoter set is re-partitioned to the daughter and the FlhDC /
+    free-FliA pools halve, so the NORMALIZED SUM-gate output takes a few ticks to
+    re-settle — a re-initialization transient, the expected behaviour rather than a
+    gate mis-calculation. It is flagged as a concrete check (see behavior_tests:
+    bursts-are-division-transients) to confirm it tracks division timing exactly and
+    is not a stochastic-rounding artifact in the override write.
 - address: image:charts/03_phase_portrait_X_Y.svg
   chart: charts/03_phase_portrait_X_Y.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
   description: |
-    Phase portrait of the cascade through SUM-gate input space: X = FlhDC activity
-    [FlhDC]/(K+[FlhDC]) vs Y = free-FliA activity [FliA]/(K+[FliA]), colored by time.
-    Shows how the cell moves through (X, Y) as the gate integrates the two master
-    regulators — the bilinear input the SUM-gate acts on.
+    Phase portrait of the cascade through SUM-gate input space. The axes are NOT
+    arbitrary and NOT time (Maya's note): X and Y are the two NORMALIZED activities
+    (each 0–1) that the SUM-gate integrates — X = FlhDC activity [FlhDC]/(K+[FlhDC])
+    (0 = no FlhDC, 1 = saturating), Y = free-FliA activity [FliA]/(K+[FliA])
+    (0 = FliA fully sequestered by FlgM, 1 = saturating). Time is the color; ○ marks
+    birth and ★ the end. The curve is the path the cell traces as the two master
+    regulators rise — the bilinear input the SUM-gate acts on. (For a paper this is
+    the "state-space" view; the plot now pins both axes to [0,1] to make that
+    explicit.)
 
 baseline:
 - name: wcm-flagella-regulation
@@ -83,13 +106,43 @@ behavior_tests:
     caveat: |
       Magnitude ordering (Class II > Class III) holds; a clean temporal LAG needs a
       low-flagella initial condition (the default cache starts flagellated).
+  - id: bursts-are-division-transients
+    statement: |
+      The transient bursts in the multigen mean-override trace (~14 min, ~60 min)
+      occur at the division boundaries and decay within a few ticks — a re-partition
+      transient at division, not a persistent SUM-gate artifact or a stochastic
+      rounding error in the override write.
+    status: untested     # raised in Maya's 2026-07-24 review; hypothesis is a
+                         # division re-initialization transient — needs a run that
+                         # logs division times alongside the override trace to confirm
+                         # the bursts coincide exactly with division.
+
+success_criteria:
+  model:
+    - Feature ON writes nonzero init_prob_override onto the flagella promoters within
+      the first ticks, and transcript_initiation substitutes it (verified).
+    - The regulated composite runs to division without error and the Class II > III
+      ordering is stable across the cell cycle (2 generations shown).
+  biology:
+    - Class II (FlhDC-driven, hook-basal-body + fliA) expression precedes Class III
+      (FliA/sigma-28-driven, fliC/motAB/che) — the Kalir & Alon temporal order.
+    - FUTURE (Maya's biological-success target) — a clean Class II -> III LAG (not
+      just a magnitude ordering) demonstrated across generations from a physiological
+      initial condition, and a demonstrated response to perturbation.
 
 evidence:
   - reports/figures/flagella_cascade/cascade_report.html
 
 notes: |
   Generator: make_cascade_report.py (in this study dir). Ported from Maya Abdalla's
-  vEcoli `biofilm` branch. The default cache starts with ~30 flagella + high
-  FliA/FlgM, so the clearest assembly-gated DELAY is best shown from a low-flagella
-  initial condition (see flagella-03). A --mode full ParCa run is the recommended
-  calibration follow-up before quantitative absolute-expression claims.
+  vEcoli `biofilm` branch.
+
+  Feature-name provenance (confirming Maya's note): YES — the v2ecoli feature name
+  `flagella_regulation` was taken directly from the name of Maya's vEcoli config /
+  run script for this model. Same name on both sides on purpose, so the mapping
+  vEcoli-config -> v2ecoli-feature is obvious.
+
+  The default cache starts with ~30 flagella + high FliA/FlgM, so the clearest
+  assembly-gated DELAY is best shown from a low-flagella initial condition (see
+  flagella-03). A --mode full ParCa run is the recommended calibration follow-up
+  before quantitative absolute-expression claims.

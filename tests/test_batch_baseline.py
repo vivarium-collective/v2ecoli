@@ -393,3 +393,24 @@ def test_runner_declares_no_scheduling_triggers():
     runner = _make_instance(BatchBaselineRunner, {"n_seeds": 1}, build_core())
     assert runner.triggers() == {}
     assert "batch" in runner.inputs()      # still received, just silent
+
+
+def test_batch_ports_use_registered_type_name_for_pbg_roundtrip():
+    """The `batch` port must be declared by its registered type NAME string, not
+    an ``InPlaceDict()`` instance.
+
+    An instance serializes to its repr (``"InPlaceDict(_default=None, ...)"``) in
+    ``to_document``, which is not a parseable type expression — so when the
+    composite is round-tripped as a ``.pbg`` through remote dispatch (workbench
+    export -> sms-api compose -> ``run_pbg`` on Batch), ``Composite()`` dies with
+    ``bigraph_schema`` ``IncompleteParseError``. The registered name
+    ``"inplace_dict"`` (ECOLI_TYPES) round-trips cleanly and resolves back to the
+    ``InPlaceDict`` type via the core.
+    """
+    from v2ecoli.composites._helpers import _make_instance
+    from v2ecoli.core import build_core
+
+    runner = _make_instance(BatchBaselineRunner, {"n_seeds": 1}, build_core())
+    assert runner.inputs()["batch"] == "inplace_dict"
+    assert runner.outputs()["batch"] == "inplace_dict"
+    assert isinstance(runner.inputs()["batch"], str)

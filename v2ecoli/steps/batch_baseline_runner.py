@@ -29,7 +29,6 @@ import os
 from typing import Any, Callable
 
 from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.types.stores import InPlaceDict
 
 
 DEFAULT_N_SEEDS = 4
@@ -398,7 +397,14 @@ class BatchBaselineRunner(Step):
     def inputs(self) -> dict[str, Any]:
         # Read `batch` so the idempotency guard is persistent (survives the
         # dashboard composite-runner rebuilding the Step from the document).
-        return {"batch": InPlaceDict()}
+        # Declare the port by its REGISTERED TYPE NAME ("inplace_dict" in
+        # ECOLI_TYPES), not an `InPlaceDict()` instance: the instance serializes
+        # to its repr in `to_document` (`"InPlaceDict(_default=None, ...)"`),
+        # which the parser can't reparse when the .pbg is round-tripped through
+        # remote dispatch (workbench export -> sms-api compose -> run_pbg on
+        # Batch), failing Composite() with an IncompleteParseError. The name
+        # string round-trips cleanly and resolves back to InPlaceDict via the core.
+        return {"batch": "inplace_dict"}
 
     def triggers(self) -> dict[str, Any]:
         """No trigger ports — ``batch`` is a SILENT input.
@@ -418,7 +424,9 @@ class BatchBaselineRunner(Step):
         return {}
 
     def outputs(self) -> dict[str, Any]:
-        return {"batch": InPlaceDict()}
+        # Registered type name, not an instance — see inputs() for the
+        # serialization round-trip rationale.
+        return {"batch": "inplace_dict"}
 
     def update(self, state, interval=None):
         batch = (state or {}).get("batch") or {}

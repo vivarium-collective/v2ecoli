@@ -21,7 +21,7 @@ runs:
   canonical: true
   description: v2e-compare study succinate
   status: completed
-  result: FAIL
+  result: DRIFT
   outcomes:
     statistical-vs-vecoli:
       result: PENDING
@@ -56,13 +56,20 @@ depends_on:
 - parca
 confidence: Investigating
 findings:
-- id: succinate-standard
+- id: succinate-statistical
   kind: computational
-  status: contradicts
-  statement: v2ecoli reproduces vEcoli biomass on succinate within tolerance; RNA
-    mass (fg), growth rate (1/s) diverge (mismatch).
+  status: partial
+  statement: Under the gold-standard 4-seed statistical grading, succinate is DRIFT
+    (not the single-seed "mismatch"). v2ecoli shows a real ~8% overgrowth trend on
+    succinate (v2 grows more than vEcoli), but it is NOT statistically significant at
+    n=4 — a borderline condition-specific effect worth more seeds, not a confident
+    divergence and not clean reproduction.
   evidence:
-    from_card: standard
+    from_card: statistical
+    observed: '4-seed gen-1 (Welch t-test): protein mass within_tol (Δ+1.7%, p=0.81);
+      cell/dry mass drift (Δ+8.3%, p=0.27); RNA mass drift (Δ+12.9%, p=0.13); growth
+      rate drift (Δ+18.0%, p=0.06, borderline). Overall drift; no axis reaches p<0.05.'
+  _superseded_from_card: standard
     observed: '3 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg);
       max median |Δ|=4.1%); RNA mass (fg): drift (median |Δ|=6.4%); growth rate (1/s):
       mismatch (median |Δ|=10.2%)'

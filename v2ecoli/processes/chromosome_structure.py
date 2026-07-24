@@ -49,6 +49,7 @@ applied to maintain conservation.
 import numpy as np
 import numpy.typing as npt
 import warnings
+from bigraph_schema.contract import ProcessContract
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 # Composer removed
 # Engine removed
@@ -124,6 +125,121 @@ class ChromosomeStructure(Step):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Reconcile the chromosome's structural state with replication-fork motion: resolve "
+            "fork/bound-molecule collisions (removing and recycling passed RNAPs, RNAs and "
+            "ribosomes) and duplicate promoters, genes and DnaA boxes onto the two daughter "
+            "domains as each fork passes them."
+        ),
+        symbols={
+            "c": "genomic coordinate of a promoter/gene/DnaA box (nt from origin)",
+            "pos_prev": "fork position at the previous step (nt)",
+            "pos_new": "fork position after this step (nt); a motif is passed when pos_prev < c ≤ pos_new",
+            "Lk": "linking number of a chromosomal segment (dimensionless)",
+            "Tw": "twist component of the linking number (dimensionless)",
+            "Wr": "writhe component of the linking number (dimensionless)",
+        },
+        inputs={
+            "bulk": (
+                "Reads bulk ids once to resolve indices for every species this step recycles "
+                "(inactive RNAPs, mature RNAs, fragment bases, PPi, 30S/50S subunits, amino acids, "
+                "water, active TFs, DnaA-ATP/ADP)."
+            ),
+            "active_replisomes": (
+                "Reads each fork's domain_index and coordinates to decide which bound molecules the "
+                "forks have passed (the removal window per domain)."
+            ),
+            "chromosome_domains": (
+                "Reads domain_index and child_domains to detect finished domains and to map a passed "
+                "motif onto its two child domains."
+            ),
+            "active_RNAPs": (
+                "Reads domain_index, coordinates, is_forward and unique_index to flag RNAPs the forks "
+                "passed and classify head-on vs co-directional collisions."
+            ),
+            "RNAs": (
+                "Reads TU_index, transcript_length, RNAP_index, is_full_transcript and unique_index to "
+                "find transcripts of collided RNAPs and size the returned fragment bases/PPi/mature RNAs."
+            ),
+            "active_ribosome": (
+                "Reads protein_index, peptide_length and mRNA_index to find ribosomes left on removed or "
+                "degraded mRNAs and size the returned amino acids/water."
+            ),
+            "full_chromosomes": (
+                "Reads full-chromosome domain_index to identify domains that finished replication (so all "
+                "molecules on them are cleared)."
+            ),
+            "promoters": (
+                "Reads TU_index, domain_index, coordinates and bound_TF to select passed promoters for "
+                "duplication and to free their bound TFs."
+            ),
+            "genes": "Reads cistron_index, domain_index and coordinates to select passed genes for duplication.",
+            "DnaA_boxes": (
+                "Reads domain_index, coordinates, DnaA_bound, pool_label and DnaA_bound_form to select "
+                "passed boxes for duplication and to release any DnaA bound on them."
+            ),
+            "global_time": "Reads simulation time to gate the step (update_condition) and set the next update time.",
+            "timestep": "Reads the step length used to schedule next_update_time.",
+            "next_update_time": "Reads the scheduled update time; the step runs only when it has arrived.",
+        },
+        outputs={
+            "bulk": (
+                "Returns recycled species to the pool: inactive RNAPs and ribosomal 30S/50S subunits, "
+                "fragment bases + PPi + mature RNAs from incomplete transcripts, amino acids + water from "
+                "incomplete peptides, freed active TFs, and freed DnaA-ATP/ADP from fork-crossed boxes."
+            ),
+            "listeners": (
+                "Writes rnap_data collision statistics: n_total/head-on/co-directional collisions and their "
+                "coordinates, incomplete_transcription_event per TU, and n_removed_ribosomes."
+            ),
+            "active_RNAPs": "Deletes RNAPs that collided with a passing fork.",
+            "RNAs": "Deletes transcripts whose RNAP was removed by a collision.",
+            "active_ribosome": "Deletes ribosomes bound to mRNAs that no longer exist.",
+            "promoters": "Deletes each passed promoter and adds two daughter copies (one per child domain) with TF binding reset.",
+            "genes": "Deletes each passed gene and adds two daughter copies on the child domains.",
+            "DnaA_boxes": "Deletes each passed DnaA box and adds two daughter copies (pool_label propagated, DnaA_bound_form reset to 0).",
+            "next_update_time": "Writes the next scheduled update time (global_time + timestep).",
+        },
+        config={
+            "active_tfs": "Bulk ids of active TFs freed to the pool when a bound promoter is replicated.",
+            "inactive_RNAPs": "Bulk id(s) for inactive RNAP the collided RNAPs are returned to.",
+            "ribosome_30S_subunit": "Bulk id of the 30S subunit returned per removed ribosome.",
+            "ribosome_50S_subunit": "Bulk id of the 50S subunit returned per removed ribosome.",
+            "amino_acids": "Bulk ids of amino acids returned from incomplete polypeptides.",
+            "water": "Bulk id of water consumed/released when hydrolyzing incomplete peptides.",
+            "fragmentBases": "Bulk ids of the NTP fragment bases returned from incomplete transcripts.",
+            "ppi": "Bulk id of pyrophosphate returned per initiated-but-incomplete transcript.",
+            "rna_sequences": "RNA template sequences used to reconstruct incomplete-transcript base composition.",
+            "protein_sequences": "Protein template sequences used to reconstruct incomplete-peptide amino-acid composition.",
+            "rna_ids": "RNA identifiers indexing the transcript arrays.",
+            "mature_rna_ids": "Bulk ids of mature RNAs that can be released when an unprocessed transcript is long enough.",
+            "mature_rna_end_positions": "Per-mature-RNA end coordinates that decide which mature RNAs a truncated transcript yields.",
+            "mature_rna_nt_counts": "Per-mature-RNA nucleotide counts subtracted from returned fragment bases.",
+            "unprocessed_rna_index_mapping": "Maps unprocessed-RNA TU indices to their mature-RNA layout.",
+            "n_mature_rnas": "Number of mature-RNA species.",
+            "n_TUs": "Number of transcription units (sizes the incomplete-transcription-event listener).",
+            "n_TFs": "Number of transcription factors (width of promoter bound_TF).",
+            "n_amino_acids": "Number of amino-acid species.",
+            "n_fragment_bases": "Number of fragment-base species.",
+            "replichore_lengths": "Replichore lengths defining the min/max chromosomal coordinates.",
+            "relaxed_DNA_base_pairs_per_turn": "Relaxed DNA helical repeat used in the supercoiling/linking-number calculation.",
+            "terC_index": "Sentinel molecule index marking the replication terminus in segment bookkeeping.",
+            "no_child_place_holder": "Sentinel domain index marking a chromosome domain with no children yet.",
+        },
+        assumptions=[
+            "In this build the fork always wins a collision: every bound molecule the fork passes is removed and recycled; head-on vs co-directional is recorded for listeners only, not differentiated in outcome (no fork stalling).",
+            "A molecule is 'passed' when it lies within the fork coordinate window of its domain, or on any domain whose children are already full chromosomes (replication finished).",
+            "Passed promoters, genes and DnaA boxes are duplicated onto both child domains; daughter promoters/DnaA boxes reset their binding state and their bound TFs/DnaA are released to bulk (mass conserved).",
+            "Incomplete transcripts return their NTs as fragment bases plus one PPi each, excluding any bases/PPi belonging to mature RNAs released from the truncation.",
+            "Ribosomes on removed or degraded mRNAs are dropped; their partial peptides are hydrolyzed back to free amino acids and water.",
+            "The chromosomal-segment / supercoiling repartition math (Lk = Tw + Wr) is implemented in _compute_new_segment_attributes but is not invoked by update() in this version, so the chromosomal_segments and oriCs ports are read-through only and left out of this contract's ports.",
+        ],
+        references=[
+            "Katayama (2017) — DnaA dissociation from DnaA boxes after replication-fork passage.",
+        ],
+    )
 
     config_schema = {
         'active_tfs': 'list[string]',

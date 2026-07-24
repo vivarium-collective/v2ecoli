@@ -40,6 +40,7 @@ The equilibrium binding/unbinding is computed in two phases:
 import numpy as np
 from scipy.integrate import solve_ivp
 
+from bigraph_schema.contract import ProcessContract
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema, attrs
 from v2ecoli.library.schema_types import DNAA_BOX_ARRAY
 from v2ecoli.library.ecoli_step import EcoliStep as Step
@@ -98,6 +99,79 @@ class Equilibrium(Step):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Bind/unbind ligands to their transcription-factor partners by solving the reaction "
+            "system to steady state each step, rounding the continuous solution to integer reaction "
+            "fluxes, and greedily correcting those fluxes so no allocated metabolite goes negative."
+        ),
+        symbols={
+            "x": "vector of current molecule counts for the equilibrium species (counts)",
+            "x_ss": "steady-state molecule counts returned by the ODE solve (counts)",
+            "x_alloc": "molecule counts actually allocated to this process for the greedy check (counts)",
+            "V": "cell volume, computed as cell_mass / cell_density (litres, L)",
+            "N_A": "Avogadro's number, counts per mole (1/mol)",
+            "ν": "integer reaction-flux vector: net number of times each reaction fires (counts)",
+            "S": "stoichiometry matrix, molecules × reactions (dimensionless integers)",
+            "Δx": "net molecule-count change applied to bulk this step, Δx = S·ν (counts)",
+        },
+        inputs={
+            "bulk": (
+                "Reads counts x of the equilibrium molecules (ligands, TFs, complexes) as the ODE "
+                "initial condition and as the non-negativity bound in the greedy correction."
+            ),
+            "listeners": (
+                "Reads listeners.mass.cell_mass and divides by cell_density to get the volume V used "
+                "to convert counts to concentrations for the ODE."
+            ),
+            "timestep": "Reads dt: the kinetic-phase integration horizon and the divisor for the reaction_rates listener.",
+            "DnaA_boxes": (
+                "Optional read-only port: counts DnaA-box rows in the bound-ATP form to add extra "
+                "DNAA-INTRINSIC-HYDROLYSIS-RXN flux covering the bound pool (empty ⇒ free-pool-only behaviour)."
+            ),
+            "dnaa_hydrolysis": (
+                "Optional port carrying dnaa_box_binding's bound-hydrolysis event count so byproducts are "
+                "sampled from the same event; a -1 sentinel means unwired and the step resamples locally."
+            ),
+        },
+        outputs={
+            "bulk": (
+                "Writes Δx = S·ν, the net binding/unbinding change per molecule, with the bound-pool DnaA-ATP/ADP "
+                "portion reverted (bound ATP/ADP are box-bound, not in bulk)."
+            ),
+            "listeners": (
+                "Writes equilibrium_listener.reaction_rates: the per-product molecule change divided by the "
+                "timestep (1/s)."
+            ),
+        },
+        config={
+            "stoichMatrix": "Stoichiometry matrix S (molecules × reactions) mapping fluxes ν to count changes Δx.",
+            "moleculeNames": "Bulk ids of the equilibrium species, in the row order of S.",
+            "reaction_ids": "Reaction ids in the column order of S (used to locate the DnaA hydrolysis reaction).",
+            "complex_ids": "Bulk ids of the TF–ligand complex products formed by binding.",
+            "cell_density": "Cell density dividing cell_mass to obtain the volume V for count↔concentration conversion.",
+            "n_avogadro": "Avogadro's number N_A converting between counts and molar concentrations.",
+            "fluxesAndMoleculesToSS": "Legacy opaque solver returning steady-state counts and fluxes when rates_fn is absent.",
+            "rates_fn": "Inline ODE rate function r(t, y, kf, kr); if provided it supersedes fluxesAndMoleculesToSS.",
+            "rates_jac_fn": "Jacobian of rates_fn for the stiff solver.",
+            "rates_fwd": "Forward rate constants kf per reaction.",
+            "rates_rev": "Reverse rate constants kr per reaction.",
+            "mets_to_rxn_fluxes": "Matrix mapping continuous molecule-count deltas back to reaction fluxes ν.",
+            "Rp": "Reactant partition matrix: molecules consumed by forward fluxes.",
+            "Pp": "Product partition matrix: molecules consumed by reverse fluxes.",
+        },
+        assumptions=[
+            "Ligands are TF-specific and not consumed by other processes, so this runs as a plain Step with no request/allocate/evolve cycle.",
+            "Fast reactions reach equilibrium within a step (steady-state solve to t≈1e20); reactions flagged in integrate_dt_mask are instead integrated over dt in a kinetic phase.",
+            "Continuous ODE concentration changes are converted to counts and stochastically rounded to integer fluxes ν.",
+            "The greedy correction decrements offending forward/reverse fluxes one unit at a time (clamped at 0) until no allocated metabolite is negative, terminating within sum(|ν|) iterations.",
+            "The DnaA bound-pool hydrolysis extension is a no-op when its ids are absent from the cache or no DnaA boxes are bound, collapsing to free-pool-only flux.",
+        ],
+        references=[
+            "Sekimizu (1987) — DnaA intrinsic ATP-hydrolysis rate (~0.046/min) used for the bound-pool hydrolysis flux.",
+        ],
+    )
 
     config_schema = {
         'cell_density': {'_type': 'float[g/L]', '_default': 0.0},

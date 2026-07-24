@@ -50,57 +50,57 @@ GitHub-issue feedback widget.</p>
 <div class="invest">
   <h3><a href="investigations/colonies.html">Colony Composite — HPC Scaling Readiness</a>
       <span class="pill in_progress">in progress</span></h3>
-  <p>An HPC scaling-readiness investigation for the colony composite: N copies of the full 55-process whole-cell model (EcoliWCM) in one pymunk 2D physics environment. colonies-01 built the single-machine foundation; colonies-02 tested it with natural division and the Ray protocol and uncovered an unb…</p>
+  <p>How many whole-cell E. coli agents fit per HPC node, and at what per-cell wall-time and memory? Runs N copies of the full 55-process EcoliWCM in one pymunk 2D physics environment. The single-machine foundation (colonies-01 through 03) works and three memory leaks are fixed; the dominant native/C…</p>
   <p class="meta">3 studies · colonies-01-hpc-readiness · colonies-02-parallel-multigen-perf · colonies-03-wcm-rss-leak</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/ketchup-baseline-comparison.html">Does v2ecoli&#x27;s baseline central-carbon exchange phenotype match KETCHUP kinetic models?</a>
       <span class="pill active">active</span></h3>
-  <p>A one-study report-card comparison that grades the v2ecoli baseline central-carbon exchange-flux vector against kinetic reference sources with the PR #134 grader (flux_scatter: identity-line R^2 on signed, glucose-normalized, matched fluxes). • ketchup-exchange-comparison (EXECUTED) — grade the b…</p>
+  <p>Does the v2ecoli baseline reproduce central-carbon exchange fluxes? One report-card study grades the baseline exchange-flux vector (signed, glucose-normalized, matched) against KETCHUP k-ecoli74 and k-ecoli307, the Millard 2017 ODE, and the live Millard FBA bridge, scored by identity-line R^2 (fl…</p>
   <p class="meta">1 study · ketchup-exchange-comparison</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/multiscale-bioprocess.html">v2ecoli — Bioprocess Migration &amp; Reactor Coupling</a>
       <span class="pill active">active</span></h3>
-  <p>A v2ecoli investigation putting the single-cell whole-cell model into a bench-scale bioreactor: time-varying environment hook (mbp-01), population aggregation with representative-sampling scaling (mbp-02), BiRD reactor coupling (mbp-03), multigeneration coupled runs (mbp-04), a structured sim-vs-…</p>
+  <p>Puts the v2ecoli single-cell model inside a bench-scale bioreactor. Seven studies build up the coupling: a time-varying environment hook, population aggregation with representative-sampling scaling, BiRD reactor coupling, multigeneration runs, a sim-vs-Beulig comparison, gap analysis, and a Milla…</p>
   <p class="meta">7 studies</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/parameter-uq.html">Parameter UQ — global sensitivity of v2ecoli</a>
       <span class="pill running">running</span></h3>
-  <p>A multi-study forward UQ investigation using the pbg-uq package to identify dominant sources of parameter-driven variance in the v2ecoli whole-cell baseline. The program proceeds in a structured graph: 1. param-uq-00-screen (EXECUTED): low/high screen of 7 config-reachable knobs, keeping the 3 th…</p>
+  <p>Forward global-sensitivity UQ (pbg-uq) finding which sim_data parameters drive variance in the v2ecoli baseline. A low/high screen kept the 3 knobs that move growth rate; PCE forward UQ ran over 120- and 360-step windows; a cell-cycle-stratified Sobol study over multi-generation runs is planned.</p>
   <p class="meta">5 studies</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/surrogate-modeling.html">Surrogate Modeling — can a neural net emulate the v2ecoli baseline?</a>
       <span class="pill complete">complete</span></h3>
-  <p>A four-study investigation that builds a neural-network surrogate of the v2ecoli baseline with pbg-torch (github.com/vivarium-collective/pbg-torch), then holds it to a skeptical standard against trivial baselines. 1. sm-00-data-collection: roll out an 8-seed baseline ensemble into a broad ~11.5k-…</p>
+  <p>Can a neural net emulate the v2ecoli baseline? Four studies with pbg-torch: collect an 8-seed rollout dataset, train a surrogate and test it against trivial baselines (persistence, mean-delta, linear) under leave-one-trajectory-out CV, weigh the linear emulator&#x27;s amortized break-even against the…</p>
   <p class="meta">4 studies · sm-00-data-collection · sm-01-nn-surrogate · sm-02-utility-and-limits · sm-03-improving-the-surrogate</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/v2ecoli-baseline-showcase.html">v2ecoli Baseline Showcase: from ecoli-sources to a calibrated whole cell</a>
       <span class="pill active">active</span></h3>
-  <p>A six-study walkthrough of the v2ecoli pipeline, built as a demonstration rather than a hypothesis test. The arc runs ecoli-sources → ParCa → calibrated baseline → perturbation sweep → next-direction decision: • showcase-1-parca [PLANNED] — rebuild the ParCa in full from the ~133 ecoli-sources fl…</p>
+  <p>A demonstration walkthrough of the v2ecoli pipeline: ecoli-sources to ParCa to a calibrated baseline to a perturbation to a next-direction decision. Six studies rebuild the ParCa in full, run the wild-type baseline ensemble (multiseed/multigen, checked against doubling time, mass fractions, Toya…</p>
   <p class="meta">6 studies</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/v2ecoli-pdmp.html">v2ecoli → PDMP Whole-Cell Model Reformulation</a>
       <span class="pill in_progress">in progress</span></h3>
-  <p>A six-phase investigation that incrementally transforms v2ecoli from a hybrid algorithmic WCM into a piecewise-deterministic Markov process. Each phase replaces one component of the WCM (metabolism, stochastics, likelihoods, runtime, inference layer) while leaving the rest intact.</p>
+  <p>Incrementally transforms v2ecoli from a hybrid algorithmic whole-cell model into a piecewise-deterministic Markov process. Six phases each swap one WCM component -- characterization, a metabolism ODE, jump processes, an inference layer, a compiled runtime, and causal discovery -- while leaving th…</p>
   <p class="meta">6 studies</p>
 </div>
 
 <div class="invest">
   <h3><a href="investigations/v2ecoli-vecoli-comparison.html">v2ecoli ↔ vEcoli comparison</a>
       <span class="pill in_progress">—</span></h3>
-  <p>Does v2ecoli reproduce vEcoli across nutrient conditions?</p>
-  <p class="meta">7 studies</p>
+  <p>Does v2ecoli reproduce vEcoli across nutrient conditions? Each study runs both engines from matched ParCa initial states and grades v2ecoli against a live vEcoli reference on cell, dry, protein and RNA mass, and growth rate. GOLD STANDARD: grading gates on the multi-seed STATISTICAL card (Welch t…</p>
+  <p class="meta">8 studies</p>
 </div>
 <!-- END auto-investigations -->
 

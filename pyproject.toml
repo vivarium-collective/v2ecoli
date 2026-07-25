@@ -39,7 +39,7 @@ dependencies = [
     "pandas",
     "plotly>=5.0",
     "ecoli-sources",
-    "numba",
+    "numba>=0.59",  # floor: numba<0.59 pins llvmlite<0.42 which has no Python 3.12 wheel
     "unum",
     "requests",
     # Emitters are now BASE/default deps (no longer optional extras): v2ecoli

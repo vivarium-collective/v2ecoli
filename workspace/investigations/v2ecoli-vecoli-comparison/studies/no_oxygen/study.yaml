@@ -16,7 +16,8 @@ pipeline_gate:
   - parca
   enables: []
 runs:
-- name: no_oxygen-comparison
+- composite: v2ecoli.composites.baseline.baseline
+  name: no_oxygen-comparison
   kind: analysis
   canonical: true
   description: v2e-compare study no_oxygen
@@ -59,16 +60,7 @@ findings:
 - id: no_oxygen-rpobc-fix
   kind: computational
   status: confirms
-  statement: 'RESOLVED. no_oxygen was a borderline drift (growth +14.4%, p=0.08). After the fix v2ecoli
-    reproduces vEcoli natively: growth drift more than halved to +6.7% (p=0.50, not significant), RNA
-    now within tolerance (4/5 within_tol). Residual growth just outside +/-5% but non-significant. CAVEAT:
-    2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge (BIOTIN homeostatic target ~ -2e-6, unrelated
-    to the rpoBC fix); graded on the clean seeds. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC
-    operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response
-    and compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent,
-    basal-preserving rpoBC split.'
+  statement: 'RESOLVED. no_oxygen was a borderline drift (growth +14.4%, p=0.08). After the fix v2ecoli reproduces vEcoli natively: growth drift more than halved to +6.7% (p=0.50, not significant), RNA now within tolerance (4/5 within_tol). Residual growth just outside +/-5% but non-significant. CAVEAT: 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge (BIOTIN homeostatic target ~ -2e-6, unrelated to the rpoBC fix); graded on the clean seeds. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.'
   evidence:
     from_card: statistical
-    observed: 'before -> after fix (4-seed gen-1, Welch t): growth +14.4% (p=0.08) -> +6.7% (p=0.50, not
-      significant); RNA +5.5% drift -> +1.0% within_tol; cell +2.4% -> +1.0% within_tol; dry +2.4% ->
-      +1.0% within_tol; protein +0.3% -> +0.5% within_tol. Overall drift -> drift (4/5 within_tol, non-significant).'
+    observed: 'before -> after fix (4-seed gen-1, Welch t): growth +14.4% (p=0.08) -> +6.7% (p=0.50, not significant); RNA +5.5% drift -> +1.0% within_tol; cell +2.4% -> +1.0% within_tol; dry +2.4% -> +1.0% within_tol; protein +0.3% -> +0.5% within_tol. Overall drift -> drift (4/5 within_tol, non-significant).'

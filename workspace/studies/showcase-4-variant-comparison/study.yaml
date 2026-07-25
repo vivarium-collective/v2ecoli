@@ -238,7 +238,7 @@ simulation_set:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: v2ecoli.composites.baseline.baseline
     params:
       seed: 0
       cache_dir: out/cache-showcase
@@ -261,7 +261,7 @@ conditions:
     perturbation: "dnaA (TU00259[c]) transcription-init probability 2x basal"
     config_overrides:
       ecoli-transcript-initiation.perturbations:
-        "TU00259[c]": 2.1166695712115088e-05   # 2x basal 1.0583347856057544e-05
+        "TU00259[c]": 2.1166695712115087e-05   # 2x basal 1.0583347856057544e-05
     drop_default_features: false
     expected_contrast: "more DnaA -> earlier / more replication initiation (raised oriC)"
     measured_contrast: "PARTIAL: does NOT raise max oriC (both peak at 4) but ADVANCES re-initiation timing (oriC->4 earlier; earlier 2nd-cycle re-init) and degrades central-carbon flux match (Toya r 0.727 -> 0.457)."
@@ -422,7 +422,8 @@ pipeline_gate:
   gate_status: passed
 
 runs:
-- name: showcase4-variant-sweep
+- composite: v2ecoli.composites.baseline.baseline
+  name: showcase4-variant-sweep
   status: completed
   kind: simulation
   canonical: true

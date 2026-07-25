@@ -15,10 +15,7 @@ from v2ecoli.composites import (  # noqa: F401
     baseline_parsimony,
     baseline_population,
     baseline_time_varying_env,
-    batch_baseline,
     colony,
-    ko_baseline,
-    ko_batch_baseline,
     millard_fba_bridge_harness,
     parca,
     reactor_bird_coupled,
@@ -41,9 +38,8 @@ from v2ecoli.composites import (  # noqa: F401
 # them by function identity rather than raising "ambiguous architecture name".
 def _register_clean_alias(name, module=None):
     # The generator id is ``{__module__}.{name}``. It usually doubles (module
-    # slug == composite name, e.g. baseline in baseline.py), but not always: the
-    # KO composites live in ``ko_baseline.py`` under the name ``KO_baseline``, so
-    # the module slug and the name differ. ``module`` overrides the slug for that.
+    # slug == composite name, e.g. baseline in baseline.py). ``module`` overrides
+    # the slug for the cases where it doesn't.
     module = module or name
     doubled_id = f"v2ecoli.composites.{module}.{name}"
     clean_id = f"v2ecoli.composites.{name}"
@@ -54,9 +50,6 @@ def _register_clean_alias(name, module=None):
 
 _register_clean_alias("baseline")
 _register_clean_alias("parca")
-_register_clean_alias("batch_baseline")
-_register_clean_alias("KO_baseline", module="ko_baseline")
-_register_clean_alias("KO_batch_baseline", module="ko_batch_baseline")
 
 
 __all__ = [
@@ -65,10 +58,7 @@ __all__ = [
     "baseline_parsimony",
     "baseline_population",
     "baseline_time_varying_env",
-    "batch_baseline",
     "colony",
-    "ko_baseline",
-    "ko_batch_baseline",
     "millard_fba_bridge_harness",
     "parca",
     "reactor_bird_coupled",

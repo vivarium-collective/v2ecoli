@@ -1,7 +1,10 @@
-"""Tests for the batch_baseline composite + BatchBaselineRunner Step.
+"""Tests for baseline's batch mode (n_seeds>1 / n_generations>1) + the
+BatchBaselineRunner Step it dispatches to.
 
-Fast: the dispatch logic is exercised with a STUB ``run_workflow`` (no ParCa, no
-simulations); document construction calls the generator directly. The real
+Batch mode was the former standalone ``batch_baseline`` composite; it is now
+``baseline(n_seeds=N, n_generations=M, ...)``. Fast: the dispatch logic is
+exercised with a STUB ``run_workflow`` (no ParCa, no simulations); document
+construction calls the generator directly. The real
 workflow run (LineageProcess -> baseline per generation, parquet + zarr emission,
 post-sim flush) is covered by the workflow/lineage suites and is not re-run here.
 """
@@ -205,56 +208,53 @@ def test_runner_update_dispatches_once_then_is_idempotent(monkeypatch):
     assert out2 == {}
 
 
-def test_build_batch_baseline_document_is_cheap_and_well_formed():
-    """The generator builds a doc WITHOUT running any baseline (no ParCa)."""
+def test_baseline_batch_mode_document_is_cheap_and_well_formed():
+    """n_seeds>1 / n_generations>1 makes baseline build the batch-orchestrator doc
+    WITHOUT running any baseline cell (no ParCa)."""
     from v2ecoli.core import build_core
-    from v2ecoli.composites.batch_baseline import batch_baseline, BATCH_RUNNER_STEP_NAME
+    from v2ecoli.composites.baseline import baseline
 
-    doc = batch_baseline(core=build_core(), n_seeds=2, n_generations=3,
-                         max_duration=1234.0)
+    doc = baseline(core=build_core(), n_seeds=2, n_generations=3,
+                   max_duration=1234.0)
     state = doc["state"]
     assert state["batch"] == {}                    # empty until run
-    node = state[BATCH_RUNNER_STEP_NAME]
+    node = state["batch_runner"]
     assert node["_type"] == "step"
     assert "BatchBaselineRunner" in node["address"]
     assert node["config"]["n_seeds"] == 2
     assert node["config"]["n_generations"] == 3
     assert node["config"]["max_duration"] == 1234.0
-    assert node["config"]["emitter"] == "both"
+    assert node["config"]["base_seed"] == 0        # baseline's `seed` is the base seed
+    # Unified baseline's default emitter is 'parquet' (single-cell default); pass
+    # emitter='both' for the per-lineage zarr the dashboard per-run charts read.
+    assert node["config"]["emitter"] == "parquet"
+    assert baseline(core=build_core(), n_seeds=2, emitter="both")[
+        "state"]["batch_runner"]["config"]["emitter"] == "both"
 
 
-def test_batch_baseline_registered_for_build_composite():
-    """build_composite resolves the new architecture by name."""
+def test_batch_baseline_composite_is_gone_baseline_absorbed_it():
+    """The standalone batch_baseline composite no longer exists; baseline(n_seeds>1)
+    is the only batch entry point."""
     from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401 — fires the @composite_generator
 
     names = {e.name for e in _REGISTRY.values()}
-    assert "batch_baseline" in names
+    assert "batch_baseline" not in names
+    assert "baseline" in names
 
 
-def test_batch_baseline_exposes_the_vecoli_workflow_knobs():
-    """The Setup & Run form renders these; they are the batch's whole contract."""
+def test_baseline_exposes_the_vecoli_workflow_knobs():
+    """The Setup & Run form renders these; they are the batch's whole contract,
+    now on baseline itself (with `seed` as the base seed, not `base_seed`)."""
+    import inspect
     from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401
 
-    entry = next(e for e in _REGISTRY.values() if e.name == "batch_baseline")
-    assert {"n_seeds", "n_generations", "base_seed", "single_daughters",
+    entry = next(e for e in _REGISTRY.values() if e.name == "baseline")
+    params = set(inspect.signature(entry.func).parameters)
+    assert {"seed", "n_seeds", "n_generations", "single_daughters",
             "time_step", "max_duration", "variants", "emitter", "analyses",
-            "study", "cache_dir", "out_dir", "experiment_id", "parallel"} <= set(
-                entry.parameters)
-
-
-def test_batch_baseline_declares_the_multi_scale_visualizations():
-    """A seeds x generations batch ships the single-cell gallery PLUS the
-    multigeneration/multiseed panels vEcoli's workflow emits."""
-    from viva_superpowers.composite_generator import _REGISTRY
-    import v2ecoli.composites  # noqa: F401
-
-    entry = next(e for e in _REGISTRY.values() if e.name == "batch_baseline")
-    names = {v["name"] for v in entry.visualizations}
-    assert {"cell_mass", "mass_fraction_summary"} <= names          # single-cell
-    assert {"ribosome_usage", "new_gene_counts"} <= names           # multigeneration
-    assert {"doubling_time_distribution"} <= names                  # multiseed
+            "study", "cache_dir", "out_dir", "experiment_id", "parallel"} <= params
 
 
 # --- sim_data pairing --------------------------------------------------------
@@ -351,7 +351,7 @@ def test_emitter_captures_the_completed_batch(monkeypatch):
     """
     from process_bigraph import Composite
 
-    from v2ecoli.composites.batch_baseline import batch_baseline
+    from v2ecoli.composites.baseline import baseline
     from v2ecoli.core import build_core
 
     monkeypatch.setattr(
@@ -359,7 +359,8 @@ def test_emitter_captures_the_completed_batch(monkeypatch):
         lambda **kw: {"completed": True, "n_seeds": 1, "mode": "stub"})
 
     core = build_core()
-    state = batch_baseline(core=core, n_seeds=1, analyses="none")["state"]
+    # n_seeds=2 -> batch-orchestrator document (n_seeds=1 would be a single cell).
+    state = baseline(core=core, n_seeds=2, analyses="none")["state"]
     # The emitter the workbench injects for the run's selected paths, inlined
     # (mirrors vivarium_workbench.lib.composite_runs.inject_emitter_for_paths)
     # so this test doesn't depend on the workbench being installed.

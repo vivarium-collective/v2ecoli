@@ -207,7 +207,7 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">(computed from findings in the report)
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Basal-condition physiology — v2ecoli vs experimental literature: mismatch (3 ✓ 3 ≈ 7 ✗)
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
@@ -231,6 +231,11 @@
       <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                 data-narrative-path="biological_summary"
                 placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+      
+      <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+        <em>Derived from findings (shown in the report when no override is set):</em>
+        <p style="margin:4px 0 0">Basal-condition physiology — v2ecoli vs experimental literature: mismatch (3 ✓ 3 ≈ 7 ✗)</p>
+      </div>
       
     </div>
 
@@ -256,6 +261,43 @@ experimental + theoretical reference values rather than a pinned run?
     
 
     
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-contradicts">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✗</span>
+          <span class="finding-id">report-card-vs-literature</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">contradicts literature</span>
+        </div>
+        <div class="finding-statement">Basal-condition physiology — v2ecoli vs experimental literature: mismatch (3 ✓ 3 ≈ 7 ✗)</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> 3 ✓ 3 ≈ 7 ✗ · 
+          
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      
+    </div>
     
 
     
@@ -997,7 +1039,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/docs/first-run-agent-guide" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
 window._studyName = "population_phenotype_basal";

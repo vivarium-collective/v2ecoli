@@ -65,6 +65,11 @@
       font-family: inherit;
     }
     button:hover { border-color: var(--accent); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button:disabled:hover { border-color: var(--border); }
+    #model-picker { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; font-size: 12px; font-family: inherit; cursor: pointer; }
+    #model-picker:hover { border-color: var(--accent); }
+    #vr-button[data-vr-state="ready"], #vr-button[data-vr-state="active"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
     #canvas-wrap { grid-area: canvas; position: relative; overflow: hidden; }
     canvas { display: block; outline: none; }
     #drop-overlay { display: none; }
@@ -104,6 +109,12 @@
       padding: 14px 16px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
     }
     #info-panel[hidden] { display: none; }
+    #struct-canvas {
+      display: block; width: 100%; height: 230px; margin-top: 10px;
+      border-radius: 6px; background: #0c0f14; cursor: grab; touch-action: none;
+    }
+    #struct-canvas:active { cursor: grabbing; }
+    #struct-canvas[hidden] { display: none; }
     #info-close {
       position: absolute; top: 8px; right: 10px; background: none; border: none;
       color: var(--text-dim); font-size: 18px; line-height: 1; padding: 2px 6px; cursor: pointer;
@@ -237,8 +248,10 @@
     <header>
       <h1>parsimony<span class="sub">interactive 3D molecular packing</span></h1>
       <div style="flex:1"></div>
+      <select id="model-picker" hidden title="switch model"></select>
       <button id="about-btn" title="how this model was made">ⓘ about</button>
       <button id="reset-view">reset view</button>
+      <button id="vr-button" disabled title="Checking for a headset…">View in VR</button>
     </header>
 
     <div id="canvas-wrap">
@@ -251,6 +264,7 @@
       <div id="info-panel" hidden>
         <button id="info-close" title="close">×</button>
         <div id="info-body"></div>
+        <canvas id="struct-canvas" hidden></canvas>
       </div>
     </div>
 
@@ -293,6 +307,20 @@
         <div class="size-range-readout" id="size-range-value">—</div>
       </div>
 
+      <h2>section</h2>
+      <div class="size-filter" title="Cut the cell along a plane to expose the interior. Pick a plane orientation, slide to sweep it across the cell, flip to keep the other half.">
+        <div class="slider-row"><label>plane</label>
+          <select id="slice-axis">
+            <option value="">none</option>
+            <option value="horizontal">Horizontal</option>
+            <option value="vertical-x">Vertical (across)</option>
+            <option value="vertical-z">Vertical (along)</option>
+          </select>
+        </div>
+        <div class="slider-row"><label>position</label><input type="range" id="slice-pos" min="-1" max="1" step="0.005" value="0"><span class="value" id="slice-pos-value"></span></div>
+        <div class="slider-row"><label>flip</label><input type="checkbox" id="slice-flip"></div>
+      </div>
+
       <div id="mesh-loading-status" style="color: var(--text-dim); font-size: 11.5px; margin-top: 4px;">loading…</div>
 
       <!-- Engine controls kept (JS binds to them) but hidden from this curated view. -->
@@ -306,12 +334,8 @@
         <input type="checkbox" id="toggle-bg-grid">
         <input type="range" id="mesh-budget" min="1" max="12" step="0.5" value="4">
         <span id="mesh-budget-value"></span>
-        <input type="range" id="sphere-budget" min="3" max="60" step="1" value="12">
+        <input type="range" id="sphere-budget" min="3" max="60" step="1" value="6">
         <span id="sphere-budget-value"></span>
-        <select id="slice-axis"><option value="">none</option></select>
-        <input type="range" id="slice-pos" min="-1" max="1" step="0.005" value="0">
-        <span id="slice-pos-value"></span>
-        <input type="checkbox" id="slice-flip">
         <div id="outline-row"><input type="range" id="outline-width" min="0" max="4" step="0.25" value="1.5"><span id="outline-width-value"></span></div>
       </div>
     </aside>
@@ -323,6 +347,6 @@
     </footer>
   </div>
 
-  <script type="module" src="./viewer.js?v=15"></script>
+  <script type="module" src="./viewer.js?v=51"></script>
 </body>
 </html>

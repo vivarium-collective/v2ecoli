@@ -16,6 +16,8 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries, mergeVertices } from "three/addons/utils/BufferGeometryUtils.js";
+import { initVR } from "./vr.js?v=47";
+import { makeAdaptiveBudget } from "./vr-helpers.js";
 
 // ───── DOM refs ─────────────────────────────────────────────────────
 const canvasWrap = document.getElementById("canvas-wrap");
@@ -36,6 +38,12 @@ const sliceAxis = document.getElementById("slice-axis");
 const slicePos = document.getElementById("slice-pos");
 const slicePosValue = document.getElementById("slice-pos-value");
 const sliceFlip = document.getElementById("slice-flip");
+// Preset → (azimuth°, elevation°) for the section-plane normal.
+const SLICE_PRESETS = {
+  "horizontal": [0, 90],    // normal +Y → a horizontal cut
+  "vertical-x": [90, 0],    // normal +X → cross-section across the rod
+  "vertical-z": [0, 0],     // normal +Z → lengthwise cut
+};
 
 // ───── three.js scene ───────────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -46,8 +54,15 @@ const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 100000);
 camera.position.set(150, 120, 200);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-renderer.setPixelRatio(window.devicePixelRatio);
+// Cap the device pixel ratio. Rendering at a phone/Quest's native DPR (2–3×)
+// means 4–9× the fragments — it craters the framerate and the choppy motion
+// reads as glitchy/dizzy. Clamp hard on mobile, modestly on desktop retina.
+{
+  const _mob = /OculusBrowser|Quest|Mobile|Android|iPhone|iPad/i.test(navigator.userAgent || "");
+  renderer.setPixelRatio(Math.min(_mob ? 1.0 : 1.75, window.devicePixelRatio || 1));
+}
 renderer.localClippingEnabled = true;
+renderer.xr.enabled = true;   // WebXR ("View in VR") — see vr.js
 canvasWrap.appendChild(renderer.domElement);
 
 // Style + outline state. Declared here so the composer setup below
@@ -122,7 +137,7 @@ try {
     // but flat faces aren't crushed to black; threshold is a per-frag
     // depth-gradient cutoff (units are world-Å per pixel after the
     // centre-depth normalisation in the fragment shader).
-    outlineStrength: { value: 0.7 },
+    outlineStrength: { value: 0.85 },
     edgeThreshold: { value: 4.0 },
   },
   vertexShader: `
@@ -363,11 +378,14 @@ function clearPacking() {
 const CEL_VERTEX_SHADER = `
 varying vec3 vNormalW;
 varying vec3 vWorldPos;
+#include <clipping_planes_pars_vertex>
 void main() {
   vec4 worldPos = modelMatrix * instanceMatrix * vec4(position, 1.0);
   vNormalW = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
   vWorldPos = worldPos.xyz;
-  gl_Position = projectionMatrix * viewMatrix * worldPos;
+  vec4 mvPosition = viewMatrix * worldPos;   // view-space pos, needed by the clip chunk
+  #include <clipping_planes_vertex>
+  gl_Position = projectionMatrix * mvPosition;
 }
 `;
 
@@ -376,25 +394,26 @@ varying vec3 vNormalW;
 varying vec3 vWorldPos;
 uniform vec3 uColor;
 uniform vec3 uLightDir;
+#include <clipping_planes_pars_fragment>
 void main() {
+  #include <clipping_planes_fragment>
   vec3 N = normalize(vNormalW);
   vec3 V = normalize(cameraPosition - vWorldPos);
   float NdotL = dot(N, normalize(uLightDir));
-  // Wide-smoothstep gradient — Goodsell's illustrations are
-  // painterly, not flat-cel, so this gradient matches the source
-  // aesthetic better than a stark step function while also hiding
-  // the triangle facets of a coarse sphere.
-  float band = mix(0.45, 1.0, smoothstep(-0.4, 0.6, NdotL));
-  // View-aligned silhouette: when the surface normal is nearly
-  // perpendicular to the view direction (NdotV ≈ 0), we're at a
-  // silhouette edge — fade toward black. This produces "ink line"
-  // outlines without any depth-buffer post-pass, so it works at any
-  // scale and isn't subject to the Sobel false-positive blowups the
-  // depth-Sobel approach hit on dense scenes.
+  // Flat two-tone fill — Goodsell's molecules read as flat painted shapes: a
+  // bright lit tone and a slightly darker shadow tone with a soft (watercolour)
+  // terminator, not a smooth 3D gradient. Keep it bright + saturated.
+  float lit = smoothstep(-0.25, 0.25, NdotL);
+  float band = mix(0.74, 1.0, lit);
+  vec3 fill = uColor * band;
+  // Crisp dark ink outline at the silhouette (surface normal ⟂ view). A
+  // colour-tinted near-black, blended in over a narrow rim so every molecule
+  // gets a bold uniform-ish outline like the illustrations. Works at any scale
+  // (the depth-Sobel post-pass adds outlines between stacked molecules too).
   float NdotV = abs(dot(N, V));
-  float silhouette = smoothstep(0.0, 0.25, NdotV);
-  vec3 baseColor = uColor * band;
-  gl_FragColor = vec4(baseColor * silhouette, 1.0);
+  float rim = smoothstep(0.14, 0.34, NdotV);   // 1 = interior, 0 = silhouette rim
+  vec3 ink = uColor * 0.10;                     // near-black, tinted by the colour
+  gl_FragColor = vec4(mix(ink, fill, rim), 1.0);
 }
 `;
 
@@ -410,6 +429,7 @@ function makeCelMaterial(color) {
     depthTest: true,
     depthWrite: true,
     transparent: false,
+    clipping: true,   // honor renderer/material clippingPlanes (section tool)
   });
 }
 
@@ -439,7 +459,12 @@ let objLoadsInFlight = 0;
 // arrays the main thread caches + uploads. The main thread keeps the
 // memory + IndexedDB cache tiers; only misses go to a worker. Falls back
 // to main-thread parsing (`fetchAndParseObj`) if Workers are unavailable.
-const WORKER_COUNT = Math.max(2, Math.min(8, navigator.hardwareConcurrency || 4));
+// Each worker FETCHES (network I/O — mostly waiting) then parses an OBJ, so the
+// pool is network-bound, not CPU-bound: oversubscribe well past the core count
+// so many downloads overlap and the egg→mesh fill-in is fast even on a Quest
+// (~6 cores) over wifi. Parse CPU contention is brief and only during the
+// initial load. Was min(8, cores), which throttled cold loads to a trickle.
+const WORKER_COUNT = Math.max(8, Math.min(24, (navigator.hardwareConcurrency || 4) * 3));
 const MAX_CONCURRENT_LOADS = WORKER_COUNT; // load tasks in flight at once
 let objWorkers = null; // array of Workers, or null → main-thread parsing
 let _workerNext = 0; // round-robin cursor
@@ -723,12 +748,17 @@ function robustBoundingRadius(geom) {
 /// whatever the http server is serving (which is the project root
 /// when launched via `view_pack.sh`). Absolute URLs and protocol
 /// URLs pass through unchanged.
+// Base directory of the loaded pack, used to resolve relative mesh URLs.
+// Mesh URLs in a pack are pack-relative (e.g. "meshes/foo.lod0.obj"); resolving
+// them against the pack's own directory is correct whether the pack is served
+// from the site root (local dev) or a deep path (gh-pages /repo/dashboard/...).
+let meshBaseUrl = "";
 function resolveMeshUrl(url) {
   if (!url) return url;
   if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("/")) {
     return url;
   }
-  return "/" + url;
+  return meshBaseUrl + url;
 }
 
 // Fetch + parse one OBJ, with IDB cache around it. Pure function:
@@ -891,6 +921,42 @@ async function loadLevel(best) {
   }
 }
 
+// One-shot bundle of every coarsest (lod0) mesh as a single binary file, so the
+// whole scene's shapes arrive in ONE request instead of ~300 — each of which
+// otherwise pays a wifi round-trip, which is the egg→mesh lag (worst on a Quest).
+// Best-effort: if the bundle is absent (older packs) the per-file drain still
+// fills everything in. Format (see make_mesh_bundle.py): [u32 headerLen][JSON
+// header padded so 4+headerLen is 4-aligned][ per entry: f32 positions, u32
+// indices ]. Normals are recomputed here (smaller download). Populates the same
+// in-memory geometry cache the drain primes from, so meshes materialise instantly.
+async function prefetchMeshBundle() {
+  const url = resolveMeshUrl("meshes/_bundle.lod0.bin");
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return;
+    const buf = await r.arrayBuffer();
+    if (buf.byteLength < 4) return;
+    const headLen = new DataView(buf).getUint32(0, true);
+    const header = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, headLen)));
+    let off = 4 + headLen; // padded → 4-byte aligned; each section keeps alignment
+    let n = 0;
+    for (const e of header.entries) {
+      const positions = new Float32Array(buf, off, e.p); off += e.p * 4;
+      const indices = new Uint32Array(buf, off, e.i); off += e.i * 4;
+      const key = resolveMeshUrl(e.url);
+      if (geomMemCache.has(key)) continue;
+      const geom = cacheEntryToGeometry({ positions, indices });
+      geom.computeVertexNormals();
+      geomMemCache.set(key, { geom, robustR: robustBoundingRadius(geom) });
+      n++;
+    }
+    console.log(`[viewer] mesh bundle: ${n} lod0 meshes in one request`);
+    scheduleReassess(); // prime tier materialises them on the next pass
+  } catch (e) {
+    console.warn("[viewer] mesh bundle prefetch skipped:", (e && e.message) || e);
+  }
+}
+
 // ───── membrane cleanup ─────────────────────────────────────────────
 // The cell envelope used to be drawn here as a translucent, fresnel-rimmed
 // shell; that was dropped in favour of the dense impostor lipid bilayer
@@ -1036,6 +1102,71 @@ function buildImpostorMembrane(doc) {
   }
 }
 
+// Render the membrane from the packer's surface lipid placements as a combed
+// bilayer — each lipid becomes a head bead at the surface + tail beads reaching
+// inward to a deeper inner-leaflet head, oriented along the local outward
+// normal (radial from the cell's long axis). Reads as Goodsell's comb-like
+// bilayer (green heads, darker tails) and follows the real cell shape (capsule
+// or constricted/dividing mesh) since it uses the actual placements. The plain
+// lipid spheres are skipped in favour of this; the membrane toggle controls it.
+function buildLipidMembrane(placements) {
+  if (!placements || !placements.length) return;
+  // Cell long axis ≈ x; medial line at the placements' mean (y, z).
+  let x0 = Infinity, x1 = -Infinity, sy = 0, sz = 0;
+  for (const p of placements) {
+    const [x, y, z] = p.position;
+    if (x < x0) x0 = x; if (x > x1) x1 = x; sy += y; sz += z;
+  }
+  const cy = sy / placements.length, cz = sz / placements.length;
+  // Goodsell membrane green: bright yellow-green heads, darker tails.
+  const memColor = new THREE.Color(0.52, 0.76, 0.34);
+  const T = MEMBRANE_THICKNESS;
+  // A single dense layer of large head beads on the cell surface — reads as a
+  // continuous green membrane band, rather than the spindly per-lipid combs
+  // (head + tail strands) which looked like scattered bugs up close. The tails
+  // are dropped; one fat bead per lipid, big enough that neighbours merge.
+  const beadT = [0.0];
+  const beadR = [24];   // fat heads so neighbours merge into a continuous band
+  const beadH = [1];
+  const per = 1;
+  // The membrane is always drawn (not under the molecule draw budget); subsample
+  // a bit on mobile to keep it light on the Quest.
+  const targetLipids = IS_MOBILE ? 14000 : Infinity;
+  const stride = Math.max(1, Math.ceil(placements.length / targetLipids));
+  const cap = Math.floor(MEMBRANE_MAX_POINTS / per);
+  const lipids = [];
+  for (let i = 0; i < placements.length && lipids.length < cap; i += stride) {
+    lipids.push(placements[i]);
+  }
+  const N = lipids.length * per;
+  const pos = new Float32Array(N * 3), rad = new Float32Array(N), head = new Float32Array(N);
+  const nrm = new THREE.Vector3();
+  let w = 0;
+  for (const p of lipids) {
+    const [x, y, z] = p.position;
+    const mx = Math.max(x0, Math.min(x1, x));   // nearest point on the long axis
+    nrm.set(x - mx, y - cy, z - cz);
+    if (nrm.lengthSq() < 1e-6) nrm.set(0, 1, 0);
+    nrm.normalize();
+    for (let b = 0; b < per; b++) {
+      const off = -beadT[b] * T;                 // inward from the surface
+      pos[w * 3] = x + nrm.x * off;
+      pos[w * 3 + 1] = y + nrm.y * off;
+      pos[w * 3 + 2] = z + nrm.z * off;
+      rad[w] = beadR[b]; head[w] = beadH[b]; w++;
+    }
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geom.setAttribute("aRadius", new THREE.BufferAttribute(rad, 1));
+  geom.setAttribute("aHead", new THREE.BufferAttribute(head, 1));
+  const points = new THREE.Points(geom, makeImpostorMaterial(memColor));
+  points.frustumCulled = false;
+  points.visible = !toggleMembrane || toggleMembrane.checked;
+  scene.add(points);
+  compartmentMeshes.push(points); // disposed by disposeCompartments, toggled as "membrane"
+}
+
 // ───── chromosome / genome ───────────────────────────────────────────
 // The chromosome is no longer a bespoke tube. The packer emits it as tens of
 // thousands of `dna_segment` mesh instances — one shared real-dsDNA mesh
@@ -1109,6 +1240,10 @@ async function buildScene(doc, fileName) {
   // placements whose desired LOD hasn't loaded yet); `reassessLODs`
   // partitions placements across the fallback and any loaded LOD
   // meshes on every camera change.
+  // Every ingredient — including the lipid bilayer leaflets — renders through the
+  // standard instanced path, so the membranes get legend entries, per-ingredient
+  // and per-category visibility checkboxes, click-to-select, and the crowding
+  // (show %) subsample, exactly like every other species.
   for (const [tid, pts] of byType.entries()) {
     const ing = ingredientById.get(tid);
     if (!ing) continue;
@@ -1117,6 +1252,10 @@ async function buildScene(doc, fileName) {
     const enc = ing.shape.enclosing_radius || ing.shape.radius || 1.0;
     addInstancedType(ing, color, enc, pts);
   }
+  // Resolve default visibility (incl. default-hiding size outliers like the
+  // flagellum) BEFORE the first applyStyle()/applyVisibility(), so an outlier is
+  // never marked visible even momentarily — no render-flash before it's hidden.
+  initSizeFilter();
   applyStyle();
 
   // Schedule the first LOD assessment now (loads coarse mesh per
@@ -1138,7 +1277,6 @@ async function buildScene(doc, fileName) {
   bboxLines.visible = toggleBbox.checked; // off in the curated view
 
   framePacking(bbMin, bbMax);
-  initSizeFilter();
   // GPU-pragmatic default: a whole-cell pack is ~1M+ instances, too heavy to
   // draw every frame. Default the render to a representative uniform subsample
   // (~TARGET_DRAWN instances). The pack order is random, so a fraction is an
@@ -1170,6 +1308,14 @@ async function buildScene(doc, fileName) {
 // primitive — a chain of spheres reads as a cylinder, eight corner
 // spheres read as a cube, etc. For mesh ingredients it's still a
 // single sphere; the LOD pipeline takes over once an OBJ loads.
+// Scale proxy-sphere tessellation with apparent size: the thousands of small
+// molecules (the bulk of the VR draw set) get cheap low-poly spheres, while the
+// few large landmark spheres stay smooth. At 24×12 every proxy was ~576 tris →
+// ~15k of them blew past 8M tris/eye and tanked the Quest frame rate.
+function sphereSegs(r) {
+  const w = Math.max(8, Math.min(24, Math.round(r / 14)));
+  return [w, Math.max(4, Math.round(w / 2))];
+}
 function buildFallbackGeometry(ing, enclosingRadius) {
   if (ing.shape.kind === "multi_sphere"
       && Array.isArray(ing.shape.spheres) && ing.shape.spheres.length > 0) {
@@ -1198,7 +1344,8 @@ function buildFallbackGeometry(ing, enclosingRadius) {
   const ell = ing.shape.kind === "mesh" ? ing.shape.ellipsoid : null;
   if (ell && Array.isArray(ell.semi_axes)) {
     const r = Array.isArray(ell.rotation) ? ell.rotation : [1, 0, 0, 0];
-    const g = new THREE.SphereGeometry(1, 20, 12);
+    const [sw, sh] = sphereSegs(enclosingRadius);
+    const g = new THREE.SphereGeometry(1, sw, sh);
     const m = new THREE.Matrix4().compose(
       new THREE.Vector3(),
       new THREE.Quaternion(r[1], r[2], r[3], r[0]), // pack stores [w, x, y, z]
@@ -1207,7 +1354,8 @@ function buildFallbackGeometry(ing, enclosingRadius) {
     g.applyMatrix4(m);
     return g;
   }
-  return new THREE.SphereGeometry(enclosingRadius, 24, 12);
+  const [sw, sh] = sphereSegs(enclosingRadius);
+  return new THREE.SphereGeometry(enclosingRadius, sw, sh);
 }
 
 function makeFallbackSphere(ing, color, enclosingRadius, placementCount) {
@@ -1229,6 +1377,11 @@ function makeFallbackSphere(ing, color, enclosingRadius, placementCount) {
   for (const mesh of [standardMesh, celMesh]) {
     mesh.frustumCulled = false; // we cull per-instance ourselves
     mesh.count = 0;             // filled by reassessLODs
+    // Start hidden — applyVisibility() turns on only the entries that should
+    // show. THREE meshes default to visible=true, which let a default-hidden
+    // outlier (e.g. the flagellum) flash for a frame before the size filter
+    // resolved; starting off closes that window.
+    mesh.visible = false;
     scene.add(mesh);
   }
   return { standardMesh, celMesh };
@@ -1354,6 +1507,7 @@ function ensureLodMesh(entry, levelIdx, geom, robustR) {
     for (const mesh of [standard, cel]) {
       mesh.frustumCulled = false;
       mesh.count = 0;
+      mesh.visible = false; // applyStyle below sets the real value; never flash on
       if (clippingPlane) {
         mesh.material.clippingPlanes = [clippingPlane];
         mesh.material.needsUpdate = true;
@@ -1394,7 +1548,7 @@ let lodVoxelPixelTarget = 4.0;
 // at 3 px they ALL route to meshes (no culling, mass OBJ loads) and the
 // view becomes unnavigable. Default to a higher budget so distant
 // instances stay cheap proxies; the "Mesh @px" slider tunes it.
-let lodSphereBudgetPx = 12.0;
+let lodSphereBudgetPx = 6.0;
 
 // Fraction of each ingredient's instances actually drawn — a viz-only
 // subsample (the pack order is random, so a prefix is a uniform random
@@ -1406,10 +1560,73 @@ let interiorFraction = 1.0;
 // Target number of drawn instances for the default view — a GPU-friendly load
 // that still reads as a crowded cell. Whole-cell packs (~1M+) are subsampled
 // down to this; smaller packs render in full.
-const TARGET_DRAWN = 250000;
+const TARGET_DRAWN = 75000;
+// Mobile GPUs (Meta Quest browser, phones/tablets) are far weaker than a
+// desktop and lag out at the desktop draw budget even in flat (non-VR) mode, so
+// cap the flat budget much lower there too. The Quest browser UA carries both
+// "OculusBrowser" and "Quest"/"Android".
+const IS_MOBILE = typeof navigator !== "undefined"
+  && /OculusBrowser|Quest|Mobile|Android|iPhone|iPad/i.test(navigator.userAgent || "");
+const FLAT_TARGET_DRAWN = IS_MOBILE ? 30000 : TARGET_DRAWN;
+// Was 10 px on mobile, which left almost everything as egg-shaped proxies — no
+// real mesh shapes ever loaded. The DPR cap freed up enough headroom to use the
+// desktop threshold, so actual molecular shapes render when zoomed in.
+if (IS_MOBILE) lodSphereBudgetPx = 6.0;
+// A Meta Quest GPU renders in stereo at 72-90 Hz and is far weaker than a
+// desktop — draw far fewer instances while presenting or it lags out (and the
+// mesh-load churn stutters the whole runtime). Re-applied on VR enter/exit.
+const VR_TARGET_DRAWN = 15000;  // lowered from 25k — headroom so the Quest can't
+                                // GPU-lock (a lockup freezes even the Meta button)
+// In VR, never pick a level finer than necessary, but allow finer than this only
+// as the user approaches. This is the COARSEST level always acceptable; the
+// projected-size pick may choose finer (higher index) levels near the camera.
+const VR_LOD_FLOOR = 0;
+// Hard cap on triangles submitted per frame while presenting in VR. The scene is
+// drawn once per eye, so the GPU processes ~2× this. 600k → ~1.2M GPU triangles,
+// comfortable headroom on a Quest 2 so it cannot lock up. Bigger molecules claim
+// it first (see reassessLODs); the remainder render as cheap sphere proxies.
+const VR_TRIANGLE_BUDGET = 600000;
+// Adaptive controller: shrinks the triangle budget when fps dips (Quest GPU
+// pressure) and restores it when headroom returns. Seeded LOW and allowed to GROW
+// to VR_TRIANGLE_BUDGET — starting at the full budget slams the Quest GPU on the
+// first VR frames (the cause of the entry hitch / near-freeze); ramping up only
+// once fps headroom is confirmed avoids that initial overload.
+// fps thresholds tuned to real Quest-browser performance for THIS scene (~20-25
+// fps), NOT 72 — at the default 66/72 targets the budget read "too slow" every
+// frame and collapsed to its floor, starving the real meshes so everything stayed
+// an ellipsoid proxy ("eggs"). Here it holds a generous budget so molecules show
+// as real shapes, only easing back if fps craters below ~16.
+const vrBudget = makeAdaptiveBudget(450000, {
+  min: 250000, max: 1100000, shrinkAt: 16, growAt: 24, shrinkBy: 0.9, growBy: 1.06,
+});
+// VR frustum culling: only draw molecules inside the headset view so the triangle
+// budget is spent on what you're actually looking at (the ~half the cell behind
+// you is skipped). VR_CULL_MARGIN (Å) keeps a buffer around the view so moderate
+// head turns stay covered between reassess passes; vrFrameCount gates culling
+// until the XR camera pose is valid (culling on the first post-enter frames,
+// before the pose updates, would blank the scene — the old "black void").
+const VR_CULL_MARGIN = 4000;
+let vrFrameCount = 0;
+// Depth-reveal (Mol*-style): in VR, render only a shell of this depth (Å) ahead
+// of the nearest visible molecule. The occluded interior isn't drawn when you're
+// outside the cell, and deeper layers are revealed as you move in. revealMinDist
+// holds the nearest in-frustum molecule from the previous pass (cheap — the
+// camera is stable between debounced reassess passes).
+const REVEAL_BAND = 5000;
+let revealMinDist = null;
+// Rare types (few copies) are always drawn in full — the global subsample is for
+// the abundant species. Without this, a 30-copy complex like the flagellum would
+// be culled to ~6 at a 20% show fraction.
+const ALWAYS_SHOW_MAX = 1000;
+let _packTotalPlacements = 0;
 function applyAdaptiveShowFraction(totalPlacements) {
   if (!totalPlacements) return;
-  let pct = Math.min(100, Math.max(5, Math.round((TARGET_DRAWN / totalPlacements) * 100 / 5) * 5));
+  _packTotalPlacements = totalPlacements;
+  const vr = renderer.xr.isPresenting;
+  const target = vr ? VR_TARGET_DRAWN : FLAT_TARGET_DRAWN;
+  let pct = (target / totalPlacements) * 100;
+  pct = vr ? Math.min(100, Math.max(1, Math.round(pct)))
+           : Math.min(100, Math.max(1, Math.round(pct)));
   interiorFraction = pct / 100;
   const slider = document.getElementById("show-fraction");
   const val = document.getElementById("show-fraction-value");
@@ -1440,10 +1657,32 @@ function initSizeFilter() {
   const hi = document.getElementById("size-max");
   if (!radii.length) { if (lo) lo.disabled = true; if (hi) hi.disabled = true; return; }
   sizeDomainMin = Math.floor(Math.min(...radii));
-  sizeDomainMax = Math.ceil(Math.max(...radii));
+  // Cap the slider track at the next-biggest molecule when the largest is a far
+  // outlier (e.g. the flagellum, whose huge enclosing radius would otherwise
+  // squash every other molecule into the leftmost sliver of the track). Walk the
+  // distinct radii from the top and stop at the first that isn't >1.3× the one
+  // below it. The outlier is still shown by default — the max slider at its top
+  // means "no upper limit" (see onSizeFilterInput), so nothing is hidden.
+  const distinct = [...new Set(radii)].sort((a, b) => a - b);
+  let cap = distinct[distinct.length - 1];
+  for (let i = distinct.length - 1; i > 0; i--) {
+    if (distinct[i] > distinct[i - 1] * 1.3) cap = distinct[i - 1];
+    else break;
+  }
+  sizeDomainMax = Math.ceil(cap);
   if (sizeDomainMax <= sizeDomainMin) sizeDomainMax = sizeDomainMin + 1;
   sizeFilterMin = sizeDomainMin;
-  sizeFilterMax = sizeDomainMax;
+  // Default the upper bound to "no limit" so an outlier toggled back on (via its
+  // ingredient checkbox) isn't also blocked by the size filter.
+  sizeFilterMax = Infinity;
+  // Default-hide the outliers above the cap (e.g. the flagellum): they stay in
+  // the ingredient panel but start unchecked, so they're present to switch on
+  // rather than dominating the initial view.
+  if (Math.max(...radii) > sizeDomainMax + 1e-6) {
+    for (const e of instancedMeshes) {
+      if ((e.enclosingRadius || 0) > sizeDomainMax + 1e-6) e.visible = false;
+    }
+  }
   for (const s of [lo, hi]) {
     if (!s) continue;
     s.disabled = false;
@@ -1458,8 +1697,10 @@ function initSizeFilter() {
 function updateSizeFilterLabel() {
   const el = document.getElementById("size-range-value");
   if (!el) return;
-  const full = (sizeFilterMin <= sizeDomainMin + 1e-6 && sizeFilterMax >= sizeDomainMax - 1e-6);
-  el.textContent = Math.round(sizeFilterMin) + "–" + Math.round(sizeFilterMax) + " Å"
+  const unbounded = !isFinite(sizeFilterMax) || sizeFilterMax >= sizeDomainMax - 1e-6;
+  const full = (sizeFilterMin <= sizeDomainMin + 1e-6 && unbounded);
+  const hiLabel = unbounded ? Math.round(sizeDomainMax) + "+" : Math.round(sizeFilterMax);
+  el.textContent = Math.round(sizeFilterMin) + "–" + hiLabel + " Å"
     + (full ? " (all)" : "");
 }
 
@@ -1479,7 +1720,11 @@ function scheduleReassess() {
 // Must happen after `camera.updateProjectionMatrix` and
 // `controls.update` have run for this frame.
 function refreshFrustum() {
-  _tmpProjView.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  // In VR the headset drives the view; cull against the XR camera (a combined
+  // both-eyes culling frustum that follows the head) — not the frozen desktop
+  // camera, which would cull everything you turn to look at (black void).
+  const cam = renderer.xr.isPresenting ? renderer.xr.getCamera() : camera;
+  _tmpProjView.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
   _tmpFrustum.setFromProjectionMatrix(_tmpProjView);
 }
 
@@ -1496,15 +1741,32 @@ function refreshFrustum() {
 // total placement count (≈ 27k for mycoplasma_full).
 function reassessLODs() {
   refreshFrustum();
-  const camPos = camera.position;
+  const isPresentingNow = renderer.xr.isPresenting;
+  // In VR the active camera is the headset rig (renderer.xr.getCamera()); use
+  // its world position so LOD/frustum picking tracks where the user actually is.
+  const camPos = renderer.xr.isPresenting
+    ? renderer.xr.getCamera().getWorldPosition(new THREE.Vector3())
+    : camera.position;
   const vh = renderer.domElement.clientHeight || 1;
   const fovHalfTan = Math.tan((camera.fov * Math.PI / 180) / 2);
   const camX = camPos.x, camY = camPos.y, camZ = camPos.z;
+  let minDistThisPass = Infinity;
+  const revealFar = (isPresentingNow && revealMinDist != null) ? revealMinDist + REVEAL_BAND : Infinity;
 
   meshLoadingTotal = 0;
   meshLoadingDone = 0;
 
-  for (const entry of instancedMeshes) {
+  // VR safety: a hard per-frame triangle budget so the Quest GPU can never be
+  // handed more geometry than it can draw (an overload locks the GPU and freezes
+  // even the Meta button → forced restart). Draw the biggest molecules as real
+  // meshes first — they read as shapes; once the budget is spent the rest fall
+  // back to cheap sphere proxies. No effect outside VR (budget = Infinity).
+  let vrTriBudget = isPresentingNow ? vrBudget.value : Infinity;
+  const order = isPresentingNow
+    ? [...instancedMeshes].sort((a, b) => (b.enclosingRadius || 0) - (a.enclosingRadius || 0))
+    : instancedMeshes;
+
+  for (const entry of order) {
     if (entry.lods) {
       meshLoadingTotal += entry.lods.length;
       for (const lvl of entry.lods) if (lvl.loaded) meshLoadingDone++;
@@ -1528,16 +1790,26 @@ function reassessLODs() {
       }
     }
 
-    const nShow = Math.round(entry.placements.length * interiorFraction);
+    const nShow = entry.placements.length <= ALWAYS_SHOW_MAX
+      ? entry.placements.length
+      : Math.round(entry.placements.length * interiorFraction);
     for (let pi = 0; pi < nShow; pi++) {
       const p = entry.placements[pi];
       const px = p.position[0], py = p.position[1], pz = p.position[2];
       _tmpSphere.center.set(px, py, pz);
-      _tmpSphere.radius = sphereR;
-      if (!_tmpFrustum.intersectsSphere(_tmpSphere)) continue;
+      // Cull to the view frustum. In VR this uses the stereo XR frustum
+      // (refreshFrustum), but only once the headset pose is valid (vrFrameCount
+      // guard) and with a view-margin so head turns stay covered between passes.
+      const vrCull = isPresentingNow && vrFrameCount > 3;
+      _tmpSphere.radius = sphereR + (vrCull ? VR_CULL_MARGIN : 0);
+      if ((vrCull || !isPresentingNow) && !_tmpFrustum.intersectsSphere(_tmpSphere)) continue;
 
       const dx = px - camX, dy = py - camY, dz = pz - camZ;
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (isPresentingNow) {
+        if (dist < minDistThisPass) minDistThisPass = dist;  // track nearest for next pass
+        if (dist > revealFar) continue;                       // depth-reveal: skip occluded interior
+      }
       const r = p.rotation || [1, 0, 0, 0];
       _tmpQuat.set(r[1], r[2], r[3], r[0]); // pack v1 stores [w,x,y,z]
       _tmpPos.set(px, py, pz);
@@ -1554,7 +1826,11 @@ function reassessLODs() {
       // triangle OBJ for something that's 4 pixels across is wasted
       // GPU bandwidth — the sphere proxy is visually identical at
       // that scale.
-      if (!hasLods || projectedRadiusPx < lodSphereBudgetPx) {
+      // In VR the projected-size heuristic (vh/fov) is unreliable, so it routed
+      // every mesh ingredient to the sphere/ellipsoid fallback ("eggs"). While
+      // presenting, skip the size shortcut so mesh ingredients always load a real
+      // (coarse) LOD; only true sphere ingredients fall through.
+      if (!hasLods || (!isPresentingNow && projectedRadiusPx < lodSphereBudgetPx)) {
         _tmpMat.compose(_tmpPos, _tmpQuat, _tmpScaleOne);
         entry.fallbackSphere.standardMesh.setMatrixAt(sphereCount, _tmpMat);
         entry.fallbackSphere.celMesh.setMatrixAt(sphereCount, _tmpMat);
@@ -1582,6 +1858,18 @@ function reassessLODs() {
       if (desired === -1) {
         for (let i = lods.length - 1; i >= 0; i--) {
           if (!lods[i].degenerate) { desired = i; break; }
+        }
+      }
+      if (isPresentingNow) {
+        // Distance-aware in VR: keep the per-pixel `desired` chosen above, but
+        // clamp it no coarser than VR_LOD_FLOOR so far-away molecules still read
+        // as real (coarse) shapes rather than smooth eggs. The VR triangle budget
+        // below remains the hard cap on total geometry.
+        const floor = Math.min(VR_LOD_FLOOR, lods.length - 1);
+        if (desired < floor) desired = floor;
+        while (desired >= 0 && lods[desired].degenerate) desired--;
+        if (desired < 0) {
+          for (let i = 0; i < lods.length; i++) if (!lods[i].degenerate) { desired = i; break; }
         }
       }
 
@@ -1614,6 +1902,23 @@ function reassessLODs() {
         sphereCount++;
       } else {
         const lvl = lods[actual];
+        // VR triangle budget: if drawing this mesh would blow the per-frame cap,
+        // draw a cheap sphere instead. triCount is memoised per LOD.
+        if (isPresentingNow) {
+          if (lvl.triCount == null) {
+            const g = lvl.standardMesh.geometry;
+            lvl.triCount = g.index ? g.index.count / 3
+                                   : g.attributes.position.count / 3;
+          }
+          if (vrTriBudget - lvl.triCount < 0) {
+            _tmpMat.compose(_tmpPos, _tmpQuat, _tmpScaleOne);
+            entry.fallbackSphere.standardMesh.setMatrixAt(sphereCount, _tmpMat);
+            entry.fallbackSphere.celMesh.setMatrixAt(sphereCount, _tmpMat);
+            sphereCount++;
+            continue;
+          }
+          vrTriBudget -= lvl.triCount;
+        }
         // geomScale brings every LOD's bounding extent to the canonical
         // enclosing_radius so LOD-to-LOD pop-ins don't change size.
         _tmpScaleVec.setScalar(lvl.geomScale);
@@ -1661,6 +1966,9 @@ function reassessLODs() {
       lvl0.wantPriority = -1;
     }
   }
+
+  // Remember the nearest visible molecule for next pass's depth-reveal window.
+  revealMinDist = (isPresentingNow && minDistThisPass < Infinity) ? minDistThisPass : null;
 
   // Hand off to the priority drain. It scans all entries' wantLoad
   // levels and picks the one whose closest in-frustum placement is
@@ -1774,12 +2082,13 @@ let collapsedCats = new Set();
 let selectedName = null;     // currently-selected ingredient (info panel + row highlight)
 let selectedHighlight = null; // the black inverted-hull outline mesh for the picked instance
 let selectedAnchor = null;    // world-space point the info box is pinned next to
-const CAT_ORDER = ["Translation", "Transcription", "Nucleoid", "Metabolism",
-                   "Protein folding", "Envelope", "Motility", "Regulation"];
+const CAT_ORDER = ["Replication", "Division", "Translation", "Transcription", "Nucleoid",
+                   "Metabolism", "Protein folding", "Envelope", "Motility",
+                   "Regulation"];
 const CAT_COLOR = {
-  "Translation": "#f28c40", "Transcription": "#5a99f2", "Nucleoid": "#d9bf73",
-  "Metabolism": "#73cc80", "Protein folding": "#f2d94d", "Envelope": "#cc8cd9",
-  "Regulation": "#e6667f", "Motility": "#40c7b8",
+  "Replication": "#ff7733", "Division": "#33d9e6", "Translation": "#f28c40", "Transcription": "#5a99f2",
+  "Nucleoid": "#d9bf73", "Metabolism": "#73cc80", "Protein folding": "#f2d94d",
+  "Envelope": "#cc8cd9", "Regulation": "#e6667f", "Motility": "#40c7b8",
 };
 function metaFor(entry) {
   return ingredientMeta[entry.name] || { display_name: entry.name, category: "Other" };
@@ -1868,7 +2177,168 @@ function clearHighlight() {
     if (selectedHighlight.geometry) selectedHighlight.geometry.dispose();
     selectedHighlight = null;
   }
+  disposeStructureBox();
   selectedAnchor = null;
+}
+
+// ───── interactive atomic structure in the info box ──────────────────
+// When a selected ingredient has a public structure (RCSB id / AlphaFold
+// accession recorded in the meta sidecar), show its real all-atom structure in
+// a small interactive viewer (orbit + zoom) inside the info panel, CPK-coloured
+// by element. The main-scene mesh just stays highlighted. Assembled complexes
+// (no single public structure) show nothing in the box.
+let _structToken = 0;             // guards async fetches against stale selections
+const _structCache = new Map();   // source key → { xyz, colors } (centroid-centred)
+let _mv = null;                   // the lazily-created mini-viewer
+
+const CPK = {
+  C: [0.50, 0.50, 0.52], N: [0.20, 0.34, 0.96], O: [0.93, 0.18, 0.18],
+  S: [0.95, 0.80, 0.22], P: [0.95, 0.55, 0.22], H: [0.92, 0.92, 0.92],
+  FE: [0.88, 0.40, 0.20], MG: [0.24, 0.85, 0.45], ZN: [0.49, 0.50, 0.69],
+};
+const CPK_DEFAULT = [0.85, 0.45, 0.85];
+function _cpk(el) { return CPK[el] || CPK[el && el[0]] || CPK_DEFAULT; }
+
+function _parsePdb(text) {
+  const xs = [], cs = [];
+  for (const line of text.split("\n")) {
+    if (line.startsWith("ATOM") || line.startsWith("HETATM")) {
+      const x = parseFloat(line.slice(30, 38)), y = parseFloat(line.slice(38, 46)), z = parseFloat(line.slice(46, 54));
+      if (isNaN(x) || isNaN(y) || isNaN(z)) continue;
+      let e = line.slice(76, 78).trim().toUpperCase();
+      if (!e) { const nm = line.slice(12, 16).trim(); e = (nm.match(/[A-Za-z]/) || ["C"])[0].toUpperCase(); }
+      xs.push(x, y, z); const c = _cpk(e); cs.push(c[0], c[1], c[2]);
+    }
+  }
+  return { xyz: new Float32Array(xs), colors: new Float32Array(cs) };
+}
+function _parseCif(text) {
+  const lines = text.split("\n"); const xs = [], cs = []; let i = 0;
+  while (i < lines.length) {
+    if (lines[i].trim() === "loop_") {
+      const hdr = []; let j = i + 1;
+      while (j < lines.length && lines[j].trim().startsWith("_")) { hdr.push(lines[j].trim()); j++; }
+      const cx = hdr.indexOf("_atom_site.Cartn_x"), cy = hdr.indexOf("_atom_site.Cartn_y"), cz = hdr.indexOf("_atom_site.Cartn_z");
+      const ce = hdr.indexOf("_atom_site.type_symbol");
+      if (cx >= 0 && cy >= 0 && cz >= 0) {
+        let k = j;
+        while (k < lines.length) {
+          const t = lines[k].trim();
+          if (t === "" || t === "#" || t === "loop_" || t.startsWith("_")) break;
+          const p = t.split(/\s+/);
+          if (p.length >= hdr.length) {
+            const x = parseFloat(p[cx]), y = parseFloat(p[cy]), z = parseFloat(p[cz]);
+            if (!isNaN(x) && !isNaN(y) && !isNaN(z)) {
+              xs.push(x, y, z); const c = _cpk(ce >= 0 ? p[ce].toUpperCase() : "C"); cs.push(c[0], c[1], c[2]);
+            }
+          }
+          k++;
+        }
+        return { xyz: new Float32Array(xs), colors: new Float32Array(cs) };
+      }
+      i = j;
+    } else { i++; }
+  }
+  return { xyz: new Float32Array(xs), colors: new Float32Array(cs) };
+}
+async function _fetchStructure(src) {
+  const key = src.db + ":" + src.id + ":" + (src.fmt || "");
+  if (_structCache.has(key)) return _structCache.get(key);
+  let url, fmt;
+  if (src.db === "rcsb") {
+    fmt = src.fmt || "pdb"; url = `https://files.rcsb.org/download/${src.id}.${fmt}`;
+  } else if (src.db === "alphafold") {
+    const a = await fetch(`https://alphafold.ebi.ac.uk/api/prediction/${src.id}`);
+    const j = await a.json(); url = (Array.isArray(j) ? j[0] : j).pdbUrl; fmt = "pdb";
+  } else { return null; }
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`fetch ${url} → ${resp.status}`);
+  const data = fmt === "cif" ? _parseCif(await resp.text()) : _parsePdb(await resp.text());
+  const xyz = data.xyz, n = xyz.length / 3;
+  let cx = 0, cy = 0, cz = 0;
+  for (let a = 0; a < xyz.length; a += 3) { cx += xyz[a]; cy += xyz[a + 1]; cz += xyz[a + 2]; }
+  cx /= n; cy /= n; cz /= n;
+  for (let a = 0; a < xyz.length; a += 3) { xyz[a] -= cx; xyz[a + 1] -= cy; xyz[a + 2] -= cz; }
+  _structCache.set(key, data);
+  return data;
+}
+function _initMiniViewer() {
+  const canvas = document.getElementById("struct-canvas");
+  if (!canvas) return null;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  const sc = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(40, 1, 1, 400000);
+  sc.add(new THREE.AmbientLight(0xffffff, 0.6));
+  const dir = new THREE.DirectionalLight(0xffffff, 0.85); dir.position.set(1, 1, 1.5);
+  cam.add(dir); sc.add(cam);
+  const group = new THREE.Group(); sc.add(group);
+  const ctrl = new OrbitControls(cam, canvas);
+  ctrl.enableDamping = false; ctrl.enablePan = false;
+  const mv = { renderer, scene: sc, camera: cam, group, ctrl, mesh: null };
+  mv.render = () => {
+    const w = canvas.clientWidth || 300, h = canvas.clientHeight || 220, pr = renderer.getPixelRatio();
+    if (canvas.width !== Math.round(w * pr) || canvas.height !== Math.round(h * pr)) {
+      renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix();
+    }
+    renderer.render(sc, cam);
+  };
+  ctrl.addEventListener("change", mv.render);
+  _mv = mv;
+  return mv;
+}
+function disposeStructureBox() {
+  const canvas = document.getElementById("struct-canvas");
+  if (canvas) canvas.hidden = true;
+  if (_mv && _mv.mesh) {
+    _mv.group.remove(_mv.mesh);
+    _mv.mesh.material.dispose();
+    if (_mv.mesh.geometry) _mv.mesh.geometry.dispose();
+    _mv.mesh = null;
+  }
+}
+async function loadStructureBox(entry) {
+  const src = metaFor(entry).structure;
+  const canvas = document.getElementById("struct-canvas");
+  if (!src) { disposeStructureBox(); return; }
+  const token = ++_structToken;
+  const el = document.getElementById("info-structure");
+  if (el) el.innerHTML = `structure <span class="num">${escapeHtml(String(src.id))}</span> — loading…`;
+  let data;
+  try { data = await _fetchStructure(src); }
+  catch (e) {
+    console.warn("[viewer] structure fetch failed", src, e);
+    if (el) el.innerHTML = `<span style="color:#e6667f">structure ${escapeHtml(String(src.id))} failed to load</span>`;
+    return;
+  }
+  if (!data || token !== _structToken || selectedName !== entry.name) return;
+  const mv = _mv || _initMiniViewer();
+  if (!mv) return;
+  if (canvas) canvas.hidden = false;
+  if (mv.mesh) { mv.group.remove(mv.mesh); mv.mesh.material.dispose(); mv.mesh.geometry.dispose(); mv.mesh = null; }
+  const xyz = data.xyz, colors = data.colors, n = xyz.length / 3;
+  const inst = new THREE.InstancedMesh(
+    new THREE.SphereGeometry(1.6, 6, 4),
+    new THREE.MeshStandardMaterial({ metalness: 0.0, roughness: 0.85 }), n);
+  const m = new THREE.Matrix4(), col = new THREE.Color();
+  let r2 = 0;
+  for (let a = 0, idx = 0; a < xyz.length; a += 3, idx++) {
+    m.makeTranslation(xyz[a], xyz[a + 1], xyz[a + 2]); inst.setMatrixAt(idx, m);
+    col.setRGB(colors[a], colors[a + 1], colors[a + 2]); inst.setColorAt(idx, col);
+    const rr = xyz[a] * xyz[a] + xyz[a + 1] * xyz[a + 1] + xyz[a + 2] * xyz[a + 2];
+    if (rr > r2) r2 = rr;
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  if (inst.instanceColor) inst.instanceColor.needsUpdate = true;
+  mv.group.add(inst); mv.mesh = inst;
+  const R = Math.sqrt(r2) + 2;
+  const dist = R / Math.sin((mv.camera.fov * Math.PI / 180) / 2) * 1.15;
+  mv.ctrl.target.set(0, 0, 0);
+  mv.camera.position.set(0, 0, dist);
+  mv.camera.near = Math.max(1, dist - 2 * R); mv.camera.far = dist + 2 * R;
+  mv.camera.updateProjectionMatrix();
+  mv.ctrl.update(); mv.render();
+  if (el) el.innerHTML = `structure: <span class="num">${escapeHtml(String(src.id))}</span> · <span class="num">${n.toLocaleString()}</span> atoms <span style="color:var(--text-dim)">· drag to rotate</span>`;
 }
 // Outline + select a specific instance. worldMatrix places the hull; geometry
 // is the picked instance's geometry (or a fallback sphere for legend picks).
@@ -1890,6 +2360,7 @@ function selectInstance(entry, geometry, worldMatrix) {
   selectedAnchor = _selPos.clone();
   renderInfoPanel(entry);
   setInfo(true);
+  loadStructureBox(entry);  // show the real atomic structure in the info box (if any)
   updateInfoAnchor();  // position the card immediately (no first-frame flash)
   renderLegend();
 }
@@ -1925,6 +2396,9 @@ function renderInfoPanel(e) {
     + `<div class="info-cat"><span class="dot" style="background:${color}"></span>${escapeHtml(cat)}</div>`
     + `<div class="info-stat"><span class="num">${count.toLocaleString()}</span> copies placed</div>`
     + `<div class="info-stat">size: ~<span class="num">${radius}</span> Å radius</div>`
+    + `<div class="info-stat" id="info-structure">${m.structure
+        ? `structure <span class="num">${escapeHtml(String(m.structure.id))}</span> — loading…`
+        : `<span style="color:var(--text-dim)">no public structure (assembled complex)</span>`}</div>`
     + `<div class="info-actions">`
     + (url ? `<a class="info-link" href="${url}" target="_blank" rel="noopener">EcoCyc entry ↗</a>`
            : `<span class="info-link" style="color:var(--text-dim)">no EcoCyc entry</span>`)
@@ -2154,37 +2628,48 @@ function applyOutlineWidth(pixels) {
 }
 
 function applyClippingPlane() {
-  const axis = sliceAxis.value;
-  if (!axis) {
+  const mode = sliceAxis.value;
+  if (!mode) {
     renderer.clippingPlanes = [];
     clippingPlane = null;
+    setMaterialClipping([]);
     return;
   }
-  const normal = new THREE.Vector3(
-    axis === "x" ? 1 : 0,
-    axis === "y" ? 1 : 0,
-    axis === "z" ? 1 : 0,
-  );
+  // Plane orientation from the preset's azimuth (around vertical Y) + elevation
+  // (tilt): el=90 → normal +Y (horizontal cut); el=0,az=90 → +X (across the
+  // rod); el=0,az=0 → +Z (along the rod).
+  const [azDeg, elDeg] = SLICE_PRESETS[mode] || [0, 90];
+  const az = THREE.MathUtils.degToRad(azDeg), el = THREE.MathUtils.degToRad(elDeg);
+  const ce = Math.cos(el);
+  const normal = new THREE.Vector3(ce * Math.sin(az), Math.sin(el), ce * Math.cos(az)).normalize();
   if (sliceFlip.checked) normal.negate();
-  const t = parseFloat(slicePos.value);
   if (!dataBounds) return;
+  // Position the plane along its own normal: project the 8 bbox corners onto the
+  // normal to get the world range the slider spans (works for any orientation).
   const bbMin = dataBounds.min, bbMax = dataBounds.max;
-  const lo = axis === "x" ? bbMin[0] : axis === "y" ? bbMin[1] : bbMin[2];
-  const hi = axis === "x" ? bbMax[0] : axis === "y" ? bbMax[1] : bbMax[2];
-  const worldPos = lo + (hi - lo) * (t * 0.5 + 0.5);
-  slicePosValue.textContent = worldPos.toFixed(1);
-  // Plane equation: normal · p + constant = 0; we keep points where
-  // dot(normal, p) ≤ -constant. So constant = -dot(normal, planePoint).
-  const planePoint = new THREE.Vector3(
-    axis === "x" ? worldPos : 0,
-    axis === "y" ? worldPos : 0,
-    axis === "z" ? worldPos : 0,
-  );
-  const constant = -normal.dot(planePoint);
+  let lo = Infinity, hi = -Infinity;
+  for (let i = 0; i < 8; i++) {
+    const c = new THREE.Vector3(
+      (i & 1) ? bbMax[0] : bbMin[0],
+      (i & 2) ? bbMax[1] : bbMin[1],
+      (i & 4) ? bbMax[2] : bbMin[2]);
+    const d = normal.dot(c);
+    if (d < lo) lo = d; if (d > hi) hi = d;
+  }
+  const t = parseFloat(slicePos.value);
+  const d = lo + (hi - lo) * (t * 0.5 + 0.5);   // signed distance along the normal
+  slicePosValue.textContent = d.toFixed(0);
+  // Keep points where normal·p ≤ d  ⇒  THREE.Plane(normal, -d).
+  const constant = -d;
   clippingPlane = new THREE.Plane(normal, constant);
   renderer.clippingPlanes = [clippingPlane];
-  // Re-apply per-material clipping for every variant (fallback +
-  // each loaded LOD pair).
+  setMaterialClipping([clippingPlane]);
+}
+
+// Apply a clipping-plane list to every ingredient material variant (fallback +
+// each loaded LOD pair). `[]` removes the section (materials override the
+// renderer-level planes, so they must be cleared explicitly when turning off).
+function setMaterialClipping(planes) {
   for (const e of instancedMeshes) {
     const variants = [e.fallbackSphere.standardMesh, e.fallbackSphere.celMesh];
     if (e.lods) {
@@ -2193,7 +2678,7 @@ function applyClippingPlane() {
       }
     }
     for (const m of variants) {
-      m.material.clippingPlanes = [clippingPlane];
+      m.material.clippingPlanes = planes;
       m.material.needsUpdate = true;
     }
   }
@@ -2437,7 +2922,10 @@ function onSizeFilterInput() {
   const lo = parseFloat(sizeMinSlider.value);
   const hi = parseFloat(sizeMaxSlider.value);
   sizeFilterMin = Math.min(lo, hi);
-  sizeFilterMax = Math.max(lo, hi);
+  const hiVal = Math.max(lo, hi);
+  // At the top of the track there's no upper limit, so molecules above the
+  // capped domain (the flagellum outlier) keep showing.
+  sizeFilterMax = hiVal >= sizeDomainMax - 1e-6 ? Infinity : hiVal;
   updateSizeFilterLabel();
   applyVisibility();
   renderLegend();
@@ -2707,24 +3195,39 @@ function tick() {
   // cause a one-shot ten-frames-worth of motion that feels like a jerk.
   const dt = Math.min(0.05, (now - lastFrame) / 1000);
   lastFrame = now;
-  if (autoSpin) {
-    controls.target;
-    const target = controls.target;
-    const offset = camera.position.clone().sub(target);
-    const ang = dt * 0.25;
-    const cos = Math.cos(ang), sin = Math.sin(ang);
-    const nx = offset.x * cos - offset.z * sin;
-    const nz = offset.x * sin + offset.z * cos;
-    offset.x = nx;
-    offset.z = nz;
-    camera.position.copy(target).add(offset);
-    // OrbitControls only emits "change" on user input, not on our
-    // own camera moves; reassess explicitly so spin keeps the LOD +
-    // frustum partition in sync.
-    scheduleReassess();
+  if (renderer.xr.isPresenting) {
+    // VR: the headset drives the camera; controllers drive the dolly. Molecules
+    // are static in world space (moving/zooming moves the camera, not them), so
+    // we do NOT reassess every frame — that re-walked the whole drawn set each
+    // frame and stuttered. reassess runs once on enter + as each mesh finishes
+    // loading (loadLevel → scheduleReassess), which is enough.
+    vrFrameCount++;  // gates VR frustum culling until the XR camera pose is valid
+    if (vrApi) {
+      vrApi.updateVR(dt, now);
+      // Detail upgrade: once VR navigation settles, re-run the LOD pass so
+      // molecules near the user load finer meshes (no per-frame walk → no hitch).
+      if (vrApi.maybeReassess(now)) scheduleReassess();
+    }
+  } else {
+    if (autoSpin) {
+      controls.target;
+      const target = controls.target;
+      const offset = camera.position.clone().sub(target);
+      const ang = dt * 0.25;
+      const cos = Math.cos(ang), sin = Math.sin(ang);
+      const nx = offset.x * cos - offset.z * sin;
+      const nz = offset.x * sin + offset.z * cos;
+      offset.x = nx;
+      offset.z = nz;
+      camera.position.copy(target).add(offset);
+      // OrbitControls only emits "change" on user input, not on our
+      // own camera moves; reassess explicitly so spin keeps the LOD +
+      // frustum partition in sync.
+      scheduleReassess();
+    }
+    applyKeyboardMotion(dt);
+    controls.update();
   }
-  applyKeyboardMotion(dt);
-  controls.update();
   // The cel shader now provides Goodsell-style silhouette outlines
   // intrinsically (via view-aligned NdotV darkening), so we render
   // directly in both modes. The composer machinery is kept above as
@@ -2739,13 +3242,40 @@ function tick() {
   if (now - fpsUpdate > 400) {
     const fps = fpsCount / fpsAccum;
     fpsStat.innerHTML = `<span class="num" style="color:var(--text)">${fps.toFixed(0)}</span> fps`;
+    // VR only: update the adaptive budget; if it changed, re-run the LOD pass
+    // so the new triangle cap takes effect on the next reassessLODs walk.
+    if (renderer.xr.isPresenting && vrBudget.update(fps)) scheduleReassess();
     fpsAccum = 0;
     fpsCount = 0;
     fpsUpdate = now;
   }
-  requestAnimationFrame(tick);
 }
-requestAnimationFrame(tick);
+
+// WebXR "View in VR": enables the #vr-button when a headset is detected and
+// enters/exits immersive-VR. setAnimationLoop (not requestAnimationFrame) is
+// required so the headset can drive the render loop while presenting.
+const vrApi = initVR({
+  renderer, scene, camera,
+  button: document.getElementById("vr-button"),
+  onEnter: () => {
+    controls.enabled = false; if (typeof autoSpin !== "undefined") autoSpin = false;
+    vrFrameCount = 0; // restart the cull-readiness guard each session
+    // The membrane is a large always-drawn point cloud (not under the draw
+    // budget) — in stereo on a Quest GPU it overwhelms the frame, so hide it in
+    // VR; the molecules render under the VR budget.
+    for (const m of compartmentMeshes) m.visible = false;
+    applyAdaptiveShowFraction(_packTotalPlacements); // drop to the VR draw budget
+    scheduleReassess();
+  },
+  onExit: () => {
+    controls.enabled = true;
+    const memOn = !toggleMembrane || toggleMembrane.checked;
+    for (const m of compartmentMeshes) m.visible = memOn;
+    applyAdaptiveShowFraction(_packTotalPlacements); // restore desktop budget
+    scheduleReassess();
+  },
+});
+renderer.setAnimationLoop(tick);
 
 // ───── recipe dropdown ─────────────────────────────────────────────
 // `data/index.json` lists demo packings staged in `viewer/data/`.
@@ -2755,10 +3285,16 @@ requestAnimationFrame(tick);
 const demoPicker = document.getElementById("demo-picker");
 
 async function loadByPath(path) {
+  meshBaseUrl = path.includes("/") ? path.slice(0, path.lastIndexOf("/") + 1) : "";
+  // Fetch the coarse-mesh bundle in parallel with the (much larger) pack JSON.
+  // The ~1.5 MB bundle lands well before the tens-of-MB pack, so by the time we
+  // build the scene the lod0 geometry is already cached → shapes, not eggs.
+  const bundleReady = prefetchMeshBundle();
   try {
     const resp = await fetch(path);
     if (!resp.ok) throw new Error(resp.statusText);
     const doc = JSON.parse(await resp.text());
+    await bundleReady;
     buildScene(doc, path.split("/").pop());
   } catch (e) {
     console.warn("load failed:", e);
@@ -2786,18 +3322,67 @@ demoPicker.addEventListener("change", () => {
   if (collapseAll) collapseAll.addEventListener("click", () => { collapseAllCats(); });
 }
 
-// Load the ingredient-metadata sidecar (display names + categories), then the
-// pack. The pack path is configurable: window.PARSIMONY_PACK, then ?file=,
-// then a default. The sidecar is the pack path with .pack.json → .meta.json.
-(async () => {
-  const params = new URLSearchParams(window.location.search);
-  const file = window.PARSIMONY_PACK || params.get("file") || "data/demo.pack.json";
-  const metaFile = file.replace(/\.pack\.json$/, ".meta.json");
+// Load a model = its ingredient-metadata sidecar (display names + categories)
+// then the pack. The sidecar is the pack path with .pack.json → .meta.json.
+async function loadModel(file) {
+  // Derive the meta sidecar URL, preserving any cache-bust query (e.g.
+  // ".../ecoli_3d.pack.json?v=2" → ".../ecoli_3d.meta.json?v=2"). Without the
+  // optional query group the replace would no-op on a versioned URL and we'd
+  // fetch the pack as the sidecar — losing all category metadata ("Other").
+  const metaFile = file.replace(/\.pack\.json(\?.*)?$/, ".meta.json$1");
+  ingredientMeta = {};
   try {
     const r = await fetch(metaFile);
-    if (r.ok) { const j = await r.json(); ingredientMeta = j.ingredients || {}; }
+    if (r.ok) {
+      const j = await r.json();
+      // Guard: the sidecar is an object map {name: {display_name, category}}
+      // (optionally wrapped in {ingredients:{…}}), NOT a pack. If a URL-derivation
+      // bug made us fetch the PACK here (its `ingredients` is an ARRAY + it has a
+      // `placements` field), using it would silently wipe every display name +
+      // category → BioCyc ids under "Other". Reject it loudly instead.
+      const looksLikePack = Array.isArray(j.ingredients) || "placements" in j || j.format === "parsimony.pack.v1";
+      if (looksLikePack) {
+        console.error(`meta sidecar URL returned a pack, not metadata (${metaFile}) — keeping display names + categories from the previous load; check the .pack.json→.meta.json URL rewrite`);
+      } else {
+        ingredientMeta = j.ingredients || j || {};
+      }
+    }
   } catch (e) {
     console.warn("ingredient metadata sidecar not found:", e);
   }
   await loadByPath(file);
+}
+
+// Pack/model selection. A switchable multi-model viewer is driven by either
+// window.PARSIMONY_MODELS = [{name, file}, …] or ?models=<manifest-url> (a JSON
+// array of the same). The #model-picker then lets you switch models in-viewer
+// (one dashboard window, many models). Falls back to a single pack via
+// window.PARSIMONY_PACK / ?file= / a default demo.
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  let models = Array.isArray(window.PARSIMONY_MODELS) ? window.PARSIMONY_MODELS : null;
+  const manifestUrl = params.get("models");
+  if (!models && manifestUrl) {
+    try {
+      const r = await fetch(manifestUrl);
+      if (r.ok) models = await r.json();
+    } catch (e) { console.warn("models manifest not found:", e); }
+  }
+  const single = window.PARSIMONY_PACK || params.get("file");
+  const picker = document.getElementById("model-picker");
+  if (models && models.length && picker) {
+    picker.innerHTML = "";
+    for (const m of models) {
+      const o = document.createElement("option");
+      o.value = m.file; o.textContent = m.name || m.file.split("/").pop();
+      picker.appendChild(o);
+    }
+    picker.hidden = false;
+    picker.addEventListener("change", () => loadModel(picker.value));
+    const initial = (single && models.some(m => m.file === single)) ? single : models[0].file;
+    picker.value = initial;
+    await loadModel(initial);
+  } else {
+    await loadModel(single || "data/demo.pack.json");
+  }
 })();

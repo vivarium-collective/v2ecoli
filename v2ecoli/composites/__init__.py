@@ -12,6 +12,7 @@ from viva_superpowers.composite_generator import _REGISTRY as _COMPOSITE_REGISTR
 from v2ecoli.composites import (  # noqa: F401
     baseline,
     baseline_millard,
+    baseline_parsimony,
     baseline_population,
     baseline_time_varying_env,
     batch_baseline,
@@ -61,6 +62,7 @@ _register_clean_alias("KO_batch_baseline", module="ko_batch_baseline")
 __all__ = [
     "baseline",
     "baseline_millard",
+    "baseline_parsimony",
     "baseline_population",
     "baseline_time_varying_env",
     "batch_baseline",
@@ -71,5 +73,4 @@ __all__ = [
     "parca",
     "reactor_bird_coupled",
     "reactor_bird_coupled_millard",
-    "parsimony_ecoli",
 ]

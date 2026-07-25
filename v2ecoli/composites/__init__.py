@@ -19,6 +19,7 @@ from v2ecoli.composites import (  # noqa: F401
     millard_fba_bridge_harness,
     millard_pdmp_baseline,
     parca,
+    plasmids,
     reactor_bird_coupled,
     reactor_bird_coupled_millard,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "millard_fba_bridge_harness",
     "millard_pdmp_baseline",
     "parca",
+    "plasmids",
     "reactor_bird_coupled",
     "reactor_bird_coupled_millard",
     "parsimony_ecoli",

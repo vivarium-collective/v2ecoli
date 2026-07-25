@@ -51,6 +51,13 @@ artifacts deserialize cleanly under the merged package name.
 - Pipeline: `scripts/parca_run.py --mode fast --cpus 2`
 - Duration: 71.6 min end-to-end (step 5: 70 min; steps 1-4 + 6-9: ~1.5 min)
 - `debug=True`, `operons_on=True`, `remove_rrna_operons=False`, `stable_rrna=False`
+- Plasmid-aware: includes ColE1/pBR322 fields (`plasmid_sequence`,
+  `full_plasmid` mass, `plasmid_ori_coordinate`, plasmid unique-molecule
+  defs). Sourced from the v2parca `plasmid` branch
+  (vivarium-collective/v2parca PR #1) and re-loadable here via the
+  remapping unpickler now that the same plasmid additions are vendored
+  under `v2ecoli/processes/parca/`. `runtimes.json` covers steps 6–9
+  only — the resume-from-step-5 path that produced this artifact.
 
 To regenerate from scratch (~70 minutes), first build the Cython
 extensions:

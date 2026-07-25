@@ -1,7 +1,7 @@
 {
   "mode": "snapshot",
   "smsApiBase": "",
-  "repo": "https://github.com/vivarium-collective/v2ecoli.git",
-  "commit": "62a24ffcb65886948602a6ec692133e0a506df52",
-  "generated_from_ref": "docs/first-run-agent-guide"
+  "repo": "https://github.com/vivarium-collective/v2ecoli",
+  "commit": "2dfeeeb97c383b7d0305aa8b6944916afca85353",
+  "generated_from_ref": "main"
 }

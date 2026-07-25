@@ -387,6 +387,18 @@ ECOLI_TYPES = {
     'labeled_array': LabeledArray,
 }
 
+# Biological unit types — named scalars (each inherits `float`) that advertise a
+# UNIT on a port, so the loom / Inspector shows e.g. `femtogram` instead of a
+# bare `float`. Because they are subtypes of `float` they bind to plain-float
+# stores with no wiring change, and carry through to the value's meaning.
+ECOLI_TYPES.update({
+    'femtogram':  {'_inherit': 'float', '_description': 'mass, femtograms (fg)'},
+    'micrometer': {'_inherit': 'float', '_description': 'length, micrometers (µm)'},
+    'femtoliter': {'_inherit': 'float', '_description': 'volume, femtoliters (fL)'},
+    'radian':     {'_inherit': 'float', '_description': 'angle, radians'},
+    'millimolar': {'_inherit': 'float', '_description': 'concentration, millimolar (mM)'},
+})
+
 # Study-evaluation framework enums (target_class, verdict_result,
 # failure_cause, ...). Kept in a separate module so per-investigation
 # layers can extend the framework without touching this file.

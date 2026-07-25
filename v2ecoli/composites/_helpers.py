@@ -60,7 +60,7 @@ FLUSH = '__unique_flush__'
 # they pass to step builders: it serves configs by name and exposes the few
 # sim_data attributes those builders read (unique-molecule definitions +
 # expected dry-mass increase). Previously each generator (baseline,
-# millard_pdmp_baseline) defined its own nested
+# baseline_millard) defined its own nested
 # _CachedLoader with a 4-level inner-class mock; this is the single flattened,
 # module-level version.
 
@@ -102,7 +102,7 @@ def _expand_flushes(layers):
     """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
 
     N is assigned in declaration order so state keys stay stable across
-    architecture variants (baseline, colony, millard_pdmp_baseline).
+    architecture variants (baseline, colony, baseline_millard).
     """
     out, n = [], 0
     for layer in layers:
@@ -130,10 +130,10 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ---------------------------------------------------------------------------
 # Canonical visualization set for single-cell architectures.
 # ---------------------------------------------------------------------------
-# Shared by baseline / millard_pdmp_baseline — both resolve to the
+# Shared by baseline / baseline_millard — both resolve to the
 # same observables.mass / unique-molecule layout so the same viz tiles apply.
 # Opt-in: every study built on one of the v2ecoli single-cell composites
-# (baseline / millard_pdmp_baseline) that wants the legacy
+# (baseline / baseline_millard) that wants the legacy
 # WorkflowVisualization + NetworkVisualization panels must declare them
 # explicitly in its study.yaml `visualizations:` block. Auto-attaching them
 # here used to be the default, but the panels rendered confusingly empty for
@@ -293,7 +293,7 @@ ALLOCATOR_LAYERS = {
 # ``{'file_path': '.../workspace/studies/<name>', 'db_file': 'runs.db',
 #   'name': 'baseline-steady-state'}``) BEFORE building the composite.
 # When set, the special 'emitter' step in baseline /
-# millard_pdmp_baseline swaps RAMEmitter for SQLiteEmitter and expands the emit
+# baseline_millard swaps RAMEmitter for SQLiteEmitter and expands the emit
 # schema to cover the per-listener fields the dnaa investigation reads.
 #
 # Use the ``sqlite_emitter()`` context manager below for safety —

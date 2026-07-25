@@ -1,7 +1,7 @@
 """Millard FBA-bridge harness composite — the *integration climax* of the
 Millard FBA-bridge flux-pin feature.
 
-Unlike ``millard_pdmp_baseline`` (which REMOVES the WCM's tFBA ``Metabolism``
+Unlike ``baseline_millard`` (which REMOVES the WCM's tFBA ``Metabolism``
 and replaces it with the Millard ODE stack), this harness keeps the REAL WCM
 ``ecoli-metabolism`` and uses the Millard 2017 kinetic ODE as a flux *source*
 that mechanistically pins the central-carbon FBA reactions.

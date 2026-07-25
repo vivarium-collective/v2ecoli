@@ -2,13 +2,13 @@
 
 Single source for the symbols that the Millard-family composites
 (``baseline_millard``, ``reactor_bird_coupled_millard``, and
-``millard_pdmp_baseline``) all need:
+``baseline_millard``) all need:
 
 - ``_get_step_config`` — the per-step config dispatcher (identical to
   ``baseline.py``'s but with ``ecoli-metabolism`` intentionally ABSENT,
   since these composites replace tFBA metabolism with the Millard ODE).
   It still handles the LQR / FBA-bridge / ref-growth / millard-bulk-indexer
-  step names for the ``millard_pdmp_baseline`` path; the env-driven siblings
+  step names for the ``baseline_millard`` path; the env-driven siblings
   simply never request those features.
 - ``_register_millard_pdmp_links`` — ``core_extensions`` hook registering the
   Millard / FBA-bridge / multi-state-LQR Process classes.
@@ -17,7 +17,7 @@ Single source for the symbols that the Millard-family composites
   name constants used by the dispatcher / feature table.
 - ``_derive_process_seed`` — per-process deterministic seed derivation.
 
-Extracted from ``millard_pdmp_baseline`` so the keeper composites don't import
+Extracted from ``baseline_millard`` so the keeper composites don't import
 private symbols out of one another.
 """
 

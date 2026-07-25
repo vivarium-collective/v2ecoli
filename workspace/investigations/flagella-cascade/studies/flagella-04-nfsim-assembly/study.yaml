@@ -35,12 +35,14 @@ evaluation_status: partial
 gate_status: pending
 expert_review_status: requested    # Maya Abdalla reviewed 2026-07-24 (feedback imported)
 
-# Standalone NFsim run — NOT emitted to the Simulations DB (no WCM composite / emitter).
+# Rule-based NFsim assembly run — dispatched via the REGISTERED composite
+# `flagella_nfsim_assembly` (no more ad-hoc in-code Composite).
 runs:
 - name: nfsim-flagella-assembly-2400s
   kind: analysis
   canonical: true
-  description: standalone pbg-nfsim + monomer-production composite, 2400 s (not WCM-coupled, not in the Simulations DB)
+  composite: v2ecoli.composites.flagella_nfsim_assembly.flagella_nfsim_assembly
+  description: pbg-nfsim MonomerProduction + NFSimProcess flagellar assembly, 2400 s (standalone rule-based, not WCM-coupled)
   status: completed
   result: PASS
   outcomes:
@@ -109,7 +111,7 @@ visualizations:
 
 baseline:
 - name: nfsim-flagella-assembly
-  composite: pbg_nfsim.make_production_document
+  composite: v2ecoli.composites.flagella_nfsim_assembly.flagella_nfsim_assembly
   params:
     n_steps: 50
     complexation_interval: 120.0

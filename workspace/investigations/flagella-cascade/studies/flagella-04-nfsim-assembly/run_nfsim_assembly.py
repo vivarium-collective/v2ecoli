@@ -61,13 +61,18 @@ def _observables(sim):
 
 
 def run(seconds, sample, n_steps):
+    # Dispatch via the REGISTERED composite generator
+    # (v2ecoli.composites.flagella_nfsim_assembly) instead of building an ad-hoc
+    # in-code document — so this run is a real registered composite in the
+    # Simulations DB and opens in the Composite Explorer.
+    from v2ecoli.composites.flagella_nfsim_assembly import (
+        flagella_nfsim_assembly, _register_nfsim_links,
+    )
     core = allocate_core()
-    core.register_link("nfsim", pbg_nfsim.NFSimProcess)
-    core.register_link("monomer-production", pbg_nfsim.MonomerProduction)
-    core.register_link("ram-emitter", RAMEmitter)
+    _register_nfsim_links(core)
 
-    doc = pbg_nfsim.make_production_document(
-        n_steps=n_steps, complexation_interval=float(sample),
+    doc = flagella_nfsim_assembly(
+        core=core, n_steps=n_steps, complexation_interval=float(sample),
         production_interval=1.0, production_rate_scale=1.0,
     )
     sim = Composite({"state": doc}, core=core)

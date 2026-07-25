@@ -1,0 +1,29 @@
+schema_version: 4
+name: colonies-04-device-phenotype-harness
+investigation: colonies
+title: Device harness + simple-agent phenotype baseline
+description: |
+  Stand up the shared colony-phenotyping infrastructure — cell-tier factory,
+  geometry builders (mother machine, daughter machine, free colony), and the
+  tier-agnostic phenotype extractor — and validate the measurement pipeline
+  with cheap simple agents before spending WCM compute. Produces the common
+  phenotype panel: growth rate, size-at-division, added length, inter-division
+  time.
+topic: phenotype-quantification
+tags: [colony, mother-machine, daughter-machine, phenotype, adder, requires-viva-munk]
+created: '2026-07-25'
+
+status: designed
+phase: Build
+design_status: approved
+implementation_status: in_progress
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+
+acceptance_criteria:
+  - behavior: factory-yields-runnable-cell-per-tier
+  - behavior: geometry-builders-run-with-simple-agents
+  - behavior: extractor-recovers-known-division-stats
+  - behavior: harness-produces-phenotype-panel

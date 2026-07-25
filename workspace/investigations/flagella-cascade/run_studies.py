@@ -193,9 +193,12 @@ def fig_phase(on, K_flhDC=50.0, K_fliA=600.0):
     sc = ax.scatter(X, Y, c=t, cmap="viridis", s=36, zorder=2, edgecolor="k", linewidth=0.3)
     ax.scatter([X[0]], [Y[0]], marker="o", s=120, facecolor="none", edgecolor="#1f77b4", lw=2, label="t=0")
     ax.scatter([X[-1]], [Y[-1]], marker="*", s=220, color="#d62728", label="end", zorder=3)
-    ax.set_xlabel("X  =  FlhDC activity  [FlhDC]/(K+[FlhDC])")
-    ax.set_ylabel("Y  =  free-FliA activity  [FliA]/(K+[FliA])")
-    ax.set_title("Cascade trajectory through SUM-gate input space")
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.set_xlabel("X = FlhDC activity  [FlhDC]/(K+[FlhDC])   —  0 = no FlhDC, 1 = saturating")
+    ax.set_ylabel("Y = free-FliA activity  [FliA]/(K+[FliA])   —  0 = fully sequestered, 1 = saturating")
+    ax.set_title("Cascade trajectory through SUM-gate input space\n"
+                 "(axes are the two normalized 0–1 activities the SUM-gate integrates, NOT time;\n"
+                 "time is the color. ○ = birth, ★ = end)")
     fig.colorbar(sc, ax=ax, label="time (min)")
     ax.legend(fontsize=8)
     fig.tight_layout()
@@ -208,9 +211,13 @@ def fig_feedback(on):
     a.plot(on["t"], on["flgM"], "-s", color="#ff7f0e", label="FlgM  G369-MONOMER[c]")
     a.plot(on["t"], on["fliA"], "-o", color="#2ca02c", label="free FliA  EG11355-MONOMER[c]")
     ab = a.twinx()
-    ab.plot(on["t"], on["flag"], "-^", color="#9467bd", alpha=0.7, label="flagella CPLX0-7452[j]")
-    ab.set_ylabel("flagella", color="#9467bd")
-    a.set_title("FlgM secretion → FliA release")
+    ab.plot(on["t"], on["flag"], "-^", color="#9467bd", alpha=0.7, label="complete flagella CPLX0-7452[j]")
+    ab.set_ylabel("complete flagella (count)", color="#9467bd")
+    # Flagella are whole molecules — force integer ticks so the right axis can't
+    # read a fractional "31.25 flagella" from matplotlib's autolocator.
+    from matplotlib.ticker import MaxNLocator
+    ab.yaxis.set_major_locator(MaxNLocator(integer=True))
+    a.set_title("FlgM secretion → FliA release  (default already-flagellated cache)")
     a.set_xlabel("time (s)"); a.set_ylabel("molecule count")
     h1, l1 = a.get_legend_handles_labels(); h2, l2 = ab.get_legend_handles_labels()
     a.legend(h1 + h2, l1 + l2, fontsize=8, loc="center right")

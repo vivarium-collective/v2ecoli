@@ -23,21 +23,26 @@ def test_aggregate_per_study_metadata_and_rollup():
 
     summ = aggregate(SLUG, WS)
     by = {s["slug"]: s for s in summ["studies"]}
-    assert by["acetate"]["result"] == "FAIL"
+    # after the rpoBC fix, acetate reproduces vEcoli natively (was FAIL pre-fix)
+    assert by["acetate"]["result"] == "PASS"
     assert by["parca"]["result"] == "PASS"
     assert by["parca"]["prerequisites"] == []
     assert by["acetate"]["prerequisites"] == ["parca"]
     assert by["statistical"]["prerequisites"] == ["basal"]
-    assert "RNA mass" in (by["acetate"]["finding"] or "")
+    # post-fix finding states acetate reproduces vEcoli natively
+    assert "reproduces vEcoli" in (by["acetate"]["finding"] or "")
     # config + standard cards discovered for acetate; parca card for parca
-    assert {c["name"] for c in by["acetate"]["cards"]} == {"config", "standard"}
+    assert {c["name"] for c in by["acetate"]["cards"]} == {"config", "standard", "statistical"}
     assert {c["name"] for c in by["parca"]["cards"]} == {"parca"}
     # config card is ungraded, standard is graded
     acards = {c["name"]: c for c in by["acetate"]["cards"]}
     assert acards["config"]["graded"] is False
     assert acards["standard"]["graded"] is True
+    # standard (single-seed, illustrative) still carries its pre-fix verdict;
+    # the gold-standard statistical card + conclusions reflect the fix.
     assert acards["standard"]["overall"] == "mismatch"
-    assert summ["rollup"] == {"PASS": 2, "PARTIAL": 3, "FAIL": 2}
+    # post-fix: every condition study reproduces vEcoli (metabolism_redux ungraded)
+    assert summ["rollup"] == {"PASS": 7, "PARTIAL": 0, "FAIL": 0}
 
 
 def test_matrix_columns_lead_with_standard_observables():
@@ -102,8 +107,8 @@ def test_render_overview_and_matrix():
     html = render(aggregate(SLUG, WS), style_css=":root{--x:1}")
     assert "<!doctype html>" in html.lower()
     assert "Does v2ecoli reproduce vEcoli" in html
-    # rollup counts present
-    assert "2 FAIL" in html and "3 PARTIAL" in html and "2 PASS" in html
+    # rollup counts present (post-fix: all condition studies PASS)
+    assert "7 PASS" in html
     # matrix header + a verdict-colored cell class
     assert "growth rate (1/s)" in html
     assert "verdict-mismatch" in html
@@ -206,7 +211,7 @@ def test_aggregate_config_json_is_real_baseline_config():
     assert cfg["composite"] == "v2ecoli.composites.baseline.baseline"
     assert cfg["params"] == {"condition": "acetate"}
     # comparison run settings folded in
-    assert cfg["seeds"] == 1
+    assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
     assert cfg["generations"] == 4
 
 

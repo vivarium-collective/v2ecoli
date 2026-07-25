@@ -17,8 +17,15 @@ import yaml
 REPO = Path(__file__).resolve().parent.parent.parent
 INVEST_ROOT = REPO / "workspace" / "investigations"
 DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
-GRADED = {"standard", "statistical", "parca"}   # cards that produce a gating test
-_DEFAULT_CARDS = ["config", "parca", "standard"]
+# Cards that GATE (pass/fail). The multi-seed `statistical` card (Welch t-test over
+# >=4 seeds) is the gold standard for trajectory reproduction; `parca` gates the
+# t=0 initial-state match. The single-seed `standard` card is DELIBERATELY NOT a
+# gate: one seed's trajectory cannot separate a real port divergence from stochastic
+# seed noise (v2ecoli's own 4-seed spread on succinate is ~8-9%, larger than the
+# single-seed "mismatch" it was flagged for). `standard` is kept as an illustrative
+# trajectory card only. See project memory `project_v2e_compare_singleseed_stochastic`.
+GRADED = {"statistical", "parca"}   # cards that produce a gating test
+_DEFAULT_CARDS = ["config", "parca", "standard", "statistical"]
 _DEFAULT_V2_CACHE = "out/cache_full"
 _DEFAULT_VE_CACHE = "out/compare_harness/vecoli_parca"
 

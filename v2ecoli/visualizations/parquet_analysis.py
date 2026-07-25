@@ -85,6 +85,17 @@ def _panel(title: str, body_html: str) -> str:
     return f"<div class='pqav-panel'>{body_html}</div>"
 
 
+def _note_panel(title: str, message: str) -> str:
+    """A panel explaining why an analysis rendered no figure. Same shape as
+    :func:`_note` but returned as HTML, for the render path that must hand back
+    a view string rather than a step-output dict."""
+    esc = _html.escape(f"{title}: {message}")
+    return _panel(
+        title,
+        f"<p style='color:#6b7280;font-size:0.9em;padding:8px 4px'>{esc}</p>",
+    )
+
+
 def _note(title: str, message: str) -> dict:
     esc = _html.escape(message)
     return {"html": _panel(
@@ -166,6 +177,15 @@ class ParquetAnalysisView(Visualization):
         gkey = next(iter(groups))
 
         sim_data = validation_data = None
+        if not sim_data_path:
+            # The caller (the workbench run renderer) looks for a ParCa build in
+            # a few fixed workspace locations and passes "" when it finds none.
+            # A sweep that paired itself with its own sim_data — every batch run
+            # does — carries the exact pickle right here, so prefer it over
+            # rendering the sim_data-dependent analyses empty.
+            local = sorted(glob.glob(os.path.join(sweep_dir, "simData*.cPickle"))
+                           + glob.glob(os.path.join(sweep_dir, "sim_data*.cPickle")))
+            sim_data_path = local[0] if local else ""
         if sim_data_path:
             sim_data, validation_data = _sim_data_for(sim_data_path)
 
@@ -182,9 +202,28 @@ class ParquetAnalysisView(Visualization):
             "variant_metadata": {},
         })
         view = out.get("view") if isinstance(out, dict) else None
-        if not view:
-            err = ""
-            if isinstance(out, dict) and isinstance(out.get("data"), dict):
-                err = out["data"].get("error") or ""
-            raise ValueError(err or "analysis produced no view")
-        return view
+        if view:
+            return view
+        # No figure. Three different situations, and reporting them all as
+        # "analysis produced no view" made a run's Visualizations tab look
+        # broken when nothing was wrong: the analysis said WHY it declined (an
+        # `error` in its data), or it is a data-only analysis (a table export
+        # with no plot), or the run's shape simply doesn't cover it (asking for
+        # growth ACROSS generations of a single-generation batch). Render the
+        # reason as a panel instead — the same analysis renders normally on a
+        # run that does cover it.
+        data = out.get("data") if isinstance(out, dict) else None
+        reason = ""
+        if isinstance(data, dict):
+            reason = data.get("error") or ""
+        if reason:
+            return _note_panel(name, reason)
+        if isinstance(data, dict) and data:
+            return _note_panel(
+                name,
+                f"produced data ({', '.join(sorted(data)[:6])}) but no figure — "
+                f"a data-only analysis at the {scale} scale.")
+        return _note_panel(
+            name,
+            f"produced nothing for this run: it reads {scale}-scale groups, "
+            f"which this run may not have enough cells or generations to fill.")

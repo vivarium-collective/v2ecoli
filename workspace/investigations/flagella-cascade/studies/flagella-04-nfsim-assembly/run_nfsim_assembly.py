@@ -61,13 +61,18 @@ def _observables(sim):
 
 
 def run(seconds, sample, n_steps):
+    # Dispatch via the REGISTERED composite generator
+    # (v2ecoli.composites.flagella_nfsim_assembly) instead of building an ad-hoc
+    # in-code document — so this run is a real registered composite in the
+    # Simulations DB and opens in the Composite Explorer.
+    from v2ecoli.composites.flagella_nfsim_assembly import (
+        flagella_nfsim_assembly, _register_nfsim_links,
+    )
     core = allocate_core()
-    core.register_link("nfsim", pbg_nfsim.NFSimProcess)
-    core.register_link("monomer-production", pbg_nfsim.MonomerProduction)
-    core.register_link("ram-emitter", RAMEmitter)
+    _register_nfsim_links(core)
 
-    doc = pbg_nfsim.make_production_document(
-        n_steps=n_steps, complexation_interval=float(sample),
+    doc = flagella_nfsim_assembly(
+        core=core, n_steps=n_steps, complexation_interval=float(sample),
         production_interval=1.0, production_rate_scale=1.0,
     )
     sim = Composite({"state": doc}, core=core)
@@ -106,9 +111,14 @@ def figure(rec):
 
     for key, label, color in MONOMERS:
         b.plot(t, rec[key], "-", color=color, label=label)
-    b.plot(t, rec["flagella"], "-o", ms=3, color="#d62728", label="complete flagella")
-    b.set_title("Free monomer pools vs assembled flagella")
-    b.set_xlabel("time (min)"); b.set_ylabel("count"); b.legend(fontsize=8)
+    b.plot(t, rec["flagella"], "-o", ms=4, color="#d62728", lw=2, label="complete flagella")
+    # Free monomer pools (thousands of FlgE etc.) dwarf the handful of assembled
+    # flagella on a linear axis — Maya's "scale seems unfair, can't see the complete
+    # flagella." A symlog y-axis keeps the low-count assembled structures legible
+    # alongside the large free-monomer pools.
+    b.set_yscale("symlog", linthresh=10)
+    b.set_title("Free monomer pools vs assembled flagella  (symlog y — pools ≫ flagella)")
+    b.set_xlabel("time (min)"); b.set_ylabel("count (symlog)"); b.legend(fontsize=8)
     fig.tight_layout()
 
     out = f"{STUDY_DIR}/charts/01_nfsim_assembly.svg"

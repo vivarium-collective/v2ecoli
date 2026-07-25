@@ -1,0 +1,143 @@
+meta:
+  investigation: flagella-cascade
+  report_id: rpt-20260724143026
+  generated_at: '2026-07-24T15:27:27.782Z'
+  page_title: "Investigation: Flagella transcriptional cascade \u2014 Maya's Aim 2\
+    \ (Kalir & Alon SUM-gate) in v2ecoli"
+  source_url: file:///Users/mayaabdalla/Downloads/investigation-flagella-cascade-2026-07-24.html#study-flagella-02-sumgate-cascade-sims
+annotations:
+  references:
+  - ts: '2026-07-24T15:24:10.614Z'
+    author: MA
+    text: I really like the appendices section and testing. One thing with design
+      is maybe we have more detail or bigger text font to differentiate the studies
+  study-flagella-01-overexpression-baseline:
+  - ts: '2026-07-24T14:32:35.477Z'
+    author: MA
+    text: What is features=[]?
+  study-flagella-01-overexpression-baseline-chart-01_overexpression_and_neutrality:
+  - ts: '2026-07-24T14:37:44.926Z'
+    author: MA
+    text: What does stale mean here? outdated?
+  - ts: '2026-07-24T14:39:43.629Z'
+    author: MA
+    text: A little confused on the Complete Flagella Plot -- If this is a run for
+      baseline no edits to the WCM why is there a regulation on plot? So were two
+      runs done here? Baseline without the changes (regulation off) and then my changes
+      (regulation on)?
+  study-flagella-01-overexpression-baseline-chart-02_multigen_flagella_and_mass:
+  - ts: '2026-07-24T14:43:30.098Z'
+    author: MA
+    text: Same comment above about regulation on vs. off --> if this is true overexpression
+      baseline study I was expecting no regulation on. Also if we want to keep the
+      regulation on we should define what that means
+  study-flagella-01-overexpression-baseline-chart-04_ensemble_seed_band:
+  - ts: '2026-07-24T14:46:09.631Z'
+    author: MA
+    text: The on/off fraction in the title of this plot means what, 0%, 25% and 0%
+      ?
+  study-flagella-01-overexpression-baseline-summary:
+  - ts: '2026-07-24T14:35:27.475Z'
+    author: MA
+    text: 'Don''t think I fully understand this question: (b) Is the flagella_regulation
+      port byte-neutral when the feature is off?'
+  study-flagella-01-overexpression-baseline-tests:
+  - ts: '2026-07-24T14:34:35.123Z'
+    author: MA
+    text: Is the claims editable/fillable? Also are. the tests standards or unique
+      to each study, or both?
+  study-flagella-02-sumgate-cascade:
+  - ts: '2026-07-24T14:47:14.209Z'
+    author: MA
+    text: So study 1 had 4 tests and study 2 has 2 tests only? We should make a "standards"
+      testing criteria for it to be accepted maybe
+  - ts: '2026-07-24T14:49:02.914Z'
+    author: MA
+    text: In vecoli, the name of my config script to run the model was "flagella_regulation"
+      maybe thats where the features name here came from?
+  - ts: '2026-07-24T14:51:54.296Z'
+    author: MA
+    text: It says not run but then the visualizations show plots from the run so how
+      did it not run?
+  study-flagella-02-sumgate-cascade-chart-01_sumgate_classII_classIII:
+  - ts: '2026-07-24T14:55:37.883Z'
+    author: MA
+    text: How many generations? Also all simulations are 600 seconds, is that enough
+      time?
+  study-flagella-02-sumgate-cascade-chart-02_multigen_classII_classIII:
+  - ts: '2026-07-24T14:55:09.631Z'
+    author: MA
+    text: Is this 2 or 3 generations?
+  - ts: '2026-07-24T14:56:13.111Z'
+    author: MA
+    text: Answered my own question 2 generations based on the shading?
+  - ts: '2026-07-24T14:57:44.354Z'
+    author: MA
+    text: The Class II being higher than Class III is exactly right, nice to see the
+      separation, the ratio is nice
+  - ts: '2026-07-24T14:59:26.263Z'
+    author: MA
+    text: I'm curious about the burst at ~14 and ~60 min, is that division? could
+      be a SUM gate calculation issue or a stochastic event that is causing this artifact
+  study-flagella-02-sumgate-cascade-chart-03_phase_portrait_X_Y:
+  - ts: '2026-07-24T14:53:51.479Z'
+    author: MA
+    text: The circle and star seem like common sense to me but for a paper it may
+      look nice because the x-axis is not time but seems arbitrary
+  study-flagella-02-sumgate-cascade-summary:
+  - ts: '2026-07-24T14:50:31.294Z'
+    author: MA
+    text: The question here is more clear then the overview section but I like this
+      question, mechanism, expected outcome format
+  study-flagella-02-sumgate-cascade-tests:
+  - ts: '2026-07-24T15:27:03.762Z'
+    author: MA
+    text: 'I really like this idea of success criteria -- MAYBE we have a model success
+      section and a biological one. Like Success in the Model: model captures the
+      dynamics and switching from class I to class II and then Success Biology (what
+      we would call successful): switch from class I to class II is captured across
+      generations, flagella counts go down, model can respond to perturbations (this
+      will def be a future direction but will also allow me or the user, to define
+      what the goals are in each study not just investigation)'
+  study-flagella-03-flgm-flia-feedback-baseline-strip:
+  - ts: '2026-07-24T15:00:59.325Z'
+    author: MA
+    text: This says no variants have bene run but once again there's the feature for
+      this study, so contradicts a little bit
+  study-flagella-03-flgm-flia-feedback-chart-01_flgm_secretion_flia_release:
+  - ts: '2026-07-24T15:07:02.750Z'
+    author: MA
+    text: "So my overrides in vecoli are: {\n    \"bulk\": {\n        \"CPLX0-7452[j]\"\
+      : 4,\n        \"FLAGELLAR-MOTOR-COMPLEX[j]\": 0,\n        \"EG11355-MONOMER[c]\"\
+      : 500,\n        \"G369-MONOMER[c]\": 800\n    }\n} \n\n\nI don't understand\
+      \ the jump in plot 1 from 1500 FlgM to ~ 200 unless the model is running the\
+      \ dynamics without these overrides. This also all happens in the first 100 seconds\
+      \ then the behavior is flat? Also the right axis seems weird -- we cant have\
+      \ 31.25 of flagella?"
+  study-flagella-03-flgm-flia-feedback-chart-02_lowIC_gated_cascade:
+  - ts: '2026-07-24T15:09:23.339Z'
+    author: MA
+    text: Left plot looks similar to the one above just over more time. Also what
+      is 02_lowIC_gated_cascade mean?
+  study-flagella-03-flgm-flia-feedback-chart-02_multigen_flgm_flia:
+  - ts: '2026-07-24T15:10:45.904Z'
+    author: MA
+    text: Technical context box is empty but a list of what was run/included may be
+      helpful
+  study-flagella-04-nfsim-assembly:
+  - ts: '2026-07-24T15:12:10.578Z'
+    author: MA
+    text: I have not worked on this fully yet, so will do my best to review with what
+      we know/how I want to do it
+  study-flagella-04-nfsim-assembly-chart-01_nfsim_assembly:
+  - ts: '2026-07-24T15:19:59.820Z'
+    author: MA
+    text: Should we make NFsim its own investigation?
+  - ts: '2026-07-24T15:21:20.773Z'
+    author: MA
+    text: Scale of the right plot seems unfair -- many many FlgE but cant see the
+      complete flagella or dynamics of the other proteins
+  study-flagella-04-nfsim-assembly-charts:
+  - ts: '2026-07-24T15:21:38.724Z'
+    author: MA
+    text: NFsim run on what baseline WCM? with regulation or without it?

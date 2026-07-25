@@ -79,10 +79,14 @@ def figure(data, n_gens):
         a2.plot(gens, on[i], "-", color="#2ca02c", alpha=0.5, lw=1)
     b.plot([], [], "-", color="#9467bd", label="OFF (per seed)")
     b.plot([], [], "-", color="#2ca02c", label="ON (per seed)")
-    # fraction of seeds with ON < OFF at each gen
-    frac = np.mean(on < off, axis=0)
-    b.set_title("Per-seed trajectories — ON below OFF at every generation\n"
-                f"(ON<OFF fraction by gen: {', '.join(f'{f:.0%}' for f in frac)})")
+    # Fraction of seeds in which the REGULATED (ON) lineage carries FEWER complete
+    # flagella than the unregulated (OFF) one, per generation. The calibrated result
+    # is that ON exceeds OFF, so this fraction is near 0 — i.e. ON < OFF almost never.
+    frac_on_below = np.mean(on < off, axis=0)
+    frac_txt = ", ".join(f"gen{g}={f:.0%}" for g, f in zip(gens, frac_on_below))
+    b.set_title(
+        "Per-seed trajectories — regulation ON sits ABOVE OFF\n"
+        f"(seeds where ON < OFF: {frac_txt}  →  ON ≥ OFF for the rest)")
     b.set_xlabel("generation"); b.set_ylabel("CPLX0-7452 count")
     b.set_xticks(gens); b.legend(fontsize=8)
     fig.tight_layout()

@@ -1,6 +1,10 @@
-schema_version: 3
+schema_version: 4
 name: flagella-01-overexpression-baseline
 title: "Aim 2 motivation — uncontrolled flagellar overexpression & seam neutrality"
+question: >-
+  Is the flagella_regulation port byte-neutral when the feature is OFF, and how
+  over-expressed are flagellar components in the unregulated WCM baseline it
+  establishes as the reference for the cascade studies?
 description: |
   Establishes Maya's Specific Aim 2 motivation in v2ecoli: with no transcriptional
   regulation, the whole-cell model overproduces flagellar components relative to
@@ -12,6 +16,15 @@ topic: regulation
 tags: [flagella, baseline, overexpression, seam-neutrality, feature-off, aim2, ported-from-vecoli-biofilm]
 created: '2026-06-20'
 
+# This study is the ROOT of the transcription-arm DAG: it establishes the
+# byte-neutral baseline + overexpression reference that 02 and 03 are measured
+# against. Depends only on the ParCa cache.
+pipeline_gate:
+  prerequisites:
+  - parca
+  enables:
+  - flagella-02-sumgate-cascade   # 02 -> 03 downstream; 01 gates the transcription arm
+
 status: in_progress
 phase: Evaluate
 
@@ -20,29 +33,85 @@ implementation_status: complete
 simulation_status: ran             # feature-off neutrality verified during the port
 evaluation_status: partial
 gate_status: pending
-expert_review_status: not_requested
+expert_review_status: requested    # Maya Abdalla reviewed 2026-07-24 (feedback imported)
+
+# Tracked simulation backing this study's figures (Simulations DB).
+runs:
+- name: flagella-01-overexpression-baseline__regOFF__seed0__600s
+  kind: simulation
+  canonical: true
+  composite: v2ecoli.composites.baseline.baseline
+  description: baseline composite, features=[] (regulation OFF), seed 0, out/cache, 600 s
+  status: completed
+  result: PASS
+  outcomes:
+    feature-off-neutral:
+      result: CONFIRMED
+      detail: "init_prob_override == 0 on every promoter for the whole run"
+
+findings:
+- id: flagella-01-feature-off-byte-neutral
+  kind: computational
+  status: confirms
+  statement: >-
+    With flagella_regulation OFF the port is byte-neutral — init_prob_override stays
+    0 on every promoter across the run and the cell grows/divides exactly as pre-port
+    main, so any downstream change is attributable to the cascade, not the port.
+  evidence:
+    observed: "0 nonzero overrides after the run; feature-off signature matches the shipped-fixture control"
+    expected: "init_prob_override == 0 everywhere; bit-identical to pre-port main"
+- id: flagella-01-unregulated-overexpression
+  kind: computational
+  status: confirms
+  statement: >-
+    The unregulated WCM over-produces flagellar components relative to biological
+    levels — the motivation the cascade is meant to address (MODEL reproduces the
+    documented problem).
+  evidence:
+    observed: "~48 complete flagella in the unregulated baseline (Maya's prelim figure)"
+    expected: "far above the biological handful of flagella per cell"
+- id: flagella-01-calibration-reversal
+  kind: computational
+  status: contradicts
+  statement: >-
+    On the CALIBRATED full-mode cache the regulated lineage carries MORE complete
+    flagella than the unregulated one, robustly across seeds — refuting the
+    overexpression-REDUCTION hypothesis for the cascade as currently implemented.
+  evidence:
+    observed: "4-seed x 3-gen ensemble: ON means 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON > OFF in 11/12 seed-generations"
+    expected: "hypothesis was ON < OFF (reduction); the fast-mode reduction was a calibration artifact"
+    divergence: "direction reversed under calibration — cascade over-drives flagella expression"
 
 visualizations:
 - address: image:charts/01_overexpression_and_neutrality.svg
   chart: charts/01_overexpression_and_neutrality.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
   description: |
+    TWO runs are shown here on purpose (this answers "why is there a regulation-ON
+    line in the baseline study?"): the study's job is to (a) characterize the
+    unregulated baseline AND (b) prove the port is a no-op when off, so we run the
+    SAME composite twice — regulation OFF (the baseline) and regulation ON (for
+    reference) — and compare.
     Left — unregulated flagellar components (complete flagella CPLX0-7452 + the
     motor/HBB FLAGELLAR-MOTOR-COMPLEX) over a 600 s run with regulation OFF.
-    Right — complete-flagella count, regulation OFF vs ON (fast-mode cache; the
-    OFF-vs-ON direction here is the calibration artifact — see the canonical
-    seed-band figure for the calibrated result). Feature-off init_prob_override
-    stays 0 throughout (seam neutral) — that neutrality result is cache-independent.
+    Right — complete-flagella count, regulation OFF vs ON, so you can see the
+    baseline against the regulated case side by side. (On the fast-mode cache the
+    OFF-vs-ON direction shown here is a calibration artifact — the CALIBRATED
+    answer is the canonical seed-band figure below.) Feature-off
+    init_prob_override stays 0 throughout (seam neutral), and that neutrality
+    result is cache-independent.
 - address: image:charts/02_multigen_flagella_and_mass.svg
   chart: charts/02_multigen_flagella_and_mass.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
   description: |
-    TWO full cell generations on the CALIBRATED full-mode cache (generations shaded;
-    division = dashed). Left — complete flagella per generation: regulation ON sits
-    ABOVE OFF (OFF g1=46,g2=43; ON g1=61,g2=50) — the calibrated direction (see the
-    canonical seed-band figure). Right — dry-mass sawtooth (division at ~700 fg).
-    NOTE: this chart is regenerated from out/cache_full; on the fast cache the order
-    was reversed (the artifact).
+    Again two runs — regulation OFF vs ON — over TWO full cell generations on the
+    CALIBRATED full-mode cache (generations shaded; division = dashed). "Regulation
+    ON" means the flagella_regulation feature is enabled (the Kalir & Alon SUM-gate
+    is wired and writing promoter overrides); "OFF" is the stock WCM. Left —
+    complete flagella per generation: regulation ON sits ABOVE OFF (OFF g1=46,g2=43;
+    ON g1=61,g2=50) — the calibrated direction (see the canonical seed-band figure).
+    Right — dry-mass sawtooth (division at ~700 fg). NOTE: regenerated from
+    out/cache_full; on the fast cache the order was reversed (the artifact).
 - address: image:charts/04_ensemble_seed_band.svg
   chart: charts/04_ensemble_seed_band.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_ensemble.py --seeds 0 1 2 3 --generations 3 --cache-dir out/cache_full
@@ -66,6 +135,10 @@ purpose:
   question: |
     (a) How over-expressed are flagellar components in the unregulated WCM baseline?
     (b) Is the flagella_regulation port byte-neutral when the feature is off?
+        ("Byte-neutral" = with the feature OFF, the model produces bit-for-bit
+        identical output to pre-port main — adding the flagella code changes
+        NOTHING you can observe until you switch it on. This is what lets us
+        attribute every downstream difference to the cascade, not to the port.)
   mechanism: |
     With features=[] the two flagella Steps are not wired and the promoter
     init_prob_override field stays 0.0 everywhere, so transcript_initiation's
@@ -105,6 +178,20 @@ behavior_tests:
     status: passing        # 4-seed x 3-gen calibrated ensemble: ON means
                            # 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON>OFF in 11/12.
 
+# Two-tier acceptance (Maya's suggestion — separate "did the MODEL behave" from
+# "is it BIOLOGICALLY right"). For the baseline study, biological success is
+# faithfully reproducing the KNOWN overexpression problem, not fixing it.
+success_criteria:
+  model:
+    - Feature OFF is byte-neutral — init_prob_override == 0 on every promoter for the
+      whole run; the cell grows and divides exactly as pre-port main (verified).
+    - The composite runs to division without error with the flagella code present.
+  biology:
+    - Reproduces the documented unregulated overexpression (~48 complete flagella,
+      far above the biological handful) — the motivation the cascade must address.
+    - FUTURE — a calibrated model would bring counts toward the biological few; this
+      baseline only establishes the gap (see the count verdict in flagella-02).
+
 notes: |
   Maya's prelim (Aim 2 rationale): "current expression of flagella is exceedingly
   high compared to biological levels and manual adjustments like multipliers,
@@ -112,3 +199,13 @@ notes: |
   expression ... however, manual tuning is not a biologically and mechanistically
   sufficient solution." This study is the no-regulation reference the cascade
   studies are measured against.
+
+  Glossary (for reviewers):
+    - features=[] — the composite's opt-in feature list is empty, i.e. regulation
+      OFF (stock WCM). features=['flagella_regulation'] switches the SUM-gate ON.
+    - "stale" (where it appears on a chart/cache note) — outdated: generated from an
+      earlier cache/run and superseded, kept only for provenance.
+    - Are the tests/claims editable? Yes — every behavior_test and success_criterion
+      here is hand-authored YAML in this study.yaml; edit it directly. Tests are a
+      mix of STANDARD categories (shared across studies — see the investigation's
+      testing_standard) and claims UNIQUE to each study.

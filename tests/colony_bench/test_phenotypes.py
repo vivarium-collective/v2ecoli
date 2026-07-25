@@ -35,6 +35,27 @@ def test_interdivision_time_between_generations():
     assert 15.0 in out["interdivision_time"]
 
 
+def test_multi_mother_division_same_frame_has_no_lineage():
+    from v2ecoli.colony_bench.phenotypes import phenotype_extractor
+    # both m1 and m2 divide in the same sampled frame (t=2) -> per-mother
+    # stats are still recorded, but lineage attribution is ambiguous
+    # (no spatial info) so lineage must stay empty.
+    traj = [
+        _frame(0, {"m1": {"mass": 100.0, "length": 2.0},
+                   "m2": {"mass": 100.0, "length": 2.0}}),
+        _frame(1, {"m1": {"mass": 150.0, "length": 3.0},
+                   "m2": {"mass": 150.0, "length": 3.0}}),
+        _frame(2, {"m1a": {"mass": 100.0, "length": 2.0},
+                   "m1b": {"mass": 100.0, "length": 2.0},
+                   "m2a": {"mass": 100.0, "length": 2.0},
+                   "m2b": {"mass": 100.0, "length": 2.0}}),
+    ]
+    out = phenotype_extractor(traj)
+    assert out["n_division_events"] == 2
+    assert sorted(out["size_at_division"]["length"]) == [3.0, 3.0]
+    assert out["lineage"] == {}
+
+
 def test_no_divisions_is_empty_panel():
     from v2ecoli.colony_bench.phenotypes import phenotype_extractor
     traj = [

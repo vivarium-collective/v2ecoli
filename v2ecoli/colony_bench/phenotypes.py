@@ -50,6 +50,15 @@ def phenotype_extractor(trajectory: Trajectory) -> dict[str, Any]:
                 # last-seen time (which can lag the division frame when the
                 # mother wasn't sampled on every intermediate frame).
                 interdiv.append(t - b_t)
+            # Lineage attribution is only unambiguous when exactly one
+            # mother disappeared this frame. When multiple mothers divide
+            # in the same sampled frame, there is no spatial info to
+            # disambiguate which new ids belong to which mother, so we
+            # record the division stats above but skip lineage entries
+            # for this frame's new ids rather than fabricate an
+            # attribution.
+            if len(gone) == 1:
+                (mother,) = gone
                 for daughter in new:
                     lineage[daughter] = mother
         prev_ids = ids

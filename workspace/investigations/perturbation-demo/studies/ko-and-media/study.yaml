@@ -6,7 +6,37 @@ question: |
   How do a translation-level gene knockout (lacY) and an amino-acid-rich medium
   each move the v2ecoli baseline off its wild-type trajectory — and how do you
   express each as a one-line variant of the baseline composite?
-status: designed
+status: evaluated
+
+# Bounded illustrative run (60 steps, single cell, seed 0) — enough to show each
+# lever behaves; NOT a full-generation phenotype study. Direct composite runs
+# (not the workbench run machinery), so no runs.db/report artifacts.
+report:
+  verdict: pass
+  confidence: high
+  evidence_quality: 60-step single-cell run of all three arms, seed 0
+  result: |
+    - wild-type:  dry_mass +4.081, protein +2.643, zeroed translation-eff = 0.
+    - lacY-KO:    dry_mass +4.081, protein +2.643, zeroed translation-eff = 1.
+        The knockout REACHES the live PolypeptideInitiation process (exactly one
+        efficiency zeroed = lacY) but is phenotypically SILENT in glucose-minimal
+        (lac operon not needed) — the intended demonstration: mechanism reaches
+        the process without confounding growth.
+    - rich-media: dry_mass +4.211 (+3.2% vs wild-type), protein +2.646.
+        minimal_plus_amino_acids grows measurably faster, as expected.
+findings:
+- id: ko-reaches-process-silent-in-glucose
+  kind: computational
+  status: confirms
+  statement: "baseline(knockouts=['EG10526']) zeroes exactly the lacY translation
+    efficiency on the live process; growth is unchanged in glucose-minimal
+    (correct — lacY is dispensable without lactose)."
+- id: rich-media-grows-faster
+  kind: computational
+  status: confirms
+  statement: "baseline(media='minimal_plus_amino_acids') grows ~3% more dry mass
+    over 60 steps than minimal — the in-cache media shift takes effect via
+    media_update without a ParCa re-fit."
 
 # Two minimal perturbation levers, one variant each. Both are plain baseline
 # params (forwarded to the composite generator as-is), so a variant is just a

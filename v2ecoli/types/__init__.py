@@ -392,3 +392,10 @@ ECOLI_TYPES = {
 # layers can extend the framework without touching this file.
 from v2ecoli.types.biology import BIOLOGY_TYPES  # noqa: E402
 ECOLI_TYPES.update(BIOLOGY_TYPES)
+
+# Biological named unique-molecule types (rna, active_RNAP, promoter, gene, …):
+# each resolves to its unique_array[…] structure, so ports declared with the
+# public *_ARRAY constants advertise a biological NAME instead of the raw
+# structure. Registered after 'unique_array' (above) which they build on.
+from v2ecoli.library.schema_types import BIOLOGICAL_UNIQUE_TYPES  # noqa: E402
+ECOLI_TYPES.update(BIOLOGICAL_UNIQUE_TYPES)

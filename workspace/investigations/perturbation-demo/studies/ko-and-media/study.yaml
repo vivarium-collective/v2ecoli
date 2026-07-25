@@ -8,22 +8,29 @@ question: |
   express each as a one-line variant of the baseline composite?
 status: evaluated
 
-# Bounded illustrative run (60 steps, single cell, seed 0) — enough to show each
-# lever behaves; NOT a full-generation phenotype study. Direct composite runs
-# (not the workbench run machinery), so no runs.db/report artifacts.
+# Single-generation growth run (1500 steps, single cell, seed 0, pre-division) of
+# all three arms. Direct composite runs (not the workbench run machinery), so no
+# runs.db; the growth-trajectory figure + trajectories.json under figures/ are the
+# artifacts.
 report:
   verdict: pass
   confidence: high
-  evidence_quality: 60-step single-cell run of all three arms, seed 0
+  evidence_quality: 1500-step single-cell run of all three arms, seed 0
+  figures:
+  - figures/growth_comparison.png
   result: |
-    - wild-type:  dry_mass +4.081, protein +2.643, zeroed translation-eff = 0.
-    - lacY-KO:    dry_mass +4.081, protein +2.643, zeroed translation-eff = 1.
-        The knockout REACHES the live PolypeptideInitiation process (exactly one
-        efficiency zeroed = lacY) but is phenotypically SILENT in glucose-minimal
-        (lac operon not needed) — the intended demonstration: mechanism reaches
-        the process without confounding growth.
-    - rich-media: dry_mass +4.211 (+3.2% vs wild-type), protein +2.646.
-        minimal_plus_amino_acids grows measurably faster, as expected.
+    Dry mass over 1500 steps (fig figures/growth_comparison.png):
+    - wild-type:  380.62 -> 547.69  (+43.89%)
+    - lacY-KO:    380.62 -> 547.69  (+43.89%)  — BYTE-IDENTICAL to wild-type.
+        The knockout reaches the live PolypeptideInitiation process (exactly one
+        translation efficiency zeroed = lacY) but is phenotypically SILENT in
+        glucose-minimal (lac operon not needed): the two trajectories overlap
+        exactly. The intended demonstration — the mechanism reaches the process
+        without confounding growth.
+    - rich-media: 380.62 -> 559.47  (+46.99%)  — grows faster.
+        minimal_plus_amino_acids diverges above the minimal arms from ~step 450;
+        amino-acid-rich medium relieves biosynthetic demand. In-cache media shift,
+        no ParCa re-fit.
 findings:
 - id: ko-reaches-process-silent-in-glucose
   kind: computational
@@ -34,9 +41,9 @@ findings:
 - id: rich-media-grows-faster
   kind: computational
   status: confirms
-  statement: "baseline(media='minimal_plus_amino_acids') grows ~3% more dry mass
-    over 60 steps than minimal — the in-cache media shift takes effect via
-    media_update without a ParCa re-fit."
+  statement: "baseline(media='minimal_plus_amino_acids') reaches +46.99% dry mass
+    vs +43.89% for minimal over 1500 steps (diverges from ~step 450) — the
+    in-cache media shift takes effect via media_update without a ParCa re-fit."
 
 # Two minimal perturbation levers, one variant each. Both are plain baseline
 # params (forwarded to the composite generator as-is), so a variant is just a

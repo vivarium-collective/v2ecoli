@@ -390,6 +390,7 @@ def build_emitter_config(
     output_metadata: dict | None = None,
     writer: dict | None = None,
     predicate: list | None = None,
+    provenance: dict | None = None,
 ) -> dict:
     """Pure builder for an XArrayEmitter config dict (no IO).
 
@@ -441,6 +442,10 @@ def build_emitter_config(
         "metadata_keys": [],
         "metadata_validators": {},
         "output_metadata": output_metadata or {},
+        # Self-describing run provenance ({composite, config, run_id}) written to
+        # the zarr store's root attrs by the XArrayEmitter, so a saved simulation
+        # on disk knows what produced it. Empty -> emitter writes no attr.
+        "provenance": provenance or {},
         "debug": False,
     }
 
@@ -464,6 +469,7 @@ def run_multigen_xarray(
     buffer_size: int = 3,
     single_daughters: bool = False,
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
+    provenance: dict | None = None,
 ) -> dict:
     """Run a v2ecoli composite past divisions, swapping XArrayEmitters per generation.
 
@@ -566,6 +572,7 @@ def run_multigen_xarray(
         core=core, store_path=store_path, view=view,
         metadata_base=metadata_base, generation=gen, agent_id=partition_agent_id,
         output_metadata=output_metadata, buffer_size=buffer_size,
+        provenance=provenance,
     )
     # ``done`` counts ticks already advanced past tick 0 (we used 1 for the
     # coord-discovery warm-up so first chunk completes at done = 1 + chunk).

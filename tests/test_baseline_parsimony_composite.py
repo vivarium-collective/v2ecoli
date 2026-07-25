@@ -13,6 +13,66 @@ def test_baseline_parsimony_function_is_registered():
     assert "baseline_parsimony" in names
 
 
+@pytest.mark.fast
+def test_studies_root_reads_workspace_yaml_layout(tmp_path, monkeypatch):
+    """_studies_root() honours workspace.yaml's layout.studies, resolved
+    relative to the run's CWD."""
+    from v2ecoli.composites.baseline_parsimony import _studies_root
+
+    (tmp_path / "workspace.yaml").write_text(
+        "layout:\n  studies: workspace/studies\n")
+    monkeypatch.chdir(tmp_path)
+
+    assert _studies_root() == "workspace/studies"
+
+
+@pytest.mark.fast
+def test_studies_root_falls_back_without_workspace_yaml(tmp_path, monkeypatch):
+    """No workspace.yaml in CWD -> the workbench's own default layout."""
+    from v2ecoli.composites.baseline_parsimony import _studies_root
+
+    monkeypatch.chdir(tmp_path)  # empty dir, no workspace.yaml
+
+    assert _studies_root() == "workspace/studies"
+
+
+@pytest.mark.fast
+def test_studies_root_falls_back_when_layout_studies_unset(tmp_path, monkeypatch):
+    """workspace.yaml present but with no layout.studies key -> fallback."""
+    from v2ecoli.composites.baseline_parsimony import _studies_root
+
+    (tmp_path / "workspace.yaml").write_text("name: v2ecoli\n")
+    monkeypatch.chdir(tmp_path)
+
+    assert _studies_root() == "workspace/studies"
+
+
+@pytest.mark.fast
+def test_resolve_pack_out_dir_explicit_override_wins(tmp_path, monkeypatch):
+    """An explicit out_dir override is used verbatim — never re-derived from
+    the workspace layout, even when a workspace.yaml with a DIFFERENT studies
+    root is present in CWD."""
+    from v2ecoli.composites.baseline_parsimony import _resolve_pack_out_dir
+
+    (tmp_path / "workspace.yaml").write_text(
+        "layout:\n  studies: some/other/studies\n")
+    monkeypatch.chdir(tmp_path)
+
+    assert _resolve_pack_out_dir("explicit/out/dir", "itest") == "explicit/out/dir"
+
+
+@pytest.mark.fast
+def test_resolve_pack_out_dir_derives_default_from_layout(tmp_path, monkeypatch):
+    """No override -> derives '<layout.studies>/<study>/viz/3d'."""
+    from v2ecoli.composites.baseline_parsimony import _resolve_pack_out_dir
+
+    (tmp_path / "workspace.yaml").write_text(
+        "layout:\n  studies: workspace/studies\n")
+    monkeypatch.chdir(tmp_path)
+
+    assert _resolve_pack_out_dir(None, "itest") == "workspace/studies/itest/viz/3d"
+
+
 @pytest.mark.sim
 def test_generator_appends_pack_step():
     """End-to-end: build the composite (doc-shape only, no run) and verify

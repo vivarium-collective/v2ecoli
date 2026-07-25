@@ -95,8 +95,14 @@ class EcoliPackStep(Step):
         for name, spec in (self.config.get("snapshots") or {}).items():
             if not self._due(name, spec, t, state):
                 continue
-            counts = bulk_to_counts(state.get("bulk"))
             volume_fl = float((state.get("shape") or {}).get("volume_fl") or 0.0)
+            if volume_fl <= 0.0:
+                # 'shape' store not populated yet this tick (ShapeStep hasn't
+                # run/written volume_fl) — Capsule.from_volume_fl(0.0) would
+                # raise. Skip WITHOUT marking fired, so this snapshot retries
+                # next tick once shape is ready.
+                continue
+            counts = bulk_to_counts(state.get("bulk"))
             res = pack_from_state(self.config["out_dir"], name, counts, volume_fl,
                                   top_n=self.config["top_n"], scale=self.config["scale"])
             self._fired.add(name)

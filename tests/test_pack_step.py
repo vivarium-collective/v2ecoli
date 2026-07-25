@@ -37,3 +37,21 @@ def test_pre_division_uses_division_time(monkeypatch):
     step.update(_state(30.0, division_time=None));  assert calls == []   # not scheduled yet
     step.update(_state(30.0, division_time=100.0)); assert calls == []   # scheduled, not near
     step.update(_state(99.5, division_time=100.0)); assert [c[0] for c in calls] == ["pre-division"]  # within epsilon
+
+
+def test_zero_volume_skips_without_marking_fired(monkeypatch):
+    """If a snapshot is due but 'shape' hasn't been populated yet (volume_fl
+    <= 0), update() must skip packing this tick (no pack_from_state call)
+    WITHOUT marking the snapshot fired, so it retries once shape is ready."""
+    calls = []
+    step = _step(monkeypatch, {"initial": 10.0}, calls)
+
+    state = _state(10.0)
+    state["shape"] = {"volume_fl": 0.0}
+    step.update(state)
+    assert calls == []          # skipped: not packed
+    assert "initial" not in step._fired   # not marked fired -> will retry
+
+    # Once volume_fl is populated, the same (or a later) tick fires normally.
+    step.update(_state(10.0))   # default _state() has volume_fl=2.0
+    assert [c[0] for c in calls] == ["initial"]

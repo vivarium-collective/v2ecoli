@@ -1,5 +1,10 @@
 """Integration tests for baseline_parsimony: a real composite run crossing a
-declared snapshot time and writing a pack under studies/<study>/viz/3d/.
+declared snapshot time and writing a pack under the workspace's studies root
+(``<layout.studies>/<study>/viz/3d/`` — see ``_studies_root()`` in
+v2ecoli.composites.baseline_parsimony). These tests chdir to a bare tmp_path
+with no workspace.yaml, so the studies root resolves via the "workspace/studies"
+fallback (see test_baseline_parsimony_composite.py for the layout.studies-read
+and explicit-out_dir-override cases).
 
 Two tiers:
 
@@ -64,7 +69,7 @@ def test_initial_snapshot_pack_written(tmp_path, monkeypatch):
 
     assert [c[0] for c in calls] == ["initial"]
 
-    pack = tmp_path / "studies" / "itest" / "viz" / "3d" / "initial.pack.json"
+    pack = tmp_path / "workspace" / "studies" / "itest" / "viz" / "3d" / "initial.pack.json"
     assert pack.is_file()
     doc = json.loads(pack.read_text())
     assert doc["format"] == "parsimony.pack.v1"
@@ -98,7 +103,7 @@ def test_initial_snapshot_real_packer(tmp_path, monkeypatch):
         study="itest", snapshots={"initial": 2.0}, top_n=2, emitter="null")
     comp.run(4.0)
 
-    pack = tmp_path / "studies" / "itest" / "viz" / "3d" / "initial.pack.json"
+    pack = tmp_path / "workspace" / "studies" / "itest" / "viz" / "3d" / "initial.pack.json"
     assert pack.is_file()
     doc = json.loads(pack.read_text())
     assert doc["format"] == "parsimony.pack.v1"
@@ -124,6 +129,6 @@ def test_pre_division_snapshot(tmp_path, monkeypatch):
         study="itest", emitter="null")
     comp.run(3000.0)  # to/through division
 
-    d = tmp_path / "studies" / "itest" / "viz" / "3d"
+    d = tmp_path / "workspace" / "studies" / "itest" / "viz" / "3d"
     assert (d / "initial.pack.json").is_file()
     assert (d / "pre-division.pack.json").is_file()

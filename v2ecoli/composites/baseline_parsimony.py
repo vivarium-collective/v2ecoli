@@ -9,7 +9,10 @@ itself appends its own ``shape_step`` final layer (see baseline.py:895-919).
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from viva_superpowers.composite_generator import _REGISTRY, composite_generator
 
@@ -49,6 +52,35 @@ _BASELINE_PARAMS = dict(
 # collides with or reorders the existing steps).
 _LAYER_IN_RE = re.compile(r"^_layer_in_(\d+)$")
 _LAYER_OUT_RE = re.compile(r"^_layer_out_(\d+)$")
+
+
+def _studies_root() -> str:
+    """Resolve the workspace's studies root from ``./workspace.yaml``'s
+    ``layout.studies`` (read relative to the run's CWD — the workspace root
+    where the composite is launched), falling back to the workbench's own
+    default ``"workspace/studies"`` when no workspace.yaml is present (or it
+    doesn't set the override)."""
+    ws_yaml = Path("workspace.yaml")
+    if ws_yaml.is_file():
+        try:
+            ws = yaml.safe_load(ws_yaml.read_text(encoding="utf-8")) or {}
+            studies = (ws.get("layout") or {}).get("studies")
+            if studies:
+                return str(studies)
+        except Exception:
+            pass
+    return "workspace/studies"
+
+
+def _resolve_pack_out_dir(out_dir: str | None, study: str) -> str:
+    """The pack step's out_dir: an explicit override wins verbatim (a caller
+    that passes ``out_dir`` knows what it wants); otherwise derive the
+    default from the workspace's studies root, relative to the run's CWD, so
+    packs land where the workbench's 3D-pack viewer scans:
+    ``<studies_root>/<study>/viz/3d``."""
+    if out_dir:
+        return out_dir
+    return f"{_studies_root()}/{study}/viz/3d"
 
 
 def _reconstruct_execution_layers(cell_state: dict, flow_order: list[str]) -> list[list[str]]:
@@ -124,6 +156,15 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
             "default": 0.3,
             "description": "Structural packing scale factor.",
         },
+        "out_dir": {
+            "type": "string",
+            "default": None,
+            "description": (
+                "Explicit pack out_dir override; when unset, derived from "
+                "workspace.yaml's layout.studies as "
+                "'<studies_root>/<study>/viz/3d'."
+            ),
+        },
     },
     default_n_steps=2700,
 )
@@ -134,6 +175,7 @@ def baseline_parsimony(
     snapshots: dict | None = None,
     top_n: int = 40,
     scale: float = 0.3,
+    out_dir: str | None = None,
     **kwargs: Any,
 ) -> dict:
     """Build the baseline document, then append EcoliPackStep as a final
@@ -146,7 +188,13 @@ def baseline_parsimony(
     core.register_link("EcoliPackStep", EcoliPackStep)
 
     snaps = snapshots or {"initial": 10.0, "pre-division": "division_time"}
-    out_dir = f"studies/{study}/viz/3d"
+    # out_dir is relative to the run's CWD (the workspace root where the
+    # composite is launched). When not explicitly overridden, derive it from
+    # workspace.yaml's layout.studies so packs land where the workbench's 3D
+    # viewer actually scans (<workspace>/<layout.studies>/<study>/viz/3d),
+    # instead of a stray CWD-relative 'studies/' directory the viewer never
+    # looks at.
+    out_dir = _resolve_pack_out_dir(out_dir, study)
 
     flow_order = doc.get("flow_order") or []
     for agent_id, cell in doc["state"]["agents"].items():

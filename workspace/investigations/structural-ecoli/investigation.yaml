@@ -1,0 +1,21 @@
+schema_version: 2
+name: structural-ecoli
+title: Structural E. coli
+created: '2026-07-25'
+status: in_progress
+
+question: |
+  What does the whole-cell molecular state look like in real 3D space at key
+  points in the cell cycle — just after birth (post-equilibration) versus right
+  before division? Can we pack the simulated molecular counts into a 3D cell and
+  view declared-time snapshots in the Parsimony Viewer?
+
+description: |
+  Reconstructs a 3D structural view of the E. coli cell directly from a live
+  baseline whole-cell run, using the baseline_parsimony composite (baseline +
+  an EcoliPackStep that packs the molecular state at declared simulation times).
+  First study saves two snapshots — an initial state ~10 s in and a pre-division
+  state — for the Analysis Tools Parsimony Viewer.
+
+studies:
+  - s01-birth-and-division

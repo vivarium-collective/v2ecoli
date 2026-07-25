@@ -92,6 +92,7 @@ markers = [
     "slow: runs full simulations (60s+)",
     "behavior: model-behavior tests resumed from a saved checkpoint (seconds, not minutes)",
     "sim: calls composite.run() — longer than pure-state tests. CI routes these to a parallel behavior-tests job.",
+    "wcm: heavy full-WCM colony runs; excluded from CI",
 ]
 # Per-test wall-clock cap. Safety net for any future hang in sim code.
 # ``thread`` method interrupts C-level hangs (LSODA); note it calls

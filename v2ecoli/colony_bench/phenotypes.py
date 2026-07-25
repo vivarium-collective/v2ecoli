@@ -3,6 +3,15 @@
 Reconstructs lineage + division events from cell-id appearance/disappearance
 and computes a common phenotype panel. Pure over its input trajectory so it is
 unit-testable with synthetic data and reused by every study/tier.
+
+Division detection relies on the `f"{mother_id}_{i}"` daughter-id naming
+convention that BOTH trajectory producers guarantee (viva-munk's
+`grow_divide` and the `EcoliWCM` bridge): a daughter's id always starts
+with its mother's id followed by `"_"`. This lets us distinguish a true
+division (disappeared id has prefix-matching new ids) from a removal /
+wash-out (e.g. `remove_crossing` in the mother/daughter machines — the id
+just disappears with no daughter), even when both happen in the same
+sampled frame.
 """
 from __future__ import annotations
 from typing import Any
@@ -39,6 +48,15 @@ def phenotype_extractor(trajectory: Trajectory) -> dict[str, Any]:
         new = ids - prev_ids
         if gone and new:
             for mother in gone:
+                # A disappeared id is a true dividing mother iff at least
+                # one new id this frame carries its "{mother}_" prefix —
+                # those are exactly its daughters. An id that disappears
+                # with no prefix-matching new id was removed/washed out
+                # (e.g. remove_crossing), not divided, and must not be
+                # counted as a division event.
+                daughters = [d for d in new if d.startswith(mother + "_")]
+                if not daughters:
+                    continue
                 _mt, mlen, mmass = last_seen[mother]
                 size_len.append(mlen)
                 size_mass.append(mmass)
@@ -50,16 +68,7 @@ def phenotype_extractor(trajectory: Trajectory) -> dict[str, Any]:
                 # last-seen time (which can lag the division frame when the
                 # mother wasn't sampled on every intermediate frame).
                 interdiv.append(t - b_t)
-            # Lineage attribution is only unambiguous when exactly one
-            # mother disappeared this frame. When multiple mothers divide
-            # in the same sampled frame, there is no spatial info to
-            # disambiguate which new ids belong to which mother, so we
-            # record the division stats above but skip lineage entries
-            # for this frame's new ids rather than fabricate an
-            # attribution.
-            if len(gone) == 1:
-                (mother,) = gone
-                for daughter in new:
+                for daughter in daughters:
                     lineage[daughter] = mother
         prev_ids = ids
 

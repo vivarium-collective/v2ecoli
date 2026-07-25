@@ -1,6 +1,6 @@
 schema_version: 2
 name: colonies
-title: Colony Composite — HPC Scaling Readiness
+title: Colony & Microfluidic Phenotype Quantification
 created: '2026-05-16'
 status: in_progress
 
@@ -49,6 +49,22 @@ description: |
 
   colonies-04-hpc-deployment (PLANNED): cross-node validation, BLOCKED until
     the native leak is fixed and per-cell RSS is bounded over a lifetime.
+
+  ## Part B: Colony & Microfluidic Phenotype Quantification
+
+  Pivot: colonies-01 through 03 are retained as Part A (Compute Foundation) —
+  the daughter-hydration, natural-division, and RSS-leak groundwork above.
+  Part B reuses that same set of device geometries (mother machine, daughter
+  machine, free colony) but runs them across three cell-model tiers — a cheap
+  simple viva-munk agent, a growth-only surrogate, and the full EcoliWCM — all
+  measured through one shared phenotype panel (growth rate, size-at-division,
+  added length, inter-division time). The native RSS leak from colonies-03 is
+  no longer treated as a hard blocker; it is now a stated run-length bound on
+  WCM-tier runs. colonies-04-device-phenotype-harness stands up the shared
+  factory, geometry builders, and phenotype extractor and validates the
+  pipeline with simple agents; colonies-05 (surrogate tier), colonies-06 (WCM ×
+  media × geometry), and colonies-07 (real mother-machine data) are planned
+  follow-ons.
 
 executive:
   what_is_this: |
@@ -105,7 +121,10 @@ studies:
   - colonies-01-hpc-readiness
   - colonies-02-parallel-multigen-perf
   - colonies-03-wcm-rss-leak
-  # - colonies-04-hpc-deployment   # planned; blocked on the native RSS leak
+  - colonies-04-device-phenotype-harness
+  # - colonies-05-surrogate-agent-tier   # planned; buildable, own plan
+  # - colonies-06-wcm-media-geometry      # planned; compute-bounded, own plan
+  # - colonies-07-mother-machine-data     # planned; pending real dataset
 
 expert_docs: []
 
@@ -115,3 +134,7 @@ acceptance_criteria:
   - {study: colonies-02-parallel-multigen-perf, behavior: natural-division-2-generations}
   - {study: colonies-02-parallel-multigen-perf, behavior: ray-lifts-gil-ceiling}
   - {study: colonies-03-wcm-rss-leak, behavior: per-cell-rss-bounded-after-fix}
+  - {study: colonies-04-device-phenotype-harness, behavior: factory-yields-runnable-cell-per-tier}
+  - {study: colonies-04-device-phenotype-harness, behavior: geometry-builders-run-with-simple-agents}
+  - {study: colonies-04-device-phenotype-harness, behavior: extractor-recovers-known-division-stats}
+  - {study: colonies-04-device-phenotype-harness, behavior: harness-produces-phenotype-panel}

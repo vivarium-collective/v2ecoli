@@ -134,7 +134,8 @@
     <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Hypotheses</button>
     <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Model</button>
     <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulations</button>
-    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Results</button>
+    <button class="study-pillar"        data-pillar="readouts"   onclick="_setStudyPillar('readouts')">Readouts</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualizations</button>
     <button class="study-pillar"        data-pillar="report-cards" onclick="_setStudyPillar('report-cards')">Report Cards</button>
     <button class="study-pillar"        data-pillar="data"       onclick="_setStudyPillar('data')">Exports</button>
   </div>
@@ -144,7 +145,8 @@
     <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
     <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Model</button>
     <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulations</button>
-    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Results</button>
+    <button class="study-tab" data-kind="readouts" data-pillar="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
     <button class="study-tab" data-kind="report-cards" data-pillar="report-cards" onclick="_setStudyTab('report-cards')">Report Cards</button>
     <button class="study-tab" data-kind="data" data-pillar="data" onclick="_setStudyTab('data')">Exports</button>
   </div>
@@ -249,15 +251,10 @@
   <div class="study-overview">
 
     
-    <h2 class="overview-label">Summary</h2>
-
     
     
     <div class="overview-section narrative-card" data-narrative-card="report">
-      <h2 class="overview-label">📋 Report — executive summary
-        <span class="narrative-card-hint">(top-of-page panel for reviewers)</span>
-      </h2>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.85em">Author the reviewer-facing notes below; Verdict and main insight are computed from the gate evaluator and findings.</p>
+      <h2 class="overview-label">📋 Summary</h2>
       <div class="narrative-grid">
         
         <label class="narrative-row">
@@ -304,9 +301,7 @@
 
     
     <div class="overview-section biology-summary-callout">
-      <h2 class="biology-glance-label">Biology — what this study is about
-        <span class="narrative-card-hint">(optional override — derived from findings when blank)</span>
-      </h2>
+      <h2 class="biology-glance-label">Biology — what this study is about</h2>
       <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                 data-narrative-path="biological_summary"
                 placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
@@ -352,21 +347,14 @@ Three linked questions:
     
 
     
-    <h2 class="overview-label">Findings &amp; open debts</h2>
-
     
 
     
     
     <div class="overview-section" id="epistemic-debts-panel">
       <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(negative knowledge — what this study has not yet established)</span>
+        <span class="narrative-card-hint">(what this study has not yet established)</span>
       </h2>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">
-        Untested claims, absent controls, uncalibrated metrics, un-excluded
-        alternatives, unexplored regions, and stale visuals — harvested from the
-        rigor scorecard + freshness signals.
-      </p>
       <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
         
         
@@ -461,16 +449,9 @@ Three linked questions:
 
       <div class="overview-section">
         <h3 class="overview-label">Status</h3>
-        <select id="status-select" data-field="status" class="overview-status-select">
-          <option value="planned"     >planned</option>
-          <option value="draft"       >draft</option>
-          <option value="in-progress" >in-progress</option>
-          <option value="running"     >running</option>
-          <option value="ran"         >ran</option>
-          <option value="completed"   >completed</option>
-          <option value="complete"    >complete</option>
-          <option value="archived"    >archived</option>
-        </select>
+        
+        
+
         
         <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
         
@@ -514,63 +495,57 @@ Three linked questions:
   
   
   <div class="overview-section" id="model-section">
-    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study runs</span></h3>
-    <p class="muted" style="font-size:0.88em">Every study runs at least one composite. Click a composite to open it in the bigraph-loom explorer — live: configure &amp; run; published bundle: read-only wiring view.</p>
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
+    <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block">
-      <div class="cond-block-title">
-        baseline-millard
+    <div class="cond-block" data-model-composite="v2ecoli.composites.baseline_millard" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
+      <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong>baseline-millard</strong>
         
-        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
-                onclick="_openCompositeLoom('v2ecoli.composites.baseline_millard')">🧬 baseline_millard — configure & run ↗</button>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.baseline_millard</code>
+        <button type="button" class="action-btn" style="font-size:0.8em"
+                onclick="_openCompositeLoom('v2ecoli.composites.baseline_millard')">🧬 explore &amp; run ↗</button>
         
       </div>
       
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-        
-        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
-        
-      </div>
+      <div class="model-config-mount" style="margin-top:8px">
+        <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
+      
+      
       
     </div>
     
-    <div class="cond-block">
-      <div class="cond-block-title">
-        reactor-bird-coupled-millard
+    <div class="cond-block" data-model-composite="v2ecoli.composites.reactor_bird_coupled_millard" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
+      <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong>reactor-bird-coupled-millard</strong>
         
-        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
-                onclick="_openCompositeLoom('v2ecoli.composites.reactor_bird_coupled_millard')">🧬 reactor_bird_coupled_millard — configure & run ↗</button>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.reactor_bird_coupled_millard</code>
+        <button type="button" class="action-btn" style="font-size:0.8em"
+                onclick="_openCompositeLoom('v2ecoli.composites.reactor_bird_coupled_millard')">🧬 explore &amp; run ↗</button>
         
       </div>
       
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-        
-        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
-        
-      </div>
+      <div class="model-config-mount" style="margin-top:8px">
+        <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
+      
+      
       
     </div>
     
-    <div class="cond-block">
-      <div class="cond-block-title">
-        reactor-bird-coupled
+    <div class="cond-block" data-model-composite="v2ecoli.composites.reactor_bird_coupled" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
+      <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong>reactor-bird-coupled</strong>
         
-        <button type="button" class="action-btn" style="margin-left:8px;font-size:0.82em"
-                onclick="_openCompositeLoom('v2ecoli.composites.reactor_bird_coupled')">🧬 reactor_bird_coupled — configure & run ↗</button>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.reactor_bird_coupled</code>
+        <button type="button" class="action-btn" style="font-size:0.8em"
+                onclick="_openCompositeLoom('v2ecoli.composites.reactor_bird_coupled')">🧬 explore &amp; run ↗</button>
         
       </div>
       
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-        
-        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
-        
-      </div>
+      <div class="model-config-mount" style="margin-top:8px">
+        <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
+      
+      
       
     </div>
     
@@ -669,48 +644,18 @@ FBA contrast (iml1515_vs_beulig).
               border:1px solid #e2e8f0;border-radius:6px;font-size:0.9em"></div>
 
 
+<div class="overview-section" id="simulations-section">
+  <h3 style="display:flex;align-items:center;gap:8px">Simulations
+    <span class="muted" style="font-size:0.85em;font-weight:normal">— this study's runs</span>
+    <button type="button" class="btn-mini" title="Reload this study's runs"
+            onclick="_loadStudySims(true)" style="margin-left:auto;font-size:0.8em">↻ Refresh</button>
+  </h3>
+  <p class="muted" style="font-size:0.88em">Every run recorded for this study (the same view as the Simulations DB, scoped here) — data location, origin, emitter, time, status, and downloads. Click a run to open its results; launch new runs below.</p>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-run-detail" style="margin-top:14px"></div>
+</div>
 
   
-  
-  <div class="overview-section" id="ran-section">
-    <h3>What we ran <span class="muted" style="font-size:0.85em;font-weight:normal">(composite + parameters)</span></h3>
-    <p class="muted" style="font-size:0.88em">The composite(s) this study simulated, their parameters, replication, and run status. Click a composite to open it in the bigraph-loom explorer — live: configure &amp; run; published bundle: read-only wiring view.</p>
-    
-    <table class="cond-table" style="width:100%;border-collapse:collapse">
-      <thead><tr><th style="text-align:left">Run</th><th style="text-align:left">Composite</th><th style="text-align:left">Parameters</th><th style="text-align:left">Replication</th><th style="text-align:left">Status</th></tr></thead>
-      <tbody>
-      
-        <tr>
-          <td style="vertical-align:top"><strong>baseline-millard</strong></td>
-          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.baseline_millard')">🧬 baseline_millard ↗</button></td>
-          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span> <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span> </td>
-          <td style="vertical-align:top" class="muted small">—</td>
-          <td style="vertical-align:top"><span class="muted">not run</span></td>
-        </tr>
-      
-        <tr>
-          <td style="vertical-align:top"><strong>reactor-bird-coupled-millard</strong></td>
-          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.reactor_bird_coupled_millard')">🧬 reactor_bird_coupled_millard ↗</button></td>
-          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span> <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span> </td>
-          <td style="vertical-align:top" class="muted small">—</td>
-          <td style="vertical-align:top"><span class="muted">not run</span></td>
-        </tr>
-      
-        <tr>
-          <td style="vertical-align:top"><strong>reactor-bird-coupled</strong></td>
-          <td style="vertical-align:top"><button type="button" class="action-btn" style="font-size:0.82em" onclick="_openCompositeLoom('v2ecoli.composites.reactor_bird_coupled')">🧬 reactor_bird_coupled ↗</button></td>
-          <td style="vertical-align:top"><span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span> <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span> </td>
-          <td style="vertical-align:top" class="muted small">—</td>
-          <td style="vertical-align:top"><span class="muted">not run</span></td>
-        </tr>
-      
-      </tbody>
-    </table>
-    
-    
-  </div>
-  
-
   
   <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(3 runs planned)</span></h3>
   <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
@@ -815,7 +760,6 @@ FBA contrast (iml1515_vs_beulig).
   
   
   
-
   <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
   <div id="study-configure-run" style="margin-bottom:18px"></div>
   <div class="panel" id="remote-run-panel" style="margin-bottom:18px">
@@ -832,67 +776,42 @@ FBA contrast (iml1515_vs_beulig).
     </form>
     <div id="remote-run-progress" hidden></div>
   </div>
-  <div class="runs-section">
-    <h3 class="section-title">Runs</h3>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Per-run record of what was executed. Visualizations live in the
-      <a href="#" onclick="_setStudyTab('visualize');return false">Visualize</a> tab.
-    </p>
-    <table id="runs-table">
-      <thead>
-        <tr>
-          <th>Variant / Baseline</th>
-          <th>Composite</th>
-          <th>Steps</th>
-          <th>Started (UTC)</th>
-          <th>Duration</th>
-          <th>Status</th>
-          <th>Test results</th>
-          <th>Model changes</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        
-        <tr><td colspan="9" class="empty-message">No runs yet.</td></tr>
-        
-      </tbody>
-    </table>
-  </div>
 
 </section>
 
-<section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
+<section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
   <div class="observables-section">
-    <h3 class="section-title">Readouts</h3>
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h3 class="section-title" style="margin-right:auto">Readouts</h3>
+    </div>
     <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+
+    
+    <div id="readouts-download" style="margin:0 0 16px 0"></div>
+
     <div id="readouts-table" data-study="mbp-07-millard-kinetic-metabolism">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
     
   </div>
+</section>
+
+<section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
 
   <div class="viz-section">
 
-    
-    <div class="native-gallery-section" style="margin-bottom:26px">
-      <h3 class="section-title">Baseline analysis gallery</h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-        Native v2ecoli analyses rendered from this study's most recent completed
-        run — the same gallery the Composite Explorer shows.
-      </p>
+    <h3 class="section-title">Visualizations</h3>
+    <p class="muted" style="margin:0 0 12px 0;font-size:0.88em">Figures for this study: the native analysis gallery from its latest run, any embedded HTML artefacts, and charts auto-rendered from <code>runs.db</code>.</p>
+    <div class="native-gallery-section" style="margin-bottom:22px">
+      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Baseline analysis gallery <span style="font-weight:normal">— latest completed run</span></h4>
       <div id="native-gallery-panel"><p class="empty-message">Loading baseline figures…</p></div>
     </div>
 
     
     
-    <div class="embed-viz-section" style="margin-bottom:24px">
-      <h3 class="section-title">Embedded visualizations</h3>
-      <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-        Self-contained HTML pages produced by the study's runner. Each iframe
-        below is a standalone artefact you can also open in a separate tab.
-      </p>
+    <div class="embed-viz-section" style="margin-bottom:22px">
+      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
       
       <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
         <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
@@ -927,11 +846,7 @@ FBA contrast (iml1515_vs_beulig).
     </div>
     
 
-    <h3 class="section-title">Latest-run visualizations (auto-generated from <code>runs.db</code>)</h3>
-    <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-      These charts re-render each time the page loads, against the most recent simulation in the study's <code>runs.db</code>.
-      They are also embedded into the downloadable investigation HTML report.
-    </p>
+    <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
     <div id="viz-charts-panel" class="charts-panel"></div>
   </div>
 </section>
@@ -964,6 +879,14 @@ FBA contrast (iml1515_vs_beulig).
     <div id="data-files" data-study="mbp-07-millard-kinetic-metabolism">
       <p class="empty-message">Loading result files…</p>
     </div>
+
+    
+    <h3 class="section-title" style="margin-top:22px">Raw simulation data</h3>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Each run's raw emitter store (zarr / parquet / <code>runs.db</code>) — the full
+      per-step trajectory. Analysis outputs above are derived from these.
+    </p>
+    <div id="raw-data-list"><p class="empty-message">Loading runs…</p></div>
   </div>
 </section>
 
@@ -987,7 +910,6 @@ FBA contrast (iml1515_vs_beulig).
     </div>
   </div>
 
-  
   
   
   
@@ -1664,6 +1586,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
 <!-- ProgressTrack must load BEFORE study-detail.js: _renderRemoteRunProgress
      (the pinned-build run card's progress adapter) depends on window.ProgressTrack. -->
 <script src="/v2ecoli/dashboard/assets/progress-track.js"></script>
+<script src="/v2ecoli/dashboard/assets/sim-table.js"></script>
 <script src="/v2ecoli/dashboard/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

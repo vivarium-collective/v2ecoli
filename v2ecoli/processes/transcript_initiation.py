@@ -259,8 +259,6 @@ class TranscriptInitiation(Step):
                 "reads existing RNA unique molecules only to allocate fresh, "
                 "non-colliding unique indices for the RNAs/RNAPs added this tick."
             ),
-            'active_RNAPs': "write-only (never read) — removal candidate.",
-            'listeners': "mass.cell_mass declared but never read — removal candidate.",
         },
         outputs={
             'bulk': "decrements the inactive-RNAP pool by the number of RNAPs activated.",
@@ -479,14 +477,11 @@ class TranscriptInitiation(Step):
             },
             'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
             'RNAs': {'_type': RNA_ARRAY, '_default': []},
-            'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
             'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
             'bulk': {'_type': 'bulk_array', '_default': []},
-            'listeners': {
-                'mass': {
-                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
-                },
-            },
+            # active_RNAPs and listeners are OUTPUT-only: this process adds RNAPs
+            # and publishes observations but never reads them (Phase-2 removal of
+            # two dead input ports; both remain in outputs()/TOPOLOGY).
             'timestep': {'_type': 'integer', '_default': 1.0},
             'ppgpp_state': {
                 'basal_prob': {'_type': 'array[float]', '_default': []},

@@ -255,6 +255,10 @@ class TranscriptInitiation(Step):
                 "reads promoter_fraction (bound fraction of dnaA-box sites) to "
                 "scale down the dnaA TU's initiation probability (autoregulation)."
             ),
+            'RNAs': (
+                "reads existing RNA unique molecules only to allocate fresh, "
+                "non-colliding unique indices for the RNAs/RNAPs added this tick."
+            ),
         },
         outputs={
             'bulk': "decrements the inactive-RNAP pool by the number of RNAPs activated.",
@@ -473,14 +477,11 @@ class TranscriptInitiation(Step):
             },
             'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
             'RNAs': {'_type': RNA_ARRAY, '_default': []},
-            'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
             'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
             'bulk': {'_type': 'bulk_array', '_default': []},
-            'listeners': {
-                'mass': {
-                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
-                },
-            },
+            # active_RNAPs and listeners are OUTPUT-only: this process adds RNAPs
+            # and publishes observations but never reads them (Phase-2 removal of
+            # two dead input ports; both remain in outputs()/TOPOLOGY).
             'timestep': {'_type': 'integer', '_default': 1.0},
             'ppgpp_state': {
                 'basal_prob': {'_type': 'array[float]', '_default': []},
@@ -664,9 +665,72 @@ class TranscriptInitiation(Step):
             self.variable_elongation,
         )
 
+    # ---- _evolve, decomposed by concern -------------------------------------
+    # Phase 1 functional regrouping (behaviour-preserving): the initiation
+    # tick is a short composition of named functions, grouped as
+    #   compute  - synthesis probabilities -> footprint cap -> sampling
+    #   biology  - apply_initiations (the only state-changing step)
+    #   observe  - initiation_listeners (derived/logged data; Phase 2 will
+    #              lift this into a separate listener step, removing the
+    #              `listeners` output port from this process)
+    # RNG call order is preserved exactly (synthesis -> cap -> sample -> apply),
+    # so the run is bit-identical to the monolithic version.
+
     def _evolve(self, states):
-        timestep = states["timestep"]
-        update = {
+        update = self._zero_update()
+
+        # no synthesis if no chromosome
+        if len(states["full_chromosomes"]) == 0:
+            return update
+
+        # promoter attributes + the promoter<->TU incidence matrix (shared setup)
+        TU_index, domain_index_promoters = attrs(
+            states["promoters"], ["TU_index", "domain_index"]
+        )
+        TU_to_promoter = self._tu_to_promoter(states, TU_index)
+
+        # compute: target synthesis probabilities -> RNAPs to activate
+        target_TU_synth_probs, n_RNAPs_to_activate = self._synthesis_probabilities(
+            states, TU_to_promoter
+        )
+        update["listeners"]["rna_synth_prob"]["target_rna_synth_prob"] = (
+            target_TU_synth_probs
+        )
+        if n_RNAPs_to_activate == 0:
+            return update
+
+        # compute: footprint-crowding cap -> actual probabilities
+        max_p, actual_TU_synth_probs, tu_is_overcrowded = self._cap_overcrowding(
+            TU_to_promoter, n_RNAPs_to_activate, states["timestep"]
+        )
+
+        # compute: sample per-promoter initiation counts
+        n_initiations, poisson_means = self._sample_initiations(
+            states, n_RNAPs_to_activate
+        )
+        # The realised event count can differ from the target (Poisson tau-leap
+        # fluctuates; multinomial always matches). Rebind to the observed sum.
+        n_RNAPs_to_activate = int(n_initiations.sum())
+
+        # biology: the only state change - new RNAs + RNAPs, inactive-RNAP draw
+        update.update(
+            self._apply_initiations(
+                states, TU_index, domain_index_promoters, n_initiations
+            )
+        )
+
+        # observe: derived/logged data (candidate for a separate listener step)
+        update["listeners"] = self._initiation_listeners(
+            TU_to_promoter, n_initiations, poisson_means, n_RNAPs_to_activate,
+            target_TU_synth_probs, actual_TU_synth_probs, max_p, tu_is_overcrowded,
+        )
+        return update
+
+    def _zero_update(self):
+        """Base update: zeroed listeners + empty biological slots. Returned as-is
+        when there is no chromosome / nothing to activate (with the one field
+        the early paths compute set by the caller)."""
+        return {
             "listeners": {
                 "rna_synth_prob": {
                     "target_rna_synth_prob": np.zeros(self.n_TUs),
@@ -687,33 +751,22 @@ class TranscriptInitiation(Step):
             "RNAs": {},
         }
 
-        # no synthesis if no chromosome
-        if len(states["full_chromosomes"]) == 0:
-            return update
-
-        # Get attributes of promoters
-        TU_index, domain_index_promoters = attrs(
-            states["promoters"], ["TU_index", "domain_index"]
-        )
-
+    def _tu_to_promoter(self, states, TU_index):
+        """Sparse promoter->TU incidence matrix (maps per-promoter quantities to
+        per-transcription-unit totals)."""
         n_promoters = states["promoters"]["_entryState"].sum()
-        # Construct matrix that maps promoters to transcription units
-        TU_to_promoter = scipy.sparse.csr_matrix(
+        return scipy.sparse.csr_matrix(
             (np.ones(n_promoters), (TU_index, np.arange(n_promoters))),
             shape=(self.n_TUs, n_promoters),
             dtype=np.int8,
         )
 
-        # Compute target synthesis probabilities of each transcription unit
+    def _synthesis_probabilities(self, states, TU_to_promoter):
+        """compute: per-TU target synthesis probabilities and the integer number
+        of RNAPs to activate this tick (activation probability x inactive pool).
+        Note: activation prob uses the target (not the yet-unknown actual)
+        probabilities - the difference is small and this matches the original."""
         target_TU_synth_probs = TU_to_promoter.dot(self.promoter_init_probs)
-        update["listeners"]["rna_synth_prob"]["target_rna_synth_prob"] = (
-            target_TU_synth_probs
-        )
-
-        # Calculate RNA polymerases to activate based on probabilities
-        # Note: ideally we should be using the actual TU synthesis probabilities
-        # here, but the calculation of actual probabilities requires the number
-        # of RNAPs to activate. The difference should be small.
         self.activationProb = self._calculateActivationProb(
             states["timestep"],
             self.fracActiveRnap,
@@ -721,26 +774,24 @@ class TranscriptInitiation(Step):
             (units.nt / units.s) * self.elongation_rates,
             target_TU_synth_probs,
         )
-
         n_RNAPs_to_activate = np.int64(
             self.activationProb * counts(states["bulk"], self.inactive_RNAP_idx)
         )
+        return target_TU_synth_probs, n_RNAPs_to_activate
 
-        if n_RNAPs_to_activate == 0:
-            return update
-
-        # Cap the initiation probabilities at the maximum level physically
-        # allowed from the known RNAP footprint sizes
+    def _cap_overcrowding(self, TU_to_promoter, n_RNAPs_to_activate, timestep):
+        """compute: cap each promoter's init probability at the physically
+        allowed max_p (from the RNAP footprint), redistributing the excess mass;
+        returns max_p, the post-cap actual per-TU probabilities, and which TUs
+        were overcrowded. Mutates self.promoter_init_probs in place (as before)."""
         max_p = (
             self.rnaPolymeraseElongationRate
             / self.active_rnap_footprint_size
             * (units.s)
-            * states["timestep"]
+            * timestep
             / n_RNAPs_to_activate
         ).magnitude
-        update["listeners"]["rna_synth_prob"]["max_p"] = max_p
         is_overcrowded = self.promoter_init_probs > max_p
-
         while np.any(self.promoter_init_probs > max_p):
             self.promoter_init_probs[is_overcrowded] = max_p
             scale_the_rest_by = (
@@ -748,153 +799,109 @@ class TranscriptInitiation(Step):
             ) / self.promoter_init_probs[~is_overcrowded].sum()
             self.promoter_init_probs[~is_overcrowded] *= scale_the_rest_by
             is_overcrowded |= self.promoter_init_probs > max_p
-
-        # Compute actual synthesis probabilities of each transcription unit
         actual_TU_synth_probs = TU_to_promoter.dot(self.promoter_init_probs)
         tu_is_overcrowded = TU_to_promoter.dot(is_overcrowded).astype(bool)
-        update["listeners"]["rna_synth_prob"]["actual_rna_synth_prob"] = (
-            actual_TU_synth_probs
-        )
-        update["listeners"]["rna_synth_prob"]["tu_is_overcrowded"] = tu_is_overcrowded
+        return max_p, actual_TU_synth_probs, tu_is_overcrowded
 
-        # Sample per-promoter initiation counts. Two modes:
-        #
-        # - ``"discrete"`` (legacy): one multinomial(n_RNAPs_to_activate,
-        #   promoter_init_probs) draw — enforces the exact sum constraint
-        #   Σ N_i = n_RNAPs_to_activate but couples promoters through that
-        #   constraint.
-        # - ``"poisson"`` (Phase 2 PDMP semantics): per-promoter
-        #   Poisson(n_RNAPs_to_activate · p_i) — each promoter is an
-        #   independent jump process with rate n·p_i; Σ N_i fluctuates
-        #   around n_RNAPs_to_activate but each promoter's per-tick count
-        #   has the correct marginal distribution for a continuous-time
-        #   inhomogeneous Poisson process tau-leaped over the tick.
-        #
-        #   We then truncate Σ N_i down to ``n_RNAPs_to_activate`` if the
-        #   Poisson sum exceeded the available RNAP pool (rejection
-        #   resampling weighted by N_i / Σ N_i) — preserves the resource
-        #   constraint without breaking marginal distributions on tau-leap
-        #   timescales where p_i × n is small.
+    def _sample_initiations(self, states, n_RNAPs_to_activate):
+        """compute (stochastic): draw per-promoter initiation counts. Two modes -
+        ``discrete`` is a single multinomial (exact sum = n_RNAPs_to_activate);
+        ``poisson`` is per-promoter Poisson tau-leap with a resource cap
+        (independent marginals, sum fluctuates then is capped to the inactive
+        pool). Returns (n_initiations, poisson_means) - poisson_means is None in
+        discrete mode (used only for the log-likelihood listener)."""
         if self.pdmp_initiation_mode == "poisson":
-            # Per-promoter Poisson tau-leap. Rates: each promoter i is an
-            # independent jump process with rate
-            #     λ_i = activationProb · n_inactive_RNAPs · p_i / dt
-            # so in window dt the per-promoter event count has expectation
-            #     λ_i · dt = n_RNAPs_to_activate · p_i
-            # which is the same expected count as the multinomial mode but
-            # with Poisson (independent) marginals.
             poisson_means = (self.transcript_init_prob_scale
                              * n_RNAPs_to_activate
                              * self.promoter_init_probs)
             n_initiations = self.random_state.poisson(poisson_means).astype(np.int64)
-            # Hard cap: total activations cannot exceed the *actual*
-            # inactive-RNAP pool (the resource constraint). Capping at
-            # ``n_RNAPs_to_activate`` instead would introduce an
-            # asymmetric truncation that systematically undercounts —
-            # Poisson variance pushes some ticks above the target and
-            # some below, but the cap only kills the highs.
+            # Resource cap: total activations cannot exceed the actual inactive
+            # pool. Capping the (symmetric-variance) Poisson sum only from above
+            # would systematically undercount, so subsample events weighted by
+            # per-promoter counts.
             n_inactive_RNAPs = int(counts(states["bulk"], self.inactive_RNAP_idx))
-            total_drawn = int(n_initiations.sum())
-            if total_drawn > n_inactive_RNAPs:
-                # Resource cap: subsample n_inactive_RNAPs events from
-                # the inflated draw pool, weighted by per-promoter counts.
+            if int(n_initiations.sum()) > n_inactive_RNAPs:
                 event_promoters = np.repeat(
                     np.arange(n_initiations.size), n_initiations,
                 )
                 keep_idx = self.random_state.choice(
-                    event_promoters.size,
-                    size=n_inactive_RNAPs,
-                    replace=False,
+                    event_promoters.size, size=n_inactive_RNAPs, replace=False,
                 )
                 n_initiations = np.bincount(
                     event_promoters[keep_idx], minlength=n_initiations.size,
                 ).astype(np.int64)
-        else:
-            n_initiations = self.random_state.multinomial(
-                n_RNAPs_to_activate, self.promoter_init_probs
-            )
+            return n_initiations, poisson_means
+        n_initiations = self.random_state.multinomial(
+            n_RNAPs_to_activate, self.promoter_init_probs
+        )
+        return n_initiations, None
 
-        # After sampling, the actual count of events may differ from
-        # n_RNAPs_to_activate (Poisson tau-leap fluctuates around the target;
-        # the multinomial path always equals the target). Rebind to the
-        # observed sum so downstream array allocations + the unique-RNAP-id
-        # range match the events we'll actually emit.
-        n_RNAPs_to_activate = int(n_initiations.sum())
-
-        # Build array of transcription unit indexes for partially transcribed
-        # RNAs and domain indexes for RNAPs
+    def _apply_initiations(self, states, TU_index, domain_index_promoters,
+                           n_initiations):
+        """biology: the tick's only state change. Add one partially-transcribed
+        RNA + one active RNAP per initiation event (linked via RNAP_index) and
+        decrement the inactive-RNAP bulk pool. Returns the RNAs/active_RNAPs/bulk
+        update fragments."""
+        n = int(n_initiations.sum())
         TU_index_partial_RNAs = np.repeat(TU_index, n_initiations)
         domain_index_rnap = np.repeat(domain_index_promoters, n_initiations)
-
-        # Build arrays of starting coordinates and transcription directions
         coordinates = self.replication_coordinate[TU_index_partial_RNAs]
         is_forward = self.transcription_direction[TU_index_partial_RNAs]
 
-        # new RNAPs
-        RNAP_indexes = create_unique_indices(n_RNAPs_to_activate, states["RNAs"])
-        update["active_RNAPs"].update(
-            {
-                "add": {
-                    "unique_index": RNAP_indexes,
-                    "domain_index": domain_index_rnap,
-                    "coordinates": coordinates,
-                    "is_forward": is_forward,
-                }
-            }
-        )
-
-        # Decrement counts of inactive RNAPs
-        update["bulk"] = [(self.inactive_RNAP_idx, -n_initiations.sum())]
-
-        # Add partially transcribed RNAs
+        RNAP_indexes = create_unique_indices(n, states["RNAs"])
         is_mRNA = np.isin(TU_index_partial_RNAs, self.idx_mRNA)
-        update["RNAs"].update(
-            {
-                "add": {
-                    "TU_index": TU_index_partial_RNAs,
-                    "transcript_length": np.zeros(cast(int, n_RNAPs_to_activate)),
-                    "is_mRNA": is_mRNA,
-                    "is_full_transcript": np.zeros(
-                        cast(int, n_RNAPs_to_activate), dtype=bool
-                    ),
-                    "can_translate": is_mRNA,
-                    "RNAP_index": RNAP_indexes,
-                }
-            }
-        )
+        return {
+            "active_RNAPs": {"add": {
+                "unique_index": RNAP_indexes,
+                "domain_index": domain_index_rnap,
+                "coordinates": coordinates,
+                "is_forward": is_forward,
+            }},
+            "bulk": [(self.inactive_RNAP_idx, -n_initiations.sum())],
+            "RNAs": {"add": {
+                "TU_index": TU_index_partial_RNAs,
+                "transcript_length": np.zeros(cast(int, n)),
+                "is_mRNA": is_mRNA,
+                "is_full_transcript": np.zeros(cast(int, n), dtype=bool),
+                "can_translate": is_mRNA,
+                "RNAP_index": RNAP_indexes,
+            }},
+        }
 
+    def _initiation_listeners(self, TU_to_promoter, n_initiations, poisson_means,
+                              n_RNAPs_to_activate, target_TU_synth_probs,
+                              actual_TU_synth_probs, max_p, tu_is_overcrowded):
+        """observe: derived/logged diagnostics - synthesis-probability targets vs
+        actuals + crowding, rRNA initiation counts, and rnap_data (did_initialize,
+        per-TU init events, and the Poisson log-likelihood of the draw). Pure
+        function of the tick's results - the Phase 2 externalization target."""
         rna_init_event = TU_to_promoter.dot(n_initiations)
         rRNA_initiations = rna_init_event[self.idx_rRNA]
-
-        # Write outputs to listeners
-        update["listeners"]["ribosome_data"] = {
-            "rRNA_initiated_TU": rRNA_initiations.astype(int),
-            "rRNA_init_prob_TU": rRNA_initiations / float(n_RNAPs_to_activate),
-            "total_rna_init": n_RNAPs_to_activate,
-        }
-
-        # Phase-3 sprint-1: per-tick log-likelihood of the observed
-        # n_initiations under the Poisson rates that drove the sampler.
-        # When the resource cap fired (rare), this is the likelihood of
-        # the post-cap counts under the uncapped rates — an
-        # approximation that's exact in the cap-doesn't-fire limit.
-        # In discrete (multinomial) mode, emit 0.0 as a sentinel until
-        # the multinomial-log-likelihood is wired (Phase 3 sprint 2).
+        # Per-tick log-likelihood of the observed counts under the Poisson rates
+        # that drove the sampler (0.0 sentinel in discrete mode until wired).
         if self.pdmp_initiation_mode == "poisson":
-            log_lik = float(poisson.logpmf(
-                n_initiations, poisson_means).sum())
+            log_lik = float(poisson.logpmf(n_initiations, poisson_means).sum())
         else:
             log_lik = 0.0
-
-        update["listeners"]["rnap_data"] = {
-            "did_initialize": n_RNAPs_to_activate,
-            "rna_init_event": rna_init_event.astype(np.int64),
-            "log_likelihood": log_lik,
+        return {
+            "rna_synth_prob": {
+                "target_rna_synth_prob": target_TU_synth_probs,
+                "actual_rna_synth_prob": actual_TU_synth_probs,
+                "tu_is_overcrowded": tu_is_overcrowded,
+                "max_p": max_p,
+                "total_rna_init": n_RNAPs_to_activate,
+            },
+            "ribosome_data": {
+                "rRNA_initiated_TU": rRNA_initiations.astype(int),
+                "rRNA_init_prob_TU": rRNA_initiations / float(n_RNAPs_to_activate),
+                "total_rna_init": n_RNAPs_to_activate,
+            },
+            "rnap_data": {
+                "did_initialize": n_RNAPs_to_activate,
+                "rna_init_event": rna_init_event.astype(np.int64),
+                "log_likelihood": log_lik,
+            },
         }
-
-        update["listeners"]["rna_synth_prob"]["total_rna_init"] = n_RNAPs_to_activate
-
-        return update
 
     def _calculateActivationProb(
         self,

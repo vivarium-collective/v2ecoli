@@ -18,10 +18,10 @@ __all__: list[str] = [
 
 # Register the v2ecoli units resolver onto the shared Visualization base so
 # every v2ecoli visualization labels axes from the declared port schema.
-# Guard with getattr: an installed pbg_superpowers that predates the units
+# Guard with getattr: an installed viva_superpowers that predates the units
 # hook (no ``units_resolver`` attribute) degrades to no axis-unit labeling
 # rather than crashing every visualization import.
-from pbg_superpowers.visualization import Visualization as _Visualization
+from viva_superpowers.visualization import Visualization as _Visualization
 from v2ecoli.library.units_resolver import V2EcoliUnitsResolver as _V2EcoliUnitsResolver
 
 if hasattr(_Visualization, "units_resolver") and getattr(

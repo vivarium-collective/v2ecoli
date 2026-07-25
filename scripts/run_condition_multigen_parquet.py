@@ -206,10 +206,10 @@ def build_run_config(args, *, perturbations: dict[str, float],
 def register_run_config(args, run_config: dict, *, status: str) -> str | None:
     """Register the run into the per-study runs.db via pbg-superpowers'
     ``register_run`` (run_id = experiment_id). Best-effort: returns the
-    runs.db path on success, None if pbg_superpowers is unavailable or
+    runs.db path on success, None if viva_superpowers is unavailable or
     ``--study-dir`` is not resolvable. Never raises into the sim path."""
     try:
-        from pbg_superpowers.run_registry import register_run
+        from viva_superpowers.run_registry import register_run
     except Exception:
         return None
     study_dir = args.study_dir

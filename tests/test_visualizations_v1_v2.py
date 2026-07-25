@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.fast
 def test_v1_v2_visualization_subclass():
     from v2ecoli.visualizations.v1_v2 import V1V2Visualization
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
     assert issubclass(V1V2Visualization, Visualization)
 
 

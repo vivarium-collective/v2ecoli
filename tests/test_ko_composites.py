@@ -170,7 +170,7 @@ def test_ko_batch_baseline_unknown_gene_fails_at_build():
 
 
 def test_both_ko_composites_registered():
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401 — fires the decorators
     names = {e.name for e in _REGISTRY.values() if hasattr(e, "name")}
     assert {"KO_baseline", "KO_batch_baseline"} <= names

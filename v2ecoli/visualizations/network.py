@@ -12,7 +12,7 @@ at reports/network_report.py is responsible for:
 from __future__ import annotations
 from typing import Any
 
-from pbg_superpowers.visualization import Visualization
+from viva_superpowers.visualization import Visualization
 
 from v2ecoli.visualizations._helpers import render_cytoscape_html
 

@@ -474,7 +474,7 @@ def _write_json_sidecar(path: str, obj: dict) -> None:
 def _baseline_param_names() -> set:
     """The declared ``baseline`` generator parameter names (for override filtering)."""
     import v2ecoli.composites  # noqa: F401  (register generators)
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     for e in _REGISTRY.values():
         if e.name == "baseline":
             return set(e.parameters)

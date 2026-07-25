@@ -6,11 +6,11 @@ coordinates. Multiple panels can show different timepoints side-by-side;
 each panel can itself contain multiple chromosomes (post-replication
 2-chromosome states).
 
-Moved here from pbg_superpowers/study_charts.py (where it was misplaced —
-pbg_superpowers is the generic framework and shouldn't know about E. coli
+Moved here from viva_superpowers/study_charts.py (where it was misplaced —
+viva_superpowers is the generic framework and shouldn't know about E. coli
 genome biology). The handful of SVG-primitive helpers it uses are
 vendored inline so this module is self-contained and doesn't depend on
-private pbg_superpowers internals.
+private viva_superpowers internals.
 """
 from __future__ import annotations
 

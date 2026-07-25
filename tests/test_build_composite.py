@@ -14,7 +14,7 @@ def test_build_composite_unknown_name_raises():
 def test_generators_registered_under_short_names():
     """After importing v2ecoli, the registry contains the architectures."""
     import v2ecoli  # noqa: F401 — forces decorator registration
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     names = {e.name for e in _REGISTRY.values() if e.module.startswith("v2ecoli.")}
     assert {"baseline", "colony", "millard_pdmp_baseline"} <= names
 

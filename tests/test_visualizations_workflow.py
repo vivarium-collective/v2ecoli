@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.fast
 def test_workflow_subclass():
     from v2ecoli.visualizations.workflow import WorkflowVisualization
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
     assert issubclass(WorkflowVisualization, Visualization)
 
 

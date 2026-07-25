@@ -34,7 +34,7 @@ from typing import Any
 
 import numpy as np
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.core import build_core, load_cache_bundle
 

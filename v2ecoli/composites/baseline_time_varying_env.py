@@ -34,7 +34,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.composites._helpers import _make_instance, make_edge
 from v2ecoli.composites.baseline import baseline as _baseline_builder

@@ -1,7 +1,7 @@
 """Workspace-local study evaluators registered into the pbg-superpowers seam.
 
 register_evaluators(registry) is discovered + called by
-pbg_superpowers.study_evaluator.load_workspace_evaluators (mirrors build_core()).
+viva_superpowers.study_evaluator.load_workspace_evaluators (mirrors build_core()).
 The framework stays report-card-agnostic; all report-card logic lives here.
 """
 import json

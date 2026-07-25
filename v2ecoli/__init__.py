@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from process_bigraph import Composite
-from pbg_superpowers.composite_generator import _REGISTRY, build_generator
+from viva_superpowers.composite_generator import _REGISTRY, build_generator
 
 from v2ecoli.core import build_core
 from v2ecoli import composites  # noqa: F401 — forces @composite_generator decorators to fire

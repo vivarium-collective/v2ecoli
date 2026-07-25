@@ -48,6 +48,11 @@ first, then read [What v2ecoli is](#what-v2ecoli-is) → [Install](#install) →
 [Architectures](#architectures) →
 [pipelines](#running-pipelines-multiseed--multigen--multivariant).
 
+> 🤖 **Using an AI coding assistant (Claude Code / Cursor / …)?** Hand it
+> **[docs/first-run-agent-guide.md](docs/first-run-agent-guide.md)** — a gated
+> runbook that takes you from a clean clone to a running vivarium-workbench with
+> the `baseline` cell open, then on to authoring and contributing.
+
 ---
 
 ## Explore v2ecoli
@@ -105,6 +110,7 @@ full list + how to regenerate each in **[docs/reports.md](docs/reports.md#3-stan
 ## Contents
 
 - [Explore v2ecoli](#explore-v2ecoli) — dashboard, investigation reports, HTML reports
+- [First-run agent guide](docs/first-run-agent-guide.md) — hand it to your AI assistant to get running end-to-end
 - [What v2ecoli is](#what-v2ecoli-is)
 - [Install](#install)
 - [Quick start](#quick-start)
@@ -145,8 +151,9 @@ What you get over upstream vEcoli:
 - **A research workspace.** The repo is a pbg workspace (`workspace.yaml`):
   biology sits next to **investigations** (a shared research question) and
   **studies** (the runs that answer it) under `workspace/`, all browsable and
-  runnable in the vivarium-workbench. Manage them with the `pbg-investigation` /
-  `pbg-study` skills.
+  runnable in the vivarium-workbench. Manage them with the `viva-investigation` /
+  `viva-study` skills (from the [viva-superpowers](https://github.com/vivarium-collective/viva-superpowers)
+  Claude Code plugin).
 - **A decomposed ParCa.** The monolithic `fitSimData_1()` is broken into nine
   inspectable Steps, and the fitted `sim_data` is shipped pre-computed.
 - **Workflow pipelines.** Multiseed / multigeneration / multivariant sweeps are
@@ -175,6 +182,9 @@ vendored Cython extensions.
 
 > Run everything through the project venv: `.venv/bin/python …` (or activate it).
 > A bare `python` on your `PATH` will be missing `unum` and other deps.
+
+> 🤖 **Want an AI assistant to drive the whole setup** (clone → workbench →
+> first sim)? Hand it [docs/first-run-agent-guide.md](docs/first-run-agent-guide.md).
 
 ---
 

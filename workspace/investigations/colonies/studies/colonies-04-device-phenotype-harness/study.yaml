@@ -13,6 +13,22 @@ topic: phenotype-quantification
 tags: [colony, mother-machine, daughter-machine, phenotype, adder, requires-viva-munk]
 created: '2026-07-25'
 
+baseline:
+- name: free-colony-simple
+  composite: v2ecoli.composites.colony.colony
+  params:
+    seed: 0
+    n_cells: 2
+    env_size: 30
+  note: |
+    The free-colony geometry populated with simple viva-munk grow_divide
+    agents. This study also exercises the mother-machine and daughter-machine
+    geometries via v2ecoli.colony_bench (geometry builders that place any
+    cell-model tier — simple / surrogate / wcm — into a device); those are not
+    registered composite generators, but the phenotype panel (growth rate,
+    size-at-division, added length, inter-division time) is extracted uniformly
+    across all three geometries.
+
 status: designed
 phase: Build
 design_status: approved

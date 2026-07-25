@@ -4,7 +4,7 @@ store paths stay flat so downstream analyses keep working.
 """
 from __future__ import annotations
 
-from pbg_superpowers.composite_generator import _REGISTRY
+from viva_superpowers.composite_generator import _REGISTRY
 
 import v2ecoli.composites  # noqa: F401 — force generator registration
 from v2ecoli.composites.store_groups import STORE_GROUPS, group_of

@@ -83,12 +83,13 @@ def run_pdmp(
     with_ref_growth: bool = False,
     ref_growth_flux_source: str = "proportional",
 ):
-    """Run the millard_pdmp_baseline composite and sample at sample_every_s."""
+    """Run the baseline_millard (lqr=True) composite and sample at sample_every_s."""
     from v2ecoli import build_composite
 
     t0 = time.perf_counter()
     c = build_composite(
-        "millard_pdmp_baseline",
+        "baseline_millard",
+        lqr=True,
         with_ref_growth=with_ref_growth,
         ref_growth_flux_source=ref_growth_flux_source,
     )

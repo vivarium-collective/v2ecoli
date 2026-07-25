@@ -332,7 +332,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--duration", type=int, default=600)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--pdmp-composite", default="millard_pdmp_baseline")
+    p.add_argument("--pdmp-composite", default="baseline_millard")
     p.add_argument("--pdmp-transcript-mode", default="discrete",
                    choices=["discrete", "poisson"])
     p.add_argument("--pdmp-polypeptide-mode", default="discrete",
@@ -353,6 +353,7 @@ def main():
           flush=True)
     pdmp = run_with_per_tick_mass(
         args.pdmp_composite, args.duration, args.seed,
+        lqr=True,
         with_ref_growth=True,
         ref_growth_flux_source="consumption_matched",
         transcript_initiation_mode=args.pdmp_transcript_mode,

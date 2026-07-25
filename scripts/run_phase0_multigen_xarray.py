@@ -110,6 +110,13 @@ def run_one(seed: int, max_steps: int, max_generations: int, chunk: int) -> dict
             chunk=chunk,
             initial_agent_id="0",
             overwrite=False,  # we already cleared store_path above
+            # Self-describing output: embed the composite + config that produced
+            # this store so a disk-discovered run knows its provenance.
+            provenance={
+                "composite": "v2ecoli.composites.baseline.baseline",
+                "config": {"seed": seed, "cache_dir": CACHE_DIR},
+                "run_id": metadata_base["experiment_id"],
+            },
         )
     except Exception as e:  # noqa: BLE001
         print(f"  seed={seed:02d} FAILED: {type(e).__name__}: {str(e)[:80]}", flush=True)

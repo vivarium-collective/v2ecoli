@@ -1,4 +1,4 @@
-"""Run the millard_pdmp_baseline composite for 600 s with XArrayEmitter capture.
+"""Run the baseline_millard (lqr=True) composite for 600 s with XArrayEmitter capture.
 
 Modeled after scripts/run_phase0_xarray_ensemble.py — single-replicate variant
 that drives an XArrayEmitter writing per-tick listener observables to
@@ -9,7 +9,7 @@ crashing. NOT a biological validation pass — W2-vs-Phase-0 ensemble
 comparison is out of scope here.
 
 Usage:
-    python scripts/run_millard_pdmp_baseline.py [--n-steps 600] [--chunk 60] [--seed 0]
+    python scripts/run_baseline_millard_lqr.py [--n-steps 600] [--chunk 60] [--seed 0]
 """
 from __future__ import annotations
 
@@ -93,7 +93,8 @@ def main():
     print(f"Building composite (seed={args.seed}, tick_s={args.tick_s})...")
     t_build = time.time()
     composite = build_composite(
-        "millard_pdmp_baseline",
+        "baseline_millard",
+        lqr=True,
         cache_dir=CACHE_DIR,
         seed=args.seed,
         tick_s=args.tick_s,

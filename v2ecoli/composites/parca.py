@@ -1,6 +1,6 @@
 """ParCa composite generator — registers the 9-step ParCa pipeline as a
 first-class ``@composite_generator`` peer of ``baseline`` / ``colony`` /
-``millard_pdmp_baseline``.
+``baseline_millard``.
 
 Why this wrapper exists
 -----------------------

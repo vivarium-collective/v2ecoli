@@ -253,7 +253,7 @@ simulation_set:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: v2ecoli.composites.baseline.baseline
     params:
       seed: 0
       cache_dir: out/cache_full
@@ -379,7 +379,8 @@ pipeline_gate:
   gate_status: failed   # card-driven roll-up: exchange_fluxes + gene_expression FAIL (see gate_status note above)
 
 runs:
-- name: v2-16x16-parallel-ensemble
+- composite: v2ecoli.composites.baseline.baseline
+  name: v2-16x16-parallel-ensemble
   status: completed
   kind: simulation
   canonical: true
@@ -414,7 +415,8 @@ runs:
     gene-expression-correlates-vecoli:
       result: FAIL
       detail: "Card worst-of: transcriptome (mRNA cistrons) R²=0.9461 is below the strict 0.99 band → mismatch → FAIL; proteome (monomers) R²=0.9613 → drift. Highly correlated overall, consistent with the 8×16 reading (R²≈0.93–0.94); the FAIL is a strict-band artifact (TOST + per-axis δ margins would express it as an equivalence-margin verdict)."
-- name: vecoli-16x16-reference-ensemble
+- composite: v2ecoli.composites.baseline.baseline
+  name: vecoli-16x16-reference-ensemble
   status: completed
   kind: simulation
   canonical: false

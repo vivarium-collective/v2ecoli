@@ -779,7 +779,7 @@ discovery_implications:
     (per-rep sigma ~1.2 fg cell vs 6.9 fg), so the pass rests on a mean offset that now sits within sigma,
     not on matched variance. This is M9-glucose only; the acetate / +aa PDMP-vs-Phase-0 W2 remains pending
     and is the gating step before any acceptance. See reports/figures/pdmp-01/RUN_REPORT_2026-06-11.md.'
-  - 'Reproducibility caveats surfaced in the just-attempted re-run: (a) the millard_pdmp_baseline
+  - 'Reproducibility caveats surfaced in the just-attempted re-run: (a) the baseline_millard (lqr=True)
     composite had a pre-existing broken import (LikelihoodCollector imported from the nonexistent
     v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*); its likelihood path was unbuildable
     until fixed in this refresh; (b) in the default ''proportional'' ref-growth mode the composite crashes

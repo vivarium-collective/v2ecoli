@@ -16,7 +16,7 @@ def test_generators_registered_under_short_names():
     import v2ecoli  # noqa: F401 — forces decorator registration
     from viva_superpowers.composite_generator import _REGISTRY
     names = {e.name for e in _REGISTRY.values() if e.module.startswith("v2ecoli.")}
-    assert {"baseline", "colony", "millard_pdmp_baseline"} <= names
+    assert {"baseline", "colony", "baseline_millard"} <= names
 
 
 @pytest.mark.sim

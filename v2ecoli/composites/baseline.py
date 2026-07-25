@@ -65,6 +65,12 @@ from v2ecoli.composites._helpers import (
     ALLOCATOR_LAYERS,
     DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
+# Re-export: baseline's biological store grouping (compartment -> molecular
+# class), distilled from the retired `biological` composite. Pure annotation —
+# baseline's EMITTED paths stay flat (global_time/bulk/listeners) so analyses are
+# unaffected; display tools (Composite Explorer / loom, follow-up) read this to
+# render the flat stores grouped as biology. See store_groups.py.
+from v2ecoli.composites.store_groups import STORE_GROUPS as STORE_GROUPS  # noqa: PLC0414
 
 
 # ---------------------------------------------------------------------------

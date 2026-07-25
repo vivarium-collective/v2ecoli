@@ -3,7 +3,7 @@
 Extends ``compare_pdmp_vs_phase0.py`` (which ran ONE PDMP replicate and reported
 a per-timepoint z-score) to a real ensemble Wasserstein gate:
 
-  1. Run N >= 12 PDMP-Phase-1 replicates (``millard_pdmp_baseline`` with the
+  1. Run N >= 12 PDMP-Phase-1 replicates (``baseline_millard`` lqr=True with the
      ``consumption_matched`` reference-growth driver) at distinct master seeds,
      each for ``--duration`` simulated seconds.
   2. Load the committed Phase-0 kFBA reference ensemble from
@@ -148,7 +148,8 @@ def run_pdmp_replicate(seed: int, duration_s: int, sample_every_s: int,
             warnings.simplefilter("always")
             from v2ecoli import build_composite
             c = build_composite(
-                "millard_pdmp_baseline",
+                "baseline_millard",
+                lqr=True,
                 seed=seed,
                 with_ref_growth=True,
                 ref_growth_flux_source=flux_source,

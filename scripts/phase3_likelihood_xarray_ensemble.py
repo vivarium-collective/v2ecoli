@@ -91,7 +91,8 @@ def run_one(seed: int, duration_s: int, chunk: int = 30,
 
     t0 = time.time()
     composite = build_composite(
-        "millard_pdmp_baseline",
+        "baseline_millard",
+        lqr=True,
         cache_dir=CACHE_DIR,
         seed=seed,
         with_ref_growth=True,

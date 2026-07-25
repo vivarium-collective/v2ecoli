@@ -25,7 +25,8 @@ pipeline_gate:
   prerequisites: []
   enables: []
 runs:
-- name: parca-comparison
+- composite: v2ecoli.composites.baseline.baseline
+  name: parca-comparison
   kind: analysis
   canonical: true
   description: v2e-compare study parca
@@ -46,9 +47,7 @@ findings:
 - id: parca-parca
   kind: computational
   status: confirms
-  statement: 'v2ecoli and vEcoli start from the same ParCa-fit initial state on basal:
-    all 4 mass observables within tolerance.'
+  statement: 'v2ecoli and vEcoli start from the same ParCa-fit initial state on basal: all 4 mass observables within tolerance.'
   evidence:
     from_card: parca
-    observed: 4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg),
-      RNA mass (fg))
+    observed: 4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg), RNA mass (fg))

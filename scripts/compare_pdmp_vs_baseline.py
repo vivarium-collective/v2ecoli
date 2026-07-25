@@ -14,7 +14,7 @@ Usage:
     .venv/bin/python scripts/compare_pdmp_vs_baseline.py
         [--duration 600] [--seed 0]
         [--baseline-composite baseline]
-        [--pdmp-composite millard_pdmp_baseline]
+        [--pdmp-composite baseline_millard]
         [--out reports/figures/pdmp-01/pdmp_vs_baseline.html]
 """
 from __future__ import annotations
@@ -605,7 +605,7 @@ def main():
                    help="Simulated seconds for both runs (default 600).")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--baseline-composite", default="baseline")
-    p.add_argument("--pdmp-composite", default="millard_pdmp_baseline")
+    p.add_argument("--pdmp-composite", default="baseline_millard")
     p.add_argument("--out",
                    default="reports/figures/pdmp-01/pdmp_vs_baseline.html")
     p.add_argument("--summary-json",
@@ -625,6 +625,7 @@ def main():
           f"for {args.duration}s...", flush=True)
     pdmp = run_with_timing(
         args.pdmp_composite, args.duration, args.seed,
+        lqr=True,
         with_ref_growth=True,
         ref_growth_flux_source="consumption_matched",
     )

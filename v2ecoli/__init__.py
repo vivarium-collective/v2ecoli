@@ -23,7 +23,7 @@ def build_composite(
     Parameters
     ----------
     name:
-        One of ``"baseline"``, ``"colony"``, ``"millard_pdmp_baseline"``.
+        One of ``"baseline"``, ``"colony"``, ``"baseline_millard"``.
     core:
         Optional bigraph-schema core. If omitted, a fresh one is built via
         ``v2ecoli.core.build_core()``.

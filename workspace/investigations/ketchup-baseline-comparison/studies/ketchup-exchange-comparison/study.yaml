@@ -239,7 +239,8 @@ runs:
   description: "Real KETCHUP/IPOPT time-series fit of cell-free FDH (KetchupDynamicEstimator), run through the dashboard composite-runner; fits NADH(t) across 9 conditions."
   dispatch: local
   emitter: sqlite
-- name: ketchup-exchange-comparison-grade
+- composite: pbg_ketchup.composites.estimation.ketchup_baseline
+  name: ketchup-exchange-comparison-grade
   status: completed
   kind: analysis
   canonical: true

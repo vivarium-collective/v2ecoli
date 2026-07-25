@@ -81,8 +81,14 @@ def make_colony_document(
         y = env_size / 2 + rng.uniform(-5, 5)
         angle = rng.uniform(0, 2 * np.pi)
 
+        # Deterministic initial-cell id (a_0, a_1, …). build_microbe's default id
+        # is randomly generated (untied to the seed), so it changes on every
+        # build — which breaks resolving a cell by id across two builds (the loom
+        # Explorer re-builds the colony to instantiate + drill into a cell).
+        # Seeding a stable id keeps the composite reproducible; daughters spawned
+        # at division still get fresh unique ids.
         agent_id, cell_body = build_microbe(
-            rng, env_size=env_size,
+            rng, agent_id=f'a_{i}', env_size=env_size,
             x=x, y=y, angle=angle,
             length=2.0, radius=0.5, density=0.02,
         )

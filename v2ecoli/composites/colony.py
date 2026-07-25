@@ -17,6 +17,25 @@ from viva_superpowers.composite_generator import composite_generator
 from v2ecoli.colony import make_colony_document
 
 
+def _register_colony_core(core=None):
+    """Return a core with everything the colony composite needs registered:
+    viva_munk base + pymunk types (notably ``pymunk_agent``), v2ecoli
+    ``ECOLI_TYPES``, and the ``EcoliWCM`` link. Declared as a ``core_extension``
+    so tooling can INSTANTIATE the colony on a proper core — notably the loom
+    Explorer, which instantiates it to drill into / preview a cell's inner model.
+    Builds a FRESH ``core_import()`` core (viva_munk's base) rather than mutating
+    the passed ``allocate_core()`` — whose base types conflict with viva_munk's
+    (e.g. ``positive_float``). ``apply_core_extensions`` captures this return."""
+    from viva_munk import core_import
+    from v2ecoli.bridge import EcoliWCM
+    from v2ecoli.types import ECOLI_TYPES
+
+    core = core_import()
+    core.register_types(ECOLI_TYPES)
+    core.register_link("EcoliWCM", EcoliWCM)
+    return core
+
+
 # Canonical visualizations for the multi-cell colony composite. ColonyVisualization
 # is the integrated colony report (per-cell positions over time + colony total
 # mass + cell-count trajectory). Standalone TimeSeriesPlots aren't appropriate
@@ -75,6 +94,7 @@ DEFAULT_COLONY_VISUALIZATIONS = [
         },
     },
     visualizations=DEFAULT_COLONY_VISUALIZATIONS,
+    core_extensions=[_register_colony_core],
 )
 def colony(
     core: Any = None,

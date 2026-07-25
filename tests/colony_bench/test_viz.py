@@ -33,7 +33,7 @@ def test_render_phenotype_figures_writes_three_pngs(tmp_path):
     assert names == {"size_at_division.png", "interdivision_time.png", "added_size.png"}
     for p in paths:
         assert p.exists() and p.stat().st_size > 0
-        meta = json.loads(p.with_suffix(".meta.json").read_text())
+        meta = json.loads(p.with_suffix(".meta.json").read_text(encoding="utf-8"))
         assert "title" in meta and "caption" in meta
 
 

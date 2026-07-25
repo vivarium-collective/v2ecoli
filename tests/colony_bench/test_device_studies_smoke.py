@@ -21,7 +21,7 @@ def test_mother_machine_study_writes_artifacts(tmp_path):
     assert (charts / "colony.gif").exists()
     for fig in ("size_at_division.png", "interdivision_time.png", "added_size.png"):
         assert (charts / fig).exists()
-    json.loads((tmp_path / "summary.json").read_text())
+    json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
 
 
 def test_daughter_machine_study_writes_artifacts(tmp_path):

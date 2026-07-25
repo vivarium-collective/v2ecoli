@@ -173,6 +173,7 @@ def build_workflow_config(
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
     base_config_overrides: "dict | None" = None,
+    media: str = "minimal",
 ) -> dict:
     """Translate the composite's parameters into a v2ecoli workflow config.
 
@@ -203,6 +204,10 @@ def build_workflow_config(
             analyses, n_seeds=n_seeds, n_generations=n_generations,
             single_daughters=single_daughters, variants=variants),
     }
+    if media and media != "minimal":
+        # Threaded to every per-seed baseline() build (see LineageProcess); a
+        # lightweight in-cache media shift applied panel-wide across the sweep.
+        config["media"] = media
     if study:
         # Lets the flush place analyses/visualizations/report cards into this
         # study's report dir even when out_dir isn't under studies/<slug>/.
@@ -303,6 +308,7 @@ def dispatch_batch(
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
     base_config_overrides: "dict | None" = None,
+    media: str = "minimal",
     run_workflow_fn: "Callable[..., dict] | None" = None,
 ) -> dict:
     """Run the seeds × generations batch and assemble the ``batch`` result dict.
@@ -321,7 +327,7 @@ def dispatch_batch(
         max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
         experiment_id=experiment_id, emitter=emitter, parallel=parallel,
         variants=variants, analyses=analyses, study=study,
-        base_config_overrides=base_config_overrides)
+        base_config_overrides=base_config_overrides, media=media)
 
     # Before the run, so the flush that follows it inside run_workflow can
     # resolve the sweep's sim_data (see link_sim_data).
@@ -387,6 +393,8 @@ class BatchBaselineRunner(Step):
         # value is an arbitrary {'<proc>.<key>': value} map, and some values
         # (a numpy efficiencies array) no bigraph-schema type covers.
         "base_config_overrides": {"_default": {}},
+        # Panel-wide media condition, threaded to every per-seed baseline() build.
+        "media": {"_default": "minimal"},
     }
     topology = {
         "batch": ("batch",),
@@ -412,6 +420,7 @@ class BatchBaselineRunner(Step):
         self.analyses = DEFAULT_ANALYSES if analyses is None else analyses
         self.study = cfg.get("study") or ""
         self.base_config_overrides = dict(cfg.get("base_config_overrides") or {})
+        self.media = cfg.get("media") or "minimal"
         # None => default "ray"; "" / "sequential" / "none" => sequential (None).
         p = cfg.get("parallel")
         if p is None:
@@ -473,5 +482,6 @@ class BatchBaselineRunner(Step):
             analyses=self.analyses,
             study=self.study,
             base_config_overrides=self.base_config_overrides,
+            media=self.media,
         )
         return {"batch": result}

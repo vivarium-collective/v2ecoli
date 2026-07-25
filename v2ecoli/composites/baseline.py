@@ -527,6 +527,98 @@ def _get_step_config(
     return None
 
 
+def _build_batch_document(
+    core: Any,
+    *,
+    seed: int,
+    n_seeds: int,
+    n_generations: int,
+    single_daughters: bool,
+    time_step: float,
+    max_duration: float,
+    cache_dir: str,
+    out_dir: str,
+    experiment_id: str,
+    emitter: str,
+    analyses: Any,
+    study: str,
+    parallel: str,
+    variants: dict | None,
+    knockouts: list[str] | None,
+    config_overrides: dict | None,
+    media: str,
+) -> dict:
+    """Build the batch-orchestrator document (seeds × generations lineage).
+
+    ``baseline`` dispatches here when ``n_seeds>1`` or ``n_generations>1``.
+    Returns a cheap one-step document whose ``BatchBaselineRunner`` fans out one
+    baseline lineage per seed at RUN time (Ray, sequential fallback), emitting to
+    a shared hive-partitioned parquet sweep (+ per-lineage zarr) and then running
+    the post-simulation analysis flush. Absorbs the former ``batch_baseline``
+    composite; every per-seed cell is built by ``baseline`` itself.
+
+    Parameter mapping: baseline's ``seed`` is the lineage base seed (seeds are
+    ``seed .. seed+n_seeds-1``); ``knockouts`` + ``config_overrides`` fold into
+    the runner's panel-wide ``base_config_overrides`` (applied to every seed);
+    ``media`` threads through to each per-seed ``baseline`` build.
+    """
+    from v2ecoli.core import load_cache_bundle
+    from v2ecoli.perturbations import translation_efficiency_override
+    from v2ecoli.steps.batch_baseline_runner import (
+        BatchBaselineRunner, DEFAULT_EMITTER)
+    from v2ecoli.composites._helpers import _make_instance, make_edge
+
+    # Emitter reconciliation: the single-cell sinks 'sqlite'/'null' are
+    # meaningless for a multi-lineage sweep. A batch accepts parquet | xarray |
+    # both. (baseline's default 'parquet' is valid here; pass 'both' for the
+    # per-lineage zarr the dashboard per-run charts read.)
+    batch_emitter = emitter or "parquet"
+    if batch_emitter in ("sqlite", "null"):
+        raise ValueError(
+            f"emitter={emitter!r} is single-cell only; a batch run "
+            "(n_seeds>1 or n_generations>1) accepts 'parquet', 'xarray', or "
+            "'both'.")
+
+    # Knockouts + config_overrides -> panel-wide base_config_overrides, applied to
+    # EVERY seed's lineage (not one variant arm). Resolve knockouts once against
+    # the cache; a caller config_override key wins on a clash.
+    base_config_overrides: dict = {}
+    if knockouts:
+        bundle = load_cache_bundle(cache_dir)
+        base_config_overrides = translation_efficiency_override(
+            bundle, list(knockouts))
+    if config_overrides:
+        base_config_overrides = {**base_config_overrides, **config_overrides}
+
+    runner_config = {
+        "n_seeds": int(n_seeds),
+        "n_generations": int(n_generations),
+        "base_seed": int(seed),
+        "single_daughters": bool(single_daughters),
+        "time_step": float(time_step),
+        "max_duration": float(max_duration),
+        "variants": dict(variants or {}),
+        "cache_dir": cache_dir,
+        "out_dir": out_dir,
+        "experiment_id": experiment_id,
+        "emitter": batch_emitter or DEFAULT_EMITTER,
+        "analyses": analyses,
+        "study": study,
+        "parallel": parallel or "",
+        "base_config_overrides": base_config_overrides,
+        "media": media,
+    }
+    runner = _make_instance(BatchBaselineRunner, runner_config, core)
+    state = {
+        "batch": {},  # empty; the runner writes per-seed results here at run time
+        "global_time": 0.0,
+        "batch_runner": make_edge(
+            runner, BatchBaselineRunner.topology, edge_type="step",
+            config=runner_config),
+    }
+    return {"state": state}
+
+
 @composite_generator(
     name="baseline",
     description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",
@@ -625,12 +717,15 @@ def _get_step_config(
         # --- Observation sink selection ---
         "emitter": {
             "type": "string",
-            "choices": ["parquet", "sqlite", "xarray", "null"],
+            "choices": ["parquet", "sqlite", "xarray", "null", "both"],
             "default": "parquet",
-            "description": "Observation sink for the internal 'emitter' step: "
-                           "parquet (hive-partitioned column store, default), "
-                           "sqlite (persistent time-series db), xarray "
-                           "(in-memory labelled arrays), or null (global_time only).",
+            "description": "Observation sink. Single-cell: parquet (hive "
+                           "column store, default), sqlite (time-series db), "
+                           "xarray (in-memory arrays), or null (global_time only). "
+                           "Batch (n_seeds>1 / n_generations>1): parquet, xarray "
+                           "(per-lineage zarr), or 'both' (parquet + zarr; what "
+                           "the dashboard per-run charts read). 'both' is batch "
+                           "only; 'sqlite'/'null' are single-cell only.",
         },
         "injected_processes": {
             "type": "map",
@@ -638,6 +733,79 @@ def _get_step_config(
             "description": "Fork process-injection spec "
                            "{fork_repo, add_processes, swap_processes, "
                            "process_configs, topology, time_step}; empty = none.",
+        },
+        # --- Batch / lineage knobs (absorbed from the former batch_baseline) ----
+        # n_seeds>1 OR n_generations>1 switches baseline from a single 55-process
+        # cell document to a one-step batch-orchestrator document that fans out
+        # one baseline lineage per seed at RUN time (Ray, sequential fallback),
+        # emits to a shared sweep, then runs the post-sim analysis flush. The
+        # single-cell default (n_seeds=1, n_generations=1) is unchanged.
+        "n_seeds": {
+            "type": "integer",
+            "default": 1,
+            "description": "Number of independent seeds to run (vEcoli's "
+                           "n_init_sims); seeds are seed .. seed+n_seeds-1. 1 = a "
+                           "single cell (default). >1 launches a batch run.",
+        },
+        "n_generations": {
+            "type": "integer",
+            "default": 1,
+            "description": "Cell-division generations to follow per seed lineage. "
+                           ">1 (or n_seeds>1) launches a batch run.",
+        },
+        "single_daughters": {
+            "type": "bool",
+            "default": True,
+            "description": "Batch runs only: follow ONE daughter per division "
+                           "(vEcoli's default). Off = binary-tree lineage.",
+        },
+        "time_step": {
+            "type": "float",
+            "default": 1.0,
+            "description": "Batch runs only: simulation time step in seconds.",
+        },
+        "max_duration": {
+            "type": "float",
+            "default": 3600.0,
+            "description": "Batch runs only: per-generation sim-time cap (seconds).",
+        },
+        "variants": {
+            "type": "map",
+            "default": {},
+            "description": "Batch runs only: vEcoli-style variant grid "
+                           "({name: {target, value}}) crossed with the seed range.",
+        },
+        "out_dir": {
+            "type": "string",
+            "default": "",
+            "description": "Batch runs only: output root for the parquet sweep + "
+                           "zarr stores. Empty = this run's own dir under the "
+                           "workbench, else out/batch_baseline.",
+        },
+        "experiment_id": {
+            "type": "string",
+            "default": "baseline",
+            "description": "Batch runs only: id stamped into the parquet "
+                           "partitions and zarr store names.",
+        },
+        "analyses": {
+            "type": "string",
+            "choices": ["applicable", "none"],
+            "default": "applicable",
+            "description": "Batch runs only: 'applicable' runs every ported "
+                           "analysis at the scales this batch covers; 'none' skips.",
+        },
+        "study": {
+            "type": "string",
+            "default": "",
+            "description": "Batch runs only: owning study slug for the flush's "
+                           "outputs. Empty = infer from out_dir.",
+        },
+        "parallel": {
+            "type": "string",
+            "default": "ray",
+            "description": "Batch runs only: 'ray' to fan out across worker "
+                           "processes; '' for sequential.",
         },
     },
     default_n_steps=2700,
@@ -674,6 +842,17 @@ def baseline(
     emitter: str = "parquet",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
+    n_seeds: int = 1,
+    n_generations: int = 1,
+    single_daughters: bool = True,
+    time_step: float = 1.0,
+    max_duration: float = 3600.0,
+    variants: dict | None = None,
+    out_dir: str = "",
+    experiment_id: str = "baseline",
+    analyses: Any = "applicable",
+    study: str = "",
+    parallel: str = "ray",
 ) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
@@ -706,6 +885,14 @@ def baseline(
             cell onto that condition on the first tick and metabolism responds
             (lightweight media perturbation from the existing cache, no ParCa
             re-fit). 'minimal' (default) leaves it unchanged.
+        n_seeds, n_generations: >1 on either switches baseline to a BATCH run —
+            a one-step orchestrator document that fans out one baseline lineage
+            per seed (seeds seed..seed+n_seeds-1) at run time and flushes the
+            ported analyses (absorbs the former batch_baseline composite). The
+            other batch knobs (single_daughters, time_step, max_duration,
+            variants, out_dir, experiment_id, analyses, study, parallel) apply
+            only in batch mode; knockouts/media/config_overrides carry through to
+            every seed. n_seeds==1, n_generations==1 (default) = single cell.
         ppgpp_regulation: insert the ppGpp-regulation feature module (default on).
         trna_attenuation: insert the tRNA-attenuation feature module (default off).
         supercoiling: insert the DNA-supercoiling feature module (default off).
@@ -723,6 +910,19 @@ def baseline(
     """
     if core is None:
         core = build_core()
+
+    # Batch dispatch: n_seeds>1 or n_generations>1 turns baseline from a single
+    # 55-process cell into a one-step batch-orchestrator document (absorbs the
+    # former batch_baseline composite). The single-cell path below is untouched
+    # for n_seeds==1, n_generations==1 (bit-identical to plain baseline).
+    if int(n_seeds) > 1 or int(n_generations) > 1:
+        return _build_batch_document(
+            core, seed=seed, n_seeds=n_seeds, n_generations=n_generations,
+            single_daughters=single_daughters, time_step=time_step,
+            max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
+            experiment_id=experiment_id, emitter=emitter, analyses=analyses,
+            study=study, parallel=parallel, variants=variants,
+            knockouts=knockouts, config_overrides=config_overrides, media=media)
 
     if bundle is None:
         bundle = load_cache_bundle(cache_dir)

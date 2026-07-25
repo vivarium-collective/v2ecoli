@@ -145,15 +145,16 @@ def test_baseline_knockout_unknown_gene_fails_at_build():
         baseline(core=build_core(), knockouts=["NOPE_123"])
 
 
-# --- batch_baseline knockouts ------------------------------------------------
+# --- baseline batch-mode knockouts (n_seeds>1) -------------------------------
 
 @_needs_cache
-def test_batch_baseline_knockout_carries_the_panel_wide_override():
-    """The doc is cheap to build (no ParCa run) and the runner config carries the
-    knockout as a base_config_override applied to every branch."""
-    from v2ecoli.composites.batch_baseline import batch_baseline
+def test_baseline_batch_knockout_carries_the_panel_wide_override():
+    """In batch mode (n_seeds>1) the doc is cheap to build (no ParCa run) and the
+    runner config carries the knockout as a base_config_override applied to every
+    branch."""
+    from v2ecoli.composites.baseline import baseline
 
-    doc = batch_baseline(core=build_core(), n_seeds=3, knockouts=[LACY_GENE])
+    doc = baseline(core=build_core(), n_seeds=3, knockouts=[LACY_GENE])
     rc = doc["state"]["batch_runner"]["config"]
     assert rc["n_seeds"] == 3
     bov = rc["base_config_overrides"]
@@ -164,24 +165,27 @@ def test_batch_baseline_knockout_carries_the_panel_wide_override():
 
 
 @_needs_cache
-def test_batch_baseline_knockout_unknown_gene_fails_at_build():
+def test_baseline_batch_knockout_unknown_gene_fails_at_build():
     """Resolution happens at document-build time, not inside a Ray worker."""
-    from v2ecoli.composites.batch_baseline import batch_baseline
+    from v2ecoli.composites.baseline import baseline
     with pytest.raises(UnknownPerturbationTarget):
-        batch_baseline(core=build_core(), knockouts=["NOPE_123"])
+        baseline(core=build_core(), n_seeds=2, knockouts=["NOPE_123"])
 
 
-def test_knockouts_folded_into_baseline_composites():
-    """KO capability now lives on baseline/batch_baseline themselves; the
-    standalone KO_baseline / KO_batch_baseline composites are gone."""
+def test_knockouts_folded_into_baseline():
+    """KO capability lives on baseline itself — in both single-cell and batch
+    mode (n_seeds>1). The standalone KO_baseline / KO_batch_baseline (and
+    batch_baseline) composites are gone."""
     import inspect
     from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401 — fires the decorators
     by_name = {e.name: e for e in _REGISTRY.values() if hasattr(e, "name")}
-    assert "knockouts" in inspect.signature(by_name["baseline"].func).parameters
-    assert "knockouts" in inspect.signature(by_name["batch_baseline"].func).parameters
+    params = inspect.signature(by_name["baseline"].func).parameters
+    assert "knockouts" in params
+    assert "n_seeds" in params      # same baseline covers the batch case
     assert "KO_baseline" not in by_name
     assert "KO_batch_baseline" not in by_name
+    assert "batch_baseline" not in by_name
 
 
 # --- the base_config_overrides workflow hook ---------------------------------

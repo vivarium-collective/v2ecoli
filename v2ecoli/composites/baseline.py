@@ -565,6 +565,16 @@ def _get_step_config(
             "default": {},
             "description": "Declarative '<process>.<key>': value config overrides (variants)",
         },
+        "knockouts": {
+            "type": "list",
+            "default": [],
+            "description": "Genes to knock out at the translation level — EcoCyc "
+                           "gene ids (EG10526) or monomer ids (LACY-MONOMER[c]). "
+                           "Each named gene's translation efficiency is zeroed on "
+                           "the cached polypeptide-initiation config, so no protein "
+                           "is made — a functional knockout with no ParCa re-fit. "
+                           "Empty = plain baseline. See v2ecoli.perturbations.",
+        },
         "features": {
             "type": "list",
             "default": [],
@@ -640,6 +650,7 @@ def baseline(
     transcript_initiation_mode: str = "discrete",
     polypeptide_initiation_mode: str = "discrete",
     config_overrides: dict | None = None,
+    knockouts: list[str] | None = None,
     features: list | None = None,
     ppgpp_regulation: bool = True,
     trna_attenuation: bool = False,
@@ -669,6 +680,12 @@ def baseline(
             deterministic mode.
         polypeptide_initiation_mode: same dispatch as
             ``transcript_initiation_mode`` but for polypeptide initiation.
+        config_overrides: declarative '<process>.<key>': value config patches
+            (variants), applied on top of any knockout patch.
+        knockouts: genes to knock out at the translation level (EcoCyc gene ids
+            or monomer ids). Each gene's translation efficiency is zeroed on the
+            cached polypeptide-initiation config — a functional knockout with no
+            ParCa re-fit. Empty/None = plain baseline.
         ppgpp_regulation: insert the ppGpp-regulation feature module (default on).
         trna_attenuation: insert the tRNA-attenuation feature module (default off).
         supercoiling: insert the DNA-supercoiling feature module (default off).
@@ -689,6 +706,18 @@ def baseline(
 
     if bundle is None:
         bundle = load_cache_bundle(cache_dir)
+
+    # Translation-level gene knockouts (design PR #341, folded in from the former
+    # KO_baseline composite). Resolve the knockouts against this same cache bundle
+    # into a `translation_efficiencies` config override and merge it UNDER any
+    # caller config_overrides — an explicit override key wins on a clash (they are
+    # being deliberate). An unknown/non-coding gene raises here, at build time,
+    # not silently mid-run. Empty knockouts = plain baseline (no cache touch).
+    if knockouts:
+        from v2ecoli.perturbations import translation_efficiency_override
+        ko = translation_efficiency_override(bundle, list(knockouts))
+        config_overrides = {**ko, **(config_overrides or {})}
+
     # Deep-copy initial_state: a reused bundle (e.g. one load_cache_bundle()
     # shared across many baseline() calls, as in parameter sweeps / UQ ensembles)
     # otherwise hands every composite the SAME initial_state arrays. v2ecoli's

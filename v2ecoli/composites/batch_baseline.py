@@ -28,7 +28,8 @@ from v2ecoli.composites._helpers import (
     _make_instance,
     make_edge,
 )
-from v2ecoli.core import build_core
+from v2ecoli.core import build_core, load_cache_bundle
+from v2ecoli.perturbations import translation_efficiency_override
 from v2ecoli.steps.batch_baseline_runner import (
     DEFAULT_ANALYSES,
     DEFAULT_BASE_SEED,
@@ -63,6 +64,16 @@ BATCH_RUNNER_STEP_NAME = "batch_runner"
         "cards, placing each output in the owning study's report dir."
     ),
     parameters={
+        "knockouts": {
+            "type": "list",
+            "default": [],
+            "description": "Genes to knock out at the translation level across "
+                           "EVERY seed's lineage — EcoCyc gene ids (EG10526) or "
+                           "monomer ids (LACY-MONOMER[c]). Resolved once against "
+                           "the cache and applied panel-wide (not as one variant "
+                           "arm). Empty = plain batch_baseline. See "
+                           "v2ecoli.perturbations.",
+        },
         "n_seeds": {
             "type": "integer",
             "default": DEFAULT_N_SEEDS,
@@ -166,6 +177,7 @@ BATCH_RUNNER_STEP_NAME = "batch_runner"
 def batch_baseline(
     core: Any = None,
     *,
+    knockouts: list[str] | None = None,
     n_seeds: int = DEFAULT_N_SEEDS,
     n_generations: int = DEFAULT_N_GENERATIONS,
     base_seed: int = DEFAULT_BASE_SEED,
@@ -185,6 +197,10 @@ def batch_baseline(
 
     Args:
         core: bigraph-schema core; a fresh one (``build_core()``) if None.
+        knockouts: genes to knock out at the translation level across every
+            seed's lineage (EcoCyc gene ids or monomer ids). Resolved once
+            against the cache into a panel-wide ``base_config_overrides``.
+            Empty/None = plain batch_baseline.
         n_seeds: number of seeds (vEcoli's n_init_sims).
         n_generations: generations per seed lineage.
         base_seed: first RNG seed (vEcoli's lineage_seed).
@@ -208,6 +224,18 @@ def batch_baseline(
     if core is None:
         core = build_core()
 
+    # Translation-level knockouts (folded in from the former KO_batch_baseline).
+    # Resolve ONCE against the cache — the override depends only on cache_dir, not
+    # seed — and hand it to the runner as base_config_overrides, which the workflow
+    # merges into EVERY branch (panel-wide, not a single variant arm). Resolving
+    # here (build time) makes an unknown/non-coding gene fail loudly, not inside a
+    # Ray worker mid-run.
+    base_config_overrides: dict = {}
+    if knockouts:
+        bundle = load_cache_bundle(cache_dir)
+        base_config_overrides = translation_efficiency_override(
+            bundle, list(knockouts))
+
     runner_config = {
         "n_seeds": int(n_seeds),
         "n_generations": int(n_generations),
@@ -223,6 +251,7 @@ def batch_baseline(
         "analyses": analyses,
         "study": study,
         "parallel": parallel or "",
+        "base_config_overrides": base_config_overrides,
     }
     runner = _make_instance(BatchBaselineRunner, runner_config, core)
 

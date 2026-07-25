@@ -1,5 +1,8 @@
-"""Tests for the translation-level knockout composites (KO_baseline,
-KO_batch_baseline) and their shared perturbation machinery.
+"""Tests for translation-level gene knockouts and their perturbation machinery.
+
+The KO capability lives directly on the ``baseline`` and ``batch_baseline``
+composites (a ``knockouts`` parameter) — the former standalone ``KO_baseline`` /
+``KO_batch_baseline`` composites were folded in.
 
 The resolver + override builder run against the real ParCa cache (gated on it
 being present); the composite-level tests build documents (cheap, cache-only)
@@ -98,17 +101,17 @@ def test_override_rejects_negative_multiplier(bundle):
         translation_efficiency_override(bundle, {LACY_GENE: -1.0})
 
 
-# --- KO_baseline composite ---------------------------------------------------
+# --- baseline knockouts ------------------------------------------------------
 
 @_needs_cache
-def test_ko_baseline_zeroes_the_process_translation_efficiency():
+def test_baseline_knockout_zeroes_the_process_translation_efficiency():
     """The knockout must reach the built PolypeptideInitiation process — not
     just the config dict — so no ribosome initiates on that mRNA."""
     from process_bigraph import Composite
-    from v2ecoli.composites.ko_baseline import KO_baseline
+    from v2ecoli.composites.baseline import baseline
 
     core = build_core()
-    doc = KO_baseline(core=core, knockouts=[LACY_GENE])
+    doc = baseline(core=core, knockouts=[LACY_GENE])
     comp = Composite({"state": doc["state"]}, core=core)
     node = comp.state["agents"]["0"]["ecoli-polypeptide-initiation"]
     params = node["instance"].parameters
@@ -119,10 +122,9 @@ def test_ko_baseline_zeroes_the_process_translation_efficiency():
 
 
 @_needs_cache
-def test_ko_baseline_empty_knockouts_is_plain_baseline():
+def test_baseline_empty_knockouts_is_plain_baseline():
     """No knockouts → byte-identical translation efficiencies to baseline."""
     from process_bigraph import Composite
-    from v2ecoli.composites.ko_baseline import KO_baseline
     from v2ecoli.composites.baseline import baseline
 
     core = build_core()
@@ -132,26 +134,26 @@ def test_ko_baseline_empty_knockouts_is_plain_baseline():
         p = comp.state["agents"]["0"]["ecoli-polypeptide-initiation"]["instance"].parameters
         return np.asarray(p["translation_efficiencies"])
 
-    assert np.array_equal(_te(KO_baseline(core=core, knockouts=[])),
+    assert np.array_equal(_te(baseline(core=core, knockouts=[])),
                           _te(baseline(core=core)))
 
 
 @_needs_cache
-def test_ko_baseline_unknown_gene_fails_at_build():
-    from v2ecoli.composites.ko_baseline import KO_baseline
+def test_baseline_knockout_unknown_gene_fails_at_build():
+    from v2ecoli.composites.baseline import baseline
     with pytest.raises(UnknownPerturbationTarget):
-        KO_baseline(core=build_core(), knockouts=["NOPE_123"])
+        baseline(core=build_core(), knockouts=["NOPE_123"])
 
 
-# --- KO_batch_baseline composite ---------------------------------------------
+# --- batch_baseline knockouts ------------------------------------------------
 
 @_needs_cache
-def test_ko_batch_baseline_document_carries_the_panel_wide_override():
+def test_batch_baseline_knockout_carries_the_panel_wide_override():
     """The doc is cheap to build (no ParCa run) and the runner config carries the
     knockout as a base_config_override applied to every branch."""
-    from v2ecoli.composites.ko_batch_baseline import KO_batch_baseline
+    from v2ecoli.composites.batch_baseline import batch_baseline
 
-    doc = KO_batch_baseline(core=build_core(), n_seeds=3, knockouts=[LACY_GENE])
+    doc = batch_baseline(core=build_core(), n_seeds=3, knockouts=[LACY_GENE])
     rc = doc["state"]["batch_runner"]["config"]
     assert rc["n_seeds"] == 3
     bov = rc["base_config_overrides"]
@@ -162,18 +164,24 @@ def test_ko_batch_baseline_document_carries_the_panel_wide_override():
 
 
 @_needs_cache
-def test_ko_batch_baseline_unknown_gene_fails_at_build():
+def test_batch_baseline_knockout_unknown_gene_fails_at_build():
     """Resolution happens at document-build time, not inside a Ray worker."""
-    from v2ecoli.composites.ko_batch_baseline import KO_batch_baseline
+    from v2ecoli.composites.batch_baseline import batch_baseline
     with pytest.raises(UnknownPerturbationTarget):
-        KO_batch_baseline(core=build_core(), knockouts=["NOPE_123"])
+        batch_baseline(core=build_core(), knockouts=["NOPE_123"])
 
 
-def test_both_ko_composites_registered():
+def test_knockouts_folded_into_baseline_composites():
+    """KO capability now lives on baseline/batch_baseline themselves; the
+    standalone KO_baseline / KO_batch_baseline composites are gone."""
+    import inspect
     from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401 — fires the decorators
-    names = {e.name for e in _REGISTRY.values() if hasattr(e, "name")}
-    assert {"KO_baseline", "KO_batch_baseline"} <= names
+    by_name = {e.name: e for e in _REGISTRY.values() if hasattr(e, "name")}
+    assert "knockouts" in inspect.signature(by_name["baseline"].func).parameters
+    assert "knockouts" in inspect.signature(by_name["batch_baseline"].func).parameters
+    assert "KO_baseline" not in by_name
+    assert "KO_batch_baseline" not in by_name
 
 
 # --- the base_config_overrides workflow hook ---------------------------------

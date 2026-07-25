@@ -209,8 +209,8 @@ def build_workflow_config(
         config["study"] = study
     if base_config_overrides:
         # Applied to every branch by expand_branches (panel-wide, under the
-        # variant grid) — how KO_batch_baseline knocks a gene out across all
-        # seeds without forking a comparison arm.
+        # variant grid) — how batch_baseline's `knockouts` knocks a gene out
+        # across all seeds without forking a comparison arm.
         config["base_config_overrides"] = dict(base_config_overrides)
     return config
 
@@ -383,7 +383,7 @@ class BatchBaselineRunner(Step):
         "analyses": {"_default": DEFAULT_ANALYSES},
         "study": "string",
         # Config overrides applied to every branch (panel-wide) — e.g. the
-        # translation-efficiency patch KO_batch_baseline builds. Untyped: the
+        # translation-efficiency patch batch_baseline's `knockouts` builds. Untyped: the
         # value is an arbitrary {'<proc>.<key>': value} map, and some values
         # (a numpy efficiencies array) no bigraph-schema type covers.
         "base_config_overrides": {"_default": {}},

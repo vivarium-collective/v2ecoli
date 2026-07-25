@@ -1,0 +1,2121 @@
+"""
+Kinetic tRNA Charging Polypeptide Elongation
+============================================
+
+Port of upstream ``KineticTrnaChargingModel``
+(``CovertLab/vEcoli@trna_charging_final::polypeptide_elongation.py:2198``).
+Implemented as a peer subclass of :class:`BasePolypeptideElongation` (not a
+strategy on a single elongation Process) — v2ecoli's polypeptide subpackage
+flattens upstream's ``PolypeptideElongation`` + ``BaseElongationModel`` split
+into one class hierarchy per model. See PRs #110 and #117 for the refactor.
+
+The kinetic model elongates polypeptides according to the kinetic limits of
+aminoacyl-tRNA synthetases *and* the codon sequence — rather than the
+steady-state charged-fraction Michaelis-Menten approach in
+:class:`SteadyStatePolypeptideElongation`. Per tick:
+
+1. Pick an elongation rate via binary search over the codon-sequence table
+   (:func:`kinetic_charging_kernel.get_elongation_rate`).
+2. Simulate codon reading + tRNA charging via the kernel reconcile pair
+   (:func:`kinetic_charging_kernel.reconcile_via_ribosome_positions` and
+   :func:`kinetic_charging_kernel.reconcile_via_trna_pools`).
+3. Request the resulting amino acid / ATP / tRNA / synthetase / MAP counts
+   from the partitioner.
+4. After allocation, reconcile any tRNA-pool / sequence-position
+   disagreements introduced by the realized allocation.
+5. Evolve ribosome positions, peptide lengths, mass, and water.
+
+Port status (as of Task 3c):
+
+* 3a — scaffold + ``config_schema`` extensions.
+* 3b — ``initialize`` + ``get_kinetic_constants``.
+* 3c — ``elongation_rate``, ``request``, ``run_model``,
+  ``codon_sequences_width``, ``sequences``, ``max_charging_rate``, plus the
+  ``_init_bulk_indices`` override that adds ``atp_idx``, ``amp_idx``,
+  ``ppi_idx``, ``met_idx``, ``map_idx`` to the base layout.
+* 3d (pending) — ``evolve``, ``reconcile``, ``protein_maturation``,
+  ``final_amino_acids``.
+* 3e (pending) — ``monomer_to_aa``, ``monomer_limit``, listener emission.
+
+The composite architecture wrapper lands in
+:mod:`v2ecoli.composites.kinetic_charging_baseline` (Task 3f). Behavior
+tests in :mod:`tests.test_behavior_kinetic_charging` (also Task 3f) depend
+on Task #5 (``library/sim_data.py`` plumbing) to actually populate the new
+``config_schema`` keys from ``sim_data.relation``.
+
+See also
+--------
+* :mod:`v2ecoli.processes.polypeptide.kinetic_charging_kernel` — the ported
+  Cython kernel (Task #2 — fully complete).
+* :mod:`v2ecoli.processes.polypeptide_elongation` — base classes
+  (:class:`BasePolypeptideElongation`,
+  :class:`TranslationSupplyPolypeptideElongation`,
+  :class:`SteadyStatePolypeptideElongation`).
+* :mod:`v2ecoli.processes.parca.reconstruction.ecoli.dataclasses.relation` —
+  source of truth for the kinetic-charging parameters
+  (``trna_charging_kinetics``, ``codon_sequences``, etc.).
+"""
+
+from __future__ import annotations
+
+import numpy as np
+from scipy.integrate import solve_ivp
+
+from bigraph_schema import deep_merge
+
+from v2ecoli.library.polymerize import buildSequences, computeMassIncrease, polymerize
+from v2ecoli.library.quantity_helpers import as_quantity, fg_magnitude
+from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
+from v2ecoli.library.unit_bridge import pint_to_unum
+from v2ecoli.processes.polypeptide import kinetic_charging_kernel as kernel
+from v2ecoli.processes.polypeptide.kinetics import (
+    get_charging_supply_function,
+    ppgpp_metabolite_changes,
+)
+from v2ecoli.processes.polypeptide_elongation import (
+    BasePolypeptideElongation,
+    MICROMOLAR_UNITS,
+    NAME,
+    REMOVED_FROM_CHARGING,
+    TOPOLOGY,
+)
+from v2ecoli.types.quantity import ureg as units
+from wholecell.utils.random import stochasticRound
+
+
+class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
+    """
+    Polypeptide elongation with kinetic aminoacyl-tRNA-synthetase modeling.
+
+    Peer of :class:`SteadyStatePolypeptideElongation` (both extend
+    :class:`BasePolypeptideElongation`); selected at composite-build time
+    via the ``kinetic_charging_baseline`` architecture.
+
+    L-Selenocysteine is modeled with unlimited incorporation (high ``k_cat``,
+    matching upstream's approach in :class:`TranslationSupplyElongationModel`).
+    """
+
+    description = (
+        "Kinetic-Charging Polypeptide Elongation — codon-aware tRNA charging.\n\n"
+        "    v_charge_a = k_cat * [synthetase_a] * sat_AA(K_M_aa) * sat_tRNA(K_M_t)\n"
+        "  Codon reading uses the explicit tRNA-codon mapping; ribosome positions\n"
+        "  are reconciled against kinetic-model predictions per tick.\n"
+        "  v_charge_a = charging rate (aa/s); a indexes amino-acid species."
+    )
+
+    name = NAME
+    topology = TOPOLOGY
+
+    # Extra config knobs needed only by this elongation model. Merged onto
+    # BasePolypeptideElongation.config_schema so the partitioner picks them
+    # up at composite-build time. Defaults are empty / zero-shaped — Task #5
+    # populates them from sim_data.relation when the composite is built.
+    config_schema = {
+        **BasePolypeptideElongation.config_schema,
+        # ---- codon-sequence tables (from sim_data.relation) ----
+        "codon_sequences": {
+            "_type": "array[integer]",
+            "_default": np.zeros((0, 0), dtype=np.int8),
+        },
+        "residue_weights_by_codon": {
+            "_type": "array[float]",
+            "_default": np.zeros(0, dtype=np.float64),
+        },
+        "n_codons": {"_type": "integer", "_default": 0},
+        "i_start_codon": {"_type": "integer", "_default": 0},
+        "is_map_substrate": {
+            "_type": "array[integer]",
+            "_default": np.zeros(0, dtype=bool),
+        },
+        # ---- tRNA <-> codon mapping (from sim_data.relation) ----
+        "n_trna_codon_pairs": {"_type": "integer", "_default": 0},
+        "trnas_to_codons": {
+            "_type": "array[integer]",
+            "_default": np.zeros((0, 0), dtype=np.int8),
+        },
+        "codons_to_amino_acids": {
+            "_type": "array[integer]",
+            "_default": np.zeros((0, 0), dtype=np.int8),
+        },
+        # ---- kinetic parameters (from sim_data.relation.trna_charging_kinetics) ----
+        "k_cat__per_s": {
+            "_type": "array[float]",
+            "_default": np.zeros(0, dtype=np.float64),
+        },
+        "K_M_amino_acid__per_L": {
+            "_type": "array[float]",
+            "_default": np.zeros(0, dtype=np.float64),
+        },
+        "K_M_trna__per_L": {
+            "_type": "array[float]",
+            "_default": np.zeros(0, dtype=np.float64),
+        },
+        # ---- reconciliation ----
+        "reconciliation_buffer": {"_type": "integer", "_default": 10},
+        # ---- consensus extension: opt-in AA-supply ODE merge (Phase 3) ----
+        # When True, extends the kinetic ODE state vector with three
+        # accumulator slices (total_synthesis, total_import, total_export)
+        # and (Phase 3b) adds AA synthesis/import/export terms to the AA
+        # balance in the RHS. Default False keeps the legacy 6-slice path
+        # bit-identical. See workspace/investigations/consensus_elongation/
+        # audit.md §2.
+        "include_aa_supply": {"_type": "boolean", "_default": False},
+    }
+
+    # ---------- initialize ----------
+
+    def initialize(self, config):
+        """Unpack kinetic-charging params.
+
+        Calls :meth:`BasePolypeptideElongation.initialize` to set up
+        ``ribosomeElongationRate``, ``amino_acids``, ``uncharged_trna_names``,
+        ``aa_from_trna``, ``random_state``, the bulk-index ``None`` markers,
+        etc. Then unpacks the kinetic-charging-specific config keys (see
+        :attr:`config_schema`) and derives the slice indexes for the molecules
+        buffer used by :meth:`run_model`.
+
+        Port of upstream ``KineticTrnaChargingModel.__init__`` (lines 2208–2282).
+        Differences from upstream:
+
+        * Upstream caches a reference to the parent ``PolypeptideElongation``
+          process as ``self.process``; v2ecoli's class IS the process, so
+          ``self.process.X`` references become ``self.X`` directly.
+        * ``cellDensity`` matches the base config_schema key (upstream calls
+          it ``cell_density``).
+        * ``n_avogadro`` is set by base; we read it from the base attribute
+          rather than re-fetching ``self.parameters``.
+        """
+        super().initialize(config)
+
+        # ---- Constants ----
+        self.cell_density = self.parameters["cellDensity"]
+        # self.n_avogadro already set by BasePolypeptideElongation.initialize
+
+        # ---- Codon sequences ----
+        # These shadow base's amino-acid-sequence attrs (proteinSequences,
+        # aaWeightsIncorporated) — the kinetic model walks codons, not AAs.
+        self.protein_sequences = self.parameters["codon_sequences"]
+        self.monomer_weights_incorporated = self.parameters[
+            "residue_weights_by_codon"
+        ]
+        self.n_monomers = self.parameters["n_codons"]
+        self.i_start_codon = self.parameters["i_start_codon"]
+        self.is_map_substrate = self.parameters["is_map_substrate"]
+
+        # ---- Tools for interacting with the kinetic model ----
+        self.n_trnas = len(self.parameters["uncharged_trna_names"])
+        self.n_codons = self.parameters["n_codons"]
+        n_trna_codon_pairs = self.parameters["n_trna_codon_pairs"]
+
+        # Consensus opt-in: extend ODE state vector with AA-supply
+        # accumulators. Phase 3a scaffold — slices allocated, no RHS writes
+        # yet (those land in Phase 3b). When False the layout is
+        # bit-identical to trna_charging_final@5ffb76de.
+        self.include_aa_supply = self.parameters["include_aa_supply"]
+        n_aas = len(self.parameters["amino_acids"])
+
+        # Layout of the flat molecules buffer that run_model returns/consumes.
+        # Six legacy segments + three accumulator segments (gated). All
+        # placed contiguously and accessed via Python slice objects stored
+        # on self for cheap per-tick indexing.
+        slice_lengths = [
+            self.n_trnas,  # free_trnas
+            self.n_trnas,  # charged_trnas
+            n_aas,  # amino_acids
+            self.n_trnas,  # chargings (charging counter)
+            self.n_trnas,  # reading counter
+            n_trna_codon_pairs,  # codons_to_trnas_counter (flattened)
+        ]
+        if self.include_aa_supply:
+            slice_lengths.extend([
+                n_aas,  # total_synthesis accumulator
+                n_aas,  # total_import accumulator
+                n_aas,  # total_export accumulator
+            ])
+        self.molecules_input_size = sum(slice_lengths)
+
+        slices = []
+        previous = 0
+        for length in slice_lengths:
+            slices.append(slice(previous, previous + length))
+            previous += length
+
+        self.slice_free_trnas = slices[0]
+        self.slice_charged_trnas = slices[1]
+        self.slice_amino_acids = slices[2]
+        self.slice_charging_counter = slices[3]
+        self.slice_reading_counter = slices[4]
+        self.slice_codons_to_trnas_counter = slices[5]
+        if self.include_aa_supply:
+            self.slice_total_synthesis = slices[6]
+            self.slice_total_import = slices[7]
+            self.slice_total_export = slices[8]
+        else:
+            self.slice_total_synthesis = None
+            self.slice_total_import = None
+            self.slice_total_export = None
+
+        # Per-tick scratch: supply integrals from the most recent "bulk"
+        # ODE solve. Populated by :meth:`run_model` and consumed by
+        # :meth:`evolve` to compute ``aa_count_diff``. None when the flag
+        # is off OR before the first solve of the first tick.
+        self._last_supply_totals: dict | None = None
+
+        # ---- Mapping arrays ----
+        # aa_from_trna is set by base; cast and transpose for our local use.
+        self.trnas_to_amino_acids = self.parameters["aa_from_trna"].astype(
+            np.int64
+        )
+        self.amino_acids_to_trnas = self.parameters["aa_from_trna"].T
+        self.trnas_to_codons = self.parameters["trnas_to_codons"]
+        self.codons_to_trnas = self.parameters["trnas_to_codons"].T.astype(
+            np.bool_
+        )
+        self.codons_to_amino_acids = self.parameters["codons_to_amino_acids"]
+
+        # For each tRNA, record the amino acid it carries (single index).
+        # The Cython kernel uses int8 for cheap memory footprint.
+        self.trnas_to_amino_acid_indexes = np.zeros(self.n_trnas, dtype=np.int8)
+        for i in range(self.trnas_to_amino_acids.shape[1]):
+            j = np.where(self.trnas_to_amino_acids[:, i])[0][0]
+            self.trnas_to_amino_acid_indexes[i] = j
+
+        # Maximum reconciliation attempts handed to
+        # kinetic_charging_kernel.reconcile_via_ribosome_positions.
+        self.max_attempts = np.byte(4)
+
+        # ---- Kinetic parameters ----
+        # L-selenocysteine is modeled with a high k_cat to represent
+        # unlimited incorporation, matching upstream's TranslationSupply
+        # approach.
+        self.k_cat__per_s = self.parameters["k_cat__per_s"]
+        self.K_M_amino_acid__per_L = self.parameters["K_M_amino_acid__per_L"]
+        self.K_M_trna__per_L = self.parameters["K_M_trna__per_L"]
+
+        # ---- Reconciliation width buffer ----
+        # The reconciliation step in :meth:`reconcile` uses the surrounding
+        # codon sequence (towards both the N and C terminals) to fix up
+        # disagreements between the kinetic-model predictions and the
+        # ribosome-position model. ``buffer`` is the extra C-ward sequence
+        # positions to view per tick.
+        self.buffer = self.parameters["reconciliation_buffer"]
+
+        # ---- AA-supply callables + threshold (Phase 3b plumbing) ----
+        # Only needed when include_aa_supply=True (the consensus opt-in),
+        # but unpacked unconditionally — they're cheap reference copies of
+        # closures already in self.parameters. SteadyState unpacks the same
+        # six attrs in its own initialize (polypeptide_elongation.py:923-935);
+        # BasePolypeptideElongation.initialize stops short of these because
+        # Base/Supply don't use the AA-supply ODE coupling. Phase 3b's
+        # run_model uses them to build the supply_function closure that
+        # feeds into the kinetic ODE.
+        self.amino_acid_synthesis = self.parameters["amino_acid_synthesis"]
+        self.amino_acid_import = self.parameters["amino_acid_import"]
+        self.amino_acid_export = self.parameters["amino_acid_export"]
+        self.aa_supply_scaling = self.parameters["aa_supply_scaling"]
+        self.get_pathway_enzyme_counts_per_aa = self.parameters[
+            "get_pathway_enzyme_counts_per_aa"
+        ]
+        self.import_constraint_threshold = float(
+            self.parameters["import_constraint_threshold"]
+        )
+
+        # ---- ppGpp regulation (Phase 2) ----
+        # The kinetic class inherits the ppGpp-parameter scaffold from
+        # BasePolypeptideElongation, but Base doesn't actually build the
+        # ``charging_params`` / ``ppgpp_params`` dicts that
+        # ``_ppgpp_request`` / ``_ppgpp_evolve`` consume — only SteadyState
+        # does. Replicate that here so the kinetic class can call the
+        # same ``ppgpp_metabolite_changes`` math.
+        self.elong_rate_by_ppgpp = self.parameters["elong_rate_by_ppgpp"]
+        self.ppgpp_reaction_metabolites = self.parameters[
+            "ppgpp_reaction_metabolites"
+        ]
+        self.charging_params = {
+            "kS": self.parameters["kS"],
+            "KMaa": self.parameters["KMaa"],
+            "KMtf": self.parameters["KMtf"],
+            "krta": self.parameters["krta"],
+            "krtf": self.parameters["krtf"],
+            "max_elong_rate": float(
+                self.parameters["elongation_max"].to(units.aa / units.s).magnitude
+            ),
+            "charging_mask": np.array(
+                [
+                    aa not in REMOVED_FROM_CHARGING
+                    for aa in self.parameters["amino_acids"]
+                ]
+            ),
+            "unit_conversion": self.parameters["unit_conversion"],
+        }
+        self.ppgpp_params = {
+            "KD_RelA": self.parameters["KD_RelA"],
+            "k_RelA": self.parameters["k_RelA"],
+            "k_SpoT_syn": self.parameters["k_SpoT_syn"],
+            "k_SpoT_deg": self.parameters["k_SpoT_deg"],
+            "KI_SpoT": self.parameters["KI_SpoT"],
+            "ppgpp_reaction_stoich": self.parameters["ppgpp_reaction_stoich"],
+            "synthesis_index": self.parameters["synthesis_index"],
+            "degradation_index": self.parameters["degradation_index"],
+        }
+
+        # Per-tick scratch reused across request → evolve to avoid
+        # recomputing cell_volume / counts_to_molar. Set in :meth:`request`
+        # and consumed by ``_ppgpp_evolve``. None before the first tick.
+        self._counts_to_uM_mag = None
+
+        # ---- Warm-start the next tick's binary search ----
+        # First tick uses the basal elongation rate (~17.3 aa/s, set by
+        # base from sim_data); subsequent ticks update from the realized
+        # rate inside :meth:`elongation_rate`.
+        self.previous_rate = int(
+            self.ribosomeElongationRate * self.parameters["time_step"]
+        )
+
+    # ---------- bulk-index setup ----------
+
+    def _init_bulk_indices(self, bulk_ids):
+        """Add kinetic-charging-specific bulk indices to the base layout.
+
+        Extends :meth:`BasePolypeptideElongation._init_bulk_indices` with the
+        ATP/AMP/PPi/Met/MAP indices the kinetic model touches. Mirrors the
+        upstream ``PolypeptideElongation.calculate_request`` block at lines
+        534–538 of upstream's ``polypeptide_elongation.py``.
+        """
+        super()._init_bulk_indices(bulk_ids)
+        self.atp_idx = bulk_name_to_idx(["ATP[c]"], bulk_ids)
+        self.amp_idx = bulk_name_to_idx(["AMP[c]"], bulk_ids)
+        self.ppi_idx = bulk_name_to_idx(["PPI[c]"], bulk_ids)
+        self.met_idx = bulk_name_to_idx(["MET[c]"], bulk_ids)
+        self.map_idx = bulk_name_to_idx(["EG10570-MONOMER[c]"], bulk_ids)
+
+    # ---------- port schemas ----------
+
+    def inputs(self):
+        """Extend base inputs with the ``boundary`` port for AA-supply.
+
+        The supply closure built in :meth:`_build_supply_function` reads
+        external media concentrations from ``states["boundary"]["external"]``
+        to build the ``aa_in_media`` boolean. Without this port, the
+        boundary store is invisible to the process-bigraph scheduler.
+
+        Always declared (not gated on the flag) so the schema is stable
+        across composites whether or not ``include_aa_supply`` is on —
+        the boundary store is harmless to declare-but-not-read.
+        """
+        base = super().inputs()
+        return deep_merge(base, {"boundary": "node"})
+
+    def outputs(self):
+        """Extend base outputs with the AA-supply listener fields.
+
+        Process-bigraph drops writes to undeclared output paths; these
+        fields must appear in the schema or the consensus listener
+        emission in :meth:`run_model` is silently a no-op. Mirror of
+        SteadyState's outputs at polypeptide_elongation.py:943-983,
+        scoped to just the AA-supply fields the kinetic class emits.
+        """
+        base = super().outputs()
+        return deep_merge(
+            base,
+            {
+                "listeners": {
+                    "growth_limits": {
+                        "aa_synthesis": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_import": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_export": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_supply": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_exchange_rates": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "aa_in_media": {
+                            "_type": "overwrite[array[boolean]]",
+                            "_default": [],
+                        },
+                        "aa_supply_enzymes_fwd": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "aa_supply_enzymes_rev": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "aa_importers": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "aa_exporters": {
+                            "_type": "overwrite[array[integer]]",
+                            "_default": [],
+                        },
+                        "synthesis_pre_solve": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "import_rates_pre_solve": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "export_rates_pre_solve": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        # ---- ppGpp regulation (Phase 2) ----
+                        # Synthesis/degradation telemetry emitted by
+                        # _ppgpp_evolve when ppgpp_regulation=True.
+                        "rela_syn": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                        "spot_syn": {
+                            "_type": "overwrite[float]",
+                            "_default": 0.0,
+                        },
+                        "spot_deg": {
+                            "_type": "overwrite[float]",
+                            "_default": 0.0,
+                        },
+                        "spot_deg_inhibited": {
+                            "_type": "overwrite[array[float]]",
+                            "_default": [],
+                        },
+                    },
+                },
+            },
+        )
+
+    # ---------- request side ----------
+
+    def elongation_rate(self, states):
+        """Binary-search the kinetic-limited elongation rate.
+
+        Side-effects: sets ``self.sequences_width`` and
+        ``self.longer_sequences`` (the codon-based sequence table for the
+        coming tick) so :meth:`request` and :meth:`evolve` can consume them
+        without re-deriving the build.
+
+        Port of upstream ``KineticTrnaChargingModel.elongation_rate`` (lines
+        2284–2309). Differences:
+
+        * Upstream's signature is ``(states, protein_indexes, peptide_lengths)``;
+          v2ecoli's contract is ``(states)``, so we re-derive the indexes from
+          ``states["active_ribosome"]`` here.
+        * Unum → pint: ``.asNumber(units.aa / units.s)`` →
+          ``.to(units.aa / units.s).magnitude``.
+        """
+        protein_indexes, peptide_lengths = attrs(
+            states["active_ribosome"], ["protein_index", "peptide_length"]
+        )
+
+        # Sequence-table read-ahead width for the next tick (1-element array
+        # so buildSequences treats it as a per-ribosome constant).
+        self.sequences_width = np.array(
+            [
+                np.ceil(
+                    (self.basal_elongation_rate * states["timestep"]) + self.buffer
+                ).astype(int)
+            ]
+        )
+
+        self.longer_sequences = buildSequences(
+            self.protein_sequences,
+            protein_indexes,
+            peptide_lengths,
+            self.sequences_width,
+        )
+
+        target = (
+            self.ribosomeElongationRateDict[states["environment"]["media_id"]]
+        ).to(units.aa / units.s).magnitude
+
+        # ---- ppGpp inhibition of elongation rate (Phase 2) ----
+        # Mirror of SteadyState's elongation_rate at
+        # polypeptide_elongation.py:1000-1012. When ppGpp regulation is
+        # active and the (rarely-set) inhibition-disable flag is off,
+        # cap the binary-search target at the ppGpp-modulated rate. This
+        # propagates through to ``target_codon_rate = codons / timestep``
+        # inside :meth:`run_model` — codons available to read this tick
+        # shrink in proportion to the elongation slowdown.
+        if (
+            self.ppgpp_regulation
+            and not self.disable_ppgpp_elongation_inhibition
+        ):
+            cell_mass = as_quantity(
+                states["listeners"]["mass"]["cell_mass"], units.fg
+            )
+            cell_volume = cell_mass / self.cell_density
+            counts_to_molar = 1 / (self.n_avogadro * cell_volume)
+            ppgpp_count = counts(states["bulk"], self.ppgpp_idx)
+            ppgpp_conc = ppgpp_count * counts_to_molar
+            inhibited = self.elong_rate_by_ppgpp(
+                ppgpp_conc, self.basal_elongation_rate
+            )
+            # The closure may return either a pint Quantity or a plain
+            # float depending on configuration; normalize to magnitude.
+            if hasattr(inhibited, "to"):
+                inhibited = inhibited.to(units.aa / units.s).magnitude
+            target = min(target, float(inhibited))
+
+        rate = kernel.get_elongation_rate(
+            self.longer_sequences,
+            self.previous_rate,
+            states["timestep"],
+            target,
+        )
+
+        # Warm-start the next tick's binary search.
+        self.previous_rate = int(rate * states["timestep"])
+        return rate
+
+    def request(self, states, aasInSequences):
+        """Simulate kinetic charging + codon reading, then request resources.
+
+        Runs :meth:`run_model` against the ``bulk_total`` pool to estimate
+        what the cell will consume this tick (over-estimating slightly: the
+        partitioner caps to actual availability anyway). Returns the bulk
+        requests dict in the v2ecoli partitioner format.
+
+        Note: ``aasInSequences`` is supplied by ``calculate_request`` but is
+        amino-acid-based; the kinetic model walks codons, so we recompute
+        ``monomers_in_sequences`` from ``self.longer_sequences`` (populated
+        by :meth:`elongation_rate`).
+
+        Port of upstream ``KineticTrnaChargingModel.request`` (lines
+        2311–2411). Differences:
+
+        * Upstream signature is ``(states, monomers_in_sequences,
+          protein_indexes, peptide_lengths)``; v2ecoli's is ``(states,
+          aasInSequences)``. Re-derive what we need here.
+        * ``self.process.X_idx`` → ``self.X_idx`` (v2ecoli's class is the
+          process).
+        """
+        protein_indexes, _ = attrs(
+            states["active_ribosome"], ["protein_index", "peptide_length"]
+        )
+
+        # Recompute codon-domain monomers_in_sequences (ignoring
+        # aasInSequences, which is in the amino-acid domain).
+        sequences = self.longer_sequences
+        monomers_in_sequences = np.bincount(
+            sequences[sequences != polymerize.PAD_VALUE],
+            minlength=self.n_codons,
+        )
+
+        # Initiation requires one water per start codon.
+        water_request = monomers_in_sequences[self.i_start_codon]
+
+        # Simulate trna charging + codon reading against the total pool.
+        (
+            amino_acids_used,
+            codons_read,
+            free_trnas,
+            charged_trnas,
+            _chargings,
+            _codons_to_trnas_matrix,
+            listeners,
+        ) = self.run_model(monomers_in_sequences, "bulk_total", states)
+
+        # Cache the AA-used estimate (used as the "expected" delta in
+        # :meth:`reconcile` — Task 3d) and the per-codon prediction (used
+        # by :meth:`monomer_limit` — Task 3e).
+        self.first = amino_acids_used
+        self.codons_kinetics_model = codons_read
+
+        # Request amino acids. +1 is a non-zero buffer; ceil(1.01 * x) over-
+        # requests by ~1% to absorb discretization & reconciliation.
+        requests = listeners
+        requests["bulk"] = [
+            (
+                self.amino_acid_idx,
+                np.ceil(1.01 * (amino_acids_used + 1)).astype(int),
+            )
+        ]
+
+        # Request ATP. Upstream assumes all AAs go to charging (an upper
+        # bound — the realised count is lower because some go straight to
+        # translation), which over-requests but eases reconciliation.
+        requests["bulk"].append(
+            (self.atp_idx, amino_acids_used.sum().astype(int))
+        )
+
+        # Request all tRNAs (uncharged + charged).
+        requests["bulk"].append(
+            (self.uncharged_trna_idx, counts(states["bulk"], self.uncharged_trna_idx))
+        )
+        requests["bulk"].append(
+            (self.charged_trna_idx, counts(states["bulk"], self.charged_trna_idx))
+        )
+
+        # Request all synthetase enzymes.
+        requests["bulk"].append(
+            (self.synthetase_idx, counts(states["bulk"], self.synthetase_idx))
+        )
+
+        # Request methionine aminopeptidase (consumed in
+        # :meth:`protein_maturation` — Task 3d).
+        requests["bulk"].append(
+            (self.map_idx, counts(states["bulk"], self.map_idx))
+        )
+
+        # Termination water: any ribosome whose final codon in the
+        # read-ahead window is a stop-padding slot may terminate this tick,
+        # contributing one water per cleaved N-terminal methionine.
+        may_terminate = self.longer_sequences[:, -1] == -1
+        max_to_cleave = np.sum(
+            np.bincount(
+                protein_indexes[may_terminate],
+                minlength=self.protein_sequences.shape[0],
+            )[self.is_map_substrate]
+        )
+        water_request = water_request + max_to_cleave
+        requests["bulk"].append((self.water_idx, water_request))
+
+        # Fraction-charged is returned for the listener output in
+        # ``calculate_request`` (per-amino-acid downstream — v2ecoli base
+        # expects a length-n_aas vector). Aggregate the per-tRNA pools onto
+        # amino acids via aa_from_trna before normalizing.
+        charged_per_aa = self.aa_from_trna @ charged_trnas
+        total_per_aa = self.aa_from_trna @ (free_trnas + charged_trnas)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            fraction_charged = np.where(
+                total_per_aa > 0, charged_per_aa / total_per_aa, 0.0
+            )
+
+        # ---- ppGpp regulation: request side (Phase 2) ----
+        # Mirror of SteadyState's request-side ppGpp block. Requests bulk
+        # for the ppGpp reaction metabolites so :meth:`_ppgpp_evolve` has
+        # them allocated when it realizes the RelA/SpoT events. No-op
+        # when ppgpp_regulation is off (returns []).
+        cell_mass = as_quantity(
+            states["listeners"]["mass"]["cell_mass"], units.fg
+        )
+        cell_volume = cell_mass / self.cell_density
+        counts_to_molar = 1 / (self.n_avogadro * cell_volume)
+        counts_to_uM_mag = counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+        # Cache for _ppgpp_evolve later in this tick.
+        self._counts_to_uM_mag = counts_to_uM_mag
+
+        uncharged_trna_counts_per_aa = self.aa_from_trna @ counts(
+            states["bulk_total"], self.uncharged_trna_idx
+        )
+        charged_trna_counts_per_aa = self.aa_from_trna @ counts(
+            states["bulk_total"], self.charged_trna_idx
+        )
+        ribosome_conc = counts_to_uM_mag * states["active_ribosome"][
+            "_entryState"
+        ].sum()
+        ppgpp_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.ppgpp_idx
+        )
+        rela_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.rela_idx
+        )
+        spot_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.spot_idx
+        )
+        # Per-AA fraction of upcoming AAs in the sequence. Project
+        # monomers_in_sequences (per-codon) onto AAs via
+        # codons_to_amino_acids.
+        aas_in_seq = self.codons_to_amino_acids @ monomers_in_sequences
+        aa_total = aas_in_seq.sum()
+        if aa_total > 0:
+            f = aas_in_seq / aa_total
+        else:
+            f = np.zeros_like(aas_in_seq, dtype=np.float64)
+        # v_rib in μM/s: total AA incorporation rate as a concentration.
+        v_rib = (amino_acids_used.sum() * counts_to_uM_mag) / states["timestep"]
+
+        requests["bulk"] += self._ppgpp_request(
+            states,
+            counts_to_uM_mag,
+            uncharged_trna_counts_per_aa,
+            charged_trna_counts_per_aa,
+            fraction_charged,
+            ribosome_conc,
+            f,
+            rela_conc,
+            spot_conc,
+            ppgpp_conc,
+            v_rib,
+        )
+
+        return fraction_charged, amino_acids_used.astype(float), requests
+
+    # ---------- evolve side ----------
+
+    def evolve_state(self, timestep, states):
+        """Codon-aware kinetic evolve path; replaces the base's AA-only one.
+
+        Base ``evolve_state`` polymerizes against the amino-acid pool via
+        :meth:`final_amino_acids`. The kinetic model needs the codon-domain
+        pipeline: build codon sequences from ``self.protein_sequences``,
+        cap by the kinetic prediction (:meth:`monomer_limit`), run
+        ``polymerize``, then run :meth:`reconcile` (which calls the kernel's
+        reconcile_via_* pair), :meth:`protein_maturation` (MAP cleavage),
+        and finally :meth:`evolve` to emit the bulk deltas.
+
+        Port of upstream ``PolypeptideElongation.evolve_state`` (lines
+        619–820), conditioned on the kinetic model. The non-kinetic branches
+        in upstream are dropped — they're served by other v2ecoli classes.
+
+        Differences from upstream:
+
+        * ``self.elongation_model.X`` → ``self.X`` (v2ecoli's class IS the
+          model and the process).
+        * Bulk-index references are ``self.X_idx`` throughout.
+        * Trip through pint Quantities for ``effective_elongation_rate``
+          listener emission (the v2ecoli convention; upstream emits a bare
+          float).
+        """
+        update = {
+            "listeners": {
+                "ribosome_data": {},
+                "growth_limits": {},
+                "trna_charging": {},
+            },
+            "polypeptide_elongation": {},
+            "active_ribosome": {},
+            "bulk": [],
+        }
+
+        # Pre-populate metabolism inputs in case of early return.
+        update["polypeptide_elongation"]["gtp_to_hydrolyze"] = 0
+        update["polypeptide_elongation"]["aa_count_diff"] = np.zeros(
+            len(self.amino_acids), dtype=np.float64
+        )
+
+        n_active_ribosomes = states["active_ribosome"]["_entryState"].sum()
+        update["listeners"]["growth_limits"]["active_ribosome_allocated"] = (
+            n_active_ribosomes
+        )
+        update["listeners"]["growth_limits"]["aa_allocated"] = counts(
+            states["bulk"], self.amino_acid_idx
+        )
+        if n_active_ribosomes == 0:
+            return update
+
+        # The kinetic pipeline mutates ``states["bulk"]`` in real time
+        # (terminated polypeptides + freed ribosomal subunits), so make a
+        # writeable copy.
+        states["bulk"] = counts(states["bulk"], range(len(states["bulk"])))
+
+        # ---- Build per-ribosome AA sequences (used by polymerize) ----
+        protein_indexes, peptide_lengths, positions_on_mRNA = attrs(
+            states["active_ribosome"],
+            ["protein_index", "peptide_length", "pos_on_mRNA"],
+        )
+
+        all_sequences = buildSequences(
+            self.protein_sequences,
+            protein_indexes,
+            peptide_lengths,
+            self.elongation_rates + self.next_aa_pad,
+        )
+        sequences = all_sequences[:, : -self.next_aa_pad].copy()
+        if sequences.size == 0:
+            return update
+
+        # ---- Build per-ribosome CODON sequences (used by reconcile) ----
+        codon_sequences_width = self.codon_sequences_width(self.elongation_rates)
+        # Note: we keep our cached longer_sequences (set by elongation_rate)
+        # rather than rebuilding here; the kernel's reconcile_via_* helpers
+        # need the matching layout.
+
+        # Codon usage capacity from the kinetic prediction.
+        monomer_count_in_sequence = np.bincount(
+            sequences[sequences != polymerize.PAD_VALUE],
+            minlength=self.n_monomers,
+        )
+        monomer_count_in_sequence_in_aas = self.monomer_to_aa(
+            monomer_count_in_sequence
+        )
+        allocated_aas = counts(states["bulk"], self.amino_acid_idx)
+
+        # MODEL-SPECIFIC: codon-domain monomer limit.
+        monomer_limit, monomer_limit_in_aas = self.monomer_limit(
+            states, monomer_count_in_sequence_in_aas
+        )
+
+        # ---- Polymerize against the codon-limited pool ----
+        result = polymerize(
+            sequences,
+            monomer_limit,
+            10000000,  # ATP-limit is enforced elsewhere by Metabolism
+            self.random_state,
+            self.elongation_rates[protein_indexes],
+            variable_elongation=self.variable_polymerize,
+        )
+
+        # MODEL-SPECIFIC: reconcile polymerize result with kinetic prediction.
+        result, aas_used, net_charged, additional_listeners = self.reconcile(
+            states, result
+        )
+        # ``additional_listeners`` is shaped {"growth_limits": ..., "trna_charging":
+        # ...} (the per-tick listeners dict run_model produced). It must be
+        # nested under ``listeners`` to land at the right schema path in the
+        # store. (Pre-P3b the bare deep_merge put it at the top level — a
+        # latent bug that only surfaced when P3b-ii started writing
+        # growth_limits fields that test_kinetic_aa_supply_ode.py actually
+        # asserts on through the store.)
+        update = deep_merge(update, {"listeners": additional_listeners})
+
+        sequence_elongations = result.sequenceElongation
+        n_elongations = result.nReactions
+
+        # Look-ahead AA count (base returns 0).
+        next_amino_acid_count = self.next_amino_acids(
+            all_sequences, sequence_elongations
+        )
+
+        # ---- Ribosome mass + position updates ----
+        # Swap to the codon-based sequence table for mass accounting.
+        sequences = self.sequences(sequences)
+        added_protein_mass = computeMassIncrease(
+            sequences,
+            sequence_elongations,
+            self.monomer_weights_incorporated,
+        )
+
+        updated_lengths = peptide_lengths + sequence_elongations
+        updated_positions_on_mRNA = positions_on_mRNA + 3 * sequence_elongations
+
+        did_initialize = (sequence_elongations > 0) & (peptide_lengths == 0)
+        added_protein_mass[did_initialize] += self.endWeight
+
+        # ---- Termination ----
+        terminal_lengths = self.protein_lengths[protein_indexes]
+        did_terminate = updated_lengths == terminal_lengths
+        terminated_proteins = np.bincount(
+            protein_indexes[did_terminate],
+            minlength=self.protein_sequences.shape[0],
+        )
+
+        # MODEL-SPECIFIC: cleave N-terminal Met from MAP substrates that
+        # actually have capacity this tick.
+        (
+            did_terminate,
+            terminated_proteins,
+            initial_methionines_cleaved,
+            additional_listeners,
+        ) = self.protein_maturation(
+            states, did_terminate, terminated_proteins, protein_indexes
+        )
+        # Same nesting fix as the reconcile merge above — protein_maturation
+        # returns a listeners-shaped dict that must be nested under
+        # ``listeners`` for store paths to resolve correctly.
+        update = deep_merge(update, {"listeners": additional_listeners})
+
+        # ---- Apply ribosome updates ----
+        (protein_mass,) = attrs(states["active_ribosome"], ["massDiff_protein"])
+        update["active_ribosome"].update(
+            {
+                "delete": np.where(did_terminate)[0],
+                "set": {
+                    "massDiff_protein": protein_mass + added_protein_mass,
+                    "peptide_length": updated_lengths,
+                    "pos_on_mRNA": updated_positions_on_mRNA,
+                },
+            }
+        )
+
+        update["bulk"].append((self.monomer_idx, terminated_proteins))
+        states["bulk"][self.monomer_idx] += terminated_proteins
+
+        n_terminated = int(did_terminate.sum())
+        n_initialized = int(did_initialize.sum())
+
+        update["bulk"].append((self.ribosome30S_idx, n_terminated))
+        update["bulk"].append((self.ribosome50S_idx, n_terminated))
+        states["bulk"][self.ribosome30S_idx] += n_terminated
+        states["bulk"][self.ribosome50S_idx] += n_terminated
+
+        # MODEL-SPECIFIC: emit charging + maturation bulk deltas.
+        net_charged, aa_count_diff, evolve_update = self.evolve(
+            states,
+            allocated_aas,
+            aas_used,
+            next_amino_acid_count,
+            n_elongations,
+            n_initialized,
+            net_charged,
+            result.monomerUsages,
+            initial_methionines_cleaved,
+        )
+
+        evolve_bulk_update = evolve_update.pop("bulk")
+        update = deep_merge(update, evolve_update)
+        update["bulk"].extend(evolve_bulk_update)
+
+        update["polypeptide_elongation"]["aa_count_diff"] = aa_count_diff
+        update["polypeptide_elongation"]["gtp_to_hydrolyze"] = (
+            self.gtpPerElongation * n_elongations
+        )
+
+        # ---- ppGpp regulation: evolve side (Phase 2) ----
+        # Apply RelA/SpoT-driven ppGpp synth/deg AFTER the existing bulk
+        # deltas are merged into update — _ppgpp_evolve appends to
+        # update["bulk"] and writes growth_limits listener fields using
+        # setdefault, so it composes with the writes above.
+        # No-op when ppgpp_regulation is off.
+        self._ppgpp_evolve(
+            states,
+            update,
+            net_charged,
+            n_elongations,
+            aas_used,
+            next_amino_acid_count,
+        )
+
+        # ---- Listener emission ----
+        curr_elong_rate = (
+            sequence_elongations.sum() / n_active_ribosomes
+        ) / states["timestep"]
+
+        update["listeners"]["growth_limits"]["net_charged"] = net_charged
+        update["listeners"]["growth_limits"]["aas_used"] = aas_used
+        update["listeners"]["growth_limits"]["aa_count_diff"] = aa_count_diff
+
+        ribo = update["listeners"].setdefault("ribosome_data", {})
+        ribo["effective_elongation_rate"] = (
+            curr_elong_rate * units.amino_acid / units.s
+        )
+        ribo["aa_count_in_sequence"] = monomer_count_in_sequence_in_aas
+        ribo["aa_counts"] = monomer_limit_in_aas
+        ribo["actual_elongations"] = sequence_elongations.sum()
+        ribo["actual_elongation_hist"] = np.histogram(
+            sequence_elongations, bins=np.arange(0, 23)
+        )[0]
+        ribo["elongations_non_terminating_hist"] = np.histogram(
+            sequence_elongations[~did_terminate], bins=np.arange(0, 23)
+        )[0]
+        ribo["did_terminate"] = int(did_terminate.sum())
+        ribo["termination_loss"] = int(
+            (terminal_lengths - peptide_lengths)[did_terminate].sum()
+        )
+        ribo["num_trpA_terminated"] = terminated_proteins[self.trpAIndex]
+        ribo["process_elongation_rate"] = (
+            self.ribosomeElongationRate / states["timestep"]
+        )
+
+        return update
+
+    def final_amino_acids(self, total_aa_counts, charged_trna_counts):
+        """Not used by the kinetic model — see :meth:`evolve_state` override.
+
+        Base's ``evolve_state`` calls this to decide what AAs are available
+        for amino-acid-based polymerize. The kinetic model overrides
+        ``evolve_state`` to use codon-based ``monomer_limit`` instead, so this
+        method is never reached. Raising guarantees that any future refactor
+        that accidentally re-routes through base's path surfaces the
+        architectural mismatch loudly.
+        """
+        raise NotImplementedError(
+            "KineticTrnaChargingPolypeptideElongation.final_amino_acids is not "
+            "used — the kinetic model overrides evolve_state to use codon-based "
+            "monomer_limit instead."
+        )
+
+    def evolve(
+        self,
+        states,
+        total_aa_counts,
+        amino_acids_used,
+        next_amino_acid_count,
+        n_elongations,
+        n_initialized,
+        net_charged,
+        monomer_usages,
+        initial_methionines_cleaved,
+    ):
+        """Apply bulk deltas from elongation + charging + maturation.
+
+        Builds the ``update["bulk"]`` deltas:
+
+        * Initialization water (n_initialized molecules of water consumed at
+          translation start).
+        * Net tRNA charging deltas (uncharged ↔ charged).
+        * Amino acids used (total consumption from the pool).
+        * ATP/AMP/PPi for each net charging event (one cycle each).
+        * Proton release for each residue incorporated by a charged tRNA.
+        * Water release for residues incorporated directly from the AA pool
+          (the remaining elongations after subtracting charged-tRNA-mediated
+          ones).
+        * Water consumption + Met release for each cleaved initial Met.
+
+        Port of upstream ``KineticTrnaChargingModel.evolve`` (lines 2860–2905).
+        Signature differs from v2ecoli's base ``evolve`` — three extra args
+        (``net_charged``, ``monomer_usages``, ``initial_methionines_cleaved``)
+        come from :meth:`reconcile` and :meth:`protein_maturation` in the
+        kinetic model's :meth:`evolve_state` override.
+        """
+        update = {"bulk": []}
+
+        # Initialization water (one per newly-initialized polypeptide).
+        update["bulk"].append((self.water_idx, -int(n_initialized)))
+
+        # Net tRNA charging deltas.
+        update["bulk"].append((self.uncharged_trna_idx, -net_charged))
+        update["bulk"].append((self.charged_trna_idx, net_charged))
+
+        # Amino acids used.
+        update["bulk"].append((self.amino_acid_idx, -amino_acids_used))
+
+        # Each NET (not absolute) charging event uses one ATP.
+        atp_used = int(np.maximum(net_charged, 0).sum())
+        update["bulk"].append((self.atp_idx, -atp_used))
+        update["bulk"].append((self.amp_idx, atp_used))
+        update["bulk"].append((self.ppi_idx, atp_used))
+
+        # Each NET (not absolute) charged-tRNA-mediated incorporation
+        # releases one proton.
+        residues_incorporated = int(abs(np.minimum(net_charged, 0)).sum())
+        update["bulk"].append((self.proton_idx, residues_incorporated))
+
+        # Remaining elongation events (directly from AA pool) release one
+        # water per peptide bond formed.
+        update["bulk"].append(
+            (self.water_idx, int(n_elongations - residues_incorporated))
+        )
+
+        # Initial-methionine cleavage by MAP: consumes one water, releases
+        # one MET per cleavage.
+        update["bulk"].append(
+            (self.water_idx, -int(initial_methionines_cleaved))
+        )
+        update["bulk"].append(
+            (self.met_idx, int(initial_methionines_cleaved))
+        )
+
+        # aa_count_diff: kinetic supply minus realized usage. SteadyState
+        # writes ``aa_supply - aa_used_trna`` (positive = over-supplied →
+        # metabolism raises homeostatic target). Mirror that sign on the
+        # kinetic side using the integrated supply accumulators stored on
+        # self by :meth:`run_model` during the "bulk" pass. When
+        # ``include_aa_supply=False`` the accumulators don't exist; emit
+        # zeros so metabolism's homeostatic consumer receives a
+        # shape-correct (but content-empty) array — fixes the latent
+        # ``{}``-return bug at trna_charging_final@5ffb76de:775.
+        n_aas = len(self.amino_acids)
+        if self.include_aa_supply and self._last_supply_totals is not None:
+            totals = self._last_supply_totals
+            aa_supply_counts = (
+                totals["synthesis"] + totals["import"] - totals["export"]
+            )
+            aa_count_diff = aa_supply_counts - amino_acids_used.astype(np.float64)
+        else:
+            aa_count_diff = np.zeros(n_aas, dtype=np.float64)
+
+        return net_charged, aa_count_diff, update
+
+    # ---------- internal helpers ----------
+
+    def _ppgpp_request(
+        self,
+        states,
+        counts_to_uM_mag,
+        uncharged_trna_counts,
+        charged_trna_counts,
+        fraction_charged,
+        ribosome_conc,
+        f,
+        rela_conc,
+        spot_conc,
+        ppgpp_conc,
+        v_rib,
+    ):
+        """Growth-control module: ppGpp (request side).
+
+        Port of :meth:`SteadyStatePolypeptideElongation._ppgpp_request`
+        (polypeptide_elongation.py:1481-1533). Same RelA/SpoT ODE; same
+        ``ppgpp_metabolite_changes`` math. Returns the extra bulk requests
+        (ppGpp + the ppGpp-reaction metabolites) that the predicted
+        post-charging tRNA split implies for this tick.
+
+        No-op (returns ``[]``) when ``ppgpp_regulation`` is off.
+        """
+        if not self.ppgpp_regulation:
+            return []
+        total_trna_conc = counts_to_uM_mag * (
+            uncharged_trna_counts + charged_trna_counts
+        )
+        updated_charged_trna_conc = total_trna_conc * fraction_charged
+        updated_uncharged_trna_conc = total_trna_conc - updated_charged_trna_conc
+        delta_metabolites, *_ = ppgpp_metabolite_changes(
+            updated_uncharged_trna_conc,
+            updated_charged_trna_conc,
+            ribosome_conc,
+            f,
+            rela_conc,
+            spot_conc,
+            ppgpp_conc,
+            counts_to_uM_mag,
+            v_rib,
+            self.charging_params,
+            self.ppgpp_params,
+            states["timestep"],
+            request=True,
+            random_state=self.random_state,
+        )
+        request_ppgpp_metabolites = -delta_metabolites.astype(int)
+        ppgpp_request = counts(states["bulk"], self.ppgpp_idx)
+        return [
+            (self.ppgpp_idx, ppgpp_request),
+            (self.ppgpp_rxn_metabolites_idx, request_ppgpp_metabolites),
+        ]
+
+    def _ppgpp_evolve(
+        self,
+        states,
+        update,
+        net_charged,
+        n_elongations,
+        aas_used,
+        next_amino_acid_count,
+    ):
+        """Growth-control module: ppGpp (evolve side).
+
+        Port of :meth:`SteadyStatePolypeptideElongation._ppgpp_evolve`
+        (polypeptide_elongation.py:1535-1632) adapted for the kinetic
+        class:
+
+        * ``aas_used`` here is the kinetic class's post-reconcile
+          ``amino_acids_used`` (per-AA ndarray), matching SteadyState's.
+        * Growth-limits listener fields use ``setdefault`` instead of
+          replacing the dict, so other writes to ``growth_limits``
+          (e.g. ``aas_used``, ``aa_count_diff``) survive.
+
+        Same RelA/SpoT ODE math, evaluated at the realized post-elongation
+        tRNA concentrations (``net_charged``-adjusted bulk counts) and
+        clamped by the allocated ppGpp-reaction metabolite limits.
+
+        No-op when ``ppgpp_regulation`` is off.
+        """
+        if not self.ppgpp_regulation:
+            return
+        counts_to_uM_mag = self._counts_to_uM_mag
+        v_rib = (n_elongations * counts_to_uM_mag) / states["timestep"]
+        ribosome_conc = (
+            counts_to_uM_mag * states["active_ribosome"]["_entryState"].sum()
+        )
+        updated_uncharged_trna_counts = (
+            counts(states["bulk_total"], self.uncharged_trna_idx) - net_charged
+        )
+        updated_charged_trna_counts = (
+            counts(states["bulk_total"], self.charged_trna_idx) + net_charged
+        )
+        uncharged_trna_conc = counts_to_uM_mag * np.dot(
+            self.aa_from_trna, updated_uncharged_trna_counts
+        )
+        charged_trna_conc = counts_to_uM_mag * np.dot(
+            self.aa_from_trna, updated_charged_trna_counts
+        )
+        ppgpp_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.ppgpp_idx
+        )
+        rela_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.rela_idx
+        )
+        spot_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.spot_idx
+        )
+
+        # Include the next AA the ribosome sees for the no-elongation edge
+        # case where f would otherwise be NaN.
+        aa_at_ribosome = aas_used + next_amino_acid_count
+        denom = aa_at_ribosome.sum()
+        if denom <= 0:
+            return  # no AAs in scope this tick — skip ppGpp evolve cleanly
+        f = aa_at_ribosome / denom
+        limits = counts(states["bulk"], self.ppgpp_rxn_metabolites_idx)
+        (
+            delta_metabolites,
+            ppgpp_syn,
+            ppgpp_deg,
+            rela_syn,
+            spot_syn,
+            spot_deg,
+            spot_deg_inhibited,
+        ) = ppgpp_metabolite_changes(
+            uncharged_trna_conc,
+            charged_trna_conc,
+            ribosome_conc,
+            f,
+            rela_conc,
+            spot_conc,
+            ppgpp_conc,
+            counts_to_uM_mag,
+            v_rib,
+            self.charging_params,
+            self.ppgpp_params,
+            states["timestep"],
+            random_state=self.random_state,
+            limits=limits,
+        )
+
+        # setdefault so other listener writes in this tick survive.
+        gl = update["listeners"].setdefault("growth_limits", {})
+        gl["rela_syn"] = rela_syn
+        gl["spot_syn"] = spot_syn
+        gl["spot_deg"] = spot_deg
+        gl["spot_deg_inhibited"] = spot_deg_inhibited
+
+        update["bulk"].append(
+            (self.ppgpp_rxn_metabolites_idx, delta_metabolites.astype(int))
+        )
+        # Mirror SteadyState: update the working bulk copy so downstream
+        # reads see post-ppGpp counts. ``states['bulk']`` was already made
+        # writeable at the top of evolve_state (line 660).
+        states["bulk"][self.ppgpp_rxn_metabolites_idx] = (
+            states["bulk"][self.ppgpp_rxn_metabolites_idx]
+            + delta_metabolites.astype(int)
+        )
+
+    def _build_supply_function(self, states):
+        """Construct the AA-supply closure that feeds the kinetic ODE RHS.
+
+        Returns a tuple ``(supply_function, counts_to_uM_mag,
+        supply_listeners)`` when ``include_aa_supply`` is on, or
+        ``(None, None, None)`` when off. Mirror of the SteadyState
+        ``_supply_args`` block at
+        ``polypeptide_elongation.py:1056-1100`` adapted to the kinetic
+        class:
+
+        * ``aa_in_media`` from ``states["boundary"]["external"]`` vs
+          ``import_constraint_threshold``.
+        * Enzyme / importer / exporter counts from ``bulk_total``.
+        * ``synthesis``, ``import_rates``, ``export_rates`` pre-computed
+          for listener output (the closure recomputes them per RK45 step).
+        * ``supply_function = get_charging_supply_function(...)`` —
+          identical factory call as SteadyState, so the kinetic ODE
+          consumes the same supply math.
+
+        The unit-bridge constant ``counts_to_uM_mag`` (μM per molecule)
+        is required by ``ode_model``: the kinetic state is in counts;
+        ``supply_function`` expects μM. Computed once per tick from
+        ``cell_mass / cellDensity / n_avogadro``.
+        """
+        if not self.include_aa_supply:
+            return None, None, None
+
+        # Unit bridge: counts ↔ μM.
+        cell_mass = as_quantity(
+            states["listeners"]["mass"]["cell_mass"], units.fg
+        )
+        dry_mass = as_quantity(
+            states["listeners"]["mass"]["dry_mass"], units.fg
+        )
+        cell_volume = cell_mass / self.cell_density
+        counts_to_molar = 1 / (self.n_avogadro * cell_volume)
+        counts_to_uM_mag = counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+
+        # External media → aa_in_media boolean per amino acid.
+        aa_in_media = np.array(
+            [
+                states["boundary"]["external"][aa]
+                > self.import_constraint_threshold
+                for aa in self.aa_environment_names
+            ]
+        )
+
+        # Enzyme / importer / exporter counts from the unallocated pool.
+        fwd_enzyme_counts, rev_enzyme_counts = (
+            self.get_pathway_enzyme_counts_per_aa(
+                counts(states["bulk_total"], self.aa_enzyme_idx)
+            )
+        )
+        importer_counts = counts(states["bulk_total"], self.aa_importer_idx)
+        exporter_counts = counts(states["bulk_total"], self.aa_exporter_idx)
+
+        # Pre-strip dry_mass for the unum-native synthesis/import/export
+        # helpers (boundary-conversion convention used by SteadyState at
+        # polypeptide_elongation.py:1052).
+        dry_mass_unum = pint_to_unum(dry_mass)
+
+        # Pre-compute synthesis/import/export at the current aa_conc for
+        # listener output. The ODE RHS recomputes these per RK45 step at
+        # the time-evolving aa_conc.
+        aa_counts_now = counts(states["bulk_total"], self.amino_acid_idx)
+        aa_conc_uM = counts_to_uM_mag * aa_counts_now
+        aa_conc_unum = pint_to_unum(
+            aa_conc_uM * MICROMOLAR_UNITS
+        )
+        synthesis, _, _ = self.amino_acid_synthesis(
+            fwd_enzyme_counts, rev_enzyme_counts, aa_conc_unum
+        )
+        import_rates = self.amino_acid_import(
+            aa_in_media,
+            dry_mass_unum,
+            aa_conc_unum,
+            importer_counts,
+            self.mechanistic_aa_transport,
+        )
+        export_rates = self.amino_acid_export(
+            exporter_counts, aa_conc_unum, self.mechanistic_aa_transport
+        )
+
+        # Build the closure — same factory as SteadyState. We force
+        # ``supply_in_charging=True`` here regardless of the upstream
+        # parameter because, in the kinetic class, the closure is the
+        # ENTIRE point of the consensus merge (supply must be inside the
+        # ODE solve). Likewise ``mechanistic_supply=True`` because the
+        # non-mechanistic supply path is an upstream legacy code branch
+        # that doesn't make biological sense in the kinetic context.
+        supply_function = get_charging_supply_function(
+            True,  # supply_in_charging
+            True,  # mechanistic_supply
+            self.mechanistic_aa_transport,
+            self.amino_acid_synthesis,
+            self.amino_acid_import,
+            self.amino_acid_export,
+            self.aa_supply_scaling,
+            counts_to_uM_mag,
+            self.aa_supply,
+            fwd_enzyme_counts,
+            rev_enzyme_counts,
+            dry_mass_unum,
+            importer_counts,
+            exporter_counts,
+            aa_in_media,
+        )
+
+        supply_listeners = {
+            "aa_in_media": aa_in_media,
+            "aa_supply_enzymes_fwd": fwd_enzyme_counts,
+            "aa_supply_enzymes_rev": rev_enzyme_counts,
+            "aa_importers": importer_counts,
+            "aa_exporters": exporter_counts,
+            "synthesis_pre_solve": synthesis,
+            "import_rates_pre_solve": import_rates,
+            "export_rates_pre_solve": export_rates,
+        }
+        return supply_function, counts_to_uM_mag, supply_listeners
+
+    def run_model(self, codons, attr, states):
+        """Simulate kinetic charging + codon reading; predict deltas.
+
+        Drives a stiff RK45 IVP over the cell's molecules buffer (the
+        ``slice_*`` segments set up in :meth:`initialize`). On each
+        ``attr="bulk_total"`` call (during :meth:`request`) we also pre-compute
+        the cell-volume-scaled Michaelis constants and the cell-AA saturation
+        for the subsequent ``"bulk"`` call to reuse.
+
+        Returns:
+
+            (amino_acids_used, codons_read, free_trnas, charged_trnas,
+             chargings, codons_to_trnas_matrix, listeners)
+
+        all as ``np.int64`` ndarrays (post-discretization) except ``listeners``
+        which is a nested dict of float arrays.
+
+        Port of upstream ``KineticTrnaChargingModel.run_model`` (lines
+        2413–2713). Differences:
+
+        * ``self.process.X_idx`` → ``self.X_idx``.
+        * Uses :mod:`scipy.integrate.solve_ivp` with RK45 (rtol=1e-4,
+          atol=1e-7) matching upstream.
+        """
+        listeners: dict = {}
+
+        # Free-variable closures into the inner ODE: we need
+        # ``amino_acid_availability`` from outside. Defined before the inner
+        # def so the closure captures it.
+        free_trnas_input = counts(states[attr], self.uncharged_trna_idx)
+        charged_trnas_input = counts(states[attr], self.charged_trna_idx)
+        amino_acid_availability = counts(states[attr], self.amino_acid_idx)
+
+        # μM → mol/L unit bridge for the supply closure (P5 unit fix).
+        # amino_acid_synthesis / _import / _export expect aa_conc in
+        # METABOLITE_CONCENTRATION_UNITS = mol/L, but the closure's
+        # raw output (after counts_to_uM_mag scaling) is in μM/s. We pass
+        # a mol/L-magnitude argument to the closure, which then converts
+        # rates back to μM/s via the counts_to_uM_mag multiplier
+        # internally — exactly what SteadyState's dcdt does at
+        # kinetics.py:351 (``supply(unit_conversion * aa_conc)``).
+        # ``unit_conversion`` is 1e-6 (μM/L / (mol/L)) — see
+        # get_amino_acid_conc_conversion at
+        # parca/.../metabolism.py:2121-2122.
+        # Without this fix, AA concentrations are interpreted as 1e6×
+        # too high, synthesis returns large reverse fluxes, and the cell
+        # spuriously starves at startup (observed in Stage A smoke run).
+        unit_conversion = self.charging_params["unit_conversion"]
+
+        def ode_model(
+            t,
+            molecules,
+            target_codon_rate,
+            v_max,
+            cell_amino_acid_saturation,
+            K_M_amino_acids,
+            K_M_trnas,
+            amino_acid_limit,
+            supply_function,
+            counts_to_uM_mag,
+        ):
+            # Parse molecules buffer (the slice layout was set up in
+            # initialize so we don't pay the dict-lookup cost per-step).
+            free_trnas = molecules[self.slice_free_trnas]
+            charged_trnas = molecules[self.slice_charged_trnas]
+            amino_acids_remaining = molecules[self.slice_amino_acids]
+
+            # Adjust target codon reading rate when charged fraction is low
+            # — sin() roll-off prevents the rate from saturating at the
+            # discontinuity at 0.
+            fraction_charged = (
+                self.trnas_to_codons @ charged_trnas
+                / (
+                    self.trnas_to_codons @ charged_trnas
+                    + self.trnas_to_codons @ free_trnas
+                )
+            )
+            needs_adjustment = fraction_charged < 0.05
+            adjustment = np.ones_like(target_codon_rate)
+            adjustment[needs_adjustment] = np.sin(
+                10 * np.pi * fraction_charged[needs_adjustment]
+            )
+            adjusted_codon_rate = np.multiply(adjustment, target_codon_rate)
+
+            # Adjust AA saturation when remaining pool is low (sin² roll-off
+            # since the AA pool can hit exactly 0).
+            mask = amino_acid_availability > 0
+            fraction_remaining = np.zeros_like(amino_acids_remaining)
+            fraction_remaining[mask] = (
+                amino_acids_remaining[mask] / amino_acid_availability[mask]
+            )
+            needs_adjustment = fraction_remaining < 0.05
+            adjustment = np.ones_like(cell_amino_acid_saturation)
+            adjustment[needs_adjustment] = np.square(
+                np.sin(10 * np.pi * fraction_remaining[needs_adjustment])
+            )
+            adjusted_amino_acid_saturation = np.multiply(
+                adjustment, cell_amino_acid_saturation
+            )
+
+            # Charge tRNAs — Michaelis-Menten competitive inhibition.
+            relative_trnas = free_trnas / K_M_trnas
+            charging_rate = (
+                self.amino_acids_to_trnas
+                @ np.multiply(v_max, adjusted_amino_acid_saturation)
+                * relative_trnas
+                / (
+                    1
+                    + (
+                        self.amino_acids_to_trnas
+                        @ self.trnas_to_amino_acids
+                        @ relative_trnas
+                    )
+                )
+            )
+
+            # Distribution of codons → tRNAs (columns sum to 1).
+            charged_trnas_tile = np.tile(charged_trnas, (self.n_codons, 1)).T
+            codons_to_trnas = np.where(self.codons_to_trnas, charged_trnas_tile, 0)
+            denominator = codons_to_trnas.sum(axis=0)
+            denominator[denominator == 0] = 1  # prevent divide-by-zero
+            codons_to_trnas = codons_to_trnas / denominator
+
+            # Read codons.
+            reading_rate = codons_to_trnas @ adjusted_codon_rate
+
+            # Assemble dx/dt.
+            dx_dt = np.zeros_like(molecules)
+            dx_dt[self.slice_free_trnas] = -charging_rate + reading_rate
+            dx_dt[self.slice_charged_trnas] = charging_rate - reading_rate
+            dx_dt[self.slice_amino_acids] = -(
+                self.trnas_to_amino_acids @ charging_rate
+            )
+            dx_dt[self.slice_charging_counter] = charging_rate
+            dx_dt[self.slice_reading_counter] = reading_rate
+            dx_dt[self.slice_codons_to_trnas_counter] = np.multiply(
+                codons_to_trnas, np.tile(adjusted_codon_rate, (self.n_trnas, 1))
+            )[self.codons_to_trnas]
+
+            # ---- Consensus ODE merge (Phase 3b-ii) ----
+            # When supply_function is non-None (flag on), evaluate AA
+            # synthesis / import / export at the CURRENT (time-evolving)
+            # aa_conc, add their net flux to the AA balance, and
+            # accumulate per-AA fluxes for post-solve listener emission.
+            # Mirrors kinetics.py:345-355 (SteadyState's dcdt RHS) — same
+            # supply math, in counts/s instead of μM/s via the per-step
+            # unit bridge ``counts_to_uM_mag`` (μM per molecule).
+            if supply_function is not None:
+                # Convert ODE state (counts) → μM → mol/L for the supply
+                # closure. unit_conversion (1e-6) is captured from the
+                # enclosing scope. Mirrors SteadyState's dcdt:
+                # ``supply(unit_conversion * aa_conc)`` at kinetics.py:351.
+                aa_conc_molar = (
+                    counts_to_uM_mag * amino_acids_remaining * unit_conversion
+                )
+                v_synthesis_uM, v_import_uM, v_export_uM = supply_function(
+                    aa_conc_molar
+                )
+                # μM/s → counts/s; supply terms go into the AA balance
+                # alongside −(trnas_to_amino_acids @ charging_rate).
+                dx_dt[self.slice_amino_acids] = (
+                    dx_dt[self.slice_amino_acids]
+                    + (v_synthesis_uM + v_import_uM - v_export_uM)
+                    / counts_to_uM_mag
+                )
+                dx_dt[self.slice_total_synthesis] = (
+                    v_synthesis_uM / counts_to_uM_mag
+                )
+                dx_dt[self.slice_total_import] = v_import_uM / counts_to_uM_mag
+                dx_dt[self.slice_total_export] = v_export_uM / counts_to_uM_mag
+
+            return dx_dt
+
+        # Pre-compute cell-volume-scaled K_M and AA saturation. Only on the
+        # first (bulk_total) call per tick — the bulk call reuses them.
+        if attr == "bulk_total":
+            self.K_M_amino_acids, self.K_M_trnas = self.get_kinetic_constants(
+                states["listeners"]["mass"]["cell_mass"]
+            )
+            cell_amino_acids = counts(states["bulk_total"], self.amino_acid_idx)
+            self.cell_amino_acid_saturation = cell_amino_acids / (
+                self.K_M_amino_acids + cell_amino_acids
+            )
+
+        # Pack inputs into the molecules buffer.
+        molecules_input = np.zeros(self.molecules_input_size, dtype=np.int64)
+        molecules_input[self.slice_free_trnas] = free_trnas_input
+        molecules_input[self.slice_charged_trnas] = charged_trnas_input
+        molecules_input[self.slice_amino_acids] = amino_acid_availability
+
+        # Consensus ODE merge (Phase 3b-ii): build the supply closure that
+        # ode_model evaluates at every RK45 sub-step. Returns
+        # ``(None, None, None)`` when include_aa_supply=False — the
+        # closure is then a no-op inside the RHS, preserving the legacy
+        # bit-identical path.
+        supply_function, counts_to_uM_mag, supply_listeners = (
+            self._build_supply_function(states)
+        )
+
+        # Run ODE.
+        # Integrator choice: RK45 (explicit, non-stiff) for the legacy
+        # kinetic path; BDF (implicit, stiff) when the consensus AA-supply
+        # terms are active. The supply closure's saturation kinetics
+        # introduce fast modes that drive RK45's stability region tiny —
+        # profiling showed RK45 took 1.9M adaptive sub-steps per tick
+        # (one ode_model call each, ~5 min wall) while BDF should take
+        # tens. SteadyState's analogous merged ODE uses BDF for the same
+        # reason (see kinetics.py:404).
+        ode_method = "BDF" if supply_function is not None else "RK45"
+        ode_result = solve_ivp(
+            ode_model,
+            [0, states["timestep"]],
+            molecules_input,
+            args=(
+                codons / states["timestep"],
+                self.max_charging_rate(states, attr),
+                self.cell_amino_acid_saturation,
+                self.K_M_amino_acids,
+                self.K_M_trnas,
+                amino_acid_availability,
+                supply_function,
+                counts_to_uM_mag,
+            ),
+            method=ode_method,
+            rtol=1e-4,
+            atol=1e-7,
+        )
+
+        # ---- Listener: tRNA saturation + turnover (bulk only) ----
+        if attr == "bulk":
+            delta_t = ode_result.t[1:] - ode_result.t[:-1]
+
+            # Time-averaged tRNA saturation.
+            relative_trnas = (
+                ode_result.y[self.slice_free_trnas, :] / self.K_M_trnas[:, None]
+            )
+            trna_saturation = relative_trnas / (
+                1
+                + (
+                    self.amino_acids_to_trnas
+                    @ self.trnas_to_amino_acids
+                    @ relative_trnas
+                )
+            )
+            average_trna_saturation = (
+                np.sum(np.multiply(trna_saturation[:, 1:], delta_t), axis=1)
+                / states["timestep"]
+            )
+
+            trna_charging_listener = listeners.setdefault("trna_charging", {})
+            trna_charging_listener["saturation_trna"] = average_trna_saturation
+
+            # tRNA turnover (incorporation rate / charged tRNAs).
+            turnovers = []
+            previous_readings = np.zeros(self.n_trnas, dtype=np.int64)
+            for i in range(ode_result.t.shape[0] - 1):
+                codons_to_trnas_matrix = np.zeros(
+                    (self.n_trnas, self.n_codons), dtype=np.int64
+                )
+                codons_to_trnas_matrix[self.codons_to_trnas] = ode_result.y[
+                    self.slice_codons_to_trnas_counter, i
+                ]
+                readings = codons_to_trnas_matrix.sum(axis=1)
+                delta_readings = readings - previous_readings
+
+                incorporation = self.trnas_to_amino_acids @ delta_readings
+
+                charged_trnas = (
+                    self.trnas_to_amino_acids
+                    @ ode_result.y[self.slice_charged_trnas, i]
+                )
+
+                turnovers.append(incorporation / delta_t[i] / charged_trnas)
+                previous_readings = readings
+
+            turnovers = np.array(turnovers)
+            average_turnover = (
+                np.sum(np.multiply(turnovers.T, delta_t), axis=1)
+                / states["timestep"]
+            )
+            trna_charging_listener["turnover"] = average_turnover
+
+        # ---- Parse ODE results ----
+        molecules_output = ode_result.y[:, -1]
+        raw_charging = molecules_output[self.slice_charging_counter]
+        raw_codons_to_trnas = molecules_output[self.slice_codons_to_trnas_counter]
+
+        # ---- Consensus accumulators (Phase 3b-ii) ----
+        # Extract the per-AA supply integrals that ode_model accumulated
+        # over the solve. Stored on self for :meth:`evolve` to compute
+        # ``aa_count_diff`` (the metabolism feedback). Emitted to the
+        # growth_limits listener on the "bulk" pass only — the
+        # "bulk_total" pass is for request sizing; its accumulators are
+        # over-estimates by construction.
+        if self.include_aa_supply:
+            total_synthesis = molecules_output[self.slice_total_synthesis]
+            total_import = molecules_output[self.slice_total_import]
+            total_export = molecules_output[self.slice_total_export]
+            if attr == "bulk":
+                self._last_supply_totals = {
+                    "synthesis": total_synthesis,
+                    "import": total_import,
+                    "export": total_export,
+                }
+                growth_limits = listeners.setdefault("growth_limits", {})
+                growth_limits["aa_synthesis"] = total_synthesis
+                growth_limits["aa_import"] = total_import
+                growth_limits["aa_export"] = total_export
+                growth_limits["aa_supply"] = (
+                    total_synthesis + total_import - total_export
+                )
+                # aa_exchange_rates in counts (net import−export over the
+                # timestep). Metabolism's mechanistic_aa_transport
+                # consumer reads this as bulk-delta-equivalent.
+                growth_limits["aa_exchange_rates"] = total_import - total_export
+                # Pre-solve supply listeners (for diagnostics; the
+                # integrated values above are the load-bearing ones).
+                for k, v in (supply_listeners or {}).items():
+                    growth_limits[k] = v
+
+        # ---- Discretize charging events ----
+        # Resource-sizing (bulk_total): round up so the request envelope
+        # covers the realised consumption. Evolve (bulk): stochastic round
+        # so cell-population averages stay correct.
+        if attr == "bulk_total":
+            chargings = np.ceil(raw_charging).astype(np.int64)
+        else:
+            chargings = stochasticRound(
+                self.random_state, raw_charging
+            ).astype(np.int64)
+
+        # Cap at AA availability — undo charging events one-by-one if any
+        # AA is over-spent.
+        #
+        # Original loop (pre-2026-06-27) decremented the most-over-rounded
+        # tRNA's chargings without checking it was > 0; under the consensus
+        # supply path the kinetic ODE produces enough charging activity
+        # that the recovery loop would pick already-zero tRNAs and drive
+        # them to -1, tripping the np.all(chargings >= 0) assert below.
+        # Fix: mask the argsort to only consider tRNAs with chargings > 0.
+        # If no charging events remain to undo for an AA, accept the
+        # residual over-estimate — for the bulk_total pass it just makes
+        # the request envelope marginally looser (the allocator caps to
+        # actual availability anyway); for the bulk pass it's an unusual
+        # state where the ODE wants more charging than the discrete pool
+        # supports, and we'd rather continue than crash.
+        amino_acids_used = self.trnas_to_amino_acids @ chargings
+        exceeds_availability = amino_acids_used > amino_acid_availability
+        if np.any(exceeds_availability):
+            for i in np.where(exceeds_availability)[0]:
+                n_undo = amino_acids_used[i] - amino_acid_availability[i]
+                trna_indexes = np.where(self.trnas_to_amino_acids[i])[0]
+                for _ in range(n_undo):
+                    available = chargings[trna_indexes] > 0
+                    if not np.any(available):
+                        break  # nothing left to undo for AA i
+                    diff = (chargings - raw_charging)[trna_indexes]
+                    masked_diff = np.where(available, diff, -np.inf)
+                    i_undo = int(np.argmax(masked_diff))
+                    chargings[trna_indexes[i_undo]] -= 1
+            amino_acids_used = self.trnas_to_amino_acids @ chargings
+            # Residual over-consumption is possible (we broke out of the
+            # undo loop above). For the request-side pass the allocator
+            # caps to actual availability so this is harmless; for the
+            # evolve pass it's logged below but not fatal.
+        assert np.all(chargings >= 0), (
+            "chargings went negative during AA-availability recovery — "
+            "see kinetic_charging.py:1741 for the masked-undo logic"
+        )
+
+        # ---- Discretize reading events ----
+        if attr == "bulk_total":
+            codons_to_trnas = np.ceil(raw_codons_to_trnas).astype(np.int64)
+        else:
+            codons_to_trnas = stochasticRound(
+                self.random_state, raw_codons_to_trnas
+            ).astype(np.int64)
+
+        # Reshape from the flat trna-codon-pairs vector into the (n_trnas,
+        # n_codons) matrix.
+        codons_to_trnas_matrix = np.zeros(
+            (self.n_trnas, self.n_codons), dtype=np.int64
+        )
+        codons_to_trnas_matrix[self.codons_to_trnas] = codons_to_trnas
+
+        readings = codons_to_trnas_matrix.sum(axis=1)
+        assert np.all(readings >= 0)
+        codons_read = codons_to_trnas_matrix.sum(axis=0)
+
+        # ---- Reconcile tRNA pool over/underflow ----
+        free_trnas = free_trnas_input - chargings + readings
+        charged_trnas = charged_trnas_input + chargings - readings
+
+        # Free-tRNA underflow → undo a charging event per missing tRNA.
+        if np.any(free_trnas < 0):
+            for i in np.where(free_trnas < 0)[0]:
+                n_undo = abs(free_trnas[i])
+                for _ in range(n_undo):
+                    chargings[i] -= 1
+            assert np.all(chargings >= 0)
+            free_trnas = free_trnas_input - chargings + readings
+            assert np.all(free_trnas >= 0)
+            amino_acids_used = self.trnas_to_amino_acids @ chargings
+
+        # Charged-tRNA underflow → undo a reading event per missing tRNA.
+        if np.any(charged_trnas < 0):
+            for i in np.where(charged_trnas < 0)[0]:
+                n_undo = abs(charged_trnas[i])
+                codon_indexes = np.where(codons_to_trnas_matrix[i])[0]
+                for _ in range(n_undo):
+                    i_undo = np.argsort(
+                        codons_to_trnas_matrix[i, codon_indexes]
+                    )[-1]
+                    codons_to_trnas_matrix[i, codon_indexes[i_undo]] -= 1
+            readings = codons_to_trnas_matrix.sum(axis=1)
+            assert np.all(readings >= 0)
+            charged_trnas = charged_trnas_input + chargings - readings
+            assert np.all(charged_trnas >= 0)
+
+        # Recompute the realised tRNA pools after both fix-ups.
+        free_trnas = free_trnas_input - chargings + readings
+        charged_trnas = charged_trnas_input + chargings - readings
+
+        return (
+            amino_acids_used,
+            codons_read,
+            free_trnas,
+            charged_trnas,
+            chargings,
+            codons_to_trnas_matrix,
+            listeners,
+        )
+
+    def reconcile(self, states, result):
+        """Reconcile the polymerize result with the kinetic-model prediction.
+
+        After ``polymerize`` runs on the allocated AA pool, the per-codon
+        usage may not match what the kinetic model expected. This method:
+
+        1. Runs :meth:`run_model` against the ``"bulk"`` pool (actual
+           allocation) to get the kinetics' prediction of codons read.
+        2. If predictions differ from ``polymerize``'s realized usage,
+           seeds the kernel's RNG and calls
+           :func:`kinetic_charging_kernel.reconcile_via_ribosome_positions`
+           to adjust ribosome positions.
+        3. If disagreements remain, also calls
+           :func:`kinetic_charging_kernel.reconcile_via_trna_pools` to
+           rebalance tRNA pools and charging counts.
+
+        Returns ``(result, amino_acids_used, net_charged, listeners)``.
+
+        Port of upstream ``KineticTrnaChargingModel.reconcile`` (lines
+        2739–2796). Differences:
+
+        * ``self.process.charged_trna_idx`` → ``self.charged_trna_idx``.
+        * Calls go through the v2ecoli kernel module, not the upstream
+          Cython names.
+        * Seeds the kernel's RNG once per reconcile (from ``self.seed`` +
+          tick salt) so the kernel calls inside ``reconcile_via_*`` are
+          deterministic given the same seed.
+        """
+        # Simulate kinetic trna charging + codon reading against the
+        # actual allocation.
+        (
+            amino_acids_used,
+            codons_read,
+            free_trnas,
+            charged_trnas,
+            chargings,
+            codons_to_trnas_matrix,
+            listeners,
+        ) = self.run_model(result.monomerUsages, "bulk", states)
+
+        # Initial disagreement listener — useful for diagnosing why the
+        # kinetic model and polymerize diverged this tick.
+        disagreements = codons_read - result.monomerUsages
+        trna_charging_listener = listeners.setdefault("trna_charging", {})
+        trna_charging_listener["initial_disagreements"] = disagreements
+
+        if not np.all(result.monomerUsages == codons_read):
+            # Seed the kernel's RNG; reuses the process's RandomState seed
+            # so behavior is deterministic per (seed, tick).
+            kernel.seed(int(self.random_state.randint(0, 2**31 - 1)))
+
+            # First pass: adjust ribosome positions to match the kinetic
+            # model's per-codon usage.
+            kernel.reconcile_via_ribosome_positions(
+                result.monomerUsages,
+                result.sequenceElongation,
+                codons_read,
+                self.longer_sequences,
+                int(self.max_attempts),
+            )
+
+            # If positions can't fully reconcile, rebalance the tRNA pools.
+            if not np.all(result.monomerUsages == codons_read):
+                kernel.reconcile_via_trna_pools(
+                    result.monomerUsages,
+                    codons_read,
+                    free_trnas,
+                    charged_trnas,
+                    chargings,
+                    amino_acids_used,
+                    codons_to_trnas_matrix,
+                    self.trnas_to_codons,
+                    self.trnas_to_amino_acid_indexes,
+                )
+
+            result.nReactions = result.monomerUsages.sum()
+
+        # Record final charging + reading events for the listener.
+        trna_charging_listener["charging_events"] = chargings
+        trna_charging_listener["reading_events"] = codons_to_trnas_matrix.sum(axis=1)
+        trna_charging_listener["codons_to_trnas_counter"] = codons_to_trnas_matrix[
+            self.codons_to_trnas
+        ]
+
+        # Net change in charged tRNAs vs allocation.
+        net_charged = charged_trnas - counts(
+            states["bulk"], self.charged_trna_idx
+        )
+
+        return result, amino_acids_used, net_charged, listeners
+
+    def protein_maturation(
+        self, states, did_terminate, terminated_proteins, protein_indexes
+    ):
+        """Cleave N-terminal Met from MAP-substrate proteins that just terminated.
+
+        Methionine aminopeptidase has a kinetic capacity (``k_cat = 6 / s``,
+        per-cell concentration) that may not cover every terminating MAP
+        substrate this tick. If supply < demand, randomly defer termination
+        for the excess by flipping ``did_terminate[i] = False`` for a
+        multinomial sample of the candidates.
+
+        Returns updated ``(did_terminate, terminated_proteins, cleaved,
+        listeners)``.
+
+        Port of upstream ``KineticTrnaChargingModel.protein_maturation``
+        (lines 2801–2858). Differences:
+
+        * ``self.process.X`` → ``self.X``.
+        * Unum ``* units.s`` → pint ``* units.s``;
+          ``.asNumber()`` → ``.to(units.dimensionless).magnitude``.
+        """
+        # How many MAP substrates terminated this tick.
+        n_needs_cleaving = int(terminated_proteins[self.is_map_substrate].sum())
+
+        # MAP kinetic capacity in this tick.
+        cell_volume = states["listeners"]["mass"]["cell_mass"] / self.cell_density
+        v_can_cleave = (
+            (1 / units.s)
+            * 6  # MAP k_cat
+            / self.n_avogadro
+            / cell_volume
+            * counts(states["bulk"], self.map_idx)
+        )
+        n_can_cleave_q = (
+            v_can_cleave
+            * (units.s * states["timestep"])
+            * cell_volume
+            * self.n_avogadro
+        )
+        # Strip units to a plain scalar (dimensionless after the cancellations).
+        # The pint .magnitude can be an ndarray shape (1,) if any input is a
+        # bulk count array; coerce via float(np.asarray(...).sum()) to handle
+        # both shapes.
+        n_can_cleave_f = float(
+            np.asarray(n_can_cleave_q.to(units.dimensionless).magnitude).sum()
+        )
+        n_can_cleave = stochasticRound(self.random_state, n_can_cleave_f)[0]
+
+        # Decide how many actually terminate.
+        if n_can_cleave >= n_needs_cleaving:
+            cleaved = n_needs_cleaving
+            not_cleaved = 0
+        else:
+            cleaved = int(n_can_cleave)
+            not_cleaved = n_needs_cleaving - cleaved
+
+            # Defer some terminations until MAP catches up next tick.
+            candidates = np.logical_and(
+                did_terminate,
+                np.array([self.is_map_substrate[x] for x in protein_indexes]),
+            )
+            n_candidates = int(candidates.sum())
+            if n_candidates > 0:
+                i_cannot_cleave = self.random_state.multinomial(
+                    not_cleaved, candidates / n_candidates
+                ).astype(bool)
+                did_terminate[i_cannot_cleave] = False
+                terminated_proteins = np.bincount(
+                    protein_indexes[did_terminate],
+                    minlength=self.protein_sequences.shape[0],
+                )
+
+        listeners = {
+            "trna_charging": {
+                "cleaved": int(cleaved),
+                "not_cleaved": int(not_cleaved),
+            }
+        }
+        return did_terminate, terminated_proteins, cleaved, listeners
+
+    def monomer_to_aa(self, monomer):
+        """Aggregate a per-codon count vector into a per-AA count vector.
+
+        ``codons_to_amino_acids`` is an ``(n_aas, n_codons)`` 0/1 matrix, so
+        the matmul produces the per-AA usage sum.
+
+        Port of upstream ``KineticTrnaChargingModel.monomer_to_aa``
+        (lines 2727–2728). (Pulled forward from 3e into 3d because the
+        :meth:`evolve_state` override consumes it.)
+        """
+        return self.codons_to_amino_acids @ monomer
+
+    def monomer_limit(self, states, monomer_count_in_sequence):
+        """Per-codon cap (and the AA-domain projection) for polymerize.
+
+        Returns the codon-domain cap stored from the kinetic prediction
+        in :meth:`request` (``self.codons_kinetics_model``), plus its
+        AA-domain projection so the surrounding ``evolve_state`` can log
+        the AA-equivalent.
+
+        Port of upstream ``KineticTrnaChargingModel.monomer_limit``
+        (lines 2730–2734). (Pulled forward from 3e into 3d because the
+        :meth:`evolve_state` override consumes it.)
+        """
+        return (
+            self.codons_kinetics_model,
+            self.codons_to_amino_acids @ self.codons_kinetics_model,
+        )
+
+    def next_amino_acids(self, all_sequences, sequence_elongations):
+        """Per-AA count of the next codon each ribosome would read.
+
+        The base elongation models return 0 (no look-ahead); kinetic
+        inherits that. Listener emission in :meth:`evolve_state`
+        consumes the result.
+
+        Mirrors upstream ``BaseElongationModel.next_amino_acids``
+        (lines 943–944).
+        """
+        return 0
+
+    def codon_sequences_width(self, elongation_rates):
+        """Sequence-table read-ahead width for the next tick.
+
+        Returns the per-tick width cached by :meth:`elongation_rate`. The
+        ``elongation_rates`` arg is the base's choice (variable elongation
+        for ppGpp models); ignored here since the kinetic model fixes the
+        width at the basal rate + reconciliation buffer.
+
+        Port of upstream ``KineticTrnaChargingModel.codon_sequences_width``
+        (lines 2736–2737).
+        """
+        return self.sequences_width
+
+    def sequences(self, sequences):
+        """Return the codon-based sequence table built in :meth:`elongation_rate`.
+
+        Called from ``evolve_state`` with the amino-acid-based ``sequences``
+        argument from the base, which the kinetic model swaps out for its
+        own codon-based ``longer_sequences``. The arg is intentionally
+        unused (kept for API parity with upstream).
+
+        Port of upstream ``KineticTrnaChargingModel.sequences`` (lines
+        2798–2799).
+        """
+        return self.longer_sequences
+
+    def max_charging_rate(self, states, attr):
+        """Per-synthetase max charging rate at the current enzyme count.
+
+        ``v_max = k_cat * [synthetase]`` for each amino acid.
+
+        Port of upstream ``KineticTrnaChargingModel.max_charging_rate``
+        (lines 2715–2718). Differences:
+
+        * ``self.process.trna_synthetases_for_aas_idx`` →
+          ``self.synthetase_idx``.
+        """
+        # v2ecoli's synthetase_idx covers the full enzyme list (~22 entries
+        # incl. selenocysteine specials); k_cat__per_s is per-AA (21 entries).
+        # Project all-enzyme counts onto AAs via aa_from_synthetase.
+        n_synthetases_all = counts(states[attr], self.synthetase_idx)
+        n_synthetases_per_aa = self.parameters["aa_from_synthetase"] @ n_synthetases_all
+        v_max = self.k_cat__per_s * n_synthetases_per_aa
+        return v_max
+
+    def get_kinetic_constants(self, cell_mass):
+        """Resolve mass-density-dependent kinetic constants.
+
+        The kinetic Michaelis constants are stored per-litre
+        (``K_M_amino_acid__per_L``, ``K_M_trna__per_L``) so they survive
+        cell-volume changes; converts back to per-cell using the current
+        cell mass and density. Returns ``(K_M_amino_acids, K_M_trnas)`` as
+        ``pint.Quantity`` arrays.
+
+        Port of upstream ``KineticTrnaChargingModel.get_kinetic_constants``
+        (lines 2720–2725). Differences:
+
+        * Upstream multiplies by ``cell_volume`` as a Unum scalar; we use
+          pint Quantities throughout (via the unit_bridge).
+        """
+        # cell_mass may arrive as a plain fg float (upstream contract) or as
+        # a pint Quantity (v2ecoli's listener convention). Normalize.
+        if hasattr(cell_mass, "to"):
+            cell_mass_q = cell_mass.to(units.fg)
+        else:
+            cell_mass_q = cell_mass * units.fg
+        cell_volume = cell_mass_q / self.cell_density
+        cell_volume = np.float64(cell_volume.to(units.L).magnitude)
+        K_M_amino_acids = self.K_M_amino_acid__per_L * cell_volume
+        K_M_trnas = self.K_M_trna__per_L * cell_volume
+        return K_M_amino_acids, K_M_trnas

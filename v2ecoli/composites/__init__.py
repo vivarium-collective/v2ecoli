@@ -16,6 +16,8 @@ from v2ecoli.composites import (  # noqa: F401
     baseline_time_varying_env,
     batch_baseline,
     colony,
+    consensus_baseline,
+    kinetic_charging_baseline,
     millard_fba_bridge_harness,
     millard_pdmp_baseline,
     parca,
@@ -46,6 +48,8 @@ def _register_clean_alias(slug):
 
 
 _register_clean_alias("baseline")
+_register_clean_alias("consensus_baseline")
+_register_clean_alias("kinetic_charging_baseline")
 _register_clean_alias("parca")
 _register_clean_alias("batch_baseline")
 
@@ -57,6 +61,8 @@ __all__ = [
     "baseline_time_varying_env",
     "batch_baseline",
     "colony",
+    "consensus_baseline",
+    "kinetic_charging_baseline",
     "millard_fba_bridge_harness",
     "millard_pdmp_baseline",
     "parca",

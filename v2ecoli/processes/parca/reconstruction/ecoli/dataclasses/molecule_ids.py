@@ -31,6 +31,10 @@ class MoleculeIds(object):
             "proton": "PROTON[c]",
             "ppi": "PPI[c]",
             "full_chromosome": "CHROM_FULL[c]",
+            # Sentinel for "start codon" used by the kinetic-charging
+            # codon-based Relation methods (Task #6); mirrors upstream
+            # trna_charging_final molecule_ids.py.
+            "start_codon": "start",
         }
 
         self.__dict__.update(molecule_ids)

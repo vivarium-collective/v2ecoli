@@ -1,0 +1,28 @@
+============================================================
+v2ecoli multigeneration report — 3 generation(s)
+============================================================
+  Gen 1: building from cache out/cache
+module `v2ecoli.library.parquet_emitter` not found during dynamic import
+module `v2ecoli.library.xarray_emitter` not found during dynamic import
+skipping `v2ecoli.processes.parca.wholecell.utils._netflow.nf_cplex` (missing optional dep `cplex`)
+skipping `v2ecoli.processes.parca.wholecell.utils.toya` (missing optional dep `v2ecoli.processes.parca.ecoli.processes`)
+skipping `wholecell.utils._netflow.nf_cplex` (missing optional dep `cplex`)
+skipping `spatio_flux.experiments.compare_comets` (missing optional dep `cometspy`)
+    initial dry_mass=380.7 fg
+DIVISION at t=2491s (dry_mass=702.8 fg, threshold=702.8 fg, chromosomes=2)
+  DAUGHTERS: 00 (bulk=27665280963) + 01 (bulk=27664875104)
+    gen 1: 225s wall, sim 2500s, dry_mass 381→696, divided=True
+  Gen 2: dividing previous cell, keeping daughter 1
+    built daughter composite in 3.9s
+DIVISION at t=2887s (dry_mass=673.0 fg, threshold=672.9 fg, chromosomes=2)
+  DAUGHTERS: 00 (bulk=26510730206) + 01 (bulk=26510444108)
+    gen 2: 244s wall, sim 2900s, dry_mass 351→667, divided=True
+  Gen 3: dividing previous cell, keeping daughter 1
+    built daughter composite in 4.0s
+DIVISION at t=2832s (dry_mass=657.9 fg, threshold=657.9 fg, chromosomes=2)
+  DAUGHTERS: 00 (bulk=25922588067) + 01 (bulk=25922578474)
+    gen 3: 241s wall, sim 2850s, dry_mass 336→653, divided=True
+  Dispatching to MultigenerationVisualization…
+============================================================
+Pipeline wall time: 724 s
+Report: out/multigeneration/multigeneration_report.html

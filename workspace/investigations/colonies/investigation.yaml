@@ -62,8 +62,12 @@ description: |
   no longer treated as a hard blocker; it is now a stated run-length bound on
   WCM-tier runs. colonies-04-device-phenotype-harness stands up the shared
   factory, geometry builders, and phenotype extractor and validates the
-  pipeline with simple agents; colonies-05 (surrogate tier), colonies-06 (WCM ×
-  media × geometry), and colonies-07 (real mother-machine data) are planned
+  pipeline with simple agents. colonies-05-mother-machine and
+  colonies-06-daughter-machine run the two canonical viva-munk microfluidic
+  devices now with simple agents, rendering the running animation and the
+  size-at-division / birth→division-time / added-size distributions (conclusions
+  held for experimental data). colonies-07 (surrogate tier), colonies-08 (WCM ×
+  media × geometry), and colonies-09 (real mother-machine data) are planned
   follow-ons.
 
 executive:
@@ -122,9 +126,11 @@ studies:
   - colonies-02-parallel-multigen-perf
   - colonies-03-wcm-rss-leak
   - colonies-04-device-phenotype-harness
-  # - colonies-05-surrogate-agent-tier   # planned; buildable, own plan
-  # - colonies-06-wcm-media-geometry      # planned; compute-bounded, own plan
-  # - colonies-07-mother-machine-data     # planned; pending real dataset
+  - colonies-05-mother-machine
+  - colonies-06-daughter-machine
+  # - colonies-07-surrogate-agent-tier   # planned; buildable, own plan
+  # - colonies-08-wcm-media-geometry      # planned; compute-bounded, own plan
+  # - colonies-09-mother-machine-data     # planned; pending real dataset
 
 expert_docs: []
 
@@ -138,3 +144,13 @@ acceptance_criteria:
   - {study: colonies-04-device-phenotype-harness, behavior: geometry-builders-run-with-simple-agents}
   - {study: colonies-04-device-phenotype-harness, behavior: extractor-recovers-known-division-stats}
   - {study: colonies-04-device-phenotype-harness, behavior: harness-produces-phenotype-panel}
+  - {study: colonies-05-mother-machine, behavior: mother-machine-runs-and-divides}
+  - {study: colonies-05-mother-machine, behavior: running-animation-rendered}
+  - {study: colonies-05-mother-machine, behavior: size-at-division-distribution}
+  - {study: colonies-05-mother-machine, behavior: interdivision-time-distribution}
+  - {study: colonies-05-mother-machine, behavior: added-size-distribution}
+  - {study: colonies-06-daughter-machine, behavior: daughter-machine-runs-and-divides}
+  - {study: colonies-06-daughter-machine, behavior: running-animation-rendered}
+  - {study: colonies-06-daughter-machine, behavior: size-at-division-distribution}
+  - {study: colonies-06-daughter-machine, behavior: interdivision-time-distribution}
+  - {study: colonies-06-daughter-machine, behavior: added-size-distribution}

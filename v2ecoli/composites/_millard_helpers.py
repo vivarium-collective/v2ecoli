@@ -1,15 +1,15 @@
 """Shared Millard-composite helpers.
 
 Single source for the symbols that the Millard-family composites
-(``baseline_millard``, ``reactor_bird_coupled_millard``, and
-``baseline_millard``) all need:
+(``baseline_millard`` — both its ``lqr=False`` and ``lqr=True`` paths — and
+``reactor_bird_coupled_millard``) all need:
 
 - ``_get_step_config`` — the per-step config dispatcher (identical to
   ``baseline.py``'s but with ``ecoli-metabolism`` intentionally ABSENT,
   since these composites replace tFBA metabolism with the Millard ODE).
   It still handles the LQR / FBA-bridge / ref-growth / millard-bulk-indexer
-  step names for the ``baseline_millard`` path; the env-driven siblings
-  simply never request those features.
+  step names for the ``lqr=True`` path; the env-driven ``lqr=False`` path
+  simply never requests those features.
 - ``_register_millard_pdmp_links`` — ``core_extensions`` hook registering the
   Millard / FBA-bridge / multi-state-LQR Process classes.
 - ``FEATURE_MODULES`` / ``DEFAULT_FEATURES`` — opt-in feature-module table.

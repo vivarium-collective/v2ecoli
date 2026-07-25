@@ -97,6 +97,18 @@ def categorize(name: str) -> str:
     return "Metabolism"
 
 
+def bulk_to_counts(bulk) -> dict:
+    """A live ``['bulk']`` store (structured array with ``id``/``count`` fields)
+    → ``{ecocyc_id: summed_count}``, compartment tags stripped."""
+    ids = [str(x) for x in bulk["id"]]
+    cnts = list(bulk["count"])
+    counts = {}
+    for idt, c in zip(ids, cnts):
+        base = idt[:-1].rsplit("[", 1)[0] if idt.endswith("]") and "[" in idt else idt
+        counts[base] = counts.get(base, 0) + int(c)
+    return counts
+
+
 def load_state(state_source="snapshot", advance_s=2.0, seed=0):
     """Return ``(counts, volume_fl)``: counts is ``{ecocyc_id: count}`` (compartment
     tags stripped, summed); volume in fL."""
@@ -108,18 +120,11 @@ def load_state(state_source="snapshot", advance_s=2.0, seed=0):
         bulk = cell["bulk"]
         vol = cell["listeners"]["mass"]["volume"]
         volume_fl = float(getattr(vol, "magnitude", vol))
-        ids = [str(x) for x in bulk["id"]]
-        cnts = list(bulk["count"])
     else:
         st = np.load(DATA / "v2ecoli_state.npz")
-        ids = [str(x) for x in st["ids"]]
-        cnts = list(st["counts"])
+        bulk = {"id": st["ids"], "count": st["counts"]}
         volume_fl = float(st["volume"])
-    counts = {}
-    for idt, c in zip(ids, cnts):
-        base = idt[:-1].rsplit("[", 1)[0] if idt.endswith("]") and "[" in idt else idt
-        counts[base] = counts.get(base, 0) + int(c)
-    return counts, volume_fl
+    return bulk_to_counts(bulk), volume_fl
 
 
 def _bnum(gene_id, genes):
@@ -202,10 +207,9 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000):
     return ingredients
 
 
-def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=0.3,
-                state_source="snapshot", proxy_lod=2) -> dict:
-    """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result."""
-    counts, volume_fl = load_state(state_source)
+def pack_from_state(out_dir, name, counts, volume_fl, *, top_n=40, scale=0.3, proxy_lod=2):
+    """Pack a 3D structural model directly from in-memory ``counts``/``volume_fl``
+    (no ``load_state`` round-trip). Returns build_pack's result dict."""
     ingredients = select_ingredients(counts, top_n=top_n)
     capsule = Capsule.from_volume_fl(volume_fl)
     chromosome = Chromosome(
@@ -215,6 +219,13 @@ def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=0.3,
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200})
     return build_pack(ingredients, capsule, chromosome,
                       out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
+
+
+def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=0.3,
+                state_source="snapshot", proxy_lod=2) -> dict:
+    """Build the 3D E. coli pack from a v2ecoli state. Returns build_pack's result."""
+    return pack_from_state(out_dir, name, *load_state(state_source),
+                           top_n=top_n, scale=scale, proxy_lod=proxy_lod)
 
 
 if __name__ == "__main__":

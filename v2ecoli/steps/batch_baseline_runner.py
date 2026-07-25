@@ -29,7 +29,6 @@ import os
 from typing import Any, Callable
 
 from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.types.stores import InPlaceDict
 
 
 DEFAULT_N_SEEDS = 4
@@ -54,7 +53,18 @@ def resolve_out_dir(out_dir: "str | None" = None) -> str:
     """
     if out_dir:
         return out_dir
-    return os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR") or DEFAULT_OUT_DIR
+    sweep = os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR")
+    if sweep:
+        return sweep
+    # On the sms-api compose / Ray-on-Batch path, run_pbg sets PBG_RESULTS_DIR to
+    # the dir the entrypoint syncs to S3 (RAY_OUT_DIR). Land the sweep, stores and
+    # analyses there so they're actually collected — the fixed workspace default
+    # would write outside the synced dir and the results would never leave the
+    # container.
+    results = os.environ.get("PBG_RESULTS_DIR")
+    if results:
+        return os.path.join(results, "batch_baseline")
+    return DEFAULT_OUT_DIR
 
 
 DEFAULT_EXPERIMENT_ID = "batch_baseline"
@@ -412,7 +422,14 @@ class BatchBaselineRunner(Step):
     def inputs(self) -> dict[str, Any]:
         # Read `batch` so the idempotency guard is persistent (survives the
         # dashboard composite-runner rebuilding the Step from the document).
-        return {"batch": InPlaceDict()}
+        # Declare the port by its REGISTERED TYPE NAME ("inplace_dict" in
+        # ECOLI_TYPES), not an `InPlaceDict()` instance: the instance serializes
+        # to its repr in `to_document` (`"InPlaceDict(_default=None, ...)"`),
+        # which the parser can't reparse when the .pbg is round-tripped through
+        # remote dispatch (workbench export -> sms-api compose -> run_pbg on
+        # Batch), failing Composite() with an IncompleteParseError. The name
+        # string round-trips cleanly and resolves back to InPlaceDict via the core.
+        return {"batch": "inplace_dict"}
 
     def triggers(self) -> dict[str, Any]:
         """No trigger ports — ``batch`` is a SILENT input.
@@ -432,7 +449,9 @@ class BatchBaselineRunner(Step):
         return {}
 
     def outputs(self) -> dict[str, Any]:
-        return {"batch": InPlaceDict()}
+        # Registered type name, not an instance — see inputs() for the
+        # serialization round-trip rationale.
+        return {"batch": "inplace_dict"}
 
     def update(self, state, interval=None):
         batch = (state or {}).get("batch") or {}

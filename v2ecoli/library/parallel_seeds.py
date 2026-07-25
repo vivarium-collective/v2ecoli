@@ -131,16 +131,28 @@ def run_seeds_parallel(
     if ray_env:
         env_vars.update({k: str(v) for k, v in ray_env.items()})
 
-    ray.init(ignore_reinit_error=True, log_to_driver=False,
-             runtime_env={"env_vars": env_vars})
+    # Nest-safe: only bootstrap Ray if we're not ALREADY inside a cluster. The
+    # compose / Ray-on-Batch entrypoint forms a cluster before running run_pbg,
+    # and tearing it down (ray.shutdown below) mid-run killed the workers — the
+    # batch came back empty in ~1s. When a cluster already exists we reuse it
+    # (fan out across its nodes) and leave it running.
+    started_ray = not ray.is_initialized()
+    if started_ray:
+        ray.init(ignore_reinit_error=True, log_to_driver=False,
+                 runtime_env={"env_vars": env_vars})
     try:
         remote = ray.remote(run_one)
         t0 = time.time()
-        futures = [remote.options(num_cpus=threads).remote(s, **kw) for s in seeds]
+        # Pass the thread env per task so workers get it whether or not we started
+        # Ray (a reused cluster keeps its own top-level runtime_env).
+        futures = [remote.options(num_cpus=threads,
+                                  runtime_env={"env_vars": env_vars}).remote(s, **kw)
+                   for s in seeds]
         results = ray.get(futures)           # critical-path wall = slowest seed
         wall = time.time() - t0
     finally:
-        ray.shutdown()
+        if started_ray:
+            ray.shutdown()               # never tear down a cluster we didn't start
 
     return ParallelResult(
         results=results, wall_s=round(wall, 2), mode="ray", n_seeds=n,

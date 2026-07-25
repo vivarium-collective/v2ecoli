@@ -26,6 +26,7 @@ unique-molecule section.
 
 import numpy as np
 
+from bigraph_schema.contract import ProcessContract
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.types.labeled_array import register_labeled_array
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
@@ -59,6 +60,63 @@ class CountsDeriver(Step):
         "and in active ribosomes/RNAPs/replisomes), and per-type active "
         "unique-molecule totals. Consolidates the former RNACounts, "
         "MonomerCounts, and UniqueMoleculeCounts listeners into one step."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "Count-observable deriver: tallies mRNA/rRNA transcription-unit and "
+            "cistron counts (partial vs full transcripts), protein monomer "
+            "counts (decomposing bulk complexes and folding in subunits "
+            "sequestered in active ribosomes/RNAPs/replisomes and promoter-bound "
+            "TFs), and per-type active unique-molecule totals. Pure read-out."
+        ),
+        math=[
+            "n_monomer = bulk_free + S_cplx·(-n_complex) + S_eq·(-n_eqcplx) + S_tcs·(-n_tcs) + subunits(active ribosome/RNAP/replisome + bound_TF)",
+            "TU_counts = bincount(RNA.TU_index over translatable + rRNA);  cistron_counts = M_cistron_TU · TU_counts;  partial = all - full",
+            "unique_type_count = sum(_entryState) per unique-molecule type",
+        ],
+        symbols={
+            "n_monomer": "protein monomer counts, including monomers sequestered in complexes and active machinery (count)",
+            "bulk_free": "free bulk molecule counts before complex decomposition (count)",
+            "S_cplx": "complexation stoichiometry (molecules × complexes); unpacks bulk complexes into constituent monomers",
+            "n_complex": "counts of bulk complexation complexes being decomposed (count)",
+            "S_eq": "equilibrium-binding stoichiometry; unpacks equilibrium complexes into monomers",
+            "n_eqcplx": "counts of equilibrium complexes (count)",
+            "S_tcs": "two-component-system stoichiometry; unpacks phosphotransfer complexes into monomers",
+            "n_tcs": "counts of two-component-system complexes (count)",
+            "TU_counts": "per-transcription-unit RNA counts from bincount over unique RNA TU_index (count)",
+            "M_cistron_TU": "cistron × transcription-unit mapping matrix",
+            "cistron_counts": "per-cistron RNA counts (count)",
+            "_entryState": "per-row active flag of a unique-molecule array; summed to count active molecules of a type",
+        },
+        inputs={
+            "RNAs": "Reads unique RNA TU_index, can_translate, and is_full_transcript to tally mRNA/rRNA transcription-unit and cistron counts (partial vs full transcripts).",
+            "bulk": "Reads bulk molecule counts, then decomposes complexes (TCS → equilibrium → complexation) to recover protein monomer totals.",
+            "unique": "Reads active_ribosome/active_RNAP/active_replisome _entryState to fold sequestered subunits into monomer totals and to report per-type active counts.",
+            "promoters": "Reads bound_TF to fold promoter-bound transcription-factor subunits back into monomer totals.",
+            "global_time": "Clock read used with timestep to gate the update cadence.",
+            "timestep": "Update cadence divisor (update runs when global_time % timestep == 0).",
+        },
+        outputs={
+            "listeners": "Writes rna_counts (mRNA/rRNA TU and cistron counts, partial/full), monomer_counts (overwrite/SET semantics), and unique_molecule_counts (per-type active totals).",
+        },
+        config={
+            "cistron_tu_mapping_matrix": "Cistron × transcription-unit matrix M_cistron_TU mapping TU counts to cistron counts.",
+            "complexation_stoich": "Complexation stoichiometry S_cplx; unpacks bulk complexes into constituent monomers.",
+            "equilibrium_stoich": "Equilibrium-binding stoichiometry S_eq; unpacks equilibrium complexes.",
+            "two_component_system_stoich": "Two-component-system stoichiometry S_tcs; unpacks phosphotransfer complexes.",
+            "monomer_ids": "Protein monomer species whose final counts are reported.",
+            "unique_ids": "Unique-molecule types whose active _entryState totals are reported.",
+            "tf_ids": "Transcription-factor subunit ids folded back into monomer totals from promoter-bound TFs.",
+            "ribosome_50s_subunits": "50S ribosomal subunit ids + stoichiometry for active-ribosome subunit accounting.",
+            "ribosome_30s_subunits": "30S ribosomal subunit ids + stoichiometry for active-ribosome subunit accounting.",
+            "rnap_subunits": "RNA-polymerase subunit ids + stoichiometry for active-RNAP subunit accounting.",
+        },
+        assumptions=[
+            "Pure derivation/read-out: it does not mutate bulk/unique state; monomer_counts uses overwrite (SET) semantics to avoid step-wise accumulation.",
+            "Complexes are decomposed in order TCS → equilibrium → complexation (nested subunits) after adding active-machinery and bound-TF subunits, so nested complexes fully resolve to monomers.",
+            "Consolidates the former RNACounts, MonomerCounts, and UniqueMoleculeCounts listeners; verified byte-identical to the pre-consolidation baseline.",
+        ],
     )
 
     name = NAME

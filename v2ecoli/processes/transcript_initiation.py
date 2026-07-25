@@ -76,6 +76,7 @@ from v2ecoli.library.schema_types import (
     ACTIVE_RNAP_ARRAY,
     PROMOTER_ARRAY,
 )
+from bigraph_schema.contract import ProcessContract
 
 
 # dnaA autoregulation constants (dnaa-4 / Rashmi mechanism)
@@ -214,6 +215,109 @@ class TranscriptInitiation(Step):
         "  with p_i ← 0 for TUs that are footprint-crowded (~24 nt) or lack a chromosomal promoter.\n"
         "  f_active: media-dependent active RNAP fraction;  delta_prob: sparse (COO→CSR) TF effect matrix.\n"
         "  ppGpp (optional) modulates basal_prob and f_active via fitted functions."
+    )
+
+    contract = ProcessContract(
+        summary=(
+            "Activates inactive RNAPs and distributes them across transcription "
+            "units by weighted multinomial (or Poisson tau-leap) sampling of "
+            "per-promoter initiation probabilities."
+        ),
+        inputs={
+            'environment': (
+                "reads media_id to select the media-dependent active-RNAP "
+                "fraction f_active, the RNAP elongation rate, and the per-RNA-type "
+                "(mRNA/tRNA/rRNA) synthesis-probability fractions for this tick."
+            ),
+            'full_chromosomes': (
+                "presence gate: if the cell has no full chromosome, every "
+                "promoter initiation probability is forced to zero (no initiation)."
+            ),
+            'promoters': (
+                "reads each promoter's TU_index and bound_TF to build the "
+                "per-promoter probability p_i = basal_prob + delta_prob·bound_TF, "
+                "and to map promoters↔transcription units."
+            ),
+            'bulk': (
+                "reads the count of inactive RNAP (APORNAP-CPLX) to convert the "
+                "activation probability into an integer number of RNAPs to activate."
+            ),
+            'timestep': (
+                "reads the tick length to size the RNAP activation probability "
+                "(_calculateActivationProb) and the footprint-crowding cap max_p."
+            ),
+            'ppgpp_state': (
+                "reads optional basal_prob and frac_active_rnap written by "
+                "PpgppInitiation; when present these override the media-default "
+                "basal_prob and f_active and switch the TF effect to multiplicative."
+            ),
+            'dnaa_hydrolysis': (
+                "reads promoter_fraction (bound fraction of dnaA-box sites) to "
+                "scale down the dnaA TU's initiation probability (autoregulation)."
+            ),
+        },
+        outputs={
+            'bulk': "decrements the inactive-RNAP pool by the number of RNAPs activated.",
+            'RNAs': (
+                "adds one partially-transcribed RNA unique molecule per initiation "
+                "(transcript_length 0, linked to its RNAP via RNAP_index)."
+            ),
+            'active_RNAPs': (
+                "adds the newly activated RNAP unique molecules with starting "
+                "coordinates, direction and domain index."
+            ),
+            'listeners': (
+                "writes synthesis-probability diagnostics (target/actual "
+                "rna_synth_prob, max_p, tu_is_overcrowded, total_rna_init), rRNA "
+                "initiation counts, and rnap_data (did_initialize, rna_init_event, "
+                "log_likelihood)."
+            ),
+        },
+        config={
+            'fracActiveRnapDict': "media → active-RNAP fraction f_active lookup (media default when ppGpp regulation is off).",
+            'basal_prob': "per-TU baseline synthesis probability vector basal_prob_i.",
+            'delta_prob': "sparse COO TF-effect matrix (deltaV, deltaI, deltaJ, shape) on TU synthesis probabilities.",
+            'get_delta_prob_matrix': "builds the dense delta_prob matrix (ppGpp-aware) at initialization.",
+            'rnaSynthProbFractions': "media → target synthesis-probability fractions per RNA type (mRna/tRna/rRna) used to rescale p_i.",
+            'rnaSynthProbRProtein': "media → fixed synthesis probabilities for ribosomal-protein TUs.",
+            'rnaSynthProbRnaPolymerase': "media → fixed synthesis probabilities for RNAP-subunit TUs.",
+            'active_rnap_footprint_size': "RNAP promoter footprint (~24 nt) that caps per-promoter init probability (max_p).",
+            'rnaPolymeraseElongationRateDict': "media → RNAP elongation rate (nt/s); feeds the activation-probability and footprint cap.",
+            'rnaLengths': "TU lengths (nt); set the expected transcription time and termination rate in the activation-probability calc.",
+            'idx_mRNA': "TU indices classified as mRNA, for type-specific probability rescaling.",
+            'idx_rRNA': "TU indices classified as rRNA, for type-specific probability rescaling.",
+            'idx_tRNA': "TU indices classified as tRNA, for type-specific probability rescaling.",
+            'idx_rprotein': "TU indices of ribosomal proteins, given fixed synthesis probabilities.",
+            'idx_rnap': "TU indices of RNAP subunits, given fixed synthesis probabilities.",
+            'replication_coordinate': "chromosomal coordinate per TU; set as the start coordinate of each new RNAP.",
+            'transcription_direction': "per-TU transcription direction; set on each new RNAP.",
+            'ppgpp_regulation': "whether ppGpp-dependent regulation is active (changes how the delta_prob matrix is built).",
+            'inactive_RNAP': "bulk id of the inactive-RNAP (APORNAP-CPLX) pool drawn from.",
+            'ppgpp': "bulk id of ppGpp.",
+            'variable_elongation': "whether rRNA elongation rates are amplified when building elongation rates.",
+            'pdmp_initiation_mode': "'discrete' exact-sum multinomial vs 'poisson' per-promoter tau-leap sampling of initiations.",
+            'transcript_init_prob_scale': "poisson mode: scalar multiplier on the per-promoter initiation rate before drawing Poisson samples (ABC-SMC knob).",
+        },
+        symbols={
+            'n_to_activate': "number of RNAPs to activate this tick (integer count)",
+            'f_active': "media-dependent active-RNAP fraction (dimensionless, 0–1)",
+            'n_total_RNAP': "total RNAP molecules (active + inactive) (count)",
+            'n_active': "currently active RNAP molecules (count)",
+            'p_i': "initiation probability weight of transcription unit i (dimensionless)",
+            'basal_prob_i': "baseline synthesis probability of TU i (dimensionless)",
+            'basal_prob': "vector of baseline per-TU synthesis probabilities (dimensionless)",
+            'delta_prob[i,j]': "additive effect of bound TF j on the synthesis probability of TU i (dimensionless)",
+            'bound_TF_j': "1 if TF j is bound at the promoter, else 0 (indicator)",
+            'ppGpp': "guanosine tetraphosphate; its concentration modulates basal_prob and f_active (mol/L)",
+        },
+        assumptions=[
+            "Only TUs with at least one promoter on an existing chromosome can initiate; with no full chromosome no initiation occurs.",
+            "An RNAP occupies ~24 nt at the promoter; overcrowded TUs are capped at max_p and the excess probability mass is redistributed.",
+            "In discrete mode initiation events are a single multinomial draw so Σ initiations equals n_to_activate exactly; poisson mode gives independent per-promoter marginals with a resource cap.",
+            "rProtein and RNAP TUs carry fixed media-specific synthesis probabilities; remaining probability mass is rescaled around them.",
+            "TF effect is additive on basal_prob via the sparse delta_prob matrix; under ppGpp regulation it becomes multiplicative on the ppGpp-adjusted basal via a smooth accessibility gain b²/(b+K).",
+        ],
+        references=[],
     )
 
     name = NAME

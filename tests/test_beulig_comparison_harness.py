@@ -231,7 +231,7 @@ def test_report_card_axis_tests_resolve_via_study_evaluator():
     h.run_harness("wcm", steps=2, render=False)
     h.run_harness("millard", steps=2, render=False)
 
-    from pbg_superpowers.study_evaluator import evaluate_test
+    from viva_superpowers.study_evaluator import evaluate_test
     cases = [
         ("docs/report_cards/beulig_batch/vs_beulig", "growth"),       # mbp-05
         ("docs/report_cards/beulig_batch/vs_beulig", "gas_transfer"),

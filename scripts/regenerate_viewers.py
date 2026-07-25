@@ -243,7 +243,7 @@ def _log_resolve_failure(spec_id: str) -> None:
     """Print the underlying reason a composite failed to resolve (the dashboard
     resolver hides it behind a None return)."""
     try:
-        from pbg_superpowers.composite_generator import (
+        from viva_superpowers.composite_generator import (
             _REGISTRY, build_generator, discover_generators,
         )
         if spec_id not in _REGISTRY:

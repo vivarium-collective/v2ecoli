@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import html as _html
 
-from pbg_superpowers.visualization import Visualization
+from viva_superpowers.visualization import Visualization
 
 # Module-level caches so rendering N panels for one run loads the (large) ParCa
 # sim_data pickle + validation data ONCE, and imports the analysis registry once.

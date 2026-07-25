@@ -7,7 +7,7 @@ import pytest
 
 @pytest.mark.fast
 def test_baseline_function_is_registered():
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     from v2ecoli.composites import baseline  # noqa: F401 — fires decorator
     names = {e.name for e in _REGISTRY.values()}
     assert "baseline" in names

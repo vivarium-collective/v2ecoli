@@ -2,12 +2,12 @@
 
 Importing this package forces the per-architecture modules to load, which
 fires their ``@composite_generator`` decorators and registers the generators
-in ``pbg_superpowers.composite_generator._REGISTRY``.
+in ``viva_superpowers.composite_generator._REGISTRY``.
 """
 
 import dataclasses as _dataclasses
 
-from pbg_superpowers.composite_generator import _REGISTRY as _COMPOSITE_REGISTRY
+from viva_superpowers.composite_generator import _REGISTRY as _COMPOSITE_REGISTRY
 
 from v2ecoli.composites import (  # noqa: F401
     baseline,

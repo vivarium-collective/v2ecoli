@@ -1,11 +1,11 @@
 """The baseline generator ships a ParquetEmitter as its default sink.
 
-Exercises the pbg_superpowers ``@composite_generator(emitters=[...])``
+Exercises the viva_superpowers ``@composite_generator(emitters=[...])``
 convention end-to-end: the baseline generator declares a ParquetEmitter
 default, and the 'emitter' step materialises it when no external override is
 set — while external overrides still win. See
 ``v2ecoli.composites._helpers.set_default_emitter_decl`` and
-``pbg_superpowers.composite_generator.emitter_defaults``.
+``viva_superpowers.composite_generator.emitter_defaults``.
 """
 import os
 import pytest
@@ -27,7 +27,7 @@ def _emitter_instance(doc):
 
 def test_baseline_declares_parquet_default():
     """The generator advertises a ParquetEmitter via emitter_defaults()."""
-    from pbg_superpowers.composite_generator import emitter_defaults
+    from viva_superpowers.composite_generator import emitter_defaults
     from v2ecoli.composites.baseline import baseline
 
     decls = emitter_defaults(baseline)

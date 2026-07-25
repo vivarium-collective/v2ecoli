@@ -313,7 +313,7 @@ _PARQUET_EMITTER_OVERRIDE: dict | None = None
 # XArrayEmitter) and don't want the internal emitter wasting memory.
 _NULL_EMITTER_OVERRIDE: bool = False
 
-# The generator-declared default emitter (see pbg_superpowers
+# The generator-declared default emitter (see viva_superpowers
 # composite_generator's ``emitters=`` convention + ``emitter_defaults``). A
 # ``{address, config, paths?}`` dict that the 'emitter' step materialises when
 # NO external override (parquet / sqlite / null) is set — i.e. the composite's
@@ -361,7 +361,7 @@ def set_default_emitter_decl(decl: dict | None) -> None:
 
     ``decl`` is a ``{address, config, paths?}`` dict from a generator's
     ``@composite_generator(emitters=[...])`` declaration (read via
-    ``pbg_superpowers.composite_generator.emitter_defaults``). Pass None to
+    ``viva_superpowers.composite_generator.emitter_defaults``). Pass None to
     clear. The 'emitter' step uses it only when no external parquet / sqlite /
     null override is active. A generator should set this around its build and
     clear it in a ``finally`` so it never leaks into a later composite built in

@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.fast
 def test_network_visualization_is_visualization_subclass():
     from v2ecoli.visualizations.network import NetworkVisualization
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
     assert issubclass(NetworkVisualization, Visualization)
 
 

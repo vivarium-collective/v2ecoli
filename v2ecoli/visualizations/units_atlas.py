@@ -6,7 +6,7 @@ from __future__ import annotations
 import html as _html
 from pathlib import Path
 
-from pbg_superpowers.visualization import Visualization
+from viva_superpowers.visualization import Visualization
 from v2ecoli.library.units_atlas import (
     build_atlas,
     dimension_description,

@@ -16,7 +16,7 @@ from typing import Any
 
 warnings.filterwarnings("ignore")
 
-from pbg_superpowers.visualization import Visualization
+from viva_superpowers.visualization import Visualization
 
 from v2ecoli.library.units_resolver import units_finalize_figure
 from v2ecoli.visualizations._helpers import render_document

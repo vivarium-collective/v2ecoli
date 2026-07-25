@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.fast
 def test_multigeneration_subclass():
     from v2ecoli.visualizations.multigeneration import MultigenerationVisualization
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
     assert issubclass(MultigenerationVisualization, Visualization)
 
 

@@ -31,7 +31,7 @@ real KB is injected by those runners), matching ``build_parca_document``.
 
 from typing import Any
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.processes.parca.composite import build_parca_document, STEP_ORDER
 from v2ecoli.processes.parca.schema import register_parca_schema

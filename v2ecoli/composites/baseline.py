@@ -38,7 +38,7 @@ def _derive_process_seed(master_seed: int, process_name: str) -> int:
     """
     return binascii.crc32(process_name.encode("utf-8"), master_seed) & 0x7FFFFFFF
 
-from pbg_superpowers.composite_generator import composite_generator, emitter_defaults
+from viva_superpowers.composite_generator import composite_generator, emitter_defaults
 
 from v2ecoli.core import build_core, load_cache_bundle
 

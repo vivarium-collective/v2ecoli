@@ -225,7 +225,7 @@ def test_build_batch_baseline_document_is_cheap_and_well_formed():
 
 def test_batch_baseline_registered_for_build_composite():
     """build_composite resolves the new architecture by name."""
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401 — fires the @composite_generator
 
     names = {e.name for e in _REGISTRY.values()}
@@ -234,7 +234,7 @@ def test_batch_baseline_registered_for_build_composite():
 
 def test_batch_baseline_exposes_the_vecoli_workflow_knobs():
     """The Setup & Run form renders these; they are the batch's whole contract."""
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401
 
     entry = next(e for e in _REGISTRY.values() if e.name == "batch_baseline")
@@ -247,7 +247,7 @@ def test_batch_baseline_exposes_the_vecoli_workflow_knobs():
 def test_batch_baseline_declares_the_multi_scale_visualizations():
     """A seeds x generations batch ships the single-cell gallery PLUS the
     multigeneration/multiseed panels vEcoli's workflow emits."""
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401
 
     entry = next(e for e in _REGISTRY.values() if e.name == "batch_baseline")

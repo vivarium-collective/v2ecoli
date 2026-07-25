@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.composites.baseline import baseline
 from v2ecoli.composites._remap import remap_cell_state

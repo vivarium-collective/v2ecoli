@@ -39,6 +39,7 @@ runs:
 - name: flagella-03-flgm-flia-feedback__regON__seed0__600s
   kind: simulation
   canonical: true
+  composite: v2ecoli.composites.baseline.baseline
   description: baseline composite, features=[flagella_regulation], seed 0, out/cache_full, 600 s
   status: completed
   result: PASS
@@ -49,6 +50,7 @@ runs:
 - name: flagella-03-low-IC-gated-cascade
   kind: analysis
   canonical: false
+  composite: v2ecoli.composites.baseline.baseline
   description: low-flagella IC (4 flagella, 500 FliA, 800 FlgM), 900 s — exposes the assembly-gated Class III onset
   status: completed
   result: PASS

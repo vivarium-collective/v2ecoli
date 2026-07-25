@@ -40,6 +40,7 @@ runs:
 - name: flagella-01-overexpression-baseline__regOFF__seed0__600s
   kind: simulation
   canonical: true
+  composite: v2ecoli.composites.baseline.baseline
   description: baseline composite, features=[] (regulation OFF), seed 0, out/cache, 600 s
   status: completed
   result: PASS

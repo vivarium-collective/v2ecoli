@@ -43,6 +43,7 @@ runs:
 - name: flagella-02-sumgate-cascade__regON__seed0__600s
   kind: simulation
   canonical: true
+  composite: v2ecoli.composites.baseline.baseline
   description: baseline composite, features=[flagella_regulation], seed 0, out/cache_full, 600 s
   status: completed
   result: PASS

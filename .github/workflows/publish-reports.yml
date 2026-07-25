@@ -36,6 +36,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Investigation reports embed the loom Explorer — require the bundle so a
+    # missing/broken build fails loudly rather than publishing without it.
+    env:
+      VIVARIUM_WORKBENCH_REQUIRE_LOOM: "1"
     steps:
       - uses: actions/checkout@v4
 

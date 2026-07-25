@@ -33,11 +33,11 @@ baseline:
     Bounded natural-division run; phenotypes extracted by colony_bench.phenotypes,
     figures by colony_bench.viz — the same pipeline as colonies-05/06/08.
 
-status: designed
+status: ran
 phase: Simulate
 design_status: approved
 implementation_status: complete
-simulation_status: not_run
+simulation_status: ran
 evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested

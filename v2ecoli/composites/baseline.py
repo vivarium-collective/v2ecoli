@@ -575,6 +575,20 @@ def _get_step_config(
                            "is made — a functional knockout with no ParCa re-fit. "
                            "Empty = plain baseline. See v2ecoli.perturbations.",
         },
+        "media": {
+            "type": "string",
+            "default": "minimal",
+            "description": "Initial growth medium — any condition in the cache's "
+                           "saved_media (e.g. 'minimal_plus_amino_acids', "
+                           "'minimal_succinate', 'minimal_minus_oxygen'). Sets the "
+                           "environment's initial media_id so media_update shifts "
+                           "the cell onto that condition on the first tick and "
+                           "metabolism responds (e.g. amino-acid-rich media grows "
+                           "faster) — a lightweight media perturbation from the "
+                           "existing cache, no ParCa re-fit. Default 'minimal' = "
+                           "unchanged. For a rigorously-calibrated condition, run a "
+                           "per-condition ParCa cache instead (see showcase-4).",
+        },
         "features": {
             "type": "list",
             "default": [],
@@ -651,6 +665,7 @@ def baseline(
     polypeptide_initiation_mode: str = "discrete",
     config_overrides: dict | None = None,
     knockouts: list[str] | None = None,
+    media: str = "minimal",
     features: list | None = None,
     ppgpp_regulation: bool = True,
     trna_attenuation: bool = False,
@@ -686,6 +701,11 @@ def baseline(
             or monomer ids). Each gene's translation efficiency is zeroed on the
             cached polypeptide-initiation config — a functional knockout with no
             ParCa re-fit. Empty/None = plain baseline.
+        media: initial growth medium — any condition in the cache's saved_media.
+            Sets the environment's initial media_id so media_update shifts the
+            cell onto that condition on the first tick and metabolism responds
+            (lightweight media perturbation from the existing cache, no ParCa
+            re-fit). 'minimal' (default) leaves it unchanged.
         ppgpp_regulation: insert the ppGpp-regulation feature module (default on).
         trna_attenuation: insert the tRNA-attenuation feature module (default off).
         supercoiling: insert the DNA-supercoiling feature module (default off).
@@ -771,6 +791,20 @@ def baseline(
     cell_state.update(initial_state)
 
     _normalize_boundary_units(cell_state)
+
+    # Media perturbation (from the existing cache — no ParCa re-fit). The cache's
+    # initial environment is 'minimal'; the media_update step swaps in a different
+    # condition's external concentrations on the first tick when the environment's
+    # media_id differs from its own (config-seeded) current id. So a media change
+    # is just: set the initial environment.media_id to a saved_media condition.
+    # Validate here so a typo'd condition fails at build time, not silently.
+    if media and media != cell_state.get('environment', {}).get('media_id'):
+        _saved = (configs.get('media_update') or {}).get('saved_media') or {}
+        if media not in _saved:
+            raise ValueError(
+                f"media={media!r} is not a condition in the cache's saved_media. "
+                f"Available: {sorted(_saved)}")
+        cell_state.setdefault('environment', {})['media_id'] = media
 
     # Pre-create virtual stores
     for store in ['listeners', 'process',

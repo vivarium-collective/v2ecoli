@@ -43,3 +43,14 @@ acceptance_criteria:
   - behavior: geometry-builders-run-with-simple-agents
   - behavior: extractor-recovers-known-division-stats
   - behavior: harness-produces-phenotype-panel
+
+pipeline_gate:
+  prerequisites:
+  - colonies-03-wcm-rss-leak
+  enables:
+  - colonies-05-mother-machine
+  - colonies-06-daughter-machine
+  proceed_condition: |
+    Part B builds on the Part A composite foundation and treats the colonies-03
+    native RSS leak as a stated run-length BOUND, not a blocker; the WCM-tier
+    studies (colonies-08/09) use short bounded windows.

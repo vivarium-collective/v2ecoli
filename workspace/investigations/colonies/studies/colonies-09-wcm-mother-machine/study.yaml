@@ -46,3 +46,11 @@ acceptance_criteria:
   - behavior: whole-cell-runs-and-divides-in-device
   - behavior: running-animation-rendered
   - behavior: preliminary-phenotypes-extracted
+
+pipeline_gate:
+  prerequisites:
+  - colonies-05-mother-machine
+  enables: []
+  proceed_condition: |
+    The whole-cell (EcoliWCM) tier in the mother-machine geometry; reuses the
+    colonies-05 device + phenotype pipeline. Compute/RSS-bounded run.

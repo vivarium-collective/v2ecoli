@@ -44,3 +44,12 @@ acceptance_criteria:
   - behavior: size-at-division-distribution
   - behavior: interdivision-time-distribution
   - behavior: added-size-distribution
+
+pipeline_gate:
+  prerequisites:
+  - colonies-04-device-phenotype-harness
+  enables:
+  - colonies-09-wcm-mother-machine
+  proceed_condition: |
+    Requires the shared cell-tier factory, geometry builders, and phenotype
+    extractor stood up in colonies-04.

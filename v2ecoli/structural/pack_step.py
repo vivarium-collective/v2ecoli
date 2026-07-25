@@ -10,19 +10,16 @@ from v2ecoli.structural.build import pack_from_state, bulk_to_counts
 
 
 def _default_core():
-    """Lightweight bigraph-schema core (base + process_bigraph types only) —
-    enough to fill this Step's plain config/port schemas without paying for
-    the full ``v2ecoli.core.build_core()`` (which imports the whole
-    ECOLI_TYPES registry + process tree). Used only when no ``core`` is
-    supplied (standalone construction / tests); when embedded in a real
-    composite the framework passes its own core via ``core.register_link``.
+    """The real v2ecoli bigraph-schema core (ECOLI_TYPES registered). Used
+    only when no ``core`` is supplied (standalone construction / tests); when
+    embedded in a real composite the framework passes its own core via
+    ``core.register_link``. Must be the real core, not a bare
+    ``bigraph_schema.allocate_core()`` — the ``bulk_array``/``full_chromosome``
+    port types this Step declares are v2ecoli domain types, registered only
+    by ``v2ecoli.core.build_core()``.
     """
-    import process_bigraph
-    from bigraph_schema import allocate_core
-
-    core = allocate_core()
-    process_bigraph.register_types(core)
-    return core
+    from v2ecoli.core import build_core
+    return build_core()
 
 
 class EcoliPackStep(Step):
@@ -31,15 +28,20 @@ class EcoliPackStep(Step):
 
     ``config["snapshots"]`` maps a snapshot name to either a fixed sim-time
     (float, seconds) or the string ``"division_time"``, which resolves against
-    the ``full_chromosomes`` port's reported division time (set once the cell
-    commits to division). Each name fires at most once, within
+    the ``full_chromosome`` port's reported division time (the earliest
+    positive, i.e. scheduled, ``division_time`` across chromosome rows — set
+    once the cell commits to division; see ``v2ecoli/steps/division.py``
+    ``MarkDPeriod``). Each name fires at most once, within
     ``config["epsilon_s"]`` of its target time.
     """
 
     # NOTE: this bigraph-schema version has no registered ``any``/``tree[any]``
     # type (parsing "tree[any]" raises — "any" isn't in the type registry), so
-    # loosely-shaped config/ports use ``object`` (a generic, unvalidated leaf)
-    # instead, mirroring cell_shape.ShapeStep's config_schema dict-form style.
+    # the loosely-shaped 'snapshots' config uses ``object`` (a generic,
+    # unvalidated leaf) instead — it parses under both the real v2ecoli core
+    # and a bare bigraph-schema core, mirroring cell_shape.ShapeStep's
+    # config_schema dict-form style. The port types below, in contrast, are
+    # real v2ecoli domain types (only resolve under v2ecoli.core.build_core()).
     config_schema = {
         "snapshots": "object",          # {name: float sim-time | "division_time"}
         "study": "string",
@@ -56,8 +58,16 @@ class EcoliPackStep(Step):
         self._fired = set()
 
     def inputs(self):
-        return {"bulk": "object", "shape": "object",
-                "global_time": "float", "full_chromosomes": "object"}
+        # bulk: bulk_array (the live ['bulk'] structured-array store).
+        # shape: matches ShapeStep.outputs()'s 'shape' store type exactly —
+        # a map[overwrite[float]] (flat dict of floats), so the shared store
+        # realizes to one consistent schema.
+        # full_chromosome: the v2ecoli unique_array domain type (registered
+        # under this exact name in v2ecoli.library.schema_types); NOT the
+        # plural 'full_chromosomes' — that's only a port-name convenience
+        # alias elsewhere, the actual store/type name is singular.
+        return {"bulk": "bulk_array", "shape": "map[overwrite[float]]",
+                "global_time": "float", "full_chromosome": "full_chromosome"}
 
     def outputs(self):
         return {"pack_status": "map[float]"}
@@ -66,10 +76,17 @@ class EcoliPackStep(Step):
         if name in self._fired:
             return False
         if isinstance(spec, str) and spec == "division_time":
-            dt = (states.get("full_chromosomes") or {}).get("division_time")
-            if not dt:                     # not scheduled yet
+            # full_chromosome arrives as a numpy structured array (one row per
+            # chromosome copy); division_time is per-row, 0/unset until
+            # MarkDPeriod schedules it. "Scheduled" = some row has a positive
+            # division_time; fire at the earliest such time (across rows).
+            fc = states.get("full_chromosome")
+            if fc is None or len(fc) == 0:
                 return False
-            return t >= float(dt) - self.config["epsilon_s"]
+            scheduled = [float(x) for x in fc["division_time"] if x > 0]
+            if not scheduled:               # not scheduled yet
+                return False
+            return t >= min(scheduled) - self.config["epsilon_s"]
         return t >= float(spec)             # fixed sim-time
 
     def update(self, state, interval=None):

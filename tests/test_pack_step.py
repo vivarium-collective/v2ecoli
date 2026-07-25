@@ -1,3 +1,5 @@
+import numpy as np
+
 from v2ecoli.structural import pack_step as ps
 
 
@@ -10,8 +12,15 @@ def _step(monkeypatch, snapshots, calls):
 
 
 def _state(t, division_time=None):
-    fc = {"division_time": division_time} if division_time is not None else {}
-    return {"bulk": [], "shape": {"volume_fl": 2.0}, "global_time": t, "full_chromosomes": fc}
+    # Real store shape: full_chromosome is a numpy structured array, one row
+    # per chromosome copy, with a per-row division_time field (0/unset until
+    # scheduled). division_time=None -> no rows yet (not even unscheduled
+    # ones) so the array is empty, matching "not scheduled yet".
+    if division_time is None:
+        fc = np.array([], dtype=[("division_time", "f8")])
+    else:
+        fc = np.array([(division_time,)], dtype=[("division_time", "f8")])
+    return {"bulk": [], "shape": {"volume_fl": 2.0}, "global_time": t, "full_chromosome": fc}
 
 
 def test_fixed_time_snapshot_fires_once(monkeypatch):

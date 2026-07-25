@@ -1,0 +1,71 @@
+schema_version: 4
+name: ko-and-media
+investigation: perturbation-demo
+title: "Knockout and media perturbations on the baseline whole cell"
+question: |
+  How do a translation-level gene knockout (lacY) and an amino-acid-rich medium
+  each move the v2ecoli baseline off its wild-type trajectory — and how do you
+  express each as a one-line variant of the baseline composite?
+status: designed
+
+# Two minimal perturbation levers, one variant each. Both are plain baseline
+# params (forwarded to the composite generator as-is), so a variant is just a
+# `params:` block over the wild-type baseline — no separate composite, no ParCa
+# re-fit. The wild-type baseline is the reference every contrast is taken against.
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+    # Wild type: plain baseline — minimal-glucose medium, no knockouts.
+
+  variants:
+  - name: lacY-knockout
+    perturbation: "translation-level knockout of lacY (EG10526)"
+    params:
+      seed: 0
+      knockouts: [EG10526]   # lacY — lactose permease
+    expected_contrast: |
+      lacY protein is no longer synthesised (its translation efficiency is zeroed
+      on the live PolypeptideInitiation process). In glucose-minimal this is
+      phenotypically near-silent — the lac operon is not needed — which is the
+      point: it shows the knockout mechanism reaches the process without
+      confounding the demo with a growth collapse. Swap in a gene the condition
+      needs to see a phenotype.
+    # Equivalent direct call:
+    #   baseline(seed=0, knockouts=["EG10526"])
+
+  - name: rich-media
+    perturbation: "growth medium minimal -> minimal_plus_amino_acids"
+    params:
+      seed: 0
+      media: minimal_plus_amino_acids
+    expected_contrast: |
+      An amino-acid-rich medium relieves biosynthetic demand, so the cell grows
+      faster than on minimal (verified: higher dry-mass accumulation over a short
+      run). A lightweight in-cache media shift — the media_update step applies the
+      condition on tick 1; no per-condition ParCa re-fit.
+    # Equivalent direct call:
+    #   baseline(seed=0, media="minimal_plus_amino_acids")
+
+  model_settings: []
+
+tests:
+- name: ko-reaches-process
+  classification: primary
+  question: "Does the lacY knockout zero the translation efficiency on the live PolypeptideInitiation process?"
+  measure:
+    kind: composite_state
+    path: agents.0.ecoli-polypeptide-initiation
+  expect:
+    op: eq
+    note: "translation_efficiencies[lacY monomer] == 0 (unit-asserted in tests/test_ko_composites.py)"
+- name: rich-media-grows-faster
+  classification: primary
+  question: "Does minimal_plus_amino_acids accumulate more dry mass than minimal over the run?"
+  measure:
+    kind: readout
+    observable: listeners.mass.dry_mass
+  expect:
+    op: gt
+    note: "dry-mass increment on rich media > minimal (directional; demonstration only)"

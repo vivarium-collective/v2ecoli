@@ -1,0 +1,26 @@
+schema_version: 4
+name: perturbation-demo
+title: "Perturbation demo — gene knockouts and media shifts on the baseline whole cell"
+question: "How do you apply a gene knockout or a media change to the v2ecoli baseline, minimally?"
+studies:
+- ko-and-media
+executive:
+  what_is_this: |
+    A minimal, self-contained demonstration of the two lightweight perturbation
+    levers built directly into the `baseline` composite. Both reuse the existing
+    ParCa cache — no re-fit — so each perturbation is a one-line variant:
+
+      - `knockouts`: translation-level gene knockouts. Each named gene's
+        translation efficiency is zeroed on the cached polypeptide-initiation
+        config, so no protein is made — a functional knockout with no ParCa
+        re-fit. (Folded in from the former KO_baseline composite.)
+      - `media`: an in-cache media shift. The environment's initial media_id is
+        set to any condition in the cache's saved_media, so the media_update step
+        moves the cell onto that condition on the first tick and metabolism
+        responds (e.g. amino-acid-rich media grows faster).
+
+    The single study `ko-and-media` runs the wild-type baseline against a lacY
+    knockout and an amino-acid-rich medium, side by side. This is a starting
+    point / how-to for perturbing the whole cell — not a rigorous result. For a
+    rigorously-calibrated media condition, run a per-condition ParCa cache
+    instead (see the v2ecoli-vecoli-comparison investigation's succinate study).

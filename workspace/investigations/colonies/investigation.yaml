@@ -128,9 +128,12 @@ studies:
   - colonies-04-device-phenotype-harness
   - colonies-05-mother-machine
   - colonies-06-daughter-machine
+  - colonies-08-wcm-daughter-machine
+  - colonies-09-wcm-mother-machine
   # - colonies-07-surrogate-agent-tier   # planned; buildable, own plan
-  # - colonies-08-wcm-media-geometry      # planned; compute-bounded, own plan
-  # - colonies-09-mother-machine-data     # planned; pending real dataset
+  #   colonies-08/09 are the first cut of the WCM tier (two device geometries);
+  #   the broader goal is a WCM × media × geometry matrix.
+  # - colonies-10-mother-machine-data    # planned; pending real dataset
 
 expert_docs: []
 
@@ -154,3 +157,9 @@ acceptance_criteria:
   - {study: colonies-06-daughter-machine, behavior: size-at-division-distribution}
   - {study: colonies-06-daughter-machine, behavior: interdivision-time-distribution}
   - {study: colonies-06-daughter-machine, behavior: added-size-distribution}
+  - {study: colonies-08-wcm-daughter-machine, behavior: whole-cell-runs-and-divides-in-device}
+  - {study: colonies-08-wcm-daughter-machine, behavior: running-animation-rendered}
+  - {study: colonies-08-wcm-daughter-machine, behavior: preliminary-phenotypes-extracted}
+  - {study: colonies-09-wcm-mother-machine, behavior: whole-cell-runs-and-divides-in-device}
+  - {study: colonies-09-wcm-mother-machine, behavior: running-animation-rendered}
+  - {study: colonies-09-wcm-mother-machine, behavior: preliminary-phenotypes-extracted}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Validate workspace.yaml + cross-references. Exit non-zero on failure."""
 from __future__ import annotations
+import graphlib
 import hashlib
 import importlib
 import json
@@ -128,6 +129,76 @@ def _fail(msg: str) -> None:
     sys.exit(1)
 
 
+# Phase-1 canonical data model: documented exceptions to the canonical
+# conditions-form rule (mirrors tests/test_workspace_conformance.py).
+_NO_MODEL = {"parca"}                                          # upstream artifact producer, no model
+_MULTI_BASELINE_PENDING = {"mbp-07-millard-kinetic-metabolism"}  # multi_baseline_needs_human (user decision)
+
+
+def check_canonical_layout() -> None:
+    """Enforce the Phase-1 canonical data model as human-readable lint errors.
+
+    Same four structural checks as tests/test_workspace_conformance.py:
+    no nested study.yaml; investigations members-only; canonical conditions
+    form (no stray top-level baseline/parent_studies/pipeline_gate.prerequisites,
+    except the two documented exceptions); inputs.from DAG acyclic + resolvable.
+    """
+    errors: list[str] = []
+
+    nested = list((_dir("investigations")).glob("*/studies/*/study.yaml"))
+    if nested:
+        errors.append(f"nested study.yaml must not exist: {nested}")
+
+    for inv in (_dir("investigations")).glob("*/investigation.yaml"):
+        spec = yaml.safe_load(inv.read_text()) or {}
+        if "studies" in spec:
+            errors.append(f"{inv.parent.name} still uses studies: (must be members:)")
+
+    studies: dict[str, dict] = {
+        p.parent.name: (yaml.safe_load(p.read_text()) or {})
+        for p in (_dir("studies")).glob("*/study.yaml")
+    }
+
+    for slug, spec in studies.items():
+        if slug in _MULTI_BASELINE_PENDING:
+            bl = spec.get("baseline")
+            if not (isinstance(bl, list) and bl and all(b.get("composite") for b in bl)):
+                errors.append(f"{slug}: multi-baseline exception must be a valid top-level baseline list")
+            continue
+        if "baseline" in spec:
+            errors.append(f"{slug} has a stray top-level baseline: (should be conditions.baseline)")
+        if "parent_studies" in spec:
+            errors.append(f"{slug} retains parent_studies (ordering must be inputs.from)")
+        pg = spec.get("pipeline_gate") or {}
+        if "prerequisites" in pg:
+            errors.append(f"{slug} retains pipeline_gate.prerequisites (must be inputs.from)")
+        if slug not in _NO_MODEL:
+            comp = ((spec.get("conditions") or {}).get("baseline") or {}).get("composite")
+            if not comp:
+                errors.append(f"{slug} missing conditions.baseline.composite")
+        if isinstance(spec.get("conditions"), dict) and isinstance(spec.get("tests"), dict):
+            errors.append(f"{slug} conditions-form study has dict-shaped tests (must be a list)")
+
+    slugs = set(studies) | {"parca"}
+    ts = graphlib.TopologicalSorter()
+    for slug, spec in studies.items():
+        deps = []
+        for e in (spec.get("inputs") or []):
+            frm = e.get("from")
+            if frm not in slugs:
+                errors.append(f"{slug} inputs.from '{frm}' is not a real study")
+            else:
+                deps.append(frm)
+        ts.add(slug, *deps)
+    try:
+        ts.prepare()
+    except graphlib.CycleError as e:
+        errors.append(f"inputs.from DAG has a cycle: {e}")
+
+    if errors:
+        _fail("canonical layout violations:\n  " + "\n  ".join(errors))
+
+
 def main() -> None:
     if not WS_FILE.exists():
         _fail(f"{WS_FILE} not found — run inside a workspace")
@@ -142,6 +213,10 @@ def main() -> None:
         )
 
     Draft7Validator(_schema("workspace.schema.json"), format_checker=FormatChecker()).validate(ws)
+
+    # Phase-1 canonical data model (no nested study.yaml; investigations
+    # members-only; canonical conditions form; inputs.from DAG acyclic).
+    check_canonical_layout()
 
     # Datasets
     for d in ws.get("datasets", []):

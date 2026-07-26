@@ -87,7 +87,10 @@ at_a_glance:
   - showcase-5-next-direction-decide: stop at the next-direction decision, seeded from the showcase-4 ranking (deepen media / chase ppGpp-off / push dnaA / rescue elong-down)
   - showcase-6-equivalence-large: apply the PR #134 report-card approach as a v1↔v2 equivalence instrument at scale — a 16×16 baseline ensemble graded against a matched vEcoli reference (population_phenotype_basal vs_vecoli mode), testing whether the 8×16 equivalence picture holds (Physiology/Composition/Ribosomes within tol, exchange-flux metabolism the divergence, gene expression correlated)
 
-studies:
+# Registry model (Study Pipeline Spec 1): studies live top-level in studies/<slug>/;
+# this investigation REFERENCES them via members. DAG edges derive from each
+# member study's inputs.from (see each study.yaml). Was `studies:` + nested symlinks.
+members:
 - showcase-1-parca
 - showcase-2-baseline-figures
 - showcase-3-variant-decide

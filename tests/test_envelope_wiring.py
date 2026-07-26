@@ -48,3 +48,8 @@ def test_select_ingredients_sets_compartment_and_region():
     # the lipid is always present → inner_membrane surface
     if "lipid" in m:
         assert m["lipid"].compartment == "inner_membrane" and m["lipid"].region == "surface"
+    # CURATED entries keep their hand-authored region (e.g. rna_polymerase's
+    # "fiber", which seats it along the DNA via fiber_pack) — the compartment
+    # location-routing must not overwrite it.
+    if "rna_polymerase" in m:
+        assert m["rna_polymerase"].region == "fiber"

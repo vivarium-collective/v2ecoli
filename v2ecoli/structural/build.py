@@ -206,9 +206,10 @@ def select_ingredients(counts, locations=None, *, top_n=40, lipid_count=40000):
                 continue
             ref = StructureRef("alphafold", acc)
         cnt = counts.get(ckey, 0) if isinstance(ckey, str) else int(ckey)
-        lookup_id = ckey if isinstance(ckey, str) else key
-        compartment = locations.get(lookup_id, "cytoplasm")
-        region = "surface" if compartment in ("inner_membrane", "outer_membrane") else "interior"
+        # Keep CURATED's hand-authored region (e.g. rna_polymerase's "fiber",
+        # which routes it to the fiber_pack stage seated along the DNA) —
+        # only the compartment is derived from the real location tag.
+        compartment = locations.get(ckey, "cytoplasm") if isinstance(ckey, str) else "cytoplasm"
         ingredients.append(Ingredient(
             id=key, count=max(1, cnt), structure=ref, region=region,
             display_name=DISPLAY.get(key, prot.get(key, key)), category=cat,

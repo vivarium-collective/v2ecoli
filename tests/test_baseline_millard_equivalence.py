@@ -52,7 +52,7 @@ def _build_doc(overrides):
     import v2ecoli  # noqa: F401 — forces generator registration
     from viva_superpowers.composite_generator import _REGISTRY, build_generator
     from v2ecoli.core import build_core
-    matches = [e for e in _REGISTRY.values() if e.name == "baseline_millard"]
+    matches = [e for e in _REGISTRY.values() if e.name == "ecoli_millard"]
     entry = min(matches, key=lambda e: len(e.id))
     return build_generator(entry, overrides=overrides, core=build_core())
 

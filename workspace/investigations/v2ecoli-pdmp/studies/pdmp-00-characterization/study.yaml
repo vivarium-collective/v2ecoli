@@ -188,14 +188,14 @@ variants:
 interventions: []
 runs:
 # F2 migration: the legacy 10-step dashboard bootstrap run
-# (v2ecoli.composites.baseline.baseline__1779656932__20ca2d, 2026-05-24) was an infra confirmation only;
+# (v2ecoli.composites.ecoli_baseline.baseline__1779656932__20ca2d, 2026-05-24) was an infra confirmation only;
 # its run_id is not in this checkout's runs.db, so it was dropped from runs[] to clear the runs-yaml-vs-db
 # drift. It remains documented in planned_runs[phase0-bootstrap] + simulation_set[phase0-bootstrap].
 # The entry below is the real Phase-0 deliverable run (recorded in phase0_ensemble_provenance.json).
 # No run_id: the canonical runs.db rows are not in this checkout (raw stores gitignored), so an authoritative
 # run_id is not asserted; provenance lives in the committed provenance JSON.
 - name: phase0-reference-ensemble-N32-3cond
-  composite: v2ecoli.composites.baseline.baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   status: completed
   n_steps: 600
   started_at: '2026-06-11'
@@ -518,7 +518,7 @@ simulation_set:
 - name: phase0-profile-instrumented-baseline
   kind: single
   status: planned
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 1000
   seeds:
   - 0

@@ -125,7 +125,7 @@ def test_null_emitter_captures_only_global_time():
     doesn't waste memory capturing full state."""
     from process_bigraph import Composite
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     from v2ecoli.composites._helpers import set_null_emitter_override
 
     core = build_core()

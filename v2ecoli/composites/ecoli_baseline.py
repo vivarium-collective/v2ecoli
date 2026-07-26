@@ -172,7 +172,7 @@ _EXTRA_FEATURES: list = []
 
 def enable_features(*names: str) -> None:
     """Enable opt-in feature modules (e.g. 'mass_conservation') for the next
-    baseline build. Call before ``build_composite('baseline', ...)``; pass no
+    baseline build. Call before ``build_composite("ecoli_baseline", ...)``; pass no
     args to clear."""
     global _EXTRA_FEATURES
     _EXTRA_FEATURES = list(names)
@@ -620,7 +620,7 @@ def _build_batch_document(
 
 
 @composite_generator(
-    name="baseline",
+    name="ecoli_baseline",
     description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",
     parameters={
         "seed": {

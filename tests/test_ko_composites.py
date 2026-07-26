@@ -108,7 +108,7 @@ def test_baseline_knockout_zeroes_the_process_translation_efficiency():
     """The knockout must reach the built PolypeptideInitiation process — not
     just the config dict — so no ribosome initiates on that mRNA."""
     from process_bigraph import Composite
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     core = build_core()
     doc = baseline(core=core, knockouts=[LACY_GENE])
@@ -125,7 +125,7 @@ def test_baseline_knockout_zeroes_the_process_translation_efficiency():
 def test_baseline_empty_knockouts_is_plain_baseline():
     """No knockouts → byte-identical translation efficiencies to baseline."""
     from process_bigraph import Composite
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     core = build_core()
 
@@ -140,7 +140,7 @@ def test_baseline_empty_knockouts_is_plain_baseline():
 
 @_needs_cache
 def test_baseline_knockout_unknown_gene_fails_at_build():
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     with pytest.raises(UnknownPerturbationTarget):
         baseline(core=build_core(), knockouts=["NOPE_123"])
 
@@ -152,7 +152,7 @@ def test_baseline_batch_knockout_carries_the_panel_wide_override():
     """In batch mode (n_seeds>1) the doc is cheap to build (no ParCa run) and the
     runner config carries the knockout as a base_config_override applied to every
     branch."""
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     doc = baseline(core=build_core(), n_seeds=3, knockouts=[LACY_GENE])
     rc = doc["state"]["batch_runner"]["config"]
@@ -167,7 +167,7 @@ def test_baseline_batch_knockout_carries_the_panel_wide_override():
 @_needs_cache
 def test_baseline_batch_knockout_unknown_gene_fails_at_build():
     """Resolution happens at document-build time, not inside a Ray worker."""
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     with pytest.raises(UnknownPerturbationTarget):
         baseline(core=build_core(), n_seeds=2, knockouts=["NOPE_123"])
 

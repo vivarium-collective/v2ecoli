@@ -27,7 +27,7 @@
   engine + [bigraph-schema](https://github.com/vivarium-collective/bigraph-schema)
   type system. Instead of one monolithic simulation, it's a set of **typed,
   independently-wireable processes** you *compose*. A whole cell is one
-  `build_composite("baseline")` call. The repo is also a **research workspace**:
+  `build_composite("ecoli_baseline")` call. The repo is also a **research workspace**:
   *investigations* (a question) and *studies* (the simulations answering it).
 
 - **[vivarium-workbench](https://github.com/vivarium-collective/vivarium-workbench)** —
@@ -185,7 +185,7 @@ JSON config:
 
 | Concept | What it is |
 |---|---|
-| **Composite** | A wiring of processes + stores. `build_composite("baseline")` = a whole cell. A colony embeds many cells via one bridge process; a kinetic-metabolism variant is a *different wiring of the same parts*. |
+| **Composite** | A wiring of processes + stores. `build_composite("ecoli_baseline")` = a whole cell. A colony embeds many cells via one bridge process; a kinetic-metabolism variant is a *different wiring of the same parts*. |
 | **Process** | A unit of dynamics. Declares typed **input/output ports** via `inputs()` / `outputs()` + a `TOPOLOGY`. Its **config** = parameters (mostly ParCa-hydrated at build time). |
 | **Store** | Shared state a process reads/writes through a port. |
 | **Contract** | What a process advertises: which ports it reads, what it computes, what it writes. |

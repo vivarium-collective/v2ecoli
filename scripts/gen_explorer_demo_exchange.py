@@ -69,7 +69,7 @@ def run_variant(variant: int, out_dir: str, max_steps: int, chunk: int):
     from v2ecoli import build_composite
     from v2ecoli.library.parquet_run import run_multigen_parquet
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=variant)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=variant)
     ids = _find_external_ids(getattr(composite, "state", composite)) or \
           _find_external_ids(composite)
     if ids and not IDS_ASSET.exists():

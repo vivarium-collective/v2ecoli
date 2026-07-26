@@ -280,7 +280,7 @@ def test_generator_appends_pack_step(tmp_path):
     import v2ecoli
     from v2ecoli.core import build_core
     core = build_core()
-    doc = v2ecoli.build_composite("baseline_parsimony", core=core, seed=0,
+    doc = v2ecoli.build_composite("ecoli_structural", core=core, seed=0,
                                   cache_dir="out/cache", study="ecoli-3d",
                                   emitter="null")  # doc-shape only; do not run
     # find the per-agent cell state
@@ -313,7 +313,7 @@ from __future__ import annotations
 
 from pbg_superpowers.composite_generator import composite_generator
 
-from v2ecoli.composites.baseline import baseline
+from v2ecoli.composites.ecoli_baseline import baseline
 
 
 @composite_generator(name="baseline_parsimony", default_n_steps=2700)
@@ -384,7 +384,7 @@ def test_initial_snapshot_pack_written(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)  # study dir is written relative to CWD
     core = build_core()
     comp = v2ecoli.build_composite(
-        "baseline_parsimony", core=core, seed=0, cache_dir="out/cache",
+        "ecoli_structural", core=core, seed=0, cache_dir="out/cache",
         study="itest", snapshots={"initial": 2.0}, top_n=2, emitter="null")
     comp.run(4.0)  # cross global_time=2.0
     pack = tmp_path / "studies" / "itest" / "viz" / "3d" / "initial.pack.json"
@@ -400,7 +400,7 @@ def test_pre_division_snapshot(tmp_path, monkeypatch):
     from v2ecoli.core import build_core
     monkeypatch.chdir(tmp_path)
     core = build_core()
-    comp = v2ecoli.build_composite("baseline_parsimony", core=core, seed=0,
+    comp = v2ecoli.build_composite("ecoli_structural", core=core, seed=0,
                                    cache_dir="out/cache", study="itest", emitter="null")
     comp.run(3000.0)  # to/through division
     d = tmp_path / "studies" / "itest" / "viz" / "3d"

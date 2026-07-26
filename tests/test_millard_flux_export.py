@@ -5,7 +5,7 @@ from v2ecoli import build_composite
 
 @pytest.mark.sim
 def test_millard_emits_central_fluxes():
-    c = build_composite("baseline_millard", lqr=True, with_ref_growth=True,
+    c = build_composite("ecoli_millard", lqr=True, with_ref_growth=True,
                         ref_growth_flux_source="consumption_matched", seed=0)
     c.run(5)
     ag = (c.state.get("agents") or {}).get("0") or {}

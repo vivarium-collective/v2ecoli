@@ -1,7 +1,7 @@
 """Integration tests for baseline_parsimony: a real composite run crossing a
 declared snapshot time and writing a pack under the workspace's studies root
 (``<layout.studies>/<study>/viz/3d/`` — see ``_studies_root()`` in
-v2ecoli.composites.baseline_parsimony). These tests chdir to a bare tmp_path
+v2ecoli.composites.ecoli_structural). These tests chdir to a bare tmp_path
 with no workspace.yaml, so the studies root resolves via the "workspace/studies"
 fallback (see test_baseline_parsimony_composite.py for the layout.studies-read
 and explicit-out_dir-override cases).
@@ -63,7 +63,7 @@ def test_initial_snapshot_pack_written(tmp_path, monkeypatch):
 
     core = build_core()
     comp = v2ecoli.build_composite(
-        "baseline_parsimony", core=core, seed=0, cache_dir=str(CACHE_DIR),
+        "ecoli_structural", core=core, seed=0, cache_dir=str(CACHE_DIR),
         study="itest", snapshots={"initial": 2.0}, top_n=2, emitter="null")
     comp.run(4.0)  # time_step=1s -> crosses global_time=2.0
 
@@ -99,7 +99,7 @@ def test_initial_snapshot_real_packer(tmp_path, monkeypatch):
 
     core = build_core()
     comp = v2ecoli.build_composite(
-        "baseline_parsimony", core=core, seed=0, cache_dir=str(CACHE_DIR),
+        "ecoli_structural", core=core, seed=0, cache_dir=str(CACHE_DIR),
         study="itest", snapshots={"initial": 2.0}, top_n=2, emitter="null")
     comp.run(4.0)
 
@@ -125,7 +125,7 @@ def test_pre_division_snapshot(tmp_path, monkeypatch):
 
     core = build_core()
     comp = v2ecoli.build_composite(
-        "baseline_parsimony", core=core, seed=0, cache_dir=str(CACHE_DIR),
+        "ecoli_structural", core=core, seed=0, cache_dir=str(CACHE_DIR),
         study="itest", emitter="null")
     comp.run(3000.0)  # to/through division
 

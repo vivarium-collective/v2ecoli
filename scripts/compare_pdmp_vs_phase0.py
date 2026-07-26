@@ -88,7 +88,7 @@ def run_pdmp(
 
     t0 = time.perf_counter()
     c = build_composite(
-        "baseline_millard",
+        "ecoli_millard",
         lqr=True,
         with_ref_growth=with_ref_growth,
         ref_growth_flux_source=ref_growth_flux_source,

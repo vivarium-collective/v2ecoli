@@ -36,7 +36,7 @@ pytestmark = [
 def _trajectory():
     from v2ecoli import build_composite
     from v2ecoli.library.quantity_helpers import fg_magnitude
-    c = build_composite("baseline", cache_dir=CACHE, seed=0)
+    c = build_composite("ecoli_baseline", cache_dir=CACHE, seed=0)
     a = c.state["agents"]["0"]
     rec = []
     elong_rate = []          # smooth, intensive: behaves like dry_mass cross-env
@@ -109,7 +109,7 @@ def test_baseline_elongation_trajectory_matches_golden():
 @pytest.mark.timeout(360, method="signal")
 def test_baseline_actually_runs_the_charging_model():
     from v2ecoli import build_composite
-    c = build_composite("baseline", cache_dir=CACHE, seed=0)
+    c = build_composite("ecoli_baseline", cache_dir=CACHE, seed=0)
     a = c.state["agents"]["0"]
     for _ in range(5):
         c.run(1)

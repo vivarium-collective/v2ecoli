@@ -347,7 +347,7 @@ def _build_lqr_controller_edge(core: Any, *, tick_s: float = 1.0):
 
 
 @composite_generator(
-    name="baseline_millard",
+    name="ecoli_millard",
     description=(
         "Whole-cell E. coli composite with v2ecoli's tFBA Metabolism replaced "
         "by the Millard 2017 kinetic ODE (MillardPDMPMetabolism). The `lqr` "

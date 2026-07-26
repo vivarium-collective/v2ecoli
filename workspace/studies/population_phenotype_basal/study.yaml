@@ -27,7 +27,7 @@ question: |
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   # The blessed measured side is a MULTISEED + MULTIGEN ensemble (the

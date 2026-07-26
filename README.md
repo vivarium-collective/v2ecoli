@@ -20,7 +20,7 @@ Two things follow from that:
 
 - **Composition is a first-class operation.** Every process declares typed
   input/output ports, so building a model is wiring, not patching. A whole cell
-  is one `build_composite("baseline")` call; a colony embeds many cells through a
+  is one `build_composite("ecoli_baseline")` call; a colony embeds many cells through a
   single bridge process; a kinetic-metabolism variant is a *different wiring of
   the same parts* ([Architectures](#architectures)). Swapping a subsystem is a
   one-line change, not a fork.
@@ -142,7 +142,7 @@ What you get over upstream vEcoli:
   a plain process-bigraph state document.
 - **Composition over configuration.** Architectures are *generated* by
   `@composite_generator`-decorated functions and reached by name
-  (`build_composite("baseline" | "colony" | "millard_pdmp_baseline")`). A new
+  (`build_composite("ecoli_baseline" | "colony" | "millard_pdmp_baseline")`). A new
   architecture is a new wiring of existing parts, not a new config flag inside a
   monolith.
 - **Explicit, typed ports.** Every process declares its `inputs`/`outputs`
@@ -209,7 +209,7 @@ Programmatic use:
 
 ```python
 import v2ecoli
-composite = v2ecoli.build_composite("baseline", seed=0, cache_dir="out/cache")
+composite = v2ecoli.build_composite("ecoli_baseline", seed=0, cache_dir="out/cache")
 composite.update({}, 60.0)            # advance 60 simulated seconds
 ```
 

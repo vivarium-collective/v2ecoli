@@ -62,7 +62,7 @@ visualizations:
 
 baseline:
 - name: colony-pure-wc
-  composite: v2ecoli.composites.colony.colony
+  composite: v2ecoli.composites.ecoli_colony.ecoli_colony
   params:
     seed: 0
     cache_dir: out/cache
@@ -114,7 +114,7 @@ pipeline_gate:
 
 simulation_set:
 - name: build-smoke-n2
-  base_model: v2ecoli.composites.colony.colony
+  base_model: v2ecoli.composites.ecoli_colony.ecoli_colony
   perturbation: null
   condition: pure-WC, 2 cells, env_size=30
   duration_min: 90
@@ -130,7 +130,7 @@ simulation_set:
   status: ready
 
 - name: nsweep-n1
-  base_model: v2ecoli.composites.colony.colony
+  base_model: v2ecoli.composites.ecoli_colony.ecoli_colony
   perturbation: {n_cells: 1}
   condition: pure-WC, single cell, baseline reference
   duration_min: 90
@@ -148,7 +148,7 @@ simulation_set:
   - req-1-perf-harness
 
 - name: nsweep-n2
-  base_model: v2ecoli.composites.colony.colony
+  base_model: v2ecoli.composites.ecoli_colony.ecoli_colony
   perturbation: {n_cells: 2}
   condition: pure-WC, 2 cells
   duration_min: 90
@@ -167,7 +167,7 @@ simulation_set:
   - req-2-daughter-hydration-fix
 
 - name: nsweep-n4
-  base_model: v2ecoli.composites.colony.colony
+  base_model: v2ecoli.composites.ecoli_colony.ecoli_colony
   perturbation: {n_cells: 4}
   condition: pure-WC, 4 cells
   duration_min: 90
@@ -186,7 +186,7 @@ simulation_set:
   - req-2-daughter-hydration-fix
 
 - name: nsweep-n8
-  base_model: v2ecoli.composites.colony.colony
+  base_model: v2ecoli.composites.ecoli_colony.ecoli_colony
   perturbation: {n_cells: 8}
   condition: pure-WC, 8 cells — best-effort on laptop
   duration_min: 90
@@ -205,7 +205,7 @@ simulation_set:
   - req-2-daughter-hydration-fix
 
 - name: bio-1cell-natural-division
-  base_model: v2ecoli.composites.colony.colony
+  base_model: v2ecoli.composites.ecoli_colony.ecoli_colony
   perturbation: {n_cells: 1}
   condition: pure-WC, 1 cell, run past one natural division
   # ~3000s sim = one cell cycle; extra 1500s observes the 2-daughter regime.
@@ -228,7 +228,7 @@ simulation_set:
   status: ready
 
 model_change:
-  base_model: v2ecoli.composites.colony.colony
+  base_model: v2ecoli.composites.ecoli_colony.ecoli_colony
   new_processes: []
   new_state_variables: []
   new_parameters: []

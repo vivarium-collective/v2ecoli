@@ -63,7 +63,7 @@ def run_seed(seed: int, max_steps: int, max_generations: int, chunk: int,
 
     t0 = time.time()
     try:
-        composite = build_composite("baseline", cache_dir=str(_Path(repo) / CACHE_DIR),
+        composite = build_composite("ecoli_baseline", cache_dir=str(_Path(repo) / CACHE_DIR),
                                     seed=seed)
         result = run_multigen_sqlite(
             composite, run_id=f"perf-v2-ray-seed{seed:02d}", db_file=str(db_file),

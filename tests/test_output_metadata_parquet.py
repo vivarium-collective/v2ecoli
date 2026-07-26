@@ -293,7 +293,7 @@ def test_golden_output_metadata_in_parquet_config_real_composite(tmp_path, sim_d
     from v2ecoli import build_composite
     from pbg_emitters import field_metadata
 
-    comp = build_composite("baseline", seed=0, cache_dir=sim_data_cache)
+    comp = build_composite("ecoli_baseline", seed=0, cache_dir=sim_data_cache)
 
     result = run_multigen_parquet(
         comp,

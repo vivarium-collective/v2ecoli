@@ -146,7 +146,7 @@ def test_baseline_swaps_and_excludes_processes():
     """A swap-only injection (no add_processes) must still convert+add the swap
     target, remove the swapped-out process, and drop exclude_processes."""
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     inj = {
         "fork_repo": FORK,

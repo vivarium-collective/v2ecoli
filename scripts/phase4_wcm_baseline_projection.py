@@ -76,7 +76,7 @@ def time_one_wcm_run(seed: int, t_ticks: int) -> tuple[float, float]:
 
     t0 = time.perf_counter()
     c = build_composite(
-        "baseline_millard",
+        "ecoli_millard",
         lqr=True,
         seed=seed,
         with_ref_growth=True,

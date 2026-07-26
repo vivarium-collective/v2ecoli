@@ -181,7 +181,7 @@ def materialize_study(spec: StudySpec) -> Path:
     data.pop("baseline", None)
     data.setdefault("conditions", {
         "baseline": {
-            "composite": "v2ecoli.composites.baseline.baseline",
+            "composite": "v2ecoli.composites.ecoli_baseline.ecoli_baseline",
             "params": {"condition": spec.condition},
         },
     })

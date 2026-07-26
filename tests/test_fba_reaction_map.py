@@ -26,7 +26,7 @@ def test_mapped_ids_exist_in_wcm():
     try:
         from v2ecoli import build_composite
 
-        c = build_composite("baseline", cache_dir="out/cache", seed=0)
+        c = build_composite("ecoli_baseline", cache_dir="out/cache", seed=0)
     except Exception as e:  # pragma: no cover - environment dependent
         import pytest
 
@@ -126,7 +126,7 @@ def test_pins_are_real_fba_reaction_ids():
     try:
         from v2ecoli import build_composite
 
-        c = build_composite("baseline", cache_dir="out/cache", seed=0)
+        c = build_composite("ecoli_baseline", cache_dir="out/cache", seed=0)
     except Exception as e:  # pragma: no cover - environment dependent
         import pytest
 

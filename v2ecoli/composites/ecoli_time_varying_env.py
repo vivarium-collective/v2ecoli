@@ -9,7 +9,7 @@ visible to metabolism's exchange constraint at tick N.
 
 Default ``env_driver_mode = "static"`` preserves baseline parity — in
 static mode the Step is a no-op, so the composite must produce a
-byte-identical trajectory to ``v2ecoli.composites.baseline`` (regression
+byte-identical trajectory to ``v2ecoli.composites.ecoli_baseline`` (regression
 guarded by mbp-01's ``static-env-baseline-unchanged`` test).
 
 In ``synthetic_trajectory`` mode the driver writes to
@@ -37,7 +37,7 @@ from typing import Any
 from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.composites._helpers import _make_instance, make_edge
-from v2ecoli.composites.baseline import baseline as _baseline_builder
+from v2ecoli.composites.ecoli_baseline import baseline as _baseline_builder
 from v2ecoli.steps.environment_driver import (
     ENV_DRIVER_MODE_STATIC,
     EnvironmentDriver,
@@ -58,7 +58,7 @@ def _empty_environment_store() -> dict[str, Any]:
 
 
 @composite_generator(
-    name="baseline_time_varying_env",
+    name="ecoli_time_varying_env",
     description=(
         "v2ecoli baseline + EnvironmentDriver/Mirror hooks so external "
         "physics can drive environment.external_concentrations each tick. "
@@ -83,7 +83,7 @@ def baseline_time_varying_env(
     """Build the baseline_time_varying_env document.
 
     Returns a process-bigraph document dict with the same shape as
-    ``v2ecoli.composites.baseline.baseline`` plus an added top-level
+    ``v2ecoli.composites.ecoli_baseline.ecoli_baseline`` plus an added top-level
     ``environment`` store, an ``environment_driver`` Step, and an
     ``environment_mirror`` Step.
 

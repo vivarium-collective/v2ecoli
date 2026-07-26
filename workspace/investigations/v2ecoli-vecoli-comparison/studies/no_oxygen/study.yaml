@@ -16,7 +16,7 @@ pipeline_gate:
   - parca
   enables: []
 runs:
-- composite: v2ecoli.composites.baseline.baseline
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   name: no_oxygen-comparison
   kind: analysis
   canonical: true
@@ -50,7 +50,7 @@ tests:
     group: statistical
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       condition: no_oxygen
 depends_on:

@@ -199,7 +199,7 @@ def run_multigeneration(
     forward across each division."""
     from v2ecoli import build_composite
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline, seed_mass_listener
+    from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
     from v2ecoli.library.division import divide_cell
     from process_bigraph import Composite
 
@@ -207,7 +207,7 @@ def run_multigeneration(
 
     # Generation 1 — start from the fresh initial state the workflow/canary use.
     print(f"  Gen 1: building from cache {cache_dir}")
-    composite = build_composite("baseline", cache_dir=cache_dir)
+    composite = build_composite("ecoli_baseline", cache_dir=cache_dir)
     cell0 = composite.state["agents"]["0"]
     print(
         f"    initial dry_mass={fg_magnitude(cell0['listeners']['mass'].get('dry_mass', 0)):.1f} fg"
@@ -277,7 +277,7 @@ def _load_study(study_path: str) -> dict:
 
         baseline:
         - name: <any>                     # informational
-          composite: v2ecoli.composites.baseline.baseline
+          composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
           params: {seed: int, cache_dir: str}
         lineage:
           generations: int                # how many divisions to chain
@@ -309,7 +309,7 @@ def _load_study(study_path: str) -> dict:
         raise ValueError(
             f"study {study_path!r}: baseline composite must be the "
             f"partitioned `baseline` architecture (e.g. "
-            f"v2ecoli.composites.baseline.baseline); got {composite_ref!r}"
+            f"v2ecoli.composites.ecoli_baseline.ecoli_baseline); got {composite_ref!r}"
         )
 
     lineage = spec.get("lineage") or {}

@@ -69,7 +69,7 @@ def test_baseline_sustained_growth_300s():
     the global 120 s cap. 600 s is still well below the refire-loop
     signature (>15 min wall per sim-second)."""
     from v2ecoli import build_composite
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=0)
     m0 = _dry_mass(composite)
     composite.run(300)
     m1 = _dry_mass(composite)
@@ -89,7 +89,7 @@ def test_baseline_chromosome_replication_initiates():
     either a new round opens (more origins) or DNA mass increases. A stalled
     cell — the regression this guards against — does neither."""
     from v2ecoli import build_composite
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=0)
     n0 = _n_oric(composite)
     dna0 = _dna_mass(composite)
     assert n0 >= 1, f'A viable cell starts with >= 1 oriC, got {n0}'

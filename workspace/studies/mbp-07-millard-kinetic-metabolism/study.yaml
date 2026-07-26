@@ -20,7 +20,7 @@ expert_review_status: not_requested
 #   - reactor_bird_coupled:           the WCM-FBA cell coupled to the same reactor (contrast)
 baseline:
 - name: baseline-millard
-  composite: v2ecoli.composites.baseline_millard
+  composite: v2ecoli.composites.ecoli_millard
   params: {seed: 0, cache_dir: out/cache}
 - name: reactor-bird-coupled-millard
   composite: v2ecoli.composites.reactor_bird_coupled_millard
@@ -333,7 +333,7 @@ planned_runs:
 
 simulation_set:
 - name: baseline-millard-build
-  base_model: v2ecoli.composites.baseline_millard
+  base_model: v2ecoli.composites.ecoli_millard
   perturbation:
   condition: M9-minimal-glucose
   duration_min: 1

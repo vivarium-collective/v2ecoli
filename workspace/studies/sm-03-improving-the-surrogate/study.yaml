@@ -63,7 +63,7 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   variants:
@@ -148,7 +148,7 @@ simulation_set:
 - name: rollout-loss-cv
   kind: cross_validation
   status: ran
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 0
   seeds: 8
   details: "8-fold CV: one-step vs rollout-loss vs linear on cell_mass rollout."

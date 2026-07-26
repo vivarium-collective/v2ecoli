@@ -506,7 +506,7 @@ def run_arm_multigen(
     from v2ecoli.library.sqlite_run import run_multigen_sqlite
     from vivarium_workbench.lib import composite_runs
 
-    from v2ecoli.composites.baseline import set_null_emitter_override
+    from v2ecoli.composites.ecoli_baseline import set_null_emitter_override
 
     composite = ARM_COMPOSITE[arm]
     # Per-seed run dir so a multi-seed sweep doesn't clobber prior seeds.

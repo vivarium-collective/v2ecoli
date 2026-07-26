@@ -104,7 +104,7 @@ def collect_described():
 # Execution flow + partition contract (structural context for the math)
 # ---------------------------------------------------------------------------
 def execution_flow():
-    from v2ecoli.composites.baseline import build_execution_layers, DEFAULT_FEATURES
+    from v2ecoli.composites.ecoli_baseline import build_execution_layers, DEFAULT_FEATURES
     layers = build_execution_layers(DEFAULT_FEATURES)
     rows = []
     for L in layers:

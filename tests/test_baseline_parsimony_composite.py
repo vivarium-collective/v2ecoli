@@ -95,7 +95,7 @@ def test_generator_appends_pack_step():
     core = build_core()
     comp = v2ecoli.build_composite(
         "baseline_parsimony", core=core, seed=0, cache_dir="out/cache",
-        study="ecoli-3d", emitter="null")  # doc-shape only; do not run
+        study="s01-birth-and-division", emitter="null")  # doc-shape only; do not run
 
     state = comp.state
     cell = next(iter(state["agents"].values()))

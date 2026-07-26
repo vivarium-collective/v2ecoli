@@ -138,7 +138,7 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
         **_BASELINE_PARAMS,
         "study": {
             "type": "string",
-            "default": "ecoli-3d",
+            "default": "s01-birth-and-division",
             "description": "Study slug; used to derive the default pack out_dir.",
         },
         "snapshots": {
@@ -171,7 +171,7 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
 def baseline_parsimony(
     core: Any = None,
     *,
-    study: str = "ecoli-3d",
+    study: str = "s01-birth-and-division",
     snapshots: dict | None = None,
     top_n: int = 40,
     scale: float = 0.3,

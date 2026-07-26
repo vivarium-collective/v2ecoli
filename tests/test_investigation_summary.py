@@ -38,7 +38,11 @@ def test_aggregate_per_study_metadata_and_rollup():
     assert by["parca"]["result"] == "PASS"
     assert by["parca"]["prerequisites"] == []
     assert by["acetate"]["prerequisites"] == ["parca"]
-    assert by["statistical"]["prerequisites"] == ["basal"]
+    # post-migration: prerequisites come from inputs.from, which for
+    # `statistical` lists both its sim_data source (parca) and its
+    # comparison baseline (basal) — pipeline_gate.prerequisites (pre-migration)
+    # tracked only the direct gate (basal); inputs.from is now the source of truth.
+    assert by["statistical"]["prerequisites"] == ["parca", "basal"]
     # post-fix finding states acetate reproduces vEcoli natively
     assert "reproduces vEcoli" in (by["acetate"]["finding"] or "")
     # config + standard cards discovered for acetate; parca card for parca

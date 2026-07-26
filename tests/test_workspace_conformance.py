@@ -6,7 +6,7 @@ NO_MODEL = {"parca"}                                  # upstream artifact produc
 MULTI_BASELINE_PENDING = {"mbp-07-millard-kinetic-metabolism"}  # multi_baseline_needs_human (user decision)
 
 def _studies():
-    return {p.parent.name: (yaml.safe_load(p.read_text()) or {})
+    return {p.parent.name: (yaml.safe_load(p.read_text(encoding="utf-8")) or {})
             for p in (WS / "studies").glob("*/study.yaml")}
 
 def test_no_nested_studies():
@@ -15,7 +15,7 @@ def test_no_nested_studies():
 
 def test_investigations_use_members_not_studies():
     for inv in (WS / "investigations").glob("*/investigation.yaml"):
-        spec = yaml.safe_load(inv.read_text()) or {}
+        spec = yaml.safe_load(inv.read_text(encoding="utf-8")) or {}
         assert "studies" not in spec, f"{inv.parent.name} still uses studies: (must be members:)"
 
 def test_studies_canonical_conditions_form():

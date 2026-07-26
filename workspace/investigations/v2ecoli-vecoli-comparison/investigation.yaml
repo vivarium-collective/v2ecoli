@@ -1,6 +1,6 @@
 schema_version: 4
 name: v2ecoli-vecoli-comparison
-title: v2ecoli ↔ vEcoli comparison
+title: "v2ecoli \u2194 vEcoli comparison"
 question: Does v2ecoli reproduce vEcoli across nutrient conditions?
 comparison:
   v2ecoli:
@@ -18,32 +18,59 @@ comparison:
     - standard
     - statistical
     seeds: 4
-studies:
-- parca
+executive:
+  what_is_this: "Does v2ecoli reproduce vEcoli across nutrient conditions? Each study\
+    \ runs both engines from matched ParCa initial states and grades v2ecoli against\
+    \ a live vEcoli reference on cell, dry, protein and RNA mass, and growth rate.\
+    \ GOLD STANDARD: grading gates on the multi-seed STATISTICAL card (Welch t-test\
+    \ over 4 seeds) plus the ParCa t=0 card; the single-seed card is illustrative\
+    \ only.\n\nHEADLINE (resolved): v2ecoli now reproduces vEcoli across all five\
+    \ conditions. The multi-seed grading first revealed a real, bidirectional off-basal\
+    \ divergence -- v2 over-grew on poor carbon (acetate growth +40%, p=0.049) and\
+    \ under-grew on rich amino acids (with_aa growth -16% / RNA -21%, p<0.01), matching\
+    \ only at the basal ParCa fit point. We traced it end to end and FIXED it at the\
+    \ source; after the fix every condition reproduces vEcoli with no statistically\
+    \ significant divergence remaining.\n\nRESULT (4-seed gen-1, before -> after fix):\n\
+    \  basal      within_tol -> within_tol   (control; fix preserves the fit point)\n\
+    \  acetate    MISMATCH (growth +40.2%, p=0.049) -> drift (+15.9%, p=0.28, not\
+    \ significant); RNA/cell/dry/protein within_tol\n  with_aa    MISMATCH (growth\
+    \ -16.1% p=0.003, RNA -21.3% p=0.001) -> within_tol on ALL five observables\n\
+    \  succinate  drift (growth +18.0%, p=0.06) -> drift (-6.6%, p=0.44, not significant);\
+    \ 4/5 within_tol\n  no_oxygen  drift (growth +14.4%, p=0.08) -> drift (+6.7%,\
+    \ p=0.50, not significant); 4/5 within_tol\nBoth significant mismatches are eliminated;\
+    \ the borderline drifts are halved to basal-level, non-significant residuals.\n\
+    \nROOT CAUSE (pinned): the RNAP core complex (APORNAP-CPLX) is limited by its\
+    \ rpoB/rpoC subunits. v2's ParCa fit set exp_free[rpoBC operon]=0 -- a non-negativity\
+    \ BOUNDARY solution of the cistron->TU NNLS in Transcription.set_ppgpp_expression\
+    \ (a fit step the code itself flags as non-reproducible across numpy/scipy builds).\
+    \ That zeroed free-expression term is inconsistent with rpoBC's own ppGpp fold-change\
+    \ (-1.08/-0.76: ppGpp represses rpoBC, so exp_free must exceed exp_ppgpp). Because\
+    \ expression_from_ppgpp = f(ppGpp)*exp_ppgpp + (1-f)*exp_free, the split is pinned\
+    \ equal at the basal setpoint but inverts rpoBC's nutrient response off-basal\
+    \ -- compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. Verified:\
+    \ the ppGpp coupling code, ppGpp setpoint, doubling times, active-RNAP fraction\
+    \ and aa-supply are all identical between engines; the divergence was this single\
+    \ degenerate fit term. (rpoA/sigma/rpoZ and ribosomal genes fit correctly, which\
+    \ is why PROTEIN MASS reproduces throughout -- the tell that isolated the defect\
+    \ to rRNA/ribosome allocation, not translation.)\n\nTHE FIX: scripts/fix_ppgpp_rpobc_expression.py\
+    \ re-partitions the rpoBC operon's expression into a fold-change-consistent, basal-preserving\
+    \ split (ratio exp_ppgpp/exp_free ~0.40) -- self-contained (no reference cache),\
+    \ idempotent. It restores rpoBC per-condition expression from {basal 1.0, with_aa\
+    \ 0.37, acetate 1.44} back to ~1.0 vs vEcoli, and assembled APORNAP-CPLX from\
+    \ {acetate 1.45, with_aa 0.37} to {0.99, 1.02} with basal unchanged. All 'after\
+    \ fix' runs above are v2ecoli NATIVE on its own corrected fit -- no vEcoli seeding.\
+    \ Durable follow-up: harden the NNLS boundary in set_ppgpp_expression so a full\
+    \ ParCa regeneration cannot reintroduce it. (Also open: a pre-existing anaerobic-FBA\
+    \ numerical edge -- BIOTIN homeostatic target ~ -2e-6 -- tripped 2 no_oxygen seeds;\
+    \ unrelated to the fix, graded on the clean seeds.)\n\nThe MetabolismRedux swap\
+    \ remains investigated-but-blocked on a process-bigraph step-cascade runtime issue\
+    \ (not a science mismatch)."
+members:
+- acetate
 - basal
 - metabolism_redux
-- with_aa
-- succinate
 - no_oxygen
-- acetate
+- parca
 - statistical
-executive:
-  what_is_this: |-
-    Does v2ecoli reproduce vEcoli across nutrient conditions? Each study runs both engines from matched ParCa initial states and grades v2ecoli against a live vEcoli reference on cell, dry, protein and RNA mass, and growth rate. GOLD STANDARD: grading gates on the multi-seed STATISTICAL card (Welch t-test over 4 seeds) plus the ParCa t=0 card; the single-seed card is illustrative only.
-
-    HEADLINE (resolved): v2ecoli now reproduces vEcoli across all five conditions. The multi-seed grading first revealed a real, bidirectional off-basal divergence -- v2 over-grew on poor carbon (acetate growth +40%, p=0.049) and under-grew on rich amino acids (with_aa growth -16% / RNA -21%, p<0.01), matching only at the basal ParCa fit point. We traced it end to end and FIXED it at the source; after the fix every condition reproduces vEcoli with no statistically significant divergence remaining.
-
-    RESULT (4-seed gen-1, before -> after fix):
-      basal      within_tol -> within_tol   (control; fix preserves the fit point)
-      acetate    MISMATCH (growth +40.2%, p=0.049) -> drift (+15.9%, p=0.28, not significant); RNA/cell/dry/protein within_tol
-      with_aa    MISMATCH (growth -16.1% p=0.003, RNA -21.3% p=0.001) -> within_tol on ALL five observables
-      succinate  drift (growth +18.0%, p=0.06) -> drift (-6.6%, p=0.44, not significant); 4/5 within_tol
-      no_oxygen  drift (growth +14.4%, p=0.08) -> drift (+6.7%, p=0.50, not significant); 4/5 within_tol
-    Both significant mismatches are eliminated; the borderline drifts are halved to basal-level, non-significant residuals.
-
-    ROOT CAUSE (pinned): the RNAP core complex (APORNAP-CPLX) is limited by its rpoB/rpoC subunits. v2's ParCa fit set exp_free[rpoBC operon]=0 -- a non-negativity BOUNDARY solution of the cistron->TU NNLS in Transcription.set_ppgpp_expression (a fit step the code itself flags as non-reproducible across numpy/scipy builds). That zeroed free-expression term is inconsistent with rpoBC's own ppGpp fold-change (-1.08/-0.76: ppGpp represses rpoBC, so exp_free must exceed exp_ppgpp). Because expression_from_ppgpp = f(ppGpp)*exp_ppgpp + (1-f)*exp_free, the split is pinned equal at the basal setpoint but inverts rpoBC's nutrient response off-basal -- compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. Verified: the ppGpp coupling code, ppGpp setpoint, doubling times, active-RNAP fraction and aa-supply are all identical between engines; the divergence was this single degenerate fit term. (rpoA/sigma/rpoZ and ribosomal genes fit correctly, which is why PROTEIN MASS reproduces throughout -- the tell that isolated the defect to rRNA/ribosome allocation, not translation.)
-
-    THE FIX: scripts/fix_ppgpp_rpobc_expression.py re-partitions the rpoBC operon's expression into a fold-change-consistent, basal-preserving split (ratio exp_ppgpp/exp_free ~0.40) -- self-contained (no reference cache), idempotent. It restores rpoBC per-condition expression from {basal 1.0, with_aa 0.37, acetate 1.44} back to ~1.0 vs vEcoli, and assembled APORNAP-CPLX from {acetate 1.45, with_aa 0.37} to {0.99, 1.02} with basal unchanged. All 'after fix' runs above are v2ecoli NATIVE on its own corrected fit -- no vEcoli seeding. Durable follow-up: harden the NNLS boundary in set_ppgpp_expression so a full ParCa regeneration cannot reintroduce it. (Also open: a pre-existing anaerobic-FBA numerical edge -- BIOTIN homeostatic target ~ -2e-6 -- tripped 2 no_oxygen seeds; unrelated to the fix, graded on the clean seeds.)
-
-    The MetabolismRedux swap remains investigated-but-blocked on a process-bigraph step-cascade runtime issue (not a science mismatch).
-
+- succinate
+- with_aa

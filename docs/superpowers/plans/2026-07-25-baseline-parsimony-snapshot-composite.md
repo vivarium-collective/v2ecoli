@@ -346,7 +346,7 @@ def baseline_parsimony(core=None, *, study: str = "ecoli-3d",
 
 Implement `_append_final_step(cell, step_name)` to reproduce baseline's final-layer append: read the cell's execution layers / `flow_order`, append `[step_name]`, and call `inject_flow_dependencies(cell, flow_order, layers=...)`. If baseline exposes its layers on the returned doc, reuse them; otherwise import `inject_flow_dependencies` from where baseline uses it and rebuild `flow_order` from the doc's existing steps + the appended step. **Verify against `baseline.py:895-919`** and match its exact call.
 
-Register in `v2ecoli/composites/__init__.py`: add `from v2ecoli.composites import baseline_parsimony  # noqa: F401` next to the other generator imports, and reconcile the `__all__` entry (replace/duplicate the dangling `"parsimony_ecoli"` stub, `__init__.py:74`, with `"baseline_parsimony"`).
+Register in `v2ecoli/composites/__init__.py`: add `from v2ecoli.composites import ecoli_structural  # noqa: F401` next to the other generator imports, and reconcile the `__all__` entry (replace/duplicate the dangling `"parsimony_ecoli"` stub, `__init__.py:74`, with `"baseline_parsimony"`).
 
 - [ ] **Step 4: Run — verify it passes**
 

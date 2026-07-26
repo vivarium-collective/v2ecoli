@@ -1,0 +1,87 @@
+schema_version: 4
+name: ko-and-media
+investigation: perturbation-demo
+title: Knockout and media perturbations on the baseline whole cell
+question: "How do a translation-level gene knockout (lacY) and an amino-acid-rich\
+  \ medium\neach move the v2ecoli baseline off its wild-type trajectory \u2014 and\
+  \ how do you\nexpress each as a one-line variant of the baseline composite?\n"
+status: evaluated
+report:
+  verdict: pass
+  confidence: high
+  evidence_quality: 1500-step single-cell run of all three arms, seed 0
+  result: "Dry mass over 1500 steps (see the Growth comparison figure):\n- wild-type:\
+    \  380.62 -> 547.69  (+43.89%)\n- lacY-KO:    380.62 -> 547.69  (+43.89%)  \u2014\
+    \ BYTE-IDENTICAL to wild-type.\n    The knockout reaches the live PolypeptideInitiation\
+    \ process (exactly one\n    translation efficiency zeroed = lacY) but is phenotypically\
+    \ SILENT in\n    glucose-minimal (lac operon not needed): the two trajectories\
+    \ overlap\n    exactly. The intended demonstration \u2014 the mechanism reaches\
+    \ the process\n    without confounding growth.\n- rich-media: 380.62 -> 559.47\
+    \  (+46.99%)  \u2014 grows faster.\n    minimal_plus_amino_acids diverges above\
+    \ the minimal arms from ~step 450;\n    amino-acid-rich medium relieves biosynthetic\
+    \ demand. In-cache media shift,\n    no ParCa re-fit.\n"
+findings:
+- id: ko-reaches-process-silent-in-glucose
+  kind: computational
+  status: confirms
+  statement: "baseline(knockouts=['EG10526']) zeroes exactly the lacY translation\
+    \ efficiency on the live process; growth is unchanged in glucose-minimal (correct\
+    \ \u2014 lacY is dispensable without lactose)."
+- id: rich-media-grows-faster
+  kind: computational
+  status: confirms
+  statement: "baseline(media='minimal_plus_amino_acids') reaches +46.99% dry mass\
+    \ vs +43.89% for minimal over 1500 steps (diverges from ~step 450) \u2014 the\
+    \ in-cache media shift takes effect via media_update without a ParCa re-fit."
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      seed: 0
+  variants:
+  - name: lacY-knockout
+    perturbation: translation-level knockout of lacY (EG10526)
+    params:
+      seed: 0
+      knockouts:
+      - EG10526
+    expected_contrast: "lacY protein is no longer synthesised (its translation efficiency\
+      \ is zeroed\non the live PolypeptideInitiation process). In glucose-minimal\
+      \ this is\nphenotypically near-silent \u2014 the lac operon is not needed \u2014\
+      \ which is the\npoint: it shows the knockout mechanism reaches the process without\n\
+      confounding the demo with a growth collapse. Swap in a gene the condition\n\
+      needs to see a phenotype.\n"
+  - name: rich-media
+    perturbation: growth medium minimal -> minimal_plus_amino_acids
+    params:
+      seed: 0
+      media: minimal_plus_amino_acids
+    expected_contrast: "An amino-acid-rich medium relieves biosynthetic demand, so\
+      \ the cell grows\nfaster than on minimal (verified: higher dry-mass accumulation\
+      \ over a short\nrun). A lightweight in-cache media shift \u2014 the media_update\
+      \ step applies the\ncondition on tick 1; no per-condition ParCa re-fit.\n"
+  model_settings: []
+tests:
+- name: ko-reaches-process
+  classification: primary
+  question: Does the lacY knockout zero the translation efficiency on the live PolypeptideInitiation
+    process?
+  measure:
+    kind: composite_state
+    path: agents.0.ecoli-polypeptide-initiation
+  expect:
+    op: eq
+    note: translation_efficiencies[lacY monomer] == 0 (unit-asserted in tests/test_ko_composites.py)
+- name: rich-media-grows-faster
+  classification: primary
+  question: Does minimal_plus_amino_acids accumulate more dry mass than minimal over
+    the run?
+  measure:
+    kind: readout
+    observable: listeners.mass.dry_mass
+  expect:
+    op: gt
+    note: dry-mass increment on rich media > minimal (directional; demonstration only)
+inputs:
+- artifact: sim_data
+  from: parca

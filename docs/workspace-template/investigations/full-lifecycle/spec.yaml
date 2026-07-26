@@ -26,7 +26,7 @@ baseline: baseline
 
 variants:
   - name: baseline
-    source: local:baseline
+    source: local:ecoli_baseline
     # `document` is created on first run by the dashboard at
     # investigations/full-lifecycle/composites/baseline.yaml
     parameters:

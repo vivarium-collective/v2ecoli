@@ -129,8 +129,14 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
 
     studies: list[dict[str, Any]] = []
     rollup = {"PASS": 0, "PARTIAL": 0, "FAIL": 0}
-    for study_slug in inv.get("studies", []) or []:
-        study_dir = inv_dir / "studies" / study_slug
+    # Registry model (Study Pipeline Spec 1): investigations REFERENCE top-level
+    # studies/<slug>/ via `members:`. Legacy investigations used a nested
+    # `studies:` list under investigations/<inv>/studies/<slug>/. Support both.
+    member_slugs = inv.get("members") or inv.get("studies") or []
+    for study_slug in member_slugs:
+        study_dir = ws / "studies" / study_slug
+        if not (study_dir / "study.yaml").is_file():
+            study_dir = inv_dir / "studies" / study_slug  # legacy nested fallback
         study = _load_yaml(study_dir / "study.yaml")
         result = _canonical_result(study)
         if result in rollup:

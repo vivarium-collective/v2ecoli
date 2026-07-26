@@ -1,6 +1,6 @@
 import json, importlib.util, pathlib
 
-STUDY = pathlib.Path("workspace/investigations/colonies/studies/colonies-04-device-phenotype-harness")
+STUDY = pathlib.Path("workspace/studies/colonies-04-device-phenotype-harness")  # registry: top-level (Spec 1)
 
 def test_study_run_writes_phenotypes(tmp_path):
     spec = importlib.util.spec_from_file_location("c04run", STUDY / "sims" / "run.py")

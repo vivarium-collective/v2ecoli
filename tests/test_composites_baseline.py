@@ -21,12 +21,17 @@ def test_baseline_function_signature():
     import inspect
     from v2ecoli.composites.baseline import baseline
     sig = inspect.signature(baseline)
-    assert set(sig.parameters) == {
+    # Subset (not exact-equality) so legitimate ADDITIVE signature growth — e.g.
+    # the #373 composite unification added media/knockouts/n_seeds/study/analyses/… —
+    # doesn't hard-break this contract test. The stable core params must remain.
+    required = {
         "core", "seed", "cache_dir", "transcript_initiation_mode",
         "polypeptide_initiation_mode", "config_overrides",
         "ppgpp_regulation", "trna_attenuation", "supercoiling",
         "mass_conservation", "emitter", "bundle", "features",
         "injected_processes"}
+    missing = required - set(sig.parameters)
+    assert not missing, f"baseline() lost core params: {missing}"
 
 
 @pytest.mark.sim

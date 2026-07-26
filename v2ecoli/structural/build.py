@@ -211,16 +211,20 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000):
 
 
 def relax_ingredients(ingredients, *, cache_dir, relax_cfg):
-    """Rewrite each ingredient's alphafold/pdb/cif structure to its cached
-    RELAXED structure (best-effort per ingredient: any failure keeps the raw
-    ref so the pack still builds). Ingredients without a structure (e.g. the
-    lipid sphere) pass through untouched. Returns a NEW list."""
+    """Rewrite each AlphaFold ingredient's structure to its cached RELAXED
+    structure (best-effort per ingredient: any failure keeps the raw ref so the
+    pack still builds). Only ``alphafold`` structures are relaxed: they are the
+    predicted models whose low-confidence disordered tails stick out and want
+    compacting. Experimental ``pdb``/``cif`` assemblies (the curated 70S
+    ribosome, RNA polymerase, GroEL, ...) are left untouched — they are already
+    well-resolved and far too large to solvate all-atom. Ingredients without a
+    structure (e.g. the lipid sphere) pass through untouched. Returns a NEW list."""
     from dataclasses import replace
     from pbg_parsimony.relax_cache import get_or_relax
     out = []
     for ing in ingredients:
         s = getattr(ing, "structure", None)
-        if s is not None and s.kind in ("alphafold", "pdb", "cif"):
+        if s is not None and s.kind == "alphafold":
             try:
                 p = get_or_relax({"kind": s.kind, "ref": s.ref}, cache_dir,
                                  relax_cfg, obj_id=ing.id)

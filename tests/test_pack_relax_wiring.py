@@ -15,17 +15,17 @@ def test_relax_ingredients_rewrites_and_skips(monkeypatch, tmp_path):
     monkeypatch.setattr("pbg_parsimony.relax_cache.get_or_relax", fake)
     ings = [
         B.Ingredient(id="af", count=1, structure=StructureRef("alphafold", "P0A9B2")),
-        B.Ingredient(id="pdbx", count=1, structure=StructureRef("pdb", "1CRN")),
+        B.Ingredient(id="pdbx", count=1, structure=StructureRef("pdb", "1CRN")),  # experimental → skip
         B.Ingredient(id="boom", count=1, structure=StructureRef("alphafold", "PXXXX")),
         B.Ingredient(id="lipid", count=9, sphere_radius=12.0),  # no structure
     ]
     out = B.relax_ingredients(ings, cache_dir=str(tmp_path), relax_cfg={"equil_ps": 5.0})
     by = {i.id: i for i in out}
     assert by["af"].structure == StructureRef("file", str(tmp_path / "af.pdb"))
-    assert by["pdbx"].structure == StructureRef("file", str(tmp_path / "pdbx.pdb"))
+    assert by["pdbx"].structure == StructureRef("pdb", "1CRN")        # experimental pdb NOT relaxed
     assert by["boom"].structure == StructureRef("alphafold", "PXXXX")  # failure keeps raw
     assert by["lipid"].structure is None                              # no-structure passthrough
-    assert set(calls) == {"af", "pdbx", "boom"}                        # lipid never attempted
+    assert set(calls) == {"af", "boom"}                               # only alphafold attempted
 
 
 def test_pack_step_config_accepts_relax():

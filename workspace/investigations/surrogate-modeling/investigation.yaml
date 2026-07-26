@@ -41,23 +41,23 @@ scientific_argument:
     view. The useful deliverable is a cheap linear emulator of coarse growth,
     not a neural net.
   evidence_for:
-  - "8-fold CV: linear rollout nRMSE 0.019 (0/8 unstable) is best, beating the neural net (0.032, 2/8 explode) and persistence (1.850)."
-  - "The cheap emulator pays back its 8 training sims after ~8 evaluations; a 5,000-trajectory sweep runs in 0.02 s vs ~24 h on the WCM."
+    - "8-fold CV: linear rollout nRMSE 0.019 (0/8 unstable) is best, beating the neural net (0.032, 2/8 explode) and persistence (1.850)."
+    - "The cheap emulator pays back its 8 training sims after ~8 evaluations; a 5,000-trajectory sweep runs in 0.02 s vs ~24 h on the WCM."
   evidence_against:
-  - "One-step R²≈1.000 looks like strong emulation but is a persistence artifact (persistence also scores 1.000), not learned dynamics."
+    - "One-step R²≈1.000 looks like strong emulation but is a persistence artifact (persistence also scores 1.000), not learned dynamics."
   caveats:
-  - "Trained on 8 single-generation local trajectories; the cheap emulator covers coarse, smooth observables only."
-  - "The negative result is conditioned on this observable panel and modest data; sm-03 tests whether better training narrows the gap."
+    - "Trained on 8 single-generation local trajectories; the cheap emulator covers coarse, smooth observables only."
+    - "The negative result is conditioned on this observable panel and modest data; sm-03 tests whether better training narrows the gap."
 
 at_a_glance:
-- study: sm-00-data-collection
-  role: "Roll out the baseline ensemble and build the broad ~11.5k-observable pbg-torch TransitionDataset."
-- study: sm-01-nn-surrogate
-  role: "The test: under 8-fold CV the neural net does not beat trivial baselines; one-step R²=1.0 is a persistence artifact; broad panel unlearnable from itself."
-- study: sm-02-utility-and-limits
-  role: "What the cheap linear emulator is worth: amortized break-even (~8 evals) plus a 5,000-traj sweep in 0.02 s, and the limits."
-- study: sm-03-improving-the-surrogate
-  role: "Follow-up: does multi-step rollout-loss training close the gap to the linear baseline?"
+  - study: sm-00-data-collection
+    role: "Roll out the baseline ensemble and build the broad ~11.5k-observable pbg-torch TransitionDataset."
+  - study: sm-01-nn-surrogate
+    role: "The test: under 8-fold CV the neural net does not beat trivial baselines; one-step R²=1.0 is a persistence artifact; broad panel unlearnable from itself."
+  - study: sm-02-utility-and-limits
+    role: "What the cheap linear emulator is worth: amortized break-even (~8 evals) plus a 5,000-traj sweep in 0.02 s, and the limits."
+  - study: sm-03-improving-the-surrogate
+    role: "Follow-up: does multi-step rollout-loss training close the gap to the linear baseline?"
 
 biological_story: |
   The v2ecoli whole-cell model integrates 55 processes to advance one cell by
@@ -69,18 +69,18 @@ biological_story: |
   view at all. The value is knowing which is which, and having a cheap emulator
   for the part that is emulable.
 
-studies:
-- sm-00-data-collection
-- sm-01-nn-surrogate
-- sm-02-utility-and-limits
-- sm-03-improving-the-surrogate
-
 acceptance_criteria:
-- study: sm-00-data-collection
-  behavior: ensemble-builds-broad-transition-dataset
-- study: sm-01-nn-surrogate
-  behavior: surrogate-beats-trivial-baselines
-- study: sm-02-utility-and-limits
-  behavior: cheap-emulator-amortizes-and-is-honest-about-limits
-- study: sm-03-improving-the-surrogate
-  behavior: rollout-loss-training-narrows-the-gap
+  - study: sm-00-data-collection
+    behavior: ensemble-builds-broad-transition-dataset
+  - study: sm-01-nn-surrogate
+    behavior: surrogate-beats-trivial-baselines
+  - study: sm-02-utility-and-limits
+    behavior: cheap-emulator-amortizes-and-is-honest-about-limits
+  - study: sm-03-improving-the-surrogate
+    behavior: rollout-loss-training-narrows-the-gap
+members:
+  - sm-00-data-collection
+  - sm-01-nn-surrogate
+  - sm-02-utility-and-limits
+  - sm-03-improving-the-surrogate
+

@@ -17,5 +17,5 @@ description: |
   First study saves two snapshots — an initial state ~10 s in and a pre-division
   state — for the Analysis Tools Parsimony Viewer.
 
-studies:
+members:
   - s01-birth-and-division

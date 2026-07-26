@@ -331,3 +331,8 @@ embed_visualizations:
 - name: Units Atlas (interactive)
   url: /reports/figures/showcase-5-next-direction-decide/units_atlas.html
   description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range.
+
+
+# --- registry model (Study Pipeline Spec 1): declared artifact I/O; graph edges derive from inputs.from. Mirrors pipeline_gate.prerequisites. ---
+inputs:
+- {artifact: variant_ranking, from: showcase-4-variant-comparison}

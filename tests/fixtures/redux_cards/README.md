@@ -16,9 +16,15 @@ Both stores hold at least `cell_mass` and `dry_mass` under
 ## `make_card_state()` (in `tests/conftest.py`)
 
 ```python
-from tests.conftest import make_card_state
+from conftest import make_card_state
 state = make_card_state()
 ```
+
+Import it bare (`from conftest import ...`), NOT `from tests.conftest
+import ...`: a site-packages `nose`-provided `tests` package (in
+`v2ecoli/.venv/lib/python3.12/site-packages/tests/`) shadows this repo's
+`tests/conftest` for dotted imports, so `tests.conftest` resolves to the
+wrong module. Copy this bare form in B1-B4 card tests.
 
 Returns a `state` dict matching the `CARD_INPUTS` contract in
 `scripts/_compare/report_cards/__init__.py`, with `v2_dir` **and** `ve_dir`

@@ -70,4 +70,4 @@ def _sections_to_html(sections: list) -> str:
 # Built-in card modules register themselves into REPORT_CARD_STEPS on import.
 from scripts._compare.report_cards import standard, statistical  # noqa: E402,F401
 from scripts._compare.report_cards import parca, config_diff, config  # noqa: E402,F401
-from scripts._compare.report_cards import trajectory  # noqa: E402,F401
+from scripts._compare.report_cards import trajectory, distribution  # noqa: E402,F401

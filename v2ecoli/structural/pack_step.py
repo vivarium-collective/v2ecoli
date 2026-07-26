@@ -49,6 +49,9 @@ class EcoliPackStep(Step):
         "top_n": {"_type": "integer", "_default": 40},
         "scale": {"_type": "float", "_default": 0.3},
         "epsilon_s": {"_type": "float", "_default": 1.0},
+        "relax": {"_type": "boolean", "_default": False},
+        "cache_dir": {"_type": "string", "_default": "out/cache"},
+        "relax_params": "object",       # {equil_ps: ..., ...} — see pbg_openmm.relax_in_water
     }
 
     def __init__(self, config=None, core=None):
@@ -104,7 +107,10 @@ class EcoliPackStep(Step):
                 continue
             counts = bulk_to_counts(state.get("bulk"))
             res = pack_from_state(self.config["out_dir"], name, counts, volume_fl,
-                                  top_n=self.config["top_n"], scale=self.config["scale"])
+                                  top_n=self.config["top_n"], scale=self.config["scale"],
+                                  relax=self.config.get("relax", False),
+                                  cache_dir=self.config.get("cache_dir") or "out/cache",
+                                  relax_params=self.config.get("relax_params") or {})
             self._fired.add(name)
             status[name] = float(len((res or {}).get("placements") or []))
         return {"pack_status": status} if status else {}

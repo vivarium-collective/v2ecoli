@@ -12,12 +12,15 @@ from __future__ import annotations
 import ast
 import importlib.util
 import json
+import logging
 import os
 from pathlib import Path
 
 import numpy as np
 
 from pbg_parsimony import Ingredient, Capsule, Chromosome, StructureRef, build_pack
+
+log = logging.getLogger(__name__)
 
 DATA = Path(__file__).parent / "data"
 
@@ -207,10 +210,36 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000):
     return ingredients
 
 
-def pack_from_state(out_dir, name, counts, volume_fl, *, top_n=40, scale=0.3, proxy_lod=2):
+def relax_ingredients(ingredients, *, cache_dir, relax_cfg):
+    """Rewrite each ingredient's alphafold/pdb/cif structure to its cached
+    RELAXED structure (best-effort per ingredient: any failure keeps the raw
+    ref so the pack still builds). Ingredients without a structure (e.g. the
+    lipid sphere) pass through untouched. Returns a NEW list."""
+    from dataclasses import replace
+    from pbg_parsimony.relax_cache import get_or_relax
+    out = []
+    for ing in ingredients:
+        s = getattr(ing, "structure", None)
+        if s is not None and s.kind in ("alphafold", "pdb", "cif"):
+            try:
+                p = get_or_relax({"kind": s.kind, "ref": s.ref}, cache_dir,
+                                 relax_cfg, obj_id=ing.id)
+                ing = replace(ing, structure=StructureRef("file", str(p)))
+            except Exception as exc:
+                log.warning("relax skipped for %s (%s); using raw structure",
+                            ing.id, exc)
+        out.append(ing)
+    return out
+
+
+def pack_from_state(out_dir, name, counts, volume_fl, *, top_n=40, scale=0.3, proxy_lod=2,
+                    relax=False, cache_dir="out/cache", relax_params=None):
     """Pack a 3D structural model directly from in-memory ``counts``/``volume_fl``
     (no ``load_state`` round-trip). Returns build_pack's result dict."""
     ingredients = select_ingredients(counts, top_n=top_n)
+    if relax:
+        ingredients = relax_ingredients(ingredients, cache_dir=cache_dir,
+                                        relax_cfg=relax_params or {})
     capsule = Capsule.from_volume_fl(volume_fl)
     chromosome = Chromosome(
         beads=34000, spacing=135.0, bead_radius=12.0,

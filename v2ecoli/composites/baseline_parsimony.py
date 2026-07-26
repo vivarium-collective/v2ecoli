@@ -165,6 +165,23 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
                 "'<studies_root>/<study>/viz/3d'."
             ),
         },
+        "relax": {
+            "type": "boolean",
+            "default": False,
+            "description": (
+                "Relax each ingredient's structure in explicit-water MD "
+                "(compacts disordered tails) before packing; cached under "
+                "cache_dir/relaxed. Opt-in; adds significant first-run compute."
+            ),
+        },
+        "relax_params": {
+            "type": "object",
+            "default": {},
+            "description": (
+                "Optional overrides for the relax MD (e.g. {equil_ps: 100.0}); "
+                "see pbg_openmm.relax_in_water."
+            ),
+        },
     },
     default_n_steps=2700,
 )
@@ -176,6 +193,8 @@ def baseline_parsimony(
     top_n: int = 40,
     scale: float = 0.3,
     out_dir: str | None = None,
+    relax: bool = False,
+    relax_params: dict | None = None,
     **kwargs: Any,
 ) -> dict:
     """Build the baseline document, then append EcoliPackStep as a final
@@ -195,6 +214,7 @@ def baseline_parsimony(
     # instead of a stray CWD-relative 'studies/' directory the viewer never
     # looks at.
     out_dir = _resolve_pack_out_dir(out_dir, study)
+    cache_dir = kwargs.get("cache_dir") or "out/cache"
 
     flow_order = doc.get("flow_order") or []
     for agent_id, cell in doc["state"]["agents"].items():
@@ -207,6 +227,9 @@ def baseline_parsimony(
                 "out_dir": out_dir,
                 "top_n": top_n,
                 "scale": scale,
+                "relax": relax,
+                "cache_dir": cache_dir,
+                "relax_params": relax_params or {},
             },
             "inputs": {
                 "bulk": ["bulk"],

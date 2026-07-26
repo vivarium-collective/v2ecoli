@@ -155,53 +155,40 @@ def make_colony_document(
             },
         },
 
-        # Outer colony emitter.
+        # Colony emitter: global_time only whenever we're capturing per-cell
+        # data the leak-free way (or when emit_cells is off).
         #
-        # The legacy full cells-map capture (emit_cells=True) wires the whole
-        # `cells` map into a RAMEmitter, which appends every cell's
-        # numpy-array-heavy state to an in-RAM history EVERY tick — measured at
-        # ~1.5 MB/tick vs ~0.09 MB/tick with emit_cells=False, i.e. ~94% of the
-        # "colony RAM leak" the investigation chased as a native/C leak (it only
-        # looked native because numpy buffers are invisible to tracemalloc).
-        #
-        # Preferred path: pass `phenotype_store` (a runs.<id>.zarr path). The
-        # colony then streams a bounded per-cell PHENOTYPE PANEL (mass, length,
-        # volume, x, y, angle) to zarr via ColonyPhenotypeEmitter — O(1) RAM AND
-        # the queryable per-cell timeseries the phenotype studies need. The
-        # legacy emit_cells flag is kept only for back-compat callers.
-        'emitter': (
-            {
-                '_type': 'step',
-                'address': 'local:ColonyPhenotypeEmitter',
-                'config': {
-                    # TYPED shallow schema: the engine gathers only these scalar
-                    # per-cell fields, NOT each cell's heavy `ecoli` sub-state.
-                    # (Wiring the whole cells map deep-copied ~1.6 MB/tick.)
-                    'emit': {
-                        'cells': {
-                            '_type': 'map',
-                            '_value': {
-                                'mass': 'float',
-                                'length': 'float',
-                                'volume': 'float',
-                                'location': 'list',
-                                'angle': 'float',
-                            },
-                        },
-                        'global_time': 'float',
-                    },
-                    'out_uri': phenotype_store,
-                },
-                'inputs': {'cells': ['cells'], 'global_time': ['global_time']},
-            }
-            if phenotype_store else
-            emitter_from_wires(
-                {'agents': ['cells'], 'time': ['global_time']}
-                if emit_cells else
-                {'time': ['global_time']}
-            )
+        # The heavy per-cell capture does NOT go through an emitter. Emitters
+        # deep-copy the wired `cells` map every tick — each cell's embedded
+        # 55-process WCM state — costing ~1.6 MB/tick of RSS that the OS never
+        # reclaims (the "colony RAM leak", ~94% of it, invisible to tracemalloc
+        # because it's numpy buffers). A *process* gets a cheap typed VIEW of the
+        # cells instead (that's why PymunkProcess, also wired to ['cells'], is
+        # leak-free). So per-cell phenotypes are recorded by a process
+        # (ColonyPhenotypeRecorder, added below when `phenotype_store` is set).
+        # The legacy emit_cells=True full-map RAMEmitter is kept only for
+        # back-compat callers that read the emitted trajectory (e.g. the GIF).
+        'emitter': emitter_from_wires(
+            {'time': ['global_time']}
+            if (phenotype_store or not emit_cells) else
+            {'agents': ['cells'], 'time': ['global_time']}
         ),
     }
+
+    # Leak-free per-cell phenotype capture: a process typed map[pymunk_agent]
+    # sees a shallow view of the cells (never the deep `ecoli` state), so it
+    # streams mass/length/volume/x/y/angle to zarr at O(1) RAM.
+    if phenotype_store:
+        document['phenotype_recorder'] = {
+            '_type': 'process',
+            'address': 'local:ColonyPhenotypeRecorder',
+            'config': {'out_uri': phenotype_store},
+            'interval': ecoli_interval,
+            'inputs': {
+                'cells': ['cells'],
+                'global_time': ['global_time'],
+            },
+        }
 
     return document
 
@@ -240,9 +227,9 @@ def make_colony(
     core.register_link('EcoliWCM', EcoliWCM)
     # Bounded-RAM per-cell phenotype sink (streams to zarr instead of
     # accumulating the cells map in RAM). Registered on the colony's own core
-    # so 'local:ColonyPhenotypeEmitter' resolves even outside build_core().
-    from v2ecoli.colony_emitter import ColonyPhenotypeEmitter
-    core.register_link('ColonyPhenotypeEmitter', ColonyPhenotypeEmitter)
+    # so 'local:ColonyPhenotypeRecorder' resolves even outside build_core().
+    from v2ecoli.colony_emitter import ColonyPhenotypeRecorder
+    core.register_link('ColonyPhenotypeRecorder', ColonyPhenotypeRecorder)
 
     if transport == 'ray':
         from process_bigraph.protocols import ray as ray_protocol

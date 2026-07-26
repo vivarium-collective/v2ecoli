@@ -64,8 +64,8 @@ def build_core():
     try:
         # Bounded-RAM per-cell phenotype sink for the colony composite (streams
         # a scalar panel to zarr instead of accumulating the cells map in RAM).
-        from v2ecoli.colony_emitter import ColonyPhenotypeEmitter
-        core.register_link("ColonyPhenotypeEmitter", ColonyPhenotypeEmitter)
+        from v2ecoli.colony_emitter import ColonyPhenotypeRecorder
+        core.register_link("ColonyPhenotypeRecorder", ColonyPhenotypeRecorder)
     except Exception:
         pass
     # Placeholder labeled-vector types so a SERIALIZED composite (the dashboard

@@ -125,23 +125,25 @@
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
     <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Overview</button>
-    <button class="study-pillar"        data-pillar="inquire"    onclick="_setStudyPillar('inquire')">Hypotheses</button>
     <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Model</button>
     <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulations</button>
     <button class="study-pillar"        data-pillar="readouts"   onclick="_setStudyPillar('readouts')">Readouts</button>
     <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualizations</button>
-    <button class="study-pillar"        data-pillar="report-cards" onclick="_setStudyPillar('report-cards')">Report Cards</button>
+    <button class="study-pillar"        data-pillar="tests"      onclick="_setStudyPillar('tests')">Tests</button>
+    <button class="study-pillar"        data-pillar="decide"     onclick="_setStudyPillar('decide')">Decide</button>
     <button class="study-pillar"        data-pillar="data"       onclick="_setStudyPillar('data')">Exports</button>
   </div>
   <div class="study-subnav" id="study-subnav">
     <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
-    <button class="study-tab"        data-kind="tests"        data-pillar="inquire"  onclick="_setStudyTab('tests')">Tests</button>
-    <button class="study-tab"        data-kind="conclusions"  data-pillar="inquire"  onclick="_setStudyTab('conclusions')">Decide</button>
     <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Model</button>
     <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulations</button>
     <button class="study-tab" data-kind="readouts" data-pillar="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
     <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
-    <button class="study-tab" data-kind="report-cards" data-pillar="report-cards" onclick="_setStudyTab('report-cards')">Report Cards</button>
+    
+    <button class="study-tab" data-kind="report-cards" data-pillar="tests" onclick="_setStudyTab('report-cards')">Report Cards</button>
+    <button class="study-tab" data-kind="tests" data-pillar="tests" onclick="_setStudyTab('tests')">Behavioral Tests</button>
+    
+    <button class="study-tab" data-kind="conclusions" data-pillar="decide" onclick="_setStudyTab('conclusions')">Decide</button>
     <button class="study-tab" data-kind="data" data-pillar="data" onclick="_setStudyTab('data')">Exports</button>
   </div>
 </nav>
@@ -319,9 +321,20 @@ more cells/process.
 </p><p style="margin:4px 0 0">Three independent bugs blocked daughter hydration through the engine
 and had to be fixed before the Decide phase could run.
 </p><p style="margin:4px 0 0">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
-(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Indicates
+(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Originally read as
 either accumulating state in the EcoliWCM internal composite or a leak;
 visible only in long runs, not in the 60s N-sweep windows.
+
+Characterised by the 2026-07-26 leak hunt (supersedes the leak framing): the
+growth is localized to the inner WCM&#39;s polypeptide-elongation step (~82%) +
+mass-listener (~17%), and is NOT an unbounded native leak. Only ~0.2 MB/tick is
+truly retained (tracemalloc-visible: scipy LSODA integrator work arrays held
+per solve); the remainder is macOS allocator arena churn — large per-tick numpy
+working arrays that are freed but not returned to the OS. Linux validation (glibc
+container) showed RSS growth of only 0.017 MB/tick with no fix and 0.000 with
+periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. On the Linux HPC
+target the colony&#39;s memory is bounded, so the cells-per-node budget stands; the
+~5 MB/s reading here was substantially a macOS measurement artifact.
 </p>
       </div>
       
@@ -623,9 +636,20 @@ once per 60s instead of inheriting the mother&#39;s 1s cadence.
           <span class="finding-status-text">novel literature</span>
         </div>
         <div class="finding-statement">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
-(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Indicates
+(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Originally read as
 either accumulating state in the EcoliWCM internal composite or a leak;
 visible only in long runs, not in the 60s N-sweep windows.
+
+Characterised by the 2026-07-26 leak hunt (supersedes the leak framing): the
+growth is localized to the inner WCM&#39;s polypeptide-elongation step (~82%) +
+mass-listener (~17%), and is NOT an unbounded native leak. Only ~0.2 MB/tick is
+truly retained (tracemalloc-visible: scipy LSODA integrator work arrays held
+per solve); the remainder is macOS allocator arena churn — large per-tick numpy
+working arrays that are freed but not returned to the OS. Linux validation (glibc
+container) showed RSS growth of only 0.017 MB/tick with no fix and 0.000 with
+periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. On the Linux HPC
+target the colony&#39;s memory is bounded, so the cells-per-node budget stands; the
+~5 MB/s reading here was substantially a macOS measurement artifact.
 </div>
         
         
@@ -652,8 +676,10 @@ visible only in long runs, not in the 60s N-sweep windows.
         
         
         
-        <div class="finding-next"><strong>→ Next:</strong> Folded into multi-gen-perf-drift follow-up — quantify drift over
-natural divisions and isolate the source (cache, history, fragmentation).
+        <div class="finding-next"><strong>→ Next:</strong> Source identified (elongation + mass-listener; scipy LSODA retention);
+growth is Linux-bounded. Residual ~0.2 MB/tick scipy retention is a small
+optimization target (solver reuse / method change / periodic malloc_trim),
+tracked in the multi-gen-perf-drift follow-up.
 </div>
       </div>
       
@@ -1740,6 +1766,21 @@ Not validated here (handed to colonies-02):
 - Multi-generation drift in per-tick cost (daughters&#39; internal composites may
   bloat over many divisions).
 - Per-cell ParCa cache contention if processes share cache_dir.
+
+Memory (2026-07-26 leak hunt): the per-tick RSS growth in the long N=1 run
+(finding F-06) is now characterised, not an unbounded native leak. It is
+localized to the inner WCM&#39;s elongation step (~82%) + mass-listener (~17%),
+with only ~0.2 MB/tick truly retained (scipy LSODA work arrays) and the rest
+macOS allocator arena churn. On Linux (glibc) the growth is 0.017 MB/tick
+unfixed and 0.000 with periodic malloc_trim(0), versus ~1.6 MB/tick on the
+macOS mini, so memory on the HPC target is bounded and the cells-per-node
+budget stands. The &#34;unbounded native leak&#34; framing was substantially a macOS
+measurement artifact.
+
+Role: this study is Part A - enabling compute infrastructure (correct
+division, flat per-cell cost, Linux-bounded memory) for the phenotype-first
+colonies investigation. The memory behaviour is a characterised, Linux-bounded,
+mitigated footnote, not the result and not an HPC blocker.
 </pre>
     </div>
     

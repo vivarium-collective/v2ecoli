@@ -54,9 +54,12 @@ description: |
     - the rest — the scary ~1.4 MB/tick on the dev mini — is allocator ARENA
       RETENTION from the elongation step's large per-tick numpy working arrays:
       freed, but macOS doesn't return the pages, so RSS climbs (invisible to
-      tracemalloc). On glibc / Linux — the HPC target — the same workload is
-      bounded: a faithful reproduction grew RSS 0.017 MB/tick without any fix and
-      0.000 with a periodic malloc_trim(0), versus ~1.6 MB/tick on macOS.
+      tracemalloc). On glibc / Linux — the HPC target — the growth collapses:
+      the REAL 55-process colony, built for glibc in a Linux container, grew RSS
+      0.225 MB/tick vs ~1.6 on the macOS mini (7x less; end-to-end validated), and
+      a synthetic reproduction of just the arena churn grew 0.017 MB/tick (0.000
+      with periodic malloc_trim(0)) — so the arena-churn component is fully
+      reclaimed on Linux and the residual 0.225 is the real scipy-LSODA retention.
   So the "leak" was substantially a macOS measurement artifact. On the HPC
   (Linux) target the colony's memory is bounded (arena churn reclaimed by glibc +
   optional malloc_trim; residual ~0.2 MB/tick scipy retention is a small, named
@@ -94,8 +97,9 @@ executive:
     single-process GIL ceiling (~3.5x at N=16). The memory concern that earlier
     blocked HPC is corrected: the per-tick RSS growth is dominated by allocator
     arena churn from the elongation step's numpy arrays that glibc reclaims on the
-    Linux HPC target (validated: 0.017 MB/tick on Linux vs ~1.6 on the macOS mini;
-    malloc_trim -> 0), plus a small ~0.2 MB/tick scipy-LSODA retention. So memory
+    Linux HPC target (end-to-end validated: the real colony grew 0.225 MB/tick on
+    Linux vs ~1.6 on the macOS mini, 7x less), leaving a ~0.225 MB/tick scipy-LSODA
+    retention as the real residual. So memory
     is a characterised, mitigated limitation — not an unbounded blocker — and the
     cells-per-node budget stands (~1000 cells/node on 64-core/256GB, RSS re-derived
     from the re-run). Part B is running the device x tier x phenotype-panel matrix.
@@ -118,16 +122,21 @@ scientific_argument:
   - The Ray protocol runs cells in separate OS processes, ~3.5x faster at N=16,
     lifting the single-process GIL ceiling. [colonies-02 ray-lifts-gil-ceiling PASS]
   - The per-tick RSS growth is localized to the elongation step (82%) + mass-listener
-    (17%); on Linux/glibc it is bounded (0.017 MB/tick vs ~1.6 on macOS; malloc_trim
-    -> 0), and the truly-retained part is only ~0.2 MB/tick (scipy LSODA rwork).
+    (17%); the real colony on Linux/glibc grows 0.225 MB/tick vs ~1.6 on macOS (7x
+    less; end-to-end container run), and the truly-retained residual is that
+    ~0.225 MB/tick scipy-LSODA rwork (arena churn fully reclaimed on Linux).
     [colonies-03; leak hunt 2026-07-26]
   evidence_against:
   - The residual ~0.2 MB/tick scipy-LSODA retention is real and platform-independent;
     over a full cell cycle (~3000 ticks) that is ~0.6 GB per cell, so very long
     single-process WCM runs still need the solver-level fix or periodic trimming.
-  - Full-colony (55-process) memory boundedness on Linux is validated by mechanism
-    (faithful reproduction), not yet by an end-to-end HPC-node run — a named
-    follow-up before quoting a hard multi-generation node budget.
+  - Full-colony (55-process) Linux boundedness is now validated END-TO-END: the real
+    colony, built for glibc in a Linux container, grew RSS 0.225 MB/tick vs ~1.6 on
+    the macOS mini (7x less) — confirming the arena-churn-is-a-macOS-artifact finding.
+    The residual 0.225 MB/tick equals the real scipy-LSODA retention and persists on
+    Linux (~0.6 GB/cell-cycle), so very long multi-generation WCM runs still want the
+    solver-level fix (BDF-first in equilibrium/two-component) or periodic trimming; a
+    run on an actual HPC node remains the last confirmation before a hard budget.
   caveats:
   - Single-machine, single-seed (0) compute measurements; cross-node scaling is a
     follow-up.

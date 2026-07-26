@@ -458,13 +458,13 @@
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.baseline.baseline" data-model-overrides='{"condition": "succinate"}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"condition": "succinate"}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>succinate</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.baseline.baseline</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_baseline.ecoli_baseline')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -497,7 +497,7 @@
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.baseline.baseline</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code></div>
       
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         
@@ -556,7 +556,7 @@
       <span class="muted" style="font-size:0.85em">condition: succinate</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.baseline.baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -1167,7 +1167,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "v2ecoli.composites.baseline.baseline";
+  var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
   var slug = window._studyName || "succinate";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });

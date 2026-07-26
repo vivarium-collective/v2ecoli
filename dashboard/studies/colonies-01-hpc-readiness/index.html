@@ -832,13 +832,13 @@ to the HPC follow-up.
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.colony.colony" data-model-overrides='{"cache_dir": "out/cache", "ecoli_interval": 1.0, "env_size": 30, "n_cells": 2, "physics_interval": 1.0, "seed": 0}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"cache_dir": "out/cache", "ecoli_interval": 1.0, "env_size": 30, "n_cells": 2, "physics_interval": 1.0, "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>colony-pure-wc</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.colony.colony</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_colony.ecoli_colony</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.colony.colony')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_colony.ecoli_colony')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -866,7 +866,7 @@ to the HPC follow-up.
   <div class="overview-section">
     <h3>Model change</h3>
     <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
-    <p><strong>Base model:</strong> <code>v2ecoli.composites.colony.colony</code></p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></p>
     
     
     
@@ -987,7 +987,7 @@ so daughters tick normally after division.
       <span class="muted" style="font-size:0.85em">condition: pure-WC, 2 cells, env_size=30</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.colony.colony</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -1024,7 +1024,7 @@ so daughters tick normally after division.
       <span class="muted" style="font-size:0.85em">condition: pure-WC, single cell, baseline reference</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.colony.colony</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
     </div>
     
     <details style="margin:4px 0">
@@ -1070,7 +1070,7 @@ so daughters tick normally after division.
       <span class="muted" style="font-size:0.85em">condition: pure-WC, 2 cells</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.colony.colony</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
     </div>
     
     <details style="margin:4px 0">
@@ -1116,7 +1116,7 @@ so daughters tick normally after division.
       <span class="muted" style="font-size:0.85em">condition: pure-WC, 4 cells</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.colony.colony</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
     </div>
     
     <details style="margin:4px 0">
@@ -1162,7 +1162,7 @@ so daughters tick normally after division.
       <span class="muted" style="font-size:0.85em">condition: pure-WC, 8 cells — best-effort on laptop</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.colony.colony</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
     </div>
     
     <details style="margin:4px 0">
@@ -1208,7 +1208,7 @@ so daughters tick normally after division.
       <span class="muted" style="font-size:0.85em">condition: pure-WC, 1 cell, run past one natural division</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.colony.colony</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
     </div>
     
     <details style="margin:4px 0">
@@ -1930,7 +1930,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "v2ecoli.composites.colony.colony";
+  var compositeRef = "v2ecoli.composites.ecoli_colony.ecoli_colony";
   
   var slug = window._studyName || "colonies-01-hpc-readiness";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });

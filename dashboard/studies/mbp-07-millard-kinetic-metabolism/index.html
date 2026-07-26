@@ -34,8 +34,6 @@
 <div class="composite-lint-banner" role="alert"
      style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
   
-  <div>⚠ composite not found in registry: <code>v2ecoli.composites.baseline_millard</code></div>
-  
   <div>⚠ composite not found in registry: <code>v2ecoli.composites.reactor_bird_coupled_millard</code></div>
   
   <div>⚠ composite not found in registry: <code>v2ecoli.composites.reactor_bird_coupled</code></div>
@@ -545,13 +543,13 @@ Three linked questions:
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.baseline_millard" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_millard" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>baseline-millard</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.baseline_millard</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_millard</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.baseline_millard')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_millard')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -716,7 +714,7 @@ FBA contrast (iml1515_vs_beulig).
       <span class="muted" style="font-size:0.85em">condition: M9-minimal-glucose</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.baseline_millard</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_millard</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -1647,7 +1645,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "v2ecoli.composites.baseline_millard";
+  var compositeRef = "v2ecoli.composites.ecoli_millard";
   
   var slug = window._studyName || "mbp-07-millard-kinetic-metabolism";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });

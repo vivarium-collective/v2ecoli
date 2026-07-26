@@ -29,6 +29,18 @@
 
 
 
+<div class="composite-lint-banner" role="alert"
+     style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
+  
+  <div>⚠ composite not found in registry: <code>baseline</code></div>
+  
+  <div style="margin-top:4px;font-size:0.86em;color:#a16207">
+    This study references a composite that doesn't resolve — it may not declare a
+    real, registered composite. Add a <code>.composite.yaml</code> and register it
+    in <code>core.py</code>, or fix the ref.
+  </div>
+</div>
+
 
 
 <div id="readiness-panel" data-slug="showcase-3-variant-decide"></div>
@@ -555,13 +567,13 @@ run, so each candidate variant is a clean delta against a trusted reference.
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="baseline" data-model-overrides='{}'>
+    <div class="cond-block" data-model-composite="ecoli_baseline" data-model-overrides='{}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>showcase-3-variant-decide</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">baseline</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('baseline')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('ecoli_baseline')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -587,7 +599,7 @@ run, so each candidate variant is a clean delta against a trusted reference.
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>baseline</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>ecoli_baseline</code></div>
       
     </div>
     
@@ -1385,7 +1397,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "baseline";
+  var compositeRef = "ecoli_baseline";
   
   var slug = window._studyName || "showcase-3-variant-decide";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });

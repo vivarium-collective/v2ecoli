@@ -682,7 +682,7 @@ fix).
   <div class="overview-section">
     <h3>Model change</h3>
     <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
-    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline_population</code></p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.ecoli_population</code></p>
     
     <p><strong>New processes:</strong></p>
     <ul style="margin:0 0 8px 18px">
@@ -786,7 +786,7 @@ Holds last-known reactor state between BiRD ticks (BiRD typically on 1 h interva
         <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">S</span>
         <span class="muted" style="font-size:0.78em;margin-left:4px">[composite]</span>
       </summary>
-      <p style="margin:8px 0">Composite combining v2ecoli.composites.baseline_population +
+      <p style="margin:8px 0">Composite combining v2ecoli.composites.ecoli_population +
 baseline_time_varying_env + BiRDTransportProcess + ReactorCellCoupler.
 No &#34;disable internal biomass&#34; step required — BiRDTransportProcess
 has no biomass ODE by construction.

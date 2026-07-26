@@ -32,6 +32,8 @@
 <div class="composite-lint-banner" role="alert"
      style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
   
+  <div>⚠ composite not found in registry: <code>baseline</code></div>
+  
   <div>⚠ composite not found in registry: <code>vEcoli (CovertLab/vEcoli @ b237873e)</code></div>
   
   <div style="margin-top:4px;font-size:0.86em;color:#a16207">
@@ -639,13 +641,13 @@ letting it corrupt the graded window.
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.baseline.baseline" data-model-overrides='{"cache_dir": "out/cache_full", "seed": 0}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"cache_dir": "out/cache_full", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>showcase-6-equivalence-large</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.baseline.baseline</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_baseline.ecoli_baseline')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -678,7 +680,7 @@ letting it corrupt the graded window.
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.baseline.baseline</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code></div>
       
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         
@@ -902,7 +904,7 @@ letting it corrupt the graded window.
     
     
     
-    <div style="margin:8px 0;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8;white-space:pre-wrap;line-height:1.5">v2 side: v2ecoli.composites.baseline.baseline driven by
+    <div style="margin:8px 0;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8;white-space:pre-wrap;line-height:1.5">v2 side: v2ecoli.composites.ecoli_baseline.ecoli_baseline driven by
 configs/population_phenotype_basal_16x16.json, Ray-parallel dispatch, parquet
 store; card regenerated with v2ecoli-analyze (no re-sim). Reference side: a
 matched 16×16 vEcoli ensemble from the in-repo sibling vEcoli (CovertLab/vEcoli
@@ -1687,7 +1689,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "v2ecoli.composites.baseline.baseline";
+  var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
   var slug = window._studyName || "showcase-6-equivalence-large";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });

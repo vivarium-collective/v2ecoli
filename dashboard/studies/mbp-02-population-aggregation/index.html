@@ -31,18 +31,6 @@
 
 
 
-<div class="composite-lint-banner" role="alert"
-     style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
-  
-  <div>⚠ composite not found in registry: <code>v2ecoli.composites.baseline_population</code></div>
-  
-  <div style="margin-top:4px;font-size:0.86em;color:#a16207">
-    This study references a composite that doesn't resolve — it may not declare a
-    real, registered composite. Add a <code>.composite.yaml</code> and register it
-    in <code>core.py</code>, or fix the ref.
-  </div>
-</div>
-
 
 
 <div id="readiness-panel" data-slug="mbp-02-population-aggregation"></div>
@@ -652,13 +640,13 @@ scales linearly and per-cell observables remain unchanged.
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.baseline_population" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_population" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>population-aggregation-baseline</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.baseline_population</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_population</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.baseline_population')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_population')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -691,7 +679,7 @@ scales linearly and per-cell observables remain unchanged.
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.baseline_population</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_population</code></div>
       
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         
@@ -766,7 +754,7 @@ scales linearly and per-cell observables remain unchanged.
   <div class="overview-section">
     <h3>Model change</h3>
     <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
-    <p><strong>Base model:</strong> <code>v2ecoli.composites.baseline</code></p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline</code></p>
     
     <p><strong>New processes:</strong></p>
     <ul style="margin:0 0 8px 18px">
@@ -843,11 +831,11 @@ interval.
     
     <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #10b981">
       <summary style="cursor:pointer">
-        <strong>req-2-population-composite</strong> — v2ecoli.composites.baseline_population
+        <strong>req-2-population-composite</strong> — v2ecoli.composites.ecoli_population
         <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">XS</span>
         <span class="muted" style="font-size:0.78em;margin-left:4px">[composite]</span>
       </summary>
-      <p style="margin:8px 0">Thin wrapper around v2ecoli.composites.baseline that adds the population
+      <p style="margin:8px 0">Thin wrapper around v2ecoli.composites.ecoli_baseline that adds the population
 store + PopulationAggregator Step. Default reactor_volume_L = 1.0;
 overridden by mbp-03&#39;s coupling composite.
 </p>
@@ -902,7 +890,7 @@ overridden by mbp-03&#39;s coupling composite.
       <span class="muted" style="font-size:0.85em">condition: M9-minimal-glucose</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.baseline_population</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_population</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -939,7 +927,7 @@ overridden by mbp-03&#39;s coupling composite.
       <span class="muted" style="font-size:0.85em">condition: M9-minimal-glucose</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.baseline_population</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_population</code>
     </div>
     
     <details style="margin:4px 0">
@@ -981,7 +969,7 @@ overridden by mbp-03&#39;s coupling composite.
       <span class="muted" style="font-size:0.85em">condition: M9-minimal-glucose</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.baseline_population</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_population</code>
     </div>
     
     <details style="margin:4px 0">
@@ -1247,7 +1235,7 @@ cites:   ["Monod1949AnnRevMicrobiol"]</pre>
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "trajectory_match", "reference": "v2ecoli.composites.baseline:default-run", "series": "dnaA_protein_count"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "trajectory_match", "reference": "v2ecoli.composites.ecoli_baseline:default-run", "series": "dnaA_protein_count"}
 pass_if: {"op": "distribution_match", "tolerance": 0.05}</pre>
       </details>
       
@@ -1710,7 +1698,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "v2ecoli.composites.baseline_population";
+  var compositeRef = "v2ecoli.composites.ecoli_population";
   
   var slug = window._studyName || "mbp-02-population-aggregation";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });

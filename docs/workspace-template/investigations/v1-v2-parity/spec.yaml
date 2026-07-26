@@ -22,7 +22,7 @@ baseline: baseline
 
 variants:
   - name: baseline
-    source: local:baseline
+    source: local:ecoli_baseline
     parameters: {seed: 0, cache_dir: ${V2ECOLI_CACHE}}
 
 observables:

@@ -56,7 +56,7 @@ DEFAULT_COLONY_VISUALIZATIONS = [
 
 
 @composite_generator(
-    name="colony",
+    name="ecoli_colony",
     description=(
         "Multi-cell colony — whole-cell E. coli agents embedded in a "
         "pymunk 2D physics environment via the EcoliWCM bridge."

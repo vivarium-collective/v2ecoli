@@ -91,7 +91,7 @@ def run_one(seed: int, duration_s: int, chunk: int = 30,
 
     t0 = time.time()
     composite = build_composite(
-        "baseline_millard",
+        "ecoli_millard",
         lqr=True,
         cache_dir=CACHE_DIR,
         seed=seed,

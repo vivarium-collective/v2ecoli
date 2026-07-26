@@ -15,8 +15,8 @@ Data sources (all LOCAL):
                          + workspace/references/papers/palsson-2025-supp/*.csv
   * mbp-03 coupling    : build_composite("reactor_bird_coupled")  (60 short steps)
   * mbp-06 gap-analysis: workspace/studies/mbp-06-gap-analysis/study.yaml findings
-  * mbp-01 env-coupling: build_composite("baseline")             (40 short steps)
-  * mbp-07 metabolism  : build_composite("baseline_millard") + Millard glucose sweep
+  * mbp-01 env-coupling: build_composite("ecoli_baseline")             (40 short steps)
+  * mbp-07 metabolism  : build_composite("ecoli_millard") + Millard glucose sweep
 
 Run from the worktree root:
     ./.venv/bin/python scripts/make_mbp_interactive_figures.py
@@ -588,7 +588,7 @@ def _wrap(s, width):
 def fig_mbp01_env(n_steps=40):
     print(f"[mbp-01] baseline env-coupling, {n_steps} steps ...")
     from v2ecoli import build_composite
-    c = build_composite("baseline", seed=0, cache_dir="out/cache")
+    c = build_composite("ecoli_baseline", seed=0, cache_dir="out/cache")
     t, glc_ext, glc_up, o2_up, obj = [], [], [], [], []
     for i in range(n_steps):
         c.run(1)
@@ -659,7 +659,7 @@ def _pick(d, keys):
 def fig_mbp07_growth(n_steps=60):
     print(f"[mbp-07] baseline_millard growth + central fluxes, {n_steps} steps ...")
     from v2ecoli import build_composite
-    c = build_composite("baseline_millard", seed=0, cache_dir="out/cache")
+    c = build_composite("ecoli_millard", seed=0, cache_dir="out/cache")
     flux_keys = ["PTS_4", "CYTBO", "PGI", "PYK"]
     labels = {"PTS_4": "PTS_4 (glucose uptake)", "CYTBO": "CYTBO (O2 respiration)",
               "PGI": "PGI (glycolysis)", "PYK": "PYK (pyruvate kinase)"}

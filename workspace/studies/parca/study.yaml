@@ -25,7 +25,7 @@ pipeline_gate:
   prerequisites: []
   enables: []
 runs:
-- composite: v2ecoli.composites.baseline.baseline
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   name: parca-comparison
   kind: analysis
   canonical: true
@@ -38,7 +38,7 @@ runs:
       detail: 'report card ''parca'': within_tol'
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       condition: basal
 status: evaluated

@@ -22,7 +22,7 @@ tags:
 created: '2026-07-25'
 baseline:
 - name: mother-machine-simple
-  composite: v2ecoli.composites.colony.colony
+  composite: v2ecoli.composites.ecoli_colony.ecoli_colony
   params:
     seed: 0
     n_cells: 8

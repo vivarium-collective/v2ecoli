@@ -30,7 +30,7 @@ if str(REPO_ROOT) not in sys.path:
 from bigraph_viz import plot_bigraph  # noqa: E402
 
 from v2ecoli import build_composite  # noqa: E402
-from v2ecoli.composites.baseline import (  # noqa: E402
+from v2ecoli.composites.ecoli_baseline import (  # noqa: E402
     build_execution_layers,
     DEFAULT_FEATURES,
 )
@@ -426,7 +426,7 @@ def main():
 
     print(f'Building composite from {cache_dir}...')
     composite = build_composite(
-        "baseline",
+        "ecoli_baseline",
         cache_dir=str(cache_dir),
     )
 

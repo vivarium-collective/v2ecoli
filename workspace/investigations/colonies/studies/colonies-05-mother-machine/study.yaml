@@ -1,0 +1,55 @@
+schema_version: 4
+name: colonies-05-mother-machine
+investigation: colonies
+title: Mother machine (viva-munk) — device run + phenotype distributions
+description: |
+  Run the canonical viva-munk MOTHER MACHINE — narrow dead-end channels with a
+  flow channel that washes out cells crossing the top — populated by viva-munk's
+  simple grow/divide agents. The simulation runs now and produces (a) an
+  animated GIF of the device running and (b) distribution figures for the core
+  single-cell phenotypes: size at division, time between birth and division, and
+  added size before division (the adder plot).
+
+  Simulations run now; biological conclusions are HELD for experimental
+  mother-machine data (a planned comparison study, colonies-09). This study
+  establishes the measurement + visualization pipeline against cheap agents.
+topic: phenotype-quantification
+tags: [colony, mother-machine, phenotype, adder, device, requires-viva-munk]
+created: '2026-07-25'
+
+baseline:
+- name: mother-machine-simple
+  composite: v2ecoli.composites.ecoli_colony.ecoli_colony
+  params:
+    seed: 0
+    n_cells: 8
+  note: |
+    Nominal composite for the workbench catalog. The actual run drives the
+    viva-munk mother_machine_document (via v2ecoli.colony_bench.devices) with
+    simple grow/divide agents — the canonical device geometry, not the free
+    colony. Phenotypes are extracted uniformly by colony_bench.phenotypes.
+
+status: ran
+phase: Simulate
+design_status: approved
+implementation_status: complete
+simulation_status: ran
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+
+acceptance_criteria:
+  - behavior: mother-machine-runs-and-divides
+  - behavior: running-animation-rendered
+  - behavior: size-at-division-distribution
+  - behavior: interdivision-time-distribution
+  - behavior: added-size-distribution
+
+pipeline_gate:
+  prerequisites:
+  - colonies-04-device-phenotype-harness
+  enables:
+  - colonies-09-wcm-mother-machine
+  proceed_condition: |
+    Requires the shared cell-tier factory, geometry builders, and phenotype
+    extractor stood up in colonies-04.

@@ -167,7 +167,7 @@ planned_runs:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     # No variant committed — this is a reviewer-decision study. The four
     # candidate perturbations live in decisions_needed +
     # discovery_implications.followup_study_proposals.

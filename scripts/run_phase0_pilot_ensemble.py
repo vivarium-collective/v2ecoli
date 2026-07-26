@@ -87,7 +87,7 @@ def run_one(seed: int, n_steps: int) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
     duration = float(n_steps)
     composite.run(duration)
     wall = time.time() - t0

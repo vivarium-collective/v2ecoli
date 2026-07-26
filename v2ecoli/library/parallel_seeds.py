@@ -14,7 +14,7 @@ INDEPENDENT seeds (ensemble runners, sweeps). It is a drop-in:
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
 
     def run_one(seed):                      # MUST be a top-level function
-        composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+        composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
         ...                                 # build + run + emit; do worker setup here
         return {"seed": seed, ...}
 

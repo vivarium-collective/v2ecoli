@@ -148,7 +148,7 @@ def run_pdmp_replicate(seed: int, duration_s: int, sample_every_s: int,
             warnings.simplefilter("always")
             from v2ecoli import build_composite
             c = build_composite(
-                "baseline_millard",
+                "ecoli_millard",
                 lqr=True,
                 seed=seed,
                 with_ref_growth=True,

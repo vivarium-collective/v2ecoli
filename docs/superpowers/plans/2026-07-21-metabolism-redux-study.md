@@ -49,7 +49,7 @@ Run shape (seeds/gens/steps) is driven by the runner CLI, not this config. Keep 
 - `workspace/investigations/v2ecoli-vecoli-comparison/studies/metabolism_redux/study.yaml`:
   - `schema_version: 4`, `name: metabolism_redux`, `condition: basal`, `comparison: {seeds: 1, generations: 4}`, `from_vecoli_config: configs/metabolism_redux_basal.json`.
   - `report_cards: [viz/report_card/config.html, viz/report_card/standard.html]`.
-  - `conditions.baseline`: `{composite: v2ecoli.composites.baseline.baseline, params: {condition: basal, swap: ecoli-metabolism-redux}}` (drives the summary's config-JSON display).
+  - `conditions.baseline`: `{composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline, params: {condition: basal, swap: ecoli-metabolism-redux}}` (drives the summary's config-JSON display).
   - `pipeline_gate.prerequisites: [parca]`, `depends_on: [parca]`, `status: build`, a hand-authored `question` + one placeholder `finding` (status: investigating) + `tests` (config + standard report_card, hand-written per the no-machine-projected-tests rule).
 - Add `metabolism_redux` to `investigation.yaml` `studies:` (after `basal`, before `statistical` reads fine; order is display/DAG only).
 

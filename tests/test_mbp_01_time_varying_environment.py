@@ -21,8 +21,8 @@ import pytest
 
 from process_bigraph import Composite
 
-from v2ecoli.composites.baseline import baseline
-from v2ecoli.composites.baseline_time_varying_env import baseline_time_varying_env
+from v2ecoli.composites.ecoli_baseline import baseline
+from v2ecoli.composites.ecoli_time_varying_env import baseline_time_varying_env
 from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.core import build_core
 from v2ecoli.steps.environment_driver import (
@@ -188,7 +188,7 @@ def test_plateau_across_saturating_range(core):
 def test_static_env_baseline_unchanged(core):
     """Regression guard: with env_driver_mode=static (default), the composite
     produces byte-identical per-cell trajectory to the unmodified
-    v2ecoli.composites.baseline at the same seed. Backs study.yaml
+    v2ecoli.composites.ecoli_baseline at the same seed. Backs study.yaml
     behavior_test ``static-env-baseline-unchanged``.
     """
     doc_a = baseline(core=core, seed=0, cache_dir="out/cache")

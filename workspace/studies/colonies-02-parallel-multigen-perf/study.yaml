@@ -84,7 +84,7 @@ visualizations:
     '
 baseline:
 - name: colony-1cell-natural
-  composite: v2ecoli.composites.colony.colony
+  composite: v2ecoli.composites.ecoli_colony.ecoli_colony
   params:
     seed: 0
     cache_dir: out/cache

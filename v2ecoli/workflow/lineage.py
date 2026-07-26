@@ -154,7 +154,7 @@ class LineageProcess(Process):
     def _build_generation(self):
         from process_bigraph import Composite
         from v2ecoli.core import build_core
-        from v2ecoli.composites.baseline import baseline, seed_mass_listener
+        from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
 
         core = build_core()
         gen_seed = (int(self.config["seed"]) + self._generation) % (2 ** 31)

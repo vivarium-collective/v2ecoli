@@ -180,7 +180,7 @@ simulation_set:
 
 # ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
 model_change:
-  base_model: v2ecoli.composites.baseline_population   # + baseline_time_varying_env
+  base_model: v2ecoli.composites.ecoli_population   # + baseline_time_varying_env
   new_state_variables:
   - "reactor.* (all BiRDTransportProcess output ports — dissolved_o2, dissolved_co2, kla_o2, kla_co2, gas_holdup, …)"
   - "reactor.diagnostics.cumulative_o2_consumed_mmol (integral of metabolism O2 uptake × biomass × dt)"
@@ -529,7 +529,7 @@ implementation_requirements:
   title: v2ecoli.composites.reactor_bird_coupled
   effort: S
   description: |
-    Composite combining v2ecoli.composites.baseline_population +
+    Composite combining v2ecoli.composites.ecoli_population +
     baseline_time_varying_env + BiRDTransportProcess + ReactorCellCoupler.
     No "disable internal biomass" step required — BiRDTransportProcess
     has no biomass ODE by construction.

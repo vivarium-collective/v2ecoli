@@ -46,7 +46,7 @@ except ImportError:
 
 from v2ecoli import build_composite
 from v2ecoli.core import build_core, save_cache, save_sim_input
-from v2ecoli.composites.baseline import (
+from v2ecoli.composites.ecoli_baseline import (
     baseline as _baseline_doc,
     seed_mass_listener,
     build_execution_layers,
@@ -84,7 +84,7 @@ DAUGHTER_DURATION = None  # Set to half the single-cell division time at runtime
 
 # Runtime options (overridden by CLI args)
 _OPTIONS = {
-    'composite_factory': lambda **kw: build_composite("baseline", **kw),
+    'composite_factory': lambda **kw: build_composite("ecoli_baseline", **kw),
     'fetch_biocyc': False,
     'parca_rerun': False,
     'parca_cpus': 4,
@@ -1288,7 +1288,7 @@ def _load_study(study_path):
 
         baseline:
         - name: <any>
-          composite: v2ecoli.composites.baseline.baseline
+          composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
           params: {seed?, cache_dir?, duration?, daughter_duration?}
         visualizations:
         - name: <any>
@@ -1316,7 +1316,7 @@ def _load_study(study_path):
         raise ValueError(
             f"study {study_path!r}: workflow_report only handles the "
             f"partitioned `baseline` architecture (e.g. "
-            f"v2ecoli.composites.baseline.baseline); got {composite_ref!r}"
+            f"v2ecoli.composites.ecoli_baseline.ecoli_baseline); got {composite_ref!r}"
         )
     if spec.get("lineage"):
         raise ValueError(

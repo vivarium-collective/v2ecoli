@@ -200,7 +200,7 @@ variants:
 interventions: []
 runs:
 - name: phase0-reference-ensemble-N32-3cond
-  composite: v2ecoli.composites.baseline.baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   status: completed
   n_steps: 600
   started_at: '2026-06-11'
@@ -563,7 +563,7 @@ simulation_set:
 - name: phase0-profile-instrumented-baseline
   kind: single
   status: planned
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 1000
   seeds:
   - 0

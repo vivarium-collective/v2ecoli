@@ -238,7 +238,7 @@ simulation_set:
 
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
       cache_dir: out/cache-showcase
@@ -422,7 +422,7 @@ pipeline_gate:
   gate_status: passed
 
 runs:
-- composite: v2ecoli.composites.baseline.baseline
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   name: showcase4-variant-sweep
   status: completed
   kind: simulation

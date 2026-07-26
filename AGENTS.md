@@ -180,7 +180,7 @@ from v2ecoli.library.parallel_seeds import run_seeds_parallel
 
 def run_one(seed, **kw):             # MUST be a top-level function (Ray pickles it
     set_null_emitter_override(True)  # to a fresh worker) — do per-worker setup here,
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)  # use ABSOLUTE paths,
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)  # use ABSOLUTE paths,
     ...                              # and pass everything via run_kwargs (NOT module globals).
     return {"seed": seed, ...}
 

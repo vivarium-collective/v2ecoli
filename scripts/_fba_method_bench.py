@@ -65,7 +65,7 @@ def main():
     # --- run the baseline a fixed number of steps -----------------------
     from v2ecoli import build_composite
     from v2ecoli.library.sqlite_run import run_multigen_sqlite
-    comp = build_composite("baseline", cache_dir="out/cache", seed=0)
+    comp = build_composite("ecoli_baseline", cache_dir="out/cache", seed=0)
     t0 = time.time()
     run_multigen_sqlite(comp, run_id="fbabench", db_file="/tmp/fbabench.db",
                         emit_paths=["listeners.mass.cell_mass"],

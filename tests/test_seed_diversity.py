@@ -1,7 +1,7 @@
 """Ensemble diversity under varying seeds.
 
-The companion of test_seed_determinism.py: two `build_composite("baseline",
-seed=A)` and `build_composite("baseline", seed=B)` calls with A != B,
+The companion of test_seed_determinism.py: two `build_composite("ecoli_baseline",
+seed=A)` and `build_composite("ecoli_baseline", seed=B)` calls with A != B,
 each run for the same duration, must produce DIFFERENT simulation state.
 A failure means stochastic processes aren't picking up the master_seed
 override — every process is sharing a single cache-derived seed, so a
@@ -19,7 +19,7 @@ import os
 import pytest
 
 from v2ecoli import build_composite
-from v2ecoli.composites.baseline import _derive_process_seed
+from v2ecoli.composites.ecoli_baseline import _derive_process_seed
 
 from _state_equal import deep_equal
 
@@ -39,7 +39,7 @@ pytestmark = [
 
 
 def _run_baseline(duration: float, seed: int):
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
     composite.run(duration)
     return composite.state
 

@@ -29,7 +29,7 @@ def test_group_of_helper():
 
 def test_baseline_reexports_store_groups():
     # baseline "carries" its grouping: importable from the baseline module.
-    from v2ecoli.composites.baseline import STORE_GROUPS as baseline_groups
+    from v2ecoli.composites.ecoli_baseline import STORE_GROUPS as baseline_groups
     assert baseline_groups is STORE_GROUPS
 
 
@@ -37,7 +37,7 @@ def test_baseline_emit_paths_unchanged():
     # THE ANALYSES CONTRACT: the grouping is annotation only — baseline's default
     # emitter still emits the FLAT paths, never the biological ones. If this
     # breaks, downstream analyses that read global_time/bulk/listeners break.
-    entry = _REGISTRY["v2ecoli.composites.baseline"]
+    entry = _REGISTRY["v2ecoli.composites.ecoli_baseline"]
     parquet = [e for e in (entry.emitters or [])
                if "ParquetEmitter" in str(e.get("address", ""))]
     assert parquet, "baseline must ship its default ParquetEmitter"

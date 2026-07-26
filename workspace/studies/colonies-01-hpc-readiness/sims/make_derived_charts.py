@@ -23,9 +23,9 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 # All three charts aggregate the whole N-sweep (the four nsweep-* runs at
-# model_commit 2f950d9), so they're pinned to a synthetic sweep id rather
+# model_commit f69f9690), so they're pinned to a synthetic sweep id rather
 # than a single run row. Matches the `source_run:` on the study.yaml entries.
-SOURCE_RUN = "nsweep-sweep-2f950d9"
+SOURCE_RUN = "nsweep-sweep-f69f9690"
 # Deterministic render timestamp (Date.now equivalents are avoided so the
 # output is reproducible); set well after the runs completed (2026-05-16).
 RENDERED_AT = 1_760_000_000.0
@@ -231,14 +231,14 @@ def main():
             f"N ≈ {n_ceiling:.0f}, the per-process cell ceiling."),
         "simulations": (
             "Derived from the four steady-state nsweep runs (N=1,2,4,8; "
-            "60 sim-seconds each, seed 0, model_commit 2f950d9). The ratio is "
+            "60 sim-seconds each, seed 0, model_commit f69f9690). The ratio is "
             "run wall_seconds / simulated duration_s; the dashed line is the "
             "single-slope fit (slope = ratio at N=8 ÷ 8)."),
         "interpretation": (
             f"The ratio is almost perfectly linear in N (slope ≈ {slope:.3f} "
             "wall-s per sim-s per cell), so a single process crosses realtime "
             f"at N ≈ {n_ceiling:.0f} cells. That is THE HPC-sizing number: pack "
-            "at most ~13 cells into one process if you need realtime, then get "
+            f"at most ~{n_ceiling:.0f} cells into one process if you need realtime, then get "
             "throughput by running more processes (one per core), not more "
             "cells per process. The linearity also means there is no hidden "
             "super-linear coordination cost up to N=8 — the colony composite "

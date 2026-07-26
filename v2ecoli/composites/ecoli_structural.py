@@ -1,7 +1,7 @@
 """baseline_parsimony — the baseline whole-cell model plus a parsimony 3D
 packing step that writes snapshot packs at declared simulation times.
 
-Wraps ``v2ecoli.composites.baseline.baseline`` and appends
+Wraps ``v2ecoli.composites.ecoli_baseline.ecoli_baseline`` and appends
 ``v2ecoli.structural.pack_step.EcoliPackStep`` as one more FINAL execution
 layer on every per-agent cell state, mirroring exactly how ``baseline()``
 itself appends its own ``shape_step`` final layer (see baseline.py:895-919).
@@ -16,7 +16,7 @@ import yaml
 
 from viva_superpowers.composite_generator import _REGISTRY, composite_generator
 
-from v2ecoli.composites.baseline import baseline
+from v2ecoli.composites.ecoli_baseline import baseline
 from v2ecoli.composites._helpers import inject_flow_dependencies
 
 
@@ -24,8 +24,11 @@ from v2ecoli.composites._helpers import inject_flow_dependencies
 # emitter, feature toggles, ...) so build_generator's unknown-override check
 # (viva_superpowers.composite_generator.build_generator) doesn't reject them —
 # this wrapper forwards **kwargs straight to baseline(core=core, **kwargs).
+# ecoli_baseline() registers under the doubled id
+# ``v2ecoli.composites.ecoli_baseline.ecoli_baseline`` (module slug == name=);
+# the imported symbol is still named ``baseline``.
 _BASELINE_PARAMS = dict(
-    _REGISTRY[f"{baseline.__module__}.baseline"].parameters)
+    _REGISTRY[f"{baseline.__module__}.ecoli_baseline"].parameters)
 
 
 # ---------------------------------------------------------------------------
@@ -37,7 +40,7 @@ _BASELINE_PARAMS = dict(
 # not part of the returned doc. Recomputing it ourselves via
 # build_execution_layers(features) would require exactly reproducing the
 # 'features' baseline() resolved internally (an explicit param merged with
-# v2ecoli.composites.baseline.enable_features() GLOBAL toggle state) — fragile
+# v2ecoli.composites.ecoli_baseline.enable_features() GLOBAL toggle state) — fragile
 # to duplicate correctly.
 #
 # Instead we recover each step's REAL original layer index directly from the
@@ -128,7 +131,7 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
 
 
 @composite_generator(
-    name="baseline_parsimony",
+    name="ecoli_structural",
     description=(
         "baseline whole-cell E. coli model plus a parsimony 3D structural "
         "packing step (EcoliPackStep) that writes snapshot packs at declared "

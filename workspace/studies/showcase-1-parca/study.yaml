@@ -5,6 +5,20 @@ title: Rebuild the ParCa in full from the ecoli-sources flat files
 created: '2026-06-09'
 status: complete   # legacy back-compat; canonical axes below
 
+# How this study PRODUCES its `sim_data` artifact. The `parca` composite is a
+# structural document (it never fires the fit), so the reproducibility engine
+# runs this command instead of the composite runner: it writes the sim_data
+# cache bundle (initial_state.json + sim_data_cache.dill + ...) into
+# $ARTIFACT_DIR (the content-addressed store dir), which downstream studies
+# consume via cache_dir. Mirrors the manual commands documented in `setup:`.
+produce:
+  command: |
+    set -e
+    .venv/bin/python scripts/parca_run.py --mode full -o "$ARTIFACT_DIR/_parca" --cache-dir "$ARTIFACT_DIR/_kmcache"
+    gzip -f "$ARTIFACT_DIR/_parca/parca_state.pkl"
+    .venv/bin/python scripts/build_cache.py --fixture "$ARTIFACT_DIR/_parca/parca_state.pkl.gz" --cache "$ARTIFACT_DIR"
+    rm -rf "$ARTIFACT_DIR/_parca" "$ARTIFACT_DIR/_kmcache"
+
 # v4 schema (vivarium_workbench.lib.investigations._validate_study_v4_redesign):
 #   REQUIRED top-level: schema_version, name, question, conditions, tests, status
 #   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]

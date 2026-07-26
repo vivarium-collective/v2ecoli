@@ -39,6 +39,7 @@ def make_colony_document(
     init_mass=None,
     transport='local',
     emit_cells=True,
+    phenotype_store=None,
 ):
     """Build a colony document with n whole-cell E. coli agents.
 
@@ -154,18 +155,51 @@ def make_colony_document(
             },
         },
 
-        # Outer colony emitter. The full cells-map capture (emit_cells=True)
-        # appends every cell's state to an in-RAM history EVERY tick — an
-        # unbounded leak that scales with cell count (~1 MB/tick/cell; OOMs a
-        # growing colony around gen 3). It's only needed by callers that read
-        # the emitted cell trajectory (e.g. the gif/animation), so it defaults
-        # on for back-compat but perf/long runs pass emit_cells=False to emit
-        # only global_time. (The inner per-cell emitters are bounded separately
-        # in bridge.py via set_null_emitter_override.)
-        'emitter': emitter_from_wires(
-            {'agents': ['cells'], 'time': ['global_time']}
-            if emit_cells else
-            {'time': ['global_time']}
+        # Outer colony emitter.
+        #
+        # The legacy full cells-map capture (emit_cells=True) wires the whole
+        # `cells` map into a RAMEmitter, which appends every cell's
+        # numpy-array-heavy state to an in-RAM history EVERY tick — measured at
+        # ~1.5 MB/tick vs ~0.09 MB/tick with emit_cells=False, i.e. ~94% of the
+        # "colony RAM leak" the investigation chased as a native/C leak (it only
+        # looked native because numpy buffers are invisible to tracemalloc).
+        #
+        # Preferred path: pass `phenotype_store` (a runs.<id>.zarr path). The
+        # colony then streams a bounded per-cell PHENOTYPE PANEL (mass, length,
+        # volume, x, y, angle) to zarr via ColonyPhenotypeEmitter — O(1) RAM AND
+        # the queryable per-cell timeseries the phenotype studies need. The
+        # legacy emit_cells flag is kept only for back-compat callers.
+        'emitter': (
+            {
+                '_type': 'step',
+                'address': 'local:ColonyPhenotypeEmitter',
+                'config': {
+                    # TYPED shallow schema: the engine gathers only these scalar
+                    # per-cell fields, NOT each cell's heavy `ecoli` sub-state.
+                    # (Wiring the whole cells map deep-copied ~1.6 MB/tick.)
+                    'emit': {
+                        'cells': {
+                            '_type': 'map',
+                            '_value': {
+                                'mass': 'float',
+                                'length': 'float',
+                                'volume': 'float',
+                                'location': 'list',
+                                'angle': 'float',
+                            },
+                        },
+                        'global_time': 'float',
+                    },
+                    'out_uri': phenotype_store,
+                },
+                'inputs': {'cells': ['cells'], 'global_time': ['global_time']},
+            }
+            if phenotype_store else
+            emitter_from_wires(
+                {'agents': ['cells'], 'time': ['global_time']}
+                if emit_cells else
+                {'time': ['global_time']}
+            )
         ),
     }
 
@@ -183,6 +217,7 @@ def make_colony(
     transport='local',
     parallel_processes=None,
     emit_cells=True,
+    phenotype_store=None,
 ):
     """Create a colony Composite ready to run.
 
@@ -203,6 +238,11 @@ def make_colony(
     # Register EcoliWCM so Composite can resolve 'local:EcoliWCM' AND so the
     # Ray protocol's _resolve_target can find it in core.link_registry.
     core.register_link('EcoliWCM', EcoliWCM)
+    # Bounded-RAM per-cell phenotype sink (streams to zarr instead of
+    # accumulating the cells map in RAM). Registered on the colony's own core
+    # so 'local:ColonyPhenotypeEmitter' resolves even outside build_core().
+    from v2ecoli.colony_emitter import ColonyPhenotypeEmitter
+    core.register_link('ColonyPhenotypeEmitter', ColonyPhenotypeEmitter)
 
     if transport == 'ray':
         from process_bigraph.protocols import ray as ray_protocol
@@ -223,6 +263,7 @@ def make_colony(
         init_mass=init_mass,
         transport=transport,
         emit_cells=emit_cells,
+        phenotype_store=phenotype_store,
     )
 
     return Composite(

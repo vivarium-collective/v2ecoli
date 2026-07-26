@@ -61,6 +61,13 @@ def build_core():
         core.register_link("XArrayEmitter", XArrayEmitter)
     except Exception:
         pass
+    try:
+        # Bounded-RAM per-cell phenotype sink for the colony composite (streams
+        # a scalar panel to zarr instead of accumulating the cells map in RAM).
+        from v2ecoli.colony_emitter import ColonyPhenotypeEmitter
+        core.register_link("ColonyPhenotypeEmitter", ColonyPhenotypeEmitter)
+    except Exception:
+        pass
     # Placeholder labeled-vector types so a SERIALIZED composite (the dashboard
     # composite-runner builds documents via build_generator, which doesn't run
     # the derivers' initialize() side-effects) can resolve ``overwrite[<vec>]``

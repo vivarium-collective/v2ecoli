@@ -173,7 +173,7 @@ code {{ background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 3px;
 
 <section id="v2ecoli" class="card v2e-card">
   <h2>③ v2ecoli baseline (whole-cell)</h2>
-  <div class="subtitle">v2ecoli.composites.baseline.baseline — 55-process partitioned E. coli WCM</div>
+  <div class="subtitle">v2ecoli.composites.ecoli_baseline.ecoli_baseline — 55-process partitioned E. coli WCM</div>
   {v2e_status}
 </section>
 

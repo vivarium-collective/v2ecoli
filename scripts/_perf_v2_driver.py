@@ -49,7 +49,7 @@ def run_one(seed, max_steps, max_generations, chunk):
     if db_file.exists():
         db_file.unlink()
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
     try:
         result = run_multigen_sqlite(
             composite, run_id=f"perf-v2-seed{seed:02d}", db_file=str(db_file),

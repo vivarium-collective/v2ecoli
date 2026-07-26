@@ -137,7 +137,7 @@ def profile_one_tick(duration: int = 1, warmup: int = 3):
     from v2ecoli import build_composite
 
     c = build_composite(
-        "baseline_millard",
+        "ecoli_millard",
         lqr=True,
         seed=0,
         with_ref_growth=True,

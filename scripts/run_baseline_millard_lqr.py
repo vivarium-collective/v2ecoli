@@ -93,7 +93,7 @@ def main():
     print(f"Building composite (seed={args.seed}, tick_s={args.tick_s})...")
     t_build = time.time()
     composite = build_composite(
-        "baseline_millard",
+        "ecoli_millard",
         lqr=True,
         cache_dir=CACHE_DIR,
         seed=args.seed,

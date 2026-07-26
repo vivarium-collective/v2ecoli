@@ -12,10 +12,20 @@ def test_aggregate_discovers_studies_in_dag_order():
     assert summ["slug"] == SLUG
     assert summ["question"].startswith("Does v2ecoli reproduce vEcoli")
     slugs = [s["slug"] for s in summ["studies"]]
-    assert slugs == [
+    # Same study set, asserted as a VALID DAG order (parca root first; every
+    # study after its in-set prerequisites) rather than a brittle exact authored
+    # sequence — the registry migrator sorts members alphabetically, so
+    # aggregate() topologically re-orders and the exact order isn't fixed.
+    assert set(slugs) == {
         "parca", "basal", "metabolism_redux", "with_aa", "succinate",
         "no_oxygen", "acetate", "statistical",
-    ]
+    }
+    assert slugs[0] == "parca"
+    pos = {s: i for i, s in enumerate(slugs)}
+    for s in summ["studies"]:
+        for p in s["prerequisites"]:
+            if p in pos:
+                assert pos[p] < pos[s["slug"]], f"{p} must precede {s['slug']}"
 
 
 def test_aggregate_per_study_metadata_and_rollup():
@@ -64,7 +74,7 @@ def test_matrix_cell_verdicts_match_source_json():
     rows = {r["study"]: r["cells"] for r in m["rows"]}
     # acetate growth rate is a mismatch in the source verdict.json
     src = json.loads(
-        (WS / "investigations" / SLUG / "studies" / "acetate"
+        (WS / "studies" / "acetate"  # registry: studies live top-level (Spec 1)
          / "viz" / "report_card" / "standard.verdict.json").read_text(encoding='utf-8')
     )
     axis = {a["label"]: a["verdict"] for a in src["groups"]["standard"]["axes"]}
@@ -208,7 +218,7 @@ def test_aggregate_config_json_is_real_baseline_config():
 
     by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
     cfg = by["acetate"]["config_json"]
-    assert cfg["composite"] == "v2ecoli.composites.baseline.baseline"
+    assert cfg["composite"] == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
     assert cfg["params"] == {"condition": "acetate"}
     # comparison run settings folded in
     assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
@@ -234,7 +244,7 @@ def test_config_json_replaces_config_card():
     html = render(aggregate(SLUG, WS))
     # the actual baseline config JSON is shown (HTML-escaped inside <pre>)...
     assert "config (JSON)" in html
-    assert "v2ecoli.composites.baseline.baseline" in html
+    assert "v2ecoli.composites.ecoli_baseline.ecoli_baseline" in html
     assert "&quot;composite&quot;" in html  # JSON keys escaped, not raw-injected
     # ...and the config *report card* is no longer embedded as a card block
     assert "config card" not in html

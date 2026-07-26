@@ -1,4 +1,4 @@
-"""Unit tests for v2ecoli.composites.baseline."""
+"""Unit tests for v2ecoli.composites.ecoli_baseline."""
 
 import os
 
@@ -8,9 +8,9 @@ import pytest
 @pytest.mark.fast
 def test_baseline_function_is_registered():
     from viva_superpowers.composite_generator import _REGISTRY
-    from v2ecoli.composites import baseline  # noqa: F401 — fires decorator
+    from v2ecoli.composites import ecoli_baseline  # noqa: F401 — fires decorator
     names = {e.name for e in _REGISTRY.values()}
-    assert "baseline" in names
+    assert "ecoli_baseline" in names
 
 
 @pytest.mark.fast
@@ -19,14 +19,19 @@ def test_baseline_function_signature():
     transcript_initiation_mode, polypeptide_initiation_mode, config_overrides,
     feature toggles, emitter, bundle)."""
     import inspect
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     sig = inspect.signature(baseline)
-    assert set(sig.parameters) == {
+    # Subset (not exact-equality) so legitimate ADDITIVE signature growth — e.g.
+    # the #373 composite unification added media/knockouts/n_seeds/study/analyses/… —
+    # doesn't hard-break this contract test. The stable core params must remain.
+    required = {
         "core", "seed", "cache_dir", "transcript_initiation_mode",
         "polypeptide_initiation_mode", "config_overrides",
         "ppgpp_regulation", "trna_attenuation", "supercoiling",
         "mass_conservation", "emitter", "bundle", "features",
         "injected_processes"}
+    missing = required - set(sig.parameters)
+    assert not missing, f"baseline() lost core params: {missing}"
 
 
 @pytest.mark.sim
@@ -37,7 +42,7 @@ def test_baseline_returns_a_document():
         pytest.skip("cache dir 'out/cache' not present; "
                     "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     doc = baseline(core=core, seed=0, cache_dir="out/cache")
     assert isinstance(doc, dict)

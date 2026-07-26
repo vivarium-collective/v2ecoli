@@ -40,7 +40,7 @@ report:
     proteome correlation to Schmidt 2016 / Wisniewski 2014.
 
   setup: |
-    Composite: baseline (v2ecoli.composites.baseline.baseline), resumed from the
+    Composite: baseline (v2ecoli.composites.ecoli_baseline.ecoli_baseline), resumed from the
     showcase-1 cache (out/cache-showcase, 51-condition full ParCa). The run is a
     MULTISEED + MULTIGEN ensemble: 2 seeds (0–1) × 3 generations, dispatched
     Ray-parallel (run_seeds_parallel, 6 threads/worker) with XArray/zarr emit as
@@ -157,7 +157,7 @@ model_change: |
   model_settings); no process parameters are altered.
 
 implementation_requirements: |
-  v2ecoli.composites.baseline.baseline resumed from out/cache-showcase;
+  v2ecoli.composites.ecoli_baseline.ecoli_baseline resumed from out/cache-showcase;
   run_seeds_parallel (Ray) dispatch; parquet sidecar store; the native analyses
   (v2ecoli/workflow/analyses/) consuming the parquet; sim_data hydrated from
   out/sim_data-showcase/parca_state.pkl.gz via hydrate_sim_data_from_state;
@@ -196,7 +196,7 @@ simulation_set:
 
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
       cache_dir: out/cache-showcase
@@ -330,14 +330,14 @@ pipeline_gate:
   gate_status: passed
 
 runs:
-- composite: v2ecoli.composites.baseline.baseline
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   name: showcase2-baseline-ensemble
   status: completed
   kind: simulation
   canonical: true
   description: |
     CLEAN multiseed/multigen wild-type baseline ensemble on the Mac mini: 2
-    seeds (0–1) × 3 generations of v2ecoli.composites.baseline.baseline, resumed
+    seeds (0–1) × 3 generations of v2ecoli.composites.ecoli_baseline.ecoli_baseline, resumed
     from the showcase-1 full ParCa cache (out/cache-showcase, 51 TF conditions).
     Dispatched Ray-parallel (run_seeds_parallel, 6 threads/worker). 6500 steps /
     cell; total wall ~1228 s (per-seed ~695 / 1225 s). The parquet sidecar
@@ -540,3 +540,10 @@ embed_visualizations:
 - name: Units Atlas (interactive)
   url: /reports/figures/showcase-2-baseline-figures/units_atlas.html
   description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range. Folds in the former units-atlas investigation.
+
+
+# --- registry model (Study Pipeline Spec 1): declared artifact I/O; graph edges derive from inputs.from. Mirrors pipeline_gate.prerequisites. ---
+outputs:
+- baseline
+inputs:
+- {artifact: sim_data, from: showcase-1-parca}

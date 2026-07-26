@@ -46,6 +46,8 @@ reports/assets/*
 !reports/assets/.keep
 # pre-resolved composite states shipped to the read-only dashboard (tracked)
 !reports/composite-state/
+# pre-built inner-composite states for the loom's static drill-in mini-map (tracked)
+!reports/composite-inner-state/
 # investigation report-card summary generator (tracked source; generated
 # reports/summaries/*.html stays ignored)
 !reports/investigation_summary.py

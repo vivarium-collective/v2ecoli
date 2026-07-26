@@ -67,7 +67,7 @@ report:
     4 top-level stores (bulk/unique/environment/boundary). sim_data structural
     inventory: 4538 genes (cistrons), 3277 transcription units, 4309 protein
     monomers, 1118 complexes, 9460 metabolic reactions. Smoke check:
-    build_composite("baseline", cache_dir="out/cache-showcase").run(5) ran 5
+    build_composite("ecoli_baseline", cache_dir="out/cache-showcase").run(5) ran 5
     steps with NO "Could not solve ODEs in equilibrium to SS" crash — i.e. the
     metabolite concentrations are calibrated (the full-mode calibration the docs
     require for a simulation-ready fixture).
@@ -106,7 +106,7 @@ readouts:
 - {name: tf-condition-count, description: "TF-condition count fit by the ParCa run (51 = full, ~7 = fast/debug)"}
 - {name: cache-bundle-artifacts, description: "cache-bundle artifact presence (initial_state.json + sim_data_cache.dill + metadata.json + cache_version.json)"}
 - {name: simdata-structural-inventory, description: "sim_data structural inventory (4538 genes / 3277 TUs / 4309 monomers / 1118 complexes / 9460 metabolic reactions)"}
-- {name: smoke-run, description: "5-step build_composite('baseline') smoke run — no equilibrium-solver crash"}
+- {name: smoke-run, description: "5-step build_composite('ecoli_baseline') smoke run — no equilibrium-solver crash"}
 
 enforced_params:
 - {name: mode, value: full, why: "fits all 51 TF conditions; fast/debug fits ~7 and mis-calibrates dnaA / replication"}
@@ -223,7 +223,7 @@ tests:
   result: |
     PARTIAL — verified at the structural-inventory + simulation-readiness level
     (4538 genes / 3277 TUs / 4309 monomers / 1118 complexes / 9460 metabolic
-    reactions; build_composite("baseline").run(5) ran with no equilibrium-solver
+    reactions; build_composite("ecoli_baseline").run(5) ran with no equilibrium-solver
     crash). The full cross-tool parca_compare HTML diff was NOT re-run — it
     needs vivarium-ecoli --save-intermediates reference checkpoints, which are
     not present on the mini this session.
@@ -268,7 +268,7 @@ runs:
     164.92 MB, metadata.json 210 B, cache_version.json 1.1 KB
     (inputs_hash 36f7930256f9bc44…). sim_data: 4538 genes / 3277 TUs / 4309
     monomers / 1118 complexes / 9460 metabolic reactions; initial_state 16321
-    bulk species + 11 unique molecule types. Smoke: build_composite("baseline",
+    bulk species + 11 unique molecule types. Smoke: build_composite("ecoli_baseline",
     cache_dir="out/cache-showcase").run(5) ran with no equilibrium-solver crash.
   cache_dir: out/cache-showcase
   result: PASS
@@ -319,3 +319,8 @@ embed_visualizations:
 - name: Units Atlas (interactive)
   url: /reports/figures/showcase-1-parca/units_atlas.html
   description: Every declared unit-bearing baseline readout grouped by physical dimension. Folds in the former units-atlas investigation.
+
+
+# --- registry model (Study Pipeline Spec 1): declared artifact I/O; graph edges derive from inputs.from. Mirrors pipeline_gate.prerequisites. ---
+outputs:
+- sim_data

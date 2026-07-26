@@ -58,7 +58,7 @@ docs/viewers/
 ```
 
 `<slug>` is a short, stable per-composite id (e.g. `baseline`, `biological`).
-The full registry id (e.g. `v2ecoli.composites.baseline.baseline`) is carried
+The full registry id (e.g. `v2ecoli.composites.ecoli_baseline.ecoli_baseline`) is carried
 in the manifest and passed to loom as `?id=`.
 
 ### Hub page (`index.html`)
@@ -115,7 +115,7 @@ existing public URL and QR keep working:
 ```html
 <!-- docs/baseline-viewer/index.html -->
 <script>location.replace('../viewers/loom/index.html?static=1'
-  + '&id=v2ecoli.composites.baseline.baseline'
+  + '&id=v2ecoli.composites.ecoli_baseline.ecoli_baseline'
   + '&stateUrl=../../viewers/data/baseline.state.json'
   + '&viewUrl=../../viewers/data/baseline.view.json');</script>
 ```

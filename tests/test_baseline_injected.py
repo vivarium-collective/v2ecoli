@@ -14,7 +14,7 @@ FORK = os.path.join(os.path.dirname(__file__), "fixtures", "fork_example")
 
 def test_baseline_injects_fork_process():
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     inj = {"fork_repo": FORK, "add_processes": ["example-secretion"],
            "swap_processes": {},
@@ -30,7 +30,7 @@ def test_baseline_injects_fork_process():
 
 def test_baseline_noop_without_injection_keeps_process_set():
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     doc = baseline(core=core, seed=0, cache_dir="out/cache")
     cell = doc["state"]["agents"]["0"]

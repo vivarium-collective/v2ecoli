@@ -47,7 +47,7 @@ question: >
   birth) and right before division, for the Parsimony Viewer.
 baseline:
   - name: baseline_parsimony
-    composite: v2ecoli.composites.baseline_parsimony.baseline_parsimony
+    composite: v2ecoli.composites.ecoli_structural.ecoli_structural
     params:
       study: s01-birth-and-division      # MUST equal this study's slug (drives pack out_dir)
       snapshots:                          # explicit (matches the composite default)

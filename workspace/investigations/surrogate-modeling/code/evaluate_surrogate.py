@@ -116,7 +116,7 @@ def main():
     sur_sps = args.profile_surrogate_steps / (time.time() - t0)
 
     from v2ecoli import build_composite
-    comp = build_composite("baseline", seed=0, cache_dir=args.cache_dir, emitter="null")
+    comp = build_composite("ecoli_baseline", seed=0, cache_dir=args.cache_dir, emitter="null")
     comp.run(1)
     t0 = time.time()
     for _ in range(args.profile_sim_steps):

@@ -92,7 +92,7 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   variants:
@@ -280,7 +280,7 @@ literature_anchors:
   cites: [macklin2020]
 
 model_change:
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   new_processes: []
   new_parameters: []
   modified_processes: []
@@ -342,7 +342,7 @@ simulation_set:
 - name: uq-observables-w360-n24x2seeds
   kind: sensitivity_analysis
   status: ran
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 360
   seeds: 2
   details: "n=24 train + 8 test PCRV per seed (2 seeds), order-2 PCE, fresh initial_state per sample; per-observable Sobol for dry_mass, cell_mass, instantaneous_growth_rate. Reproducer: pbg-uq examples/v2ecoli_uq_observables.py."

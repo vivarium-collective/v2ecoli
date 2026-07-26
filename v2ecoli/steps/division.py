@@ -306,7 +306,7 @@ class Division(V2Step):
             # Build daughter docs via the new composite generator API.
             # baseline() loads wiring from the cache; we then overlay the
             # daughter's divided biological state on top.
-            from v2ecoli.composites.baseline import baseline, seed_mass_listener
+            from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
             from v2ecoli.composites._helpers import (
                 _PARQUET_EMITTER_OVERRIDE, set_parquet_emitter_override)
             d1_seed = (self._seed + 1) % (2**31)

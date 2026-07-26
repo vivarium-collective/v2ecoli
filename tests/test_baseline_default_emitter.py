@@ -28,7 +28,7 @@ def _emitter_instance(doc):
 def test_baseline_declares_parquet_default():
     """The generator advertises a ParquetEmitter via emitter_defaults()."""
     from viva_superpowers.composite_generator import emitter_defaults
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     decls = emitter_defaults(baseline)
     assert decls and decls[0]["address"] == "local:ParquetEmitter"
@@ -38,7 +38,7 @@ def test_baseline_uses_parquet_when_no_override(tmp_path):
     """No external override -> the emitter step is a ParquetEmitter."""
     from v2ecoli.core import build_core
     from v2ecoli.composites import _helpers as _h
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     # Sink to a tmp dir so the test never writes into the repo's .pbg.
     _h.set_default_emitter_decl(None)  # clean slate
@@ -60,7 +60,7 @@ def test_external_sqlite_override_beats_declared_parquet_default(tmp_path):
     """An external sqlite override wins over the generator's parquet default."""
     from v2ecoli.core import build_core
     from v2ecoli.composites import _helpers as _h
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     core = build_core()
     _h.set_parquet_emitter_override(None)

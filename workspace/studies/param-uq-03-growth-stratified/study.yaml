@@ -70,7 +70,7 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   variants:
@@ -198,7 +198,7 @@ literature_anchors:
   cites: [kuritz2017]
 
 model_change:
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   new_processes: []
   new_parameters: []
   modified_processes: []
@@ -238,7 +238,7 @@ simulation_set:
 - name: uq-growth-stratified-multigen
   kind: sensitivity_analysis
   status: planned
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 2760
   details: "(planned) Multi-generation run (~1 division), 10 θ bins, per-stage Sobol over the 3 effective knobs. Blocked on the pbg-uq stratified-strategy re-add."
   metrics:

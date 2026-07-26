@@ -56,7 +56,7 @@ def run_one(seed: int, max_steps: int, max_generations: int, chunk: int) -> dict
 
     run_id = f"phase0-multigen-seed{seed:02d}"
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
     try:
         result = run_multigen_sqlite(
             composite,

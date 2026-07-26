@@ -70,7 +70,7 @@ report:
     | Field | Value |
     |---|---|
     | Tool / reproducer | pbg-uq · `examples/v2ecoli_uq_ensemble.py` |
-    | Composite | `v2ecoli.composites.baseline`; observables via `run_multigen_xarray` (XArray emitter) |
+    | Composite | `v2ecoli.composites.ecoli_baseline`; observables via `run_multigen_xarray` (XArray emitter) |
     | Sampling | PCRV (uniform prior) |
     | Surrogate | order-2 Polynomial Chaos Expansion, Legendre basis (10 terms), `lsq` regression |
     | Sensitivity | analytic Sobol indices from PCE coefficients (Sudret 2008) |
@@ -130,7 +130,7 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   variants:
@@ -327,7 +327,7 @@ literature_anchors:
   cites: [macklin2020]
 
 model_change:
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   new_processes: []
   new_parameters: []
   modified_processes: []
@@ -401,7 +401,7 @@ simulation_set:
 - name: uq-elongation-effective-n30x3seeds
   kind: sensitivity_analysis
   status: ran
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 120
   seeds: 3
   details: "30 train + 10 test PCRV samples per seed (3 seeds), order-2 PCE, fresh initial_state per sample; observable instantaneous_growth_rate. Reproducer: pbg-uq examples/v2ecoli_uq_ensemble.py."

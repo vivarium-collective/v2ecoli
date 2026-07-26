@@ -55,7 +55,7 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   variants:
@@ -132,7 +132,7 @@ simulation_set:
 - name: sample-8-seeds
   kind: ensemble
   status: ran
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 250
   seeds: 8
   details: "Broad observable extraction into a pbg-torch TransitionDataset."

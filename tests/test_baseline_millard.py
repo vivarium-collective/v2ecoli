@@ -55,14 +55,14 @@ def test_millard_uptake_responds_to_external_glucose(core):
 def test_baseline_millard_builds():
     from v2ecoli import build_composite
     from process_bigraph.composite import Composite
-    comp = build_composite("baseline_millard", seed=0, cache_dir="out/cache")
+    comp = build_composite("ecoli_millard", seed=0, cache_dir="out/cache")
     assert isinstance(comp, Composite)
 
 
 @pytest.mark.sim
 def test_baseline_millard_runs_and_grows():
     from v2ecoli import build_composite
-    c = build_composite("baseline_millard", seed=0, cache_dir="out/cache")
+    c = build_composite("ecoli_millard", seed=0, cache_dir="out/cache")
     c.run(5)
     ag = (c.state.get("agents") or {}).get("0") or {}
     assert (ag.get("listeners", {}).get("mass", {}).get("cell_mass", 0.0)) > 0.0

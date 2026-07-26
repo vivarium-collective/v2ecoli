@@ -212,7 +212,7 @@ def test_baseline_batch_mode_document_is_cheap_and_well_formed():
     """n_seeds>1 / n_generations>1 makes baseline build the batch-orchestrator doc
     WITHOUT running any baseline cell (no ParCa)."""
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     doc = baseline(core=build_core(), n_seeds=2, n_generations=3,
                    max_duration=1234.0)
@@ -240,7 +240,7 @@ def test_batch_baseline_composite_is_gone_baseline_absorbed_it():
 
     names = {e.name for e in _REGISTRY.values()}
     assert "batch_baseline" not in names
-    assert "baseline" in names
+    assert "ecoli_baseline" in names
 
 
 def test_baseline_exposes_the_vecoli_workflow_knobs():
@@ -250,7 +250,7 @@ def test_baseline_exposes_the_vecoli_workflow_knobs():
     from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401
 
-    entry = next(e for e in _REGISTRY.values() if e.name == "baseline")
+    entry = next(e for e in _REGISTRY.values() if e.name == "ecoli_baseline")
     params = set(inspect.signature(entry.func).parameters)
     assert {"seed", "n_seeds", "n_generations", "single_daughters",
             "time_step", "max_duration", "variants", "emitter", "analyses",
@@ -351,7 +351,7 @@ def test_emitter_captures_the_completed_batch(monkeypatch):
     """
     from process_bigraph import Composite
 
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     from v2ecoli.core import build_core
 
     monkeypatch.setattr(

@@ -235,7 +235,7 @@ def _annotate_types(spec: dict, root_name: str) -> None:
 
 
 def build_spec(seed: int, cache_dir: str) -> dict:
-    composite = v2ecoli.build_composite("baseline", seed=seed, cache_dir=cache_dir)
+    composite = v2ecoli.build_composite("ecoli_baseline", seed=seed, cache_dir=cache_dir)
     root = composite.state["agents"]["0"]
     spec = to_structural_spec(root, name="baseline")
     spec["name"] = "baseline"

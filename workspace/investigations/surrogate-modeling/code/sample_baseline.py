@@ -35,7 +35,7 @@ def sample_trajectory(seed, n_steps, layout, cache_dir):
     """
     from v2ecoli import build_composite
 
-    comp = build_composite("baseline", seed=seed, cache_dir=cache_dir, emitter="null")
+    comp = build_composite("ecoli_baseline", seed=seed, cache_dir=cache_dir, emitter="null")
     comp.run(1)  # one step to populate listeners before discovery
     if layout is None:
         layout = PanelLayout.discover(comp.state)
@@ -74,7 +74,7 @@ def main():
         # discover layout (first traj) with the requested groups
         if layout is None:
             from v2ecoli import build_composite
-            comp = build_composite("baseline", seed=seed, cache_dir=args.cache_dir, emitter="null")
+            comp = build_composite("ecoli_baseline", seed=seed, cache_dir=args.cache_dir, emitter="null")
             comp.run(1)
             layout = PanelLayout.discover(comp.state, groups=tuple(args.groups))
             del comp

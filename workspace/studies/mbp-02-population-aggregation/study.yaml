@@ -32,7 +32,7 @@ question: |
 status: build-complete
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline_population
+    composite: v2ecoli.composites.ecoli_population
     params: {seed: 0, cache_dir: out/cache}
   variants:
   - name: cells-per-agent-1
@@ -45,7 +45,7 @@ conditions:
 
 baseline:
 - name: population-aggregation-baseline
-  composite: v2ecoli.composites.baseline_population   # TODO — see implementation_requirements
+  composite: v2ecoli.composites.ecoli_population   # TODO — see implementation_requirements
   params: {seed: 0, cache_dir: out/cache}
 
 
@@ -145,7 +145,7 @@ pipeline_gate:
 simulation_set:
 
 - name: multi-division-population
-  base_model: v2ecoli.composites.baseline_population
+  base_model: v2ecoli.composites.ecoli_population
   perturbation:
   condition: M9-minimal-glucose
   duration_min: 240   # ≥ 3 doubling times to see population grow
@@ -164,7 +164,7 @@ simulation_set:
   status: planned
 
 - name: single-cell-no-division
-  base_model: v2ecoli.composites.baseline_population
+  base_model: v2ecoli.composites.ecoli_population
   perturbation: {disable_division: true}
   condition: M9-minimal-glucose
   duration_min: 60
@@ -180,7 +180,7 @@ simulation_set:
 # does NOT perturb per-cell observables. Tests the architectural decision
 # adopted from chris_feedback_2026_05_26 §4.
 - name: scaling-factor-sweep
-  base_model: v2ecoli.composites.baseline_population
+  base_model: v2ecoli.composites.ecoli_population
   perturbation:
     cells_per_agent: [1.0, 1.0e6, 1.0e9]
   condition: M9-minimal-glucose
@@ -195,7 +195,7 @@ simulation_set:
 
 # ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
 model_change:
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   new_state_variables:
   - "population.total_biomass_gDW (float)"
   - "population.cell_count (float)   # float, not int — cells_per_agent scaling can be non-integer"
@@ -283,7 +283,7 @@ behavior_tests:
   classification: primary
   acceptance_form: quantitative_range
   description: "Per-cell DnaA count distribution matches the unaggregated v2ecoli baseline — aggregation is purely additive, doesn't perturb cell state. Regression guard."
-  measure: {kind: trajectory_match, reference: "v2ecoli.composites.baseline:default-run", series: dnaA_protein_count}
+  measure: {kind: trajectory_match, reference: "v2ecoli.composites.ecoli_baseline:default-run", series: dnaA_protein_count}
   pass_if: {op: distribution_match, tolerance: 0.05}
   units: molecules/cell
   requires_simulation: multi-division-population
@@ -468,10 +468,10 @@ implementation_requirements:
 
 - id: req-2-population-composite
   kind: composite
-  title: v2ecoli.composites.baseline_population
+  title: v2ecoli.composites.ecoli_population
   effort: XS
   description: |
-    Thin wrapper around v2ecoli.composites.baseline that adds the population
+    Thin wrapper around v2ecoli.composites.ecoli_baseline that adds the population
     store + PopulationAggregator Step. Default reactor_volume_L = 1.0;
     overridden by mbp-03's coupling composite.
   unblocks: [all mbp-02 simulations]

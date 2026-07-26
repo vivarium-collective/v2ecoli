@@ -392,7 +392,11 @@ def chromosome_state_from_live(full_chromosome, active_replisome=None) -> "tuple
     else:
         rep = _active_rows(active_replisome)
         if rep is not None and len(rep) > 0 and "coordinates" in rep.dtype.names:
-            fork_fraction = float(np.mean(np.abs(rep["coordinates"]))) / REPLICHORE_BP
+            # Mean fork position as a fraction of the replichore. Clamp to
+            # [0, 0.95]: forks travel oriC→terC (coordinate ≤ REPLICHORE_BP),
+            # so near division a fork can reach ~terC; cap just under 1.0 so the
+            # theta-bubble mapping never over-stretches to a degenerate terminus.
+            fork_fraction = min(0.95, float(np.mean(np.abs(rep["coordinates"]))) / REPLICHORE_BP)
         else:
             log.info("chromosome_state_from_live: active_replisome present but empty "
                      "(or missing 'coordinates'); fork_fraction defaults to 0.0")

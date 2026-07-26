@@ -77,3 +77,7 @@ docs/report_cards/**/report_card.html
 docs/report_cards/**/report_card_verdict.json
 docs/report_cards/**/*_reference.json
 workspace/investigations/*/studies/*/viz/report_card/
+
+# structural-ecoli s01: generated 3D packs/meshes are large — keep local, not committed
+workspace/studies/s01-birth-and-division/viz/3d/
+.parsimony/

@@ -1,0 +1,24 @@
+schema_version: 4
+name: s01-birth-and-division
+created: '2026-07-25'
+status: build-complete
+
+question: |
+  Pack the simulated whole-cell molecular state into a 3D cell at ~10 s
+  (post-equilibration birth) and right before division, so the Parsimony Viewer
+  can show both declared-time snapshots for this study.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline_parsimony.baseline_parsimony
+    params:
+      study: s01-birth-and-division      # MUST equal this study's slug (drives pack out_dir)
+      snapshots:
+        initial: 10.0
+        pre-division: division_time
+      top_n: 40
+      scale: 0.3
+      seed: 0
+      cache_dir: out/cache
+      n_steps: 2700
+  variants: []

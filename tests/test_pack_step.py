@@ -4,9 +4,15 @@ from v2ecoli.structural import pack_step as ps
 
 
 def _step(monkeypatch, snapshots, calls):
+    # These tests isolate the snapshot-FIRING logic; stub every state-extraction
+    # helper update() calls (bulk counts/locations + live RNAP/replication) so a
+    # minimal fake state suffices and only the timing path is exercised.
     monkeypatch.setattr(ps, "pack_from_state",
         lambda out_dir, name, counts, volume_fl, **k: calls.append((name, volume_fl)) or {"placements": [1]})
     monkeypatch.setattr(ps, "bulk_to_counts", lambda bulk: {"X": 1})
+    monkeypatch.setattr(ps, "bulk_to_locations", lambda bulk: {})
+    monkeypatch.setattr(ps, "chromosome_state_from_live", lambda fc, rep=None: (1, 0.0))
+    monkeypatch.setattr(ps, "rnaps_from_live", lambda *a, **k: [])
     return ps.EcoliPackStep(config={"snapshots": snapshots, "study": "s",
                                      "out_dir": "/tmp/o", "epsilon_s": 1.0})
 

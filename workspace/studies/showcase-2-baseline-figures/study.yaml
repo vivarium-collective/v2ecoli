@@ -323,6 +323,9 @@ discovery_implications:
   remaining_uncertainties:
     - "The FINAL generation (gen-3) is truncated at the 6500-step emit cap before it divides, so its raw per-generation span reads short (~10–19 min). This no longer affects the headline figures: doubling_time_line / doubling_time_hist now plot the cap-immune instantaneous doubling time (t2 = ln(2)/mu, 52.4 min over the full lineage, matching the runnable test) and the per-generation division-time markers explicitly exclude the truncated final generation (heuristic: last generation of a lineage whose final emitted row lands at the 6500-step cap). A per-generation division-event listener would let the span-based markers identify a real division instead of relying on this cap heuristic."
 
+pipeline_gate:
+  gate_status: passed
+
 runs:
   - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     name: showcase2-baseline-ensemble

@@ -355,6 +355,8 @@ simulation_set:
       - basal-dominates-mass-observables
       - growth-rate-ranking-is-window-dependent
 
+pipeline_gate:
+  gate_status: passed
 inputs:
   - artifact: param-uq-01-elongation
     from: param-uq-01-elongation

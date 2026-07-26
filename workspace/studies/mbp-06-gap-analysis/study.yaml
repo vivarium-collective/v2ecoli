@@ -129,6 +129,44 @@ findings_schema:
     axis_E_count: int
     resolutions_assigned: int
     carried_priors_addressed: int
+pipeline_gate:
+  gate_status_summary: 'Blocked on all 5 construction studies completing their impl PRs so the
+
+    artifacts (findings, acceptance_results, calibration_logs, limitations,
+
+    open_questions) are populated. Synthesis-only; no simulation.
+
+
+    Additional timing constraint (chris_feedback_2026_05_26 §11 concern 5):
+
+    mbp-02''s architectural decision (cells_per_agent scaling, adopted
+
+    2026-05-26) and mbp-05''s reframe (evaluation-phase / comparison-rendered,
+
+    adopted 2026-05-26) both materially shape what mbp-01..05 impl PRs
+
+    produce. mbp-06 synthesizing against the PRE-reframe baseline would
+
+    miss the point. The reframes are now reflected in the upstream spec
+
+    PRs themselves so the impl PRs respect them; this note exists to
+
+    document the dependency for future re-evaluations.
+
+    '
+  proceed_condition: 'Gap-analysis covers all 5 axes (A–E); each gap has a concrete
+
+    candidate-resolution; priorities are assigned and reviewed by the
+
+    expert / user. The document is committed to findings.md and the
+
+    candidate-resolution slugs are reified as scaffolded follow-up studies
+
+    OR explicit "deferred" entries in the next roadmap revision.
+
+    '
+# Synthesis-only — no simulation is run. The single "run" is the cross-study
+# artifact walk; recorded here so the dashboard Simulations tab is populated.
 simulation_set:
   - name: cross-study-gap-synthesis
     kind: synthesis

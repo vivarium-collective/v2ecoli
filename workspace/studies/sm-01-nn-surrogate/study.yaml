@@ -176,6 +176,9 @@ embed_visualizations:
     url: /reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
     description: "Per-group coverage + per-column R² histogram (~2.5% of columns R²>0.5) + an autoregressive rollout that diverges to NaN at ~step 9 — the high-dimensional instability."
 
+pipeline_gate:
+  gate_status: failed
+
 conclusion_verdicts:
   - claim: "The neural surrogate beats trivial baselines at emulating coarse growth."
     verdict: refuted

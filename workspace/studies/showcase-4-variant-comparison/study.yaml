@@ -418,6 +418,9 @@ discovery_implications:
       effort: medium
       expert_gate_required: true
 
+pipeline_gate:
+  gate_status: passed
+
 runs:
   - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     name: showcase4-variant-sweep

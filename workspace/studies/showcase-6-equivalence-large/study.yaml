@@ -372,6 +372,10 @@ discovery_implications:
     - "The gene-expression 'mismatch' is a strict-band artifact (R²=0.946 vs a 0.99 threshold inherited from the self-pin template). The principled cross-impl form — TOST + per-axis δ equivalence margins — would convert this into an explicit equivalence-margin verdict rather than a hard fail. Nice-to-have, not blocking."
     - "Root cause of the O₂/CO₂ respiratory-exchange divergence (issue #143) is not resolved here — this study confirms it is stable and localized at scale, it does not explain it."
   followup_study_proposals: []
+
+pipeline_gate:
+  gate_status: failed   # card-driven roll-up: exchange_fluxes + gene_expression FAIL (see gate_status note above)
+
 runs:
   - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     name: v2-16x16-parallel-ensemble

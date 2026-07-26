@@ -82,6 +82,23 @@ purpose:
 
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  gate_status_summary: |
+    Blocked on mbp-04 (multi-generation stability). Benchmark citation
+    confirmed (Beulig 2025 mSystems; PDF in references/papers/);
+    structured extraction of operating profile + trajectories from the
+    paper is a req-1 prerequisite. Terminal acceptance gate of the
+    investigation.
+  proceed_condition: |
+    All comparison overlay panels rendered (one per `comparison_overlays`
+    entry); report.md committed with `## Divergence triage` section
+    populated against the four-category taxonomy. Divergences themselves
+    are PASSED to mbp-06 as input — they do not gate this phase. The
+    `divergences-categorized-in-report-card` test is the load-bearing
+    one (per chris_feedback_2026_05_26 §10).
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
 simulation_set:
 
   - name: palsson-matched-batch

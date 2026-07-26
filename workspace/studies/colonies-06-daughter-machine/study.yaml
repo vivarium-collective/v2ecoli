@@ -57,6 +57,12 @@ acceptance_criteria:
   - behavior: size-at-division-distribution
   - behavior: interdivision-time-distribution
   - behavior: added-size-distribution
+pipeline_gate:
+  proceed_condition: 'Requires the shared cell-tier factory, geometry builders, and phenotype
+
+    extractor stood up in colonies-04.
+
+    '
 inputs:
   - artifact: sim_data
     from: parca

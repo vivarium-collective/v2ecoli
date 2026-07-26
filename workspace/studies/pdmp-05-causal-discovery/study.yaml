@@ -176,6 +176,8 @@ simulation_status: not_started
 evaluation_status: not_started
 gate_status: blocked
 expert_review_status: not_requested
+pipeline_gate:
+  proceed_condition: "RR marginal-likelihood estimator achieves N_eff ≥ 100 per estimate. Log BF CIs lie entirely above |log BF| > 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p > 0.05. Active-inference EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4."
 study_card:
   goal: "Phase 5 — pursue the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes."
   why_before_next: 'This is the final phase: use the fast, likelihood-bearing model to compare gene-function hypotheses and choose informative perturbations.'

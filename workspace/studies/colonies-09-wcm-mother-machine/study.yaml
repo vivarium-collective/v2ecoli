@@ -54,6 +54,13 @@ acceptance_criteria:
   - behavior: whole-cell-runs-and-divides-in-device
   - behavior: running-animation-rendered
   - behavior: preliminary-phenotypes-extracted
+pipeline_gate:
+  proceed_condition: |
+    The highest-fidelity (whole-cell) rung of the phenotype ladder in the
+    mother-machine geometry; reuses the colonies-05 device + phenotype pipeline
+    to test whether WCM single-cell phenotypes survive confined-channel embedding.
+    Length-capped on the dev mini; Linux-bounded memory (characterised footnote,
+    not a blocker).
 inputs:
   - artifact: sim_data
     from: parca

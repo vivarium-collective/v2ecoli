@@ -58,6 +58,15 @@ acceptance_criteria:
   - behavior: geometry-builders-run-with-simple-agents
   - behavior: extractor-recovers-known-division-stats
   - behavior: harness-produces-phenotype-panel
+pipeline_gate:
+  proceed_condition: |
+    Part B builds on the Part A enabling infrastructure. The colonies-03 RSS
+    growth is now a characterised, Linux-bounded, mitigated footnote (localized
+    to the inner WCM's elongation + mass-listener; ~0.017 MB/tick on Linux/glibc,
+    0.000 with periodic malloc_trim), not an HPC blocker. WCM-tier device runs
+    (colonies-08/09) are length-bounded on the dev mini (a macOS allocator
+    artifact) but unbounded on the Linux HPC target; the simple-agent tier here
+    runs freely.
 inputs:
   - artifact: sim_data
     from: parca

@@ -270,6 +270,9 @@ discovery_implications:
       effort: low
       expert_gate_required: true
 
+pipeline_gate:
+  gate_status: pending
+
 runs: []
 
 visualizations:

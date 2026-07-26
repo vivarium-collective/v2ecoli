@@ -116,6 +116,9 @@ embed_visualizations:
     url: /reports/figures/sm-03-improving-the-surrogate/rollout_loss_improvement.html
     description: "8-fold CV rollout error (log) for the one-step net, the rollout-loss net, and the linear baseline. Rollout-loss eliminates the instability (0/8) and improves accuracy, but the linear model still wins for this smooth target — rollout-loss is the technique for harder, nonlinear targets."
 
+pipeline_gate:
+  gate_status: passed
+
 conclusion_verdicts:
   - claim: "Rollout-loss training fixes the neural surrogate's autoregressive instability."
     verdict: supported

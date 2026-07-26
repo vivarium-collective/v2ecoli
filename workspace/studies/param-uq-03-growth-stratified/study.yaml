@@ -257,6 +257,8 @@ visualizations:
     chart: image
     render: "PLANNED mockup — line plot of total-order Sobol per knob across 10 θ bins (birth→division); hypothesized basal_elongation_rate peak mid-cycle. No real data yet; renders only after the multigen run + pbg-uq stratified strategy land."
 
+pipeline_gate:
+  gate_status: pending
 inputs:
   - artifact: param-uq-01-elongation
     from: param-uq-01-elongation

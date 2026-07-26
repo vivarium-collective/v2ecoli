@@ -276,6 +276,8 @@ visualizations:
     chart: image
     render: "PLANNED mockup — bar chart ranking the 6 deep params by total-order Sobol on growth/mass. No real data yet; renders only after the sim_data injection adapter + per-sample ParCa rebuild land."
 
+pipeline_gate:
+  gate_status: pending
 inputs:
   - artifact: param-uq-00-screen
     from: param-uq-00-screen

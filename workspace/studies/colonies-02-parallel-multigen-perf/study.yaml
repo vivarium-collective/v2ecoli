@@ -122,6 +122,27 @@ build_tasks:
       open question). Verify daughters hydrate as Ray actors, not local procs.
 
       '
+pipeline_gate:
+  proceed_condition: 'colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
+
+    per_cell_ms / per_cell_rss recorded as projection inputs.
+
+    '
+  blocks_until_resolved: 'RESOLVED (2026-07-26). The prior block -- that the F-06 RSS climb might
+
+    be an unbounded leak OOMing before gen 3 -- was a macOS allocator-arena
+
+    artifact. On the Linux HPC target memory is bounded (F-03: 0.017 MB/tick
+
+    on glibc, 0.000 with malloc_trim), natural multi-generation division runs
+
+    unattended (F-01), and daughters hydrate under Ray (F-06). The
+
+    cells-per-node budget colonies-03 will validate is therefore trustworthy;
+
+    HPC deployment may proceed.
+
+    '
 simulation_set:
   - name: seq-1cell-4div
     description: 'Sequential (single-threaded) baseline. One cell, natural division,

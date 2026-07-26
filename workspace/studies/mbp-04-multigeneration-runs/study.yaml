@@ -39,6 +39,19 @@ purpose:
 
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  gate_status_summary: |
+    Blocked on mbp-03 (the coupled composite). This is where the coupling
+    proves itself at fed-batch-relevant timescales — without committing to
+    the full fed-batch operating mode (pbg-bioreactordesign has no fed-batch
+    yet; that is flagged as a deferred enhancement, see mbp-05 notes).
+  proceed_condition: |
+    Regime-transition test passes (population growth flattens once a
+    limiting substrate is exhausted); mass-balance audits close; wall-clock
+    budget met; no NaN / divergence.
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
 simulation_set:
 
   - name: three-generation-batch

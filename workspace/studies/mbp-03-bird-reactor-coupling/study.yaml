@@ -83,12 +83,6 @@ purpose:
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
 pipeline_gate:
-  prerequisites:
-    - mbp-01-time-varying-environment
-    - mbp-02-population-aggregation
-    - pbg-bioreactor-transport-fork   # upstream PR; see chris_feedback_2026_05_26 §5
-  enables:
-    - mbp-04-multigeneration-runs
   gate_status_summary: |
     Blocked on mbp-01 (env hook so BiRD's DO can drive v2ecoli), mbp-02
     (population aggregator so v2ecoli's biomass can drive BiRD), AND the

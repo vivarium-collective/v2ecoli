@@ -127,6 +127,20 @@ build_tasks:
       retention). Keep it behind a flag if it changes recorded outputs.
 
       '
+pipeline_gate:
+  proceed_condition: |
+    Met: the 2026-07-26 hunt localizes >=~80% of the growth to named sites
+    (elongation ~82% + mass-listener ~17%; real retention = scipy LSODA work
+    arrays) and shows the growth is Linux-bounded (0.017 MB/tick unmitigated,
+    0.000 with malloc_trim). Gate proceeds.
+  blocks_until_resolved: |
+    Resolved for HPC purposes: the "unbounded native leak" was substantially a
+    macOS allocator artifact. On the Linux/glibc HPC target per-cell RSS is
+    bounded (mechanism-validated in a colima glibc container), so the
+    cells-per-node budget is trustworthy. colonies-04-hpc-deployment is unblocked;
+    the remaining open item is a full-colony end-to-end HPC-node run to confirm
+    the bound in situ (not yet run) plus the optional scipy-LSODA solver-reuse
+    optimization for the small (~0.2 MB/tick) real retention.
 simulation_set:
   - name: profile-1cell-predivision
     description: 'Single EcoliWCM (no colony/pymunk), ~2500 ticks (pre-first-division),

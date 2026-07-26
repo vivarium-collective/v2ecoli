@@ -45,25 +45,20 @@ def _register_clean_alias(name: str, module: str | None = None) -> None:
 
 
 # The ecoli_* whole-cell family was renamed from the legacy ``baseline*`` /
-# ``colony`` scheme (2026-07). Register the clean new id AND keep the old ids
-# (both doubled and short) resolving to the same generator, so published
-# composite-state snapshots, sms-api run registrations, and any study.yaml
-# still referencing the old name keep working.
-_RENAMED = {
-    "baseline":                  "ecoli_baseline",
-    "baseline_millard":          "ecoli_millard",
-    "baseline_parsimony":        "ecoli_structural",
-    "baseline_population":       "ecoli_population",
-    "baseline_time_varying_env": "ecoli_time_varying_env",
-    "colony":                    "ecoli_colony",
-}
-for _old, _new in _RENAMED.items():
-    _new_doubled = f"v2ecoli.composites.{_new}.{_new}"
-    _register_clean_alias(_new)                                         # clean new id
-    _register_alias(f"v2ecoli.composites.{_old}.{_old}", _new_doubled)  # legacy doubled
-    _register_alias(f"v2ecoli.composites.{_old}", _new_doubled)         # legacy short
-
-_register_clean_alias("parca")
+# ``colony`` scheme (2026-07). Every in-repo reference (workspace studies,
+# scripts, tests, committed composite-state snapshots) was updated to the new
+# ids in the same change, so no legacy-id alias is registered — a stale
+# ``baseline`` id resolving silently would only hide a missed reference.
+for _new in (
+    "ecoli_baseline",
+    "ecoli_millard",
+    "ecoli_structural",
+    "ecoli_population",
+    "ecoli_time_varying_env",
+    "ecoli_colony",
+    "parca",
+):
+    _register_clean_alias(_new)
 
 
 __all__ = [

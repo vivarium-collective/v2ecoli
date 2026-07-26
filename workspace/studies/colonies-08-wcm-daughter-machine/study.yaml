@@ -2,18 +2,33 @@ schema_version: 4
 name: colonies-08-wcm-daughter-machine
 investigation: colonies
 title: "Whole-cell baseline (v2ecoli) in a daughter machine \u2014 device run"
-description: "Run the REAL v2ecoli whole-cell BASELINE \u2014 the full 55-process\
-  \ EcoliWCM \u2014 as a\nsingle cell inside the daughter-machine device geometry\
-  \ (chamber + absorbing\nwall), letting it grow and divide naturally. Renders the\
-  \ running animation and\nthe same phenotype figures as the cheap-agent device studies\
-  \ (size at\ndivision, birth\u2192division time, added size before division), so\
-  \ the whole-cell\ntier can be compared, in the same device, against the simple viva-munk\
-  \ agents\n(colonies-06) on the identical measurement pipeline.\n\nThis run is compute/RSS-bounded:\
-  \ a whole-cell division is ~one cell cycle\n(~2300+ ticks) and a growing colony\
-  \ leaks per-cell RAM (OOM ~gen 3), so it is\ncapped at a few generations. Phenotype\
-  \ distributions are therefore PRELIMINARY\n(small n); conclusions are held for experimental\
-  \ data (colonies-09) and full\ndistributions need HPC. The value here is the genuine\
-  \ whole-cell baseline\nrunning inside the device.\n"
+description: |
+  Run the REAL v2ecoli whole-cell BASELINE \u2014 the full 55-process EcoliWCM \u2014 as a
+  single cell inside the daughter-machine device geometry (chamber + absorbing
+  wall), letting it grow and divide naturally. This is the highest-fidelity rung
+  of the phenotype ladder (simple viva-munk agent -> growth surrogate -> full
+  WCM): it asks whether the emergent single-cell phenotypes \u2014 adder
+  size-homeostasis, size at division, added length before division,
+  inter-division time, and growth rate \u2014 survive whole-cell colony embedding and
+  division inside the device. Renders the running animation and the same
+  phenotype figures as the cheap-agent device studies, so the whole-cell tier can
+  be compared, in the same geometry and on the identical measurement pipeline,
+  against the simple viva-munk agents (colonies-06) and against experimental
+  microfluidic-device data.
+
+  A bounded per-cell phenotype panel (size, added length, division/birth times,
+  growth rate) is streamed to zarr by the ColonyPhenotypeRecorder \u2014 a process,
+  not an emitter, so recording stays cheap. Memory is characterised and
+  Linux-bounded, not a blocker: the inner WCM's per-tick RSS growth is localized
+  to the polypeptide-elongation step + mass-listener and is dominated on the dev
+  mini by a macOS allocator artifact (~1.6 MB/tick), but is only ~0.017 MB/tick
+  on glibc and ~0.000 with periodic malloc_trim. WCM-tier runs are therefore
+  length-capped on the dev mini yet effectively unbounded on the Linux HPC
+  target. On the mini this run spans only a few generations, so phenotype
+  distributions are PRELIMINARY (small n); full distributions await the Linux HPC
+  run and experimental data (colonies-09). The value here is the genuine
+  whole-cell baseline running inside the device.
+
 topic: phenotype-quantification
 tags:
 - colony
@@ -50,12 +65,12 @@ pipeline_gate:
   prerequisites:
   - colonies-06-daughter-machine
   enables: []
-  proceed_condition: 'The whole-cell (EcoliWCM) tier in the daughter-machine geometry;
-    reuses the
-
-    colonies-06 device + phenotype pipeline. Compute/RSS-bounded run.
-
-    '
+  proceed_condition: |
+    The highest-fidelity (whole-cell) rung of the phenotype ladder in the
+    daughter-machine geometry; reuses the colonies-06 device + phenotype pipeline
+    to test whether WCM single-cell phenotypes survive device embedding.
+    Length-capped on the dev mini; Linux-bounded memory (characterised footnote,
+    not a blocker).
 inputs:
 - artifact: sim_data
   from: parca

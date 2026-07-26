@@ -116,17 +116,17 @@ runtime:
   hardware: Mac mini
 
 readouts:
-- {name: doubling-time, description: "cap-immune doubling time t2 = ln(2)/mu averaged over the full lineage (min)"}
-- {name: mass-fractions, description: "dry-mass fractions (protein / rRNA / tRNA / DNA) per generation"}
-- {name: fba-flux-vs-toya2010, description: "central-carbon FBA flux vs Toya 2010 C13-MFA (Pearson R over 23 reactions)"}
-- {name: proteome-correlation, description: "proteome correlation vs Schmidt 2016 and Wisniewski 2014 (log10 monomer counts)"}
-- {name: replication-and-regulation, description: "replication program (oriC copy number over the cell cycle) and ppGpp / tRNA-charging traces"}
+  - {name: doubling-time, description: "cap-immune doubling time t2 = ln(2)/mu averaged over the full lineage (min)"}
+  - {name: mass-fractions, description: "dry-mass fractions (protein / rRNA / tRNA / DNA) per generation"}
+  - {name: fba-flux-vs-toya2010, description: "central-carbon FBA flux vs Toya 2010 C13-MFA (Pearson R over 23 reactions)"}
+  - {name: proteome-correlation, description: "proteome correlation vs Schmidt 2016 and Wisniewski 2014 (log10 monomer counts)"}
+  - {name: replication-and-regulation, description: "replication program (oriC copy number over the cell cycle) and ppGpp / tRNA-charging traces"}
 
 enforced_params:
-- {name: cache_dir, value: out/cache-showcase, why: "resume from the showcase-1 full-mode (51-condition) ParCa cache"}
-- {name: seeds, value: "0–1", why: "multiseed ensemble (2 seeds), seed 0 anchors the baseline condition"}
-- {name: generations, value: 3, why: "single-cell→division lineage depth"}
-- {name: emitter, value: parquet-sidecar, why: "the in-engine ParquetEmitter is a RAM trap; the parquet sidecar is authoritative"}
+  - {name: cache_dir, value: out/cache-showcase, why: "resume from the showcase-1 full-mode (51-condition) ParCa cache"}
+  - {name: seeds, value: "0–1", why: "multiseed ensemble (2 seeds), seed 0 anchors the baseline condition"}
+  - {name: generations, value: 3, why: "single-cell→division lineage depth"}
+  - {name: emitter, value: parquet-sidecar, why: "the in-engine ParquetEmitter is a RAM trap; the parquet sidecar is authoritative"}
 
 biological_summary: |
   The wild-type baseline is the unperturbed v2ecoli whole cell growing in
@@ -138,7 +138,7 @@ biological_summary: |
   showcase-4 perturbation variants are measured against.
 
 literature_anchors:
-- {cite: macklin2020, note: "The Covert-lab whole-cell model; the source of the validated baseline properties (doubling time, mass fractions, Toya-2010 FBA flux + Schmidt/Wisniewski proteome cross-evaluation) v2ecoli reproduces here."}
+  - {cite: macklin2020, note: "The Covert-lab whole-cell model; the source of the validated baseline properties (doubling time, mass fractions, Toya-2010 FBA flux + Schmidt/Wisniewski proteome cross-evaluation) v2ecoli reproduces here."}
 
 # Structured bibliography: the bib keys (resolved in references/papers.bib) this
 # study cites, so the report's References section renders them. Mirrors the
@@ -146,10 +146,10 @@ literature_anchors:
 # Wisniewski 2014 proteome) which were previously prose-only.
 bibliography:
   bib_keys:
-  - macklin2020
-  - toya2010
-  - schmidt2016
-  - wisniewski2014
+    - macklin2020
+    - toya2010
+    - schmidt2016
+    - wisniewski2014
 
 model_change: |
   None — this is the unperturbed wild-type baseline. The only configuration is
@@ -167,10 +167,10 @@ implementation_requirements: |
 design_pivot_required: false
 
 conclusion_verdicts:
-- {claim: "doubling time is in the physiological band", verdict: supported, basis: "divided-generation ~46 min; cap-immune instantaneous t2 = 52.4 min (in [35,55])"}
-- {claim: "mass fractions are physiological", verdict: supported, basis: "protein 0.461, rRNA 0.105, tRNA 0.019, DNA 0.018"}
-- {claim: "FBA fluxes correlate with Toya 2010", verdict: supported, basis: "Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions)"}
-- {claim: "proteome correlates with Schmidt / Wisniewski", verdict: supported, basis: "Schmidt r = 0.728 (n=2228), Wisniewski r = 0.602 (n=2226)"}
+  - {claim: "doubling time is in the physiological band", verdict: supported, basis: "divided-generation ~46 min; cap-immune instantaneous t2 = 52.4 min (in [35,55])"}
+  - {claim: "mass fractions are physiological", verdict: supported, basis: "protein 0.461, rRNA 0.105, tRNA 0.019, DNA 0.018"}
+  - {claim: "FBA fluxes correlate with Toya 2010", verdict: supported, basis: "Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions)"}
+  - {claim: "proteome correlates with Schmidt / Wisniewski", verdict: supported, basis: "Schmidt r = 0.728 (n=2228), Wisniewski r = 0.602 (n=2226)"}
 
 conclusion_logic:
   if_primary_tests_pass:
@@ -185,14 +185,14 @@ conclusion_logic:
     biological_validation: "A baseline that misses the measured-property classes would mean the resumed ParCa cache is mis-calibrated, so every downstream perturbation delta would be untrustworthy."
 
 simulation_set:
-- name: showcase2-baseline-ensemble
-  kind: simulation
-  status: complete
-  base_model: baseline
-  duration_steps: 6500
-  seeds: "0–1 (2 seeds) × 3 generations"
-  metrics: [doubling time, mass fractions, Toya-2010 FBA flux R, Schmidt/Wisniewski proteome r]
-  pass_fail_tests: [doubling-time-in-band, mass-fraction-physiological, fba-flux-correlates-toya2010, proteome-correlates-schmidt-wisniewski]
+  - name: showcase2-baseline-ensemble
+    kind: simulation
+    status: complete
+    base_model: baseline
+    duration_steps: 6500
+    seeds: "0–1 (2 seeds) × 3 generations"
+    metrics: [doubling time, mass fractions, Toya-2010 FBA flux R, Schmidt/Wisniewski proteome r]
+    pass_fail_tests: [doubling-time-in-band, mass-fraction-physiological, fba-flux-correlates-toya2010, proteome-correlates-schmidt-wisniewski]
 
 conditions:
   baseline:
@@ -210,36 +210,37 @@ conditions:
   # The wild-type baseline carries no perturbation variants — it is itself the
   # reference. The perturbation variants live in showcase-4 and are measured
   # against this baseline.
-  - name: wild-type baseline (no perturbation)
-    role: reference
-    detail: "Unperturbed glucose-minimal whole cell; the reference all showcase-4 perturbation deltas are taken against."
+    - name: wild-type baseline (no perturbation)
+      role: reference
+      detail: "Unperturbed glucose-minimal whole cell; the reference all showcase-4 perturbation deltas are taken against."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
-  - name: multiseed-multigen-ensemble
-    detail: "Run is a multiseed + multigen ensemble (2 seeds × 3 generations, not a single cell); the tests are evaluated over the ensemble."
-  - name: ray-parallel-dispatch
-    detail: "Seeds fanned out Ray-parallel via run_seeds_parallel."
-  - name: xarray-zarr-emit
-    detail: "XArray/zarr emit (NOT the in-engine ParquetEmitter, which is a RAM trap)."
+    - name: multiseed-multigen-ensemble
+      detail: "Run is a multiseed + multigen ensemble (2 seeds × 3 generations, not a single cell); the tests are evaluated over the ensemble."
+    - name: ray-parallel-dispatch
+      detail: "Seeds fanned out Ray-parallel via run_seeds_parallel."
+    - name: xarray-zarr-emit
+      detail: "XArray/zarr emit (NOT the in-engine ParquetEmitter, which is a RAM trap)."
 
 assumptions:
-- text: |
-    The wild-type baseline resumed from the showcase-1 full ParCa cache reaches
-    a physiological steady state across a multiseed/multigen ensemble, so the
-    four wild-type-property tests are evaluated on the ensemble (not a single
-    cell).
-  verified_in_v2ecoli: false
-- text: |
-    Ray-parallel dispatch (run_seeds_parallel) + XArray/zarr emit is the correct
-    runner for a multiseed ensemble; the in-engine ParquetEmitter is a RAM trap
-    and is avoided.
-  verified_in_v2ecoli: false
+  - text: |
+      The wild-type baseline resumed from the showcase-1 full ParCa cache reaches
+      a physiological steady state across a multiseed/multigen ensemble, so the
+      four wild-type-property tests are evaluated on the ensemble (not a single
+      cell).
+    verified_in_v2ecoli: false
+  - text: |
+      Ray-parallel dispatch (run_seeds_parallel) + XArray/zarr emit is the correct
+      runner for a multiseed ensemble; the in-engine ParquetEmitter is a RAM trap
+      and is avoided.
+    verified_in_v2ecoli: false
 
 tests:
-- name: doubling-time-in-band
-  classification: primary
-  status: passed
-  question: Is the ensemble doubling time within the physiological band for the baseline growth condition?
-  measure:
+  - name: doubling-time-in-band
+    classification: primary
+    status: passed
+    question: Is the ensemble doubling time within the physiological band for the baseline growth condition?
+    measure:
     # Cap-immune doubling time: derive it from the per-step instantaneous
     # growth rate rather than a per-generation window over cell_mass. The
     # instantaneous specific growth rate mu (units 1/s) gives doubling time
@@ -249,127 +250,123 @@ tests:
     # naive (max_time-min_time) per-generation window suffers (gen-2 cells keep
     # emitting to the cap after dividing -> ~63-104 min false reading).
     # The evaluator averages the per-tick t2 across the full lineage.
-    kind: derived
-    formula: 0.011552453009332421 / listeners.mass.instantaneous_growth_rate
-    window: full_lineage_from_gen_0
-    detail: Doubling time t2 = ln(2)/mu (min) from the per-step instantaneous specific growth rate, averaged over the full lineage. Cap-immune (no division-event / step-window dependence).
-  cites: [macklin2020]
-  cites_note: |
-    Central value sourced to the Covert-lab whole-cell model baseline
-    (macklin2020), whose glucose-minimal wild-type doubles at ~40–45 min; the
-    [35, 55] min band is an analyst tolerance window around that published
-    value, not a separately-published interval. The primary growth-physiology
-    datasets aggregated by the WCM are not individually in references/papers.bib.
-  pass_if:
-    op: in_range
-    low: 35
-    high: 55
-- name: mass-fraction-physiological
-  classification: primary
-  status: passed
-  question: Are the cell mass fractions (protein / RNA / DNA / etc.) physiological?
-  measure:
+      kind: derived
+      formula: 0.011552453009332421 / listeners.mass.instantaneous_growth_rate
+      window: full_lineage_from_gen_0
+      detail: Doubling time t2 = ln(2)/mu (min) from the per-step instantaneous specific growth rate, averaged over the full lineage. Cap-immune (no division-event / step-window dependence).
+    cites: [macklin2020]
+    cites_note: |
+      Central value sourced to the Covert-lab whole-cell model baseline
+      (macklin2020), whose glucose-minimal wild-type doubles at ~40–45 min; the
+      [35, 55] min band is an analyst tolerance window around that published
+      value, not a separately-published interval. The primary growth-physiology
+      datasets aggregated by the WCM are not individually in references/papers.bib.
+    pass_if:
+      op: in_range
+      low: 35
+      high: 55
+  - name: mass-fraction-physiological
+    classification: primary
+    status: passed
+    question: Are the cell mass fractions (protein / RNA / DNA / etc.) physiological?
+    measure:
     # Protein is the headline physiological dry-mass fraction (~0.47 for
     # wild-type E. coli). The DSL evaluates one measure per test, so this test
     # gates on the protein fraction; the other fractions (rRNA ~0.106, tRNA
     # ~0.019, DNA ~0.018) are reported in the authored outcomes detail and were
     # spot-checked to be physiological via the same listeners.mass.* / dry_mass
     # ratio (all in band).
-    kind: generation_average
-    path: listeners.mass.protein_mass / listeners.mass.dry_mass
-    window: every_generation
-    detail: Protein dry-mass fraction (listeners.mass.protein_mass / listeners.mass.dry_mass), generation-averaged, vs the physiological E. coli band.
-  cites: [macklin2020]
-  cites_note: |
-    Central value (protein ~0.47 of dry mass) sourced to the Covert-lab
-    whole-cell model baseline (macklin2020); the [0.40, 0.55] band is an analyst
-    tolerance window around that published composition, not a separately-
-    published interval.
-  pass_if:
-    op: in_range
-    low: 0.40
-    high: 0.55
-- name: fba-flux-correlates-toya2010
-  classification: primary
-  status: passed   # clean run: FBA fluxes correlate with Toya 2010 at Pearson R = 0.6990 (p = 2.1e-4, n = 23)
-  question: Do the baseline FBA fluxes correlate with the Toya 2010 measured central-carbon fluxes?
-  measure:
-    kind: flux_correlation
-    reference: Toya 2010
-    detail: Correlate baseline FBA fluxes against Toya 2010 measured fluxes.
-  cites: [toya2010]   # the Toya 2010 C13-MFA central-carbon flux dataset this band is anchored to
-  pass_if:
-    op: correlates
-- name: proteome-correlates-schmidt-wisniewski
-  classification: primary
-  status: passed
-  question: Does the baseline proteome correlate with the Schmidt 2016 / Wisniewski measured proteome?
-  measure:
-    kind: proteome_correlation
-    reference: Schmidt 2016 / Wisniewski
-    detail: Correlate baseline protein abundances against the Schmidt/Wisniewski measured proteome.
-  cites: [schmidt2016, wisniewski2014]   # the two measured-proteome datasets this band is anchored to
-  pass_if:
-    op: correlates
+      kind: generation_average
+      path: listeners.mass.protein_mass / listeners.mass.dry_mass
+      window: every_generation
+      detail: Protein dry-mass fraction (listeners.mass.protein_mass / listeners.mass.dry_mass), generation-averaged, vs the physiological E. coli band.
+    cites: [macklin2020]
+    cites_note: |
+      Central value (protein ~0.47 of dry mass) sourced to the Covert-lab
+      whole-cell model baseline (macklin2020); the [0.40, 0.55] band is an analyst
+      tolerance window around that published composition, not a separately-
+      published interval.
+    pass_if:
+      op: in_range
+      low: 0.40
+      high: 0.55
+  - name: fba-flux-correlates-toya2010
+    classification: primary
+    status: passed # clean run: FBA fluxes correlate with Toya 2010 at Pearson R = 0.6990 (p = 2.1e-4, n = 23)
+    question: Do the baseline FBA fluxes correlate with the Toya 2010 measured central-carbon fluxes?
+    measure:
+      kind: flux_correlation
+      reference: Toya 2010
+      detail: Correlate baseline FBA fluxes against Toya 2010 measured fluxes.
+    cites: [toya2010] # the Toya 2010 C13-MFA central-carbon flux dataset this band is anchored to
+    pass_if:
+      op: correlates
+  - name: proteome-correlates-schmidt-wisniewski
+    classification: primary
+    status: passed
+    question: Does the baseline proteome correlate with the Schmidt 2016 / Wisniewski measured proteome?
+    measure:
+      kind: proteome_correlation
+      reference: Schmidt 2016 / Wisniewski
+      detail: Correlate baseline protein abundances against the Schmidt/Wisniewski measured proteome.
+    cites: [schmidt2016, wisniewski2014] # the two measured-proteome datasets this band is anchored to
+    pass_if:
+      op: correlates
 
 discovery_implications:
   resolved_uncertainties:
-  - The central-carbon FBA-vs-Toya-2010 scatter is regenerated on the clean run — the Toya 2010 flux validation TSV (toya_2010_central_carbon_fluxes.tsv) was restored to v2ecoli/validation/ecoli/flat/ and build_validation_data now exposes validation_data.reactionFlux.toya2010fluxes. The baseline FBA fluxes correlate with the Toya 2010 C13-MFA measured fluxes at Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions).
-  - The wild-type baseline reproduces the measured-property classes on the clean 3-generation re-run (doubling time in-band, physiological mass fractions, Schmidt r≈0.73 / Wisniewski r≈0.60) — no calibration trade-off appeared across them.
-  - "RESOLVED (was: gen-2 doubling-time step-cap over-report): #173 ends each non-final generation at its real division, so gen-2 now reads 43–52 min (in-band) instead of the old ~104 min cap-inflated value. The doubling_time_line / doubling_time_hist figures show a clean gen-2."
-  - "RESOLVED (reviewer: 'why is the doubling time going down? get more samples'): the apparent decline was the cap-truncated FINAL generation, not a real trend. doubling_time_line / doubling_time_hist now lead with a cap-immune instantaneous doubling-time trace t2 = ln(2)/mu from listeners.mass.instantaneous_growth_rate over the whole lineage (218 per-timestep samples vs the old 3 generational points): STABLE at ~44–52 min (mean ~52 min), no decline. Per-generation division-time markers are kept but the truncated final generation is excluded so it no longer reads as a downward trend."
-  - "RESOLVED (was: gen-3 mislabeled / folded phylogeny): the clean re-run has the correct lineage labelling — gen1 agent=0 / gen2 agent=00 / gen3 agent=000 for both seeds — so cell_mass now renders three distinct clean generations."
+    - The central-carbon FBA-vs-Toya-2010 scatter is regenerated on the clean run — the Toya 2010 flux validation TSV (toya_2010_central_carbon_fluxes.tsv) was restored to v2ecoli/validation/ecoli/flat/ and build_validation_data now exposes validation_data.reactionFlux.toya2010fluxes. The baseline FBA fluxes correlate with the Toya 2010 C13-MFA measured fluxes at Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions).
+    - The wild-type baseline reproduces the measured-property classes on the clean 3-generation re-run (doubling time in-band, physiological mass fractions, Schmidt r≈0.73 / Wisniewski r≈0.60) — no calibration trade-off appeared across them.
+    - "RESOLVED (was: gen-2 doubling-time step-cap over-report): #173 ends each non-final generation at its real division, so gen-2 now reads 43–52 min (in-band) instead of the old ~104 min cap-inflated value. The doubling_time_line / doubling_time_hist figures show a clean gen-2."
+    - "RESOLVED (reviewer: 'why is the doubling time going down? get more samples'): the apparent decline was the cap-truncated FINAL generation, not a real trend. doubling_time_line / doubling_time_hist now lead with a cap-immune instantaneous doubling-time trace t2 = ln(2)/mu from listeners.mass.instantaneous_growth_rate over the whole lineage (218 per-timestep samples vs the old 3 generational points): STABLE at ~44–52 min (mean ~52 min), no decline. Per-generation division-time markers are kept but the truncated final generation is excluded so it no longer reads as a downward trend."
+    - "RESOLVED (was: gen-3 mislabeled / folded phylogeny): the clean re-run has the correct lineage labelling — gen1 agent=0 / gen2 agent=00 / gen3 agent=000 for both seeds — so cell_mass now renders three distinct clean generations."
   remaining_uncertainties:
-  - "The FINAL generation (gen-3) is truncated at the 6500-step emit cap before it divides, so its raw per-generation span reads short (~10–19 min). This no longer affects the headline figures: doubling_time_line / doubling_time_hist now plot the cap-immune instantaneous doubling time (t2 = ln(2)/mu, 52.4 min over the full lineage, matching the runnable test) and the per-generation division-time markers explicitly exclude the truncated final generation (heuristic: last generation of a lineage whose final emitted row lands at the 6500-step cap). A per-generation division-event listener would let the span-based markers identify a real division instead of relying on this cap heuristic."
+    - "The FINAL generation (gen-3) is truncated at the 6500-step emit cap before it divides, so its raw per-generation span reads short (~10–19 min). This no longer affects the headline figures: doubling_time_line / doubling_time_hist now plot the cap-immune instantaneous doubling time (t2 = ln(2)/mu, 52.4 min over the full lineage, matching the runnable test) and the per-generation division-time markers explicitly exclude the truncated final generation (heuristic: last generation of a lineage whose final emitted row lands at the 6500-step cap). A per-generation division-event listener would let the span-based markers identify a real division instead of relying on this cap heuristic."
 
 pipeline_gate:
-  prerequisites:
-  - showcase-1-parca
-  enables:
-  - showcase-3-variant-decide
   gate_status: passed
 
 runs:
-- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  name: showcase2-baseline-ensemble
-  status: completed
-  kind: simulation
-  canonical: true
-  description: |
-    CLEAN multiseed/multigen wild-type baseline ensemble on the Mac mini: 2
-    seeds (0–1) × 3 generations of v2ecoli.composites.ecoli_baseline.ecoli_baseline, resumed
-    from the showcase-1 full ParCa cache (out/cache-showcase, 51 TF conditions).
-    Dispatched Ray-parallel (run_seeds_parallel, 6 threads/worker). 6500 steps /
-    cell; total wall ~1228 s (per-seed ~695 / 1225 s). The parquet sidecar
-    (.pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline/) is the
-    authoritative store and has the CLEAN [1,2,3] phylogeny for both seeds
-    (gen1 agent=0 / gen2 agent=00 / gen3 agent=000); the XArray/zarr store is
-    incomplete (seed_00 failed to write with a Quantity 'shape' AttributeError;
-    seed_01 captured only gens 1–2) so all analyses ran off the parquet. This
-    run REPLACES the old showcase2-baseline-full, which had a folded gen-2 /
-    missing gen-3. The native analyses (v2ecoli/workflow/analyses/) consumed the
-    parquet directly; sim_data hydrated from out/sim_data-showcase/parca_state.pkl.gz
-    via hydrate_sim_data_from_state; Schmidt/Wisniewski proteome validation data
-    attached. 11 figures rendered to PNG+SVG (vl_convert for Altair, matplotlib
-    for the Voronoi / flux-barplot / heatmap views) via scripts/render_showcase2.py.
-  dispatch: ray
+  - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    name: showcase2-baseline-ensemble
+    status: completed
+    kind: simulation
+    canonical: true
+    description: |
+      CLEAN multiseed/multigen wild-type baseline ensemble on the Mac mini: 2
+      seeds (0–1) × 3 generations of v2ecoli.composites.ecoli_baseline.ecoli_baseline, resumed
+      from the showcase-1 full ParCa cache (out/cache-showcase, 51 TF conditions).
+      Dispatched Ray-parallel (run_seeds_parallel, 6 threads/worker). 6500 steps /
+      cell; total wall ~1228 s (per-seed ~695 / 1225 s). The parquet sidecar
+      (.pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline/) is the
+      authoritative store and has the CLEAN [1,2,3] phylogeny for both seeds
+      (gen1 agent=0 / gen2 agent=00 / gen3 agent=000); the XArray/zarr store is
+      incomplete (seed_00 failed to write with a Quantity 'shape' AttributeError;
+      seed_01 captured only gens 1–2) so all analyses ran off the parquet. This
+      run REPLACES the old showcase2-baseline-full, which had a folded gen-2 /
+      missing gen-3. The native analyses (v2ecoli/workflow/analyses/) consumed the
+      parquet directly; sim_data hydrated from out/sim_data-showcase/parca_state.pkl.gz
+      via hydrate_sim_data_from_state; Schmidt/Wisniewski proteome validation data
+      attached. 11 figures rendered to PNG+SVG (vl_convert for Altair, matplotlib
+      for the Voronoi / flux-barplot / heatmap views) via scripts/render_showcase2.py.
+    dispatch: ray
   # Authoritative persisted store is the parquet sidecar. The xarray/zarr emit
   # was attempted as the primary store but seed_00 failed to write (Quantity
   # 'shape' AttributeError) and seed_01 captured only gens 1–2; the parquet
   # sidecar carries the clean [1,2,3] phylogeny for both seeds and is what every
   # analysis ran off, so parquet is recorded as the emitter of record here.
-  emitter:
-    kind: parquet
-    note: "parquet sidecar (authoritative); xarray/zarr emit attempted but incomplete"
-  cache_dir: out/cache-showcase
-  wall_seconds: 1228
+    emitter:
+      kind: parquet
+      note: "parquet sidecar (authoritative); xarray/zarr emit attempted but incomplete"
+    cache_dir: out/cache-showcase
+    wall_seconds: 1228
   # Local parquet sidecar (hive-partitioned, has history/) for the evaluator's
   # RunReader. _resolve_run_store opens this directly (it contains history/).
   # Path is repo-root-relative (.pbg/ lives at the v2ecoli repo root); run
   # pbg-compute-outcomes from the repo root so the cwd base resolves it.
-  parquet: .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline
-  result: PASS
-  outcomes:
+    parquet: .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline
+    result: PASS
+    outcomes:
     # NOTE: ALL authored outcome keys are lowercase to match their tests[].name
     # EXACTLY. For the two runnable tests (doubling-time / mass-fraction) this
     # lets the evaluator's computed_outcomes reconcile (keyed by test.name)
@@ -378,172 +375,172 @@ runs:
     # no_authored) the lowercase key is what lets the REPORT surface the authored
     # PASS pill: walkthrough.js does out = outcomeByTest[t.name], so an
     # UPPERCASE-keyed authored outcome would render as "pending" instead of PASS.
-    doubling-time-in-band:
-      result: PASS
-      detail: "Divided-generation division times: gen-1 = 43 min (both seeds), gen-2 = 43 min (seed 0) / 52 min (seed 1) → mean of divided gens ≈ 46 min; cap-immune instantaneous-growth measure (runnable test) = 52.4 min over the full lineage. In-band for the baseline glucose condition. The old ~104 min gen-2 step-cap over-report is resolved by #173; the final gen-3 cell is truncated at the 6500-step cap (raw span ~10–19 min) so it is excluded from the division-time headline."
-    mass-fraction-physiological:
-      result: PASS
-      detail: "Average dry-mass fractions: protein 0.461 (per-gen 0.477 / 0.453 / 0.442), rRNA 0.105, tRNA 0.019, DNA 0.018 — physiological E. coli composition (mean dry mass ≈467 fg, cell mass ≈1556 fg)."
-    fba-flux-correlates-toya2010:
-      result: PASS
-      detail: "Baseline central-carbon FBA fluxes vs Toya 2010 C13-MFA measured fluxes — Pearson R = 0.6990 (p = 2.1e-4) over 23 reactions (central_carbon_metabolism_scatter, multiseed over 2 seeds). Toya flat file (toya_2010_central_carbon_fluxes.tsv) restored; validation_data.reactionFlux.toya2010fluxes now built by build_validation_data."
-    proteome-correlates-schmidt-wisniewski:
-      result: PASS
-      detail: log10 average monomer counts vs measured proteomics — Schmidt 2016 Pearson r = 0.728 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.602 (n=2226) (protein_counts_validation, multiseed over 2 seeds).
+      doubling-time-in-band:
+        result: PASS
+        detail: "Divided-generation division times: gen-1 = 43 min (both seeds), gen-2 = 43 min (seed 0) / 52 min (seed 1) → mean of divided gens ≈ 46 min; cap-immune instantaneous-growth measure (runnable test) = 52.4 min over the full lineage. In-band for the baseline glucose condition. The old ~104 min gen-2 step-cap over-report is resolved by #173; the final gen-3 cell is truncated at the 6500-step cap (raw span ~10–19 min) so it is excluded from the division-time headline."
+      mass-fraction-physiological:
+        result: PASS
+        detail: "Average dry-mass fractions: protein 0.461 (per-gen 0.477 / 0.453 / 0.442), rRNA 0.105, tRNA 0.019, DNA 0.018 — physiological E. coli composition (mean dry mass ≈467 fg, cell mass ≈1556 fg)."
+      fba-flux-correlates-toya2010:
+        result: PASS
+        detail: "Baseline central-carbon FBA fluxes vs Toya 2010 C13-MFA measured fluxes — Pearson R = 0.6990 (p = 2.1e-4) over 23 reactions (central_carbon_metabolism_scatter, multiseed over 2 seeds). Toya flat file (toya_2010_central_carbon_fluxes.tsv) restored; validation_data.reactionFlux.toya2010fluxes now built by build_validation_data."
+      proteome-correlates-schmidt-wisniewski:
+        result: PASS
+        detail: log10 average monomer counts vs measured proteomics — Schmidt 2016 Pearson r = 0.728 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.602 (n=2226) (protein_counts_validation, multiseed over 2 seeds).
 
-  computed_outcomes:
-    doubling-time-in-band:
-      result: PASS
-      measured_value: 52.40456
-      evaluated_by: code
-      operator: derived/in_range
-      detail: 52.4 in [35.0, 55.0]
-      reconcile: agree
-    mass-fraction-physiological:
-      result: PASS
-      measured_value: 0.461785
-      evaluated_by: code
-      operator: generation_average/in_range
-      detail: 0.4618 in [0.4, 0.55]
-      reconcile: agree
-    fba-flux-correlates-toya2010:
-      evaluated_by: agent
-      reason: "non-run-data kind: 'flux_correlation'"
-      reconcile: no_authored
-    proteome-correlates-schmidt-wisniewski:
-      evaluated_by: agent
-      reason: "non-run-data kind: 'proteome_correlation'"
-      reconcile: no_authored
+    computed_outcomes:
+      doubling-time-in-band:
+        result: PASS
+        measured_value: 52.40456
+        evaluated_by: code
+        operator: derived/in_range
+        detail: 52.4 in [35.0, 55.0]
+        reconcile: agree
+      mass-fraction-physiological:
+        result: PASS
+        measured_value: 0.461785
+        evaluated_by: code
+        operator: generation_average/in_range
+        detail: 0.4618 in [0.4, 0.55]
+        reconcile: agree
+      fba-flux-correlates-toya2010:
+        evaluated_by: agent
+        reason: "non-run-data kind: 'flux_correlation'"
+        reconcile: no_authored
+      proteome-correlates-schmidt-wisniewski:
+        evaluated_by: agent
+        reason: "non-run-data kind: 'proteome_correlation'"
+        reconcile: no_authored
 visualizations:
 # --- Growth & Mass ---
-- name: cell mass over the cell cycle
-  address: image:charts/cell_mass.png
-  config:
-    title: Cell dry mass over the cell cycle — 3 clean generations (per-cell growth ramps + division)
-  chart: line
-  source_run: showcase2-baseline-ensemble
-  render: cell_mass (multivariant) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline — gen1/gen2/gen3 render as distinct clean ramps
-- name: mass fraction summary
-  address: image:charts/mass_fraction_summary_view.png
-  config:
-    title: Biomass composition over the cell cycle (mass fractions)
-  chart: line
-  source_run: showcase2-baseline-ensemble
-  render: mass_fraction_summary_view (single, seed 0 gen 1) over the clean sweep
-- name: biomass composition Voronoi
-  address: image:charts/mass_fraction_voronoi.png
-  config:
-    title: Biomass composition Voronoi (initial vs final, seed 0 gen 1)
-  chart: image
-  source_run: showcase2-baseline-ensemble
-  render: mass_fraction_voronoi (single, seed 0 gen 1) over the clean sweep
-- name: doubling time over the lineage
-  address: image:charts/doubling_time_line.png
-  config:
-    title: "Doubling time over the lineage (cap-immune instantaneous trace, ~52 min, STABLE — not declining)"
-  chart: line
-  source_run: showcase2-baseline-ensemble
-  render: "doubling_time_line (multivariant) over the clean sweep. Top panel = cap-immune instantaneous doubling time t2 = ln(2)/mu from listeners.mass.instantaneous_growth_rate over the whole lineage (218 per-timestep samples, not 3 generational points): STABLE at ~44–52 min (mean ~52 min, matching the runnable doubling-time-in-band test), no decline. The earlier per-generation line appeared to 'go down' only because the FINAL generation is truncated at the 6500-step emit cap before it divides, so its raw span read short (~10–19 min) — an artifact, not a biological trend. Bottom panel = per-generation division-time markers with that truncated final generation excluded (gen-1/gen-2 in-band, 43–52 min)."
-- name: doubling time distribution
-  address: image:charts/doubling_time_hist.png
-  config:
-    title: "Distribution of doubling times across the ensemble (cap-immune instantaneous t2, n=218 timesteps, mean 52.4 min)"
-  chart: histogram
-  source_run: showcase2-baseline-ensemble
-  render: "doubling_time_hist (multivariant) over the clean sweep — histogram of the cap-immune instantaneous doubling time t2 = ln(2)/mu over all emitted timesteps (many samples). Tight distribution centred near ~52 min within the physiological band; immune to the final-generation step-cap truncation that biased the old per-cell-span histogram toward a spurious low-end bin."
+  - name: cell mass over the cell cycle
+    address: image:charts/cell_mass.png
+    config:
+      title: Cell dry mass over the cell cycle — 3 clean generations (per-cell growth ramps + division)
+    chart: line
+    source_run: showcase2-baseline-ensemble
+    render: cell_mass (multivariant) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline — gen1/gen2/gen3 render as distinct clean ramps
+  - name: mass fraction summary
+    address: image:charts/mass_fraction_summary_view.png
+    config:
+      title: Biomass composition over the cell cycle (mass fractions)
+    chart: line
+    source_run: showcase2-baseline-ensemble
+    render: mass_fraction_summary_view (single, seed 0 gen 1) over the clean sweep
+  - name: biomass composition Voronoi
+    address: image:charts/mass_fraction_voronoi.png
+    config:
+      title: Biomass composition Voronoi (initial vs final, seed 0 gen 1)
+    chart: image
+    source_run: showcase2-baseline-ensemble
+    render: mass_fraction_voronoi (single, seed 0 gen 1) over the clean sweep
+  - name: doubling time over the lineage
+    address: image:charts/doubling_time_line.png
+    config:
+      title: "Doubling time over the lineage (cap-immune instantaneous trace, ~52 min, STABLE — not declining)"
+    chart: line
+    source_run: showcase2-baseline-ensemble
+    render: "doubling_time_line (multivariant) over the clean sweep. Top panel = cap-immune instantaneous doubling time t2 = ln(2)/mu from listeners.mass.instantaneous_growth_rate over the whole lineage (218 per-timestep samples, not 3 generational points): STABLE at ~44–52 min (mean ~52 min, matching the runnable doubling-time-in-band test), no decline. The earlier per-generation line appeared to 'go down' only because the FINAL generation is truncated at the 6500-step emit cap before it divides, so its raw span read short (~10–19 min) — an artifact, not a biological trend. Bottom panel = per-generation division-time markers with that truncated final generation excluded (gen-1/gen-2 in-band, 43–52 min)."
+  - name: doubling time distribution
+    address: image:charts/doubling_time_hist.png
+    config:
+      title: "Distribution of doubling times across the ensemble (cap-immune instantaneous t2, n=218 timesteps, mean 52.4 min)"
+    chart: histogram
+    source_run: showcase2-baseline-ensemble
+    render: "doubling_time_hist (multivariant) over the clean sweep — histogram of the cap-immune instantaneous doubling time t2 = ln(2)/mu over all emitted timesteps (many samples). Tight distribution centred near ~52 min within the physiological band; immune to the final-generation step-cap truncation that biased the old per-cell-span histogram toward a spurious low-end bin."
 # --- Replication & cell cycle ---
-- name: chromosome replication
-  address: image:charts/replication.png
-  config:
-    title: Chromosome replication across the seed-0 3-generation lineage (oriC 2→4→2, twice)
-  chart: line
-  source_run: showcase2-baseline-ensemble
-  render: replication (multigeneration over seed 0) over the clean sweep — 3-gen dry-mass sawtooth, oriC/fork cycling per division
-- name: chromosome-state snapshots
-  address: image:charts/chromosome_snapshots.png
-  config:
-    title: Chromosome state at three points across the seed-0 lineage — oriC, replisomes, replication bubbles, and RNAPs on the circular chromosome
-    caption: >-
-      Three timepoints from the seed-0 lineage rendered on the circular
-      chromosome, ordered left-to-right in ascending time. Each rim is anchored
-      by oriC (green dot, top) and Ter (red square, bottom). RNAPs (blue dots)
-      sit at their transcription coordinates; replisomes (gold triangles) mark
-      the active replication forks; replication bubbles (green arcs) trace the
-      newly-synthesized daughter strand from oriC out to each fork. RNAPs that are transcribing a newly-replicated daughter strand are drawn ON the bubble arc (resolved by the per-RNAP chromosome domain against the emitted parent->child domain tree); RNAPs on the parent strand stay on the rim. Panel (i) —
-      t~2 min, mid-replication: a single chromosome with one replication
-      bubble, two replisomes roughly halfway from oriC to Ter. Panel (ii) —
-      t~23 min, post-replication: two segregated chromosomes, no active forks
-      (RNAPs + oriC only). Panel (iii) — t~88 min, multifork re-initiation:
-      both daughter chromosomes have re-initiated (4 replisomes, nested bubbles
-      near oriC), the overlapping-rounds regime of fast growth. This
-      complements the time-series replication panel by showing the spatial
-      layout of the replication machinery on the chromosome itself.
-  chart: image
-  source_run: showcase2-baseline-chromo
-  render: scripts/render_chromosome_snapshots.py over .pbg/runs/showcase2-baseline-chromo (seed-0 3-gen lineage emitted with V2ECOLI_EMIT_UNIQUE=1) — reuses _plot_chromosome_map; daughter-strand RNAPs are placed ON the replication bubbles using the per-row chromosome_domain__child_domains tree (now emitted as a flattened list<int> column under V2ECOLI_EMIT_UNIQUE), aligned to chromosome_domain__domain_index
+  - name: chromosome replication
+    address: image:charts/replication.png
+    config:
+      title: Chromosome replication across the seed-0 3-generation lineage (oriC 2→4→2, twice)
+    chart: line
+    source_run: showcase2-baseline-ensemble
+    render: replication (multigeneration over seed 0) over the clean sweep — 3-gen dry-mass sawtooth, oriC/fork cycling per division
+  - name: chromosome-state snapshots
+    address: image:charts/chromosome_snapshots.png
+    config:
+      title: Chromosome state at three points across the seed-0 lineage — oriC, replisomes, replication bubbles, and RNAPs on the circular chromosome
+      caption: >-
+        Three timepoints from the seed-0 lineage rendered on the circular
+        chromosome, ordered left-to-right in ascending time. Each rim is anchored
+        by oriC (green dot, top) and Ter (red square, bottom). RNAPs (blue dots)
+        sit at their transcription coordinates; replisomes (gold triangles) mark
+        the active replication forks; replication bubbles (green arcs) trace the
+        newly-synthesized daughter strand from oriC out to each fork. RNAPs that are transcribing a newly-replicated daughter strand are drawn ON the bubble arc (resolved by the per-RNAP chromosome domain against the emitted parent->child domain tree); RNAPs on the parent strand stay on the rim. Panel (i) —
+        t~2 min, mid-replication: a single chromosome with one replication
+        bubble, two replisomes roughly halfway from oriC to Ter. Panel (ii) —
+        t~23 min, post-replication: two segregated chromosomes, no active forks
+        (RNAPs + oriC only). Panel (iii) — t~88 min, multifork re-initiation:
+        both daughter chromosomes have re-initiated (4 replisomes, nested bubbles
+        near oriC), the overlapping-rounds regime of fast growth. This
+        complements the time-series replication panel by showing the spatial
+        layout of the replication machinery on the chromosome itself.
+    chart: image
+    source_run: showcase2-baseline-chromo
+    render: scripts/render_chromosome_snapshots.py over .pbg/runs/showcase2-baseline-chromo (seed-0 3-gen lineage emitted with V2ECOLI_EMIT_UNIQUE=1) — reuses _plot_chromosome_map; daughter-strand RNAPs are placed ON the replication bubbles using the per-row chromosome_domain__child_domains tree (now emitted as a flattened list<int> column under V2ECOLI_EMIT_UNIQUE), aligned to chromosome_domain__domain_index
 # --- Metabolism / FBA ---
-- name: central carbon metabolism (FBA flux vs Toya 2010)
-  address: image:charts/central_carbon_metabolism_scatter.png
-  config:
-    title: Central-carbon metabolism — model FBA flux vs Toya 2010 (Pearson R = 0.6990)
-  chart: scatter
-  source_run: showcase2-baseline-ensemble
-  render: central_carbon_metabolism_scatter (multiseed) over the clean sweep — model mean WCM reaction flux vs Toya 2010 C13-MFA measured flux, Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions)
-- name: reaction-flux heatmap
-  address: image:charts/ptools_rxns.png
-  config:
-    title: Metabolic reaction-flux heatmap (reaction × timepoint, seed 0 gen 1, log10 |flux|)
-  chart: heatmap
-  source_run: showcase2-baseline-ensemble
-  render: ptools_rxns (single, seed 0 gen 1) over the clean sweep — matplotlib heatmap (vl_convert overflows on the ~4500-row mark_rect spec)
+  - name: central carbon metabolism (FBA flux vs Toya 2010)
+    address: image:charts/central_carbon_metabolism_scatter.png
+    config:
+      title: Central-carbon metabolism — model FBA flux vs Toya 2010 (Pearson R = 0.6990)
+    chart: scatter
+    source_run: showcase2-baseline-ensemble
+    render: central_carbon_metabolism_scatter (multiseed) over the clean sweep — model mean WCM reaction flux vs Toya 2010 C13-MFA measured flux, Pearson R = 0.6990 (p = 2.1e-4, n = 23 reactions)
+  - name: reaction-flux heatmap
+    address: image:charts/ptools_rxns.png
+    config:
+      title: Metabolic reaction-flux heatmap (reaction × timepoint, seed 0 gen 1, log10 |flux|)
+    chart: heatmap
+    source_run: showcase2-baseline-ensemble
+    render: ptools_rxns (single, seed 0 gen 1) over the clean sweep — matplotlib heatmap (vl_convert overflows on the ~4500-row mark_rect spec)
 # --- Gene expression / proteome ---
-- name: proteome vs Schmidt 2016 / Wisniewski 2014
-  address: image:charts/protein_counts_validation.png
-  config:
-    title: Proteome vs Schmidt 2016 (r=0.73) and Wisniewski 2014 (r=0.60)
-  chart: scatter
-  source_run: showcase2-baseline-ensemble
-  render: protein_counts_validation (multiseed over 2 seeds) over the clean sweep
+  - name: proteome vs Schmidt 2016 / Wisniewski 2014
+    address: image:charts/protein_counts_validation.png
+    config:
+      title: Proteome vs Schmidt 2016 (r=0.73) and Wisniewski 2014 (r=0.60)
+    chart: scatter
+    source_run: showcase2-baseline-ensemble
+    render: protein_counts_validation (multiseed over 2 seeds) over the clean sweep
 # --- Regulation traces (ppGpp / tRNA charging) ---
-- name: ppGpp pool trace
-  address: image:charts/ppgpp_trace.png
-  config:
-    title: ppGpp pool over the cell cycle (all seeds)
-  chart: line
-  source_run: showcase2-baseline-ensemble
-  render: trace from listeners__growth_limits__ppgpp_conc over the clean sweep parquet (both seeds, 3 gens)
-- name: tRNA charged fraction trace
-  address: image:charts/trna_charged_trace.png
-  config:
-    title: tRNA charged fraction over the cell cycle (all seeds)
-  chart: line
-  source_run: showcase2-baseline-ensemble
-  render: trace from listeners__growth_limits__fraction_trna_charged over the clean sweep parquet (both seeds, 3 gens)
+  - name: ppGpp pool trace
+    address: image:charts/ppgpp_trace.png
+    config:
+      title: ppGpp pool over the cell cycle (all seeds)
+    chart: line
+    source_run: showcase2-baseline-ensemble
+    render: trace from listeners__growth_limits__ppgpp_conc over the clean sweep parquet (both seeds, 3 gens)
+  - name: tRNA charged fraction trace
+    address: image:charts/trna_charged_trace.png
+    config:
+      title: tRNA charged fraction over the cell cycle (all seeds)
+    chart: line
+    source_run: showcase2-baseline-ensemble
+    render: trace from listeners__growth_limits__fraction_trna_charged over the clean sweep parquet (both seeds, 3 gens)
 
 # Interactive Plotly companions (scripts/make_showcase_interactive_figures.py).
 # Self-contained HTML in reports/figures/<study>/; every axis + hover carries
 # the declared schema unit (fg, uM, 1/s, fL) via units_resolver. The units_atlas
 # embed folds in the retired units-atlas investigation.
 embed_visualizations:
-- name: Dry mass over the cell cycle (interactive)
-  url: /reports/figures/showcase-2-baseline-figures/cell_mass_interactive.html
-  description: Per-cell exponential growth and division across the 2-seed × 3-gen baseline ensemble; y-axis in fg, hover unit-tagged.
-- name: Dry-mass composition (interactive)
-  url: /reports/figures/showcase-2-baseline-figures/mass_composition_interactive.html
-  description: Stacked protein / RNA / DNA / small-molecule mass (fg) over one representative cell cycle.
-- name: Instantaneous growth rate (interactive)
-  url: /reports/figures/showcase-2-baseline-figures/growth_rate_interactive.html
-  description: Specific growth rate as d(ln mass)/dt (1/s) per cell across the ensemble.
-- name: ppGpp and tRNA charging (interactive)
-  url: /reports/figures/showcase-2-baseline-figures/regulation_interactive.html
-  description: Stringent-response ppGpp (uM, left axis) against the mean charged-tRNA fraction (right axis) over the cell cycle.
-- name: Units Atlas (interactive)
-  url: /reports/figures/showcase-2-baseline-figures/units_atlas.html
-  description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range. Folds in the former units-atlas investigation.
+  - name: Dry mass over the cell cycle (interactive)
+    url: /reports/figures/showcase-2-baseline-figures/cell_mass_interactive.html
+    description: Per-cell exponential growth and division across the 2-seed × 3-gen baseline ensemble; y-axis in fg, hover unit-tagged.
+  - name: Dry-mass composition (interactive)
+    url: /reports/figures/showcase-2-baseline-figures/mass_composition_interactive.html
+    description: Stacked protein / RNA / DNA / small-molecule mass (fg) over one representative cell cycle.
+  - name: Instantaneous growth rate (interactive)
+    url: /reports/figures/showcase-2-baseline-figures/growth_rate_interactive.html
+    description: Specific growth rate as d(ln mass)/dt (1/s) per cell across the ensemble.
+  - name: ppGpp and tRNA charging (interactive)
+    url: /reports/figures/showcase-2-baseline-figures/regulation_interactive.html
+    description: Stringent-response ppGpp (uM, left axis) against the mean charged-tRNA fraction (right axis) over the cell cycle.
+  - name: Units Atlas (interactive)
+    url: /reports/figures/showcase-2-baseline-figures/units_atlas.html
+    description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range. Folds in the former units-atlas investigation.
 
 
 # --- registry model (Study Pipeline Spec 1): declared artifact I/O; graph edges derive from inputs.from. Mirrors pipeline_gate.prerequisites. ---
 outputs:
-- baseline
+  - baseline
 inputs:
-- {artifact: sim_data, from: showcase-1-parca}
+  - {artifact: sim_data, from: showcase-1-parca}

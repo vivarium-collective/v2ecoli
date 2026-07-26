@@ -24,3 +24,4 @@ conditions:
       cache_dir: out/cache
       n_steps: 2700
   variants: []
+  model_settings: []

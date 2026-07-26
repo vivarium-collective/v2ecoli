@@ -122,6 +122,18 @@ def _config_json(study: dict) -> dict[str, Any]:
     return cfg
 
 
+def _prerequisites(study: dict) -> list[str]:
+    """A study's ordering dependencies. Source of truth is `inputs.from`
+    (Study Pipeline migration moved ordering off pipeline_gate.prerequisites,
+    which the registry migrator now strips entirely). Falls back to the
+    legacy `pipeline_gate.prerequisites` for any un-migrated study that still
+    carries it."""
+    from_inputs = [e.get("from") for e in (study.get("inputs") or []) if e.get("from")]
+    if from_inputs:
+        return from_inputs
+    return (study.get("pipeline_gate", {}) or {}).get("prerequisites", []) or []
+
+
 def _dag_order(studies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Stable topological sort by each study's in-set `prerequisites`: a study
     appears after every prerequisite that is itself in this list. Studies at the
@@ -175,7 +187,7 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
             "title": study.get("title") or study.get("name") or study_slug,
             "status": study.get("status"),
             "result": result,
-            "prerequisites": (study.get("pipeline_gate", {}) or {}).get("prerequisites", []) or [],
+            "prerequisites": _prerequisites(study),
             "finding": _first_finding(study),
             "cards": cards,
             "config_json": _config_json(study),

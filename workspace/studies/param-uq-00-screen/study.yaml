@@ -80,100 +80,104 @@ conditions:
     params:
       seed: 0
   variants:
-  - name: basal_elongation_rate-swing
-    perturbation: "Ribosome translation basal_elongation_rate low→high"
-    config_overrides:
-      ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
-    expected_contrast: "Largest growth-rate response among screened knobs."
-    measured_contrast: "13.8% — EFFECTIVE (rank 1)."
-  - name: kS-swing
-    perturbation: "ppGpp/charging saturation constant kS low→high"
-    config_overrides:
-      ecoli-polypeptide-elongation.kS: [60, 140]
-    expected_contrast: "Moderate growth-rate response."
-    measured_contrast: "5.5% — EFFECTIVE (rank 2)."
-  - name: chrom-basal_elongation_rate-swing
-    perturbation: "DNA-polymerase elongation rate low→high"
-    config_overrides:
-      ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
-    expected_contrast: "Small growth-rate response."
-    measured_contrast: "2.8% — EFFECTIVE (rank 3)."
-  - name: inert-knobs
-    perturbation: "k_RelA, gtpPerElongation, import_threshold, D_period low→high"
-    expected_contrast: "Negligible growth-rate response."
-    measured_contrast: "≤1.4% (k_RelA 1.4%, others 0.0%) — excluded from the UQ budget."
+    - name: basal_elongation_rate-swing
+      perturbation: "Ribosome translation basal_elongation_rate low→high"
+      config_overrides:
+        ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
+      expected_contrast: "Largest growth-rate response among screened knobs."
+      measured_contrast: "13.8% — EFFECTIVE (rank 1)."
+      composite: ecoli_baseline
+    - name: kS-swing
+      perturbation: "ppGpp/charging saturation constant kS low→high"
+      config_overrides:
+        ecoli-polypeptide-elongation.kS: [60, 140]
+      expected_contrast: "Moderate growth-rate response."
+      measured_contrast: "5.5% — EFFECTIVE (rank 2)."
+      composite: ecoli_baseline
+    - name: chrom-basal_elongation_rate-swing
+      perturbation: "DNA-polymerase elongation rate low→high"
+      config_overrides:
+        ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
+      expected_contrast: "Small growth-rate response."
+      measured_contrast: "2.8% — EFFECTIVE (rank 3)."
+      composite: ecoli_baseline
+    - name: inert-knobs
+      perturbation: "k_RelA, gtpPerElongation, import_threshold, D_period low→high"
+      expected_contrast: "Negligible growth-rate response."
+      measured_contrast: "≤1.4% (k_RelA 1.4%, others 0.0%) — excluded from the UQ budget."
+      composite: ecoli_baseline
   model_settings:
-  - name: fresh-initial-state
-    detail: "Each low/high perturbation uses a fresh initial_state (v2ecoli PR #197) to prevent state carryover across samples."
-    gate: optional
-  - name: growth-rate-observable
-    detail: "Observable = instantaneous_growth_rate; chosen because mass observables do not respond over a 120-step window."
-    gate: optional
-  - name: threshold-2pct
-    detail: "Knobs with >2% response are classified EFFECTIVE; ≤1.4% classified inert."
-    gate: optional
+    - name: fresh-initial-state
+      detail: "Each low/high perturbation uses a fresh initial_state (v2ecoli PR #197) to prevent state carryover across samples."
+      gate: optional
+    - name: growth-rate-observable
+      detail: "Observable = instantaneous_growth_rate; chosen because mass observables do not respond over a 120-step window."
+      gate: optional
+    - name: threshold-2pct
+      detail: "Knobs with >2% response are classified EFFECTIVE; ≤1.4% classified inert."
+      gate: optional
 
 assumptions:
-- text: |
-    config_overrides at the `baseline()` call reach only top-level process-config
-    scalars. Deep sim_data physiological parameters (kinetic rates, mass fractions)
-    are not reachable by this path and were not screened here.
-  verified_in_v2ecoli: false
-- text: |
-    A 120-step window (fresh initial_state, ~4% of one generation) is sufficient to
-    reveal whether a knob has a real effect on instantaneous_growth_rate. Knobs
-    that modulate slower timescale processes may appear inert at this window.
-  verified_in_v2ecoli: false
+  - text: |
+      config_overrides at the `baseline()` call reach only top-level process-config
+      scalars. Deep sim_data physiological parameters (kinetic rates, mass fractions)
+      are not reachable by this path and were not screened here.
+    verified_in_v2ecoli: false
+  - text: |
+      A 120-step window (fresh initial_state, ~4% of one generation) is sufficient to
+      reveal whether a knob has a real effect on instantaneous_growth_rate. Knobs
+      that modulate slower timescale processes may appear inert at this window.
+    verified_in_v2ecoli: false
 
 tests:
-- name: screen-identifies-effective-knobs
-  classification: primary
-  status: passed
-  question: |
-    Do at least 1 of the 7 screened config-reachable knobs show a >2% response
-    in instantaneous_growth_rate (i.e., is the UQ parameter surface non-trivial)?
-  measure:
-    kind: authored
-    detail: |
-      3 of 7 screened knobs show >2% growth-rate response (basal_elongation_rate
-      13.8%, kS 5.5%, chrom.basal_elongation_rate 2.8%). Measured value = 3
-      effective knobs identified.
-    measured_value: 3.0
-  pass_if:
-    op: in_range
-    low: 1.0
-    high: 99.0
+  - name: screen-identifies-effective-knobs
+    classification: primary
+    status: passed
+    question: |
+      Do at least 1 of the 7 screened config-reachable knobs show a >2% response
+      in instantaneous_growth_rate (i.e., is the UQ parameter surface non-trivial)?
+    measure:
+      kind: authored
+      detail: |
+        3 of 7 screened knobs show >2% growth-rate response (basal_elongation_rate
+        13.8%, kS 5.5%, chrom.basal_elongation_rate 2.8%). Measured value = 3
+        effective knobs identified.
+      measured_value: 3.0
+    pass_if:
+      op: in_range
+      low: 1.0
+      high: 99.0
   # No literature citation: the ">2% effective" band and "≥1 knob" pass range are
   # analyst-chosen methodological thresholds for screening, not values sourced from
   # a publication. Documented here as a citation GAP (no fabricated cite added).
-  cites_note: "Methodological screening threshold (>2% growth-rate response); not literature-derived."
+    cites_note: "Methodological screening threshold (>2% growth-rate response); not literature-derived."
 
 runs:
-- name: screen-7-knobs
-  status: completed
-  kind: parameter_screen
-  canonical: true
-  description: |
-    Low/high sweep of 7 config-reachable knobs (ecoli-polypeptide-elongation +
-    ecoli-chromosome-replication), 120-step window, fresh initial_state per
-    perturbation. Observable: instantaneous_growth_rate.
-  dispatch: serial
-  emitter: xarray
-  result: PASS
-  outcomes:
-    screen-identifies-effective-knobs:
-      result: PASS
-      detail: "3 of 7 knobs effective (>2% response): basal_elongation_rate 13.8%, kS 5.5%, chrom.basal_elongation_rate 2.8%."
+  - name: screen-7-knobs
+    status: completed
+    kind: parameter_screen
+    canonical: true
+    description: |
+      Low/high sweep of 7 config-reachable knobs (ecoli-polypeptide-elongation +
+      ecoli-chromosome-replication), 120-step window, fresh initial_state per
+      perturbation. Observable: instantaneous_growth_rate.
+    dispatch: serial
+    emitter: xarray
+    result: PASS
+    outcomes:
+      screen-identifies-effective-knobs:
+        result: PASS
+        detail: "3 of 7 knobs effective (>2% response): basal_elongation_rate 13.8%, kS 5.5%, chrom.basal_elongation_rate 2.8%."
 
-  computed_outcomes:
-    _status: store_unresolved
+    computed_outcomes:
+      _status: store_unresolved
 visualizations:
-- name: Parameter screen response chart
-  address: image:charts/screen_response.png
-  config:
-    title: "Parameter screen — % instantaneous_growth_rate response (low→high) for 7 config-reachable knobs"
-  chart: image
-  render: "Bar chart showing % response per knob; 3 EFFECTIVE above the 2% threshold, 4 inert at or near 0%."
+  - name: Parameter screen response chart
+    address: image:charts/screen_response.png
+    config:
+      title: "Parameter screen — % instantaneous_growth_rate response (low→high) for 7 config-reachable knobs"
+    chart: image
+    render: "Bar chart showing % response per knob; 3 EFFECTIVE above the 2% threshold, 4 inert at or near 0%."
 
 conclusion_logic:
   if_primary_tests_pass:
@@ -184,32 +188,30 @@ conclusion_logic:
       the parameter set for param-uq-01; the 4 inert knobs are excluded from the
       surrogate budget.
     pipeline_unblocks:
-    - "param-uq-01-elongation runs forward UQ on exactly these 3 effective knobs."
+      - "param-uq-01-elongation runs forward UQ on exactly these 3 effective knobs."
   if_primary_tests_fail:
     diagnose:
-    - "If 0 of 7 knobs cleared >2%, either the 120-step window is too short to expose
-      elongation effects, or config_overrides are not reaching the process configs
-      (re-test against a known-responsive knob before widening the candidate list)."
+      - "If 0 of 7 knobs cleared >2%, either the 120-step window is too short to expose elongation effects, or config_overrides are not reaching the process configs (re-test against a known-responsive knob before widening the candidate list)."
     block_downstream: "param-uq-01-elongation would have no effective surface to sample and should not start."
 
 conclusion_verdicts:
-- claim: "Only a minority of config-reachable knobs drive the growth observable."
-  verdict: supported
-  basis: "3 of 7 screened knobs cleared >2% (basal 13.8%, kS 5.5%, chrom 2.8%); 4 inert."
-- claim: "ribosomeElongationRate and gtpPerElongation are inert for growth rate."
-  verdict: supported
-  basis: "0.0% response — runtime-overwritten / energy-accounting-only respectively."
+  - claim: "Only a minority of config-reachable knobs drive the growth observable."
+    verdict: supported
+    basis: "3 of 7 screened knobs cleared >2% (basal 13.8%, kS 5.5%, chrom 2.8%); 4 inert."
+  - claim: "ribosomeElongationRate and gtpPerElongation are inert for growth rate."
+    verdict: supported
+    basis: "0.0% response — runtime-overwritten / energy-accounting-only respectively."
 
 readouts:
-- name: instantaneous_growth_rate
-  notes: "listeners.mass.instantaneous_growth_rate — % change low→high per knob; the screen metric."
-- name: effective_knob_count
-  notes: "Number of the 7 candidates with >2% growth-rate response (measured = 3)."
+  - name: instantaneous_growth_rate
+    notes: "listeners.mass.instantaneous_growth_rate — % change low→high per knob; the screen metric."
+  - name: effective_knob_count
+    notes: "Number of the 7 candidates with >2% growth-rate response (measured = 3)."
 
 enforced_params:
-- ecoli-polypeptide-elongation.basal_elongation_rate
-- ecoli-polypeptide-elongation.kS
-- ecoli-chromosome-replication.basal_elongation_rate
+  - ecoli-polypeptide-elongation.basal_elongation_rate
+  - ecoli-polypeptide-elongation.kS
+  - ecoli-chromosome-replication.basal_elongation_rate
 
 study_card:
   goal: |
@@ -230,13 +232,13 @@ biological_summary: |
   at a 120-step window.
 
 literature_anchors:
-- expectation: |
-    The baseline knob values (ribosome basal_elongation_rate ~22 aa/s, DNA-pol
-    elongation ~967 nt/s) come from the wcEcoli/v2ecoli mechanistic parameterization.
-  model_observable: "ecoli-polypeptide-elongation.basal_elongation_rate / ecoli-chromosome-replication.basal_elongation_rate defaults"
-  source: "v2ecoli baseline parameterization (Macklin et al. 2020)"
-  status_in_workspace: "Verified — the screen perturbs around these documented defaults."
-  cites: [macklin2020]
+  - expectation: |
+      The baseline knob values (ribosome basal_elongation_rate ~22 aa/s, DNA-pol
+      elongation ~967 nt/s) come from the wcEcoli/v2ecoli mechanistic parameterization.
+    model_observable: "ecoli-polypeptide-elongation.basal_elongation_rate / ecoli-chromosome-replication.basal_elongation_rate defaults"
+    source: "v2ecoli baseline parameterization (Macklin et al. 2020)"
+    status_in_workspace: "Verified — the screen perturbs around these documented defaults."
+    cites: [macklin2020]
 
 model_change:
   base_model: v2ecoli.composites.ecoli_baseline
@@ -249,28 +251,28 @@ model_change:
     initial_state per perturbation (v2ecoli PR #197) to keep samples independent.
 
 implementation_requirements:
-- id: req-fresh-initial-state
-  kind: correctness
-  title: Fresh initial_state per perturbation
-  effort: S
-  description: |
-    Each low/high run deep-copies the baseline initial_state (v2ecoli PR #197) so
-    samples are independent; without it dry_mass climbs by sample index (the
-    state-carryover artifact that produced the original spurious dominance reading).
-  unblocks:
-  - screen-identifies-effective-knobs
+  - id: req-fresh-initial-state
+    kind: correctness
+    title: Fresh initial_state per perturbation
+    effort: S
+    description: |
+      Each low/high run deep-copies the baseline initial_state (v2ecoli PR #197) so
+      samples are independent; without it dry_mass climbs by sample index (the
+      state-carryover artifact that produced the original spurious dominance reading).
+    unblocks:
+      - screen-identifies-effective-knobs
 
 design_pivot_required:
-- id: PIVOT-screen-surface-is-partial
-  status: accepted
-  question: "Is the config_overrides path sufficient to screen the full physiological parameter space?"
-  decision: |
-    NO. config_overrides reach only top-level process-config scalars; most physiological
-    parameters live deeper in sim_data and are unreachable by this path. Deep params are
-    deferred to param-uq-04-deep-params (sim_data-level injection + ParCa rebuild).
-  alternatives:
-  - "Treat config-reachable knobs as the full surface (rejected — misses sim_data params)."
-  - "Add sim_data-level injection now (deferred to param-uq-04 as a separate infra task)."
+  - id: PIVOT-screen-surface-is-partial
+    status: accepted
+    question: "Is the config_overrides path sufficient to screen the full physiological parameter space?"
+    decision: |
+      NO. config_overrides reach only top-level process-config scalars; most physiological
+      parameters live deeper in sim_data and are unreachable by this path. Deep params are
+      deferred to param-uq-04-deep-params (sim_data-level injection + ParCa rebuild).
+    alternatives:
+      - "Treat config-reachable knobs as the full surface (rejected — misses sim_data params)."
+      - "Add sim_data-level injection now (deferred to param-uq-04 as a separate infra task)."
 
 # --- Rigor declarations (read by pbg_superpowers.rigor) -------------------
 # Robustness here is a PARAMETER SWEEP, not seed replication: this is a
@@ -293,20 +295,17 @@ falsifiability: |
   the "which knobs actually drive the observable" conclusion.
 
 simulation_set:
-- name: screen-7-knobs
-  kind: parameter_screen
-  status: ran
-  base_model: v2ecoli.composites.ecoli_baseline
-  duration_steps: 120
-  seeds: 1
-  details: "Low/high sweep of 7 config-reachable knobs, fresh initial_state per perturbation; observable instantaneous_growth_rate."
-  metrics:
-  - instantaneous_growth_rate
-  pass_fail_tests:
-  - screen-identifies-effective-knobs
+  - name: screen-7-knobs
+    kind: parameter_screen
+    status: ran
+    base_model: v2ecoli.composites.ecoli_baseline
+    duration_steps: 120
+    seeds: 1
+    details: "Low/high sweep of 7 config-reachable knobs, fresh initial_state per perturbation; observable instantaneous_growth_rate."
+    metrics:
+      - instantaneous_growth_rate
+    pass_fail_tests:
+      - screen-identifies-effective-knobs
 
 pipeline_gate:
-  prerequisites: []
-  enables:
-  - param-uq-01-elongation
   gate_status: passed

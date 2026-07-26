@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: succinate</title>
+<title>Study: s01-birth-and-division</title>
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/progress-track.css">
 </head>
@@ -11,11 +11,11 @@
 <header class="study-header">
   <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
   <h1 class="study-title">
-    <span class="study-name" id="study-name" data-slug="succinate" title="succinate">v2ecoli reproduces vEcoli on succinate</span>
+    <span class="study-name" id="study-name" data-slug="s01-birth-and-division" title="s01-birth-and-division">s01 birth and division</span>
     
     
     
-    <span class="status-pill status-evaluated" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">evaluated</span>
+    <span class="status-pill status-build-complete" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">build-complete</span>
     
     
     
@@ -31,7 +31,7 @@
 
 
 
-<div id="readiness-panel" data-slug="succinate"></div>
+<div id="readiness-panel" data-slug="s01-birth-and-division"></div>
 
 
 
@@ -57,7 +57,7 @@
 .spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
 .spine-div{font-weight:600;color:#92400e}
 </style>
-<div id="spine-summary" class="spine-summary" data-slug="succinate"></div>
+<div id="spine-summary" class="spine-summary" data-slug="s01-birth-and-division"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
@@ -192,7 +192,7 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">not_started</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
@@ -212,7 +212,7 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">RESOLVED. Succinate was a borderline drift (growth +18.0%, p=0.06). After the fix v2ecoli reproduces vEcoli natively: growth drift halved and flipped to -6.6% (p=0.44, not significant), RNA/cell/dry now within tolerance (4/5 within_tol). The residual growth sits just outside +/-5% but is non-significant, at basal noise. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">(computed from findings in the report)
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
@@ -237,11 +237,6 @@
                 data-narrative-path="biological_summary"
                 placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
       
-      <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
-        <em>Derived from findings (shown in the report when no override is set):</em>
-        <p style="margin:4px 0 0">RESOLVED. Succinate was a borderline drift (growth +18.0%, p=0.06). After the fix v2ecoli reproduces vEcoli natively: growth drift halved and flipped to -6.6% (p=0.44, not significant), RNA/cell/dry now within tolerance (4/5 within_tol). The residual growth sits just outside +/-5% but is non-significant, at basal noise. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.</p>
-      </div>
-      
     </div>
 
     
@@ -252,7 +247,10 @@
     <div class="overview-section">
       
       <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Does v2ecoli reproduce vEcoli on the succinate condition?
+        <strong>Question.</strong> Pack the simulated whole-cell molecular state into a 3D cell at ~10 s
+(post-equilibration birth) and right before division, so the Parsimony Viewer
+can show both declared-time snapshots for this study.
+
       </div>
       
       
@@ -261,43 +259,6 @@
     
 
     
-    
-    <div class="overview-section findings-section">
-      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
-      
-      
-      
-      <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">succinate-rpobc-fix</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">RESOLVED. Succinate was a borderline drift (growth +18.0%, p=0.06). After the fix v2ecoli reproduces vEcoli natively: growth drift halved and flipped to -6.6% (p=0.44, not significant), RNA/cell/dry now within tolerance (4/5 within_tol). The residual growth sits just outside +/-5% but is non-significant, at basal noise. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> before -&gt; after fix (4-seed gen-1, Welch t): growth +18.0% (p=0.06) -&gt; -6.6% (p=0.44, not significant); RNA +12.9% drift -&gt; -2.2% within_tol; cell +8.3% drift -&gt; -1.3% within_tol; dry +8.3% -&gt; -1.4% within_tol; protein +1.7% -&gt; -0.8% within_tol. Overall drift -&gt; drift (now 4/5 within_tol, non-significant). · 
-          
-          
-          
-          
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        
-        
-      </div>
-      
-    </div>
     
 
     
@@ -338,9 +299,9 @@
         <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
           <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
           <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">replication</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
           </div>
         </div>
         
@@ -348,11 +309,11 @@
         
         
         <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
           <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">only 2 replicates — add seeds for a robustness claim</div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
           </div>
         </div>
         
@@ -365,38 +326,9 @@
       <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      <div class="overview-section">
-        <h3 class="overview-label">Pipeline gate</h3>
-        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-        </p>
-        
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>parca</code>
-        </div>
-        
-        
-        
-      </div>
-      
 
       
 
-      
-      
-      <div class="overview-section">
-        <h2 class="overview-label">Behavioral tests</h2>
-        
-        
-        
-        
-        
-        <p style="margin:0">
-          <strong>3</strong> tests defined —
-            <span class="classification-pill classification-primary">3 primary</span>
-          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-        </p>
-      </div>
       
 
       
@@ -431,7 +363,7 @@
           <span class="count-label">requirements</span>
         </div>
         <div class="count-cell">
-          <strong>2</strong>
+          <strong>0</strong>
           <span class="count-label">runs</span>
         </div>
       </div>
@@ -458,13 +390,13 @@
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.baseline.baseline" data-model-overrides='{"condition": "succinate"}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.baseline_parsimony.baseline_parsimony" data-model-overrides='{"cache_dir": "out/cache", "n_steps": 2700, "scale": 0.3, "seed": 0, "snapshots": {"initial": 10.0, "pre-division": "division_time"}, "study": "s01-birth-and-division", "top_n": 40}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>succinate</strong>
+        <strong>s01-birth-and-division</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.baseline.baseline</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.baseline_parsimony.baseline_parsimony</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.baseline.baseline')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.baseline_parsimony.baseline_parsimony')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -472,13 +404,6 @@
         <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
       
       
-      
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
-        
-        
-        
-        <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
-      </div>
       
     </div>
     
@@ -497,11 +422,23 @@
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.baseline.baseline</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.baseline_parsimony.baseline_parsimony</code></div>
       
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         
-        <span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>succinate</code></span>
+        <span class="cond-pill"><span class="cond-pill-k">study</span>=<code>s01-birth-and-division</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">snapshots</span>=<code>{&#39;initial&#39;: 10.0, &#39;pre-division&#39;: &#39;division_time&#39;}</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">top_n</span>=<code>40</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">scale</span>=<code>0.3</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_steps</span>=<code>2700</code></span>
         
       </div>
       
@@ -551,12 +488,12 @@
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">succinate-baseline</strong>
-      <span class="sim-status-pill sim-status-completed">completed</span>
-      <span class="muted" style="font-size:0.85em">condition: succinate</span>
+      <strong style="font-size:1.05em">s01-birth-and-division-baseline</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.baseline.baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.baseline_parsimony.baseline_parsimony</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -567,8 +504,8 @@
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 3 · 
-      <strong>Runs recorded:</strong> 2 (<code>succinate-comparison</code>)
+      
+      
     </p>
     
     
@@ -606,7 +543,7 @@
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
-    <div id="readouts-table" data-study="succinate">
+    <div id="readouts-table" data-study="s01-birth-and-division">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -626,101 +563,6 @@
     </div>
 
     
-    
-    <div class="embed-viz-section" style="margin-bottom:22px">
-      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">00-succinate-observables</strong>
-          <a href="/v2ecoli/dashboard/reports/figures/succinate/00-succinate-observables.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
-        
-        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/00-succinate-observables.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="00-succinate-observables"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">01-fix-headline</strong>
-          <a href="/v2ecoli/dashboard/reports/figures/succinate/01-fix-headline.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (9 KB) from reports/figures/succinate/.</p>
-        
-        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/01-fix-headline.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="01-fix-headline"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">02-growth-before-after</strong>
-          <a href="/v2ecoli/dashboard/reports/figures/succinate/02-growth-before-after.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
-        
-        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/02-growth-before-after.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="02-growth-before-after"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">03-rna-before-after</strong>
-          <a href="/v2ecoli/dashboard/reports/figures/succinate/03-rna-before-after.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
-        
-        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/03-rna-before-after.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="03-rna-before-after"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">04-rnap-rootcause</strong>
-          <a href="/v2ecoli/dashboard/reports/figures/succinate/04-rnap-rootcause.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
-        
-        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/04-rnap-rootcause.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="04-rnap-rootcause"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">05-nutrient-gradient</strong>
-          <a href="/v2ecoli/dashboard/reports/figures/succinate/05-nutrient-gradient.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (8 KB) from reports/figures/succinate/.</p>
-        
-        <iframe src="/v2ecoli/dashboard/reports/figures/succinate/05-nutrient-gradient.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="05-nutrient-gradient"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-    </div>
     
 
     <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
@@ -746,14 +588,14 @@
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
       <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=succinate">Download all (.zip)</a>
+         href="/api/study-analysis-zip?study=s01-birth-and-division">Download all (.zip)</a>
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
       Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
-    <div id="data-files" data-study="succinate">
+    <div id="data-files" data-study="s01-birth-and-division">
       <p class="empty-message">Loading result files…</p>
     </div>
 
@@ -791,111 +633,11 @@
   
   
   
-  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-config-vs-vecoli"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="config-vs-vecoli"
-        data-classification="primary"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">config-vs-vecoli</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on succinate (config card)?</div>
-      
-      
-      
-      
-      
-    </li>
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-standard-vs-vecoli"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="standard-vs-vecoli"
-        data-classification="primary"
-        data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">standard-vs-vecoli</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on succinate (standard card)?</div>
-      
-      
-      
-      
-      
-    </li>
-    
-    
-    
-    
-    
-    
-    
-    
-    <li class="expected-behavior-item" id="bt-statistical-vs-vecoli"
-        data-test-kind="behavioral"
-        
-        data-pytest-node="statistical-vs-vecoli"
-        data-classification="primary"
-        data-result="WITHIN_TOL"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
-      
-        
-      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">statistical-vs-vecoli</strong>
-        
-      </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on succinate (statistical card)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: report card &#39;statistical&#39;: ungraded</code>
-        
-      </div>
-      
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/succinate", "group": "statistical", "kind": "report_card_axis"}
-expect:  null</pre>
-      </details>
-      
-      
-      
-      
-    </li>
-    
+  <ul class="tests-list" id="tests-list" style="margin-top: 12px;">
+    <li class="placeholder">No <code>expected_behavior:</code> entries declared in study.yaml yet.
+      Add some to see them appear here as test rows. Click "Run tests" to discover and
+      execute additional <code>studies/&lt;slug&gt;/tests/test_*.py</code> files alongside
+      the auto-generated assertions.</li>
   </ul>
   
 </section>
@@ -991,27 +733,6 @@ expect:  null</pre>
     
     
     
-    <div class="decide-section">
-      <h3 class="overview-label">Latest run outcomes</h3>
-      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
-        baseline · seed ? ·
-        ?s simulated ·
-        ? history rows ·
-        started ?
-      </div>
-      
-      
-      
-      <p class="muted" style="margin:0;font-size:0.9em">
-        <strong>1</strong> test outcome
-        — <span style="color:#065f46;font-weight:600">0 PASS</span> ·
-        <span style="color:#991b1b;font-weight:600">0 FAIL</span>.
-        Per-test outcomes (measured value · evaluator · band) are canonical on the
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
-      </p>
-      
-    </div>
-    
     
 
   </div>
@@ -1038,7 +759,7 @@ expect:  null</pre>
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
-window._studyName = "succinate";
+window._studyName = "s01-birth-and-division";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.
@@ -1167,9 +888,9 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "v2ecoli.composites.baseline.baseline";
+  var compositeRef = "v2ecoli.composites.baseline_parsimony.baseline_parsimony";
   
-  var slug = window._studyName || "succinate";
+  var slug = window._studyName || "s01-birth-and-division";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
   // Read-only bundle: there's no live backend to run on — hide the remote-run
   // launcher (the Configure & Run widget already renders a disabled preview).

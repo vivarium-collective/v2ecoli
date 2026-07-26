@@ -101,39 +101,6 @@ expected_behavior:
       op: within-tolerance
       note: Acceptance band set as this test is built out (design-stage readout).
     status: stub
-baseline:
-  - name: v2ecoli-diagnostic
-    composite: v2ecoli.composites.diagnostic.diagnostic
-    params: &id001
-      emitter: xarray
-      condition: M9-glucose
-    _placeholder: true
-    _note: Phase 0 runs v2ecoli as-is in diagnostic mode under the XArrayEmitter. Composite path subject to confirmation once the diagnostic-mode runner is wired.
-variants:
-  - name: v2ecoli-diagnostic-M9-glucose
-    description: "Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all other Phase 0 conditions are compared."
-    params: &id002
-      condition: M9-glucose
-      seed: 0
-      n_steps: 600
-  - name: v2ecoli-diagnostic-M9-acetate
-    description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests interface fidelity when the FBA solution sits on a different polytope facet.
-    params: &id003
-      condition: M9-acetate
-      seed: 0
-      n_steps: 600
-  - name: v2ecoli-diagnostic-M9-glucose-aa
-    description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented concentrations.'
-    params: &id004
-      condition: M9-glucose+aa
-      seed: 0
-      n_steps: 400
-  - name: v2ecoli-diagnostic-ensemble-N64
-    description: "N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine."
-    params: &id005
-      condition: M9-glucose
-      seed: <replicate>
-      n_steps: 600
 interventions: []
 # F2 migration: the legacy 10-step dashboard bootstrap run
 # (v2ecoli.composites.ecoli_baseline.baseline__1779656932__20ca2d, 2026-05-24) was an infra confirmation only;
@@ -314,24 +281,42 @@ planned_runs:
 conditions:
   baseline:
     composite: v2ecoli.composites.diagnostic.diagnostic
-    params: *id001
+    params:
+      emitter: xarray
+      condition: M9-glucose
   variants:
     - name: v2ecoli-diagnostic-M9-glucose
       base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id002
       description: "Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all other Phase 0 conditions are compared."
+      params:
+        condition: M9-glucose
+        seed: 0
+        n_steps: 600
+      composite: v2ecoli.composites.diagnostic.diagnostic
     - name: v2ecoli-diagnostic-M9-acetate
       base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id003
       description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests interface fidelity when the FBA solution sits on a different polytope facet.
+      params:
+        condition: M9-acetate
+        seed: 0
+        n_steps: 600
+      composite: v2ecoli.composites.diagnostic.diagnostic
     - name: v2ecoli-diagnostic-M9-glucose-aa
       base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id004
       description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented concentrations.'
+      params:
+        condition: M9-glucose+aa
+        seed: 0
+        n_steps: 400
+      composite: v2ecoli.composites.diagnostic.diagnostic
     - name: v2ecoli-diagnostic-ensemble-N64
       base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id005
       description: "N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine."
+      params:
+        condition: M9-glucose
+        seed: <replicate>
+        n_steps: 600
+      composite: v2ecoli.composites.diagnostic.diagnostic
   model_settings: []
 simulation_set:
   - name: phase0-bootstrap

@@ -1,6 +1,6 @@
 schema_version: 4
 name: colonies-03-wcm-rss-leak
-title: "Inner EcoliWCM RSS leak \u2014 localize and fix"
+title: "Inner EcoliWCM RSS leak — localize and fix"
 description: |
   Part A enabling-infrastructure study. colonies-02 recorded a single EcoliWCM
   growing RSS ~7.7 MB/sim-s on the macOS mini, reaching ~19 GB before first
@@ -20,13 +20,13 @@ description: |
   footnote, not an HPC blocker.
 topic: scaling
 tags:
-- colony
-- perf
-- memory
-- leak
-- debugging
-- requires-viva-munk
-- blocker
+  - colony
+  - perf
+  - memory
+  - leak
+  - debugging
+  - requires-viva-munk
+  - blocker
 created: '2026-06-15'
 status: evaluated
 phase: Decide
@@ -58,15 +58,6 @@ conclusion: |
   container, NOT yet confirmed by a full-colony end-to-end HPC-node lifetime run;
   that in-situ run, plus the optional malloc_trim / scipy-LSODA solver-reuse
   optimizations, remain open engineering items rather than gate blockers.
-baseline:
-- name: single-ecoliwcm-long
-  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  params:
-    seed: 0
-    cache_dir: out/cache
-  note: "Profile a SINGLE EcoliWCM over a long pre-division run (~2500s) \u2014 no\n\
-    colony, no pymunk \u2014 so the leak is isolated to the inner whole-cell\ncomposite,\
-    \ not the colony wiring. colonies-02 already showed it is\ntransport- and emitter-independent.\n"
 purpose:
   question: |
     Where does the RSS growth in a single EcoliWCM come from, and is it bounded
@@ -106,332 +97,309 @@ purpose:
     into state). Not yet run: a full-colony end-to-end HPC-node lifetime confirming
     the bound in situ.
 build_tasks:
-- id: leak-localization
-  motivation: 'Fixing before localizing risks treating a symptom. colonies-02 proved
+  - id: leak-localization
+    motivation: 'Fixing before localizing risks treating a symptom. colonies-02 proved
 
-    the leak is real, emitter- and transport-independent; this pins it to a
+      the leak is real, emitter- and transport-independent; this pins it to a
 
-    site.
+      site.
 
-    '
-  action: 'Run sims/profile_leak.py: a single EcoliWCM for ~2500 ticks with
+      '
+    action: 'Run sims/profile_leak.py: a single EcoliWCM for ~2500 ticks with
 
-    tracemalloc snapshots every ~200 ticks, recording top allocation deltas,
+      tracemalloc snapshots every ~200 ticks, recording top allocation deltas,
 
-    gc object-type counts, len(chromosome_history), and inner-composite
+      gc object-type counts, len(chromosome_history), and inner-composite
 
-    state size. Commit profiling/leak_profile.csv + a top-sites table as
+      state size. Commit profiling/leak_profile.csv + a top-sites table as
 
-    evidence. Decide the fix from the data.
+      evidence. Decide the fix from the data.
 
-    '
-- id: leak-fix
-  motivation: 'Bounded per-cell RSS is the gate condition for HPC deployment.
+      '
+  - id: leak-fix
+    motivation: 'Bounded per-cell RSS is the gate condition for HPC deployment.
 
-    '
-  action: 'Apply the smallest fix the profile justifies (e.g. cap/disable
+      '
+    action: 'Apply the smallest fix the profile justifies (e.g. cap/disable
 
-    chromosome_history when unused; release inner-composite per-tick
+      chromosome_history when unused; release inner-composite per-tick
 
-    retention). Keep it behind a flag if it changes recorded outputs.
+      retention). Keep it behind a flag if it changes recorded outputs.
 
-    '
-pipeline_gate:
-  prerequisites:
-  - colonies-02-parallel-multigen-perf
-  enables:
-  - colonies-04-hpc-deployment
-  proceed_condition: |
-    Met: the 2026-07-26 hunt localizes >=~80% of the growth to named sites
-    (elongation ~82% + mass-listener ~17%; real retention = scipy LSODA work
-    arrays) and shows the growth is Linux-bounded (0.017 MB/tick unmitigated,
-    0.000 with malloc_trim). Gate proceeds.
-  blocks_until_resolved: |
-    Resolved for HPC purposes: the "unbounded native leak" was substantially a
-    macOS allocator artifact. On the Linux/glibc HPC target per-cell RSS is
-    bounded (mechanism-validated in a colima glibc container), so the
-    cells-per-node budget is trustworthy. colonies-04-hpc-deployment is unblocked;
-    the remaining open item is a full-colony end-to-end HPC-node run to confirm
-    the bound in situ (not yet run) plus the optional scipy-LSODA solver-reuse
-    optimization for the small (~0.2 MB/tick) real retention.
+      '
 simulation_set:
-- name: profile-1cell-predivision
-  description: 'Single EcoliWCM (no colony/pymunk), ~2500 ticks (pre-first-division),
+  - name: profile-1cell-predivision
+    description: 'Single EcoliWCM (no colony/pymunk), ~2500 ticks (pre-first-division),
 
-    tracemalloc + gc profiling. Localization run.
+      tracemalloc + gc profiling. Localization run.
 
-    '
-  perturbation:
-    n_cells: 1
-  duration_min: 45
-  seeds:
-  - 0
-- name: postfix-seq-1cell-4div
-  description: 'After the fix, re-run colonies-02''s sequential natural-division colony
+      '
+    perturbation:
+      n_cells: 1
+    duration_min: 45
+    seeds:
+      - 0
+  - name: postfix-seq-1cell-4div
+    description: 'After the fix, re-run colonies-02''s sequential natural-division colony
 
-    to confirm 3 generations complete without OOM and RSS stays bounded.
+      to confirm 3 generations complete without OOM and RSS stays bounded.
 
-    (Run via colonies-02 sims/run.py on the fixed branch.)
+      (Run via colonies-02 sims/run.py on the fixed branch.)
 
-    '
-  perturbation:
-    n_cells: 1
-    parallel_processes: false
-    jitter_per_second: 0.0001
-    init_mass: 200.0
-  duration_min: 180
-  seeds:
-  - 0
+      '
+    perturbation:
+      n_cells: 1
+      parallel_processes: false
+      jitter_per_second: 0.0001
+      init_mass: 200.0
+    duration_min: 180
+    seeds:
+      - 0
 behavior_tests:
-- name: leak-localized
-  classification: primary
-  description: |
-    A profiling run attributes >=~80% of RSS growth to named sites so a fix is
-    targeted, not speculative. MET (2026-07-26): per-process RSS attribution
-    localizes the growth to elongation (~82%) + mass-listener (~17%); the
-    real-retention component is the scipy LSODA integrator work arrays.
-- name: per-cell-rss-bounded-after-fix
-  classification: primary
-  description: |
-    Per-cell RSS is bounded on the Linux HPC target (not the macOS mini, where
-    freed arenas are retained by the allocator). MET at the mechanism level:
-    a faithful Linux/glibc reproduction grows 0.017 MB/tick unmitigated and
-    0.000 MB/tick with periodic malloc_trim(0), versus ~1.6 on the macOS mini.
-    Validated in a colima glibc container; NOT yet confirmed by a full-colony
-    end-to-end HPC-node lifetime run.
-- name: biology-unchanged-by-fix
-  classification: primary
-  description: 'The fix does not alter recorded biology: first division still at tick
+  - name: leak-localized
+    classification: primary
+    description: |
+      A profiling run attributes >=~80% of RSS growth to named sites so a fix is
+      targeted, not speculative. MET (2026-07-26): per-process RSS attribution
+      localizes the growth to elongation (~82%) + mass-listener (~17%); the
+      real-retention component is the scipy LSODA integrator work arrays.
+  - name: per-cell-rss-bounded-after-fix
+    classification: primary
+    description: |
+      Per-cell RSS is bounded on the Linux HPC target (not the macOS mini, where
+      freed arenas are retained by the allocator). MET at the mechanism level:
+      a faithful Linux/glibc reproduction grows 0.017 MB/tick unmitigated and
+      0.000 MB/tick with periodic malloc_trim(0), versus ~1.6 on the macOS mini.
+      Validated in a colima glibc container; NOT yet confirmed by a full-colony
+      end-to-end HPC-node lifetime run.
+  - name: biology-unchanged-by-fix
+    classification: primary
+    description: 'The fix does not alter recorded biology: first division still at tick
 
-    2338, per-cell mass at division within RNG of the colonies-02 run.
+      2338, per-cell mass at division within RNG of the colonies-02 run.
 
-    '
+      '
 findings:
-- id: F-01-leak-is-inner-ram-emitter
-  kind: computational
-  status: confirms
-  behavior_test: leak-localized
-  verdict: PASS
-  statement: 'The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
+  - id: F-01-leak-is-inner-ram-emitter
+    kind: computational
+    status: confirms
+    behavior_test: leak-localized
+    verdict: PASS
+    statement: 'The colonies-02 ~7.7 MB/sim-s per-cell RSS leak is the inner per-cell
 
-    RAMEmitter, not chromosome_history and not "emitter-independent". Each
+      RAMEmitter, not chromosome_history and not "emitter-independent". Each
 
-    embedded cell''s inner Composite (built by baseline() in the EcoliWCM
+      embedded cell''s inner Composite (built by baseline() in the EcoliWCM
 
-    bridge) gets a default RAMEmitter whose no-override branch
+      bridge) gets a default RAMEmitter whose no-override branch
 
-    (_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
+      (_helpers.py) captures `bulk` (~25k-molecule array) + four unique-
 
-    molecule node arrays every tick into an unbounded history list that is
+      molecule node arrays every tick into an unbounded history list that is
 
-    never read. colonies-02''s no-emitter probe nulled only the outer colony
+      never read. colonies-02''s no-emitter probe nulled only the outer colony
 
-    emitter, missing the per-cell inner emitters.
+      emitter, missing the per-cell inner emitters.
 
-    '
-  evidence: 'Live profiler measured the inner RAMEmitter history at ~5.15 MB/row,
+      '
+    evidence: 'Live profiler measured the inner RAMEmitter history at ~5.15 MB/row,
 
-    growing 1:1 with ticks (9.9 MB @ 2 rows -> 9324 MB @ 1802 rows), tracking
+      growing 1:1 with ticks (9.9 MB @ 2 rows -> 9324 MB @ 1802 rows), tracking
 
-    the RSS climb. Confirmed by reading process_bigraph Emitter.inputs() ==
+      the RSS climb. Confirmed by reading process_bigraph Emitter.inputs() ==
 
-    config[''emit''] (the emitter only stores its emit_schema ports).
+      config[''emit''] (the emitter only stores its emit_schema ports).
 
-    '
-- id: F-02-minimal-capture-bounds-rss
-  kind: computational
-  status: confirms
-  behavior_test: per-cell-rss-bounded-after-fix
-  verdict: PASS (single-cell bridge path); multi-cell colony no-OOM = confirmatory
-    follow-up
-  statement: 'Setting the inner RAMEmitter to ''minimal'' capture (global_time +
+      '
+  - id: F-02-minimal-capture-bounds-rss
+    kind: computational
+    status: confirms
+    behavior_test: per-cell-rss-bounded-after-fix
+    verdict: PASS (single-cell bridge path); multi-cell colony no-OOM = confirmatory follow-up
+    statement: 'Setting the inner RAMEmitter to ''minimal'' capture (global_time +
 
-    listeners only) for embedded cells bounds per-cell RSS. A single
+      listeners only) for embedded cells bounds per-cell RSS. A single
 
-    EcoliWCM built through the bridge (set_ram_emitter_capture(''minimal''))
+      EcoliWCM built through the bridge (set_ram_emitter_capture(''minimal''))
 
-    holds RSS essentially flat.
+      holds RSS essentially flat.
 
-    '
-  evidence: 'Bridge-path profile_leak.py (commit bd1a11fe) RSS: 1.3 GB @ 21 min ->
+      '
+    evidence: 'Bridge-path profile_leak.py (commit bd1a11fe) RSS: 1.3 GB @ 21 min ->
 
-    1.7 GB @ 48 min -> 1.9 GB @ 62 min (~0.25 MB/s, legitimate cell growth),
+      1.7 GB @ 48 min -> 1.9 GB @ 62 min (~0.25 MB/s, legitimate cell growth),
 
-    vs the unfixed path +24 GB by tick 1800 (~7.7 MB/s). ~30x reduction;
+      vs the unfixed path +24 GB by tick 1800 (~7.7 MB/s). ~30x reduction;
 
-    no monotonic emitter-driven climb.
+      no monotonic emitter-driven climb.
 
-    '
-  next_action: 'Confirmatory (not load-bearing): run colonies-02 seq-1cell-4div to
-    full
+      '
+    next_action: 'Confirmatory (not load-bearing): run colonies-02 seq-1cell-4div to full
 
-    duration on the mini to show the multi-cell colony completes >=3
+      duration on the mini to show the multi-cell colony completes >=3
 
-    generations without OOM. The fix is per-cell, so N bounded cells follow.
+      generations without OOM. The fix is per-cell, so N bounded cells follow.
 
-    '
-- id: F-03-fix-cannot-alter-biology
-  kind: computational
-  status: confirms
-  behavior_test: biology-unchanged-by-fix
-  verdict: PASS (by construction; empirical re-confirm pending)
-  statement: 'The fix only narrows what the inner RAMEmitter records (a read-only
+      '
+  - id: F-03-fix-cannot-alter-biology
+    kind: computational
+    status: confirms
+    behavior_test: biology-unchanged-by-fix
+    verdict: PASS (by construction; empirical re-confirm pending)
+    statement: 'The fix only narrows what the inner RAMEmitter records (a read-only
 
-    history sink); the emit_schema does not feed back into simulation state,
+      history sink); the emit_schema does not feed back into simulation state,
 
-    so division timing and masses are unchanged by construction. The full
+      so division timing and masses are unchanged by construction. The full
 
-    colony re-run (first division still tick 2338) is the empirical
+      colony re-run (first division still tick 2338) is the empirical
 
-    re-confirmation, deferred with the no-OOM run above.
+      re-confirmation, deferred with the no-OOM run above.
 
-    '
-- id: F-04-dominant-colony-leak-is-c-level
-  kind: computational
-  status: refutes
-  verdict: "REFINED by F-06 \u2014 C-level growth confirmed, but localized (elongation+mass-listener) and Linux-bounded, not a multi-gen HPC blocker"
-  statement: 'The inner-RAMEmitter fix (F-01/F-02) is real and bounds a single bare
-    WCM,
+      '
+  - id: F-04-dominant-colony-leak-is-c-level
+    kind: computational
+    status: refutes
+    verdict: "REFINED by F-06 — C-level growth confirmed, but localized (elongation+mass-listener) and Linux-bounded, not a multi-gen HPC blocker"
+    statement: 'The inner-RAMEmitter fix (F-01/F-02) is real and bounds a single bare WCM,
 
-    but it is not the dominant leak for a multi-cell colony. Re-running
+      but it is not the dominant leak for a multi-cell colony. Re-running
 
-    colonies-02 on current main with all three contributory fixes live
+      colonies-02 on current main with all three contributory fixes live
 
-    (#239 inner emitter, emit_cells=False outer emitter, viva-munk #11 pymunk
+      (#239 inner emitter, emit_cells=False outer emitter, viva-munk #11 pymunk
 
-    shape churn) still leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
+      shape churn) still leaks ~0.5-1 MB/tick/cell: the count=6 plateau climbed
 
-    5.1 -> 22.3 GB at a constant 6 cells and OOMs ~gen 3, unchanged from before
+      5.1 -> 22.3 GB at a constant 6 cells and OOMs ~gen 3, unchanged from before
 
-    the fixes.
+      the fixes.
 
-    Refined by the 2026-07-26 leak hunt: the "C-level dominant leak" call stands
-    as a macOS observation but is not an unbounded native leak. Per-process
-    attribution localizes it to elongation (~82%) + mass-listener (~17%); the
-    C-level growth is macOS allocator arena retention of elongation''s per-tick
-    numpy arrays plus ~0.2 MB/tick of retained scipy LSODA work arrays. On
-    Linux/glibc it is bounded (0.017 unmitigated, 0.000 with malloc_trim). See
-    F-06.'
-  evidence: 'tracemalloc(4) over 150 ticks at 2 forced-division cells: RSS climbed
+      Refined by the 2026-07-26 leak hunt: the "C-level dominant leak" call stands as a macOS observation but is not an unbounded native leak. Per-process attribution localizes it to elongation (~82%) + mass-listener (~17%); the C-level growth is macOS allocator arena retention of elongation''s per-tick numpy arrays plus ~0.2 MB/tick of retained scipy LSODA work arrays. On Linux/glibc it is bounded (0.017 unmitigated, 0.000 with malloc_trim). See F-06.'
+    evidence: 'tracemalloc(4) over 150 ticks at 2 forced-division cells: RSS climbed
 
-    1396 -> 1586 MB (+1.3 MB/tick), leak reproduced, yet tracemalloc
+      1396 -> 1586 MB (+1.3 MB/tick), leak reproduced, yet tracemalloc
 
-    accounted for only ~1-2 MB of retained Python allocations (largest single
+      accounted for only ~1-2 MB of retained Python allocations (largest single
 
-    site +0.08 MB; all transient WCM compute: counts_deriver/translation_deriver
+      site +0.08 MB; all transient WCM compute: counts_deriver/translation_deriver
 
-    np.bincount, scipy-sparse .dot). So the dominant allocator is C-level /
+      np.bincount, scipy-sparse .dot). So the dominant allocator is C-level /
 
-    native (numpy/scipy array buffers or a C-extension retaining or fragmenting
+      native (numpy/scipy array buffers or a C-extension retaining or fragmenting
 
-    memory), invisible to tracemalloc (it tracks only CPython''s allocator, not
+      memory), invisible to tracemalloc (it tracks only CPython''s allocator, not
 
-    numpy''s). gc object-count scans likewise found only small symptoms
+      numpy''s). gc object-count scans likewise found only small symptoms
 
-    (pymunk Segments -> #11), not the megabytes.
+      (pymunk Segments -> #11), not the megabytes.
 
-    '
-  next_action: 'Needs a NATIVE heap profiler (macOS `leaks`/`malloc_history` with
+      '
+    next_action: 'Needs a NATIVE heap profiler (macOS `leaks`/`malloc_history` with
 
-    MALLOC_STACK_LOGGING, or jemalloc/tcmalloc heap profiling), not Python
+      MALLOC_STACK_LOGGING, or jemalloc/tcmalloc heap profiling), not Python
 
-    tooling. Until then the colony is RAM-blocked for multi-generation runs and
+      tooling. Until then the colony is RAM-blocked for multi-generation runs and
 
-    colonies-04-hpc-deployment stays blocked. The 3 Python-level fixes remain
+      colonies-04-hpc-deployment stays blocked. The 3 Python-level fixes remain
 
-    valid wins (merged).
+      valid wins (merged).
 
-    '
-- id: F-05-native-leak-localized-to-llvm-numba
-  kind: computational
-  status: confirms
-  verdict: "REFINED by F-06 \u2014 LLVM/Numba was a small one-time true-leak signal, not the per-tick driver; per-tick growth is elongation+mass-listener, Linux-bounded (#253 not load-bearing)"
-  statement: 'The dominant per-tick growth is native and localized to the LLVM/Numba
-    JIT
+      '
+  - id: F-05-native-leak-localized-to-llvm-numba
+    kind: computational
+    status: confirms
+    verdict: "REFINED by F-06 — LLVM/Numba was a small one-time true-leak signal, not the per-tick driver; per-tick growth is elongation+mass-listener, Linux-bounded (#253 not load-bearing)"
+    statement: 'The dominant per-tick growth is native and localized to the LLVM/Numba JIT
 
-    layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
+      layer. A controlled staged run (colonies-02 sims/mem_measure.py) shows
 
-    numpy-object bytes flat within each cell-count plateau while native memory
+      numpy-object bytes flat within each cell-count plateau while native memory
 
-    climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
+      climbs (decomposition figure), and macOS `leaks` (MallocStackLogging) finds
 
-    the true unreachable leak with stacks in llvmlite''s LLVM pass pipeline
+      the true unreachable leak with stacks in llvmlite''s LLVM pass pipeline
 
-    (LLVMPY_buildFunctionSimplificationPipeline). So the WCM''s JIT compilation
+      (LLVMPY_buildFunctionSimplificationPipeline). So the WCM''s JIT compilation
 
-    is the source, not the emitters (#239), the outer emitter (emit_cells), the
+      is the source, not the emitters (#239), the outer emitter (emit_cells), the
 
-    pymunk shapes (viva-munk #11), or a retained numpy array.
+      pymunk shapes (viva-munk #11), or a retained numpy array.
 
-    Refined by the 2026-07-26 leak hunt: the LLVM/Numba JIT stacks that macOS
-    `leaks` surfaced were a one-time/small true-leak signal (~13 MB), not the
-    per-tick driver. The per-tick growth is intrinsic to comp.run() elongation
-    (~82%) + mass-listener (~17%): macOS arena retention of per-tick numpy arrays
-    plus ~0.2 MB/tick of scipy LSODA work arrays. It is Linux-bounded. So #253
-    (JIT recompilation) is not the load-bearing fix; the actionable targets are
-    periodic malloc_trim(0) and scipy-LSODA solver reuse. See F-06.'
-  evidence: 'leaks @2cells/400ticks: ~846 MB live, ~13 MB true leak, top stacks all
+      Refined by the 2026-07-26 leak hunt: the LLVM/Numba JIT stacks that macOS `leaks` surfaced were a one-time/small true-leak signal (~13 MB), not the per-tick driver. The per-tick growth is intrinsic to comp.run() elongation (~82%) + mass-listener (~17%): macOS arena retention of per-tick numpy arrays plus ~0.2 MB/tick of scipy LSODA work arrays. It is Linux-bounded. So #253 (JIT recompilation) is not the load-bearing fix; the actionable targets are periodic malloc_trim(0) and scipy-LSODA solver reuse. See F-06.'
+    evidence: 'leaks @2cells/400ticks: ~846 MB live, ~13 MB true leak, top stacks all
 
-    LLVM PassBuilder (GVN/JumpThreading/LoopUnswitch/LICM). numpy-bytes delta
+      LLVM PassBuilder (GVN/JumpThreading/LoopUnswitch/LICM). numpy-bytes delta
 
-    ~0 within plateaus; tracemalloc <2 MB of a +151 MB/300-tick growth.
+      ~0 within plateaus; tracemalloc <2 MB of a +151 MB/300-tick growth.
 
-    Figures: colonies-02 charts/03_memory_decomposition.svg (native vs numpy),
+      Figures: colonies-02 charts/03_memory_decomposition.svg (native vs numpy),
 
-    charts/01_rss_vs_tick_by_ncells.svg (per-tick slope by N).
+      charts/01_rss_vs_tick_by_ncells.svg (per-tick slope by N).
 
-    '
-  next_action: 'Tracked as engineering issue #253: find where the WCM (re)compiles
-    @njit
+      '
+    next_action: 'Tracked as engineering issue #253: find where the WCM (re)compiles @njit
 
-    functions per tick/cell and make them module-level + cache=True so they
+      functions per tick/cell and make them module-level + cache=True so they
 
-    compile once and are shared; confirm with NUMBA_DISABLE_JIT=1 flattening the
+      compile once and are shared; confirm with NUMBA_DISABLE_JIT=1 flattening the
 
-    growth. Separately, the per-cell footprint (each cell = an independent
+      growth. Separately, the per-cell footprint (each cell = an independent
 
-    baseline composite loading its own sim_data, ~1+ GB/cell, colonies-02
+      baseline composite loading its own sim_data, ~1+ GB/cell, colonies-02
 
-    charts/02) is a distinct, bounded RAM limiter worth a shared-sim_data design.
+      charts/02) is a distinct, bounded RAM limiter worth a shared-sim_data design.
 
-    '
-- id: F-06-leak-localized-and-linux-bounded
-  kind: computational
-  status: confirms
-  behavior_test: leak-localized
-  verdict: PASS
-  statement: |
-    The colony per-tick RSS growth is localized and Linux-bounded, not an
-    unbounded native leak (this is the corrected diagnosis that reconciles
-    F-01/F-02/F-04/F-05). Per-process RSS attribution on the mini pins the growth
-    to the inner WCM's polypeptide-elongation step (~82%) + mass-listener (~17%).
-    Two components: (1) a small real retention ~0.2 MB/tick (tracemalloc-visible)
-    = scipy LSODA integrator work arrays (rwork/iwork) held per solve from
-    solve_ivp(method="LSODA") in the equilibrium / two-component / tRNA-charging
-    ODEs (~0.6 GB over a ~3000-tick cycle); (2) the scary ~1.4 MB/tick =
-    macOS allocator arena retention of elongation's large per-tick numpy working
-    arrays (buildSequences/polymerize, ~1.3 MB), freed but not returned to the OS,
-    invisible to tracemalloc — a macOS artifact. The earlier "emitter is 94% of
-    the leak" reading was a warm-process artifact and is wrong.
-  evidence: |
-    Linux/glibc validation (colima container, faithful reproduction of both
-    sources): RSS grew 0.017 MB/tick WITHOUT any fix and 0.000 MB/tick WITH
-    periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. Per-process
-    attribution: elongation ~82%, mass-listener ~17%. tracemalloc localizes the
-    ~0.2 MB/tick retained component to scipy/integrate/_ode.py work arrays.
-  next_action: |
-    Two optional, bounded optimizations (neither is an HPC blocker): periodic
-    malloc_trim(0) on the Linux target to drive residual arena growth to ~0, and
-    scipy-LSODA solver reuse (or method change) to remove the ~0.2 MB/tick real
-    retention. Open verification item: a full-colony end-to-end HPC-node lifetime
-    run to confirm the bound in situ (mechanism-validated in-container so far).
-tests:
-  auto_discover: true
-  data_source: latest_run
-  pytest_args: []
-  last_results: null
+      '
+  - id: F-06-leak-localized-and-linux-bounded
+    kind: computational
+    status: confirms
+    behavior_test: leak-localized
+    verdict: PASS
+    statement: |
+      The colony per-tick RSS growth is localized and Linux-bounded, not an
+      unbounded native leak (this is the corrected diagnosis that reconciles
+      F-01/F-02/F-04/F-05). Per-process RSS attribution on the mini pins the growth
+      to the inner WCM's polypeptide-elongation step (~82%) + mass-listener (~17%).
+      Two components: (1) a small real retention ~0.2 MB/tick (tracemalloc-visible)
+      = scipy LSODA integrator work arrays (rwork/iwork) held per solve from
+      solve_ivp(method="LSODA") in the equilibrium / two-component / tRNA-charging
+      ODEs (~0.6 GB over a ~3000-tick cycle); (2) the scary ~1.4 MB/tick =
+      macOS allocator arena retention of elongation's large per-tick numpy working
+      arrays (buildSequences/polymerize, ~1.3 MB), freed but not returned to the OS,
+      invisible to tracemalloc — a macOS artifact. The earlier "emitter is 94% of
+      the leak" reading was a warm-process artifact and is wrong.
+    evidence: |
+      Linux/glibc validation (colima container, faithful reproduction of both
+      sources): RSS grew 0.017 MB/tick WITHOUT any fix and 0.000 MB/tick WITH
+      periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. Per-process
+      attribution: elongation ~82%, mass-listener ~17%. tracemalloc localizes the
+      ~0.2 MB/tick retained component to scipy/integrate/_ode.py work arrays.
+    next_action: |
+      Two optional, bounded optimizations (neither is an HPC blocker): periodic
+      malloc_trim(0) on the Linux target to drive residual arena growth to ~0, and
+      scipy-LSODA solver reuse (or method change) to remove the ~0.2 MB/tick real
+      retention. Open verification item: a full-colony end-to-end HPC-node lifetime
+      run to confirm the bound in situ (mechanism-validated in-container so far).
+tests: []
 references: []
 implementation_tasks: ''
 inputs:
-- artifact: sim_data
-  from: parca
+  - artifact: sim_data
+    from: parca
+  - artifact: colonies-02-parallel-multigen-perf
+    from: colonies-02-parallel-multigen-perf
+conditions:
+  baseline:
+    name: single-ecoliwcm-long
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      seed: 0
+      cache_dir: out/cache
+    note: "Profile a SINGLE EcoliWCM over a long pre-division run (~2500s) — no\ncolony, no pymunk — so the leak is isolated to the inner whole-cell\ncomposite, not the colony wiring. colonies-02 already showed it is\ntransport- and emitter-independent.\n"
+  model_settings: []
+question: |
+  Where does the RSS growth in a single EcoliWCM come from, and is it bounded
+  on the Linux HPC target so per-cell RSS budgets are trustworthy? (Answered:
+  localized to elongation + mass-listener; small real retention is scipy LSODA
+  work arrays; the rest is macOS arena churn; on Linux/glibc it is bounded.)

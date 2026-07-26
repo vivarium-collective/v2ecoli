@@ -96,120 +96,123 @@ conditions:
     params:
       seed: 0
   variants:
-  - name: basal_elongation_rate
-    perturbation: "Ribosome translation rate, uniform prior, 360-step window"
-    config_overrides:
-      ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
-    expected_contrast: "Dominant driver of mass-observable variance."
-    measured_contrast: "Total-order Sobol 0.863 (dry_mass) / 0.867 (cell_mass) — dominant; 0.511 for igr."
-  - name: kS
-    perturbation: "ppGpp/charging saturation constant, uniform prior, 360-step window"
-    config_overrides:
-      ecoli-polypeptide-elongation.kS: [60, 140]
-    expected_contrast: "Minor for mass; rises for igr at the longer window."
-    measured_contrast: "Sobol 0.142/0.137 (mass) but 0.615 for igr (edges basal at 360 steps)."
-  - name: chrom-basal_elongation_rate
-    perturbation: "DNA-polymerase elongation rate, uniform prior, 360-step window"
-    config_overrides:
-      ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
-    expected_contrast: "Negligible across observables."
-    measured_contrast: "Sobol 0.043/0.042 (mass), 0.123 (igr)."
+    - name: basal_elongation_rate
+      perturbation: "Ribosome translation rate, uniform prior, 360-step window"
+      config_overrides:
+        ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
+      expected_contrast: "Dominant driver of mass-observable variance."
+      measured_contrast: "Total-order Sobol 0.863 (dry_mass) / 0.867 (cell_mass) — dominant; 0.511 for igr."
+      composite: ecoli_baseline
+    - name: kS
+      perturbation: "ppGpp/charging saturation constant, uniform prior, 360-step window"
+      config_overrides:
+        ecoli-polypeptide-elongation.kS: [60, 140]
+      expected_contrast: "Minor for mass; rises for igr at the longer window."
+      measured_contrast: "Sobol 0.142/0.137 (mass) but 0.615 for igr (edges basal at 360 steps)."
+      composite: ecoli_baseline
+    - name: chrom-basal_elongation_rate
+      perturbation: "DNA-polymerase elongation rate, uniform prior, 360-step window"
+      config_overrides:
+        ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
+      expected_contrast: "Negligible across observables."
+      measured_contrast: "Sobol 0.043/0.042 (mass), 0.123 (igr)."
+      composite: ecoli_baseline
   model_settings:
-  - name: extended-window
-    detail: "360-step window (vs 120 in param-uq-01) so mass observables accumulate a parameter signal."
-    gate: optional
-  - name: multi-observable
-    detail: "Three observables tracked: dry_mass, cell_mass, instantaneous_growth_rate; per-observable Sobol."
-    gate: optional
-  - name: same-effective-params
-    detail: "Same 3 knobs from param-uq-00-screen."
-    gate: optional
+    - name: extended-window
+      detail: "360-step window (vs 120 in param-uq-01) so mass observables accumulate a parameter signal."
+      gate: optional
+    - name: multi-observable
+      detail: "Three observables tracked: dry_mass, cell_mass, instantaneous_growth_rate; per-observable Sobol."
+      gate: optional
+    - name: same-effective-params
+      detail: "Same 3 knobs from param-uq-00-screen."
+      gate: optional
 
 assumptions:
-- text: |
-    360 steps is enough for dry_mass/cell_mass to accumulate a detectable response
-    to elongation-rate perturbations. CONFIRMED: mass fit errors ~0% with a clear
-    basal_elongation_rate signal (vs <0.16% response at 120 steps).
-  verified_in_v2ecoli: true
-- text: |
-    A growth-rate sensitivity ranking is window-independent. REFUTED: the igr
-    dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
-  verified_in_v2ecoli: true
+  - text: |
+      360 steps is enough for dry_mass/cell_mass to accumulate a detectable response
+      to elongation-rate perturbations. CONFIRMED: mass fit errors ~0% with a clear
+      basal_elongation_rate signal (vs <0.16% response at 120 steps).
+    verified_in_v2ecoli: true
+  - text: |
+      A growth-rate sensitivity ranking is window-independent. REFUTED: the igr
+      dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
+    verified_in_v2ecoli: true
 
 tests:
-- name: basal-dominates-mass-observables
-  classification: primary
-  status: passed
-  question: |
-    Does basal_elongation_rate dominate (total-order Sobol > 0.5) the mass
-    observables (dry_mass, cell_mass) over the 360-step window?
-  measure:
-    kind: authored
-    detail: |
-      basal_elongation_rate total-order Sobol = 0.863 (dry_mass) and 0.867
-      (cell_mass), dominant for both; surrogate test rel-err ~0%.
-    measured_value: 0.865
-  pass_if:
-    op: in_range
-    low: 0.5
-    high: 1.0
+  - name: basal-dominates-mass-observables
+    classification: primary
+    status: passed
+    question: |
+      Does basal_elongation_rate dominate (total-order Sobol > 0.5) the mass
+      observables (dry_mass, cell_mass) over the 360-step window?
+    measure:
+      kind: authored
+      detail: |
+        basal_elongation_rate total-order Sobol = 0.863 (dry_mass) and 0.867
+        (cell_mass), dominant for both; surrogate test rel-err ~0%.
+      measured_value: 0.865
+    pass_if:
+      op: in_range
+      low: 0.5
+      high: 1.0
   # The "> 0.5 dominance" band is an analyst-chosen methodological threshold for
   # declaring a single driver dominant, not a value from a publication.
-  cites_note: "Sobol > 0.5 is a methodological dominance threshold; not literature-derived."
-- name: growth-rate-ranking-is-window-dependent
-  classification: primary
-  status: passed
-  question: |
-    Does the dominant driver of instantaneous-growth-rate variance change between
-    the 120-step and 360-step windows — i.e. is the growth-rate ranking
-    window-dependent, as this study claims?
-  measure:
-    kind: authored
-    detail: |
-      CONFIRMED window-dependence — the igr dominant knob flips: basal_elongation_rate
-      (Sobol 0.97 @ 120 steps) → kS (0.615, edging basal's 0.511) @ 360 steps.
-      measured_value = fraction of the compared window pairs that show a DIFFERENT igr
-      dominant driver = 1.0 (the single 120↔360 pair differs). This is the study's
-      headline discovery, framed affirmatively (the window-independence hypothesis is
-      refuted; see assumptions).
-    measured_value: 1.0
-  pass_if:
-    op: in_range
-    low: 0.8
-    high: 1.0
+    cites_note: "Sobol > 0.5 is a methodological dominance threshold; not literature-derived."
+  - name: growth-rate-ranking-is-window-dependent
+    classification: primary
+    status: passed
+    question: |
+      Does the dominant driver of instantaneous-growth-rate variance change between
+      the 120-step and 360-step windows — i.e. is the growth-rate ranking
+      window-dependent, as this study claims?
+    measure:
+      kind: authored
+      detail: |
+        CONFIRMED window-dependence — the igr dominant knob flips: basal_elongation_rate
+        (Sobol 0.97 @ 120 steps) → kS (0.615, edging basal's 0.511) @ 360 steps.
+        measured_value = fraction of the compared window pairs that show a DIFFERENT igr
+        dominant driver = 1.0 (the single 120↔360 pair differs). This is the study's
+        headline discovery, framed affirmatively (the window-independence hypothesis is
+        refuted; see assumptions).
+      measured_value: 1.0
+    pass_if:
+      op: in_range
+      low: 0.8
+      high: 1.0
   # Threshold is an analyst-chosen detection convention (a window pair counts as
   # window-dependent if its dominant driver differs); not literature-derived.
-  cites_note: "Window-dependence detection threshold is methodological; not literature-derived."
+    cites_note: "Window-dependence detection threshold is methodological; not literature-derived."
 
 runs:
-- name: uq-observables-w360-n24x2seeds
-  status: completed
-  kind: sensitivity_analysis
-  canonical: true
-  description: |
-    n=24 train + 8 test PCRV, order-2 PCE, 2 seeds, 360-step window, fresh state
-    per sample. Per-observable Sobol for dry_mass, cell_mass, instantaneous_growth_rate.
-    Reproducer: pbg-uq examples/v2ecoli_uq_observables.py.
-  dispatch: serial
-  emitter: xarray
-  result: PASS
-  outcomes:
-    basal-dominates-mass-observables:
-      result: PASS
-      detail: "basal_elongation_rate Sobol 0.863 (dry_mass) / 0.867 (cell_mass); fit err ~0%."
-    growth-rate-ranking-is-window-dependent:
-      result: PASS
-      detail: "Window-dependence CONFIRMED: igr dominant flips basal (0.97 @120) -> kS (0.615 @360). The study's headline discovery."
+  - name: uq-observables-w360-n24x2seeds
+    status: completed
+    kind: sensitivity_analysis
+    canonical: true
+    description: |
+      n=24 train + 8 test PCRV, order-2 PCE, 2 seeds, 360-step window, fresh state
+      per sample. Per-observable Sobol for dry_mass, cell_mass, instantaneous_growth_rate.
+      Reproducer: pbg-uq examples/v2ecoli_uq_observables.py.
+    dispatch: serial
+    emitter: xarray
+    result: PASS
+    outcomes:
+      basal-dominates-mass-observables:
+        result: PASS
+        detail: "basal_elongation_rate Sobol 0.863 (dry_mass) / 0.867 (cell_mass); fit err ~0%."
+      growth-rate-ranking-is-window-dependent:
+        result: PASS
+        detail: "Window-dependence CONFIRMED: igr dominant flips basal (0.97 @120) -> kS (0.615 @360). The study's headline discovery."
 
-  computed_outcomes:
-    _status: store_unresolved
+    computed_outcomes:
+      _status: store_unresolved
 visualizations:
-- name: Sobol indices by observable
-  address: image:charts/sobol_by_observable.png
-  config:
-    title: "Per-observable Sobol sensitivity — 3 effective knobs, 360-step window"
-  chart: image
-  render: "Grouped Sobol bars over dry_mass / cell_mass / growth_rate. basal_elongation_rate dominates the two mass observables (~0.86); for growth rate, kS (0.62) edges basal (0.51)."
+  - name: Sobol indices by observable
+    address: image:charts/sobol_by_observable.png
+    config:
+      title: "Per-observable Sobol sensitivity — 3 effective knobs, 360-step window"
+    chart: image
+    render: "Grouped Sobol bars over dry_mass / cell_mass / growth_rate. basal_elongation_rate dominates the two mass observables (~0.86); for growth rate, kS (0.62) edges basal (0.51)."
 
 conclusion_logic:
   if_primary_tests_pass:
@@ -222,35 +225,33 @@ conclusion_logic:
       steps, vs basal's 0.97 at 120 steps. So a growth-rate Sobol ranking must always
       state its integration window; mass is the more window-robust readout.
     pipeline_unblocks:
-    - "param-uq-03-growth-stratified maps how the ranking evolves across the cell cycle."
+      - "param-uq-03-growth-stratified maps how the ranking evolves across the cell cycle."
   if_primary_tests_fail:
     diagnose:
-    - "If mass observables did not respond at 360 steps, the window is still too short
-      for mass to accumulate signal — extend toward a full generation (~2760 steps)."
-    - "The minor ill-conditioning warning on the weak kS/DNA-pol basis columns does not
-      affect the dominant mass result (fit err ~0%); revisit only if the mass ranking destabilises."
+      - "If mass observables did not respond at 360 steps, the window is still too short for mass to accumulate signal — extend toward a full generation (~2760 steps)."
+      - "The minor ill-conditioning warning on the weak kS/DNA-pol basis columns does not affect the dominant mass result (fit err ~0%); revisit only if the mass ranking destabilises."
     block_downstream: "Without a robust mass result the cell-cycle-stratified study has no anchor."
 
 conclusion_verdicts:
-- claim: "basal_elongation_rate dominates the mass observables over a 360-step window."
-  verdict: supported
-  basis: "Total-order Sobol 0.863 (dry_mass) / 0.867 (cell_mass), dominant for both; surrogate rel-err ~0%."
-- claim: "The growth-rate sensitivity ranking is window-dependent."
-  verdict: supported
-  basis: "igr dominant flips basal (0.97 @120) → kS (0.615 @360); mass is the window-robust readout."
+  - claim: "basal_elongation_rate dominates the mass observables over a 360-step window."
+    verdict: supported
+    basis: "Total-order Sobol 0.863 (dry_mass) / 0.867 (cell_mass), dominant for both; surrogate rel-err ~0%."
+  - claim: "The growth-rate sensitivity ranking is window-dependent."
+    verdict: supported
+    basis: "igr dominant flips basal (0.97 @120) → kS (0.615 @360); mass is the window-robust readout."
 
 readouts:
-- name: dry_mass_cell_mass
-  notes: "listeners.mass.dry_mass / cell_mass — accumulate a parameter signal over the 360-step window."
-- name: instantaneous_growth_rate
-  notes: "listeners.mass.instantaneous_growth_rate — the window-dependent ranking probe."
-- name: per_observable_sobol
-  notes: "Per-observable total-order Sobol indices (3 knobs × 3 observables, mean over 2 seeds)."
+  - name: dry_mass_cell_mass
+    notes: "listeners.mass.dry_mass / cell_mass — accumulate a parameter signal over the 360-step window."
+  - name: instantaneous_growth_rate
+    notes: "listeners.mass.instantaneous_growth_rate — the window-dependent ranking probe."
+  - name: per_observable_sobol
+    notes: "Per-observable total-order Sobol indices (3 knobs × 3 observables, mean over 2 seeds)."
 
 enforced_params:
-- ecoli-polypeptide-elongation.basal_elongation_rate
-- ecoli-polypeptide-elongation.kS
-- ecoli-chromosome-replication.basal_elongation_rate
+  - ecoli-polypeptide-elongation.basal_elongation_rate
+  - ecoli-polypeptide-elongation.kS
+  - ecoli-chromosome-replication.basal_elongation_rate
 
 study_card:
   goal: |
@@ -271,13 +272,13 @@ biological_summary: |
   and slightly exceeds basal_elongation_rate by 360 steps.
 
 literature_anchors:
-- expectation: |
-    Faster ribosome elongation increases protein-synthesis flux and biomass; the
-    v2ecoli baseline elongation parameterization derives from the wcEcoli model.
-  model_observable: "dry_mass / cell_mass response to ecoli-polypeptide-elongation.basal_elongation_rate"
-  source: "v2ecoli baseline parameterization (Macklin et al. 2020)"
-  status_in_workspace: "Verified — mass rises with elongation rate; Sobol ≈ 0.86."
-  cites: [macklin2020]
+  - expectation: |
+      Faster ribosome elongation increases protein-synthesis flux and biomass; the
+      v2ecoli baseline elongation parameterization derives from the wcEcoli model.
+    model_observable: "dry_mass / cell_mass response to ecoli-polypeptide-elongation.basal_elongation_rate"
+    source: "v2ecoli baseline parameterization (Macklin et al. 2020)"
+    status_in_workspace: "Verified — mass rises with elongation rate; Sobol ≈ 0.86."
+    cites: [macklin2020]
 
 model_change:
   base_model: v2ecoli.composites.ecoli_baseline
@@ -289,28 +290,28 @@ model_change:
     360-step window and three observables via pbg-uq examples/v2ecoli_uq_observables.py.
 
 implementation_requirements:
-- id: req-multi-observable-uq
-  kind: harness
-  title: Per-observable Sobol over an extended window
-  effort: M
-  description: |
-    examples/v2ecoli_uq_observables.py: n=24+8 PCRV per seed (2 seeds), 360-step
-    window, fresh initial_state per sample, per-observable order-2 PCE → analytic Sobol
-    for dry_mass, cell_mass, instantaneous_growth_rate.
-  unblocks:
-  - basal-dominates-mass-observables
-  - growth-rate-ranking-is-window-dependent
+  - id: req-multi-observable-uq
+    kind: harness
+    title: Per-observable Sobol over an extended window
+    effort: M
+    description: |
+      examples/v2ecoli_uq_observables.py: n=24+8 PCRV per seed (2 seeds), 360-step
+      window, fresh initial_state per sample, per-observable order-2 PCE → analytic Sobol
+      for dry_mass, cell_mass, instantaneous_growth_rate.
+    unblocks:
+      - basal-dominates-mass-observables
+      - growth-rate-ranking-is-window-dependent
 
 design_pivot_required:
-- id: PIVOT-report-growth-rate-with-window
-  status: accepted
-  question: "Can a growth-rate sensitivity ranking be reported window-agnostically?"
-  decision: |
-    NO. The igr dominant driver flips between the 120- and 360-step windows, so any
-    growth-rate Sobol ranking must state its integration window. Mass observables are
-    the window-robust readout and are preferred for headline elongation-sensitivity claims.
-  alternatives:
-  - "Report a single window-agnostic growth-rate ranking (rejected — the ranking is window-dependent)."
+  - id: PIVOT-report-growth-rate-with-window
+    status: accepted
+    question: "Can a growth-rate sensitivity ranking be reported window-agnostically?"
+    decision: |
+      NO. The igr dominant driver flips between the 120- and 360-step windows, so any
+      growth-rate Sobol ranking must state its integration window. Mass observables are
+      the window-robust readout and are preferred for headline elongation-sensitivity claims.
+    alternatives:
+      - "Report a single window-agnostic growth-rate ranking (rejected — the ranking is window-dependent)."
 
 # --- Rigor declarations (read by pbg_superpowers.rigor) -------------------
 # Replication: the per-observable Sobol indices were computed across 2 PCRV
@@ -334,28 +335,26 @@ falsifiability: |
 
 # Alternative explanation that the evidence excludes.
 alternative_hypotheses:
-- claim: "basal_elongation_rate dominates every observable uniformly, at any integration window."
-  discriminated_by: "Per-observable Sobol across windows — mass dominance holds (~0.86) but the growth-rate ranking is window-dependent (kS overtakes basal_elongation_rate by 360 steps), so dominance is observable- and window-specific."
-  status: excluded
+  - claim: "basal_elongation_rate dominates every observable uniformly, at any integration window."
+    discriminated_by: "Per-observable Sobol across windows — mass dominance holds (~0.86) but the growth-rate ranking is window-dependent (kS overtakes basal_elongation_rate by 360 steps), so dominance is observable- and window-specific."
+    status: excluded
 
 simulation_set:
-- name: uq-observables-w360-n24x2seeds
-  kind: sensitivity_analysis
-  status: ran
-  base_model: v2ecoli.composites.ecoli_baseline
-  duration_steps: 360
-  seeds: 2
-  details: "n=24 train + 8 test PCRV per seed (2 seeds), order-2 PCE, fresh initial_state per sample; per-observable Sobol for dry_mass, cell_mass, instantaneous_growth_rate. Reproducer: pbg-uq examples/v2ecoli_uq_observables.py."
-  metrics:
-  - dry_mass
-  - cell_mass
-  - instantaneous_growth_rate
-  pass_fail_tests:
-  - basal-dominates-mass-observables
-  - growth-rate-ranking-is-window-dependent
+  - name: uq-observables-w360-n24x2seeds
+    kind: sensitivity_analysis
+    status: ran
+    base_model: v2ecoli.composites.ecoli_baseline
+    duration_steps: 360
+    seeds: 2
+    details: "n=24 train + 8 test PCRV per seed (2 seeds), order-2 PCE, fresh initial_state per sample; per-observable Sobol for dry_mass, cell_mass, instantaneous_growth_rate. Reproducer: pbg-uq examples/v2ecoli_uq_observables.py."
+    metrics:
+      - dry_mass
+      - cell_mass
+      - instantaneous_growth_rate
+    pass_fail_tests:
+      - basal-dominates-mass-observables
+      - growth-rate-ranking-is-window-dependent
 
-pipeline_gate:
-  prerequisites:
-  - param-uq-01-elongation
-  enables: []
-  gate_status: passed
+inputs:
+  - artifact: param-uq-01-elongation
+    from: param-uq-01-elongation

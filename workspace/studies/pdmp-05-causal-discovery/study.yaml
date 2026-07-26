@@ -1,708 +1,482 @@
 schema_version: 4
 name: pdmp-05-causal-discovery
 investigation: v2ecoli-pdmp
-title: "Phase 5 \u2014 Causal Discovery and Functional Annotation"
-claim: "At \xB115% hypothesis spacing the unbiased pseudo-marginal posterior is essentially\
-  \ uniform (log BF\n+0.01, truth 24.4% vs 20% baseline) and replicate count cannot\
-  \ rescue it (kernel-mean gap \u0394log +0.011\nsets an information-theoretic ceiling).\
-  \ Wider spacing lifts truth posterior to 61% but log BF tops out\nat +0.45 (< Jeffreys\
-  \ substantial), so the single remaining lever in the current design space is\nobservable\
-  \ choice.\n"
+title: "Phase 5 — Causal Discovery and Functional Annotation"
+claim: "At ±15% hypothesis spacing the unbiased pseudo-marginal posterior is essentially uniform (log BF\n+0.01, truth 24.4% vs 20% baseline) and replicate count cannot rescue it (kernel-mean gap Δlog +0.011\nsets an information-theoretic ceiling). Wider spacing lifts truth posterior to 61% but log BF tops out\nat +0.45 (< Jeffreys substantial), so the single remaining lever in the current design space is\nobservable choice.\n"
 confidence: Investigating
 status: running
 phase: Design
 topic: pdmp
 tags:
-- pdmp
-- phase-5
-- causal-discovery
-- gene-annotation
-- bayesian-model-comparison
-- russian-roulette
-- active-inference
-- xarray-emitter
+  - pdmp
+  - phase-5
+  - causal-discovery
+  - gene-annotation
+  - bayesian-model-comparison
+  - russian-roulette
+  - active-inference
+  - xarray-emitter
 created: '2026-05-24'
-question: "Can the compiled, likelihood-equipped PDMP WCM support Bayesian model comparison\
-  \ for gene-function\nannotation \u2014 recovering known E. coli gene functions on\
-  \ a benchmark set with credible intervals that\nshrink with sample size, and driving\
-  \ an active causal-inference loop that selects in-silico\ninterventions to maximally\
-  \ discriminate between candidate mechanisms?\n"
-hypothesis: "Framing gene-function annotation as Bayesian model comparison \u2014\
-  \ with marginal likelihoods estimated via\nRussian Roulette / doubly-intractable\
-  \ estimators, plus active Bayesian causal inference that proposes\ntargeted in-silico\
-  \ interventions (knockouts, overexpression) and selects experiments by expected\n\
-  information gain \u2014 recovers the known functions of a benchmark set of E. coli\
-  \ genes with credible-\ninterval widths that decrease predictably as sample size\
-  \ grows, at a per-annotation compute cost that\nextrapolates to feasible genome-wide\
-  \ scaling.\n"
-objective: 'Implement the marginal-likelihood estimator (Russian Roulette / doubly-intractable)
-  on the Phase 3
+question: "Can the compiled, likelihood-equipped PDMP WCM support Bayesian model comparison for gene-function\nannotation — recovering known E. coli gene functions on a benchmark set with credible intervals that\nshrink with sample size, and driving an active causal-inference loop that selects in-silico\ninterventions to maximally discriminate between candidate mechanisms?\n"
+hypothesis: "Framing gene-function annotation as Bayesian model comparison — with marginal likelihoods estimated via\nRussian Roulette / doubly-intractable estimators, plus active Bayesian causal inference that proposes\ntargeted in-silico interventions (knockouts, overexpression) and selects experiments by expected\ninformation gain — recovers the known functions of a benchmark set of E. coli genes with credible-\ninterval widths that decrease predictably as sample size grows, at a per-annotation compute cost that\nextrapolates to feasible genome-wide scaling.\n"
+objective: 'Implement the marginal-likelihood estimator (Russian Roulette / doubly-intractable) on the Phase 3
 
-  accumulator and Phase 4 compiled runtime, build the active causal-inference loop
-  (propose intervention,
+  accumulator and Phase 4 compiled runtime, build the active causal-inference loop (propose intervention,
 
-  predict outcomes under candidate mechanisms, score by expected information gain),
-  and curate a benchmark
+  predict outcomes under candidate mechanisms, score by expected information gain), and curate a benchmark
 
-  set of E. coli genes with established functions. Measure posterior recovery rate,
-  credible-interval
+  set of E. coli genes with established functions. Measure posterior recovery rate, credible-interval
 
-  width vs. sample size, and compute cost per annotation, and produce a resource estimate
-  for genome-wide
+  width vs. sample size, and compute cost per annotation, and produce a resource estimate for genome-wide
 
   scaling.
 
   '
-description: "Phase 5 of the v2ecoli \u2192 PDMP roadmap and the final phase, pursuing\
-  \ the DUF ARC goal of\nsimulation-based causal discovery in WCMs. It depends on\
-  \ every preceding phase: the PDMP for process\nlikelihoods (Phase 2), the observation-likelihood\
-  \ library and accumulator (Phase 3), and the compiled\nhigh-throughput runtime that\
-  \ makes marginal-likelihood estimation feasible (Phase 4). Each candidate\ngene-function\
-  \ annotation defines a different WCM; we marginalize over parameters and compare\
-  \ via\nmarginal likelihoods, with Russian Roulette estimators (Lyne et al. 2015)\
-  \ giving unbiased estimates of\nthe otherwise intractable marginals. Active causal\
-  \ inference (Toth et al. 2022) runs the experiment-\ndesign loop, proposing interventions\
-  \ whose outcomes most sharply distinguish competing annotations. The\nbenchmark\
-  \ set holds \u226520 E. coli genes with literature-established functions across\
-  \ diverse mechanism\nclasses (kinases, transcription factors, transporters, structural\
-  \ proteins).\n\n# Numerical considerations\nMarginal likelihood numerics. Russian\
-  \ Roulette (Lyne et al. 2015) gives unbiased estimators of\nintractable normalizing\
-  \ constants Z = \u222B p(D|\u03B8) p(\u03B8) d\u03B8 via a truncated geometric series\
-  \ with importance\nweights. The estimator can have unbounded variance, so we monitor\
-  \ empirical variance over batches and\nrequire an ESS-equivalent N_eff \u2265 100\
-  \ per Z estimate; below that the result is flagged and we use a\ntighter proposal\
-  \ or fall back to thermodynamic integration / nested sampling with documented bias.\n\
-  \nBayes factor confidence intervals. Report log Bayes factors with a 95% bootstrap\
-  \ CI from the RR\nvariance bound, not point estimates. Conclusions fire only if\
-  \ the CI sits entirely above the\nJeffreys-scale threshold (|log BF| > 1, \"substantial\
-  \ evidence\").\n\nSBC at the model-comparison level. Extend SBC to model comparison:\
-  \ for K=500 synthetic datasets each\ngenerated under a known true annotation, the\
-  \ recovered posterior model probability should be uniform\nconditional on the true\
-  \ model index (Talts et al. 2018, Cook et al. 2006). A non-uniform rank histogram\n\
-  signals miscalibration before we trust it on novel annotations.\n\nActive inference\
-  \ numerics. Expected information gain (EIG) is estimated via nested Monte Carlo\
-  \ (outer\nover experiments, inner over (\u03B8, y) pairs). Standard NMC has bias\
-  \ O(1/N_inner), so we use\nDonsker-Varadhan or DAD-MINE variational lower bounds\
-  \ where feasible, else NMC with explicit bias\nbounds. Every intervention proposal\
-  \ carries its EIG \xB1 MCSE; the loop never selects an intervention whose\nEIG CI\
-  \ overlaps zero.\n\nFalse discovery control. Benchmark recoveries report per-annotation\
-  \ posterior probability and a\nBenjamini-Hochberg FDR at the gene-set level; a q-value\
-  \ \u2264 0.1 is required before declaring a benchmark\nrecovery successful.\n\n\
-  Convergence rate of credible-interval widths. Report the shrinkage rate: sub-\u221A\
-  n is the standard MCMC\nrate (posterior-mean variance \u221D 1/n_eff_samples); slower\
-  \ than n^{-1/2} indicates poor mixing or\nnon-identifiability and triggers diagnosis.\n\
-  \n# Emitter\nEach candidate-annotation run writes a zarr store with (a) the RR marginal-likelihood\
-  \ estimator\ntrajectory, (b) the per-annotation posterior, and (c) the intervention-selection\
-  \ record + EIG\nestimates. The benchmark gene-set sweep aggregates per-gene zarr\
-  \ stores into one zarr group per\nbenchmark, readable via xarray.open_mfdataset()\
-  \ for the gene-set-level BH-FDR summary.\n"
+description: "Phase 5 of the v2ecoli → PDMP roadmap and the final phase, pursuing the DUF ARC goal of\nsimulation-based causal discovery in WCMs. It depends on every preceding phase: the PDMP for process\nlikelihoods (Phase 2), the observation-likelihood library and accumulator (Phase 3), and the compiled\nhigh-throughput runtime that makes marginal-likelihood estimation feasible (Phase 4). Each candidate\ngene-function annotation defines a different WCM; we marginalize over parameters and compare via\nmarginal likelihoods, with Russian Roulette estimators (Lyne et al. 2015) giving unbiased estimates of\nthe otherwise intractable marginals. Active causal inference (Toth et al. 2022) runs the experiment-\ndesign loop, proposing interventions whose outcomes most sharply distinguish competing annotations. The\nbenchmark set holds ≥20 E. coli genes with literature-established functions across diverse mechanism\nclasses (kinases, transcription factors, transporters, structural proteins).\n\n# Numerical considerations\nMarginal likelihood numerics. Russian Roulette (Lyne et al. 2015) gives unbiased estimators of\nintractable normalizing constants Z = ∫ p(D|θ) p(θ) dθ via a truncated geometric series with importance\nweights. The estimator can have unbounded variance, so we monitor empirical variance over batches and\nrequire an ESS-equivalent N_eff ≥ 100 per Z estimate; below that the result is flagged and we use a\ntighter proposal or fall back to thermodynamic integration / nested sampling with documented bias.\n\nBayes factor confidence intervals. Report log Bayes factors with a 95% bootstrap CI from the RR\nvariance bound, not point estimates. Conclusions fire only if the CI sits entirely above the\nJeffreys-scale threshold (|log BF| > 1, \"substantial evidence\").\n\nSBC at the model-comparison level. Extend SBC to model comparison: for K=500 synthetic datasets each\ngenerated under a known true annotation, the recovered posterior model probability should be uniform\nconditional on the true model index (Talts et al. 2018, Cook et al. 2006). A non-uniform rank histogram\nsignals miscalibration before we trust it on novel annotations.\n\nActive inference numerics. Expected information gain (EIG) is estimated via nested Monte Carlo (outer\nover experiments, inner over (θ, y) pairs). Standard NMC has bias O(1/N_inner), so we use\nDonsker-Varadhan or DAD-MINE variational lower bounds where feasible, else NMC with explicit bias\nbounds. Every intervention proposal carries its EIG ± MCSE; the loop never selects an intervention whose\nEIG CI overlaps zero.\n\nFalse discovery control. Benchmark recoveries report per-annotation posterior probability and a\nBenjamini-Hochberg FDR at the gene-set level; a q-value ≤ 0.1 is required before declaring a benchmark\nrecovery successful.\n\nConvergence rate of credible-interval widths. Report the shrinkage rate: sub-√n is the standard MCMC\nrate (posterior-mean variance ∝ 1/n_eff_samples); slower than n^{-1/2} indicates poor mixing or\nnon-identifiability and triggers diagnosis.\n\n# Emitter\nEach candidate-annotation run writes a zarr store with (a) the RR marginal-likelihood estimator\ntrajectory, (b) the per-annotation posterior, and (c) the intervention-selection record + EIG\nestimates. The benchmark gene-set sweep aggregates per-gene zarr stores into one zarr group per\nbenchmark, readable via xarray.open_mfdataset() for the gene-set-level BH-FDR summary.\n"
 expected_behavior:
-- name: annotation-bayes-model-compare
-  en: Marginal likelihoods are estimated via Russian Roulette / doubly-intractable
-    methods with quantified variance bounds; the implementation passes published unit
-    tests on simpler model-comparison benchmarks before being applied to WCM candidates.
-  given:
-    condition: candidate-annotations
-  measure:
-    kind: observable-comparison
-    observable: marginal-likelihood-estimator
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: active-causal-discovery-loop
-  en: The active-inference loop proposes in-silico interventions (knockouts, overexpression)
-    and selects them by expected information gain over the candidate annotation set;
-    the selection record shows the loop converges in expected number of interventions
-    vs. random selection.
-  given:
-    condition: per-annotation
-  measure:
-    kind: observable-comparison
-    observable: intervention-selection-record
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: benchmark-recovery-with-credible-intervals
-  en: "On a curated benchmark of \u226520 E. coli genes with established functions,\
-    \ the pipeline recovers the correct annotation at the published credible level,\
-    \ with credible-interval widths that shrink predictably as sample size grows.\
-    \ (Gating criterion for the whole investigation.)"
-  given:
-    condition: e-coli-known-function-benchmark
-  measure:
-    kind: observable-comparison
-    observable: posterior-recovery-rate
-  expect:
-    op: within-tolerance
-    note: "Planned gene-function benchmark \u2014 not yet built. Delivered so far:\
-      \ a 5-point synthetic transcript_init_prob_scale sweep (scripts/phase5_bayes_factor_stub.py),\
-      \ a scaffold rather than a gene-function benchmark. Still to build: the Russian-Roulette\
-      \ / pseudo-marginal estimator over genes, the active-inference / EIG loop, and\
-      \ model-level SBC."
-  status: planned
-- name: genome-wide-resource-estimate
-  en: "Per-annotation compute cost on the benchmark extrapolates to a defensible total\
-    \ compute estimate for genome-wide scaling (\u22654000 E. coli genes); the estimate\
-    \ identifies the binding constraint (compute time, memory, or convergence)."
-  given:
-    condition: benchmark-results
-  measure:
-    kind: observable-comparison
-    observable: compute-cost-extrapolation
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: uq-rr-estimator-ess
-  en: Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff;
-    estimates with N_eff < 100 are flagged and either rerun with a tighter proposal
-    or replaced by a documented-bias method (TI / nested sampling).
-  given:
-    condition: per-marginal-likelihood
-  measure:
-    kind: observable-comparison
-    observable: rr-estimator-N-eff
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: uq-bayes-factor-CIs
-  en: log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI
-    lies entirely above the Jeffreys |log BF| > 1 threshold ("substantial evidence").
-  given:
-    condition: per-pairwise-comparison
-  measure:
-    kind: observable-comparison
-    observable: log-bayes-factor-with-95-CI
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: uq-sbc-at-model-comparison-level
-  en: "Extended SBC over K=500 synthetic datasets from known true annotations: rank\
-    \ histogram of true-model posterior probability passes \u03C7\xB2 uniformity (p\
-    \ > 0.05). Required before trusting the pipeline on real annotations."
-  given:
-    condition: K500-synthetic-datasets
-  measure:
-    kind: observable-comparison
-    observable: model-posterior-rank-uniformity
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: uq-eig-MCSE-nonzero
-  en: "Every intervention proposal carries an EIG estimate \xB1 MCSE; proposals whose\
-    \ EIG CI overlaps zero are not selected. NMC bias bound reported, or DV/DAD variational\
-    \ lower bound used where feasible."
-  given:
-    condition: per-intervention-proposal
-  measure:
-    kind: observable-comparison
-    observable: expected-information-gain-with-MCSE
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: uq-fdr-on-benchmark-recoveries
-  en: "Recoveries on the benchmark gene set are reported with BH-adjusted q-values;\
-    \ success claim requires q \u2264 0.1 at the gene-set level, not just per-gene\
-    \ posterior probability."
-  given:
-    condition: benchmark-gene-set
-  measure:
-    kind: observable-comparison
-    observable: benjamini-hochberg-q-value
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-- name: uq-credible-interval-shrinkage-rate
-  en: Credible-interval-width-vs-N curves are fit on a log-log scale; expected slope
-    -1/2 for well-identified parameters. Slopes shallower than -0.4 trigger MCMC mixing
-    diagnostics and identifiability re-check.
-  given:
-    condition: per-parameter
-  measure:
-    kind: observable-comparison
-    observable: ci-width-vs-sample-size
-  expect:
-    op: within-tolerance
-    note: Acceptance band set when this study enters Build (design-stage).
-  status: stub
-baseline:
-- name: pdmp-annotation-comparison-tbd
-  composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-  params: &id001
-    emitter: xarray
-    estimator: russian-roulette
-  _placeholder: true
-  _note: Runs candidate-annotation marginal-likelihood comparisons + active-inference
-    loop on top of the Phase 4 compiled runner.
-variants:
-- name: russian-roulette-marginal-likelihood
-  description: "RR estimator (Lyne et al. 2015) for the marginal-likelihood ratio\
-    \ between candidate gene-function annotations. ESS-equivalent N_eff \u2265 100\
-    \ per Z estimate."
-  params: &id002
-    estimator: russian-roulette
-    n_eff_floor: 100
-- name: active-causal-inference-loop
-  description: 'Active Bayesian causal inference (Toth et al. 2022): propose targeted
-    in-silico interventions (knockouts, overexpression), score by expected information
-    gain (EIG) with MCSE-bounded estimates.'
-  params: &id003
-    intervention_menu:
-    - knockout
-    - overexpression
-    - promoter-swap
-- name: benchmark-gene-set
-  description: "\u226520 E. coli genes with literature-established functions across\
-    \ diverse mechanism classes (kinases, TFs, transporters, structural). The validation\
-    \ target."
-  params: &id004
-    n_genes: 20
-    classes:
-    - kinase
-    - TF
-    - transporter
-    - structural
-- name: sbc-at-model-comparison-level
-  description: Extended SBC over K=500 synthetic datasets generated under known true
-    annotations; verify uniformity of posterior model probability ranks.
-  params: &id005
-    K: 500
+  - name: annotation-bayes-model-compare
+    en: Marginal likelihoods are estimated via Russian Roulette / doubly-intractable methods with quantified variance bounds; the implementation passes published unit tests on simpler model-comparison benchmarks before being applied to WCM candidates.
+    given:
+      condition: candidate-annotations
+    measure:
+      kind: observable-comparison
+      observable: marginal-likelihood-estimator
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: active-causal-discovery-loop
+    en: The active-inference loop proposes in-silico interventions (knockouts, overexpression) and selects them by expected information gain over the candidate annotation set; the selection record shows the loop converges in expected number of interventions vs. random selection.
+    given:
+      condition: per-annotation
+    measure:
+      kind: observable-comparison
+      observable: intervention-selection-record
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: benchmark-recovery-with-credible-intervals
+    en: "On a curated benchmark of ≥20 E. coli genes with established functions, the pipeline recovers the correct annotation at the published credible level, with credible-interval widths that shrink predictably as sample size grows. (Gating criterion for the whole investigation.)"
+    given:
+      condition: e-coli-known-function-benchmark
+    measure:
+      kind: observable-comparison
+      observable: posterior-recovery-rate
+    expect:
+      op: within-tolerance
+      note: "Planned gene-function benchmark — not yet built. Delivered so far: a 5-point synthetic transcript_init_prob_scale sweep (scripts/phase5_bayes_factor_stub.py), a scaffold rather than a gene-function benchmark. Still to build: the Russian-Roulette / pseudo-marginal estimator over genes, the active-inference / EIG loop, and model-level SBC."
+    status: planned
+  - name: genome-wide-resource-estimate
+    en: "Per-annotation compute cost on the benchmark extrapolates to a defensible total compute estimate for genome-wide scaling (≥4000 E. coli genes); the estimate identifies the binding constraint (compute time, memory, or convergence)."
+    given:
+      condition: benchmark-results
+    measure:
+      kind: observable-comparison
+      observable: compute-cost-extrapolation
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: uq-rr-estimator-ess
+    en: Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff; estimates with N_eff < 100 are flagged and either rerun with a tighter proposal or replaced by a documented-bias method (TI / nested sampling).
+    given:
+      condition: per-marginal-likelihood
+    measure:
+      kind: observable-comparison
+      observable: rr-estimator-N-eff
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: uq-bayes-factor-CIs
+    en: log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI lies entirely above the Jeffreys |log BF| > 1 threshold ("substantial evidence").
+    given:
+      condition: per-pairwise-comparison
+    measure:
+      kind: observable-comparison
+      observable: log-bayes-factor-with-95-CI
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: uq-sbc-at-model-comparison-level
+    en: "Extended SBC over K=500 synthetic datasets from known true annotations: rank histogram of true-model posterior probability passes χ² uniformity (p > 0.05). Required before trusting the pipeline on real annotations."
+    given:
+      condition: K500-synthetic-datasets
+    measure:
+      kind: observable-comparison
+      observable: model-posterior-rank-uniformity
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: uq-eig-MCSE-nonzero
+    en: "Every intervention proposal carries an EIG estimate ± MCSE; proposals whose EIG CI overlaps zero are not selected. NMC bias bound reported, or DV/DAD variational lower bound used where feasible."
+    given:
+      condition: per-intervention-proposal
+    measure:
+      kind: observable-comparison
+      observable: expected-information-gain-with-MCSE
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: uq-fdr-on-benchmark-recoveries
+    en: "Recoveries on the benchmark gene set are reported with BH-adjusted q-values; success claim requires q ≤ 0.1 at the gene-set level, not just per-gene posterior probability."
+    given:
+      condition: benchmark-gene-set
+    measure:
+      kind: observable-comparison
+      observable: benjamini-hochberg-q-value
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
+  - name: uq-credible-interval-shrinkage-rate
+    en: Credible-interval-width-vs-N curves are fit on a log-log scale; expected slope -1/2 for well-identified parameters. Slopes shallower than -0.4 trigger MCMC mixing diagnostics and identifiability re-check.
+    given:
+      condition: per-parameter
+    measure:
+      kind: observable-comparison
+      observable: ci-width-vs-sample-size
+    expect:
+      op: within-tolerance
+      note: Acceptance band set when this study enters Build (design-stage).
+    status: stub
 interventions: []
 runs: []
 report:
   confidence: design-stage
   evidence_quality: scaffold
-  conclusion: "Predicted \u2014 framing gene-function annotation as Bayesian model\
-    \ comparison with Russian Roulette marginal-likelihood estimators (Lyne et al.\
-    \ 2015) plus an active-inference loop (Toth et al. 2022) will recover \u226520\
-    \ benchmark E. coli gene annotations at BH-FDR \u2264 0.1, with credible-interval\
-    \ widths shrinking at the \u2265n\u207B\xB9\u141F\xB2 rate."
-  main_insight: Active causal inference handles the experiment-design loop. Instead
-    of passively observing, the agent selects in-silico knockouts/overexpression by
-    expected information gain, which makes annotation hypothesis-driven.
-  caveat: "RR estimator variance is unbounded in pathological cases. N_eff \u2265\
-    \ 100 per marginal-likelihood estimate is the floor; below that, the run is flagged\
-    \ and falls back to thermodynamic integration / nested sampling with documented\
-    \ bias."
+  conclusion: "Predicted — framing gene-function annotation as Bayesian model comparison with Russian Roulette marginal-likelihood estimators (Lyne et al. 2015) plus an active-inference loop (Toth et al. 2022) will recover ≥20 benchmark E. coli gene annotations at BH-FDR ≤ 0.1, with credible-interval widths shrinking at the ≥n⁻¹ᐟ² rate."
+  main_insight: Active causal inference handles the experiment-design loop. Instead of passively observing, the agent selects in-silico knockouts/overexpression by expected information gain, which makes annotation hypothesis-driven.
+  caveat: "RR estimator variance is unbounded in pathological cases. N_eff ≥ 100 per marginal-likelihood estimate is the floor; below that, the run is flagged and falls back to thermodynamic integration / nested sampling with documented bias."
   key_metrics:
-  - label: RR estimator N_eff per Z
-    status: stub
-    value: "\u2265 100"
-  - label: log Bayes factor CI clears Jeffreys
-    status: stub
-    value: '|log BF| > 1'
-  - label: "Model-level SBC \u03C7\xB2 uniformity"
-    status: stub
-    value: p > 0.05
-  - label: EIG MCSE nonzero per proposal
-    status: stub
-  - label: Benchmark BH-FDR
-    status: stub
-    value: "q \u2264 0.1"
-  - label: CI shrinkage rate (log-log slope)
-    status: stub
-    value: "\u2264 -0.4"
+    - label: RR estimator N_eff per Z
+      status: stub
+      value: "≥ 100"
+    - label: log Bayes factor CI clears Jeffreys
+      status: stub
+      value: '|log BF| > 1'
+    - label: "Model-level SBC χ² uniformity"
+      status: stub
+      value: p > 0.05
+    - label: EIG MCSE nonzero per proposal
+      status: stub
+    - label: Benchmark BH-FDR
+      status: stub
+      value: "q ≤ 0.1"
+    - label: CI shrinkage rate (log-log slope)
+      status: stub
+      value: "≤ -0.4"
 design_status: in_progress
 implementation_status: not_started
 simulation_status: not_started
 evaluation_status: not_started
 gate_status: blocked
 expert_review_status: not_requested
-pipeline_gate:
-  prerequisites:
-  - study: pdmp-03-inference
-    condition: tests-passed
-  - study: pdmp-04-compilation
-    condition: tests-passed
-  enables: []
-  proceed_condition: "RR marginal-likelihood estimator achieves N_eff \u2265 100 per\
-    \ estimate. Log BF CIs lie entirely above |log BF| > 1 (Jeffreys substantial-evidence\
-    \ threshold). Model-level SBC \u03C7\xB2 uniformity p > 0.05. Active-inference\
-    \ EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR \u2264 0.1. CI shrinkage\
-    \ rate log-log slope \u2264 -0.4."
 study_card:
-  goal: "Phase 5 \u2014 pursue the DUF ARC vision: frame gene-function annotation\
-    \ as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette\
-    \ / doubly-intractable methods, drive an active causal inference loop selecting\
-    \ in-silico interventions by expected information gain, validate against \u2265\
-    20 E. coli benchmark genes."
-  why_before_next: 'This is the final phase: use the fast, likelihood-bearing model
-    to compare gene-function hypotheses and choose informative perturbations.'
+  goal: "Phase 5 — pursue the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes."
+  why_before_next: 'This is the final phase: use the fast, likelihood-bearing model to compare gene-function hypotheses and choose informative perturbations.'
 readouts:
-- name: rr-estimator-trace
-  status: planned
-  path: (planned) .pbg/runs/<id>/rr_estimate.zarr
-  units: log-marginal-likelihood + N_eff
-  notes: 'Per candidate annotation. Gating: N_eff >= 100 or fallback to thermodynamic
-    integration.'
-- name: log-bayes-factor-cis
-  status: planned
-  path: (planned) out/trajectories/log_bf_cis.csv
-  units: log Bayes factor + 95% bootstrap CI
-  notes: Per pairwise annotation comparison. Recovery claim requires CI entirely above
-    Jeffreys |log BF| > 1.
-- name: model-comparison-sbc
-  status: planned
-  path: (planned) out/trajectories/model_sbc_ranks.csv
-  units: model-posterior rank
-  notes: 'K=500 synthetic datasets from known true annotations. Gating: chi^2 uniformity
-    p > 0.05.'
-- name: eig-per-intervention
-  status: planned
-  path: (planned) out/trajectories/eig_proposals.csv
-  units: expected information gain (nats)
-  notes: Per active-inference intervention proposal. MCSE-bounded; proposals with
-    CI overlapping zero not selected.
-- name: benchmark-recovery
-  status: planned
-  path: (planned) out/trajectories/benchmark_recovery.csv
-  units: per-gene q-value (BH-adjusted)
-  notes: '20-gene benchmark E. coli set. Investigation success: BH-FDR q <= 0.10 +
-    CI shrinkage rate log-log slope <= -0.4.'
+  - name: rr-estimator-trace
+    status: planned
+    path: (planned) .pbg/runs/<id>/rr_estimate.zarr
+    units: log-marginal-likelihood + N_eff
+    notes: 'Per candidate annotation. Gating: N_eff >= 100 or fallback to thermodynamic integration.'
+  - name: log-bayes-factor-cis
+    status: planned
+    path: (planned) out/trajectories/log_bf_cis.csv
+    units: log Bayes factor + 95% bootstrap CI
+    notes: Per pairwise annotation comparison. Recovery claim requires CI entirely above Jeffreys |log BF| > 1.
+  - name: model-comparison-sbc
+    status: planned
+    path: (planned) out/trajectories/model_sbc_ranks.csv
+    units: model-posterior rank
+    notes: 'K=500 synthetic datasets from known true annotations. Gating: chi^2 uniformity p > 0.05.'
+  - name: eig-per-intervention
+    status: planned
+    path: (planned) out/trajectories/eig_proposals.csv
+    units: expected information gain (nats)
+    notes: Per active-inference intervention proposal. MCSE-bounded; proposals with CI overlapping zero not selected.
+  - name: benchmark-recovery
+    status: planned
+    path: (planned) out/trajectories/benchmark_recovery.csv
+    units: per-gene q-value (BH-adjusted)
+    notes: '20-gene benchmark E. coli set. Investigation success: BH-FDR q <= 0.10 + CI shrinkage rate log-log slope <= -0.4.'
 planned_runs:
-- name: rr-estimator-variance-floor
-  status: planned
-  n_steps: (per Z)
-  details: "monitor N_eff \u2265 100; fall back to thermodynamic integration if below"
-- name: model-comparison-sbc-K500
-  status: planned
-  n_steps: 500
-  details: "extended SBC at model-comparison level; rank-histogram \u03C7\xB2 p >\
-    \ 0.05 required"
-- name: active-inference-loop-pilot
-  status: planned
-  n_steps: (adaptive)
-  details: 10-gene pilot; EIG MCSE non-zero per proposal
-- name: benchmark-20-gene-recovery
-  status: planned
-  n_steps: (per gene)
-  details: "20 benchmark E. coli genes; BH-FDR \u2264 0.10 (investigation gating)"
-- name: pc-recovery-pilot-millard
-  status: scaffold-pilot-done
-  n_steps: 40 obs + 6 interventions (v1) or 80 obs at mixed times (v2)
-  details: "PILOT 2026-05-25/26. Two iterations:\nv1 (scripts/run_causal_pc_pilot.py,\
-    \ 2026-05-25): correlation-only skeleton + interventional orientation. 40 obs\
-    \ + 6 knockouts at steady state. Result: 55.6% recall, 13.9% precision, but the\
-    \ \"recall\" was misleading. Diagnosis (during v2): Millard reaches a unique deterministic\
-    \ steady state regardless of IC perturbation; marginal pairwise |r| \u2248 1.0\
-    \ across all metabolites (rank-1 observation matrix). v1 \"matched\" by chance\
-    \ on rank-1 data, not real causal structure.\nv2 (scripts/run_causal_pc_v2.py,\
-    \ 2026-05-26): proper PC algorithm with partial-correlation conditional-independence\
-    \ tests (Fisher z-transform p-values) at |S| up to 2, v-structure orientation\
-    \ via sepsets. Data-generation fix: capture at mixed transient timepoints (200/500/1000s)\
-    \ + larger per-species IC perturbations (3x noise) so the observation matrix is\
-    \ genuinely multi-dimensional. Result on 80 obs: 33% directed recall (3/9), 16%\
-    \ precision.\nFinding: the PC algorithm does work on Millard, but requires transient-state\
-    \ observations. Steady-state observations are rank-1 / uninformative for deterministic\
-    \ systems. For pdmp-05.tests. pc-recovers-known-edges (80% recall), the path forward\
-    \ is either (a) richer time-course observations (multiple snapshots per replicate,\
-    \ not just one) or (b) more aggressive interventions that drive the system to\
-    \ truly distinct attractors."
+  - name: rr-estimator-variance-floor
+    status: planned
+    n_steps: (per Z)
+    details: "monitor N_eff ≥ 100; fall back to thermodynamic integration if below"
+  - name: model-comparison-sbc-K500
+    status: planned
+    n_steps: 500
+    details: "extended SBC at model-comparison level; rank-histogram χ² p > 0.05 required"
+  - name: active-inference-loop-pilot
+    status: planned
+    n_steps: (adaptive)
+    details: 10-gene pilot; EIG MCSE non-zero per proposal
+  - name: benchmark-20-gene-recovery
+    status: planned
+    n_steps: (per gene)
+    details: "20 benchmark E. coli genes; BH-FDR ≤ 0.10 (investigation gating)"
+  - name: pc-recovery-pilot-millard
+    status: scaffold-pilot-done
+    n_steps: 40 obs + 6 interventions (v1) or 80 obs at mixed times (v2)
+    details: "PILOT 2026-05-25/26. Two iterations:\nv1 (scripts/run_causal_pc_pilot.py, 2026-05-25): correlation-only skeleton + interventional orientation. 40 obs + 6 knockouts at steady state. Result: 55.6% recall, 13.9% precision, but the \"recall\" was misleading. Diagnosis (during v2): Millard reaches a unique deterministic steady state regardless of IC perturbation; marginal pairwise |r| ≈ 1.0 across all metabolites (rank-1 observation matrix). v1 \"matched\" by chance on rank-1 data, not real causal structure.\nv2 (scripts/run_causal_pc_v2.py, 2026-05-26): proper PC algorithm with partial-correlation conditional-independence tests (Fisher z-transform p-values) at |S| up to 2, v-structure orientation via sepsets. Data-generation fix: capture at mixed transient timepoints (200/500/1000s) + larger per-species IC perturbations (3x noise) so the observation matrix is genuinely multi-dimensional. Result on 80 obs: 33% directed recall (3/9), 16% precision.\nFinding: the PC algorithm does work on Millard, but requires transient-state observations. Steady-state observations are rank-1 / uninformative for deterministic systems. For pdmp-05.tests. pc-recovers-known-edges (80% recall), the path forward is either (a) richer time-course observations (multiple snapshots per replicate, not just one) or (b) more aggressive interventions that drive the system to truly distinct attractors."
 visualizations:
-- name: phase5-benchmark-bh-fdr
-  address: file:reports/figures/planned-comparisons/phase5_benchmark_bh_fdr.html
-  description: "PLANNED \u2014 Benjamini-Hochberg FDR plot over the 20-gene benchmark.\
-    \ Green-shaded region = recovered at q \u2264 0.10. Investigation success = \u2265\
-    80% recovery."
+  - name: phase5-benchmark-bh-fdr
+    address: file:reports/figures/planned-comparisons/phase5_benchmark_bh_fdr.html
+    description: "PLANNED — Benjamini-Hochberg FDR plot over the 20-gene benchmark. Green-shaded region = recovered at q ≤ 0.10. Investigation success = ≥80% recovery."
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-    params: *id001
+    params:
+      emitter: xarray
+      estimator: russian-roulette
   variants:
-  - name: russian-roulette-marginal-likelihood
-    base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-    parameter_overrides: *id002
-    description: "RR estimator (Lyne et al. 2015) for the marginal-likelihood ratio\
-      \ between candidate gene-function annotations. ESS-equivalent N_eff \u2265 100\
-      \ per Z estimate."
-  - name: active-causal-inference-loop
-    base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-    parameter_overrides: *id003
-    description: 'Active Bayesian causal inference (Toth et al. 2022): propose targeted
-      in-silico interventions (knockouts, overexpression), score by expected information
-      gain (EIG) with MCSE-bounded estimates.'
-  - name: benchmark-gene-set
-    base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-    parameter_overrides: *id004
-    description: "\u226520 E. coli genes with literature-established functions across\
-      \ diverse mechanism classes (kinases, TFs, transporters, structural). The validation\
-      \ target."
-  - name: sbc-at-model-comparison-level
-    base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-    parameter_overrides: *id005
-    description: Extended SBC over K=500 synthetic datasets generated under known
-      true annotations; verify uniformity of posterior model probability ranks.
+    - name: russian-roulette-marginal-likelihood
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      description: "RR estimator (Lyne et al. 2015) for the marginal-likelihood ratio between candidate gene-function annotations. ESS-equivalent N_eff ≥ 100 per Z estimate."
+      params:
+        estimator: russian-roulette
+        n_eff_floor: 100
+      composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    - name: active-causal-inference-loop
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      description: 'Active Bayesian causal inference (Toth et al. 2022): propose targeted in-silico interventions (knockouts, overexpression), score by expected information gain (EIG) with MCSE-bounded estimates.'
+      params:
+        intervention_menu:
+          - knockout
+          - overexpression
+          - promoter-swap
+      composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    - name: benchmark-gene-set
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      description: "≥20 E. coli genes with literature-established functions across diverse mechanism classes (kinases, TFs, transporters, structural). The validation target."
+      params:
+        n_genes: 20
+        classes:
+          - kinase
+          - TF
+          - transporter
+          - structural
+      composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    - name: sbc-at-model-comparison-level
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      description: Extended SBC over K=500 synthetic datasets generated under known true annotations; verify uniformity of posterior model probability ranks.
+      params:
+        K: 500
+      composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
   model_settings: []
 simulation_set:
-- name: rr-estimator-variance-floor
-  kind: single
-  status: planned
-  base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-  duration_steps: (per Z)
-  details: "monitor N_eff \u2265 100; fall back to thermodynamic integration if below"
-  metrics:
-  - rr-estimator-trace
-  - log-bayes-factor-cis
-  - model-comparison-sbc
-  - eig-per-intervention
-  pass_fail_tests:
-  - annotation-bayes-model-compare
-  - active-causal-discovery-loop
-  - benchmark-recovery-with-credible-intervals
-- name: model-comparison-sbc-K500
-  kind: single
-  status: planned
-  base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-  duration_steps: 500
-  details: "extended SBC at model-comparison level; rank-histogram \u03C7\xB2 p >\
-    \ 0.05 required"
-  metrics:
-  - rr-estimator-trace
-  - log-bayes-factor-cis
-  - model-comparison-sbc
-  - eig-per-intervention
-  pass_fail_tests:
-  - annotation-bayes-model-compare
-  - active-causal-discovery-loop
-  - benchmark-recovery-with-credible-intervals
-- name: active-inference-loop-pilot
-  kind: single
-  status: planned
-  base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-  duration_steps: (adaptive)
-  details: 10-gene pilot; EIG MCSE non-zero per proposal
-  metrics:
-  - rr-estimator-trace
-  - log-bayes-factor-cis
-  - model-comparison-sbc
-  - eig-per-intervention
-  pass_fail_tests:
-  - annotation-bayes-model-compare
-  - active-causal-discovery-loop
-  - benchmark-recovery-with-credible-intervals
-- name: benchmark-20-gene-recovery
-  kind: single
-  status: planned
-  base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-  duration_steps: (per gene)
-  details: "20 benchmark E. coli genes; BH-FDR \u2264 0.10 (investigation gating)"
-  metrics:
-  - rr-estimator-trace
-  - log-bayes-factor-cis
-  - model-comparison-sbc
-  - eig-per-intervention
-  pass_fail_tests:
-  - annotation-bayes-model-compare
-  - active-causal-discovery-loop
-  - benchmark-recovery-with-credible-intervals
+  - name: rr-estimator-variance-floor
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: (per Z)
+    details: "monitor N_eff ≥ 100; fall back to thermodynamic integration if below"
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals
+  - name: model-comparison-sbc-K500
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: 500
+    details: "extended SBC at model-comparison level; rank-histogram χ² p > 0.05 required"
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals
+  - name: active-inference-loop-pilot
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: (adaptive)
+    details: 10-gene pilot; EIG MCSE non-zero per proposal
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals
+  - name: benchmark-20-gene-recovery
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: (per gene)
+    details: "20 benchmark E. coli genes; BH-FDR ≤ 0.10 (investigation gating)"
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals
 tests:
-- name: pc-recovers-known-edges
-  classification: primary
-  description: "PC algorithm, given the Phase 0 reference ensemble + simulated knockouts\
-    \ of \u22655 genes, recovers \u226580% of the known causal edges in the v2ecoli\
-    \ ground-truth graph (the edges we put in by construction when designing the model).\
-    \ Confirms the discovery machinery is working on a problem where the answer is\
-    \ known."
-  measure:
-    source: scripts/run_pc_discovery.py
-    observable: recovered DAG edges vs ground-truth WCM graph
-    reduce: "Recall = |recovered \u2229 truth| / |truth|"
-  pass_if:
-    operator: greater-than
-    threshold: 0.8
-    field: recall
-  requires_simulation: pc-recovery-ground-truth
-  cites:
-  - spirtes2000
-- name: intervention-eig-beats-observational
-  classification: primary
-  description: "Expected information gain (EIG) per run with interventional gene-knockout\
-    \ design is \u226510\xD7 the EIG of pure-observational baseline. Observational\
-    \ alone cannot distinguish Markov-equivalent DAGs; interventions are the gain."
-  measure:
-    source: scripts/compute_eig.py
-    observable: EIG_interventional / EIG_observational
-    reduce: ratio
-  pass_if:
-    operator: greater-than
-    threshold: 10.0
-    field: eig_ratio
-  requires_simulation: phase5-eig-comparison
-  cites:
-  - lindley1956
-- name: bh-fdr-discovery-calibrated
-  classification: supporting
-  description: "With BH-FDR correction at \u03B1=0.05 on per-gene Bayes factors, the\
-    \ false discovery rate over a held-out null subset stays below the nominal \u03B1\
-    \ (measured by including \u226510 known-null genes as positive controls)."
-  measure:
-    source: scripts/run_per_gene_inference.py
-    observable: fraction of declared-discoveries that are known-null
-    reduce: empirical FDR
-  pass_if:
-    operator: less-than
-    threshold: 0.05
-    field: empirical_FDR
-  requires_simulation: phase5-fdr-validation
-  cites:
-  - benjamini1995
+  - name: pc-recovers-known-edges
+    classification: primary
+    description: "PC algorithm, given the Phase 0 reference ensemble + simulated knockouts of ≥5 genes, recovers ≥80% of the known causal edges in the v2ecoli ground-truth graph (the edges we put in by construction when designing the model). Confirms the discovery machinery is working on a problem where the answer is known."
+    measure:
+      source: scripts/run_pc_discovery.py
+      observable: recovered DAG edges vs ground-truth WCM graph
+      reduce: "Recall = |recovered ∩ truth| / |truth|"
+    pass_if:
+      operator: greater-than
+      threshold: 0.8
+      field: recall
+    requires_simulation: pc-recovery-ground-truth
+    cites:
+      - spirtes2000
+  - name: intervention-eig-beats-observational
+    classification: primary
+    description: "Expected information gain (EIG) per run with interventional gene-knockout design is ≥10× the EIG of pure-observational baseline. Observational alone cannot distinguish Markov-equivalent DAGs; interventions are the gain."
+    measure:
+      source: scripts/compute_eig.py
+      observable: EIG_interventional / EIG_observational
+      reduce: ratio
+    pass_if:
+      operator: greater-than
+      threshold: 10.0
+      field: eig_ratio
+    requires_simulation: phase5-eig-comparison
+    cites:
+      - lindley1956
+  - name: bh-fdr-discovery-calibrated
+    classification: supporting
+    description: "With BH-FDR correction at α=0.05 on per-gene Bayes factors, the false discovery rate over a held-out null subset stays below the nominal α (measured by including ≥10 known-null genes as positive controls)."
+    measure:
+      source: scripts/run_per_gene_inference.py
+      observable: fraction of declared-discoveries that are known-null
+      reduce: empirical FDR
+    pass_if:
+      operator: less-than
+      threshold: 0.05
+      field: empirical_FDR
+    requires_simulation: phase5-fdr-validation
+    cites:
+      - benjamini1995
 embed_visualizations:
-- name: "Phase 5 \u2014 per-gene Bayes factor (planned)"
-  url: /reports/figures/pdmp-05/bayes_factor_per_gene.html
-  description: "PLANNED PLACEHOLDER (synthetic, not a result) \u2014 per-gene Bayes\
-    \ factor against null annotation under the Phase-5 marginal-likelihood pipeline;\
-    \ never built, no genes wired. Planned for sprint 4+."
-- name: "Phase 5 \u2014 active-inference EIG (planned)"
-  url: /reports/figures/pdmp-05/active_inference_eig.html
-  description: "PLANNED PLACEHOLDER (synthetic, not a result) \u2014 expected information\
-    \ gain for in-silico interventions under candidate gene-function hypotheses; never\
-    \ built (no active-inference / EIG loop). Planned for sprint 5+."
-- name: "Phase 5 \u2014 per-gene Bayes factor (v2 stub)"
-  url: /reports/figures/pdmp-05/bayes_factor_per_gene_v2.html
-  description: Earlier hand-coded stub. Superseded by later sprint-1 and sprint-2
-    work.
-- name: "Phase 5 \u2014 intervention design EIG (planned)"
-  url: /reports/figures/pdmp-05/intervention_design_eig.html
-  description: 'Companion to active-inference EIG: per-intervention EIG ranking. Planned
-    for sprint 5+.'
-- name: "Phase 5 \u2014 PC algorithm DAG (planned)"
-  url: /reports/figures/pdmp-05/pc_algorithm_dag.html
-  description: "PLANNED PLACEHOLDER (illustrative, not a result) \u2014 recovered\
-    \ causal DAG via PC algorithm on Phase-3 likelihood summaries; not built. Planned\
-    \ for sprint 5+."
+  - name: "Phase 5 — per-gene Bayes factor (planned)"
+    url: /reports/figures/pdmp-05/bayes_factor_per_gene.html
+    description: "PLANNED PLACEHOLDER (synthetic, not a result) — per-gene Bayes factor against null annotation under the Phase-5 marginal-likelihood pipeline; never built, no genes wired. Planned for sprint 4+."
+  - name: "Phase 5 — active-inference EIG (planned)"
+    url: /reports/figures/pdmp-05/active_inference_eig.html
+    description: "PLANNED PLACEHOLDER (synthetic, not a result) — expected information gain for in-silico interventions under candidate gene-function hypotheses; never built (no active-inference / EIG loop). Planned for sprint 5+."
+  - name: "Phase 5 — per-gene Bayes factor (v2 stub)"
+    url: /reports/figures/pdmp-05/bayes_factor_per_gene_v2.html
+    description: Earlier hand-coded stub. Superseded by later sprint-1 and sprint-2 work.
+  - name: "Phase 5 — intervention design EIG (planned)"
+    url: /reports/figures/pdmp-05/intervention_design_eig.html
+    description: 'Companion to active-inference EIG: per-intervention EIG ranking. Planned for sprint 5+.'
+  - name: "Phase 5 — PC algorithm DAG (planned)"
+    url: /reports/figures/pdmp-05/pc_algorithm_dag.html
+    description: "PLANNED PLACEHOLDER (illustrative, not a result) — recovered causal DAG via PC algorithm on Phase-3 likelihood summaries; not built. Planned for sprint 5+."
 discovery_implications:
   resolved_uncertainties:
-  - The Bayes-factor / model-comparison shape works on the Phase-3 ABC infrastructure
-    (a 5-hypothesis transcript_init_prob_scale sweep).
-  - Sprint 1's "distance-of-the-mean" estimator was biased and overstated the signal;
-    the unbiased per-replicate pseudo-marginal estimator collapses truth posterior
-    28.8% -> 24.4% (~ the 20% uniform baseline) and log BF +0.32 -> +0.01.
-  - 'Replicate count alone cannot rescue the signal: the truth-vs-runner-up kernel-mean
-    gap is only Delta log +0.011 nats, so as N -> infinity the log-BF CI tightens
-    around a near-zero gap (Jeffreys substantial/decisive never reached even at N=1024).'
-  - Hypothesis spacing IS a lever for the within-grid 1/n_H dilution (truth posterior
-    24% -> 43% -> 61% as close neighbors are dropped), but log BF maxes at +0.45 even
-    in the most favorable 2-way subset.
+    - The Bayes-factor / model-comparison shape works on the Phase-3 ABC infrastructure (a 5-hypothesis transcript_init_prob_scale sweep).
+    - Sprint 1's "distance-of-the-mean" estimator was biased and overstated the signal; the unbiased per-replicate pseudo-marginal estimator collapses truth posterior 28.8% -> 24.4% (~ the 20% uniform baseline) and log BF +0.32 -> +0.01.
+    - 'Replicate count alone cannot rescue the signal: the truth-vs-runner-up kernel-mean gap is only Delta log +0.011 nats, so as N -> infinity the log-BF CI tightens around a near-zero gap (Jeffreys substantial/decisive never reached even at N=1024).'
+    - Hypothesis spacing IS a lever for the within-grid 1/n_H dilution (truth posterior 24% -> 43% -> 61% as close neighbors are dropped), but log BF maxes at +0.45 even in the most favorable 2-way subset.
   remaining_uncertainties:
-  - "Whether the Phase-3 sprint-13 combined count-vector observable (or a tighter\
-    \ epsilon) raises log BF past the Jeffreys substantial threshold (>1) is untested\
-    \ \u2014 this is the open Phase-5 question."
-  - The full Phase-5 deliverable (>=20 benchmark gene annotations at BH-FDR <= 0.1
-    with credible intervals) depends on the Phase-4 compiled runtime (per-particle
-    wall < 0.05 s/tick) and is not yet tractable.
-  - Model-comparison-level SBC (chi^2 rank-uniformity p > 0.05) and RR-estimator N_eff
-    >= 100 per marginal-likelihood estimate have not been demonstrated.
+    - "Whether the Phase-3 sprint-13 combined count-vector observable (or a tighter epsilon) raises log BF past the Jeffreys substantial threshold (>1) is untested — this is the open Phase-5 question."
+    - The full Phase-5 deliverable (>=20 benchmark gene annotations at BH-FDR <= 0.1 with credible intervals) depends on the Phase-4 compiled runtime (per-particle wall < 0.05 s/tick) and is not yet tractable.
+    - Model-comparison-level SBC (chi^2 rank-uniformity p > 0.05) and RR-estimator N_eff >= 100 per marginal-likelihood estimate have not been demonstrated.
   alternate_hypotheses:
-  - id: observable-limited
-    statement: "The Phase-5 identifiability ceiling is set by observable choice (transcript_init\
-      \ counts under the homeostat), and adopting the Phase-3 combined count vector\
-      \ \u2014 not more replicates or wider priors \u2014 will recover decisive Bayes\
-      \ factors."
-    why_plausible: Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap,
-      which only observable richness or sigma can move; Phase 3 showed count vectors
-      give a measurable grid-separation signal (3.06x truth-vs-next-nearest on the
-      toy 3x3 grid, a diagnostic, not a posterior; the "~100x" framing was a hardcoded
-      literal, not computed).
-    mechanism_elements_affected:
-    - inference-observable
-    - marginal-likelihood-separation
-    discriminating_observables:
-    - log BF (truth vs runner-up) under the combined count vector vs distance-of-the-mean
-    - kernel-mean gap Delta log under the richer observable
-    evidence_for:
-    - Phase 3 sprint 13''s combined count vector reached 3.06x truth separation where
-      aggregate metrics plateaued.
-    evidence_against: []
-  - id: spacing-limited
-    statement: The ceiling is a hypothesis-spacing artifact, and a coarse-enough grid
-      alone yields decisive evidence.
-    why_plausible: Truth posterior climbs to 61% at 2-way +/-30% spacing.
-    mechanism_elements_affected:
-    - hypothesis-grid-design
-    discriminating_observables:
-    - log BF vs spacing (does it cross 1 at any spacing?)
-    evidence_for:
-    - Wider spacing does lift the truth posterior.
-    evidence_against:
-    - Even the most favorable 2-way +/-30% subset tops out at log BF +0.45, below
-      substantial.
+    - id: observable-limited
+      statement: "The Phase-5 identifiability ceiling is set by observable choice (transcript_init counts under the homeostat), and adopting the Phase-3 combined count vector — not more replicates or wider priors — will recover decisive Bayes factors."
+      why_plausible: Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only observable richness or sigma can move; Phase 3 showed count vectors give a measurable grid-separation signal (3.06x truth-vs-next-nearest on the toy 3x3 grid, a diagnostic, not a posterior; the "~100x" framing was a hardcoded literal, not computed).
+      mechanism_elements_affected:
+        - inference-observable
+        - marginal-likelihood-separation
+      discriminating_observables:
+        - log BF (truth vs runner-up) under the combined count vector vs distance-of-the-mean
+        - kernel-mean gap Delta log under the richer observable
+      evidence_for:
+        - Phase 3 sprint 13''s combined count vector reached 3.06x truth separation where aggregate metrics plateaued.
+      evidence_against: []
+    - id: spacing-limited
+      statement: The ceiling is a hypothesis-spacing artifact, and a coarse-enough grid alone yields decisive evidence.
+      why_plausible: Truth posterior climbs to 61% at 2-way +/-30% spacing.
+      mechanism_elements_affected:
+        - hypothesis-grid-design
+      discriminating_observables:
+        - log BF vs spacing (does it cross 1 at any spacing?)
+      evidence_for:
+        - Wider spacing does lift the truth posterior.
+      evidence_against:
+        - Even the most favorable 2-way +/-30% subset tops out at log BF +0.45, below substantial.
   mechanism_update_proposals:
-  - mechanism_node_or_edge: phase-5-observable
-    update_type: revise
-    rationale: Re-run the Bayes-factor sprints against the Phase-3 sprint-13 combined
-      count-vector observable (or a tighter epsilon) before adding replicates or widening
-      priors; N is the least useful lever.
-    requires_expert_approval: true
+    - mechanism_node_or_edge: phase-5-observable
+      update_type: revise
+      rationale: Re-run the Bayes-factor sprints against the Phase-3 sprint-13 combined count-vector observable (or a tighter epsilon) before adding replicates or widening priors; N is the least useful lever.
+      requires_expert_approval: true
   followup_study_proposals:
-  - id: pdmp-05-count-vector-rerun
-    title: Re-run Bayes-factor sprints on the Phase-3 combined count-vector observable
-    study_type: mechanism_discrimination
-    source_trigger: information_ceiling
-    proposed_experiment: Replace the distance-of-the-mean observable with sqrt(d_rna^2
-      + d_ribosome^2) (or wider transcript_init_prob_scale spacing) and re-compute
-      the unbiased pseudo-marginal log BF; gate on clearing Jeffreys substantial (>1).
-    expected_information_gain: high
-    expert_gate_required: true
-  - id: pdmp-05-gene-function-benchmark
-    title: Gene-function recovery benchmark on the compiled runtime
-    study_type: validation
-    source_trigger: downstream_gate
-    proposed_experiment: Once the Phase-4 column-centric runtime hits <0.05 s/tick,
-      run RR marginal- likelihood model comparison over >=20 benchmark E. coli genes;
-      gate on BH-FDR <= 0.1 with shrinking credible intervals.
-    expected_information_gain: high
-    expert_gate_required: true
+    - id: pdmp-05-count-vector-rerun
+      title: Re-run Bayes-factor sprints on the Phase-3 combined count-vector observable
+      study_type: mechanism_discrimination
+      source_trigger: information_ceiling
+      proposed_experiment: Replace the distance-of-the-mean observable with sqrt(d_rna^2 + d_ribosome^2) (or wider transcript_init_prob_scale spacing) and re-compute the unbiased pseudo-marginal log BF; gate on clearing Jeffreys substantial (>1).
+      expected_information_gain: high
+      expert_gate_required: true
+    - id: pdmp-05-gene-function-benchmark
+      title: Gene-function recovery benchmark on the compiled runtime
+      study_type: validation
+      source_trigger: downstream_gate
+      proposed_experiment: Once the Phase-4 column-centric runtime hits <0.05 s/tick, run RR marginal- likelihood model comparison over >=20 benchmark E. coli genes; gate on BH-FDR <= 0.1 with shrinking credible intervals.
+      expected_information_gain: high
+      expert_gate_required: true
 runtime:
-  notes: 'simulation_status: not_started, gate: blocked. Nothing has been run beyond
-    a scaffold PC-recovery pilot; all recovery / Bayes-factor / EIG numbers are targets,
-    gated on the Phase-4 compiled runtime (needs <0.05 s/tick to be tractable genome-wide).'
+  notes: 'simulation_status: not_started, gate: blocked. Nothing has been run beyond a scaffold PC-recovery pilot; all recovery / Bayes-factor / EIG numbers are targets, gated on the Phase-4 compiled runtime (needs <0.05 s/tick to be tractable genome-wide).'
 assumptions:
-- Functional gene annotations can be cast as competing causal models and discriminated
-  by Bayesian model comparison (Russian-roulette marginal likelihood).
-- Active experimental design (expected information gain) selects interventions that
-  recover causal edges more efficiently than observation alone.
-- A benchmark gene set with known edges provides ground truth for FDR-calibrated recovery.
+  - Functional gene annotations can be cast as competing causal models and discriminated by Bayesian model comparison (Russian-roulette marginal likelihood).
+  - Active experimental design (expected information gain) selects interventions that recover causal edges more efficiently than observation alone.
+  - A benchmark gene set with known edges provides ground truth for FDR-calibrated recovery.
 enforced_params:
-- name: implementation_status
-  value: "not built \u2014 causal-discovery + active-inference loop are planned"
-- name: gate
-  value: blocked downstream of the Phase-4 compiled runtime (throughput prerequisite)
-biological_summary: 'Aims to use the inferable PDMP whole-cell model for functional
-  discovery: compare candidate gene annotations as causal hypotheses, design maximally-informative
-  interventions, and recover known regulatory/functional edges on a benchmark gene
-  set with calibrated false-discovery control.'
-model_change: "No change to the cell model \u2014 Phase 5 adds an analysis layer (Bayesian\
-  \ model comparison + active causal discovery) on top of the inferable PDMP. The\
-  \ annotation-as-causal-model mapping is the new commitment."
+  - name: implementation_status
+    value: "not built — causal-discovery + active-inference loop are planned"
+  - name: gate
+    value: blocked downstream of the Phase-4 compiled runtime (throughput prerequisite)
+biological_summary: 'Aims to use the inferable PDMP whole-cell model for functional discovery: compare candidate gene annotations as causal hypotheses, design maximally-informative interventions, and recover known regulatory/functional edges on a benchmark gene set with calibrated false-discovery control.'
+model_change: "No change to the cell model — Phase 5 adds an analysis layer (Bayesian model comparison + active causal discovery) on top of the inferable PDMP. The annotation-as-causal-model mapping is the new commitment."
 implementation_requirements:
-- "A Russian-roulette marginal-likelihood estimator (N_eff \u2265 100 or thermodynamic-integration\
-  \ fallback)."
-- An active-inference loop computing per-intervention expected information gain with
-  MCSE bounds.
-- A benchmark gene set + BH-FDR-calibrated recovery harness; the Phase-4 compiled
-  runtime for genome-wide tractability.
-design_pivot_required: "No pivot yet. Phase 5 has not started and is the most downstream\
-  \ study. Its feasibility is gated on Phases 1\u20134; the design will be revisited\
-  \ once an inferable, compiled PDMP exists."
+  - "A Russian-roulette marginal-likelihood estimator (N_eff ≥ 100 or thermodynamic-integration fallback)."
+  - An active-inference loop computing per-intervention expected information gain with MCSE bounds.
+  - A benchmark gene set + BH-FDR-calibrated recovery harness; the Phase-4 compiled runtime for genome-wide tractability.
+design_pivot_required: "No pivot yet. Phase 5 has not started and is the most downstream study. Its feasibility is gated on Phases 1–4; the design will be revisited once an inferable, compiled PDMP exists."
 conclusion_verdicts:
-- claim: PC / causal discovery recovers known edges on the benchmark set.
-  verdict: not_started
-  basis: Only a scaffold PC-recovery pilot exists; no calibrated recovery run. Gate
-    blocked.
-- claim: Intervention design (EIG) beats observational discovery.
-  verdict: not_started
-  basis: Active-inference loop not implemented; threshold is a target.
-- claim: "Genome-wide model comparison achieves BH-FDR \u2264 0.1."
-  verdict: not_started
-  basis: Gated on the Phase-4 compiled runtime (<0.05 s/tick); not yet runnable at
-    scale.
+  - claim: PC / causal discovery recovers known edges on the benchmark set.
+    verdict: not_started
+    basis: Only a scaffold PC-recovery pilot exists; no calibrated recovery run. Gate blocked.
+  - claim: Intervention design (EIG) beats observational discovery.
+    verdict: not_started
+    basis: Active-inference loop not implemented; threshold is a target.
+  - claim: "Genome-wide model comparison achieves BH-FDR ≤ 0.1."
+    verdict: not_started
+    basis: Gated on the Phase-4 compiled runtime (<0.05 s/tick); not yet runnable at scale.
 inputs:
-- artifact: sim_data
-  from: parca
+  - artifact: sim_data
+    from: parca
+  - artifact: pdmp-03-inference
+    from: pdmp-03-inference
+  - artifact: pdmp-04-compilation
+    from: pdmp-04-compilation

@@ -45,6 +45,7 @@ conditions:
 # Equivalent direct call:
 #   baseline(seed=0, knockouts=["EG10526"])
       expected_contrast: "lacY protein is no longer synthesised (its translation efficiency is zeroed\non the live PolypeptideInitiation process). In glucose-minimal this is\nphenotypically near-silent — the lac operon is not needed — which is the\npoint: it shows the knockout mechanism reaches the process without\nconfounding the demo with a growth collapse. Swap in a gene the condition\nneeds to see a phenotype.\n"
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: rich-media
       perturbation: growth medium minimal -> minimal_plus_amino_acids
       params:
@@ -53,6 +54,7 @@ conditions:
 # Equivalent direct call:
 #   baseline(seed=0, media="minimal_plus_amino_acids")
       expected_contrast: "An amino-acid-rich medium relieves biosynthetic demand, so the cell grows\nfaster than on minimal (verified: higher dry-mass accumulation over a short\nrun). A lightweight in-cache media shift — the media_update step applies the\ncondition on tick 1; no per-condition ParCa re-fit.\n"
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 tests:
   - name: ko-reaches-process

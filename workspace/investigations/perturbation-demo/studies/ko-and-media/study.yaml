@@ -16,10 +16,11 @@ report:
   verdict: pass
   confidence: high
   evidence_quality: 1500-step single-cell run of all three arms, seed 0
-  figures:
-  - figures/growth_comparison.png
+  # The growth-comparison figure renders on the dashboard from
+  # reports/figures/ko-and-media/growth_comparison.html (auto-discovered embed);
+  # the raw PNG + trajectories.json under this study's figures/ are the artifacts.
   result: |
-    Dry mass over 1500 steps (fig figures/growth_comparison.png):
+    Dry mass over 1500 steps (see the Growth comparison figure):
     - wild-type:  380.62 -> 547.69  (+43.89%)
     - lacY-KO:    380.62 -> 547.69  (+43.89%)  — BYTE-IDENTICAL to wild-type.
         The knockout reaches the live PolypeptideInitiation process (exactly one

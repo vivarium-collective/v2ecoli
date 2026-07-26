@@ -390,7 +390,7 @@ can show both declared-time snapshots for this study.
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_structural.ecoli_structural" data-model-overrides='{"cache_dir": "out/cache", "n_steps": 2700, "scale": 0.3, "seed": 0, "snapshots": {"initial": 10.0, "pre-division": "division_time"}, "study": "s01-birth-and-division", "top_n": 40}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_structural.ecoli_structural" data-model-overrides='{"cache_dir": "out/cache", "n_steps": 2700, "relax": true, "relax_params": {"equil_ps": 40.0}, "scale": 0.3, "seed": 0, "snapshots": {"initial": 10.0, "pre-division": "division_time"}, "study": "s01-birth-and-division", "top_n": 40}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>s01-birth-and-division</strong>
         
@@ -433,6 +433,10 @@ can show both declared-time snapshots for this study.
         <span class="cond-pill"><span class="cond-pill-k">top_n</span>=<code>40</code></span>
         
         <span class="cond-pill"><span class="cond-pill-k">scale</span>=<code>0.3</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">relax</span>=<code>True</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">relax_params</span>=<code>{&#39;equil_ps&#39;: 40.0}</code></span>
         
         <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
         

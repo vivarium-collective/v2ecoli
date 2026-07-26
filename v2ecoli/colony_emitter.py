@@ -28,11 +28,35 @@ xarray-readable zarr store with exactly the fields the phenotype studies need
 """
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
+import gc
 import math
 import os
+import platform
 from typing import Any, Dict
 
 from process_bigraph import Process
+
+
+def release_memory() -> None:
+    """Return freed allocator pages to the OS (bounds long-run colony RSS).
+
+    The colony's dominant per-tick RAM growth is allocator ARENA RETENTION: the
+    inner WCM's polypeptide-elongation step allocates large numpy working arrays
+    (~1.3 MB/tick via buildSequences/polymerize) and scipy's LSODA integrator
+    allocates rwork/iwork every solve; the pages are freed but the allocator
+    doesn't hand them back, so RSS climbs (invisible to tracemalloc). On glibc
+    (Linux — the HPC target) ``malloc_trim(0)`` reclaims them. macOS has no
+    equivalent that helps here, so this is effectively a no-op on the dev mini
+    and must be validated on Linux. Cheap enough to call every flush.
+    """
+    gc.collect()
+    try:
+        if platform.system() == "Linux":
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:
+        pass
 
 # Columns written to zarr per cell per tick. ``x``/``y`` come from ``location``;
 # ``volume`` is computed from the capsule geometry (length + radius); the rest
@@ -174,6 +198,9 @@ class ColonyPhenotypeRecorder(Process):
             else:
                 arr[old:old + n] = np.asarray(self._cols[name], dtype="<f8")
             self._cols[name].clear()
+        # Reclaim the WCM's per-tick allocator churn on the HPC (Linux) target,
+        # amortised at the flush cadence rather than every tick.
+        release_memory()
 
     # Called by the run harness at end-of-run to persist the tail buffer.
     def close(self, *args, **kwargs) -> None:

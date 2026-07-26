@@ -91,9 +91,6 @@ purpose:
     '
   expected_outcome: "**mbp-01 is a PLUMBING study only** (per chris_feedback_2026_05_26 §3\n+ investigation `discipline.scope_discipline`). It verifies that the\nstore→constraint wire works under extreme/saturating inputs that are\nrobust to v2ecoli's internal transport-kinetics functional form\n(saturable MM / constant-bound / linear). Quantitative biological-\nfidelity (gradient shape, μ response to glucose decline near Km,\nacetate flux shift at sub-Vmax DO) is DEFERRED to a downstream\n`transport-kinetics-fidelity` study — a candidate-future-study under\nmbp-06 axis A.\n\nConcretely under this study:\n  - External-concentration changes propagate to metabolism's exchange\n    constraint within one timestep (plumbing wire).\n  - Cumulative mass balance closes (no leakage in the env-driver wire).\n  - With external glucose held at 0, glucose exchange flux ≈ 0. Same\n    for DO at zero. Universal biological floor; plumbing-confirming.\n  - With external glucose at 5 g/L vs 50 g/L (both far above PTS Km),\n    glucose uptake plateaus within ratio 0.9–1.1 (discriminates\n    physical saturable/constant-bound implementations from unphysical\n    linear scaling).\n  - With external glucose at saturating 50 g/L, glucose uptake ≤\n    published Vmax ceiling for E. coli glucose-PTS (~10–12 mmol/gDW/h).\n  - Static-medium regression unchanged.\n"
 pipeline_gate:
-  prerequisites: []
-  enables:
-    - mbp-03-bird-reactor-coupling
   gate_status_summary: 'First v2ecoli-enhancement study; no upstream dependencies. Gates the
 
     reactor-coupling work — until the environment hook exists, BiRD''s

@@ -412,6 +412,4 @@ simulation_set:
       - single-elongation-knob-robustly-dominates
 
 pipeline_gate:
-  prerequisites: []
-  enables: []
   gate_status: passed

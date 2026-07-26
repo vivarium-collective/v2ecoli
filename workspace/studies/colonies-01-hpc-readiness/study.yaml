@@ -53,9 +53,6 @@ purpose:
   mechanism: "The `colony` composite generator (v2ecoli/composites/colony.py) wires N\ncopies of EcoliWCM (v2ecoli/bridge.py) into a pymunk 2D physics environment.\nEach EcoliWCM holds an internal Composite of the 55-process baseline. At cell\ndivision the bridge returns a structural update (_remove mother, _add two\ndaughter EcoliWCMs) that the outer composite engine must hydrate. We sweep\nN ∈ {1,2,4,8} and instrument per-tick costs.\n"
   expected_outcome: "After the Build fix, a pure-WC N=2 colony runs past first division to 4\nticking cells without the manual-hydration workaround in\nreports/colony_report.py. In the N-sweep, per-cell wall stays within ~2× of\nthe N=1 cost (no super-linear blow-up from coupling/contention), peak RSS\nscales close to linear, and we can name the dominant bottleneck (GIL, pymunk\nserial step, or RAM-per-cell).\n"
 pipeline_gate:
-  prerequisites: []
-  enables:
-    - colonies-02-hpc-deployment
   proceed_condition: "Build-phase acceptance test passes (N=2 pure-WC → 4 daughters,\nno manual hydration) AND the N-sweep completes for at least\nN ∈ {1,2,4}. N=8 is best-effort on a laptop and may be deferred\nto the HPC follow-up.\n"
   blocks_until_resolved: "If daughter EcoliWCMs cannot be hydrated through the composite\nengine's structural _add path, the colonies-02 HPC deployment\nstudy should NOT start — there is no point sizing nodes for a\ncomposite that loses cells at every division. Resolution choices:\n(a) fix the bridge's structural-update emission so the engine\nhydrates daughters natively, (b) fix the engine's _add handling\nfor process nodes, or (c) accept the manual-driving pattern\nand re-design the HPC plan around per-cell processes outside\nthe composite.\n"
 simulation_set:
@@ -416,7 +413,6 @@ implementation_requirements:
       - daughters-hydrated test
       - two-generations-complete test
       - all nsweep-n{2,4,8} runs
-parent_studies: []
 runs:
   - simulation: build-smoke-n2
     seed: 0

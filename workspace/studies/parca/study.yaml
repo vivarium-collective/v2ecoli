@@ -21,9 +21,6 @@ tests:
       kind: report_card_axis
       card: docs/report_cards/v2ecoli-vecoli-comparison/parca
       group: parca
-pipeline_gate:
-  prerequisites: []
-  enables: []
 runs:
   - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     name: parca-comparison

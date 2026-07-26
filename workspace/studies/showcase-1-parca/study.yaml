@@ -245,9 +245,6 @@ discovery_implications:
     - The cross-tool parca_compare HTML diff vs vivarium-ecoli --save-intermediates was not re-run (reference intermediates absent); reproduces-parca_compare is verified only at the structural-inventory + simulation-readiness level.
 
 pipeline_gate:
-  prerequisites: []
-  enables:
-    - showcase-2-baseline-figures
   gate_status: passed
 
 runs:

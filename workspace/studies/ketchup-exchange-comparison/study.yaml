@@ -197,8 +197,6 @@ tests:
       op: correlates
       r2_min: 0.8
 pipeline_gate:
-  prerequisites: []
-  enables: []
   gate_status: passed
 runs:
   - name: ketchup-k-ecoli74-estimation

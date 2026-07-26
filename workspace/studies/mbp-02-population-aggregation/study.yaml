@@ -117,9 +117,6 @@ purpose:
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
 pipeline_gate:
-  prerequisites: []
-  enables:
-    - mbp-03-bird-reactor-coupling
   gate_status_summary: |
     Parallel to mbp-01 (no shared dependency). Both feed into mbp-03's
     coupling layer — BiRD needs population-level biomass to compute O2

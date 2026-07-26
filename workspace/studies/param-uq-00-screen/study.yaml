@@ -308,7 +308,4 @@ simulation_set:
       - screen-identifies-effective-knobs
 
 pipeline_gate:
-  prerequisites: []
-  enables:
-    - param-uq-01-elongation
   gate_status: passed

@@ -590,6 +590,15 @@ window.addEventListener('pageshow', function (e) {
          Dropping it also lets the Studies section grow to the rail's full
          height so long study lists scroll instead of clipping. -->
 
+    <!-- Drag handle: resize the rail wider to see full study names/details.
+         Snaps to the normal width; dragging narrower snaps into the collapsed
+         bar. Double-click resets to normal. -->
+    <div class="viv-rail-resize-handle" id="viv-rail-resize-handle"
+         role="separator" aria-orientation="vertical" aria-label="Resize sidebar"
+         title="Drag to resize · double-click to reset"
+         onmousedown="_vivRailResizeStart(event)"
+         ondblclick="_vivRailResizeReset()"></div>
+
   </aside>
 
   <!-- MAIN: topbar + content -->
@@ -689,20 +698,17 @@ window.addEventListener('pageshow', function (e) {
 
   
   <div class="registry-subtabs" role="tablist">
-    <button class="registry-subtab active" data-subtab="modules"
-            onclick="_setRegistrySubtab('modules')" role="tab">Modules</button>
-    <button class="registry-subtab" data-subtab="discovered"
-            onclick="_setRegistrySubtab('discovered')" role="tab">Discovered registry
+    <button class="registry-subtab active" data-subtab="discovered"
+            onclick="_setRegistrySubtab('discovered')" role="tab">Registry
       <span class="count-badge muted" id="registry-total-count"></span></button>
-    
-    <button class="registry-subtab js-authoring" data-subtab="marketplace"
-            onclick="_setRegistrySubtab('marketplace')" role="tab">Marketplace</button>
+    <button class="registry-subtab" data-subtab="modules"
+            onclick="_setRegistrySubtab('modules')" role="tab">Marketplace</button>
   </div>
 
-  <!-- Subtab: Modules (catalog grid; workspace + installed entries pinned at top) -->
-  <section class="panel registry-subtab-panel active" data-subtab="modules">
+  <!-- Subtab: Marketplace (catalog grid; workspace + installed entries pinned at top) -->
+  <section class="panel registry-subtab-panel" data-subtab="modules">
     <div class="card-browse-toolbar" id="catalog-toolbar">
-      <input type="search" class="card-browse-search" id="catalog-search" placeholder="Filter modules…">
+      <input type="search" class="card-browse-search" id="catalog-search" placeholder="Search modules…">
       <div class="card-browse-chips" id="catalog-tag-chips"></div>
       <div class="card-browse-options">
         <label><input type="radio" name="catalog-installed-filter" value="all" checked> All</label>
@@ -732,14 +738,11 @@ window.addEventListener('pageshow', function (e) {
     <span id="installed-modules-count" hidden></span>
   </section>
 
-  <!-- Subtab: Discovered registry (live build_core() introspection) -->
-  <section class="panel registry-subtab-panel" data-subtab="discovered">
+  <!-- Subtab: Registry (live build_core() introspection) — the main tab -->
+  <section class="panel registry-subtab-panel active" data-subtab="discovered">
 
     <button class="action-btn" onclick="_loadRegistry(true)">Refresh registry</button>
     <div id="registry-status" class="muted" style="margin:8px 0"></div>
-
-    <!-- "Imported repositories" was removed: those repos are already shown in
-         the Modules tab, so duplicating them under Discovered registry was noise. -->
 
     <div class="registry-tabs">
       <button class="registry-tab active" data-kind="process"       onclick="_setRegistryTab('process')">Processes <span class="count-badge" id="registry-process-count"></span></button>
@@ -747,6 +750,7 @@ window.addEventListener('pageshow', function (e) {
       <button class="registry-tab"        data-kind="emitter"       onclick="_setRegistryTab('emitter')">Emitters <span class="count-badge" id="registry-emitter-count"></span></button>
       <button class="registry-tab"        data-kind="visualization" onclick="_setRegistryTab('visualization')">Visualizations <span class="count-badge" id="registry-visualization-count"></span></button>
       <button class="registry-tab"        data-kind="analysis"      onclick="_setRegistryTab('analysis')">Analyses <span class="count-badge" id="registry-analysis-count"></span></button>
+      <button class="registry-tab"        data-kind="report_card"   onclick="_setRegistryTab('report_card')">Report Cards <span class="count-badge" id="registry-report_card-count"></span></button>
       <button class="registry-tab"        data-kind="type"          onclick="_setRegistryTab('type')">Types <span class="count-badge" id="registry-type-count"></span></button>
     </div>
 
@@ -757,43 +761,11 @@ window.addEventListener('pageshow', function (e) {
     <div class="registry-tab-panel"        data-kind="emitter"       id="registry-emitters-container"></div>
     <div class="registry-tab-panel"        data-kind="visualization" id="registry-visualizations-container"></div>
     <div class="registry-tab-panel"        data-kind="analysis"      id="registry-analyses-container"></div>
+    <div class="registry-tab-panel"        data-kind="report_card"   id="registry-report_cards-container"></div>
     <div class="registry-tab-panel"        data-kind="type"          id="registry-types-container"></div>
   </section>
 
-  <!-- Subtab: Marketplace (full viva ecosystem catalog; install available modules)
-       Data comes from /api/marketplace (build_catalog full=True) — the whole
-       ecosystem registry, NOT filtered by this workspace's registry.include, each
-       entry annotated with this workspace's install state. Reuses the same card
-       rendering + install flow as the Modules grid. -->
-  <section class="panel registry-subtab-panel js-authoring" data-subtab="marketplace">
-    <p class="muted" style="margin:0 0 12px">
-      Browse every module in the viva ecosystem and install any of them into this
-      workspace. Modules already present here are marked <em>installed</em>.
-    </p>
-    <div class="card-browse-toolbar" id="marketplace-toolbar">
-      <input type="search" class="card-browse-search" id="marketplace-search" placeholder="Filter ecosystem modules…">
-      <div class="card-browse-options">
-        <label><input type="radio" name="marketplace-installed-filter" value="all" checked> All</label>
-        <label><input type="radio" name="marketplace-installed-filter" value="installed"> Installed</label>
-        <label><input type="radio" name="marketplace-installed-filter" value="uninstalled"> Available</label>
-        <select class="card-browse-sort" id="marketplace-sort" title="Sort modules">
-          <option value="default" selected>Installed &amp; name</option>
-          <option value="used">Most used</option>
-          <option value="composites"># composites</option>
-          <option value="studies"># studies</option>
-          <option value="investigations"># investigations</option>
-          <option value="updated">Recently updated</option>
-        </select>
-        <span class="card-browse-view-toggle">
-          <button class="view-btn active" data-view="grid" onclick="_setMarketplaceView('grid')" title="Grid view">&#9638;</button>
-          <button class="view-btn" data-view="list" onclick="_setMarketplaceView('list')" title="List view">&#8801;</button>
-        </span>
-      </div>
-    </div>
-    <div id="marketplace-modules-grid" class="module-grid">
-      <p class="empty-state">Loading marketplace&hellip;</p>
-    </div>
-  </section>
+  
 </section>
 
 <!-- ===== PAGE: STUDIES ===== -->
@@ -1257,6 +1229,7 @@ window.addEventListener('pageshow', function (e) {
         <th data-sort-key="emitter_type" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:80px; cursor:pointer;">Emitter</th>
         <th data-sort-key="time" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:104px; cursor:pointer;">Time</th>
         <th data-sort-key="status" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:84px; cursor:pointer;">Status</th>
+        <th style="text-align:left; padding:6px 8px; width:130px;">Tools</th>
         <th style="text-align:center; padding:6px 8px; width:158px;">Actions</th>
       </tr>
     </thead>

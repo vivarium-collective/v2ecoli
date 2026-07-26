@@ -310,17 +310,38 @@
     
     
     <div class="overview-section">
-      <div id="question-text" class="overview-prose" data-editable="true"
-           data-field="question"
-           data-placeholder="(what research question is this study asking?)"></div>
-    </div>
-    <div class="overview-section">
-      <div id="hypothesis-text" class="overview-prose" data-editable="true"
-           data-field="hypothesis"
-           data-placeholder="(predicted outcome)"></div>
-    </div>
-    <div class="overview-section">
-      <div id="objective-text" class="overview-prose" data-editable="true" data-field="objective"></div>
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Run the REAL v2ecoli whole-cell BASELINE \u2014 the full 55-process EcoliWCM \u2014 as a
+single cell inside the daughter-machine device geometry (chamber + absorbing
+wall), letting it grow and divide naturally. This is the highest-fidelity rung
+of the phenotype ladder (simple viva-munk agent -&gt; growth surrogate -&gt; full
+WCM): it asks whether the emergent single-cell phenotypes \u2014 adder
+size-homeostasis, size at division, added length before division,
+inter-division time, and growth rate \u2014 survive whole-cell colony embedding and
+division inside the device. Renders the running animation and the same
+phenotype figures as the cheap-agent device studies, so the whole-cell tier can
+be compared, in the same geometry and on the identical measurement pipeline,
+against the simple viva-munk agents (colonies-06) and against experimental
+microfluidic-device data.
+
+A bounded per-cell phenotype panel (size, added length, division/birth times,
+growth rate) is streamed to zarr by the ColonyPhenotypeRecorder \u2014 a process,
+not an emitter, so recording stays cheap. Memory is characterised and
+Linux-bounded, not a blocker: the inner WCM&#39;s per-tick RSS growth is localized
+to the polypeptide-elongation step + mass-listener and is dominated on the dev
+mini by a macOS allocator artifact (~1.6 MB/tick), but is only ~0.017 MB/tick
+on glibc and ~0.000 with periodic malloc_trim. WCM-tier runs are therefore
+length-capped on the dev mini yet effectively unbounded on the Linux HPC
+target. On the mini this run spans only a few generations, so phenotype
+distributions are PRELIMINARY (small n); full distributions await the Linux HPC
+run and experimental data (colonies-09). The value here is the genuine
+whole-cell baseline running inside the device.
+
+      </div>
+      
+      
+      
     </div>
     
 
@@ -398,14 +419,15 @@
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>colonies-06-daughter-machine</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
         
         
-        <div><strong>Proceed when:</strong> <span class="muted">The whole-cell (EcoliWCM) tier in the daughter-machine geometry; reuses the
-colonies-06 device + phenotype pipeline. Compute/RSS-bounded run.
+        <div><strong>Proceed when:</strong> <span class="muted">The highest-fidelity (whole-cell) rung of the phenotype ladder in the
+daughter-machine geometry; reuses the colonies-06 device + phenotype pipeline
+to test whether WCM single-cell phenotypes survive device embedding.
+Length-capped on the dev mini; Linux-bounded memory (characterised footnote,
+not a blocker).
 </span></div>
         
       </div>
@@ -437,8 +459,8 @@ colonies-06 device + phenotype pipeline. Compute/RSS-bounded run.
 
       <div class="study-counts-strip">
         <div class="count-cell">
-          <strong>0</strong>
-          <span class="count-label">variants</span>
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
         </div>
         <div class="count-cell">
           <strong>0</strong>
@@ -478,7 +500,7 @@ colonies-06 device + phenotype pipeline. Compute/RSS-bounded run.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"n_cells": 1, "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>wcm-daughter-machine</strong>
+        <strong>colonies-08-wcm-daughter-machine</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_colony.ecoli_colony</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -497,6 +519,34 @@ colonies-06 device + phenotype pipeline. Compute/RSS-bounded run.
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>1</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+
+    
+  </div>
   
 
   
@@ -527,6 +577,39 @@ colonies-06 device + phenotype pipeline. Compute/RSS-bounded run.
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+  
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">colonies-08-wcm-daughter-machine-baseline</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
   
   
   <!-- Configure & Run widget (SP-C) — native run launcher for this study -->

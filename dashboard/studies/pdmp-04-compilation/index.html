@@ -427,14 +427,8 @@ into a non-issue for downstream inference?
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>{&#39;study&#39;: &#39;pdmp-02-jump-processes&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>pdmp-05-causal-discovery</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead &lt; 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.</span></div>
@@ -532,7 +526,7 @@ into a non-issue for downstream inference?
     
     <div class="cond-block" data-model-composite="v2ecoli_pdmp.composites.catalyst.pdmp_catalyst" data-model-overrides='{"backend": "catalyst-jl", "emitter": "xarray", "precision": "fp64"}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>pdmp-catalyst-runner-tbd</strong>
+        <strong>pdmp-04-compilation</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli_pdmp.composites.catalyst.pdmp_catalyst</code>
         <button type="button" class="action-btn" style="font-size:0.8em"

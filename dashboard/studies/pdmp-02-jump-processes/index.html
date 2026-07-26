@@ -519,14 +519,8 @@ the Phase 1 metabolism ODE, satisfies the Markov property of a piecewise-determi
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>{&#39;study&#39;: &#39;pdmp-01-metabolism-ode&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>pdmp-03-inference</code> · <code>pdmp-04-compilation</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">Continuous-time jump propensities (transcription, translation, division, resource competition) pass the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS distance &lt; 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov property bit-verified.</span></div>
@@ -645,7 +639,7 @@ the Phase 1 metabolism ODE, satisfies the Markov property of a piecewise-determi
     
     <div class="cond-block" data-model-composite="v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner" data-model-overrides='{"emitter": "xarray"}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>pdmp-jump-runner-tbd</strong>
+        <strong>pdmp-02-jump-processes</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner</code>
         <button type="button" class="action-btn" style="font-size:0.8em"

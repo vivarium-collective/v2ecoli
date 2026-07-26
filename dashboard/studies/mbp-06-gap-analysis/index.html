@@ -34,8 +34,6 @@
 <div class="composite-lint-banner" role="alert"
      style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
   
-  <div>⚠ composite not found in registry: <code>v2ecoli.composites.reactor_bird_coupled</code></div>
-  
   <div>⚠ composite not found in registry: <code>none (synthesis-only; no composite executed)</code></div>
   
   <div style="margin-top:4px;font-size:0.86em;color:#a16207">
@@ -501,9 +499,7 @@ to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>mbp-01-time-varying-environment</code> · <code>mbp-02-population-aggregation</code> · <code>mbp-03-bird-reactor-coupling</code> · <code>mbp-04-multigeneration-runs</code> · <code>mbp-05-palsson-benchmark</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
         
         
@@ -654,7 +650,7 @@ OR explicit &#34;deferred&#34; entries in the next roadmap revision.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.reactor_bird_coupled" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>no-new-baseline</strong>
+        <strong>mbp-06-gap-analysis</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.reactor_bird_coupled</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -680,6 +676,59 @@ OR explicit &#34;deferred&#34; entries in the next roadmap revision.
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.reactor_bird_coupled</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>gap-synthesis-pass</code></td>
+            <td>
+              <code>v2ecoli.composites.reactor_bird_coupled</code>
+              
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td>Synthesis-only configuration (no-new-baseline; no model perturbation). The single &#34;variant&#34; is the cross-study findings/limitations walk that produces the gap taxonomy.</td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+  </div>
   
 
   
@@ -799,7 +848,7 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 6 · 
       <strong>Runs recorded:</strong> 1
     </p>
     

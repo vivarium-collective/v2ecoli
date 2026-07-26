@@ -464,10 +464,6 @@ plumbing in isolation by driving it with synthetic trajectories.
         <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
         
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>mbp-03-bird-reactor-coupling</code>
-        </div>
-        
         
         <div><strong>Proceed when:</strong> <span class="muted">All plumbing tests pass (external_glucose_updates_propagate_within_one_step;
 cumulative-mass-balance-closes; static-env-baseline-unchanged) AND all
@@ -616,7 +612,7 @@ Gradient-shape / quantitative-biology tests are explicitly OUT of scope
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_time_varying_env" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>time-varying-env-baseline</strong>
+        <strong>mbp-01-time-varying-environment</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_time_varying_env</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -676,7 +672,8 @@ Gradient-shape / quantitative-biology tests are explicitly OUT of scope
           <tr>
             <td><code>zero-substrate-clamp</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_time_varying_env</code>
+              
             </td>
             <td>
               
@@ -690,7 +687,8 @@ Gradient-shape / quantitative-biology tests are explicitly OUT of scope
           <tr>
             <td><code>saturating-glucose-low</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_time_varying_env</code>
+              
             </td>
             <td>
               
@@ -704,7 +702,8 @@ Gradient-shape / quantitative-biology tests are explicitly OUT of scope
           <tr>
             <td><code>saturating-glucose-high</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_time_varying_env</code>
+              
             </td>
             <td>
               
@@ -718,7 +717,8 @@ Gradient-shape / quantitative-biology tests are explicitly OUT of scope
           <tr>
             <td><code>linear-glucose-decline</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_time_varying_env</code>
+              
             </td>
             <td>
               
@@ -732,7 +732,8 @@ Gradient-shape / quantitative-biology tests are explicitly OUT of scope
           <tr>
             <td><code>static-env-reference</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_time_varying_env</code>
+              
             </td>
             <td>
               

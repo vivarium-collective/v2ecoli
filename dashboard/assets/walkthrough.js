@@ -1,4 +1,4 @@
-// walkthrough.js — v0.6.1: Marketplace sub-tab — browse the FULL viva ecosystem (unfiltered by registry.include) + install (_loadMarketplace/_renderMarketplace via /api/marketplace; shared _renderModuleGrid/_moduleActionFor with the Modules tab). v0.6.0: system-deps awareness — pre-install check + consent modal (_installFromCatalog → _showSystemDepsModal; new _checkSystemDepsForInstalled on Registry rows); v0.5.3: investigation detail panel — Spec/Runs/Visualizations tabs + Run button + Delete; v0.5.2: composite explorer UX fixes (no focus-mode hijack, one-row-per-param layout, lazy-load composite cache); v0.5.1: composite explorer page (bigraph-viz + test run + promote to simulation); v0.4.14: Available Composites picker + Emitter Use feedback + drop process multi-select; v0.4.5: _renderInstallError structured diagnosis; v0.4.1: _loadCatalog + _installFromCatalog; v0.4.0b: active-branch workstream strip; v0.3.7-A: _installImport; v0.3.6: Registry tab; v0.1.9: drag-drop uploads; v0.1.7: interactive forms.
+// walkthrough.js — v0.6.4: Registry page — "Discovered registry"→"Registry" (main tab), "Modules"→"Marketplace"; rich registry entries (description + inputs/outputs ports/contract + full config schema, loom-like) and a new Report Cards tab (_renderRegistryEntry/_regPortColumn). v0.6.3: STUDIES rail — per-study pin toggle (localStorage) with a "Pinned" strip at the top for quick access, and ungrouped studies rendered as a flat list at the bottom instead of a collapsible dropdown (_toggleStudyPin/_loadPinnedStudies; _railStudyItem + _renderRailInvestigationGroups). v0.6.2: Marketplace merged into the Modules tab — Modules grid loads the FULL ecosystem via /api/marketplace (available modules under the "Available to install" divider), installed cards gain an Uninstall action gated by an impact-confirmation modal (_showUninstallImpactModal via /api/catalog-uninstall-impact), viva-* display names + stat chips. v0.6.1: Marketplace sub-tab — browse the FULL viva ecosystem (unfiltered by registry.include) + install (_loadMarketplace/_renderMarketplace via /api/marketplace; shared _renderModuleGrid/_moduleActionFor with the Modules tab). v0.6.0: system-deps awareness — pre-install check + consent modal (_installFromCatalog → _showSystemDepsModal; new _checkSystemDepsForInstalled on Registry rows); v0.5.3: investigation detail panel — Spec/Runs/Visualizations tabs + Run button + Delete; v0.5.2: composite explorer UX fixes (no focus-mode hijack, one-row-per-param layout, lazy-load composite cache); v0.5.1: composite explorer page (bigraph-viz + test run + promote to simulation); v0.4.14: Available Composites picker + Emitter Use feedback + drop process multi-select; v0.4.5: _renderInstallError structured diagnosis; v0.4.1: _loadCatalog + _installFromCatalog; v0.4.0b: active-branch workstream strip; v0.3.7-A: _installImport; v0.3.6: Registry tab; v0.1.9: drag-drop uploads; v0.1.7: interactive forms.
 (function () {
   "use strict";
 
@@ -288,8 +288,14 @@
   // feedback loop — at 0 height, body.scrollHeight is the true content height.
   function _fitEmbedToContent(frame, minH) {
     if (!frame) return;
-    var fit = function () {
+    var fit = function (fromObserver) {
       if (!frame.isConnected) return;
+      // During the initial landing scroll (set by _wsOpenStudyTab), skip
+      // observer-driven refits. Their synchronous height:0 measure clamps
+      // window.scrollY and the restore below cancels the in-flight smooth
+      // scroll-to-study — the "starts down, then snaps back up to the graph"
+      // glitch. _wsOpenStudyTab runs one final _refit once the window closes.
+      if (fromObserver && window._embedLandingUntil && Date.now() < window._embedLandingUntil) return;
       var doc;
       try { doc = frame.contentDocument; } catch (_) { return; }   // cross-origin -> bail
       if (!doc || !doc.body) return;
@@ -309,12 +315,15 @@
       frame.style.height = Math.max(minH || 0, h) + 'px';
       if (window.pageYOffset !== prevY) window.scrollTo(0, prevY);
     };
+    // Expose a direct (non-observer) refit so _wsOpenStudyTab can run a final
+    // fit after the landing window closes.
+    frame._refit = function () { fit(false); };
     var onload = function () {
-      fit();
+      fit(false);
       try {
         var doc = frame.contentDocument;
         if (doc && doc.body && window.ResizeObserver && !frame._roFit) {
-          frame._roFit = new ResizeObserver(function () { fit(); });
+          frame._roFit = new ResizeObserver(function () { fit(true); });
           frame._roFit.observe(doc.body);
         }
       } catch (_) { /* cross-origin */ }
@@ -324,7 +333,7 @@
       if (frame.contentDocument && frame.contentDocument.readyState === 'complete') onload();
     } catch (_) {}
     if (!frame._fitContentBound) {
-      window.addEventListener('resize', fit);
+      window.addEventListener('resize', function () { fit(false); });
       frame._fitContentBound = true;
     }
   }
@@ -1849,6 +1858,37 @@
   }
   window._useRegistryClass = _useRegistryClass;
 
+  // Compact, readable label for a bigraph type schema (a port's value).
+  function _regTypeLabel(v) {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'string') return v;
+    if (typeof v === 'object') {
+      if (v._type) return String(v._type);
+      var keys = Object.keys(v).filter(function (k) { return k.charAt(0) !== '_'; });
+      if (keys.length) return '{' + keys.slice(0, 4).join(', ') + (keys.length > 4 ? ', …' : '') + '}';
+      return 'store';
+    }
+    return String(v);
+  }
+
+  // One port column (Inputs or Outputs): port name → type, from a schema dict.
+  function _regPortColumn(title, schema) {
+    var keys = schema && typeof schema === 'object' ? Object.keys(schema) : null;
+    var body;
+    if (keys === null) {
+      body = '<div class="reg-port-na" title="Ports depend on a configured instance and can\'t be introspected statically.">—</div>';
+    } else if (!keys.length) {
+      body = '<div class="reg-port-na">(none)</div>';
+    } else {
+      body = '<ul class="reg-port-list">' + keys.map(function (k) {
+        var t = _regTypeLabel(schema[k]);
+        return '<li><code class="reg-port-name">' + _esc(k) + '</code>' +
+          (t ? ' <span class="reg-port-type">' + _esc(t) + '</span>' : '') + '</li>';
+      }).join('') + '</ul>';
+    }
+    return '<div class="reg-port-col"><div class="reg-port-title">' + title + '</div>' + body + '</div>';
+  }
+
   function _renderRegistryEntry(p) {
     var aliases = (p.aliases || []).length
       ? ' <small style="color:#888">(aliases: ' + p.aliases.map(_esc).join(', ') + ')</small>'
@@ -1861,12 +1901,36 @@
     var defaultBadge = p.is_workspace_default
       ? ' <span class="count-badge" style="background:#1f7a36;color:#fff;font-size:0.7em;padding:1px 6px;border-radius:3px;margin-left:6px;vertical-align:middle" title="Workspace default per runtime.default_emitter in workspace.yaml">DEFAULT</span>'
       : '';
+    // Description (pbg `description` attr or docstring).
+    var desc = (p.description || '').trim();
+    var descHtml = desc
+      ? '<p class="reg-entry-desc">' + _esc(desc) + '</p>'
+      : '';
+    // Ports (contract): inputs / outputs schemas. Show the two-column block
+    // whenever we have EITHER side — like the loom composite viewer's process
+    // ports, but from static introspection.
+    var hasPorts = (p.inputs && typeof p.inputs === 'object') ||
+                   (p.outputs && typeof p.outputs === 'object');
+    var portsHtml = hasPorts
+      ? '<div class="reg-ports">' +
+          _regPortColumn('Inputs', p.inputs === undefined ? null : p.inputs) +
+          _regPortColumn('Outputs', p.outputs === undefined ? null : p.outputs) +
+        '</div>'
+      : '';
+    // Config schema (full when available, else the truncated preview).
+    var cfgBody = '';
+    if (p.config_schema && typeof p.config_schema === 'object' && Object.keys(p.config_schema).length) {
+      try { cfgBody = JSON.stringify(p.config_schema, null, 2); } catch (_) { cfgBody = p.schema_preview || ''; }
+    } else if (p.schema_preview) {
+      cfgBody = p.schema_preview;
+    }
+    var cfgHtml = cfgBody
+      ? '<details class="reg-config"><summary>config schema</summary><pre class="json-tree">' + _esc(cfgBody) + '</pre></details>'
+      : '';
     return '<div class="registry-entry"' + sourceAttr + '>' +
-      '<strong>' + _esc(p.name) + '</strong>' + defaultBadge + aliases + '<br>' +
+      '<div class="reg-entry-head"><strong>' + _esc(p.name) + '</strong>' + defaultBadge + aliases + '</div>' +
       '<small><code>' + _esc(p.address) + '</code></small>' +
-      (p.schema_preview
-        ? '<details><summary>config schema</summary><pre class="json-tree">' + _esc(p.schema_preview) + '</pre></details>'
-        : '') +
+      descHtml + portsHtml + cfgHtml +
     '</div>';
   }
 
@@ -2097,7 +2161,7 @@
         }
         var processes = data.processes || [];
         var types = data.types || [];
-        var byKind = {process: [], step: [], emitter: [], visualization: [], other: []};
+        var byKind = {process: [], step: [], emitter: [], visualization: [], report_card: [], other: []};
         processes.forEach(function(p) {
           var k = p.kind || 'other';
           if (!byKind[k]) byKind[k] = [];
@@ -2113,6 +2177,7 @@
         _renderRegistryGrid('registry-emitters-container', byKind.emitter);
         window._registryVizEntries = byKind.visualization;
         _renderRegistryGrid('registry-visualizations-container', byKind.visualization);
+        _renderRegistryGrid('registry-report_cards-container', byKind.report_card);
         _renderRegistryTypesGrid('registry-types-container', types);
 
         // Enrich Visualizations + populate the new Analyses tab from the class
@@ -2140,6 +2205,7 @@
         setCount('registry-step-count', byKind.step);
         setCount('registry-emitter-count', byKind.emitter);
         setCount('registry-visualization-count', byKind.visualization);
+        setCount('registry-report_card-count', byKind.report_card);
         var typeCountEl = document.getElementById('registry-type-count');
         if (typeCountEl) typeCountEl.textContent = types.length;
         var total = document.getElementById('registry-total-count');
@@ -2674,7 +2740,7 @@
       // Workspace package is exempt from text-search / tag hiding so it always
       // stays pinned as the anchor card at the top of the grid.
       if (search && m.kind !== 'workspace') {
-        var haystack = (m.name + ' ' + (m.description || '') + ' ' + (m.tags || []).join(' ')).toLowerCase();
+        var haystack = (m.name + ' ' + (m.display_name || '') + ' ' + (m.description || '') + ' ' + (m.tags || []).join(' ')).toLowerCase();
         if (haystack.indexOf(search) === -1) return false;
       }
       if (f.installed === 'installed' && !m.installed && m.kind !== 'workspace') return false;
@@ -2707,13 +2773,28 @@
   // the metric is to draw the eye). Renders '' when the module carries no
   // stats at all (wheel-only / available-to-install modules).
   function _moduleStatsRow(m) {
-    var parts = [];
-    if (m.n_composites) parts.push('▦ ' + m.n_composites + ' composite' + (m.n_composites === 1 ? '' : 's'));
-    if (m.n_studies) parts.push('⌥ ' + m.n_studies + ' stud' + (m.n_studies === 1 ? 'y' : 'ies'));
-    if (m.n_investigations) parts.push('⌸ ' + m.n_investigations + ' investigation' + (m.n_investigations === 1 ? '' : 's'));
-    if (m.n_used) parts.push('★ ' + m.n_used + ' used');
-    if (!parts.length) return '';
-    return '<div class="module-stats-row muted" style="font-size:0.82em;margin:4px 0">' + parts.join(' &middot; ') + '</div>';
+    // "Used here" — how many of THIS workspace's studies use the module. The
+    // headline signal, so it leads: a filled green bar when used, nothing when
+    // not (rather than a noisy "0"). Replaces the old ★ chip.
+    var usageHtml = '';
+    if (m.n_used) {
+      usageHtml = '<div class="module-usage" title="Used by ' + m.n_used +
+        ' of this workspace’s studies">' +
+        '<span class="module-usage-dot"></span>Used by <strong>' + m.n_used +
+        '</strong> stud' + (m.n_used === 1 ? 'y' : 'ies') + '</div>';
+    }
+    // What the module PROVIDES — a quiet, comma-free count strip.
+    function count(n, singular, plural) {
+      return '<span class="module-count"><strong>' + n + '</strong> ' +
+        (n === 1 ? singular : plural) + '</span>';
+    }
+    var counts = [];
+    if (m.n_composites) counts.push(count(m.n_composites, 'composite', 'composites'));
+    if (m.n_studies) counts.push(count(m.n_studies, 'study', 'studies'));
+    if (m.n_investigations) counts.push(count(m.n_investigations, 'investigation', 'investigations'));
+    var countsHtml = counts.length ? '<div class="module-counts">' + counts.join('') + '</div>' : '';
+    if (!usageHtml && !countsHtml) return '';
+    return '<div class="module-stats-row">' + usageHtml + countsHtml + '</div>';
   }
 
   function _moduleActionFor(m, marketplace) {
@@ -2739,10 +2820,23 @@
       } else {
         srcBadge = '<span class="status-pill installed">installed</span>';
       }
-      return srcBadge;
+      // Transitive venv deps (brought in by another installed package) are NOT
+      // directly uninstallable — removing one would break its parent. Anything
+      // the user explicitly added (imports / pyproject / unmanaged venv) gets
+      // an Uninstall action, gated behind the impact-confirmation modal.
+      var via = (m.installed_via || []);
+      var uninstallBtn = '';
+      if (!(src === 'venv' && via.length > 0)) {
+        uninstallBtn = '<button class="btn-mini module-uninstall-btn js-authoring" ' +
+          'onclick="_uninstallFromCatalog(\'' + _esc(m.name) + '\')" ' +
+          'title="Uninstall this module from the workspace">Uninstall</button>';
+      }
+      return '<span class="module-action-installed">' + srcBadge + uninstallBtn + '</span>';
     }
-    var installFn = marketplace ? '_installFromMarketplace' : '_installFromCatalog';
-    return '<button class="action-btn js-authoring" onclick="' + installFn + '(\'' + _esc(m.name) + '\')">Install</button>';
+    // Merged Modules tab: installing an available module uses the full-repo
+    // (git submodule) path so its composites/studies/investigations land on
+    // disk and federate — same behaviour the Marketplace tab used to force.
+    return '<button class="action-btn js-authoring" onclick="_installFromMarketplace(\'' + _esc(m.name) + '\')">Install</button>';
   }
 
   // Section divider injected at boundaries: workspace → installed → available.
@@ -2781,7 +2875,7 @@
       var ai = a.installed ? 0 : 1;
       var bi = b.installed ? 0 : 1;
       if (ai !== bi) return ai - bi;
-      return (a.name || '').localeCompare(b.name || '');
+      return (a.display_name || a.name || '').localeCompare(b.display_name || b.name || '');
     });
 
     if (!modules.length) {
@@ -2797,7 +2891,7 @@
         var divider = _moduleSectionDivider(prevL, m);
         prevL = m;
         return divider + '<div class="module-list-row' + (m.kind === 'workspace' ? ' module-row-workspace' : '') + '">' +
-          '<span class="name">' + _esc(m.name) + '</span>' +
+          '<span class="name">' + _esc(m.display_name || m.name) + '</span>' +
           '<span class="desc"> ' + _esc(m.description || '') + _moduleStatsRow(m) + _moduleInstalledMeta(m) + '</span>' +
           '<span>' + _moduleActionFor(m, marketplace) + '</span>' +
           '</div>';
@@ -2818,7 +2912,7 @@
         var workspaceCls = (m.kind === 'workspace') ? ' module-card-workspace'
                           : (m.installed ? ' module-card-installed' : '');
         return divider + '<div class="module-card' + workspaceCls + '">' +
-          '<div class="module-card-header"><strong>' + _esc(m.name) + '</strong> ' + homepage + '</div>' +
+          '<div class="module-card-header"><strong>' + _esc(m.display_name || m.name) + '</strong> ' + homepage + '</div>' +
           '<p class="module-desc">' + _esc(m.description) + '</p>' +
           '<div class="module-tags"></div>' +
           _moduleStatsRow(m) +
@@ -2833,94 +2927,19 @@
   function _renderCatalog() {
     var grid = document.getElementById('catalog-modules-grid');
     if (!grid) return;
+    // Full ecosystem: workspace package + installed modules first, then
+    // available-to-install modules under the "Available to install" divider.
+    // The install-state radio (All / Installed / Available) narrows this.
     var modules = _filterModules(window._catalogModules, window._catalogFilter);
-    // The Modules tab shows only what is IN this workspace — the workspace's
-    // own package plus installed modules. Browse-everything (available-to-
-    // install) lives in the Marketplace tab.
-    modules = modules.filter(function (m) { return m.kind === 'workspace' || m.installed; });
     _renderModuleGrid(grid, modules, window._catalogView, false);
   }
   window._renderCatalog = _renderCatalog;
 
-  // -------------------------------------------------------------------------
-  // Marketplace: browse the FULL viva ecosystem (unfiltered by this
-  // workspace's registry.include / registry.modules) and install modules.
-  // Data: /api/marketplace (build_catalog full=True). Reuses the Modules
-  // tab's card rendering + install flow.
-  // -------------------------------------------------------------------------
-  window._marketplaceModules = [];
-  window._marketplaceFilter = { search: '', tags: new Set(), installed: 'all' };
-  window._marketplaceView = 'grid';
-  window._marketplaceSort = 'default';
-  window._marketplaceLoaded = false;
-
-  function _setMarketplaceView(view) {
-    window._marketplaceView = view;
-    document.querySelectorAll('#marketplace-toolbar .view-btn').forEach(function(b) {
-      b.classList.toggle('active', b.getAttribute('data-view') === view);
-    });
-    _renderMarketplace();
-  }
-  window._setMarketplaceView = _setMarketplaceView;
-
-  function _renderMarketplace() {
-    var grid = document.getElementById('marketplace-modules-grid');
-    if (!grid) return;
-    // Marketplace includes available-to-install modules (no installed-only
-    // filter) — that's the whole point of the tab.
-    var modules = _filterModules(window._marketplaceModules, window._marketplaceFilter);
-    _renderModuleGrid(grid, modules, window._marketplaceView, true);
-  }
-  window._renderMarketplace = _renderMarketplace;
-
-  function _loadMarketplace(force) {
-    var grid = document.getElementById('marketplace-modules-grid');
-    if (!grid) return;
-    if (window._marketplaceLoaded && !force) { _renderMarketplace(); return; }
-    fetch('/api/marketplace')
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
-        window._marketplaceModules = data.modules || [];
-        window._marketplaceLoaded = true;
-        // Wire toolbar interactions once.
-        var searchEl = document.getElementById('marketplace-search');
-        if (searchEl && !searchEl._pbgWired) {
-          searchEl._pbgWired = true;
-          searchEl.oninput = function() {
-            window._marketplaceFilter.search = this.value.toLowerCase();
-            _renderMarketplace();
-          };
-        }
-        var radios = document.querySelectorAll('input[name="marketplace-installed-filter"]');
-        radios.forEach(function(r) {
-          if (!r._pbgWired) {
-            r._pbgWired = true;
-            r.onchange = function() {
-              window._marketplaceFilter.installed = this.value;
-              _renderMarketplace();
-            };
-          }
-        });
-        var mktSortEl = document.getElementById('marketplace-sort');
-        if (mktSortEl && !mktSortEl._pbgWired) {
-          mktSortEl._pbgWired = true;
-          mktSortEl.value = window._marketplaceSort || 'default';
-          mktSortEl.onchange = function() {
-            window._marketplaceSort = this.value;
-            _renderMarketplace();
-          };
-        }
-        if (!window._marketplaceModules.length) {
-          grid.innerHTML = '<p class="empty-state">No ecosystem modules available.</p>';
-          return;
-        }
-        _renderMarketplace();
-      })
-      .catch(function(err) {
-        grid.innerHTML = '<p class="empty-state" style="color:#c00">Marketplace load failed: ' + _esc(String(err)) + '</p>';
-      });
-  }
-  window._loadMarketplace = _loadMarketplace;
+  // (The standalone Marketplace sub-tab was merged into the Modules grid above,
+  // which now loads the full ecosystem via /api/marketplace in _loadCatalog and
+  // renders available-to-install modules under the "Available to install"
+  // divider. _setMarketplaceView / _renderMarketplace / _loadMarketplace and
+  // their window._marketplace* state were removed with it.)
 
   // Registry page sub-tab toggle. Two sub-tabs: "modules" (the catalog
   // grid above, where the workspace package + installed modules now
@@ -2929,7 +2948,7 @@
   // layout stacked these as three scrolling panels; sub-tabs let users
   // flip without scrolling.
   function _setRegistrySubtab(name) {
-    name = name || 'modules';
+    name = name || 'discovered';   // Registry is the main tab; Marketplace is secondary
     document.querySelectorAll('.registry-subtab').forEach(function(el) {
       el.classList.toggle('active', el.dataset.subtab === name);
     });
@@ -2941,11 +2960,6 @@
     // unless force=true, so this is cheap when called repeatedly.
     if (name === 'discovered' && typeof _loadRegistry === 'function') {
       _loadRegistry(false);
-    }
-    // Marketplace is lazy-loaded on first open (then cached). _loadMarketplace
-    // re-renders from cache on repeat opens unless force=true.
-    if (name === 'marketplace' && typeof _loadMarketplace === 'function') {
-      _loadMarketplace(false);
     }
   }
   window._setRegistrySubtab = _setRegistrySubtab;
@@ -3084,9 +3098,19 @@
   window._checkSystemDepsForInstalled = _checkSystemDepsForInstalled;
 
   function _loadCatalog() {
-    var _p = window.DataSource
+    // The Modules tab now shows the FULL viva ecosystem (workspace package +
+    // installed modules pinned at top, available-to-install modules below) —
+    // the former standalone Marketplace tab is merged in here. Live mode loads
+    // /api/marketplace (build_catalog full=True); snapshot bundles only publish
+    // the workspace-scoped /api/catalog.json, so fall back to that there (the
+    // Install/Uninstall actions are hidden in read-only mode anyway).
+    var _snapshot = window.DataSource && window.DataSource.config
+      && window.DataSource.config().mode === 'snapshot';
+    var _marketUrl = window.DataSource && window.DataSource.apiUrl
+      ? window.DataSource.apiUrl('/api/marketplace') : '/api/marketplace';
+    var _p = _snapshot
       ? window.DataSource.loadCatalog()
-      : fetch('/api/catalog').then(function(r) { return r.json(); });
+      : fetch(_marketUrl).then(function(r) { return r.json(); });
     _p
       .then(function(data) {
         var grid = document.getElementById('catalog-modules-grid');
@@ -3376,8 +3400,104 @@
   // Catalog uninstall (v0.5.5)
   // -------------------------------------------------------------------------
 
+  // Uninstall flow: fetch the impact report first (the module's own content
+  // that will disappear + this workspace's OWN studies/investigations that
+  // reference it and would be left dangling), show it in a confirmation modal,
+  // and only POST /api/catalog-uninstall on explicit confirm.
   function _uninstallFromCatalog(name) {
-    if (!confirm('Uninstall "' + name + '"? This removes the package from the workspace venv, pyproject.toml, and workspace.yaml imports.')) return;
+    var base = (window.DataSource && window.DataSource.apiUrl)
+      ? window.DataSource.apiUrl('/api/catalog-uninstall-impact')
+      : '/api/catalog-uninstall-impact';
+    fetch(base + '?name=' + encodeURIComponent(name))
+      .then(function(r) { return r.json().then(function(j) { return [r.ok, j]; }); })
+      .then(function(parts) { _showUninstallImpactModal(name, parts[0] ? parts[1] : null); })
+      .catch(function() { _showUninstallImpactModal(name, null); });
+  }
+  window._uninstallFromCatalog = _uninstallFromCatalog;
+
+  function _closeUninstallModal() {
+    var el = document.getElementById('modal-uninstall-impact');
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+  window._closeUninstallModal = _closeUninstallModal;
+
+  function _showUninstallImpactModal(name, impact) {
+    _closeUninstallModal();
+
+    function _group(title, items, render) {
+      if (!items || !items.length) return '';
+      return '<div class="uninstall-impact-group"><div class="uninstall-impact-group-title">' +
+        _esc(title) + ' <span class="muted">(' + items.length + ')</span></div>' +
+        '<ul class="uninstall-impact-list">' +
+        items.map(function(it) { return '<li>' + render(it) + '</li>'; }).join('') +
+        '</ul></div>';
+    }
+
+    var mc = (impact && impact.module_content) || {};
+    var wr = (impact && impact.workspace_refs) || {};
+    var refStudies = wr.studies || [];
+    var refInvs = wr.investigations || [];
+    var nModule = (mc.composites || []).length + (mc.studies || []).length + (mc.investigations || []).length;
+    var nRefs = refStudies.length + refInvs.length;
+
+    // Section 1: module content that will stop showing up.
+    var removedBody =
+      _group('Composites', mc.composites, function(c) { return '<code>' + _esc(c) + '</code>'; }) +
+      _group('Studies', mc.studies, function(s) { return '<code>' + _esc(s) + '</code>'; }) +
+      _group('Investigations', mc.investigations, function(i) { return '<code>' + _esc(i) + '</code>'; });
+    var removedSection = nModule
+      ? '<h4 class="uninstall-impact-h">Content that will be removed</h4>' + removedBody
+      : (impact
+          ? '<p class="muted">This module contributes no composites, studies, or investigations to this workspace.</p>'
+          : '<p class="muted">Could not compute what this module contributes (impact probe unavailable) — proceed with care.</p>');
+
+    // Section 2: this workspace's own content that references it (the warning).
+    var refSection = '';
+    if (nRefs) {
+      refSection =
+        '<div class="uninstall-impact-warn">' +
+          '<strong>⚠ ' + nRefs + ' of your workspace’s own item' + (nRefs === 1 ? '' : 's') +
+          ' reference this module</strong> and will be left with a dangling reference if you uninstall:' +
+        '</div>' +
+        _group('Your studies → composite', refStudies, function(r) {
+          return '<code>' + _esc(r.study) + '</code> <span class="muted">→</span> <code>' + _esc(r.composite) + '</code>';
+        }) +
+        _group('Your investigations → study', refInvs, function(r) {
+          return '<code>' + _esc(r.investigation) + '</code> <span class="muted">→</span> <code>' + _esc(r.study) + '</code>';
+        });
+    } else if (impact) {
+      refSection = '<p class="muted" style="margin-top:10px;">Nothing in your workspace references this module.</p>';
+    }
+
+    var modal = document.createElement('div');
+    modal.id = 'modal-uninstall-impact';
+    modal.className = 'modal-overlay';
+    modal.style.display = 'flex';
+    modal.innerHTML =
+      '<div class="modal-box" style="max-width:640px;">' +
+        '<button class="modal-close" onclick="_closeUninstallModal()">&times;</button>' +
+        '<h3>Uninstall <code>' + _esc(name) + '</code>?</h3>' +
+        '<p class="muted" style="margin:4px 0 10px;">This removes the package from the workspace venv, ' +
+          'pyproject.toml, and workspace.yaml imports, and commits the change on the active branch.</p>' +
+        '<div class="uninstall-impact-body">' + removedSection + refSection + '</div>' +
+        '<div id="uninstall-error" class="form-error" style="color:#c00;min-height:1em;margin-top:8px;"></div>' +
+        '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">' +
+          '<button type="button" class="action-btn danger" id="uninstall-confirm-btn">Uninstall ' + _esc(name) + '</button>' +
+          '<button type="button" class="btn-mini" onclick="_closeUninstallModal()">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(modal);
+
+    var btn = document.getElementById('uninstall-confirm-btn');
+    if (btn) btn.addEventListener('click', function() { _proceedWithUninstall(name); });
+  }
+  window._showUninstallImpactModal = _showUninstallImpactModal;
+
+  function _proceedWithUninstall(name) {
+    var btn = document.getElementById('uninstall-confirm-btn');
+    var errEl = document.getElementById('uninstall-error');
+    if (errEl) errEl.textContent = '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Uninstalling…'; }
     fetch('/api/catalog-uninstall', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
@@ -3385,16 +3505,24 @@
     })
       .then(function(r) { return r.json().then(function(j) { return {ok: r.ok, json: j}; }); })
       .then(function(p) {
-        if (!p.ok) { alert('Uninstall failed: ' + (p.json.error || 'unknown')); return; }
+        if (!p.ok) {
+          if (btn) { btn.disabled = false; btn.textContent = 'Uninstall ' + name; }
+          if (errEl) errEl.textContent = 'Uninstall failed: ' + ((p.json && p.json.error) || 'unknown');
+          return;
+        }
+        _closeUninstallModal();
         var msg = p.json.already_uninstalled ? 'Already uninstalled.' : 'Uninstalled ' + name + '.';
         if (p.json.branch) msg += '\n\nBranch: ' + p.json.branch + (p.json.commit ? ' (' + p.json.commit + ')' : '');
         alert(msg);
         if (typeof _loadCatalog === 'function') _loadCatalog();
         if (typeof _loadRegistry === 'function') _loadRegistry(true);
       })
-      .catch(function(e) { alert('Network error: ' + e); });
+      .catch(function(e) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Uninstall ' + name; }
+        if (errEl) errEl.textContent = 'Network error: ' + e;
+      });
   }
-  window._uninstallFromCatalog = _uninstallFromCatalog;
+  window._proceedWithUninstall = _proceedWithUninstall;
 
   // -------------------------------------------------------------------------
   // Simulation CRUD (v0.3.5)
@@ -3895,13 +4023,85 @@
     var stored = null;
     try { stored = localStorage.getItem('vivarium.rail-collapsed'); } catch (e) {}
     var collapsed = stored === '1';
-    if (collapsed) {
-      var rail = document.getElementById('viv-rail');
-      if (rail) rail.classList.add('viv-rail-collapsed');
+    var rail = document.getElementById('viv-rail');
+    if (rail) {
+      // Apply the saved expanded width (the collapsed rule overrides it via
+      // higher CSS specificity, so this is safe even when collapsed).
+      _vivRailApplyWidth(rail, _vivRailSavedWidth());
+      if (collapsed) rail.classList.add('viv-rail-collapsed');
     }
     _vivSyncRailToggleLabel(collapsed);
   }
   window._vivRestoreRailState = _vivRestoreRailState;
+
+  // ---- Rail resize (drag the right edge to widen; snap to normal; drag
+  //      narrower to snap into the collapsed bar) ----------------------------
+  var _RAIL_NORMAL = 240;      // the "normal" snap width (matches CSS default)
+  var _RAIL_MIN = 240;         // expanded floor — narrower than this collapses
+  var _RAIL_MAX = 560;         // don't let the rail eat the whole viewport
+  var _RAIL_COLLAPSE_AT = 180; // drag below this (px from left edge) → collapse
+  var _RAIL_SNAP = 28;         // within this of normal → snap to exactly normal
+
+  function _vivRailSavedWidth() {
+    var raw = null;
+    try { raw = localStorage.getItem('vivarium.rail-width'); } catch (e) {}
+    var w = parseInt(raw, 10);
+    if (!w || isNaN(w)) return _RAIL_NORMAL;
+    return Math.min(_RAIL_MAX, Math.max(_RAIL_MIN, w));
+  }
+  function _vivRailApplyWidth(rail, w) {
+    rail.style.setProperty('--rail-w', w + 'px');
+  }
+  function _vivRailResizeStart(ev) {
+    ev.preventDefault();
+    var rail = document.getElementById('viv-rail');
+    if (!rail) return;
+    rail.classList.add('viv-rail-resizing');
+    document.body.classList.add('viv-rail-resizing-active');
+    var railLeft = rail.getBoundingClientRect().left;
+    var lastW = _vivRailSavedWidth();
+
+    function _move(e) {
+      var raw = e.clientX - railLeft;         // desired width: left edge → pointer
+      if (raw < _RAIL_COLLAPSE_AT) {          // snap into the collapsed bar look
+        rail.classList.add('viv-rail-collapsed');
+        return;
+      }
+      rail.classList.remove('viv-rail-collapsed');
+      var w = Math.min(_RAIL_MAX, Math.max(_RAIL_MIN, raw));
+      if (Math.abs(w - _RAIL_NORMAL) <= _RAIL_SNAP) w = _RAIL_NORMAL;  // snap to normal
+      lastW = w;
+      _vivRailApplyWidth(rail, w);
+    }
+    function _up() {
+      document.removeEventListener('mousemove', _move);
+      document.removeEventListener('mouseup', _up);
+      rail.classList.remove('viv-rail-resizing');
+      document.body.classList.remove('viv-rail-resizing-active');
+      var collapsed = rail.classList.contains('viv-rail-collapsed');
+      try {
+        localStorage.setItem('vivarium.rail-collapsed', collapsed ? '1' : '0');
+        if (!collapsed) localStorage.setItem('vivarium.rail-width', String(lastW));
+      } catch (e) { /* private mode */ }
+      if (typeof _vivSyncRailToggleLabel === 'function') _vivSyncRailToggleLabel(collapsed);
+    }
+    document.addEventListener('mousemove', _move);
+    document.addEventListener('mouseup', _up);
+  }
+  window._vivRailResizeStart = _vivRailResizeStart;
+
+  function _vivRailResizeReset() {
+    var rail = document.getElementById('viv-rail');
+    if (!rail) return;
+    rail.classList.remove('viv-rail-collapsed');
+    _vivRailApplyWidth(rail, _RAIL_NORMAL);
+    try {
+      localStorage.setItem('vivarium.rail-collapsed', '0');
+      localStorage.setItem('vivarium.rail-width', String(_RAIL_NORMAL));
+    } catch (e) { /* private mode */ }
+    if (typeof _vivSyncRailToggleLabel === 'function') _vivSyncRailToggleLabel(false);
+  }
+  window._vivRailResizeReset = _vivRailResizeReset;
 
   // -------------------------------------------------------------------------
   // Vivarium left rail — Investigations grouping (V4)
@@ -5615,6 +5815,10 @@
     // scroll: land on the study, scroll up into the graph and past it to the
     // overview (user request).
     _setInvestigationContextCollapsed(false);
+    // Open a landing window BEFORE sizing: while active, content-driven refits
+    // skip their scroll-restore so they can't cancel the smooth scroll-to-study
+    // below (which was snapping the view back up to the graph).
+    window._embedLandingUntil = Date.now() + 1400;
     if (typeof _fitEmbedToContent === 'function') _fitEmbedToContent(frame, 560);
     else if (typeof _fitEmbedToViewport === 'function') _fitEmbedToViewport(frame, panel, 560);
     // Gracefully scroll down to the study AFTER its porthole has loaded + sized,
@@ -5630,6 +5834,10 @@
       };
       if (frame) frame.addEventListener('load', function () { setTimeout(_land, 80); }, { once: true });
       setTimeout(_land, 600);   // fallback if load already fired or never fires
+      // Once the landing window closes, run one final content-fit (suppressed
+      // during landing) so the porthole ends at its true height, now preserving
+      // the landed scroll position instead of fighting the smooth scroll.
+      if (frame) setTimeout(function () { if (frame._refit) frame._refit(); }, 1550);
     }
   }
   window._wsOpenStudyTab = _wsOpenStudyTab;
@@ -6970,13 +7178,17 @@
           '</button>';
       }
       node.innerHTML =
-        '<div style="display:flex;align-items:flex-start;gap:6px">' +
-          '<span style="color:' + ss.color + ';font-size:1.05em;line-height:1.1;flex:none">' + ss.icon + '</span>' +
-          '<strong style="font-size:0.85em;line-height:1.25;color:#1e293b;flex:1">' + _esc(prettyTitle) + '</strong>' +
+        // Meta row: icon (left) + status badge (right). The badge is alone on
+        // this row with space-between, so a nowrap label can never overflow the
+        // card. The title then spans the FULL card width on its own line below
+        // (no longer squeezed into a thin flex column beside the badge).
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px">' +
+          '<span style="color:' + ss.color + ';font-size:1.05em;line-height:1;flex:none">' + ss.icon + '</span>' +
           '<span class="aig-status-badge" role="button" tabindex="0" title="Why: open this study\'s finding & evidence" ' +
-            'style="font-size:0.62em;font-weight:700;color:' + ss.color + ';white-space:nowrap;margin-top:1px;cursor:pointer;text-decoration:underline dotted">' +
+            'style="font-size:0.62em;font-weight:700;color:' + ss.color + ';white-space:nowrap;cursor:pointer;text-decoration:underline dotted;flex:none">' +
             _esc(confidence) + '</span>' +
         '</div>' +
+        '<strong style="display:block;font-size:0.85em;line-height:1.3;color:#1e293b">' + _esc(prettyTitle) + '</strong>' +
         (_opts.asks && asks
           ? '<div style="font-size:0.72em;margin-top:7px;line-height:1.35;color:#64748b;' + _clamp(2) + '">' +
               '<span style="font-weight:600;color:#475569">Asks:</span> ' + _esc(asks) + '</div>'
@@ -13179,8 +13391,34 @@
     return '#9ca3af';                                                                // gray (planned/unknown)
   }
 
-  // Single-row per study: [dot] name [🔒?]. Full status string in tooltip.
-  // Used by both the flat-list and grouped rail layouts.
+  // Pinned studies: a per-user convenience, kept in localStorage (no workspace
+  // write). A pinned study is duplicated into a "Pinned" strip at the top of the
+  // STUDIES rail for quick access while still appearing in its own group.
+  function _loadPinnedStudies() {
+    try {
+      var raw = window.localStorage.getItem('viv.pinnedStudies');
+      window._pinnedStudies = raw ? JSON.parse(raw) : [];
+    } catch (e) { window._pinnedStudies = []; }
+    if (!Array.isArray(window._pinnedStudies)) window._pinnedStudies = [];
+    return window._pinnedStudies;
+  }
+  function _isStudyPinned(name) {
+    if (!window._pinnedStudies) _loadPinnedStudies();
+    return window._pinnedStudies.indexOf(name) !== -1;
+  }
+  function _toggleStudyPin(name) {
+    if (!window._pinnedStudies) _loadPinnedStudies();
+    var i = window._pinnedStudies.indexOf(name);
+    if (i === -1) window._pinnedStudies.push(name);
+    else window._pinnedStudies.splice(i, 1);
+    try { window.localStorage.setItem('viv.pinnedStudies', JSON.stringify(window._pinnedStudies)); } catch (e) { /* private mode */ }
+    if (typeof _renderRailInvestigationGroups === 'function') _renderRailInvestigationGroups();
+  }
+  window._toggleStudyPin = _toggleStudyPin;
+
+  // Single-row per study: [dot] name [pin]. Full status string in tooltip. The
+  // pin toggle sits at the right; clicking it pins/unpins without opening the
+  // study (stopPropagation). Used by the grouped, pinned, and ungrouped layouts.
   function _railStudyItem(s, opts) {
     opts = opts || {};
     var status = s.status || 'planned';
@@ -13188,13 +13426,19 @@
     var indent = opts.indent ? '28px' : '12px';
     var fontSize = opts.indent ? '0.85em' : '0.86em';
     var nameColor = opts.indent ? '#64748b' : '#374151';
+    var pinned = _isStudyPinned(s.name);
     var tip = _esc(s.name) + ' — ' + _esc(status) + (s.blocked ? ' (blocked)' : '');
-    return '<a class="viv-rail-sublink" data-study-name="' + _esc(s.name) + '" ' +
+    var pinBtn = '<span class="viv-rail-pin' + (pinned ? ' pinned' : '') + '" role="button" tabindex="0" ' +
+           'aria-label="' + (pinned ? 'Unpin study' : 'Pin study to top') + '" ' +
+           'title="' + (pinned ? 'Unpin' : 'Pin to top') + '" ' +
+           'onclick="event.preventDefault();event.stopPropagation();_toggleStudyPin(\'' + _esc(s.name) + '\');return false;">📌</span>';
+    return '<a class="viv-rail-sublink' + (pinned ? ' viv-rail-sublink-pinned' : '') + '" data-study-name="' + _esc(s.name) + '" ' +
            'onclick="event.preventDefault();_openStudyEmbeddedNewTab(\'' + _esc(s.name) + '\');return false;" ' +
            'href="#" title="' + tip + '" ' +
            'style="display:flex;align-items:center;gap:8px;padding:4px 14px 4px ' + indent + ';color:' + nameColor + ';text-decoration:none;font-size:' + fontSize + ';">' +
              '<span aria-hidden="true" style="flex:none;width:8px;height:8px;border-radius:50%;background:' + color + ';display:inline-block"></span>' +
              '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + _esc(s.name) + '</span>' +
+             pinBtn +
            '</a>';
   }
 
@@ -13252,13 +13496,13 @@
       return da - db || String(a.title || a.name).localeCompare(String(b.title || b.name));
     });
 
-    // Studies not a member of any investigation.
+    // Studies not a member of any investigation. These render as a plain flat
+    // list at the BOTTOM of the rail (no collapsible group wrapper) rather than
+    // inside an "Ungrouped" dropdown, so loose studies are always visible.
     var ungrouped = window._investigations.filter(function(s) { return !seen[s.name]; });
-    if (ungrouped.length) {
-      ungrouped.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
-      ordered.push({ name: '__ungrouped__', title: 'Ungrouped', studies: ungrouped, _ungrouped: true });
-    }
+    ungrouped.sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
 
+    if (!window._pinnedStudies) _loadPinnedStudies();
     var hasActive = ordered.some(function(g) { return g.name === currentSlug; });
 
     function _railGroupHtml(g, forceOpen) {
@@ -13300,25 +13544,61 @@
     // AND-first, OR-fallback. Prefer studies matching EVERY token (precise); but
     // if nothing matches all tokens, fall back to matching ANY token so a natural
     // phrase like "basal simulation" still surfaces the `basal` study even when
-    // "simulation" appears in none of its fields.
-    var requireAll = searching && ordered.some(function(g) {
-      return g.studies.some(function(s) { return _studyMatchesQuery(s, g.title, tokens, true); });
-    });
+    // "simulation" appears in none of its fields. Consider grouped + ungrouped.
+    var requireAll = searching && (
+      ordered.some(function(g) {
+        return g.studies.some(function(s) { return _studyMatchesQuery(s, g.title, tokens, true); });
+      }) ||
+      ungrouped.some(function(s) { return _studyMatchesQuery(s, 'Ungrouped', tokens, true); })
+    );
 
-    var html = ordered.map(function(g, i) {
+    // Pinned strip (top): duplicates of pinned studies for quick access. Hidden
+    // while searching so results stay clean. A pinned study still shows in its
+    // own group/ungrouped list below.
+    var pinnedHtml = '';
+    if (!searching && (window._pinnedStudies || []).length) {
+      var pinnedStudies = window._pinnedStudies
+        .map(function(name) {
+          return window._investigations.find(function(s) { return s.name === name; });
+        })
+        .filter(Boolean);
+      if (pinnedStudies.length) {
+        pinnedHtml = '<div class="viv-rail-pinned-section">'
+          + '<div class="viv-rail-section-subheader">Pinned</div>'
+          + pinnedStudies.map(function(s) { return _railStudyItem(s, {}); }).join('')
+          + '</div>';
+      }
+    }
+
+    // Investigation groups (middle).
+    var groupsHtml = ordered.map(function(g, i) {
       var studies = g.studies;
       if (searching) {
         studies = g.studies.filter(function(s) {
           return _studyMatchesQuery(s, g.title, tokens, requireAll);
         });
         if (!studies.length) return '';   // hide groups with no match
-        g = { name: g.name, title: g.title, studies: studies, _ungrouped: g._ungrouped };
+        g = { name: g.name, title: g.title, studies: studies };
       }
       // While searching, force groups open so matches are visible. Otherwise:
       // with no active investigation, open the first group so the rail isn't
       // entirely collapsed on load.
       return _railGroupHtml(g, searching || (!hasActive && i === 0));
     }).join('');
+
+    // Ungrouped studies (bottom): a plain flat list, no collapsible header.
+    var ungroupedList = searching
+      ? ungrouped.filter(function(s) { return _studyMatchesQuery(s, 'Ungrouped', tokens, requireAll); })
+      : ungrouped;
+    var ungroupedHtml = '';
+    if (ungroupedList.length) {
+      ungroupedHtml = '<div class="viv-rail-ungrouped-section">'
+        + (groupsHtml ? '<div class="viv-rail-ungrouped-divider"></div>' : '')
+        + ungroupedList.map(function(s) { return _railStudyItem(s, {}); }).join('')
+        + '</div>';
+    }
+
+    var html = pinnedHtml + groupsHtml + ungroupedHtml;
 
     if (!html && searching) {
       html = '<div class="viv-rail-empty" style="font-size:0.85em;color:#94a3b8;'

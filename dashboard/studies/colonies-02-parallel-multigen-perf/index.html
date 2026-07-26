@@ -910,14 +910,8 @@ coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>colonies-01-hpc-readiness</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>colonies-03-hpc-deployment</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">colonies-01-hpc-readiness.gate_status == passed (satisfied) AND
@@ -1009,7 +1003,7 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"cache_dir": "out/cache", "ecoli_interval": 1.0, "env_size": 30, "n_cells": 1, "physics_interval": 1.0, "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>colony-1cell-natural</strong>
+        <strong>colonies-02-parallel-multigen-perf</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_colony.ecoli_colony</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -1028,6 +1022,42 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>1</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">physics_interval</span>=<code>1.0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">ecoli_interval</span>=<code>1.0</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+
+    
+  </div>
   
 
   
@@ -1091,7 +1121,7 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 5 · 
       
     </p>
     
@@ -1128,7 +1158,7 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 5 · 
       
     </p>
     
@@ -1168,7 +1198,7 @@ per_cell_ms / per_cell_rss recorded as projection inputs.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 5 · 
       
     </p>
     

@@ -489,10 +489,6 @@ to the model&#39;s internal biomass accounting.
         <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
         
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>mbp-03-bird-reactor-coupling</code>
-        </div>
-        
         
         <div><strong>Proceed when:</strong> <span class="muted">cell_count and total_biomass_gDW track Division events (with
 cells_per_agent=1.0 default); per-cell observables match the
@@ -644,7 +640,7 @@ scales linearly and per-cell observables remain unchanged.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_population" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>population-aggregation-baseline</strong>
+        <strong>mbp-02-population-aggregation</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_population</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -704,7 +700,8 @@ scales linearly and per-cell observables remain unchanged.
           <tr>
             <td><code>cells-per-agent-1</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_population</code>
+              
             </td>
             <td>
               
@@ -718,7 +715,8 @@ scales linearly and per-cell observables remain unchanged.
           <tr>
             <td><code>cells-per-agent-1e6</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_population</code>
+              
             </td>
             <td>
               
@@ -732,7 +730,8 @@ scales linearly and per-cell observables remain unchanged.
           <tr>
             <td><code>cells-per-agent-1e9</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_population</code>
+              
             </td>
             <td>
               

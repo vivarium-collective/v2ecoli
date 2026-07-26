@@ -310,17 +310,36 @@
     
     
     <div class="overview-section">
-      <div id="question-text" class="overview-prose" data-editable="true"
-           data-field="question"
-           data-placeholder="(what research question is this study asking?)"></div>
-    </div>
-    <div class="overview-section">
-      <div id="hypothesis-text" class="overview-prose" data-editable="true"
-           data-field="hypothesis"
-           data-placeholder="(predicted outcome)"></div>
-    </div>
-    <div class="overview-section">
-      <div id="objective-text" class="overview-prose" data-editable="true" data-field="objective"></div>
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Does the shared harness — cell-tier factory, geometry builders, and
+tier-agnostic phenotype extractor — recover a correct, uniform single-cell
+phenotype panel (growth rate, size-at-division, added length, inter-division
+time, adder size-homeostasis) across the three device geometries, validated
+first with cheap simple viva-munk agents before spending WCM compute?
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> The factory yields a runnable cell per tier, the geometry builders run
+simple agents in all three devices, the extractor recovers known division
+statistics, and the harness emits the common phenotype panel — the shared
+measurement substrate the WCM-tier device studies (colonies-08/09) reuse.
+No biological conclusion is drawn at this enabling tier.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> The factory instantiates any cell tier (simple / surrogate / wcm) into a
+device built by the geometry builders; the tier-agnostic extractor reads the
+same phenotype panel regardless of tier, and the ColonyPhenotypeRecorder
+process streams that panel per cell to zarr as a bounded stream (a cheap
+view of the cells map rather than an emitter deep-copy).
+
+      </div>
+      
     </div>
     
 
@@ -398,19 +417,17 @@
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>colonies-03-wcm-rss-leak</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
         
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>colonies-05-mother-machine</code> · <code>colonies-06-daughter-machine</code>
-        </div>
         
-        
-        <div><strong>Proceed when:</strong> <span class="muted">Part B builds on the Part A composite foundation and treats the colonies-03
-native RSS leak as a stated run-length BOUND, not a blocker; the WCM-tier
-studies (colonies-08/09) use short bounded windows.
+        <div><strong>Proceed when:</strong> <span class="muted">Part B builds on the Part A enabling infrastructure. The colonies-03 RSS
+growth is now a characterised, Linux-bounded, mitigated footnote (localized
+to the inner WCM&#39;s elongation + mass-listener; ~0.017 MB/tick on Linux/glibc,
+0.000 with periodic malloc_trim), not an HPC blocker. WCM-tier device runs
+(colonies-08/09) are length-bounded on the dev mini (a macOS allocator
+artifact) but unbounded on the Linux HPC target; the simple-agent tier here
+runs freely.
 </span></div>
         
       </div>
@@ -442,8 +459,8 @@ studies (colonies-08/09) use short bounded windows.
 
       <div class="study-counts-strip">
         <div class="count-cell">
-          <strong>0</strong>
-          <span class="count-label">variants</span>
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
         </div>
         <div class="count-cell">
           <strong>0</strong>
@@ -483,7 +500,7 @@ studies (colonies-08/09) use short bounded windows.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"env_size": 30, "n_cells": 2, "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>free-colony-simple</strong>
+        <strong>colonies-04-device-phenotype-harness</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_colony.ecoli_colony</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -502,6 +519,36 @@ studies (colonies-08/09) use short bounded windows.
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>2</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+
+    
+  </div>
   
 
   
@@ -532,6 +579,39 @@ studies (colonies-08/09) use short bounded windows.
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+  
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">colonies-04-device-phenotype-harness-baseline</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
   
   
   <!-- Configure & Run widget (SP-C) — native run launcher for this study -->

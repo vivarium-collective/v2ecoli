@@ -31,18 +31,6 @@
 
 
 
-<div class="composite-lint-banner" role="alert"
-     style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
-  
-  <div>⚠ composite not found in registry: <code>v2ecoli.composites.reactor_bird_coupled</code></div>
-  
-  <div style="margin-top:4px;font-size:0.86em;color:#a16207">
-    This study references a composite that doesn't resolve — it may not declare a
-    real, registered composite. Add a <code>.composite.yaml</code> and register it
-    in <code>core.py</code>, or fix the ref.
-  </div>
-</div>
-
 
 
 <div id="readiness-panel" data-slug="mbp-04-multigeneration-runs"></div>
@@ -469,14 +457,8 @@ count over generations matches the integral of μ × population.
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>mbp-03-bird-reactor-coupling</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>mbp-05-palsson-benchmark</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">Regime-transition test passes (population growth flattens once a
@@ -624,7 +606,7 @@ budget met; no NaN / divergence.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.reactor_bird_coupled" data-model-overrides='{"cache_dir": "out/cache", "features": ["mass_conservation"], "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>multigeneration-coupled-baseline</strong>
+        <strong>mbp-04-multigeneration-runs</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.reactor_bird_coupled</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -643,6 +625,61 @@ budget met; no NaN / divergence.
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.reactor_bird_coupled</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">features</span>=<code>[&#39;mass_conservation&#39;]</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>three-generation-batch</code></td>
+            <td>
+              <code>v2ecoli.composites.reactor_bird_coupled</code>
+              
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+  </div>
   
 
   
@@ -812,7 +849,7 @@ Both should be |residual| &lt; 0.02 at every emit step over the run.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 5 · 
       
     </p>
     

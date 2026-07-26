@@ -514,14 +514,8 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>{&#39;study&#39;: &#39;pdmp-02-jump-processes&#39;, &#39;condition&#39;: &#39;tests-passed&#39;}</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>pdmp-05-causal-discovery</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p &gt; 0.05), 90% credible intervals achieve ≥85% empirical coverage.</span></div>
@@ -658,7 +652,7 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
     
     <div class="cond-block" data-model-composite="v2ecoli_pdmp.composites.inference.pdmp_with_likelihood" data-model-overrides='{"emitter": "xarray", "summary_only": true}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>pdmp-with-likelihood-accumulator-tbd</strong>
+        <strong>pdmp-03-inference</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code>
         <button type="button" class="action-btn" style="font-size:0.8em"

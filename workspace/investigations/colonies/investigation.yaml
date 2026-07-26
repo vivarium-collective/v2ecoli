@@ -130,9 +130,9 @@ scientific_argument:
   - The residual ~0.2 MB/tick scipy-LSODA retention is real and platform-independent;
     over a full cell cycle (~3000 ticks) that is ~0.6 GB per cell, so very long
     single-process WCM runs still need the solver-level fix or periodic trimming.
-  - Full-colony (55-process) Linux boundedness is now validated END-TO-END: the real
+  - Full-colony (55-process) Linux boundedness is now validated end-to-end — the real
     colony, built for glibc in a Linux container, grew RSS 0.225 MB/tick vs ~1.6 on
-    the macOS mini (7x less) — confirming the arena-churn-is-a-macOS-artifact finding.
+    the macOS mini (7x less), confirming the arena-churn-is-a-macOS-artifact finding.
     The residual 0.225 MB/tick equals the real scipy-LSODA retention and persists on
     Linux (~0.6 GB/cell-cycle), so very long multi-generation WCM runs still want the
     solver-level fix (BDF-first in equilibrium/two-component) or periodic trimming; a

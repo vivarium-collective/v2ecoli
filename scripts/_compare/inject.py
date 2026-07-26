@@ -543,6 +543,24 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
                 if root is not None and root not in cell_state:
                     cell_state[root] = {}
         core.register_link(spec["name"], wrapped)
+        # ALSO register under the exact address make_edge() will stamp on this
+        # edge (f'{type(instance).__module__}.{type(instance).__qualname__}').
+        # At division, process-bigraph re-realizes the daughter subtree
+        # (Composite._realize_structural_subtrees -> bigraph_schema's
+        # realize_link) for the daughter's copy of this edge, which has no
+        # live `instance` -- it resolves the process class purely from the
+        # edge's `address` via local_lookup_registry(core, data) ==
+        # core.link_registry.get(data), NOT by spec['name']. A dynamically
+        # wrapped vivarium_1 class (wrap_vivarium_process) keeps
+        # __module__ == 'v2ecoli.library.vivarium_bridge' and gets
+        # __qualname__ == f'{v1_cls.__name__}Bridge' -- a string that is
+        # neither importable nor equal to spec['name'], so without this extra
+        # registration division crashes with "no link found at address:
+        # {'protocol': 'local', 'data': 'v2ecoli.library.vivarium_bridge.
+        # <X>Bridge'}". Harmless (and not strictly needed) for pbg_native
+        # classes, whose real module.qualname IS importable; applied for all
+        # injected specs since this is the one shared registration point.
+        core.register_link(f"{wrapped.__module__}.{wrapped.__qualname__}", wrapped)
 
         instance = wrapped(spec["config"] or {}, core=core)
         edge_type = "step" if spec["kind"] == "pbg_native" and spec["as_step"] \

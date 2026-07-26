@@ -1,0 +1,78 @@
+schema_version: 4
+name: with_aa
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on with_aa
+condition: with_aa
+question: Does v2ecoli reproduce vEcoli on the with_aa condition?
+comparison:
+  seeds: 4
+  generations: 4
+report_cards:
+- viz/report_card/config.html
+- viz/report_card/standard.html
+- viz/report_card/statistical.html
+pipeline_gate:
+  prerequisites:
+  - parca
+  enables: []
+runs:
+- composite: v2ecoli.composites.baseline.baseline
+  name: with_aa-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study with_aa
+  status: completed
+  result: PASS
+  outcomes:
+    statistical-vs-vecoli:
+      result: WITHIN_TOL
+      detail: 'report card ''statistical'': ungraded'
+status: evaluated
+tests:
+- name: config-vs-vecoli
+  kind: report_card
+  card: config
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (config card)?
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (standard card)?
+- name: statistical-vs-vecoli
+  kind: report_card
+  card: statistical
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (statistical card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/with_aa
+    group: statistical
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      condition: with_aa
+depends_on:
+- parca
+confidence: Accepted
+findings:
+- id: with_aa-rpobc-fix
+  kind: computational
+  status: confirms
+  statement: 'RESOLVED (fully). with_aa was the strongest mismatch (growth -16.1%
+    p=0.003, RNA -21.3% p=0.001, sign reversed vs acetate). After the fix v2ecoli
+    reproduces vEcoli on rich amino acids NATIVELY: ALL FIVE observables are within
+    tolerance. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0
+    (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient
+    response and compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth.
+    The fix restores a fold-change-consistent, basal-preserving rpoBC split.'
+  evidence:
+    from_card: statistical
+    observed: 'before -> after fix (4-seed gen-1, Welch t): growth -16.1% (p=0.003,
+      MISMATCH) -> +1.7% (p=0.53, within_tol); RNA -21.3% (p=0.001, MISMATCH) -> +0.4%
+      (p=0.89, within_tol); cell -5.3% drift -> +0.9% within_tol; dry -5.3% -> +0.9%
+      within_tol; protein -4.0% -> -0.0% within_tol. Overall mismatch -> within_tol.'
+inputs:
+- artifact: sim_data
+  from: parca

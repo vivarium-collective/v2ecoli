@@ -106,7 +106,7 @@ readouts:
 - {name: tf-condition-count, description: "TF-condition count fit by the ParCa run (51 = full, ~7 = fast/debug)"}
 - {name: cache-bundle-artifacts, description: "cache-bundle artifact presence (initial_state.json + sim_data_cache.dill + metadata.json + cache_version.json)"}
 - {name: simdata-structural-inventory, description: "sim_data structural inventory (4538 genes / 3277 TUs / 4309 monomers / 1118 complexes / 9460 metabolic reactions)"}
-- {name: smoke-run, description: "5-step build_composite("ecoli_baseline") smoke run — no equilibrium-solver crash"}
+- {name: smoke-run, description: "5-step build_composite('ecoli_baseline') smoke run — no equilibrium-solver crash"}
 
 enforced_params:
 - {name: mode, value: full, why: "fits all 51 TF conditions; fast/debug fits ~7 and mis-calibrates dnaA / replication"}

@@ -2660,6 +2660,21 @@ wheels = [
 ]
 
 [[package]]
+name = "openmm"
+version = "8.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/45/25/9aaf1c085accd1b3f73c0894fd9f5a2bcf4422b5cc91c841c876d47c8b59/openmm-8.5.2-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:eac5a75b0c624871c4a69c2a8e55f8fd5bd300cdd3036c530bb1ca968f207645", size = 13338598, upload-time = "2026-06-08T18:19:27.685Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/eb/736b72b570ae6d17665f39e2d90c7be553ac59e3351b6fb0b2c19677a42c/openmm-8.5.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:9e7769dda45dd4b6619d7f1a97abc224d291f0be040f6eeef663edcfc7d68ce9", size = 12837744, upload-time = "2026-06-08T18:19:32.245Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/94/8beca4ed65835f5d489d0facb878b223ed4e3ed72901d3eb812f04454524/openmm-8.5.2-cp312-cp312-manylinux_2_34_aarch64.whl", hash = "sha256:1523189f550d7c1579da02aa5b7a70a1829a4c6beae8c15f5ca8d8a7475a8ab3", size = 13982229, upload-time = "2026-06-08T18:19:37.194Z" },
+    { url = "https://files.pythonhosted.org/packages/10/b5/abf7d510c33a5eea0d47097562c6319b8ddadedc5fce865e2dfe4a9b6bc7/openmm-8.5.2-cp312-cp312-manylinux_2_34_x86_64.whl", hash = "sha256:3ecb1458bd88af00df143800c5a3941363e0b9cf0d3c175af21c025742587d3f", size = 14388502, upload-time = "2026-06-08T18:19:42.002Z" },
+    { url = "https://files.pythonhosted.org/packages/17/cd/46479b48cf012ed585da1729f469dce2222f0aa61c48edae5999d201cb2c/openmm-8.5.2-cp312-cp312-win_amd64.whl", hash = "sha256:45bc8c6c1f69097afa0bd6b6f5c0dda17d75fadb1c02f656febc94259948ab93", size = 13208341, upload-time = "2026-06-08T18:19:46.988Z" },
+]
+
+[[package]]
 name = "openpyxl"
 version = "3.1.5"
 source = { registry = "https://pypi.org/simple" }
@@ -2911,9 +2926,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pbg-openmm"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-openmm.git?branch=main#6fbea7307e1d5e5dac44addac5c968d6c3a574e3" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "openmm" },
+    { name = "process-bigraph" },
+    { name = "setuptools" },
+]
+
+[[package]]
 name = "pbg-parsimony"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#a1a99014c0a8bae0962a493828b03eb09ac117f5" }
+source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#d03264acb77d8ff318570835555db13e281b2b61" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "process-bigraph" },
@@ -4522,6 +4548,9 @@ dev = [
 ray = [
     { name = "ray" },
 ]
+relax = [
+    { name = "pbg-openmm" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -4539,6 +4568,7 @@ requires-dist = [
     { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-ketchup", git = "https://github.com/vivarium-collective/pbg-ketchup.git?branch=main" },
+    { name = "pbg-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/pbg-openmm.git?branch=main" },
     { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
     { name = "pbg-torch", git = "https://github.com/vivarium-collective/pbg-torch.git?branch=main" },
@@ -4558,7 +4588,7 @@ requires-dist = [
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
 ]
-provides-extras = ["dev", "parquet", "xarray", "emitters", "ray"]
+provides-extras = ["dev", "parquet", "xarray", "emitters", "ray", "relax"]
 
 [[package]]
 name = "vecoli"

@@ -79,6 +79,11 @@ emitters = ["v2ecoli[parquet,xarray]"]
 # Parallel multiseed runs: one Ray worker process per seed (see
 # v2ecoli.library.parallel_seeds + workspace.yaml runtime.parallel: ray).
 ray = ["ray>=2.10"]
+# All-atom solvated relaxation of AlphaFold structures before 3D packing
+# (structural-ecoli). openmm is heavy, so this is opt-in:
+#   uv sync --extra relax
+# Without it, relaxed structural runs degrade gracefully to raw AlphaFold structures.
+relax = ["pbg-openmm"]
 
 [project.scripts]
 v2ecoli-parca = "v2ecoli.cli.parca:main"
@@ -123,6 +128,7 @@ bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
 pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
 pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.git", branch = "main" }
+pbg-openmm = { git = "https://github.com/vivarium-collective/pbg-openmm.git", branch = "main" }
 pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git", branch = "main" }
 pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }

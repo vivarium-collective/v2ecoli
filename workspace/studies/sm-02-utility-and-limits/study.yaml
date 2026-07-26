@@ -1,6 +1,8 @@
 schema_version: 4
 name: sm-02-utility-and-limits
 investigation: surrogate-modeling
+uses_modules:
+  - pbg-torch   # NN surrogate Processes / TransitionDataset used via the runner (no composite reference)
 title: "Utility & limits — what a cheap emulator buys, and where emulation ends"
 created: '2026-06-16'
 status: evaluated

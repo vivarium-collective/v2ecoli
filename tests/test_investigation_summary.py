@@ -12,10 +12,20 @@ def test_aggregate_discovers_studies_in_dag_order():
     assert summ["slug"] == SLUG
     assert summ["question"].startswith("Does v2ecoli reproduce vEcoli")
     slugs = [s["slug"] for s in summ["studies"]]
-    assert slugs == [
+    # Same study set, asserted as a VALID DAG order (parca root first; every
+    # study after its in-set prerequisites) rather than a brittle exact authored
+    # sequence — the registry migrator sorts members alphabetically, so
+    # aggregate() topologically re-orders and the exact order isn't fixed.
+    assert set(slugs) == {
         "parca", "basal", "metabolism_redux", "with_aa", "succinate",
         "no_oxygen", "acetate", "statistical",
-    ]
+    }
+    assert slugs[0] == "parca"
+    pos = {s: i for i, s in enumerate(slugs)}
+    for s in summ["studies"]:
+        for p in s["prerequisites"]:
+            if p in pos:
+                assert pos[p] < pos[s["slug"]], f"{p} must precede {s['slug']}"
 
 
 def test_aggregate_per_study_metadata_and_rollup():
@@ -64,7 +74,7 @@ def test_matrix_cell_verdicts_match_source_json():
     rows = {r["study"]: r["cells"] for r in m["rows"]}
     # acetate growth rate is a mismatch in the source verdict.json
     src = json.loads(
-        (WS / "investigations" / SLUG / "studies" / "acetate"
+        (WS / "studies" / "acetate"  # registry: studies live top-level (Spec 1)
          / "viz" / "report_card" / "standard.verdict.json").read_text(encoding='utf-8')
     )
     axis = {a["label"]: a["verdict"] for a in src["groups"]["standard"]["axes"]}

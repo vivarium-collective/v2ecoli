@@ -122,6 +122,30 @@ def _config_json(study: dict) -> dict[str, Any]:
     return cfg
 
 
+def _dag_order(studies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stable topological sort by each study's in-set `prerequisites`: a study
+    appears after every prerequisite that is itself in this list. Studies at the
+    same DAG depth keep their input order. A cycle or unresolvable ref falls
+    through in input order rather than dropping any study."""
+    by_slug = {s["slug"]: s for s in studies}
+    emitted: set[str] = set()
+    order: list[dict[str, Any]] = []
+    remaining = list(studies)
+    while remaining:
+        ready = [
+            s for s in remaining
+            if all(p in emitted for p in s["prerequisites"] if p in by_slug)
+        ]
+        if not ready:  # cycle / unresolvable — emit the rest as-is
+            order.extend(remaining)
+            break
+        for s in ready:
+            order.append(s)
+            emitted.add(s["slug"])
+            remaining.remove(s)
+    return order
+
+
 def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
     ws = Path(workspace_root)
     inv_dir = ws / "investigations" / slug
@@ -156,6 +180,12 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
             "cards": cards,
             "config_json": _config_json(study),
         })
+
+    # Order studies by their prerequisite DAG (roots like `parca` first) so the
+    # summary + matrix read in pipeline order regardless of the investigation's
+    # members: list order — the registry migrator sorts members alphabetically,
+    # which is not a valid pipeline order (a variant could precede its ParCa).
+    studies = _dag_order(studies)
 
     # Build the verdict matrix
     columns: list[str] = []

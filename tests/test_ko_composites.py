@@ -180,7 +180,7 @@ def test_knockouts_folded_into_baseline():
     from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401 — fires the decorators
     by_name = {e.name: e for e in _REGISTRY.values() if hasattr(e, "name")}
-    params = inspect.signature(by_name["baseline"].func).parameters
+    params = inspect.signature(by_name["ecoli_baseline"].func).parameters
     assert "knockouts" in params
     assert "n_seeds" in params      # same baseline covers the batch case
     assert "KO_baseline" not in by_name

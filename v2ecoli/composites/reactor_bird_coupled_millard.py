@@ -33,8 +33,8 @@ from typing import Any
 
 from viva_superpowers.composite_generator import composite_generator
 
-from v2ecoli.composites.baseline_millard import baseline_millard
-from v2ecoli.composites.baseline_population import add_population_aggregator
+from v2ecoli.composites.ecoli_millard import baseline_millard
+from v2ecoli.composites.ecoli_population import add_population_aggregator
 from v2ecoli.composites._millard_helpers import _register_millard_pdmp_links
 from v2ecoli.composites.reactor_bird_coupled import (
     DEFAULT_BIRD_REACTOR_CONFIG,

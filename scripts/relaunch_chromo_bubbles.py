@@ -57,7 +57,7 @@ def run_one(seed: int, out_dir: str, max_steps: int, max_generations: int,
     from v2ecoli.library.parquet_run import run_multigen_parquet
 
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
     try:
         result = run_multigen_parquet(
             composite,

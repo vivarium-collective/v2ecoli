@@ -263,10 +263,10 @@ description: |
   call explicit. Adding fed-batch is expected to be a top-priority mbp-06 gap.
 
   **Reactor + coupling code lives in `v2ecoli/`** (planned packages
-  `v2ecoli.composites.baseline_time_varying_env`,
-  `v2ecoli.composites.baseline_population`,
+  `v2ecoli.composites.ecoli_time_varying_env`,
+  `v2ecoli.composites.ecoli_population`,
   `v2ecoli.composites.reactor_bird_coupled`); the cell-side composite stays
-  `v2ecoli.composites.baseline` (single cell + Division Step).
+  `v2ecoli.composites.ecoli_baseline` (single cell + Division Step).
   `pbg-bioreactordesign` is added as a workspace dependency in mbp-03.
 
   Studies, in dependency order (current `phase` shown; multi-axis status is

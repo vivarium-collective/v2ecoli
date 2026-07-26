@@ -280,7 +280,7 @@ def test_generator_appends_pack_step(tmp_path):
     import v2ecoli
     from v2ecoli.core import build_core
     core = build_core()
-    doc = v2ecoli.build_composite("baseline_parsimony", core=core, seed=0,
+    doc = v2ecoli.build_composite("ecoli_structural", core=core, seed=0,
                                   cache_dir="out/cache", study="ecoli-3d",
                                   emitter="null")  # doc-shape only; do not run
     # find the per-agent cell state
@@ -313,7 +313,7 @@ from __future__ import annotations
 
 from pbg_superpowers.composite_generator import composite_generator
 
-from v2ecoli.composites.baseline import baseline
+from v2ecoli.composites.ecoli_baseline import baseline
 
 
 @composite_generator(name="baseline_parsimony", default_n_steps=2700)
@@ -346,7 +346,7 @@ def baseline_parsimony(core=None, *, study: str = "ecoli-3d",
 
 Implement `_append_final_step(cell, step_name)` to reproduce baseline's final-layer append: read the cell's execution layers / `flow_order`, append `[step_name]`, and call `inject_flow_dependencies(cell, flow_order, layers=...)`. If baseline exposes its layers on the returned doc, reuse them; otherwise import `inject_flow_dependencies` from where baseline uses it and rebuild `flow_order` from the doc's existing steps + the appended step. **Verify against `baseline.py:895-919`** and match its exact call.
 
-Register in `v2ecoli/composites/__init__.py`: add `from v2ecoli.composites import baseline_parsimony  # noqa: F401` next to the other generator imports, and reconcile the `__all__` entry (replace/duplicate the dangling `"parsimony_ecoli"` stub, `__init__.py:74`, with `"baseline_parsimony"`).
+Register in `v2ecoli/composites/__init__.py`: add `from v2ecoli.composites import ecoli_structural  # noqa: F401` next to the other generator imports, and reconcile the `__all__` entry (replace/duplicate the dangling `"parsimony_ecoli"` stub, `__init__.py:74`, with `"baseline_parsimony"`).
 
 - [ ] **Step 4: Run — verify it passes**
 
@@ -384,7 +384,7 @@ def test_initial_snapshot_pack_written(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)  # study dir is written relative to CWD
     core = build_core()
     comp = v2ecoli.build_composite(
-        "baseline_parsimony", core=core, seed=0, cache_dir="out/cache",
+        "ecoli_structural", core=core, seed=0, cache_dir="out/cache",
         study="itest", snapshots={"initial": 2.0}, top_n=2, emitter="null")
     comp.run(4.0)  # cross global_time=2.0
     pack = tmp_path / "studies" / "itest" / "viz" / "3d" / "initial.pack.json"
@@ -400,7 +400,7 @@ def test_pre_division_snapshot(tmp_path, monkeypatch):
     from v2ecoli.core import build_core
     monkeypatch.chdir(tmp_path)
     core = build_core()
-    comp = v2ecoli.build_composite("baseline_parsimony", core=core, seed=0,
+    comp = v2ecoli.build_composite("ecoli_structural", core=core, seed=0,
                                    cache_dir="out/cache", study="itest", emitter="null")
     comp.run(3000.0)  # to/through division
     d = tmp_path / "studies" / "itest" / "viz" / "3d"

@@ -15,12 +15,12 @@ def test_load_manifest_returns_curated_entries(tmp_path):
     mod = _load_mod()
     mf = tmp_path / "viewers.json"
     mf.write_text(json.dumps([
-        {"slug": "baseline", "id": "v2ecoli.composites.baseline.baseline",
+        {"slug": "baseline", "id": "v2ecoli.composites.ecoli_baseline.ecoli_baseline",
          "title": "Baseline whole-cell", "blurb": "Full single-cell WCM."},
     ]))
     entries = mod.load_manifest(mf)
     assert entries[0].slug == "baseline"
-    assert entries[0].id == "v2ecoli.composites.baseline.baseline"
+    assert entries[0].id == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
     assert entries[0].title == "Baseline whole-cell"
 
 
@@ -36,10 +36,10 @@ def test_write_state_writes_slug_json(tmp_path):
 
 def test_loom_url_includes_id_and_relative_state(tmp_path):
     mod = _load_mod()
-    e = mod.Entry(slug="baseline", id="v2ecoli.composites.baseline.baseline",
+    e = mod.Entry(slug="baseline", id="v2ecoli.composites.ecoli_baseline.ecoli_baseline",
                   title="Baseline", blurb="x")
     assert mod.loom_url(e, has_view=True) == (
-        "loom/index.html?static=1&id=v2ecoli.composites.baseline.baseline"
+        "loom/index.html?static=1&id=v2ecoli.composites.ecoli_baseline.ecoli_baseline"
         "&stateUrl=../data/baseline.state.json"
         "&viewUrl=../data/baseline.view.json")
     assert "viewUrl" not in mod.loom_url(e, has_view=False)
@@ -47,20 +47,20 @@ def test_loom_url_includes_id_and_relative_state(tmp_path):
 
 def test_hub_html_lists_only_resolved_and_has_three_viewer_links():
     mod = _load_mod()
-    e = mod.Entry(slug="baseline", id="v2ecoli.composites.baseline.baseline",
+    e = mod.Entry(slug="baseline", id="v2ecoli.composites.ecoli_baseline.ecoli_baseline",
                   title="Baseline whole-cell", blurb="Full WCM.")
     html = mod.hub_html([
         {"entry": e, "has_view": True, "has_viz2": True, "has_svg": True},
     ])
     assert "Baseline whole-cell" in html
-    assert "loom/index.html?static=1&id=v2ecoli.composites.baseline.baseline" in html
+    assert "loom/index.html?static=1&id=v2ecoli.composites.ecoli_baseline.ecoli_baseline" in html
     assert 'href="viz2/baseline.html"' in html
     assert 'href="img/baseline.svg"' in html
 
 
 def test_hub_html_omits_links_for_missing_artifacts():
     mod = _load_mod()
-    e = mod.Entry(slug="colony", id="v2ecoli.composites.colony.colony",
+    e = mod.Entry(slug="colony", id="v2ecoli.composites.ecoli_colony.ecoli_colony",
                   title="Colony", blurb="")
     html = mod.hub_html([
         {"entry": e, "has_view": False, "has_viz2": False, "has_svg": False},
@@ -68,13 +68,13 @@ def test_hub_html_omits_links_for_missing_artifacts():
     assert "Colony" in html
     assert 'href="viz2/colony.html"' not in html
     assert 'href="img/colony.svg"' not in html
-    assert "loom/index.html?static=1&id=v2ecoli.composites.colony.colony" in html
+    assert "loom/index.html?static=1&id=v2ecoli.composites.ecoli_colony.ecoli_colony" in html
 
 
 def test_build_rows_skips_unresolvable_and_records_artifacts(tmp_path):
     mod = _load_mod()
     entries = [
-        mod.Entry("baseline", "v2ecoli.composites.baseline.baseline", "Baseline", ""),
+        mod.Entry("baseline", "v2ecoli.composites.ecoli_baseline.ecoli_baseline", "Baseline", ""),
         mod.Entry("broken", "v2ecoli.composites.broken.broken", "Broken", ""),
     ]
     def fake_resolve(spec_id):
@@ -159,6 +159,6 @@ def test_baseline_viewer_redirects_into_hub():
     html = p.read_text(encoding="utf-8")
     assert "location.replace" in html
     assert "../viewers/loom/index.html?static=1" in html
-    assert "id=v2ecoli.composites.baseline.baseline" in html
+    assert "id=v2ecoli.composites.ecoli_baseline.ecoli_baseline" in html
     assert "stateUrl=../data/baseline.state.json" in html
     assert "viewUrl=../data/baseline.view.json" in html

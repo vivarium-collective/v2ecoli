@@ -52,7 +52,7 @@ findings:
 # re-fit. The wild-type baseline is the reference every contrast is taken against.
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
     # Wild type: plain baseline — minimal-glucose medium, no knockouts.

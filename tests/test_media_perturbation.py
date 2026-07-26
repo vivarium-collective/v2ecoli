@@ -23,7 +23,7 @@ _needs_cache = pytest.mark.skipif(
 @_needs_cache
 def test_media_sets_initial_environment_media_id():
     """A media condition in saved_media becomes the environment's initial id."""
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     doc = baseline(core=build_core(), media="minimal_plus_amino_acids")
     env = doc["state"]["agents"]["0"]["environment"]
     assert env["media_id"] == "minimal_plus_amino_acids"
@@ -32,7 +32,7 @@ def test_media_sets_initial_environment_media_id():
 @_needs_cache
 def test_media_default_minimal_is_unchanged():
     """The default leaves the cache's own 'minimal' initial condition in place."""
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     doc = baseline(core=build_core(), media="minimal")
     assert doc["state"]["agents"]["0"]["environment"]["media_id"] == "minimal"
 
@@ -40,6 +40,6 @@ def test_media_default_minimal_is_unchanged():
 @_needs_cache
 def test_unknown_media_fails_at_build():
     """A condition not in saved_media raises at build time, not silently mid-run."""
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     with pytest.raises(ValueError, match="saved_media"):
         baseline(core=build_core(), media="not_a_real_medium")

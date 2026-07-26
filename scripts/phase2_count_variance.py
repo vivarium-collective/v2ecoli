@@ -60,7 +60,7 @@ def _cv(values) -> float:
 def main(n_seeds: int, n_steps: int) -> None:
     cm, dm, mono, atp, cum_init = [], [], [], [], []
     for seed in range(n_seeds):
-        c = build_composite("baseline", cache_dir="out/cache", seed=seed)
+        c = build_composite("ecoli_baseline", cache_dir="out/cache", seed=seed)
         ci = 0.0
         for _ in range(n_steps):
             c.run(1)

@@ -152,7 +152,7 @@ def run_one(seed: int, n_steps: int, stride: int,
     out_dir.mkdir(parents=True, exist_ok=True)
 
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=cache_dir, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
 
     trajectory: list[dict] = []
     # Warm-up tick so listeners materialize.

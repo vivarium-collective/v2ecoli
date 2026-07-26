@@ -154,7 +154,7 @@ def test_cell_cycle_completes_to_division():
     wall time."""
     from v2ecoli import build_composite
 
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=0)
 
     def _chrom_and_forks():
         cell = composite.state.get('agents', {}).get('0')

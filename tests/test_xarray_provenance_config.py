@@ -11,11 +11,11 @@ def test_provenance_in_config():
     cfg = build_emitter_config(
         store_path=Path("/tmp/x.zarr"), view=[], metadata_base=_MD,
         generation=1, agent_id="0",
-        provenance={"composite": "v2ecoli.composites.baseline.baseline",
+        provenance={"composite": "v2ecoli.composites.ecoli_baseline.ecoli_baseline",
                     "config": {"seed": 0}, "run_id": "r1"},
     )
     assert cfg["provenance"] == {
-        "composite": "v2ecoli.composites.baseline.baseline",
+        "composite": "v2ecoli.composites.ecoli_baseline.ecoli_baseline",
         "config": {"seed": 0}, "run_id": "r1"}
 
 

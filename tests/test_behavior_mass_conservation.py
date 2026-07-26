@@ -66,11 +66,11 @@ def test_baseline_conserves_mass(sim_data_cache, seed):
     coercing-units overhead already slows every sim; a multi-seed sweep belongs
     in the nightly @slow suite.)"""
     import v2ecoli
-    from v2ecoli.composites.baseline import enable_features
+    from v2ecoli.composites.ecoli_baseline import enable_features
 
     enable_features("mass_conservation")
     try:
-        comp = v2ecoli.build_composite("baseline", seed=seed, cache_dir=sim_data_cache)
+        comp = v2ecoli.build_composite("ecoli_baseline", seed=seed, cache_dir=sim_data_cache)
         comp.run(WARMUP_TICKS + 1)            # +1: first tick is the listener baseline
         m_start, resid_start = _read(comp)
         comp.run(WINDOW_TICKS)
@@ -108,7 +108,7 @@ def test_division_conserves_mass(predivision_state, sim_data_cache):
     from process_bigraph import Composite
     from v2ecoli.library.division import divide_cell
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline, seed_mass_listener
+    from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
 
     core = build_core()
 

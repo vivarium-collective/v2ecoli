@@ -117,7 +117,7 @@ def test_baseline_millard_mass_conservation_evaluable():
     import math
 
     c = build_composite(
-        "baseline_millard", seed=0, cache_dir="out/cache",
+        "ecoli_millard", seed=0, cache_dir="out/cache",
         features=["mass_conservation"],
     )
     c.run(14)

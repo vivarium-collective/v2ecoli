@@ -2,7 +2,7 @@ import importlib.util
 import json
 import pathlib
 
-STUDIES = pathlib.Path("workspace/investigations/colonies/studies")
+STUDIES = pathlib.Path("workspace/studies")  # registry: studies live top-level (Spec 1 migration)
 
 
 def _load(run_path):

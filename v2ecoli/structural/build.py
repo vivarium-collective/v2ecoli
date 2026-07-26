@@ -153,7 +153,7 @@ def load_state(state_source="snapshot", advance_s=2.0, seed=0):
     ``{ecocyc_id: parsimony compartment}`` from the dominant ``[x]`` tag."""
     if state_source == "live":
         import v2ecoli
-        comp = v2ecoli.build_composite("baseline", seed=seed, cache_dir="out/cache")
+        comp = v2ecoli.build_composite("ecoli_baseline", seed=seed, cache_dir="out/cache")
         comp.run(advance_s)
         cell = comp.state.get("agents", {}).get("0", comp.state)
         bulk = cell["bulk"]

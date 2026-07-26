@@ -65,7 +65,7 @@ from v2ecoli.composites._helpers import (
 # Reuse baseline's step dispatcher + layer/feature definitions wholesale — the
 # harness is "baseline + two edges", so everything except the inserted layer
 # slot is identical to baseline.
-from v2ecoli.composites import baseline as _baseline
+from v2ecoli.composites import ecoli_baseline as _baseline
 
 
 # ---------------------------------------------------------------------------

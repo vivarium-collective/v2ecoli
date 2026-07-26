@@ -130,7 +130,7 @@ class EcoliWCM(Process):
     def _build_composite(self):
         """Lazily construct the internal v2ecoli Composite with bridge."""
         from v2ecoli.core import build_core
-        from v2ecoli.composites.baseline import baseline
+        from v2ecoli.composites.ecoli_baseline import baseline
         # Import types to trigger resolve dispatch registration
         import v2ecoli.types  # noqa: F401
 

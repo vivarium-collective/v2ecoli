@@ -9,7 +9,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_override_patches_process_config():
     from v2ecoli.core import build_core, load_cache_bundle
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
 
     # Pick any process+key actually present in the cached configs.
     bundle = load_cache_bundle(CACHE)
@@ -38,7 +38,7 @@ def test_override_patches_process_config():
 
 def test_multidot_override_path_raises():
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     with pytest.raises(ValueError, match="nested keys"):
         baseline(core=core, seed=0, cache_dir=CACHE,

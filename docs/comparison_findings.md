@@ -47,7 +47,7 @@ fluxes propagate through metabolism/elongation) — the concrete thing to invest
 3. **Condition is applied at CACHE-BUILD, not composite-build.** v2ecoli selects the
    condition-specific initial state via `save_sim_input(condition=…)` →
    `LoadSimData(condition=…)` (reads `condition_to_doubling_time`/saved media — no refit).
-   It is NOT a `build_composite("baseline")` parameter (that raises "unknown parameter").
+   It is NOT a `build_composite("ecoli_baseline")` parameter (that raises "unknown parameter").
    The sms-api ParCa builds a basal cache, so non-basal v2ecoli runs must regenerate a
    condition-specific bundle from the raw `simData.cPickle`.
 

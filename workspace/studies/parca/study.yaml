@@ -1,0 +1,53 @@
+schema_version: 4
+name: parca
+investigation: v2ecoli-vecoli-comparison
+title: ParCa initial-state agreement — v2ecoli vs vEcoli
+condition: basal
+question: Do v2ecoli and vEcoli start from the same ParCa-fit initial state (basal)?
+comparison:
+  seeds: 1
+  generations: 1
+  cards:
+  - parca
+report_cards:
+- viz/report_card/parca.html
+tests:
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on parca (parca card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/v2ecoli-vecoli-comparison/parca
+    group: parca
+pipeline_gate:
+  prerequisites: []
+  enables: []
+runs:
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  name: parca-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study parca
+  status: completed
+  result: PASS
+  outcomes:
+    parca-vs-vecoli:
+      result: PASS
+      detail: 'report card ''parca'': within_tol'
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      condition: basal
+status: evaluated
+confidence: Accepted
+findings:
+- id: parca-parca
+  kind: computational
+  status: confirms
+  statement: 'v2ecoli and vEcoli start from the same ParCa-fit initial state on basal: all 4 mass observables within tolerance.'
+  evidence:
+    from_card: parca
+    observed: 4 within tolerance (cell mass (fg), dry mass (fg), protein mass (fg), RNA mass (fg))

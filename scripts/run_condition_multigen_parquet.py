@@ -59,7 +59,7 @@ from process_bigraph import Composite
 
 from v2ecoli import build_composite
 from v2ecoli.composites._helpers import parquet_emitter
-from v2ecoli.composites.baseline import baseline as baseline_doc
+from v2ecoli.composites.ecoli_baseline import baseline as baseline_doc
 from v2ecoli.core import build_core
 from v2ecoli.library.division import divide_cell
 from v2ecoli.library.parquet_emitter import ParquetEmitter
@@ -423,7 +423,7 @@ def main() -> None:
                                        cache_dir=args.cache_dir, bundle=bundle)
                     comp = Composite(doc, core=core)
                 else:
-                    comp = build_composite("baseline", cache_dir=args.cache_dir)
+                    comp = build_composite("ecoli_baseline", cache_dir=args.cache_dir)
             else:
                 d1_state, _d2_state = divide_cell(prev_cell_data)
                 bundle = {

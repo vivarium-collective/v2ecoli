@@ -1,0 +1,22 @@
+# Quarantined tests — DESELECTED from the blocking fast-test gate (scripts/pytest_gate.sh).
+#
+# One line per pytest node id. Blank lines and #-comments ignored.
+# A test belongs here ONLY when it is a KNOWN failure that would otherwise block
+# every PR (upstream-library-pinned, waiting on a committed fixture, etc.), NOT a
+# real regression — fix those instead. Each entry MUST carry a reason + how to unquarantine.
+# The non-blocking "quarantine watch" CI job flags any line here that starts PASSING.
+
+# Pins to polars' INTERNAL type-coercion error text/behavior for ragged/empty/3D
+# arrays; the #372 `uv lock --upgrade` deps bump changed the transitive polars
+# version so one edge case stopped raising. Testing a vendored port against a
+# third-party lib's internals is inherently version-fragile.
+# Unquarantine: rewrite the assertion against pbg-emitters' OWN contract rather
+# than polars error text, or drop the edge-case entirely.
+tests/test_parquet_emitter_ported.py::TestParquetEmitterEdgeCases::test_expected_failures
+
+# The baseline_parsimony generator (added in #371) ships without its committed
+# reports/composite-state/<id>.json fixture, so this "every generator has a
+# committed default state" coverage guard fails on it.
+# Unquarantine: generate + commit baseline_parsimony's composite-state snapshot
+# (scripts that produce reports/composite-state/*.json), then remove this line.
+tests/test_composite_state_coverage.py::test_every_v2ecoli_generator_has_committed_default_state

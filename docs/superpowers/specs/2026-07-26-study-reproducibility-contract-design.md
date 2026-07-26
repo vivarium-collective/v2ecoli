@@ -98,8 +98,8 @@ The Phase-3 audit module asserts these; Phases 1–2 build toward them.
 
 | # | Check | Tier |
 |---|---|---|
-| **L0 Structure** | No nested `study.yaml` under `investigations/`; investigations use `members:` only; every study uses the canonical `baseline:`+`variants:` model schema; slug == dir name | hard-fail |
-| **L1 Resolvability** | Every `composite:` resolves in the registry; every model `config` loads/canonicalizes; every `inputs.from` names a real study + declared output artifact; the inputs-derived DAG is acyclic with no dangling edges | hard-fail |
+| **L0 Structure** | No nested `study.yaml` under `investigations/`; investigations use `members:` only; every study uses the canonical single model schema (`conditions.baseline` + `conditions.variants[]`) with `{name, composite, params}` per model; slug == dir name | hard-fail |
+| **L1 Resolvability** | Every `composite:` resolves in the registry; every model's `params` loads/canonicalizes; every `inputs.from` names a real study + declared output artifact; the inputs-derived DAG is acyclic with no dangling edges | hard-fail |
 | **L2 Executability** | A study's subgraph resolves→run→save through the workflow engine; every node is content-addressed, so a deterministic node re-keys identically (structural reproducibility) | warn → hard-fail after Phase 2 |
 | **L3 Outputs** | Flush lands viz in `studies/<slug>/viz/`, downloadable analyses in exports, report cards in `viz/report_card/` — in the tab the UI reads | warn (ratchet) |
 | **L4 Evidence** | Each declared report card emits a computed `verdict`; evidence nodes (verdict, outcome, finding, decision, conclusion) are **computed workflow artifacts**, not read-time derivations; findings link to a test/run | warn (ratchet) |
@@ -189,39 +189,52 @@ executes on, and the canonical model schema (`{name, composite, config}`) *is* t
 
 ### 6.1 Canonical study model schema
 
-Collapse Style A/B into one. `config` is the formalized per-model params dict
-(the "config" in the user's mental model: a study lists models, each is
-`{composite, config}`).
+Collapse Style A/B into one. **Resolved against the workbench normalizer** (open
+items from an earlier draft): the canonical authoring form is the **`conditions:`
+block (Style A)** — this is what `lib/investigations.py` + `study-detail.html`
+read *natively* (the template renders variants from `study.conditions.variants`;
+the v4 projection synthesizes the Model panel's `baseline[]` list from
+`conditions.baseline`). Canonicalizing to it is therefore a **zero-UI-change data
+migration**. The per-model config key stays **`params`** — the Model panel reads
+`b.params` only, and a distinct top-level `config:` already exists as the
+execution-interface config (feeds the workflow node hash), so renaming would break
+the UI and collide names.
 
 ```yaml
 # studies/<slug>/study.yaml
+schema_version: 4
 name: <slug>
 title: ...
-baseline:                     # list (usually 1); the control model(s)
-  - name: baseline
+conditions:
+  baseline:                   # single model (the control); Model panel wraps it into baseline[]
+    name: baseline            # optional; defaults to the study name
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    config: {}                # was `params`; now the explicit, required key
-variants:                     # alternate models; rendered after baseline in the Model tab
-  - name: <variant>
-    composite: <composite-id>
-    config: {...}
+    params: {}                # the per-model config dict (kept as `params`)
+  variants:                   # alternate models; rendered after baseline in the Model tab
+    - name: <variant>
+      composite: <composite-id>     # explicit — inherited from baseline when Style A omits it
+      params: {...}                 # from the old `parameter_overrides`/`params`
+      # perturbation / expected_contrast / description preserved verbatim
+  model_settings: []          # kept under conditions.model_settings (NOT folded into params)
 inputs:  [{artifact: sim_data, from: parca}]
 outputs: [{artifact: <name>, ...}]   # required if a downstream study consumes this
 tests: [...]
 report_cards: [...]
 ```
 
-- `baseline` is a **list** to match the workbench Model panel, which already
-  iterates `study.baseline[]`. **Open confirmation:** verify list-vs-single against
-  the workbench study-spec normalizer while writing the plan; if the normalizer
-  emits a single baseline object, adjust the canonical form to match so no UI
-  change is required.
-- `config` replaces `params`. Empty config is allowed but the **key must be
-  present** (so L0 can assert `{name, composite, config}` on every entry).
-- `conditions.model_settings[]` metadata folds into each model's entry (as
-  `config` or a sibling `metadata`, decided in the plan against how the Model tab
-  reads model_settings).
-- The `conditions:` wrapper is removed after lifting.
+- **Style B** (top-level `baseline:` list) and **"both"** studies (top-level
+  `baseline:` *and* `conditions:`) migrate INTO the conditions form: the single
+  baseline model moves to `conditions.baseline`, any top-level `variants:` merge
+  into `conditions.variants`, and the redundant top-level `baseline:`/`variants:`
+  keys are removed. A top-level `baseline:` list with >1 entry is **flagged for a
+  human call** (no study currently has one).
+- **Variants inherit the baseline composite**: Style A variants omit `composite`
+  and only override params (e.g. `knockouts`, `media`); the migrator sets each
+  variant's explicit `composite` = the baseline's when absent, so every model
+  entry is a complete `{name, composite, params}`.
+- YAML anchors/aliases (e.g. pdmp-00's `params: &id001`) and any nested
+  `pipeline_gate` blocks deeper in prose must survive the ruamel round-trip
+  untouched; only the top-level `conditions`/`baseline`/`variants` keys move.
 
 ### 6.2 Ordering = `inputs.from` (data-flow is canonical)
 
@@ -291,8 +304,9 @@ report_cards: [...]
   golden byte-check gates the migrators.
 - **Shared-checkout collisions** — do all edits/commits on a dedicated worktree
   (`~/code/v2ecoli--repro-audit`); verify branch/HEAD before every commit.
-- **`config` folding ambiguity** (model_settings vs params vs metadata) → resolve
-  against the actual Model-tab reader in the plan, not by guessing.
+- **Config-key ambiguity** → RESOLVED: per-model key stays `params` (Model panel
+  reads `b.params`); `model_settings` stays under `conditions.model_settings`; the
+  canonical form is the `conditions:` block. No workbench normalizer change.
 - **Flagged ordering edges** (prereq with no artifact) → surfaced for a human
   call; never silently dropped or fabricated.
 - **Cross-repo coupling** — the resolver fix lands in `viva_superpowers`; v2ecoli
@@ -300,11 +314,14 @@ report_cards: [...]
   release/pin, then the v2ecoli data migration, so the guard runs against the
   fixed resolver.
 
-## 10. Open items to resolve in the plan (not blockers)
+## 10. Open items (resolved / deferred)
 
-- Confirm `baseline` list-vs-single against the workbench normalizer.
-- Decide `model_settings` folding target (`config` vs sibling `metadata`).
+- ~~Confirm `baseline` list-vs-single~~ — RESOLVED: normalized `baseline` is a
+  list synthesized from `conditions.baseline`; canonical authoring form is the
+  `conditions:` block. See §6.1.
+- ~~`model_settings` folding target~~ — RESOLVED: stays under
+  `conditions.model_settings`; per-model key stays `params`. See §6.1.
 - Decide whether the interim guard is `lint-workspace.py`-only or also a pytest in
-  v2ecoli's CI (the tiered CI gate proper is Phase 3).
+  v2ecoli's CI (the tiered CI gate proper is Phase 3) — decided in the plan.
 - Phase 2 detail (typed-node resolver API, per-node compute contracts, endpoint
   delegation) is designed in its own spec; §4 is the model it must satisfy.

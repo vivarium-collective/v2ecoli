@@ -55,6 +55,28 @@ def overlay_html(per_obs: dict, title: str = "") -> str:
     return "".join(parts)
 
 
+def grouped_bar_html(categories: list, ve_values: list, v2_values: list,
+                     title: str = "", yaxis_title: str = "", first: bool = False) -> str:
+    """One grouped-bar figure: vEcoli vs v2ecoli value per category.
+
+    ``categories`` labels the x-axis (e.g. mass-fraction names); ``ve_values``/
+    ``v2_values`` are the same length, one bar height per category per engine.
+    A missing value (``None``) is skipped rather than rendered as a zero bar.
+    """
+    import plotly.graph_objects as go
+
+    fig = go.Figure()
+    fig.add_bar(x=categories, y=[v if v is not None else None for v in ve_values],
+               name="vEcoli", marker_color=VE_COLOR)
+    fig.add_bar(x=categories, y=[v if v is not None else None for v in v2_values],
+               name="v2ecoli", marker_color=V2_COLOR)
+    fig.update_layout(
+        title=title, barmode="group", height=300,
+        margin=dict(l=40, r=10, t=30, b=30), yaxis_title=yaxis_title,
+        template="simple_white")
+    return fig.to_html(include_plotlyjs=("cdn" if first else False), full_html=False)
+
+
 def violin_html(axis_records: list, title: str = "") -> str:
     """One violin+strip figure per axis record.
 

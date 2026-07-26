@@ -120,3 +120,50 @@ def test_generator_appends_pack_step():
                   if isinstance(edge, dict) and "priority" in edge}
     assert priorities["pack_step"] == min(priorities.values())
     assert any(key.startswith("_layer_in_") for key in ps["inputs"])
+
+
+def test_generator_appends_pack_step_with_core_none():
+    """Regression: the pack step must be appended on the STANDARD build path,
+    which builds the document with ``core=None`` (viva_superpowers'
+    ``build_generator``/``to_document`` forwards ``None`` to the builder; the
+    real core is attached only at ``Composite(...)`` construction, and the
+    ``EcoliPackStep`` link is registered via the ``core_extensions`` hook).
+
+    Before the fix the whole append was gated on ``core is not None`` and
+    returned the bare baseline early — so every real dashboard/study run built
+    a composite with NO pack step and silently wrote zero snapshot packs, even
+    though :func:`test_generator_appends_pack_step` (which passes a real core)
+    stayed green.
+    """
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
+    from viva_superpowers.composite_generator import (
+        _REGISTRY, build_generator, discover_generators,
+    )
+    from v2ecoli.composites import ecoli_structural  # noqa: F401 — fires decorator
+
+    if not _REGISTRY:
+        discover_generators()
+    entry = _REGISTRY["v2ecoli.composites.ecoli_structural.ecoli_structural"]
+    # core=None — exactly how the dashboard subprocess builds the document.
+    doc = build_generator(
+        entry,
+        overrides={"seed": 0, "cache_dir": "out/cache",
+                   "study": "s01-birth-and-division"},
+    )
+    agents = doc["state"]["agents"]
+    cell = next(iter(agents.values()))
+    assert "pack_step" in cell, (
+        "pack_step missing when the document is built with core=None — the "
+        "standard run path would write no snapshot packs")
+    # And the link is discoverable for the runner via the core_extensions hook.
+    assert _register_pack_step_hook_registers_link()
+
+
+def _register_pack_step_hook_registers_link():
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_structural import _register_ecoli_pack_step
+    core = build_core()
+    _register_ecoli_pack_step(core)
+    return "EcoliPackStep" in getattr(core, "link_registry", {})

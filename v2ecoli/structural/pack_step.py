@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from process_bigraph import Step
 
-from v2ecoli.structural.build import pack_from_state, bulk_to_counts
+from v2ecoli.structural.build import pack_from_state, bulk_to_counts, bulk_to_locations
 
 
 def _default_core():
@@ -52,6 +52,7 @@ class EcoliPackStep(Step):
         "relax": {"_type": "boolean", "_default": False},
         "cache_dir": {"_type": "string", "_default": "out/cache"},
         "relax_params": "object",       # {equil_ps: ..., ...} — see pbg_openmm.relax_in_water
+        "envelope": {"_type": "boolean", "_default": True},
     }
 
     def __init__(self, config=None, core=None):
@@ -106,11 +107,14 @@ class EcoliPackStep(Step):
                 # next tick once shape is ready.
                 continue
             counts = bulk_to_counts(state.get("bulk"))
+            locations = bulk_to_locations(state.get("bulk"))
             res = pack_from_state(self.config["out_dir"], name, counts, volume_fl,
+                                  locations=locations,
                                   top_n=self.config["top_n"], scale=self.config["scale"],
                                   relax=self.config.get("relax", False),
                                   cache_dir=self.config.get("cache_dir") or "out/cache",
-                                  relax_params=self.config.get("relax_params") or {})
+                                  relax_params=self.config.get("relax_params") or {},
+                                  envelope=self.config.get("envelope", True))
             self._fired.add(name)
             status[name] = float(len((res or {}).get("placements") or []))
         return {"pack_status": status} if status else {}

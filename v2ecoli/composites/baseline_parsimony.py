@@ -182,6 +182,15 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
                 "see pbg_openmm.relax_in_water."
             ),
         },
+        "envelope": {
+            "type": "boolean",
+            "default": True,
+            "description": (
+                "Pack into a gram-negative envelope (inner membrane + "
+                "periplasm + outer membrane), routing molecules by their "
+                "[compartment] tag. Default on."
+            ),
+        },
     },
     default_n_steps=2700,
 )
@@ -195,6 +204,7 @@ def baseline_parsimony(
     out_dir: str | None = None,
     relax: bool = False,
     relax_params: dict | None = None,
+    envelope: bool = True,
     **kwargs: Any,
 ) -> dict:
     """Build the baseline document, then append EcoliPackStep as a final
@@ -230,6 +240,7 @@ def baseline_parsimony(
                 "relax": relax,
                 "cache_dir": cache_dir,
                 "relax_params": relax_params or {},
+                "envelope": envelope,
             },
             "inputs": {
                 "bulk": ["bulk"],

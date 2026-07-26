@@ -112,9 +112,38 @@ def bulk_to_counts(bulk) -> dict:
     return counts
 
 
+# E. coli bulk-id compartment tag (the trailing ``[x]``) → parsimony envelope
+# compartment. ``e``/``l``/``j``/``s`` and untagged ids fall through to
+# "cytoplasm" via ``.get(tag, "cytoplasm")`` below.
+_TAG_TO_COMPARTMENT = {
+    "c": "cytoplasm", "i": "inner_membrane", "p": "periplasm",
+    "o": "outer_membrane", "m": "inner_membrane",  # generic membrane → inner
+}
+
+
+def bulk_to_locations(bulk) -> dict:
+    """{ecocyc_id: parsimony compartment} from the [x] compartment tag on each
+    bulk id — the molecule's dominant location (by summed count across tags)."""
+    ids = [str(x) for x in bulk["id"]]
+    cnts = list(bulk["count"])
+    # base_id -> {compartment: total count}
+    agg = {}
+    for idt, c in zip(ids, cnts):
+        if idt.endswith("]") and "[" in idt:
+            base, tag = idt[:-1].rsplit("[", 1)
+        else:
+            base, tag = idt, "c"
+        comp = _TAG_TO_COMPARTMENT.get(tag, "cytoplasm")
+        agg.setdefault(base, {}).setdefault(comp, 0)
+        agg[base][comp] += int(c)
+    # dominant compartment per base id
+    return {base: max(comps.items(), key=lambda kv: kv[1])[0] for base, comps in agg.items()}
+
+
 def load_state(state_source="snapshot", advance_s=2.0, seed=0):
-    """Return ``(counts, volume_fl)``: counts is ``{ecocyc_id: count}`` (compartment
-    tags stripped, summed); volume in fL."""
+    """Return ``(counts, volume_fl, locations)``: counts is ``{ecocyc_id: count}``
+    (compartment tags stripped, summed); volume in fL; locations is
+    ``{ecocyc_id: parsimony compartment}`` from the dominant ``[x]`` tag."""
     if state_source == "live":
         import v2ecoli
         comp = v2ecoli.build_composite("baseline", seed=seed, cache_dir="out/cache")
@@ -127,7 +156,7 @@ def load_state(state_source="snapshot", advance_s=2.0, seed=0):
         st = np.load(DATA / "v2ecoli_state.npz")
         bulk = {"id": st["ids"], "count": st["counts"]}
         volume_fl = float(st["volume"])
-    return bulk_to_counts(bulk), volume_fl
+    return bulk_to_counts(bulk), volume_fl, bulk_to_locations(bulk)
 
 
 def _bnum(gene_id, genes):
@@ -153,10 +182,17 @@ def _uniprot(ecocyc, genes, umap, gene_symbol=None):
     return acc
 
 
-def select_ingredients(counts, *, top_n=40, lipid_count=40000):
+def select_ingredients(counts, locations=None, *, top_n=40, lipid_count=40000):
     """Curated assemblies + the top-N most-abundant protein monomers (AlphaFold,
     skipping individual ribosomal proteins) + a membrane lipid. Returns a list of
-    :class:`pbg_parsimony.Ingredient` (counts are pre-scale; build_pack scales)."""
+    :class:`pbg_parsimony.Ingredient` (counts are pre-scale; build_pack scales).
+
+    ``locations`` (optional ``{ecocyc_id: parsimony compartment}``, from
+    :func:`bulk_to_locations`) routes each ingredient to its real envelope
+    compartment (cytoplasm/periplasm/inner_membrane/outer_membrane); a
+    molecule's surface-vs-interior ``region`` follows its real compartment,
+    not its functional category."""
+    locations = locations or {}
     prot, genes, umap = _proteins(), _genes(), _uniprot_map()
     ingredients, already = [], set()
 
@@ -170,10 +206,13 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000):
                 continue
             ref = StructureRef("alphafold", acc)
         cnt = counts.get(ckey, 0) if isinstance(ckey, str) else int(ckey)
+        lookup_id = ckey if isinstance(ckey, str) else key
+        compartment = locations.get(lookup_id, "cytoplasm")
+        region = "surface" if compartment in ("inner_membrane", "outer_membrane") else "interior"
         ingredients.append(Ingredient(
             id=key, count=max(1, cnt), structure=ref, region=region,
             display_name=DISPLAY.get(key, prot.get(key, key)), category=cat,
-            color=CATEGORY_COLOR[cat],
+            color=CATEGORY_COLOR[cat], compartment=compartment,
             proxy_voxel_size=12.0 if isinstance(struct, tuple) else None))
         already.add(key)
         if isinstance(ckey, str):
@@ -194,19 +233,19 @@ def select_ingredients(counts, *, top_n=40, lipid_count=40000):
         if not acc:
             continue
         cat = categorize(nm)
-        # compartment → region via the proteins.tsv computational compartment
-        region = "interior"  # refined below if membrane-y by category
-        if cat == "Envelope":
-            region = "surface"
+        compartment = locations.get(mid, "cytoplasm")
+        region = "surface" if compartment in ("inner_membrane", "outer_membrane") else "interior"
         ingredients.append(Ingredient(
             id=mid, count=c, structure=StructureRef("alphafold", acc), region=region,
-            display_name=nm, category=cat, color=CATEGORY_COLOR[cat]))
+            display_name=nm, category=cat, color=CATEGORY_COLOR[cat],
+            compartment=compartment))
         added += 1
 
     ingredients.append(Ingredient(
         id="lipid", count=lipid_count, sphere_radius=12.0, region="surface",
         display_name="Membrane phospholipid", category="Envelope",
-        color=(0.75, 0.78, 0.85), principal_vector=(0, 0, 1)))
+        color=(0.75, 0.78, 0.85), principal_vector=(0, 0, 1),
+        compartment="inner_membrane"))
     return ingredients
 
 
@@ -236,22 +275,34 @@ def relax_ingredients(ingredients, *, cache_dir, relax_cfg):
     return out
 
 
-def pack_from_state(out_dir, name, counts, volume_fl, *, top_n=40, scale=0.3, proxy_lod=2,
-                    relax=False, cache_dir="out/cache", relax_params=None):
+def pack_from_state(out_dir, name, counts, volume_fl, locations=None, *, top_n=40, scale=0.3,
+                    proxy_lod=2, relax=False, cache_dir="out/cache", relax_params=None,
+                    envelope=True, periplasm_gap_A=250.0):
     """Pack a 3D structural model directly from in-memory ``counts``/``volume_fl``
-    (no ``load_state`` round-trip). Returns build_pack's result dict."""
-    ingredients = select_ingredients(counts, top_n=top_n)
+    (no ``load_state`` round-trip). When ``envelope`` is true (default), builds
+    a gram-negative two-membrane envelope (inner membrane + periplasm + outer
+    membrane) sized from ``volume_fl``, and routes each ingredient to its real
+    compartment via ``locations`` (``{ecocyc_id: parsimony compartment}``, from
+    :func:`bulk_to_locations`). Returns build_pack's result dict."""
+    ingredients = select_ingredients(counts, locations, top_n=top_n)
     if relax:
         ingredients = relax_ingredients(ingredients, cache_dir=cache_dir,
                                         relax_cfg=relax_params or {})
-    capsule = Capsule.from_volume_fl(volume_fl)
+    outer = Capsule.from_volume_fl(volume_fl)
+    env = None
+    if envelope:
+        gap = min(periplasm_gap_A, outer.radius * 0.4, outer.half_len * 0.4)
+        inner = Capsule(half_len=max(1.0, outer.half_len - gap),
+                        radius=max(1.0, outer.radius - gap))
+        env = {"inner": inner, "outer": outer}
     chromosome = Chromosome(
         beads=34000, spacing=135.0, bead_radius=12.0,
         genome_csv=str(DATA / "ecoli_k12_genes.csv"),
         segment=StructureRef("pdb", "1BNA"),
         supercoil={"radius": 90.0, "pitch": 130.0, "domains": 200})
-    return build_pack(ingredients, capsule, chromosome,
-                      out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod)
+    return build_pack(ingredients, outer, chromosome,
+                      out_dir=out_dir, name=name, scale=scale, proxy_lod=proxy_lod,
+                      envelope=env)
 
 
 def build_model(out_dir="out/ecoli3d", *, name="ecoli_3d", top_n=40, scale=0.3,

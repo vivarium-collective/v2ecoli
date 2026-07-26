@@ -611,7 +611,18 @@ conclusion: "Phase = Decide. Pipeline-open to colonies-02-hpc-deployment with th
   \ field.\n- Process-bigraph composite parallelism within a single process (unsupported;\n\
   \  needs engine work).\n- Multi-generation drift in per-tick cost (daughters' internal\
   \ composites may\n  bloat over many divisions).\n- Per-cell ParCa cache contention\
-  \ if processes share cache_dir.\n"
+  \ if processes share cache_dir.\n\nMemory (2026-07-26 leak hunt): the per-tick RSS\
+\ growth in the long N=1 run\n(finding F-06) is now characterised, not an unbounded\
+\ native leak. It is\nlocalized to the inner WCM's elongation step (~82%) + mass-listener\
+\ (~17%),\nwith only ~0.2 MB/tick truly retained (scipy LSODA work arrays) and the\
+\ rest\nmacOS allocator arena churn. On Linux (glibc) the growth is 0.017 MB/tick\n\
+unfixed and 0.000 with periodic malloc_trim(0), versus ~1.6 MB/tick on the\nmacOS\
+\ mini, so memory on the HPC target is bounded and the cells-per-node\nbudget stands.\
+\ The \"unbounded native leak\" framing was substantially a macOS\nmeasurement artifact.\n\
+\nRole: this study is Part A - enabling compute infrastructure (correct\ndivision,\
+\ flat per-cell cost, Linux-bounded memory) for the phenotype-first\ncolonies investigation.\
+\ The memory behaviour is a characterised, Linux-bounded,\nmitigated footnote, not\
+\ the result and not an HPC blocker.\n"
 followup_proposals:
 - id: colonies-02-hpc-deployment
   status: seeded
@@ -655,6 +666,16 @@ followup_proposals:
     whether per-cell wall stays at 73 ms or drifts as daughter EcoliWCM
 
     internal composites accumulate history / fragment caches / etc.
+
+    The 2026-07-26 leak hunt has since characterised the F-06 RSS growth as
+
+    localized (elongation + mass-listener) and Linux-bounded, so this is no
+
+    longer a "fix the native leak before HPC" blocker; the residual
+
+    ~0.2 MB/tick scipy LSODA retention is the remaining small optimization
+
+    target this follow-up can quantify over natural divisions.
 
     '
   hypothesized_mechanism: "Per-cell wall drifts \u2264 20% across gens 0-4 of a natural-division\n\
@@ -841,15 +862,27 @@ findings:
   kind: computational
   status: novel
   statement: "RSS grows continuously during a single long N=1 run at ~5 MB/sim-second\n\
-    (1126 MB at tick 0 \u2192 7016 MB by tick 1050, before division). Indicates\n\
-    either accumulating state in the EcoliWCM internal composite or a leak;\nvisible\
-    \ only in long runs, not in the 60s N-sweep windows.\n"
+    (1126 MB at tick 0 \u2192 7016 MB by tick 1050, before division). Originally read\
+    \ as\neither accumulating state in the EcoliWCM internal composite or a leak;\n\
+    visible only in long runs, not in the 60s N-sweep windows.\n\nCharacterised by\
+    \ the 2026-07-26 leak hunt (supersedes the leak framing): the\ngrowth is localized\
+    \ to the inner WCM's polypeptide-elongation step (~82%) +\nmass-listener (~17%),\
+    \ and is NOT an unbounded native leak. Only ~0.2 MB/tick is\ntruly retained (tracemalloc-visible:\
+    \ scipy LSODA integrator work arrays held\nper solve); the remainder is macOS allocator\
+    \ arena churn \u2014 large per-tick numpy\nworking arrays that are freed but not\
+    \ returned to the OS. Linux validation (glibc\ncontainer) showed RSS growth of\
+    \ only 0.017 MB/tick with no fix and 0.000 with\nperiodic malloc_trim(0), versus\
+    \ ~1.6 MB/tick on the macOS mini. On the Linux HPC\ntarget the colony's memory\
+    \ is bounded, so the cells-per-node budget stands; the\n~5 MB/s reading here was\
+    \ substantially a macOS measurement artifact.\n"
   evidence:
     from_run: bio-1cell-natural-division
     observed: rss_mb climbs monotonically across the pre-division window
     units: MB/sim-second
-  next_action: "Folded into multi-gen-perf-drift follow-up \u2014 quantify drift over\n\
-    natural divisions and isolate the source (cache, history, fragmentation).\n"
+  next_action: "Source identified (elongation + mass-listener; scipy LSODA retention);\n\
+    growth is Linux-bounded. Residual ~0.2 MB/tick scipy retention is a small\noptimization\
+    \ target (solver reuse / method change / periodic malloc_trim),\ntracked in the\
+    \ multi-gen-perf-drift follow-up.\n"
   provenance:
     run_ids:
     - 7

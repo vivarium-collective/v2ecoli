@@ -6,7 +6,10 @@ from __future__ import annotations
 
 from process_bigraph import Step
 
-from v2ecoli.structural.build import pack_from_state, bulk_to_counts, bulk_to_locations
+from v2ecoli.structural.build import (
+    pack_from_state, bulk_to_counts, bulk_to_locations,
+    chromosome_state_from_live, rnaps_from_live,
+)
 
 
 def _default_core():
@@ -70,8 +73,18 @@ class EcoliPackStep(Step):
         # under this exact name in v2ecoli.library.schema_types); NOT the
         # plural 'full_chromosomes' — that's only a port-name convenience
         # alias elsewhere, the actual store/type name is singular.
+        # active_RNAP / active_replisome / chromosome_domain: likewise real
+        # v2ecoli unique_array domain types (schema_types.BIOLOGICAL_UNIQUE_TYPES),
+        # registered under these exact singular names — active_RNAP carries
+        # each RNAP's real genomic coordinates/domain/strand (precise
+        # placement replacing the old generic scatter); active_replisome
+        # carries live replication-fork coordinates (fork_fraction);
+        # chromosome_domain carries the domain parent/child tree used to
+        # classify an RNAP onto its chromosome copy + daughter status.
         return {"bulk": "bulk_array", "shape": "map[overwrite[float]]",
-                "global_time": "float", "full_chromosome": "full_chromosome"}
+                "global_time": "float", "full_chromosome": "full_chromosome",
+                "active_RNAP": "active_RNAP", "active_replisome": "active_replisome",
+                "chromosome_domain": "chromosome_domain"}
 
     def outputs(self):
         return {"pack_status": "map[float]"}
@@ -108,13 +121,24 @@ class EcoliPackStep(Step):
                 continue
             counts = bulk_to_counts(state.get("bulk"))
             locations = bulk_to_locations(state.get("bulk"))
+            # Replication state (real chromosome-copy count + fork progress) and
+            # precise RNAP genomic loci, extracted LIVE from this tick's unique-
+            # molecule stores — see build.chromosome_state_from_live /
+            # build.rnaps_from_live.
+            n_chromosomes, fork_fraction = chromosome_state_from_live(
+                state.get("full_chromosome"), state.get("active_replisome"))
+            rnaps = rnaps_from_live(
+                state.get("active_RNAP"), state.get("full_chromosome"),
+                state.get("chromosome_domain"))
             res = pack_from_state(self.config["out_dir"], name, counts, volume_fl,
                                   locations=locations,
                                   top_n=self.config["top_n"], scale=self.config["scale"],
                                   relax=self.config.get("relax", False),
                                   cache_dir=self.config.get("cache_dir") or "out/cache",
                                   relax_params=self.config.get("relax_params") or {},
-                                  envelope=self.config.get("envelope", True))
+                                  envelope=self.config.get("envelope", True),
+                                  rnaps=rnaps, n_chromosomes=n_chromosomes,
+                                  fork_fraction=fork_fraction)
             self._fired.add(name)
             status[name] = float(len((res or {}).get("placements") or []))
         return {"pack_status": status} if status else {}

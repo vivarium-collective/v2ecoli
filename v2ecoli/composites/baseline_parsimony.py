@@ -247,6 +247,9 @@ def baseline_parsimony(
                 "shape": ["shape"],
                 "global_time": ["global_time"],
                 "full_chromosome": ["unique", "full_chromosome"],
+                "active_RNAP": ["unique", "active_RNAP"],
+                "active_replisome": ["unique", "active_replisome"],
+                "chromosome_domain": ["unique", "chromosome_domain"],
             },
             "outputs": {"pack_status": ["pack_status"]},
         }

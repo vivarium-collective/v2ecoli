@@ -1,0 +1,645 @@
+schema_version: 4
+name: colonies-02-parallel-multigen-perf
+title: "Parallel multi-generation colony \u2014 natural-division perf & Ray scaling"
+description: "Rerun the colony from one whole-cell agent, dividing naturally (no forced\n\
+  same-tick division), keeping both daughters, as it doubles 1 \u2192 2 \u2192 4 \u2192\
+  \ 8.\nTrack the per-cell compute hit (wall, RSS) generation-by-generation to resolve\n\
+  colonies-01's open F-06 anomaly (RSS climbing ~5 MB/sim-s in long runs) and its\n\
+  PASS-narrow caveat (only forced division was validated). Run the same growing\n\
+  colony under the process-bigraph Ray protocol (sharded RayProtocol / actor\npool)\
+  \ to test whether process-level parallelism lifts the single-process\n~13-cells\
+  \ GIL ceiling. Produce a compute-requirements profile seeding\ncolonies-03-hpc-deployment.\n"
+topic: scaling
+tags:
+- colony
+- multi-cell
+- perf
+- scaling
+- parallel
+- ray
+- natural-division
+- requires-pymunk
+- requires-viva-munk
+created: '2026-06-15'
+status: evaluated
+phase: Evaluate
+design_status: complete
+implementation_status: complete
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: blocked
+expert_review_status: not_requested
+visualizations:
+- name: colony-animation
+  address: gif:colony.gif
+  description: "A colony growing from ONE whole-cell agent by NATURAL division (no\
+    \ forcing):\neach cell elongates as its dry mass accumulates toward the division\
+    \ threshold\n(~one cell cycle \u2248 2400 ticks), then splits into two daughters\
+    \ that reset and\nregrow \u2014 1 -> 2 -> 4 -> 6 cells over ~5300 ticks (subsampled\
+    \ 1 frame/40 ticks).\nFixed physics: jitter_per_second=1e-4 (the old 0.5 flung\
+    \ cells around the\nframe) + coherent fg body mass + the viva-munk in-place shape\
+    \ update. Capsules\nare cells; daughters are hue-shifted variants of their mother\
+    \ (phylogeny\ncoloring). Capped at gen 2 to stay under the F-04 native RAM ceiling.\n\
+    Regenerate via\n`python .../colonies-02-parallel-multigen-perf/sims/make_gif.py`.\n"
+- name: rss-vs-tick-by-ncells
+  address: image:charts/01_rss_vs_tick_by_ncells.svg
+  chart: charts/01_rss_vs_tick_by_ncells.svg
+  render: python sims/make_memory_figs.py
+  description: "Process RSS vs tick from a controlled staged run (N=1\u21922\u2192\
+    4, force-divided for\ntiming; sims/mem_measure.py \u2192 runs/mem_measure.csv).\
+    \ The two memory factors\nare visible in one figure: the step-up at each division\
+    \ = the per-cell\nfootprint, and the upward slope within each constant-N plateau\
+    \ = the leak\n(annotated MB/tick, scaling with cell count).\n"
+- name: footprint-and-leak-by-ncells
+  address: image:charts/02_footprint_and_leak_by_ncells.svg
+  chart: charts/02_footprint_and_leak_by_ncells.svg
+  render: python sims/make_memory_figs.py
+  description: 'Left: per-cell footprint (GB/cell). Each colony cell is an independent
+    full
+
+    baseline whole-cell composite that loads its own sim_data, so RAM scales ~1+
+
+    GB per cell (bounded, but the dominant cells-per-node limiter). Right: the
+
+    per-tick leak rate (within-plateau RSS slope, MB/tick), the unbounded factor,
+
+    scaling with cell count.
+
+    '
+- name: memory-decomposition
+  address: image:charts/03_memory_decomposition.svg
+  chart: charts/03_memory_decomposition.svg
+  render: python sims/make_memory_figs.py
+  description: 'RSS split into numpy-object bytes (gc-visible) vs native/C. numpy
+    stays flat
+
+    within each plateau while native grows, so the leak is not a retained
+
+    Python/numpy object. tracemalloc saw <2 MB of the growth; macOS `leaks` found
+
+    ~13 MB of true unreachable leak in the LLVM/Numba JIT layer (llvmlite). See
+
+    colonies-03 F-05 + issue #253.
+
+    '
+baseline:
+- name: colony-1cell-natural
+  composite: v2ecoli.composites.colony.colony
+  params:
+    seed: 0
+    cache_dir: out/cache
+    n_cells: 1
+    env_size: 30
+    physics_interval: 1.0
+    ecoli_interval: 1.0
+purpose:
+  question: "Starting from one whole-cell E. coli agent dividing naturally through\
+    \ 3-4\ngenerations (1 \u2192 2 \u2192 4 \u2192 8), does per-cell compute cost\
+    \ (wall + RSS) stay\nflat, or drift as daughter EcoliWCM internal composites accumulate\
+    \ history?\nAnd does running the growing colony under the process-bigraph Ray\
+    \ protocol\n(one OS process per cell / sharded actor pool) lift the single-process\
+    \ GIL\nceiling colonies-01 measured (~13 cells/process at realtime)?\n"
+  mechanism: "The `colony` composite (v2ecoli/composites/colony.py) wires N copies\
+    \ of\nEcoliWCM (v2ecoli/bridge.py) into one pymunk 2D environment from viva-munk.\n\
+    At division the bridge emits a structural update (_remove mother, _add two\ndaughter\
+    \ EcoliWCMs) hydrated natively by the engine (the colonies-01\ndaughter-hydration\
+    \ fix). Sequential runs walk all inner 55-process WCM steps\non one GIL-bound\
+    \ thread. The Ray protocol (process_bigraph/protocols/ray.py \u2014\nRayProtocol\
+    \ sharded actor pool via `ray:EcoliWCM` + Composite\nparallel_processes=True)\
+    \ runs each cell's update in its own OS process, so\nindependent cells solve concurrently\
+    \ across cores.\n"
+  expected_outcome: '(H1, drift) Per-cell wall drifts <=20% across gens 0-3; if >20%,
+    the inner
+
+    composite is accumulating dead nodes / growing allocations (resolves F-06).
+
+    (H2, RSS) Per-cell RSS stays bounded once startup is amortized; the
+
+    ~5 MB/sim-s climb is pre-division warmup, not an unbounded leak. (H3, Ray)
+
+    Under Ray, total wall stays sub-realtime well past the ~13-cell single-process
+
+    ceiling, with biology (masses, division timing) consistent vs the sequential
+
+    run modulo RNG.
+
+    '
+build_tasks:
+- id: jitter-mass-diagnostic
+  motivation: "colony.gif shows excessive cell movement. Two coupled causes:\n(1)\
+    \ colony.py passes jitter_per_second=0.5, ~5000x viva-munk's 1e-4\n    schema\
+    \ default; jitter is a Gaussian impulse applied per substep\n    (multibody.apply_jitter_force)\
+    \ and velocity change = impulse/mass.\n(2) EcoliWCM emits dry_mass ~380 (fg, raw\
+    \ number) -> body.mass=380,\n    but build_microbe's initial body is density=0.02\
+    \ -> mass ~0.056.\n    If the WCM mass does not actually land (or units are off),\
+    \ the\n    effective body mass is tiny and the high jitter flings cells.\n"
+  action: '5-tick diagnostic: print body.mass per cell each tick (does WCM
+
+    dry_mass reach the pymunk body?) and per-tick displacement. Decide
+
+    the fix: (a) lower jitter_per_second to the viva-munk default range,
+
+    and/or (b) correct the mass->pymunk coupling (scale dry_mass to a
+
+    consistent physics mass unit, or drive density from cell geometry).
+
+    '
+- id: ray-wiring
+  motivation: 'Run the growing colony under the updated process-bigraph Ray protocol.
+
+    Cells are `local:EcoliWCM` today (incl. daughters added by
+
+    _handle_division in bridge.py). To parallelize, both initial cells AND
+
+    dynamically-added daughters must use the Ray address.
+
+    '
+  action: 'Wire EcoliWCM through RayProtocol: register_process_class("EcoliWCM", ..),
+
+    switch cell address to `ray:EcoliWCM`, build with parallel_processes=True,
+
+    and update bridge._handle_division so daughter specs inherit the Ray
+
+    address. Per-actor ParCa cache loading via register_type_provider so each
+
+    actor hydrates its own sim_data (relates to the parca-cache-contention
+
+    open question). Verify daughters hydrate as Ray actors, not local procs.
+
+    '
+pipeline_gate:
+  prerequisites:
+  - colonies-01-hpc-readiness
+  enables:
+  - colonies-03-hpc-deployment
+  proceed_condition: 'colonies-01-hpc-readiness.gate_status == passed (satisfied)
+    AND
+
+    per_cell_ms / per_cell_rss recorded as projection inputs.
+
+    '
+  blocks_until_resolved: 'If natural multi-generation division cannot run unattended
+    (daughter
+
+    hydration regresses under Ray, or the F-06 RSS climb is an unbounded
+
+    leak that OOMs before gen 3), the cells-per-node budget colonies-03
+
+    will validate is not trustworthy and HPC deployment should not start.
+
+    '
+simulation_set:
+- name: seq-1cell-4div
+  description: 'Sequential (single-threaded) baseline. One cell, natural division,
+
+    ~3 generations. Per-tick wall, per-cell wall, pymunk_step_ms, RSS,
+
+    live_cell_count, generation index recorded each tick. This is the
+
+    drift reference and the F-06 resolution run.
+
+    '
+  perturbation:
+    n_cells: 1
+    parallel_processes: false
+    jitter_per_second: 0.0001
+    init_mass: 200.0
+  duration_min: 180
+  seeds:
+  - 0
+- name: ray-1cell-4div
+  description: 'Same natural-division colony under the process-bigraph Ray protocol
+
+    (ray:EcoliWCM, parallel_processes=True, sharded actor pool). Measures
+
+    whether per-cell wall stays flat AND whether total wall stays
+
+    sub-realtime past the single-process GIL ceiling as the colony grows.
+
+    '
+  perturbation:
+    n_cells: 1
+    parallel_processes: true
+    jitter_per_second: 0.0001
+    init_mass: 200.0
+  duration_min: 180
+  seeds:
+  - 0
+- name: ray-nsweep-static
+  description: 'Optional confirmation: hold N static at {2,4,8,16} under Ray and
+
+    measure total wall vs N. Sequential crossed realtime at N~13; Ray
+
+    should push that ceiling out by ~n_cores. Short windows (60 ticks).
+
+    '
+  perturbation:
+    n_cells_sweep:
+    - 2
+    - 4
+    - 8
+    - 16
+    parallel_processes: true
+  duration_min: 5
+  seeds:
+  - 0
+behavior_tests:
+- name: natural-division-2-generations
+  classification: primary
+  description: "One cell divides NATURALLY (no --force-divide) to 2, then both\ndaughters\
+    \ divide to 4 \u2014 all cells advancing on subsequent ticks.\nResolves colonies-01's\
+    \ PASS-narrow (forced-division-only) caveat.\n"
+- name: per-cell-wall-drift-within-20pct
+  classification: primary
+  description: 'Per-cell wall (ms/tick/cell) drifts <=20% across generations 0-3 of
+
+    the natural-division colony. Directly resolves F-06 for wall time.
+
+    '
+- name: per-cell-rss-drift-bounded
+  classification: primary
+  description: 'Per-cell RSS stabilizes after startup rather than climbing
+
+    unbounded; the colonies-01 ~5 MB/sim-s climb is amortized warmup,
+
+    not a leak that OOMs a growing colony. Resolves F-06 for RAM.
+
+    '
+- name: ray-lifts-gil-ceiling
+  classification: primary
+  description: 'Under the Ray protocol, total wall for the growing colony stays
+
+    sub-realtime past the sequential ~13-cell ceiling (target: scales
+
+    with cores), with division timing + masses consistent vs sequential.
+
+    '
+- name: ray-biology-consistency
+  classification: secondary
+  description: 'Ray and sequential runs produce the same colony trajectory (cell
+
+    count over time, per-cell mass at division) modulo RNG ordering.
+
+    '
+compute_requirements_profile:
+  records:
+  - per_cell_wall_ms_by_generation
+  - per_cell_rss_mb_by_generation
+  - total_wall_vs_realtime_ratio_seq_vs_ray
+  - ray_actor_count_and_per_actor_rss
+  - cells_per_core_at_realtime_seq_vs_ray
+  seeds_downstream:
+  - colonies-03-hpc-deployment
+findings:
+- id: F-01-natural-multigen-division
+  kind: computational
+  status: confirms
+  statement: 'One whole-cell agent divides naturally (no forced same-tick division)
+
+    through >=3 generations: 1 -> 2 -> 4 -> 6 -> 8 -> 10 -> 12 -> 14 cells
+
+    (7 division events) in the sequential run, with all cells advancing on
+
+    subsequent ticks. Resolves the colonies-01 PASS-narrow caveat (which
+
+    validated FORCED division only). Daughter EcoliWCMs hydrate natively
+
+    via the bridge _remove/_add structural update.
+
+    '
+  evidence:
+    from_runs:
+    - seq-1cell-4div
+    from_test: natural-division-2-generations
+    observed:
+      division_ticks:
+      - 2338
+      - 4706
+      - 4707
+      - 6975
+      - 6976
+      - 7075
+      - 7101
+      cells_final: 14
+    units: tick (1 tick = 1 sim-s)
+  expected:
+    summary: one cell divides to 2 then both daughters to 4, all advancing.
+  provenance:
+    run_ids:
+    - seq-1cell-4div
+    model_commit_hash: 854ff2e4
+    raw_data_artifact: studies/colonies-02-parallel-multigen-perf/runs/ticks.parquet
+    analysis_script: studies/colonies-02-parallel-multigen-perf/sims/run.py
+    random_seeds:
+    - 0
+  next_action: Natural multi-gen division is a usable substrate; the blocker is RAM
+    (F-03).
+- id: F-02-per-cell-wall-flat
+  kind: computational
+  status: confirms
+  statement: 'Per-cell EcoliWCM wall does not drift across generations. The cleanest
+
+    comparison (low-RSS static N-sweep, 60-tick windows): per-cell wall is
+
+    flat at 54-59 ms across N in {1,2,4,8,16} (65->54 ms, a slight decrease
+
+    as overhead amortizes). In the growing sequential run the 1-cell gen
+
+    (55.3 ms) vs 2-cell gen (56.3 ms/cell) differ by only +1.8%. Apparent
+
+    inflation to ~80 ms/cell at 14 cells is swap pressure (F-03) + O(N)
+
+    pymunk collision cost, not WCM-internal accumulation. Resolves F-06
+
+    for wall time: no per-cell wall drift.
+
+    '
+  evidence:
+    from_runs:
+    - seq-1cell-4div
+    - nsweep-local
+    from_test: per-cell-wall-drift-within-20pct
+    observed:
+      seq_gen0_ms: 55.3
+      seq_gen1_per_cell_ms: 56.3
+      drift_pct: 1.8
+      nsweep_local_per_cell_ms:
+        n1: 65
+        n2: 59
+        n4: 59
+        n8: 58
+        n16: 54
+    units: ms/tick/cell
+  expected:
+    summary: per-cell wall drifts <=20% across generations 0-3.
+  provenance:
+    run_ids:
+    - seq-1cell-4div
+    - nsweep:local
+    model_commit_hash: 854ff2e4
+    raw_data_artifact: studies/colonies-02-parallel-multigen-perf/runs/nsweep.parquet
+    analysis_script: studies/colonies-02-parallel-multigen-perf/sims/nsweep.py
+    random_seeds:
+    - 0
+  next_action: Use ~55-60 ms/tick/cell (sequential) as the per-cell wall projection
+    input.
+- id: F-03-per-cell-rss-unbounded-leak
+  kind: computational
+  status: refutes
+  statement: 'Per-cell RSS is an unbounded leak, not amortized warmup. A single cell
+
+    climbs ~7.7 MB/sim-s (999 MB -> ~19 GB over the 2338 ticks before its
+
+    first division); the sequential colony peaked at 27.5 GB and was
+
+    OOM-killed at tick 8161 (~136/180 sim-min). Confirmed emitter-independent
+
+    (a no-emitter control run leaks the same ~7.06 MB/tick), so the leak is
+
+    inside the EcoliWCM step itself (most likely inner vEcoli listener /
+
+    history-array accumulation), not the RAMEmitter and not division. RSS
+
+    sawtooths down at each division (the mother''s accumulated state is freed
+
+    on _remove), so each lineage re-accumulates from scratch and the binding
+
+    figure is ~18 GB per cell at end-of-generation. This is the F-06
+
+    resolution for RAM: it is a real leak, and it makes the cells-per-node
+
+    budget a function of generation age, not a constant.
+
+    '
+  evidence:
+    from_runs:
+    - seq-1cell-4div
+    from_test: per-cell-rss-drift-bounded
+    observed:
+      single_cell_leak_mb_per_s: 7.7
+      single_cell_rss_at_first_division_gb: 19
+      peak_rss_gb: 27.5
+      oom_tick: 8161
+      no_emitter_control_mb_per_tick: 7.06
+    units: MB
+  expected:
+    summary: per-cell RSS stabilizes after startup (the ~5 MB/sim-s climb is warmup).
+  provenance:
+    run_ids:
+    - seq-1cell-4div
+    model_commit_hash: 854ff2e4
+    raw_data_artifact: studies/colonies-02-parallel-multigen-perf/runs/ticks.parquet
+    analysis_script: studies/colonies-02-parallel-multigen-perf/sims/run.py
+    random_seeds:
+    - 0
+  next_action: 'BLOCKS colonies-03-hpc-deployment. Fix the inner EcoliWCM/vEcoli
+
+    per-timestep memory leak (cap/stream listener history) before HPC, or
+
+    budget RAM as ~18 GB/cell at end-of-generation (NOT a flat per-cell RSS).
+
+    '
+- id: F-04-ray-lifts-gil-ceiling
+  kind: computational
+  status: confirms
+  statement: 'The process-bigraph Ray protocol (ray:EcoliWCM, parallel_processes=True)
+
+    lifts the single-process GIL ceiling. Static N-sweep median wall (realtime
+
+    ratio): local scales linearly 65/118/237/466/865 ms (ratio 0.07->0.87)
+
+    for N=1/2/4/8/16, crossing realtime near N~18 (the colonies-01 ceiling).
+
+    Ray scales sub-linearly 54/59/81/115/245 ms (ratio 0.05->0.25): per-cell
+
+    wall drops 54->15 ms as cells solve concurrently across cores. At N=16
+
+    Ray is 3.5x faster and only 0.25 realtime, with headroom to ~50-60 cells
+
+    before realtime. Confirmed in the growing colony too: 2 cells cost the
+
+    same total wall (~59 ms) as 1 cell.
+
+    '
+  evidence:
+    from_runs:
+    - nsweep:local
+    - nsweep:ray
+    - ray-1cell-4div
+    from_test: ray-lifts-gil-ceiling
+    observed:
+      local_wall_ms:
+        n1: 65
+        n2: 118
+        n4: 237
+        n8: 466
+        n16: 865
+      ray_wall_ms:
+        n1: 54
+        n2: 59
+        n4: 81
+        n8: 115
+        n16: 245
+      local_realtime_cross_n: 18
+      ray_realtime_cross_n_est: 55
+    units: ms/tick (realtime budget = 1000 ms)
+  expected:
+    summary: Ray total wall stays sub-realtime past the sequential ~13-cell ceiling.
+  provenance:
+    run_ids:
+    - nsweep:local
+    - nsweep:ray
+    - ray-1cell-4div
+    model_commit_hash: 854ff2e4
+    raw_data_artifact: studies/colonies-02-parallel-multigen-perf/runs/nsweep.parquet
+    analysis_script: studies/colonies-02-parallel-multigen-perf/sims/nsweep.py
+    random_seeds:
+    - 0
+  next_action: 'CPU/GIL is no longer the ceiling under Ray; RAM is (F-03, F-05). Ray
+
+    cells-per-core ~3.5x sequential, but Ray''s RAM footprint is WORSE.
+
+    '
+- id: F-05-ray-ram-is-binding-constraint
+  kind: computational
+  status: confirms
+  statement: 'Under Ray the binding constraint flips from CPU/GIL to aggregate RAM,
+
+    and RAM is worse than sequential. The ~7.7 MB/sim-s per-cell leak (F-03)
+
+    is transport-independent: it moves into the actor process (one actor
+
+    reached ~19 GB by tick 2338, mirroring sequential). The Ray protocol also
+
+    pre-spawns a ~13-actor pool, each carrying a ~590 MB WCM baseline (~7.6 GB
+
+    fixed overhead). At just 2 live cells the two daughter actors were each
+
+    ~10 GB and climbing (~34 GB distinct actor RSS), so a growing colony OOMs
+
+    the machine even faster than sequential. The main process stays flat
+
+    ~0.7 GB (WCM offloaded). RSS sawtooths at division (mother actor returns
+
+    to pool).
+
+    '
+  evidence:
+    from_runs:
+    - ray-1cell-4div
+    - nsweep:ray
+    from_test: ray-biology-consistency
+    observed:
+      single_actor_rss_at_first_division_gb: 19
+      actor_pool_size: 13
+      per_actor_baseline_mb: 590
+      two_cell_distinct_actor_rss_gb: 34
+      main_proc_rss_gb: 0.7
+    units: GB
+  expected:
+    summary: per-cell RSS bounded so Ray scales out across cores.
+  provenance:
+    run_ids:
+    - ray-1cell-4div
+    - nsweep:ray
+    model_commit_hash: 854ff2e4
+    raw_data_artifact: studies/colonies-02-parallel-multigen-perf/runs/nsweep.parquet
+    analysis_script: studies/colonies-02-parallel-multigen-perf/sims/nsweep.py
+    random_seeds:
+    - 0
+  next_action: 'colonies-03 cells-per-node is RAM-bound: budget ~18 GB/cell-generation
+    +
+
+    ~590 MB/idle-pool-actor. Fix the leak (F-03) to make Ray scale-out viable.
+
+    '
+- id: F-06-ray-biology-consistency-exact
+  kind: computational
+  status: confirms
+  statement: 'Ray and sequential produce the same colony trajectory. First division
+
+    occurs at tick 2338 under both transports (exact, not just modulo RNG):
+
+    the EcoliWCM is deterministic given its seed and the transport does not
+
+    alter seeding, so division timing and per-cell mass are transport-
+
+    invariant. Per-cell wall under Ray at 2 cells is 29.7 ms (vs 59.8 ms at
+
+    1 cell): the two cells solve concurrently.
+
+    '
+  evidence:
+    from_runs:
+    - seq-1cell-4div
+    - ray-1cell-4div
+    from_test: ray-biology-consistency
+    observed:
+      seq_first_division_tick: 2338
+      ray_first_division_tick: 2338
+      ray_per_cell_ms_n1: 59.8
+      ray_per_cell_ms_n2: 29.7
+    units: tick
+  expected:
+    summary: Ray and sequential agree on cell count over time + mass at division.
+  provenance:
+    run_ids:
+    - seq-1cell-4div
+    - ray-1cell-4div
+    model_commit_hash: 854ff2e4
+    raw_data_artifact: studies/colonies-02-parallel-multigen-perf/runs/ticks.parquet
+    analysis_script: studies/colonies-02-parallel-multigen-perf/sims/run.py
+    random_seeds:
+    - 0
+  next_action: Ray is a faithful drop-in for the biology; only its RAM profile differs
+    (F-05).
+- id: F-07-physics-jitter-mass-fix
+  kind: computational
+  status: confirms
+  statement: 'The colonies-01 excessive-cell-movement artifact has two coupled causes,
+
+    both confirmed by a 12-tick 2-cell diagnostic sweep over
+
+    (jitter_per_second, init_mass): (1) jitter_per_second=0.5 is ~5000x
+
+    viva-munk''s 1e-4 default; (2) build_microbe''s density(0.02)-seeded body
+
+    mass is ~0.04 (tiny), so jitter impulse/mass flings the cell. Legacy
+
+    (0.5, None): mean move 9-10 um/tick. Either fix alone tames it to
+
+    ~0.13 um/tick; the chosen (1e-4, 200) fixes both motion and fg-unit
+
+    coherence (body mass ~200 fg). These are the run.py / study.yaml defaults.
+
+    '
+  evidence:
+    from_runs:
+    - physics-diagnostic
+    from_test: (build_task) jitter-mass-diagnostic
+    observed:
+      legacy_0p5_None_move_um: 9.0
+      fix_1e-4_200_move_um: 0.13
+      fix_body_mass_fg: 200
+    units: um/tick
+  expected:
+    summary: lowering jitter and/or seeding a realistic fg mass collapses cell movement.
+  provenance:
+    run_ids:
+    - physics-diagnostic
+    model_commit_hash: 854ff2e4
+    raw_data_artifact: studies/colonies-02-parallel-multigen-perf/diagnostics/physics_diag.csv
+    analysis_script: studies/colonies-02-parallel-multigen-perf/sims/diagnose_physics.py
+    random_seeds:
+    - 0
+  next_action: Defaults (jitter=1e-4, init_mass=200) adopted in run.py and simulation_set.
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null
+references: []
+implementation_tasks: ''
+inputs:
+- artifact: sim_data
+  from: parca

@@ -18,6 +18,8 @@ conditions:
         pre-division: division_time
       top_n: 40
       scale: 0.3
+      relax: true
+      relax_params: {equil_ps: 40.0}
       seed: 0
       cache_dir: out/cache
       n_steps: 2700

@@ -330,12 +330,11 @@ def test_mapping_prereq_shape():
     assert {"artifact": "a", "from": "a"} in spec["inputs"]
 
 def test_dangling_prereq_is_flagged_and_retained():
-    spec = {"name": "c1", "pipeline_gate": {"prerequisites": [], "enables": ["c2-does-not-exist"]}}
-    # enables is informational; dangling is detected on prerequisites referencing unknown slugs:
-    spec2 = {"name": "x", "pipeline_gate": {"prerequisites": ["ghost"]}}
-    report = canonicalize_ordering(spec2, known_slugs={"x"})
+    # a prereq referencing an unknown slug is flagged, no edge added, pipeline_gate retained
+    spec = {"name": "x", "pipeline_gate": {"prerequisites": ["ghost"]}}
+    report = canonicalize_ordering(spec, known_slugs={"x"})
     assert "dangling_prereq:ghost" in report["flags"]
-    assert "pipeline_gate" in spec2  # retained for human fix
+    assert "pipeline_gate" in spec  # retained for human fix
     assert "pipeline_gate_retained" in report["flags"]
 
 def test_existing_inputs_not_duplicated():

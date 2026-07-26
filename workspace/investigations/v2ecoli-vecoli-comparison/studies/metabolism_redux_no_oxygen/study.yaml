@@ -3,10 +3,11 @@ name: metabolism_redux_no_oxygen
 investigation: v2ecoli-vecoli-comparison
 title: v2ecoli reproduces vEcoli with MetabolismRedux (no_oxygen)
 condition: no_oxygen
-question: Does v2ecoli reproduce vEcoli on no_oxygen when both engines swap FBA Metabolism for MetabolismRedux?
+question: Does v2ecoli reproduce vEcoli on no_oxygen when both engines swap FBA 
+  Metabolism for MetabolismRedux?
 comparison:
-  seeds: 2
-  generations: 3
+  seeds: 6
+  generations: 1
   max_steps_per_gen: 15000
   cards:
   - config
@@ -43,22 +44,26 @@ tests:
   kind: report_card
   card: config
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (config card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (config 
+    card)?
 - name: parca-vs-vecoli
   kind: report_card
   card: parca
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (parca card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (parca 
+    card)?
 - name: standard-vs-vecoli
   kind: report_card
   card: standard
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (standard card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen 
+    (standard card)?
 - name: statistical-vs-vecoli
   kind: report_card
   card: statistical
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (statistical card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen 
+    (statistical card)?
   measure:
     kind: report_card_axis
     card: docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux_no_oxygen
@@ -67,22 +72,26 @@ tests:
   kind: report_card
   card: trajectory
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (trajectory card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen 
+    (trajectory card)?
 - name: distribution-vs-vecoli
   kind: report_card
   card: distribution
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (distribution card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen 
+    (distribution card)?
 - name: metabolism-vs-vecoli
   kind: report_card
   card: metabolism
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (metabolism card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen 
+    (metabolism card)?
 - name: composition-vs-vecoli
   kind: report_card
   card: composition
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen (composition card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_no_oxygen 
+    (composition card)?
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline

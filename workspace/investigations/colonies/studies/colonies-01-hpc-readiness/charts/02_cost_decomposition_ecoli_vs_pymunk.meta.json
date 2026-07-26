@@ -1,0 +1,6 @@
+{
+  "title": "Where the per-tick cost lives",
+  "caption": "Per-tick wall time split into the inner whole-cell model (EcoliWCM) and the pymunk spatial layer, vs N. EcoliWCM is essentially the entire cost; pymunk stays near zero.",
+  "simulations": "Same four nsweep runs. EcoliWCM = mean per_cell_update_ms_sum (summed inner-WCM update over all live cells); pymunk = mean pymunk_step_ms; both averaged over steady-state ticks (\u226510).",
+  "interpretation": "At N=8 the WCM costs 460 ms/tick while pymunk costs 0.15 ms/tick \u2014 physics is ~3081\u00d7 cheaper and grows only weakly with N. So spatial coupling is NOT the scaling risk: optimisation effort and the realtime budget belong almost entirely to the inner whole-cell model. It also confirms the GIL framing \u2014 the cost is sequential WCM work in one Python thread, which is exactly what caps cells/process."
+}

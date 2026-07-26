@@ -7,11 +7,13 @@ description: |
   daughter EcoliWCMs through the engine. Decide-phase N-sweep (N ∈ {1,2,4,8}) on
   one machine measured per-tick wall, per-cell cost, peak RSS, and pymunk step,
   extrapolated to a cells-per-HPC-node budget, and identified the GIL as the
-  dominant bottleneck. Output: 384 cells/node on 64-core/256GB.
+  dominant bottleneck. Output (2026-07-26 remote re-run @ f69f9690): ~1024
+  cells/node on 64-core/256GB — 2.7× the original 384, driven by per-cell RSS
+  dropping ~450→154 MB. All primary behavior tests still PASS.
 topic: scaling
 tags: [colony, multi-cell, hpc, perf, scaling, requires-pymunk, requires-viva-munk]
 created: '2026-05-16'
-last_run: '2026-05-16T22:30Z'
+last_run: '2026-07-26T01:27Z'   # remote re-run on mini @ f69f9690 (was 2026-05-16 @ 2f950d9)
 
 # Legacy single-axis status kept for back-compat with older dashboard
 # renderers; the six axes below are authoritative for new tooling.
@@ -477,48 +479,58 @@ implementation_requirements:
 parent_studies: []
 
 # ── Runs (recorded by sims/run.py into runs.db) ────────────────────────────
-# Steady-state averages computed over ticks 10-59 (post-warmup).
+# RE-RUN 2026-07-26 on the Mac mini used as a git-commit-synced remote
+# (model commit f69f9690, current origin/main), replacing the 2026-05-16
+# laptop run (commit 2f950d9). The mini synced to the pushed commit, rebuilt
+# its venv (`uv sync`), ran the harness, and rsynced runs.db back.
+# Steady-state averages over ticks 10-59 (post-warmup).
+#
+# Headline change vs the original run — both primary tests still PASS, but the
+# numbers improved materially on current code/hardware:
+#   per-cell wall  73.6 ms -> ~57 ms   (still flat across N)
+#   per-cell RSS   ~450    -> ~154 MB/cell  (RAM is no longer the binding limit)
+#   HPC node budget 384    -> ~1000 cells/node  (see conclusion)
 runs:
 - simulation: build-smoke-n2
   seed: 0
   duration_s: 12
-  started_at: '2026-05-16T22:25Z'
-  wall_seconds: 27.4
-  peak_rss_mb: 2061
+  started_at: '2026-07-26T01:24Z'
+  wall_seconds: 24.9
+  peak_rss_mb: 2004
   n_cells_initial: 2
   n_cells_final: 4
   n_division_events: 1
   db: studies/colonies-01-hpc-readiness/runs.db
   note: |
-    --force-divide; exercises structural-update path at tick 1.
-    Both initial cells divided into 4 ticking daughters in a single
-    tick (n_division_events counter coalesces same-tick deltas).
+    --force-divide; exercises the structural-update path at the warmup tick.
+    Both initial cells divided into 4 ticking daughters that all advance on
+    subsequent ticks — no manual-hydration workaround.
   outcomes:
     daughters-hydrated:
       result: PASS
       n_daughters_advance: 4
-      note: All 4 daughters had non-zero mass delta on the tick after division.
+      note: All 4 daughters advanced (non-zero per-cell update) on ticks after division.
     two-generations-complete:
       result: PASS-narrow
       n_cells_final: 4
       note: |
         ≥4 cells reached, but via forced same-tick division of both
         mothers, not natural 2-generation timeline. Full N-generation
-        natural-division validation deferred (see follow_up_studies).
+        natural-division validation is colonies-02's job.
 
 - simulation: nsweep-n1
   seed: 0
   duration_s: 60
-  started_at: '2026-05-16T22:26Z'
-  wall_seconds: 4.7
-  peak_rss_mb: 1508
+  started_at: '2026-07-26T01:25Z'
+  wall_seconds: 3.7
+  peak_rss_mb: 1391
   n_cells_initial: 1
   n_cells_final: 1
   steady_state:
-    avg_tick_ms: 73.6
-    per_cell_ms: 73.6
-    avg_pymunk_ms: 0.08
-    max_tick_ms: 78.5
+    avg_tick_ms: 56.9
+    per_cell_ms: 56.5
+    avg_pymunk_ms: 0.06
+    max_tick_ms: 79.5
   outcomes:
     reference-perf-recorded:
       result: PASS
@@ -526,59 +538,59 @@ runs:
 - simulation: nsweep-n2
   seed: 0
   duration_s: 60
-  started_at: '2026-05-16T22:27Z'
-  wall_seconds: 9.3
-  peak_rss_mb: 2013
+  started_at: '2026-07-26T01:25Z'
+  wall_seconds: 7.4
+  peak_rss_mb: 1532
   n_cells_initial: 2
   n_cells_final: 2
   steady_state:
-    avg_tick_ms: 146.3
-    per_cell_ms: 73.2
-    avg_pymunk_ms: 0.10
-    max_tick_ms: 159.6
+    avg_tick_ms: 115.4
+    per_cell_ms: 57.4
+    avg_pymunk_ms: 0.08
+    max_tick_ms: 145.0
   outcomes:
     per-cell-cost-within-2x-reference:
       result: PASS
-      ratio: 0.99
-      note: per-cell 73.2 ms vs reference 73.6 ms
+      ratio: 1.01
+      note: per-cell 57.4 ms vs reference 56.5 ms
 
 - simulation: nsweep-n4
   seed: 0
   duration_s: 60
-  started_at: '2026-05-16T22:28Z'
-  wall_seconds: 18.5
-  peak_rss_mb: 2946
+  started_at: '2026-07-26T01:26Z'
+  wall_seconds: 15.1
+  peak_rss_mb: 1845
   n_cells_initial: 4
   n_cells_final: 4
   steady_state:
-    avg_tick_ms: 290.9
-    per_cell_ms: 72.7
-    avg_pymunk_ms: 0.14
-    max_tick_ms: 310.8
+    avg_tick_ms: 235.4
+    per_cell_ms: 58.5
+    avg_pymunk_ms: 0.10
+    max_tick_ms: 415.3
   outcomes:
     per-cell-cost-within-2x-reference:
       result: PASS
-      ratio: 0.99
-      note: per-cell 72.7 ms vs reference 73.6 ms
+      ratio: 1.03
+      note: per-cell 58.5 ms vs reference 56.5 ms
 
 - simulation: nsweep-n8
   seed: 0
   duration_s: 60
-  started_at: '2026-05-16T22:29Z'
-  wall_seconds: 36.0
-  peak_rss_mb: 4712
+  started_at: '2026-07-26T01:27Z'
+  wall_seconds: 29.8
+  peak_rss_mb: 2466
   n_cells_initial: 8
   n_cells_final: 8
   steady_state:
-    avg_tick_ms: 562.9
-    per_cell_ms: 70.4
-    avg_pymunk_ms: 0.20
-    max_tick_ms: 603.2
+    avg_tick_ms: 463.2
+    per_cell_ms: 57.4
+    avg_pymunk_ms: 0.15
+    max_tick_ms: 580.1
   outcomes:
     per-cell-cost-within-2x-reference:
       result: PASS
-      ratio: 0.96
-      note: per-cell 70.4 ms vs reference 73.6 ms (slight decrease, Python startup amortization)
+      ratio: 1.02
+      note: per-cell 57.4 ms vs reference 56.5 ms (flat across N=1..8)
 
 # ── Decide conclusion ──────────────────────────────────────────────────────
 conclusion: |
@@ -606,30 +618,32 @@ conclusion: |
   After all three fixes, a pure-WC N=2 colony with both initial cells
   force-divided produces 4 hydrated daughters that all advance.
 
-  Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window):
+  Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window;
+  2026-07-26 remote re-run @ f69f9690):
 
-  - Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease with N as
-    Python/import overhead amortizes); per-cell-cost-within-2x-reference passes
-    at all N.
-  - pymunk is essentially free (<0.2 ms/tick even at N=8). All cost is the inner
+  - Per-cell wall is flat at ~57 ms across N=1..8 (56.5 / 57.4 / 58.5 / 57.4);
+    per-cell-cost-within-2x-reference passes at all N with ratio ≈ 1.0. This is
+    ~20% faster than the original 73.6 ms (current code + mini hardware).
+  - pymunk is essentially free (≤0.15 ms/tick even at N=8). All cost is the inner
     EcoliWCM composite (55 biological steps × N cells, walked sequentially in one
     Python thread).
-  - RSS grows ~450 MB per added cell, atop a ~1 GB Python baseline.
+  - RSS grows only ~154 MB per added cell, atop a ~1.24 GB Python baseline —
+    down 3× from the original ~450 MB/cell. RAM is no longer the binding limit.
 
-  Bottleneck at scale is the GIL: process-bigraph composites are single-threaded,
-  so one process uses ~1 CPU core regardless of cell count. Scaling to many cells
-  means scaling processes, not cells-per-process.
+  Bottleneck at scale is still the GIL: process-bigraph composites are
+  single-threaded, so one process uses ~1 CPU core regardless of cell count.
+  Scaling to many cells means scaling processes, not cells-per-process.
 
-  HPC node sizing (64-core / 256 GB target):
+  HPC node sizing (64-core / 256 GB target) — re-derived from the new numbers:
 
-  - RAM-limited ceiling per node: 256 GB / 0.45 GB ≈ 570 cells (RAM-bound, single
-    process — not practical at speed).
-  - CPU-limited realtime ceiling per process: ~13 cells (13 × 73 ms ≈ 950 ms,
-    ~realtime).
-  - Recommendation: 8 cells/process × 64 processes = 512 cells/node uses
-    64 × (1 GB + 8 × 0.45 GB) = ~290 GB, just over budget. Drop to
-    6 cells/process × 64 = 384 cells/node, fits 256 GB with ~10% headroom;
-    per-process tick wall ~440 ms (~2× realtime).
+  - CPU-limited realtime ceiling per process: ~17 cells (17 × 57 ms ≈ 970 ms,
+    ~realtime) — now the binding constraint.
+  - RAM at 16 cells/process × 64 processes = 1024 cells/node uses
+    64 × (1 GB + 16 × 0.154 GB) ≈ 222 GB, fits 256 GB with headroom.
+  - Recommendation: 16 cells/process × 64 processes = ~1024 cells/node
+    (per-process tick wall ~920 ms, ≈ realtime; ~222 GB RAM). This ~2.7×
+    raises the original 384 cells/node budget — the improvement is driven by
+    the 3× lower per-cell RSS, not by CPU (which barely moved).
 
   Not validated here (handed to colonies-02):
 
@@ -651,13 +665,13 @@ followup_proposals:
     right starting shape on HPC; orchestration is the remaining design.
   hypothesized_mechanism: |
     Per-cell wall matches single-machine projection within ±20% when
-    cells/process is held at 6-8 and we scale across processes/nodes;
+    cells/process is held near 16 and we scale across processes/nodes;
     biology is consistent across distributed configurations modulo RNG.
   seed:
     takes_as_input:
-    - per_cell_ms = 73 ms (RAM-warm, post-warmup)
-    - per_cell_rss = 450 MB (steady-state, single colony)
-    - recommended cells/process = 6-8 (CPU-bound, ~2× realtime)
+    - per_cell_ms = 57 ms (RAM-warm, post-warmup; 2026-07-26 re-run @ f69f9690)
+    - per_cell_rss = 154 MB (steady-state, single colony)
+    - recommended cells/process = ~16 (CPU-bound, ≈realtime)
     pipeline_gate:
       prerequisites: [colonies-01-hpc-readiness]
       proceed_condition: |
@@ -675,7 +689,7 @@ followup_proposals:
   motivation: |
     The N-sweep here uses N initial cells held static. Real HPC workloads
     will have growing colonies (each division doubles N). We need to know
-    whether per-cell wall stays at 73 ms or drifts as daughter EcoliWCM
+    whether per-cell wall stays at ~57 ms or drifts as daughter EcoliWCM
     internal composites accumulate history / fragment caches / etc.
   hypothesized_mechanism: |
     Per-cell wall drifts ≤ 20% across gens 0-4 of a natural-division
@@ -725,25 +739,25 @@ findings:
   kind: computational
   status: confirms
   statement: |
-    Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
-    decrease with N as Python/import overhead amortizes). Composite scales
-    linearly on one machine.
+    Per-cell wall time is flat at ~57 ms across N ∈ {1, 2, 4, 8}. Composite
+    scales linearly on one machine. (2026-07-26 re-run; ~20% faster than the
+    original 73.6 ms on current code + mini hardware.)
   evidence:
     from_runs: [nsweep-n1, nsweep-n2, nsweep-n4, nsweep-n8]
     from_test: per-cell-cost-within-2x-reference
-    observed: {n1: 73.6, n2: 73.2, n4: 72.7, n8: 70.4}
+    observed: {n1: 56.5, n2: 57.4, n4: 58.5, n8: 57.4}
     units: ms/tick/cell
   expected:
     summary: per-cell wall stays within 2× of the N=1 reference; flat is the
       strongest pass condition.
   provenance:
-    run_ids: [3, 4, 5, 6]
-    model_commit_hash: 2f950d9
+    run_ids: [2, 3, 4, 5]
+    model_commit_hash: f69f9690
     raw_data_artifact: studies/colonies-01-hpc-readiness/runs.db
     analysis_script: studies/colonies-01-hpc-readiness/sims/run.py
     random_seeds: [0]
   next_action: |
-    Use 73 ms/tick/cell as the projection input for colonies-02-hpc-deployment.
+    Use ~57 ms/tick/cell as the projection input for colonies-02-hpc-deployment.
 
 - id: F-02-gil-bottleneck
   kind: computational
@@ -761,10 +775,10 @@ findings:
     All 55 inner WCM steps are walked sequentially in one Python thread.
     pymunk is free even at N=8, so any super-linear cost would have to be in
     the EcoliWCM update — but per-cell stays flat. The only ceiling visible
-    is total wall vs realtime per process, which crosses ~1.0 around N≈13.
+    is total wall vs realtime per process, which crosses ~1.0 around N≈16.
   provenance:
-    run_ids: [6]
-    model_commit_hash: 2f950d9
+    run_ids: [5]
+    model_commit_hash: f69f9690
     raw_data_artifact: studies/colonies-01-hpc-readiness/runs.db
   next_action: |
     Seed gil-aware-engine-research follow-up.
@@ -773,22 +787,24 @@ findings:
   kind: computational
   status: confirms
   statement: |
-    Steady-state per-cell RSS is ~450 MB, atop a ~1 GB Python baseline
-    (ParCa + WCM imports + cached numpy arrays).
+    Steady-state per-cell RSS is ~154 MB, atop a ~1.24 GB Python baseline
+    (ParCa + WCM imports + cached numpy arrays). This is 3× lower than the
+    original ~450 MB/cell (2026-07-26 re-run @ f69f9690) — the biggest change
+    of the re-run, and it moves the HPC ceiling from RAM-bound to CPU-bound.
   evidence:
     from_run: nsweep-n8
     from_test: per-cell-cost-within-2x-reference
-    observed: {n1_mb: 1508, n2_mb: 2013, n4_mb: 2946, n8_mb: 4712}
-    slope_mb_per_cell: 450
+    observed: {n1_mb: 1391, n2_mb: 1532, n4_mb: 1845, n8_mb: 2466}
+    slope_mb_per_cell: 154
     units: MB
   expected:
     summary: |
-      Linear in N up to N=8 within one process. Sets the per-node cell
-      ceiling on HPC: 6 cells/process × 64 processes = ~290 GB on a 256 GB
-      node; drop to 5-6 cells/process for headroom → ~384 cells/node.
+      Linear in N up to N=8 within one process. At 154 MB/cell RAM is no
+      longer binding: 16 cells/process × 64 processes ≈ 222 GB on a 256 GB
+      node → ~1024 cells/node, CPU-bound at ~realtime.
   provenance:
-    run_ids: [3, 4, 5, 6]
-    model_commit_hash: 2f950d9
+    run_ids: [2, 3, 4, 5]
+    model_commit_hash: f69f9690
     raw_data_artifact: studies/colonies-01-hpc-readiness/runs.db
 
 - id: F-04-pymunk-negligible
@@ -802,8 +818,8 @@ findings:
     observed: pymunk_step_ms ≤ 0.2
     units: ms/tick
   provenance:
-    run_ids: [6]
-    model_commit_hash: 2f950d9
+    run_ids: [5]
+    model_commit_hash: f69f9690
 
 - id: F-05-build-phase-bugs
   kind: methodological
@@ -825,10 +841,11 @@ findings:
     from_run: build-smoke-n2
     from_test: daughters-hydrated
     observed: After all three fixes, pure-WC N=2 force-divided to 4 hydrated
-      daughters that all advance on the next tick.
+      daughters that all advance on the next tick. Re-confirmed on the
+      2026-07-26 re-run @ f69f9690 (build-smoke-n2, run_id 1).
   provenance:
-    run_ids: [2]
-    model_commit_hash: 2f950d9
+    run_ids: [1]
+    model_commit_hash: f69f9690
     raw_data_artifact: studies/colonies-01-hpc-readiness/runs.db
 
 - id: F-06-rss-growth-over-time

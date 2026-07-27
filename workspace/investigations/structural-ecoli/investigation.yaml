@@ -44,5 +44,8 @@ findings: |
   EcoliPackStep whenever the composite was built with core=None — i.e. every
   real run — so earlier runs produced no packs at all).
 
+  Interactive viewer (Cloudflare R2, reuses the parsimony web viewer):
+  https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html
+
 members:
   - s01-birth-and-division

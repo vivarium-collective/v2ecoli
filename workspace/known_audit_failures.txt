@@ -13,7 +13,13 @@
 # --- params: undeclared generator params (4) ---
 # 3 of these were explicitly accepted by #393's _PARAM_CONTRACT_EXCEPTIONS
 # (study owners' call: swap / mode / features are legitimate for these studies).
-metabolism_redux:params-are-generator-accepted           # `swap` (accepted #393)
+# metabolism_redux was renamed into 5 per-condition studies (#396); same
+# #393-accepted `swap`/`condition` comparison-harness carve-out, one per study.
+metabolism_redux_basal:params-are-generator-accepted      # `swap`/`condition` (accepted #393, renamed #396)
+metabolism_redux_with_aa:params-are-generator-accepted    # `swap`/`condition` (accepted #393, renamed #396)
+metabolism_redux_succinate:params-are-generator-accepted  # `swap`/`condition` (accepted #393, renamed #396)
+metabolism_redux_no_oxygen:params-are-generator-accepted  # `swap`/`condition` (accepted #393, renamed #396)
+metabolism_redux_acetate:params-are-generator-accepted    # `swap`/`condition` (accepted #393, renamed #396)
 showcase-1-parca:params-are-generator-accepted           # `mode` (accepted #393)
 mbp-04-multigeneration-runs:params-are-generator-accepted # `features` (accepted #393)
 param-uq-04-deep-params:params-are-generator-accepted     # `transcription.rnap_active_fraction` (owner to resolve)

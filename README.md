@@ -1,10 +1,10 @@
 # v2ecoli
 
 > **Explore in your browser — no install:**
-> &nbsp;🖥️ **[Interactive dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/)** (browse the whole workspace)
-> &nbsp;·&nbsp; 🧬 **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json)** (interactive whole-cell structural model — switch between a newborn cell and a pre-division cell with two segregated chromosomes; opens directly; **"View in VR"** on a Meta Quest)
-> &nbsp;·&nbsp; 📊 **[Baseline Showcase report](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)** ⭐ (best starting point)
-> &nbsp;·&nbsp; 🗂️ **[Report gallery](https://vivarium-collective.github.io/v2ecoli/)**
+> &nbsp;**[Interactive dashboard](https://vivarium-collective.github.io/v2ecoli/dashboard/)** (browse the whole workspace)
+> &nbsp;·&nbsp; **[3D *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json)** (interactive whole-cell structural model — switch between a newborn cell and a pre-division cell with two segregated chromosomes; opens directly; **"View in VR"** on a Meta Quest)
+> &nbsp;·&nbsp; **[Baseline Showcase report](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html)** ⭐ (best starting point)
+> &nbsp;·&nbsp; **[Report gallery](https://vivarium-collective.github.io/v2ecoli/)**
 > — see **[Explore v2ecoli](#explore-v2ecoli)** for what each one is.
 
 **vEcoli, reimagined as a composable [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
@@ -60,7 +60,7 @@ first, then read [What v2ecoli is](#what-v2ecoli-is) → [Install](#install) →
 Everything is published to GitHub Pages and runs in the browser — no install.
 There are **three** kinds of output, each from a different pipeline.
 
-### 🖥️ Interactive dashboard — *browse the whole workspace*
+### Interactive dashboard — *browse the whole workspace*
 
 **[→ vivarium-collective.github.io/v2ecoli/dashboard/](https://vivarium-collective.github.io/v2ecoli/dashboard/)**
 
@@ -71,7 +71,7 @@ wiring graphs (`baseline`, `parca`), and the **sources** bundle. Auto-rebuilt
 from `main` on every push. For the full interactive version (authoring, running
 studies), clone and run `vivarium-workbench serve` locally.
 
-### 📊 Investigation reports — *one self-contained report per research question*
+### Investigation reports — *one self-contained report per research question*
 
 Each investigation under `workspace/investigations/` auto-publishes a single,
 self-contained HTML report — overview → studies → figures → reviewer decisions —
@@ -99,7 +99,7 @@ Every investigation under `workspace/investigations/`, with its research questio
 | [v2ecoli ↔ vEcoli comparison](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-vecoli-comparison.html) | Does v2ecoli reproduce vEcoli across nutrient conditions? |
 <!-- END:investigations -->
 
-### 🧬 3D whole-cell structural model — *molecular-scale, in your browser*
+### 3D whole-cell structural model — *molecular-scale, in your browser*
 
 An interactive **[3D structural model of the *E. coli* cell](https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json)** —
 hundreds of molecular species (ribosomes, RNA polymerase, metabolic enzymes,
@@ -112,7 +112,7 @@ imports v2ecoli (for the molecular state) +
 **[pbg-parsimony](https://github.com/vivarium-collective/pbg-parsimony)** (the
 packing engine) — from the molecular counts of a simulated cell.
 
-### 🔬 Model viewers & technical reports — *standalone HTML*
+### Model viewers & technical reports — *standalone HTML*
 
 Generated on demand by `reports/*.py` / `scripts/*.py` (committed under `docs/`):
 [simulation-result reports](https://vivarium-collective.github.io/v2ecoli/workflow_report.html),

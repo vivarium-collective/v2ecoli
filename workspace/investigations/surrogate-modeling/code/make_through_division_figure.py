@@ -78,18 +78,18 @@ def main():
         fig.update_xaxes(title_text="rollout step (s from birth)", row=1, col=1)
         fig.update_yaxes(title_text="cell_mass (fg)", row=1, col=1)
 
-    # --- bottom: within-gen vs boundary error bars ---
-    wg = [s[k]["within_gen_nrmse"]["median"] for k in ORDER]
+    # --- bottom: within-gen vs boundary one-step error bars (teacher-forced) ---
+    wg = [s[k]["wg_onestep"]["median"] for k in ORDER]
     bd = [s[k]["boundary_onestep"]["median"] for k in ORDER]
     fig.add_trace(go.Bar(
-        x=[LABELS[k] for k in ORDER], y=wg, name="within-generation nRMSE",
-        marker_color="#4c78a8", text=[f"{v:.3f}" for v in wg], textposition="outside"),
+        x=[LABELS[k] for k in ORDER], y=wg, name="within-generation one-step",
+        marker_color="#4c78a8", text=[f"{v:.4f}" for v in wg], textposition="outside"),
         row=2, col=1)
     fig.add_trace(go.Bar(
-        x=[LABELS[k] for k in ORDER], y=bd, name="division one-step error",
+        x=[LABELS[k] for k in ORDER], y=bd, name="division-tick one-step",
         marker_color="crimson", text=[f"{v:.1f}" for v in bd], textposition="outside"),
         row=2, col=1)
-    fig.update_yaxes(title_text="cell_mass error (nRMSE, log)", type="log", row=2, col=1)
+    fig.update_yaxes(title_text="cell_mass one-step error<br>(nRMSE, log)", type="log", row=2, col=1)
 
     fig.update_layout(
         title=f"sm-04 — do the emulators survive division? ({nf}-fold leave-one-lineage-out CV)",
@@ -101,18 +101,21 @@ def main():
         "<div style='font-family:sans-serif;max-width:860px;margin:14px 0;padding:12px;"
         "background:#fff5f5;border-left:4px solid crimson'>"
         f"<b>Finding (negative, and informative):</b> every emulator — trivial or neural — "
-        f"emulates coarse growth <i>within</i> a generation (linear within-gen nRMSE "
-        f"{lin['within_gen_nrmse']['median']:.3f}) but <b>none represents the division "
+        f"emulates coarse growth <i>within</i> a generation (linear teacher-forced one-step "
+        f"nRMSE {lin['wg_onestep']['median']:.4f}) but <b>none represents the division "
         f"discontinuity</b>. At the division tick the true cell_mass drops by "
         f"~{drop*100:.0f}% (a clean halving), yet each model, fed the true pre-division "
         f"state, predicts continued smooth growth — the linear model's one-step error at the "
         f"boundary is {lin['boundary_onestep']['median']:.1f} nRMSE, "
-        f"~{lin['boundary_over_within_ratio']:.0f}× its within-generation error. The emulator "
-        "does <b>not</b> follow the halving; it has no state variable that encodes 'about to "
-        "divide', so autoregressive rollout sails straight through. This extends the "
-        "investigation's scoping result to the cell-cycle boundary: the observable-view "
-        "emulator is valid only within a generation. Crossing division needs an explicit "
-        "division event/reset — the motivation for the latent encode–decode follow-up.</div>"
+        f"~{lin['boundary_over_within_onestep_ratio']:.0f}× its within-generation error. The "
+        "emulator does <b>not</b> follow the halving; it has no state variable that encodes "
+        "'about to divide', so autoregressive rollout sails straight through and full-lineage "
+        f"rollout error jumps ~{lin['full_rollout_nrmse']['median']/lin['wg_rollout_nrmse']['median']:.0f}× "
+        f"(within-gen {lin['wg_rollout_nrmse']['median']:.2f} → through-division "
+        f"{lin['full_rollout_nrmse']['median']:.2f}). This extends the investigation's scoping "
+        "result to the cell-cycle boundary: the observable-view emulator is valid only within "
+        "a generation. Crossing division needs an explicit division event/reset — the "
+        "motivation for the latent encode–decode follow-up.</div>"
     )
     html = [
         "<!doctype html><html><head><meta charset='utf-8'>",

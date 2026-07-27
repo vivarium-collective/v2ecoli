@@ -49,6 +49,49 @@ def _load(data_dir):
     return ds, layout, meta
 
 
+def _subsample(ds, meta, stride):
+    """Return a temporally-subsampled copy of the dataset at dt=``stride``.
+
+    Coarse growth is smooth over seconds (sm-01), so a dt=k emulator loses
+    nothing but shrinks each ~2600-step lineage to sm-03 scale (~T/k), keeping
+    the batch-size-1 rollout-loss NN tractable. The grid is anchored on the
+    division so the cell_mass halving is preserved as exactly ONE dt=k
+    transition (from k seconds pre-division to the daughter's first state);
+    no within-generation transition straddles the boundary. stride<=1 is a
+    no-op passthrough.
+    """
+    from pbg_torch import TransitionDataset
+    if stride is None or stride <= 1:
+        return ds, meta
+    nt = ds.spec.n_targets
+    spans_in = meta["spans_division"]
+    Xn, Yn, spans_n, gens_n, tid_n = [], [], [], [], []
+    for t in np.unique(ds.traj_id):
+        sel = ds.traj_id == t
+        Xh, Yh = ds.X[sel], ds.Y[sel]
+        seq = np.vstack([Xh[0][None, :], Yh])            # (T+1, n_features)
+        sp = spans_in[sel]
+        dr = np.where(sp == 1)[0]
+        boundary = int(dr[0]) + 1 if dr.size else seq.shape[0]  # seq idx of daughter_first
+        back = list(range(boundary - stride, -1, -stride))[::-1]  # gen0 grid, ends at boundary-stride
+        fwd = list(range(boundary, seq.shape[0], stride))          # daughter grid, starts at boundary
+        kept = back + fwd
+        for i in range(len(kept) - 1):
+            a, b = kept[i], kept[i + 1]
+            Xn.append(seq[a]); Yn.append(seq[b])
+            spans_n.append(1 if (a < boundary <= b) else 0)
+            gens_n.append(1 if a >= boundary else 0)
+            tid_n.append(int(t))
+    Xn = np.asarray(Xn); Yn = np.asarray(Yn)
+    tid_n = np.asarray(tid_n, dtype=np.int64)
+    ds2 = TransitionDataset(X=Xn, Y=Yn, DT=np.full(Xn.shape[0], float(stride)),
+                            traj_id=tid_n, spec=ds.spec)
+    meta2 = {"spans_division": np.asarray(spans_n, dtype=np.int64),
+             "generation": np.asarray(gens_n, dtype=np.int64),
+             "traj_id": tid_n}
+    return ds2, meta2
+
+
 def _rollout(model, x0, n_steps):
     s = np.asarray(x0, dtype=np.float64).copy()
     out = [s.copy()]
@@ -76,33 +119,41 @@ def evaluate(ds, layout, meta, data_dir, hidden, epochs, lr, rollout_k):
     mass_col = layout.labels.index(("mass", "cell_mass"))
     traj_ids = list(np.unique(ds.traj_id))
     model_names = ["persistence", "mean-delta", "linear", "onestep_nn", "rollout_nn"]
-    per_fold = {m: {"within_gen_nrmse": [], "boundary_onestep": [], "full_rollout_nrmse": []}
-                for m in model_names}
+    metrics = ["wg_onestep", "boundary_onestep", "wg_rollout_nrmse", "full_rollout_nrmse"]
+    per_fold = {m: {k: [] for k in metrics} for m in model_names}
     boundary_drop = []
-    trace = None  # per-tick rollout of one representative fold, for the figure
+    trace = None  # per-step rollout of one representative fold, for the figure
+
+    span_all = meta["spans_division"]
 
     for fi, held in enumerate(traj_ids):
-        keep = ds.traj_id != held
+        # TRAIN on WITHIN-GENERATION transitions only (exclude the across-
+        # division rows): this is the regime sm-00/sm-01 established — a smooth
+        # single-generation emulator. The test is whether that emulator holds
+        # when APPLIED across the division boundary it never trained on. (A
+        # secondary check confirmed that ADDING the 6 halving examples to
+        # training does not help and corrupts the within-gen fit — the halving
+        # is not predictable from this observable panel.)
+        keep = (ds.traj_id != held) & (span_all == 0)
         train_ds = TransitionDataset(X=ds.X[keep], Y=ds.Y[keep], DT=ds.DT[keep],
                                      traj_id=ds.traj_id[keep], spec=ds.spec)
         Xh, Yh, spans, gens, seq = _traj_arrays(ds, meta, held)
 
-        # locate the across-division transition row (spans==1) in this trajectory
         div_rows = np.where(spans == 1)[0]
         div_row = int(div_rows[0]) if div_rows.size else None
-
         mass_actual = seq[:, mass_col]
-        mass_scale = float(np.std(mass_actual)) or 1.0
+        # normalize by the WITHIN-GENERATION mass scale (the signal the emulator
+        # actually operates on), so the boundary error is measured in units of
+        # ordinary growth variation — not diluted by the halving itself.
+        wg_mask = spans == 0
+        wg_scale = float(np.std(mass_actual[:-1][wg_mask])) or 1.0
 
-        # actual relative mass drop at division (the halving), for reference
         if div_row is not None:
-            m_mother = Xh[div_row, mass_col]
-            m_daughter = Yh[div_row, mass_col]
+            m_mother, m_daughter = Xh[div_row, mass_col], Yh[div_row, mass_col]
             boundary_drop.append(abs(m_daughter - m_mother) / (abs(m_mother) or 1.0))
 
-        # --- build all models on the SAME training folds ---
         models = dict(build_baselines(ds.spec))
-        for name in models:  # persistence/mean-delta/linear .fit
+        for name in models:
             models[name] = models[name].fit(train_ds.X, train_ds.Y)
         models["onestep_nn"], _ = train_surrogate(
             train_ds, hidden=tuple(hidden), epochs=epochs, lr=lr, seed=fi)
@@ -110,43 +161,41 @@ def evaluate(ds, layout, meta, data_dir, hidden, epochs, lr, rollout_k):
             train_ds, hidden=tuple(hidden), epochs=epochs, lr=lr,
             rollout_k=rollout_k, seed=fi)
 
-        # within-generation rollout: only the pre-division (gen 0) portion
         gen0_end = div_row if div_row is not None else seq.shape[0] - 1
-        wg_actual = mass_actual[: gen0_end + 1]
-        wg_scale = float(np.std(wg_actual)) or 1.0
         n_full = seq.shape[0] - 1
+        wg_rows = np.where(wg_mask)[0]
 
         for name, model in models.items():
-            # within-gen nRMSE (roll from birth to just before division)
-            wg_roll = _rollout(model, seq[0], gen0_end)[:, mass_col]
-            wg_rmse = float(np.sqrt(np.nanmean((wg_roll - wg_actual) ** 2)))
-            per_fold[name]["within_gen_nrmse"].append(wg_rmse / wg_scale)
-
-            # full rollout nRMSE (through division)
-            f_roll = _rollout(model, seq[0], n_full)[:, mass_col]
-            f_rmse = float(np.sqrt(np.nanmean((f_roll - mass_actual) ** 2)))
-            per_fold[name]["full_rollout_nrmse"].append(f_rmse / mass_scale)
-
-            # boundary teacher-forced one-step error (does it follow the halving?)
+            # (1) TEACHER-FORCED one-step error, within-generation (median over
+            #     all within-gen transitions) — like-for-like with the boundary.
+            preds = model.predict_next(Xh[wg_rows])[:, mass_col]
+            wg_os = np.abs(preds - Yh[wg_rows, mass_col]) / wg_scale
+            per_fold[name]["wg_onestep"].append(float(np.median(wg_os)))
+            # (2) TEACHER-FORCED one-step error AT the division tick.
             if div_row is not None:
-                pred_next = model.predict_next(Xh[div_row][None, :])[0, mass_col]
-                err = abs(pred_next - Yh[div_row, mass_col]) / mass_scale
-                per_fold[name]["boundary_onestep"].append(err)
+                pred_b = model.predict_next(Xh[div_row][None, :])[0, mass_col]
+                per_fold[name]["boundary_onestep"].append(
+                    float(abs(pred_b - Yh[div_row, mass_col]) / wg_scale))
+            # (3) autoregressive rollout nRMSE, within generation 0 only.
+            wg_roll = _rollout(model, seq[0], gen0_end)[:, mass_col]
+            per_fold[name]["wg_rollout_nrmse"].append(
+                float(np.sqrt(np.nanmean((wg_roll - mass_actual[:gen0_end + 1]) ** 2)) / wg_scale))
+            # (4) autoregressive rollout nRMSE through the division.
+            f_roll = _rollout(model, seq[0], n_full)[:, mass_col]
+            per_fold[name]["full_rollout_nrmse"].append(
+                float(np.sqrt(np.nanmean((f_roll - mass_actual) ** 2)) / wg_scale))
 
-        # Save a rollout trace from the first fold that actually crosses a
-        # division, so the figure can show the rollout missing the halving.
         if trace is None and div_row is not None:
             trace = {
-                "held_traj": int(held),
-                "div_index": int(div_row),
+                "held_traj": int(held), "div_index": int(div_row),
                 "actual_mass": mass_actual.tolist(),
                 "models": {name: _rollout(model, seq[0], n_full)[:, mass_col].tolist()
                            for name, model in models.items()},
             }
 
-        print(f"  fold {fi} (held {held}, div_row={div_row}): "
-              + ", ".join(f"{m} wg={per_fold[m]['within_gen_nrmse'][-1]:.3f}"
-                          f"/bd={per_fold[m]['boundary_onestep'][-1]:.2f}"
+        print(f"  fold {fi} (held {held}): "
+              + ", ".join(f"{m} wg1={per_fold[m]['wg_onestep'][-1]:.4f}"
+                          f"/bd1={per_fold[m]['boundary_onestep'][-1]:.2f}"
                           for m in model_names if per_fold[m]['boundary_onestep']))
 
     def _agg(vals):
@@ -159,17 +208,15 @@ def evaluate(ds, layout, meta, data_dir, hidden, epochs, lr, rollout_k):
 
     summary = {}
     for m in model_names:
-        wg = _agg(per_fold[m]["within_gen_nrmse"])
-        bd = _agg(per_fold[m]["boundary_onestep"])
-        fr = _agg(per_fold[m]["full_rollout_nrmse"])
-        ratio = bd["median"] / wg["median"] if wg["median"] else float("nan")
-        summary[m] = {
-            "within_gen_nrmse": wg, "boundary_onestep": bd, "full_rollout_nrmse": fr,
-            "boundary_over_within_ratio": ratio,
-        }
-        print(f"  {m:12s}: within-gen nRMSE median={wg['median']:.3f}  "
-              f"boundary one-step median={bd['median']:.2f}  "
-              f"(boundary/within = {ratio:.1f}x)")
+        agg = {k: _agg(per_fold[m][k]) for k in metrics}
+        wg1, bd1 = agg["wg_onestep"]["median"], agg["boundary_onestep"]["median"]
+        ratio = bd1 / wg1 if wg1 else float("nan")
+        agg["boundary_over_within_onestep_ratio"] = ratio
+        summary[m] = agg
+        print(f"  {m:12s}: within-gen one-step nRMSE median={wg1:.4f}  "
+              f"boundary one-step median={bd1:.2f}  (boundary/within = {ratio:.0f}x)  "
+              f"| wg-rollout={agg['wg_rollout_nrmse']['median']:.3f} "
+              f"full-rollout={agg['full_rollout_nrmse']['median']:.3f}")
 
     drop = _agg(boundary_drop)
     print(f"\n  actual mass drop at division: median={drop['median']:.3f} "
@@ -177,12 +224,15 @@ def evaluate(ds, layout, meta, data_dir, hidden, epochs, lr, rollout_k):
 
     out = {
         "n_folds": len(traj_ids),
+        "trained_on": "within-generation transitions only (across-division rows excluded)",
+        "normalization": "errors normalized by within-generation cell_mass std (wg_scale)",
         "boundary_actual_drop": drop,
         "summary": summary,
         "trace": trace,
-        "note": ("boundary_onestep is a TEACHER-FORCED one-step error at the "
-                 "division tick (true mother state in, prediction vs halved "
-                 "daughter). within_gen_nrmse is the sm-01/sm-03 regime."),
+        "note": ("wg_onestep and boundary_onestep are both TEACHER-FORCED "
+                 "one-step errors (true state in), so their ratio isolates the "
+                 "division discontinuity from rollout compounding. wg_rollout / "
+                 "full_rollout are autoregressive."),
     }
     with open(os.path.join(data_dir, "metrics_through_division.json"), "w") as fh:
         json.dump(out, fh, indent=2)
@@ -197,8 +247,15 @@ def main():
     ap.add_argument("--epochs", type=int, default=300)
     ap.add_argument("--lr", type=float, default=5e-3)
     ap.add_argument("--rollout-k", type=int, default=16)
+    ap.add_argument("--stride", type=int, default=8,
+                    help="temporal subsample (dt, seconds) for emulator train/eval; "
+                         "1 = full dt=1 resolution")
     args = ap.parse_args()
     ds, layout, meta = _load(args.data)
+    ds, meta = _subsample(ds, meta, args.stride)
+    print(f"  dt={args.stride}s: {ds.X.shape[0]} transitions across "
+          f"{len(np.unique(ds.traj_id))} lineages "
+          f"({int(np.sum(meta['spans_division']))} across-division)")
     evaluate(ds, layout, meta, args.data, args.hidden, args.epochs, args.lr, args.rollout_k)
 
 

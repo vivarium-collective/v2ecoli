@@ -48,4 +48,23 @@ findings: |
   https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html
 
 members:
-  - s01-birth-and-division
+- s01-birth-and-division
+biological_story: |-
+  An E. coli cell is not a well-mixed bag: its molecules occupy an ~2 um rod with distinct spatial organization. The chromosome condenses into a nucleoid that excludes ribosomes toward the poles and periphery; ribosomes and most translation crowd the cytoplasm around it; membrane proteins and transporters sit in the inner membrane; and the arrangement changes over the cell cycle as the chromosome replicates and segregates and the cell elongates toward division.
+
+  The whole-cell model tracks molecular counts but is spatially implicit -- it knows how many of each molecule exist, not where. This investigation gives those counts a body: it packs the simulated molecular inventory into a 3D cell envelope at two declared cell-cycle times -- just after birth (post-equilibration) and just before division -- so the abstract state vector can be seen as a physical cell and inspected in the Parsimony Viewer. It is a visualization/spatialization layer over the existing dynamics, not a new spatial simulation.
+glossary:
+- term: Nucleoid
+  definition: |-
+    The condensed, membrane-less region occupied by the E. coli chromosome; it excludes ribosomes and sets much of the cell's internal spatial structure.
+- term: Post-equilibration (just after birth)
+  definition: |-
+    The cell-cycle snapshot taken once a newborn cell has settled after division -- one of the two declared times packed into 3D.
+- term: Pre-division snapshot
+  definition: |-
+    The state captured just before the cell divides, when it is longest and its replicated chromosome is segregating -- the second declared time.
+- term: 3D packing
+  definition: |-
+    Placing the model's molecular counts into an explicit cell-shaped volume (respecting the envelope and nucleoid) so an implicit count vector becomes a viewable spatial arrangement.
+- term: Parsimony Viewer
+  definition: The 3D viewer in which the packed declared-time snapshots are rendered and explored.

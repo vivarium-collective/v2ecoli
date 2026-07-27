@@ -1,68 +1,65 @@
 schema_version: 4
 name: statistical
 investigation: v2ecoli-vecoli-comparison
-title: "Statistical equivalence \u2014 v2ecoli baseline vs vEcoli (basal, 4 seeds)"
+title: "Statistical equivalence — v2ecoli baseline vs vEcoli (basal, 4 seeds)"
 condition: basal
 question: Is v2ecoli statistically equivalent to vEcoli on basal across 4 seeds?
 comparison:
   seeds: 4
   generations: 4
   cards:
-  - config
-  - statistical
+    - config
+    - statistical
 report_cards:
-- viz/report_card/config.html
-- viz/report_card/statistical.html
+  - viz/report_card/config.html
+  - viz/report_card/statistical.html
 tests:
-- name: config-vs-vecoli
-  kind: report_card
-  card: config
-  classification: primary
-  question: Does v2ecoli reproduce vEcoli on statistical (config card)?
-- name: statistical-vs-vecoli
-  kind: report_card
-  card: statistical
-  classification: primary
-  question: Does v2ecoli reproduce vEcoli on statistical (statistical card)?
-  measure:
-    kind: report_card_axis
-    card: docs/report_cards/v2ecoli-vecoli-comparison/statistical
-    group: statistical
-pipeline_gate:
-  prerequisites:
-  - basal
-  enables: []
+  - name: config-vs-vecoli
+    kind: report_card
+    card: config
+    classification: primary
+    question: Does v2ecoli reproduce vEcoli on statistical (config card)?
+  - name: statistical-vs-vecoli
+    kind: report_card
+    card: statistical
+    classification: primary
+    question: Does v2ecoli reproduce vEcoli on statistical (statistical card)?
+    measure:
+      kind: report_card_axis
+      card: docs/report_cards/v2ecoli-vecoli-comparison/statistical
+      group: statistical
 runs:
-- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  name: statistical-comparison
-  kind: analysis
-  canonical: true
-  description: v2e-compare study statistical
-  status: completed
-  result: PASS
-  outcomes:
-    statistical-vs-vecoli:
-      result: PASS
-      detail: 'report card ''statistical'': within_tol'
+  - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    name: statistical-comparison
+    kind: analysis
+    canonical: true
+    description: v2e-compare study statistical
+    status: completed
+    result: PASS
+    outcomes:
+      statistical-vs-vecoli:
+        result: PASS
+        detail: 'report card ''statistical'': within_tol'
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    params:
-      condition: basal
+    # condition:basal was legacy; ecoli_baseline defaults to media:minimal
+    params: {}
+  model_settings: []
 depends_on:
-- basal
+  - basal
 status: evaluated
 confidence: Accepted
 findings:
-- id: statistical-statistical
-  kind: computational
-  status: confirms
-  statement: 'v2ecoli is statistically equivalent to vEcoli on basal across 4 seeds:
-    all 5 observables within tolerance.'
-  evidence:
-    from_card: statistical
-    observed: 5 within tolerance (Cell mass, Growth rate, Dry mass, Protein mass,
-      RNA mass)
+  - id: statistical-statistical
+    kind: computational
+    status: confirms
+    statement: 'v2ecoli is statistically equivalent to vEcoli on basal across 4 seeds: all 5 observables within tolerance.'
+    evidence:
+      from_card: statistical
+      observed: 5 within tolerance (Cell mass, Growth rate, Dry mass, Protein mass, RNA mass)
 inputs:
-- artifact: sim_data
-  from: parca
+  - artifact: sim_data
+    from: parca
+  - artifact: basal
+    from: basal

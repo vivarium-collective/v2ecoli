@@ -130,6 +130,26 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
     return new_flow_order
 
 
+def _register_ecoli_pack_step(core):
+    """``core_extensions`` hook — register the ``EcoliPackStep`` link on the
+    core the run actually builds its ``Composite`` against.
+
+    The document build runs the generator with ``core=None``: the dashboard's
+    subprocess (and ``build_generator`` in general) calls the builder without a
+    core — viva_superpowers' ``CompositeSpec.to_document`` forwards that
+    ``None`` straight to the builder, and the real ``build_core()`` core is
+    attached only later at ``Composite(...)`` construction. So the
+    ``local:EcoliPackStep`` link MUST be registered here — ``apply_core_extensions``
+    runs this against the run core — NOT inside the builder body. Registering it
+    in the body (guarded by ``core is not None``) meant every real run built the
+    document with ``core=None``, skipped the registration AND the pack-step
+    append, and silently wrote no snapshot packs.
+    """
+    from v2ecoli.structural.pack_step import EcoliPackStep
+    core.register_link("EcoliPackStep", EcoliPackStep)
+    return core
+
+
 @composite_generator(
     name="ecoli_structural",
     description=(
@@ -196,6 +216,7 @@ def _append_final_step(cell_state: dict, flow_order: list[str], step_name: str) 
         },
     },
     default_n_steps=2700,
+    core_extensions=[_register_ecoli_pack_step],
 )
 def baseline_parsimony(
     core: Any = None,
@@ -213,11 +234,19 @@ def baseline_parsimony(
     """Build the baseline document, then append EcoliPackStep as a final
     execution layer on every per-agent cell state."""
     doc = baseline(core=core, **kwargs)
-    if core is None:
+    # Append the pack step to the built document UNCONDITIONALLY — it is pure
+    # state/flow wiring and needs no core. The ``EcoliPackStep`` *link* is
+    # registered separately via the ``core_extensions`` hook
+    # (``_register_ecoli_pack_step``) so it lands on the run core even though
+    # the standard build path (dashboard subprocess) builds this document with
+    # ``core=None``. Previously the whole append was gated on ``core is not
+    # None`` and returned early, which silently dropped the pack step on every
+    # real run (that path always builds with ``core=None``) — no packs written.
+    agents = (doc.get("state") or {}).get("agents") if isinstance(doc, dict) else None
+    if not agents:
+        # baseline returned a skeleton/display doc with no per-agent cell
+        # states to attach the pack step to — nothing to do.
         return doc
-
-    from v2ecoli.structural.pack_step import EcoliPackStep
-    core.register_link("EcoliPackStep", EcoliPackStep)
 
     snaps = snapshots or {"initial": 10.0, "pre-division": "division_time"}
     # out_dir is relative to the run's CWD (the workspace root where the
@@ -230,7 +259,7 @@ def baseline_parsimony(
     cache_dir = kwargs.get("cache_dir") or "out/cache"
 
     flow_order = doc.get("flow_order") or []
-    for agent_id, cell in doc["state"]["agents"].items():
+    for agent_id, cell in agents.items():
         cell["pack_step"] = {
             "_type": "step",
             "address": "local:EcoliPackStep",

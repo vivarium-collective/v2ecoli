@@ -44,7 +44,11 @@ def test_aggregate_per_study_metadata_and_rollup():
     assert by["parca"]["result"] == "PASS"
     assert by["parca"]["prerequisites"] == []
     assert by["acetate"]["prerequisites"] == ["parca"]
-    assert by["statistical"]["prerequisites"] == ["basal"]
+    # post-migration: prerequisites come from inputs.from, which for
+    # `statistical` lists both its sim_data source (parca) and its
+    # comparison baseline (basal) — pipeline_gate.prerequisites (pre-migration)
+    # tracked only the direct gate (basal); inputs.from is now the source of truth.
+    assert by["statistical"]["prerequisites"] == ["parca", "basal"]
     # post-fix finding states acetate reproduces vEcoli natively
     assert "reproduces vEcoli" in (by["acetate"]["finding"] or "")
     # config + standard cards discovered for acetate; parca card for parca
@@ -225,7 +229,9 @@ def test_aggregate_config_json_is_real_baseline_config():
     by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
     cfg = by["acetate"]["config_json"]
     assert cfg["composite"] == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
-    assert cfg["params"] == {"condition": "acetate"}
+    # migrated by the study-config↔generator contract: condition:acetate -> media:minimal_acetate
+    # (ecoli_baseline accepts `media`, not `condition`)
+    assert cfg["params"] == {"media": "minimal_acetate"}
     # comparison run settings folded in
     assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
     assert cfg["generations"] == 4

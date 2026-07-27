@@ -207,3 +207,8 @@ ui:
   # (birth — 1.8 µm rod; pre-division — 3.06 µm, 2 chromosomes + septum).
   viz_viewer_urls:
     ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json"
+    # structural-ecoli s01 (ecoli_structural overhaul): birth + pre-division
+    # packs hosted on the same R2 bucket under its own structural-ecoli/ prefix
+    # (2-model dropdown). Keyed by this study's pack names.
+    initial: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html"
+    pre-division: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html"

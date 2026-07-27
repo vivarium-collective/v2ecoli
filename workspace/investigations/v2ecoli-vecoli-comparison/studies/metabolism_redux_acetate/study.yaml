@@ -3,8 +3,7 @@ name: metabolism_redux_acetate
 investigation: v2ecoli-vecoli-comparison
 title: v2ecoli reproduces vEcoli with MetabolismRedux (acetate)
 condition: acetate
-question: Does v2ecoli reproduce vEcoli on acetate when both engines swap FBA 
-  Metabolism for MetabolismRedux?
+question: Does v2ecoli reproduce vEcoli on acetate when both engines swap FBA Metabolism for MetabolismRedux?
 comparison:
   seeds: 6
   generations: 1
@@ -44,26 +43,22 @@ tests:
   kind: report_card
   card: config
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (config 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (config card)?
 - name: parca-vs-vecoli
   kind: report_card
   card: parca
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (parca 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (parca card)?
 - name: standard-vs-vecoli
   kind: report_card
   card: standard
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (standard 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (standard card)?
 - name: statistical-vs-vecoli
   kind: report_card
   card: statistical
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate 
-    (statistical card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (statistical card)?
   measure:
     kind: report_card_axis
     card: docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux_acetate
@@ -72,26 +67,22 @@ tests:
   kind: report_card
   card: trajectory
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate 
-    (trajectory card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (trajectory card)?
 - name: distribution-vs-vecoli
   kind: report_card
   card: distribution
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate 
-    (distribution card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (distribution card)?
 - name: metabolism-vs-vecoli
   kind: report_card
   card: metabolism
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate 
-    (metabolism card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (metabolism card)?
 - name: composition-vs-vecoli
   kind: report_card
   card: composition
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate 
-    (composition card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_acetate (composition card)?
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -101,7 +92,14 @@ conditions:
 depends_on:
 - parca
 confidence: Investigating
-findings: []
+findings:
+- id: metabolism_redux_acetate-vs-vecoli-result
+  kind: computational
+  status: confirms
+  statement: "Measured (6 seeds requested, 4 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol. Matched gen-1 median |delta|: cell 0.53%, dry 0.53%, protein 1.09%, rna 2.19%, growth 12.1%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader's observable set)."
+  evidence:
+    from_card: statistical
+    observed: parca within_tol; cell/dry/protein/rna mass all within_tol (median |delta| 0.53%/0.53%/1.09%/2.19%); growth-rate median |delta| 12.1% (sole driver of the drift verdict).
 inputs:
 - artifact: sim_data
   from: parca

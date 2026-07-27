@@ -3,8 +3,7 @@ name: metabolism_redux_basal
 investigation: v2ecoli-vecoli-comparison
 title: v2ecoli reproduces vEcoli with MetabolismRedux (basal)
 condition: basal
-question: Does v2ecoli reproduce vEcoli on basal when both engines swap FBA 
-  Metabolism for MetabolismRedux?
+question: Does v2ecoli reproduce vEcoli on basal when both engines swap FBA Metabolism for MetabolismRedux?
 comparison:
   seeds: 6
   generations: 1
@@ -44,26 +43,22 @@ tests:
   kind: report_card
   card: config
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (config 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (config card)?
 - name: parca-vs-vecoli
   kind: report_card
   card: parca
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (parca 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (parca card)?
 - name: standard-vs-vecoli
   kind: report_card
   card: standard
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (standard 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (standard card)?
 - name: statistical-vs-vecoli
   kind: report_card
   card: statistical
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (statistical
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (statistical card)?
   measure:
     kind: report_card_axis
     card: docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux_basal
@@ -72,26 +67,22 @@ tests:
   kind: report_card
   card: trajectory
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (trajectory 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (trajectory card)?
 - name: distribution-vs-vecoli
   kind: report_card
   card: distribution
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal 
-    (distribution card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (distribution card)?
 - name: metabolism-vs-vecoli
   kind: report_card
   card: metabolism
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (metabolism 
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (metabolism card)?
 - name: composition-vs-vecoli
   kind: report_card
   card: composition
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (composition
-    card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (composition card)?
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -105,39 +96,17 @@ findings:
 - id: metabolism_redux-perf-blocker
   kind: methodological
   status: resolved
-  statement: 'RESOLVED (short-horizon precursor run, 1 seed x 1 gen x 300 steps).
-    The v2-side tick-2 hang was a GlobalClock zero-advance deadlock, NOT a step-cascade
-    non-convergence (the earlier theory was a downstream symptom). MetabolismRedux
-    is a vivarium Step but was injected as an interval pbg process, so its next_update_time
-    output applied a tick late and GlobalClock.calculate_timestep pinned at 0. Fixed
-    in v2ecoli PR #389 (inject vivarium Step subclasses as pbg steps). v2ecoli now
-    runs 301 redux steps in ~125 s and REPRODUCES genuine vEcoli on basal within_tol
-    on all graded axes (worst matched-time median |delta| = 0.79%). This study now
-    runs the full 2-seed x 3-gen x 15000-step shape; the perf-blocker finding is carried
-    forward as historical context for the injection fix, not yet re-validated at this
-    shape.'
+  statement: 'RESOLVED (short-horizon precursor run, 1 seed x 1 gen x 300 steps). The v2-side tick-2 hang was a GlobalClock zero-advance deadlock, NOT a step-cascade non-convergence (the earlier theory was a downstream symptom). MetabolismRedux is a vivarium Step but was injected as an interval pbg process, so its next_update_time output applied a tick late and GlobalClock.calculate_timestep pinned at 0. Fixed in v2ecoli PR #389 (inject vivarium Step subclasses as pbg steps). v2ecoli now runs 301 redux steps in ~125 s and REPRODUCES genuine vEcoli on basal within_tol on all graded axes (worst matched-time median |delta| = 0.79%). This study now runs the full 2-seed x 3-gen x 15000-step shape; the perf-blocker finding is carried forward as historical context for the injection fix, not yet re-validated at this shape.'
   evidence:
     from_card: standard
-    observed: 'ROOT CAUSE (pinned by direct measurement, 2026-07-26): GlobalClock.calculate_timestep
-      returns min(next_update_time - global_time) over the next_update_time map; it
-      advances sim time by that full_step. MetabolismRedux (vivarium Step, update_condition-gated)
-      inherits FBA metabolism''s topology so its next_update_time wires to (''next_update_time'',''metabolism'').
-      The inject bridge set as_step only from an explicit _force_step attr (which
-      redux lacks), so redux was injected as an interval pbg PROCESS. As a process
-      its next_update_time output is deferred to front-time global_time+interval and
-      applies one tick late; at tick 2 nut[''metabolism'']==global_time==1.0 => calculate_timestep
-      returns 0 => global_time frozen => _run_inner spins (~170k apply_updates rounds/tick).
-      A probe recorded 4001/4001 zero-advance clock calls, argmin always the orphaned
-      ''metabolism'' key. FBA metabolism does not hang because it is built as partitioned
-      Requester/Evolver STEPS (applied immediately in the cascade). FIX: _should_inject_as_step(cls)
-      returns True for vivarium Step subclasses (PartitionedProcess already rejected
-      as ''partitioned'', so plain Processes stay processes); as a step the deriver
-      applies within the tick so next_update_time advances before the clock recomputes.
-      VERIFIED: redux basal advances global_time normally at ~0.4 s/tick; matched-timepoint
-      gen-1 grade vs genuine vEcoli -- cell_mass 0.10%, dry_mass 0.10%, protein_mass
-      0.07%, rna_mass 0.52%, growth_rate 0.79% => within_tol all axes. See memory
-      project_metabolism_redux_tick2_hang. (Supersedes the earlier STEP-CASCADE NON-CONVERGENCE
-      theory and the missing project_metabolism_redux_injection_ode_stiffness memory.)'
+    observed: 'ROOT CAUSE (pinned by direct measurement, 2026-07-26): GlobalClock.calculate_timestep returns min(next_update_time - global_time) over the next_update_time map; it advances sim time by that full_step. MetabolismRedux (vivarium Step, update_condition-gated) inherits FBA metabolism''s topology so its next_update_time wires to (''next_update_time'',''metabolism''). The inject bridge set as_step only from an explicit _force_step attr (which redux lacks), so redux was injected as an interval pbg PROCESS. As a process its next_update_time output is deferred to front-time global_time+interval and applies one tick late; at tick 2 nut[''metabolism'']==global_time==1.0 => calculate_timestep returns 0 => global_time frozen => _run_inner spins (~170k apply_updates rounds/tick). A probe recorded 4001/4001 zero-advance clock calls, argmin always the orphaned ''metabolism'' key. FBA metabolism does not hang because it is built as partitioned Requester/Evolver STEPS (applied immediately in the cascade). FIX: _should_inject_as_step(cls) returns True for vivarium Step subclasses (PartitionedProcess already rejected as ''partitioned'', so plain Processes stay processes); as a step the deriver applies within the tick so next_update_time advances before the clock recomputes. VERIFIED: redux basal advances global_time normally at ~0.4 s/tick; matched-timepoint gen-1 grade vs genuine vEcoli -- cell_mass 0.10%, dry_mass 0.10%, protein_mass 0.07%, rna_mass 0.52%, growth_rate 0.79% => within_tol all axes. See memory project_metabolism_redux_tick2_hang. (Supersedes the earlier STEP-CASCADE NON-CONVERGENCE theory and the missing project_metabolism_redux_injection_ode_stiffness memory.)'
+- id: metabolism_redux_basal-vs-vecoli-result
+  kind: computational
+  status: confirms
+  statement: "Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol. Matched gen-1 median |delta|: cell 0.14%, dry 0.15%, protein 0.09%, rna 0.60%, growth 10.4%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader's observable set)."
+  evidence:
+    from_card: statistical
+    observed: parca within_tol; cell/dry/protein/rna mass all within_tol (median |delta| 0.14%/0.15%/0.09%/0.60%); growth-rate median |delta| 10.4% (sole driver of the drift verdict).
 inputs:
 - artifact: sim_data
   from: parca

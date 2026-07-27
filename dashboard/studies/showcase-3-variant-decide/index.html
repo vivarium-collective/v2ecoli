@@ -567,13 +567,13 @@ run, so each candidate variant is a clean delta against a trusted reference.
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="ecoli_baseline" data-model-overrides='{}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>showcase-3-variant-decide</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">ecoli_baseline</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('ecoli_baseline')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_baseline.ecoli_baseline')">🧬 explore &amp; run ↗</button>
         
       </div>
       
@@ -599,7 +599,7 @@ run, so each candidate variant is a clean delta against a trusted reference.
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>ecoli_baseline</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code></div>
       
     </div>
     
@@ -614,7 +614,7 @@ run, so each candidate variant is a clean delta against a trusted reference.
           <tr>
             <td><code>ppgpp-regulation-off</code></td>
             <td>
-              <code>ecoli_baseline</code>
+              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
               
             </td>
             <td>
@@ -629,7 +629,7 @@ run, so each candidate variant is a clean delta against a trusted reference.
           <tr>
             <td><code>parameter-sweep-linspace</code></td>
             <td>
-              <code>ecoli_baseline</code>
+              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
               
             </td>
             <td>
@@ -644,7 +644,7 @@ run, so each candidate variant is a clean delta against a trusted reference.
           <tr>
             <td><code>media-condition-change</code></td>
             <td>
-              <code>ecoli_baseline</code>
+              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
               
             </td>
             <td>
@@ -659,7 +659,7 @@ run, so each candidate variant is a clean delta against a trusted reference.
           <tr>
             <td><code>dnaa-expression-knob</code></td>
             <td>
-              <code>ecoli_baseline</code>
+              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
               
             </td>
             <td>
@@ -1401,7 +1401,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "ecoli_baseline";
+  var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
   var slug = window._studyName || "showcase-3-variant-decide";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });

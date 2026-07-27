@@ -1,0 +1,158 @@
+schema_version: 4
+name: sm-04-through-division
+investigation: surrogate-modeling
+title: "Through division — do the emulators hold across the cell-cycle discontinuity?"
+created: '2026-07-27'
+status: designed
+
+design_status: complete
+implementation_status: complete
+simulation_status: designed
+evaluation_status: pending
+gate_status: pending
+expert_review_status: pending
+
+claim: |
+  The load-bearing untested boundary of the whole investigation: every sm-0x
+  conclusion is conditioned on pre-division single-cell trajectories, because
+  sm-00 halts each rollout at division ("the single-agent assumption breaks once
+  daughters appear"). sm-04 extends collection to follow ONE daughter lineage
+  across a real division event and asks whether the emulators that win within a
+  generation (linear best; the sm-03 rollout-loss NN) still hold across the
+  cell_mass halving — or fail to represent the discontinuity.
+confidence: Pending
+
+question: |
+  Do the linear and neural (rollout-loss) emulators of coarse growth, which
+  emulate a single generation well (sm-01/sm-03), continue to hold when a
+  trajectory crosses a division event where cell_mass halves and the chromosome
+  count resets — or is the cell-cycle discontinuity a hard boundary the
+  observable-view emulator cannot represent?
+
+report:
+  title: sm-04-through-division — emulators across the division discontinuity
+  verdict: pending
+  confidence: pending
+  evidence_quality: "6-seed lineages rolled to/through one division (~tick 2500); leave-one-lineage-out CV"
+  objective: |
+    Extend sm-00's collection to continue across a division (follow one daughter
+    lineage across the reset), then retrain/apply the existing linear + NN
+    emulators on the through-division data and measure rollout error ACROSS the
+    division boundary vs WITHIN a generation, under the same trivial-baseline
+    comparison sm-01 uses.
+  setup: |
+    code/sample_through_division.py reuses v2ecoli's own multigeneration lineage
+    machinery (workflow/lineage.py: select_carry_daughter + apply_carry_state)
+    to step past the division tick — a single Composite cannot be run() through
+    division, so the surviving daughter's biological state is carried into a
+    freshly-rebuilt composite. Each 1-second transition is tagged
+    within-generation vs across-division. code/eval_through_division.py runs
+    leave-one-lineage-out CV comparing persistence / mean-delta / linear /
+    one-step NN / rollout-loss NN on cell_mass, splitting within-generation
+    rollout nRMSE from the teacher-forced one-step error AT the division tick.
+  result: |
+    TBD — filled from metrics_through_division.json after the run.
+  interpretation: |
+    TBD.
+  decision: |
+    TBD.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      seed: 0
+  variants:
+    - name: follow-one-daughter-through-division
+      perturbation: "Continue each lineage across one division, following the '..0' daughter (carry-and-rebuild), instead of halting at division as sm-00 does."
+      expected_contrast: "A transition that spans the cell_mass halving (mother ~2x birth mass -> daughter ~birth mass), plus post-division within-generation steps."
+      measured_contrast: "TBD (across-division mass drop ratio; boundary one-step error vs within-generation nRMSE)."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  model_settings: []
+
+tests:
+  - name: emulators-hold-across-division
+    classification: primary
+    status: pending
+    question: |
+      Does the best within-generation emulator (linear) represent the division
+      discontinuity — i.e. is its teacher-forced one-step error at the division
+      tick comparable to its within-generation rollout error (ratio near 1), or
+      does it fail to follow the cell_mass halving (ratio >> 1)?
+    measure:
+      kind: authored
+      detail: |
+        Leave-one-lineage-out CV. boundary_over_within_ratio for the linear
+        emulator = median(boundary one-step nRMSE) / median(within-generation
+        rollout nRMSE). A value near 1 would mean the emulator holds across
+        division; a large value means it fails to represent the discontinuity.
+      measured_value: null
+    pass_if:
+      op: gt
+      low: 1.0
+    cites_note: "Methodological capability test; a large ratio is an informative NEGATIVE (the emulator is valid only within a generation)."
+
+runs:
+  - name: through-division-cv
+    status: designed
+    kind: cross_validation
+    canonical: true
+    description: |
+      6-seed lineages rolled to/through one division; leave-one-lineage-out CV
+      of linear + NN emulators on cell_mass, within-generation vs across-division.
+    dispatch: serial
+    emitter:
+    result: pending
+    outcomes:
+      emulators-hold-across-division:
+        result: pending
+        detail: "TBD"
+    computed_outcomes:
+      _status: store_unresolved
+
+embed_visualizations:
+  - name: "Through division — emulator rollout vs the cell_mass halving (interactive)"
+    url: /reports/figures/sm-04-through-division/through_division.html
+    description: "One held-out lineage's true cell_mass across a division vs each emulator's autoregressive rollout, plus within-generation nRMSE vs the teacher-forced one-step error at the division tick, per emulator. Shows whether any emulator follows the halving or sails straight through it."
+
+pipeline_gate:
+  gate_status: pending
+
+robustness:
+  n_replicates: 1
+  seeds: [0, 1, 2, 3, 4, 5]
+  parameter_sweep: false
+  swept_param: "held-out lineage (leave-one-out CV)"
+
+falsifiability: |
+  The negative reading fails (i.e. the emulator WOULD hold across division) if
+  the boundary one-step error is comparable to the within-generation rollout
+  error (boundary/within ratio near 1). It is confirmed if the boundary error
+  dwarfs the within-generation error for every emulator, trivial or neural.
+
+simulation_set:
+  - name: through-division-cv
+    kind: cross_validation
+    status: designed
+    base_model: v2ecoli.composites.ecoli_baseline
+    duration_steps: 3400
+    seeds: 6
+    details: "Follow one daughter lineage across one division; leave-one-lineage-out CV of the emulators, within-generation vs across-division."
+    metrics:
+      - within_gen_nrmse
+      - boundary_onestep
+      - boundary_over_within_ratio
+    pass_fail_tests:
+      - emulators-hold-across-division
+
+inputs:
+  - artifact: sm-00-data-collection
+    from: sm-00-data-collection
+  - artifact: sm-03-improving-the-surrogate
+    from: sm-03-improving-the-surrogate
+
+decisions_needed:
+  - "TBD after results — likely: does the latent encode–decode direction warrant a study, given the discontinuity is unrepresentable from the observable view?"
+
+followup_proposals:
+  - "TBD after results."

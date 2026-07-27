@@ -58,6 +58,8 @@ at_a_glance:
     role: "What the cheap linear emulator is worth: amortized break-even (~8 evals) plus a 5,000-traj sweep in 0.02 s, and the limits."
   - study: sm-03-improving-the-surrogate
     role: "Follow-up: does multi-step rollout-loss training close the gap to the linear baseline?"
+  - study: sm-04-through-division
+    role: "Boundary test: follow one daughter lineage across a real division and ask whether the emulators hold across the cell_mass halving or fail to represent the discontinuity."
 
 biological_story: |
   The v2ecoli whole-cell model integrates 55 processes to advance one cell by
@@ -78,9 +80,12 @@ acceptance_criteria:
     behavior: cheap-emulator-amortizes-and-is-honest-about-limits
   - study: sm-03-improving-the-surrogate
     behavior: rollout-loss-training-narrows-the-gap
+  - study: sm-04-through-division
+    behavior: emulators-hold-across-division
 members:
   - sm-00-data-collection
   - sm-01-nn-surrogate
   - sm-02-utility-and-limits
   - sm-03-improving-the-surrogate
+  - sm-04-through-division
 

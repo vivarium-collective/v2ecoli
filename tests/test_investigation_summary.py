@@ -223,7 +223,9 @@ def test_aggregate_config_json_is_real_baseline_config():
     by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
     cfg = by["acetate"]["config_json"]
     assert cfg["composite"] == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
-    assert cfg["params"] == {"condition": "acetate"}
+    # migrated by the study-config↔generator contract: condition:acetate -> media:minimal_acetate
+    # (ecoli_baseline accepts `media`, not `condition`)
+    assert cfg["params"] == {"media": "minimal_acetate"}
     # comparison run settings folded in
     assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
     assert cfg["generations"] == 4

@@ -47,8 +47,8 @@ tests:
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    params:
-      condition: basal
+    # condition:basal was legacy; ecoli_baseline defaults to media:minimal
+    params: {}
   model_settings: []
 depends_on:
   - parca

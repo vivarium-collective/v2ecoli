@@ -70,7 +70,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -80,21 +80,21 @@ conditions:
         ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
       expected_contrast: "Stage-dependent influence on growth/mass; expected strongest mid-cycle."
       measured_contrast: "Pending — study not yet run."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: kS
       perturbation: "(planned) ppGpp/charging saturation constant, uniform prior"
       config_overrides:
         ecoli-polypeptide-elongation.kS: [60, 140]
       expected_contrast: "Possibly more influential late-cycle (regulation-shaped growth)."
       measured_contrast: "Pending — study not yet run."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: chrom-basal_elongation_rate
       perturbation: "(planned) DNA-polymerase elongation rate, uniform prior"
       config_overrides:
         ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
       expected_contrast: "Possibly stage-localized around replication."
       measured_contrast: "Pending — study not yet run."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
     - name: multigen-required
       detail: "Multi-generation runs required (≥1 division, ~2760 steps/gen); significantly slower than short-window studies."

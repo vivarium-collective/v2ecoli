@@ -63,7 +63,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -72,7 +72,7 @@ conditions:
       expected_contrast: "Fewer unstable rollouts; lower rollout error than one-step training."
       measured_contrast: "0/8 unstable (vs 1/8); nRMSE 0.053 (vs 0.069). Still > linear 0.019."
 
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 tests:
   - name: rollout-loss-training-narrows-the-gap

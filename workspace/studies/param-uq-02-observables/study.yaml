@@ -92,7 +92,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -102,21 +102,21 @@ conditions:
         ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
       expected_contrast: "Dominant driver of mass-observable variance."
       measured_contrast: "Total-order Sobol 0.863 (dry_mass) / 0.867 (cell_mass) — dominant; 0.511 for igr."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: kS
       perturbation: "ppGpp/charging saturation constant, uniform prior, 360-step window"
       config_overrides:
         ecoli-polypeptide-elongation.kS: [60, 140]
       expected_contrast: "Minor for mass; rises for igr at the longer window."
       measured_contrast: "Sobol 0.142/0.137 (mass) but 0.615 for igr (edges basal at 360 steps)."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: chrom-basal_elongation_rate
       perturbation: "DNA-polymerase elongation rate, uniform prior, 360-step window"
       config_overrides:
         ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
       expected_contrast: "Negligible across observables."
       measured_contrast: "Sobol 0.043/0.042 (mass), 0.123 (igr)."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
     - name: extended-window
       detail: "360-step window (vs 120 in param-uq-01) so mass observables accumulate a parameter signal."

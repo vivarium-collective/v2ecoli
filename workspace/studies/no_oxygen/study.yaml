@@ -48,7 +48,7 @@ conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
-      condition: no_oxygen
+      media: minimal_minus_oxygen  # migrated from condition:no_oxygen; calibrated per-condition ParCa cache lives at out/cache/.regen_no_oxygen_seed00
   model_settings: []
 depends_on:
   - parca

@@ -55,7 +55,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -64,7 +64,7 @@ conditions:
       expected_contrast: "Stochastic trajectory diversity for state-space coverage."
       measured_contrast: "8 trajectories x ~250 transitions = 2000 transitions."
 
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 tests:
   - name: ensemble-builds-broad-transition-dataset

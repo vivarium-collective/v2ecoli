@@ -81,7 +81,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -89,13 +89,13 @@ conditions:
       perturbation: "Residual-MLP (64,64) on mass+chromosome (8 dims), delta parameterization."
       expected_contrast: "High-fidelity, stable rollout."
       measured_contrast: "mass R^2=1.000; cell_mass rollout corr 1.000; ~2700x speedup."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: broad-surrogate
       perturbation: "Residual-MLP (256,256) on the full 11569-observable panel."
       expected_contrast: "Demonstration-grade; high-dim fidelity is the open challenge."
       measured_contrast: "~2% of columns R^2>0.5; rollout diverges (NaN); ~265x speedup."
 
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 tests:
   - name: surrogate-beats-trivial-baselines

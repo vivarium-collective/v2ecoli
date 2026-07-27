@@ -45,3 +45,31 @@ members:
 - statistical
 - succinate
 - with_aa
+biological_story: |-
+  v2ecoli and vEcoli are two implementations of the same idea: a mechanistic whole-cell model of E. coli that simulates metabolism, gene expression, replication, and division for a single cell over its cycle. vEcoli is the established Covert-lab process-bigraph model; v2ecoli is the reimplementation this workspace develops.
+
+  Because both descend from the same underlying biology and parameter pipeline (ParCa / sim_data), a faithful v2ecoli should reproduce vEcoli's growth and mass trajectories when both start from matched initial states and run the same medium -- differences then point to implementation divergences, not biology. This investigation grades v2ecoli against a live vEcoli reference on cell, dry, protein and RNA mass and growth rate across nutrient conditions, treating vEcoli as the standard the newer engine must match.
+how_to_read: |-
+  Grade v2ecoli against vEcoli on the multi-seed STATISTICAL card (a Welch t-test over seeds) together with the ParCa t=0 card -- those are the gold standard. The single-seed card is illustrative only: single-cell runs are stochastic, so one matched or mismatched trajectory is not evidence either way.
+glossary:
+- term: vEcoli
+  definition: |-
+    The established Covert-lab process-bigraph whole-cell E. coli model used here as the live reference standard.
+- term: v2ecoli
+  definition: |-
+    The whole-cell E. coli model developed in this workspace, graded against vEcoli for parity.
+- term: ParCa t=0 card
+  definition: |-
+    A check that both engines start from identical ParCa-derived initial states, so any later divergence is dynamics, not initialization.
+- term: Multi-seed statistical card
+  definition: |-
+    The gold-standard grade -- a Welch t-test comparing the two engines' observables across multiple seeds, so parity is judged statistically rather than on one trajectory.
+- term: Welch t-test
+  definition: |-
+    A two-sample test for equal means without assuming equal variances, used to decide whether v2ecoli and vEcoli distributions agree.
+- term: MetabolismRedux
+  definition: |-
+    An alternative metabolism process both engines can swap in; one study checks parity when both use it instead of the default FBA metabolism.
+- term: Nutrient condition (basal)
+  definition: |-
+    A defined growth medium (e.g. basal / minimal) under which the two engines are compared; parity must hold across conditions.

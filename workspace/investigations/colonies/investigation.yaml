@@ -121,45 +121,19 @@ scientific_argument:
     memory-bounded on the Linux HPC target — the memory growth earlier read as an
     HPC blocker is largely a macOS allocator artifact.
   evidence_for:
-  - Per-cell wall flat ~57 ms/tick/cell across N=1,2,4,8 (per-cell-cost-within-2x
-    PASS; 2026-07-26 remote re-run). [colonies-01 F-01]
+  - Per-cell wall flat ~57 ms/tick/cell across N=1,2,4,8 (per-cell-cost-within-2x PASS; 2026-07-26 remote re-run). [colonies-01 F-01]
   - pymunk physics ~free (<=0.2 ms/tick at N=8); cost is the inner EcoliWCM. [colonies-01 F-04]
-  - Per-cell RSS is additive, with sim_data @lru_cache-shared within a process —
-    ~291 MB/cell on current main (numpy footprint flat across N=1..4 confirms
-    sharing), atop an ~888 MB per-actor baseline. Reconciled HPC budget ~700
-    cells/node (64 Ray actors × ~11 cells, RAM- and GIL-realtime-feasible),
-    superseding 384 (450 MB/cell, pre-recorder) and an unsupported ~1000.
-    [colonies-01 F-03; hardening re-measurement 2026-07-27]
-  - Natural division works after fixing mother-removal (id/key match) and daughter
-    placement (viva-munk daughter_locations, no velocity kick) 1->2->4, daughters
-    replace the mother in place. [colonies-02; colony-animation GIF]
-  - The Ray protocol runs cells in separate OS processes, ~3.5x faster at N=16,
-    lifting the single-process GIL ceiling. [colonies-02 ray-lifts-gil-ceiling PASS]
-  - The per-tick RSS growth is localized to the elongation step (82%) + mass-listener
-    (17%); the real colony on Linux/glibc grows 0.225 MB/tick vs ~1.6 on macOS (7x
-    less; end-to-end container run), and the truly-retained residual is that
-    ~0.225 MB/tick scipy-LSODA rwork (arena churn fully reclaimed on Linux).
-    [colonies-03; leak hunt 2026-07-26]
+  - Per-cell RSS is additive, with sim_data @lru_cache-shared within a process — ~291 MB/cell on current main (numpy footprint flat across N=1..4 confirms sharing), atop an ~888 MB per-actor baseline. Reconciled HPC budget ~700 cells/node (64 Ray actors × ~11 cells, RAM- and GIL-realtime-feasible), superseding 384 (450 MB/cell, pre-recorder) and an unsupported ~1000. [colonies-01 F-03; hardening re-measurement 2026-07-27]
+  - Natural division works after fixing mother-removal (id/key match) and daughter placement (viva-munk daughter_locations, no velocity kick) 1->2->4, daughters replace the mother in place. [colonies-02; colony-animation GIF]
+  - The Ray protocol runs cells in separate OS processes, ~3.5x faster at N=16, lifting the single-process GIL ceiling. [colonies-02 ray-lifts-gil-ceiling PASS]
+  - The per-tick RSS growth is localized to the elongation step (82%) + mass-listener (17%); the real colony on Linux/glibc grows 0.225 MB/tick vs ~1.6 on macOS (7x less; end-to-end container run), and the truly-retained residual is that ~0.225 MB/tick scipy-LSODA rwork (arena churn fully reclaimed on Linux). [colonies-03; leak hunt 2026-07-26]
   evidence_against:
-  - The residual ~0.2 MB/tick scipy-LSODA retention is real and platform-independent;
-    over a full cell cycle (~3000 ticks) that is ~0.6 GB per cell, so very long
-    single-process WCM runs still need the solver-level fix or periodic trimming.
-  - Full-colony (55-process) Linux boundedness is now validated end-to-end — the real
-    colony, built for glibc in a Linux container, grew RSS 0.225 MB/tick vs ~1.6 on
-    the macOS mini (7x less), confirming the arena-churn-is-a-macOS-artifact finding.
-    The residual 0.225 MB/tick equals the real scipy-LSODA retention and persists on
-    Linux (~0.6 GB/cell-cycle), so very long multi-generation WCM runs still want the
-    solver-level fix (BDF-first in equilibrium/two-component) or periodic trimming; a
-    run on an actual HPC node remains the last confirmation before a hard budget.
+  - The residual ~0.2 MB/tick scipy-LSODA retention is real and platform-independent; over a full cell cycle (~3000 ticks) that is ~0.6 GB per cell, so very long single-process WCM runs still need the solver-level fix or periodic trimming.
+  - Full-colony (55-process) Linux boundedness is now validated end-to-end — the real colony, built for glibc in a Linux container, grew RSS 0.225 MB/tick vs ~1.6 on the macOS mini (7x less), confirming the arena-churn-is-a-macOS-artifact finding. The residual 0.225 MB/tick equals the real scipy-LSODA retention and persists on Linux (~0.6 GB/cell-cycle), so very long multi-generation WCM runs still want the solver-level fix (BDF-first in equilibrium/two-component) or periodic trimming; a run on an actual HPC node remains the last confirmation before a hard budget.
   caveats:
-  - Single-machine, single-seed (0) compute measurements; cross-node scaling is a
-    follow-up.
-  - Part B phenotype distributions are held for comparison against experimental
-    microfluidic data; the surrogate tier and real mother-machine data are planned.
-  - The ~700 cells/node budget assumes ~11 cells packed per Ray actor (sim_data
-    shared within the actor). One-cell-per-actor (max GIL parallelism) makes each
-    actor pay a full ~888 MB sim_data baseline and is RAM-bound at ~215 cells/node.
-    The right packing is a deployment decision, not a fixed number.
+  - Single-machine, single-seed (0) compute measurements; cross-node scaling is a follow-up.
+  - Part B phenotype distributions are held for comparison against experimental microfluidic data; the surrogate tier and real mother-machine data are planned.
+  - The ~700 cells/node budget assumes ~11 cells packed per Ray actor (sim_data shared within the actor). One-cell-per-actor (max GIL parallelism) makes each actor pay a full ~888 MB sim_data baseline and is RAM-bound at ~215 cells/node. The right packing is a deployment decision, not a fixed number.
 
 decisions_needed:
 - id: ray-actor-cell-packing
@@ -273,3 +247,25 @@ members:
 - colonies-06-daughter-machine
 - colonies-08-wcm-daughter-machine
 - colonies-09-wcm-mother-machine
+glossary:
+- term: Microcolony
+  definition: |-
+    A physically-packed cluster of cells grown from one founder, where daughters stay in contact and mechanically push on each other -- the regime this investigation embeds whole-cell agents into.
+- term: Adder homeostasis
+  definition: |-
+    The size-control strategy in which a cell adds a roughly constant volume between birth and division (independent of birth size), producing the size-at-division and added-length distributions the phenotype panel measures.
+- term: Inter-division time
+  definition: |-
+    The interval between successive divisions of a lineage; its full distribution (not just the mean) is a sensitive single-cell phenotype the colony must preserve.
+- term: Mother / daughter machine
+  definition: |-
+    Microfluidic device geometries. A mother machine traps one mother cell per channel and flushes daughters (steady single-lineage growth); a daughter machine retains progeny, growing a confined colony. Both provide reference distributions.
+- term: Cost/fidelity ladder
+  definition: |-
+    The interchangeable cell models run in the same device geometry -- a cheap viva-munk agent, a growth surrogate, and the full 55-process whole-cell model -- trading compute cost against biological fidelity.
+- term: viva-munk
+  definition: |-
+    The lightweight agent-based cell/physics layer (built on the pymunk 2D physics engine) that handles growth, division, and mechanical packing when the expensive whole-cell model is not the agent.
+- term: Ray actor
+  definition: |-
+    A parallelism primitive (one actor per cell) used to lift the single-process GIL ceiling so many whole-cell agents advance concurrently in one device.

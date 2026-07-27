@@ -2,20 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: param-uq-04-deep-params</title>
+<title>Study: sm-04-through-division</title>
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/progress-track.css">
+<!-- Inherit the workbench light/dark theme (this page loads in an iframe;
+     same-origin, so it shares the parent's localStorage 'viv.theme'). -->
+<script>(function(){try{var t=localStorage.getItem('viv.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 </head>
 <body>
 <main class="study-page">
 <header class="study-header">
   <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
   <h1 class="study-title">
-    <span class="study-name" id="study-name" data-slug="param-uq-04-deep-params" title="param-uq-04-deep-params">Deep physiological parameters — sensitivity to sim_data attributes via ParCa-level injection.</span>
+    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">sm-04</span><span class="study-name" id="study-name" data-slug="sm-04-through-division" title="sm-04-through-division">Through division — do the emulators hold across the cell-cycle discontinuity?</span>
     
     
     
-    <span class="status-pill gate-status gate-status-pending" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: pending</span>
+    <span class="status-pill gate-status gate-status-passed" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: passed</span>
     
     
     
@@ -31,7 +34,7 @@
 
 
 
-<div id="readiness-panel" data-slug="param-uq-04-deep-params"></div>
+<div id="readiness-panel" data-slug="sm-04-through-division"></div>
 
 
 
@@ -65,28 +68,28 @@
   
   <div class="status-detail-row">
     <span class="status-detail-axis">Implementation</span>
-    <span class="status-chip ">planned</span>
+    <span class="status-chip ">complete</span>
   </div>
   
   
   
   <div class="status-detail-row">
     <span class="status-detail-axis">Simulation</span>
-    <span class="status-chip ">planned</span>
+    <span class="status-chip ">complete</span>
   </div>
   
   
   
   <div class="status-detail-row">
     <span class="status-detail-axis">Evaluation</span>
-    <span class="status-chip ">planned</span>
+    <span class="status-chip ">evaluated</span>
   </div>
   
   
   
   <div class="status-detail-row">
     <span class="status-detail-axis">Gate</span>
-    <span class="status-chip gate-status-pending">pending</span>
+    <span class="status-chip gate-status-passed">passed</span>
   </div>
   
   
@@ -118,7 +121,7 @@
 .spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
 .spine-div{font-weight:600;color:#92400e}
 </style>
-<div id="spine-summary" class="spine-summary" data-slug="param-uq-04-deep-params"></div>
+<div id="spine-summary" class="spine-summary" data-slug="sm-04-through-division"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
@@ -255,14 +258,14 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">not_started</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">failed</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
           <span class="narrative-label">Confidence</span>
           <select class="narrative-input" data-narrative-path="report.confidence">
             <option value="">(unset)</option>
-            <option value="high" >high</option>
+            <option value="high" selected>high</option>
             <option value="medium" >medium</option>
             <option value="low" >low</option>
           </select>
@@ -270,12 +273,12 @@
         <label class="narrative-row">
           <span class="narrative-label">Evidence quality</span>
           <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
-                 value="pending — study not yet run"
+                 value="6-seed lineages rolled to/through one division (tick 2526); 6-fold leave-one-lineage-out CV; teacher-forced one-step + autoregressive rollout"
                  placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">tests: ungraded
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">(computed from findings in the report)
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
@@ -298,12 +301,7 @@
       <h2 class="biology-glance-label">Biology — what this study is about</h2>
       <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
                 data-narrative-path="biological_summary"
-                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">(planned) The deepest levers on growth/mass — RNAP active/bound fractions
-(transcription capacity), FBA kinetic-objective and secretion-penalty weights
-(metabolic flux allocation), and the dry-mass fraction (biomass accounting) — live
-in the sim_data dataclass, not in process configs. This study would quantify their
-sensitivity, requiring a per-sample ParCa cache rebuild to propagate each perturbation.
-</textarea>
+                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
       
     </div>
 
@@ -315,10 +313,11 @@ sensitivity, requiring a per-sample ParCa cache rebuild to propagate each pertur
     <div class="overview-section">
       
       <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> How sensitive are growth/mass observables to the DEEP physiological sim_data
-parameters (e.g., transcription rnap active fractions, metabolism
-kinetic_objective_weight / secretion_penalty_coeff, mass cell_dry_mass_fraction)
-that the uqEcoli demo varies — and which dominate?
+        <strong>Question.</strong> Do the linear and neural (rollout-loss) emulators of coarse growth, which
+emulate a single generation well (sm-01/sm-03), continue to hold when a
+trajectory crosses a division event where cell_mass halves and the chromosome
+count resets — or is the cell-cycle discontinuity a hard boundary the
+observable-view emulator cannot represent?
 
       </div>
       
@@ -328,43 +327,6 @@ that the uqEcoli demo varies — and which dominate?
     
 
     
-    
-    <div class="overview-section findings-section">
-      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
-      
-      
-      
-      <div class="finding-card finding-kind-computational finding-status-novel">
-        <div class="finding-header">
-          <span class="finding-status-glyph">◆</span>
-          <span class="finding-id">report-card-tests</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">novel literature</span>
-        </div>
-        <div class="finding-statement">tests: ungraded</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          
-          
-          
-          
-          
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        
-        
-      </div>
-      
-    </div>
     
 
     
@@ -384,18 +346,6 @@ that the uqEcoli demo varies — and which dominate?
             <strong style="color:#1e293b">alternative-not-excluded</strong>
             <code style="font-size:0.82em">alternatives</code>
             <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
           </div>
         </div>
         
@@ -446,20 +396,6 @@ that the uqEcoli demo varies — and which dominate?
       
 
       
-      <div class="overview-section">
-        <h3 class="overview-label">Key assumptions</h3>
-        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-          <li style="margin:2px 0">The uqEcoli parameter bounds (RNAP fractions, FBA weights, mass fraction) are
-meaningful uncertainty ranges for v2ecoli. They may need re-calibration if
-v2ecoli&#39;s ParCa pipeline has shifted the baseline physiological state since
-the original uqEcoli work.
-</li><li style="margin:2px 0">Per-sample ParCa cache rebuilds are feasible within the available compute
-budget (~2.5 min/rebuild on the Mac mini). A budget of n=30 train + 10 test
-samples implies ~100 min of ParCa rebuild time in addition to simulation time.
-</li>
-        </ul>
-      </div>
-      
 
       
       
@@ -479,37 +415,6 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
       
 
       
-      <div class="overview-section pre-run-expert-review">
-        <h3 class="overview-label">Pre-run expert review</h3>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-          Open biological questions the planning is contingent on. A "wrong" answer here
-          means a primary test threshold needs to change <em>before</em> the simulation
-          is run, not after. Each question lists alternatives + the impact of the wrong
-          choice + what downstream work it blocks.
-        </p>
-        <div class="expert-question-list">
-          
-          <div class="expert-question-card status-accepted">
-            <div class="expert-question-header">
-              <span class="expert-question-id">PIVOT-deep-params-need-parca-injection</span>
-              <span class="expert-question-status">accepted</span>
-              
-            </div>
-            <div class="expert-question-text"><strong>Q.</strong> Can the deep physiological params be reached via the baseline() config_overrides path?</div>
-            
-            <div class="expert-question-alternatives">
-              <em>Alternatives:</em>
-              <ul><li>Approximate deep params with config-reachable proxies (rejected — not equivalent).</li></ul>
-            </div>
-            
-            
-            
-            
-          </div>
-          
-        </div>
-      </div>
-      
 
       
 
@@ -517,31 +422,6 @@ samples implies ~100 min of ParCa rebuild time in addition to simulation time.
       
 
       
-      
-      <div class="overview-section literature-anchors">
-        <h3 class="overview-label">Literature anchors</h3>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-          The biological expectations this study tests, mapped to the
-          model observable that will measure each one. Full citations
-          live in the Tests tab.
-        </p>
-        <ul class="literature-anchor-list">
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation">The candidate deep-parameter ranges (RNAP fractions, FBA weights, dry-mass
-fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data parameterization.
-</div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code>transcription.rnap_active_fraction, metabolism.kinetic_objective_weight, mass.cell_dry_mass_fraction</code>
-            </div>
-            
-            <div class="anchor-source"><em>Source:</em> v2ecoli baseline parameterization (Macklin et al. 2020); uqEcoli demo bounds</div>
-            
-            
-          </li>
-        
-        </ul>
-      </div>
       
 
       <div class="overview-section">
@@ -558,15 +438,15 @@ fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data p
           <span class="count-label">simulations</span>
         </div>
         <div class="count-cell">
-          <strong>3</strong>
+          <strong>0</strong>
           <span class="count-label">readouts</span>
         </div>
         <div class="count-cell">
-          <strong>2</strong>
+          <strong>0</strong>
           <span class="count-label">requirements</span>
         </div>
         <div class="count-cell">
-          <strong>0</strong>
+          <strong>1</strong>
           <span class="count-label">runs</span>
         </div>
       </div>
@@ -595,7 +475,7 @@ fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data p
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>param-uq-04-deep-params</strong>
+        <strong>sm-04-through-division</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -607,6 +487,13 @@ fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data p
         <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
       
       
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
+        <span class="cond-pill"><span class="cond-pill-k">seeds</span>=6</span>
+        
+        
+        <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
+      </div>
       
     </div>
     
@@ -638,13 +525,13 @@ fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data p
 
     
     <div class="cond-block">
-      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></div>
       <table class="cond-table">
         <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
         <tbody>
           
           <tr>
-            <td><code>rnap-active-fraction</code></td>
+            <td><code>follow-one-daughter-through-division</code></td>
             <td>
               <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
               
@@ -652,43 +539,7 @@ fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data p
             <td>
               
               
-                
-                <div><span class="cond-pill-k">transcription.rnap_active_fraction</span>=<code>[0.25, 0.47]</code></div>
-                
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          <tr>
-            <td><code>kinetic_objective_weight</code></td>
-            <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
-              
-            </td>
-            <td>
-              
-              
-                
-                <div><span class="cond-pill-k">metabolism.kinetic_objective_weight</span>=<code>[5e-08, 5e-07]</code></div>
-                
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          <tr>
-            <td><code>cell_dry_mass_fraction</code></td>
-            <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
-              
-            </td>
-            <td>
-              
-              
-                
-                <div><span class="cond-pill-k">mass.cell_dry_mass_fraction</span>=<code>[0.25, 0.35]</code></div>
-                
+                <em class="muted">(no overrides)</em>
               
             </td>
             <td></td>
@@ -700,177 +551,11 @@ fraction) match the original uqEcoli analysis and the v2ecoli/wcEcoli sim_data p
     
 
     
-    <div class="cond-block">
-      
-      <div class="cond-block-title">
-        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span>
-        <span class="cond-ei-required-badge" title="3 required-before-run">3 required</span>
-      </div>
-      <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
-      <table class="cond-table cond-expert-table" data-study="param-uq-04-deep-params">
-        <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Current</th><th>Range</th><th>Gate</th><th></th></tr></thead>
-        <tbody>
-          
-          
-          
-          
-          <tr data-ei-name="sim-data-injection-required">
-            <td title=""><code>sim-data-injection-required</code></td>
-            <td></td>
-            <td><code></code></td>
-            <td>
-              <input class="cond-ei-input"
-                     type="text"
-                     value=""
-                     placeholder="(awaiting expert)"
-                     
-                     step="any"
-                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
-            </td>
-            <td>
-              <em class="muted">—</em>
-            </td>
-            <td>
-              <span class="cond-ei-gate-req">required</span>
-              
-            </td>
-            <td>
-              <button class="action-btn cond-ei-save" type="button"
-                      onclick="_saveExpertInput('param-uq-04-deep-params', 'sim-data-injection-required', this)">Save</button>
-              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
-            </td>
-          </tr>
-          
-          
-          
-          
-          <tr data-ei-name="parca-rebuild-cost">
-            <td title=""><code>parca-rebuild-cost</code></td>
-            <td></td>
-            <td><code></code></td>
-            <td>
-              <input class="cond-ei-input"
-                     type="text"
-                     value=""
-                     placeholder="(awaiting expert)"
-                     
-                     step="any"
-                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
-            </td>
-            <td>
-              <em class="muted">—</em>
-            </td>
-            <td>
-              <span class="cond-ei-gate-req">required</span>
-              
-            </td>
-            <td>
-              <button class="action-btn cond-ei-save" type="button"
-                      onclick="_saveExpertInput('param-uq-04-deep-params', 'parca-rebuild-cost', this)">Save</button>
-              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
-            </td>
-          </tr>
-          
-          
-          
-          
-          <tr data-ei-name="pbg-uq-extension-needed">
-            <td title=""><code>pbg-uq-extension-needed</code></td>
-            <td></td>
-            <td><code></code></td>
-            <td>
-              <input class="cond-ei-input"
-                     type="text"
-                     value=""
-                     placeholder="(awaiting expert)"
-                     
-                     step="any"
-                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
-            </td>
-            <td>
-              <em class="muted">—</em>
-            </td>
-            <td>
-              <span class="cond-ei-gate-req">required</span>
-              
-            </td>
-            <td>
-              <button class="action-btn cond-ei-save" type="button"
-                      onclick="_saveExpertInput('param-uq-04-deep-params', 'pbg-uq-extension-needed', this)">Save</button>
-              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
-            </td>
-          </tr>
-          
-        </tbody>
-      </table>
-    </div>
-    
   </div>
   
 
   
-  <div class="overview-section">
-    <h3>Model change</h3>
-    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
-    <p><strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline</code></p>
-    
-    
-    
-    
-    
-    <p class="muted" style="font-size:0.88em">(planned) No biological model change. Infrastructure work: a sim_data injection
-adapter (sim_data_setattr) in pbg-uq plus a per-sample ParCa cache rebuild — not
-reachable via the config_overrides path used in studies 00–02.
-</p>
-  </div>
-  
 
-  
-  <div class="overview-section">
-    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(2 items)</span></h3>
-    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
-    
-    
-    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
-      <summary style="cursor:pointer">
-        <strong>req-sim-data-injection-adapter</strong> — sim_data-level injection adapter in pbg-uq
-        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">L</span>
-        <span class="muted" style="font-size:0.78em;margin-left:4px">[framework]</span>
-      </summary>
-      <p style="margin:8px 0">Add uqEcoli-style sim_data_setattr injection to pbg-uq (it currently supports only
-config_overrides). Each perturbed sample mutates the SimulationDataEcoli dataclass.
-</p>
-      
-      
-      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
-        <code>deep-param-injection-feasible-and-ranked</code>
-      </p>
-      
-      
-    </details>
-    
-    
-    
-    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
-      <summary style="cursor:pointer">
-        <strong>req-per-sample-parca-rebuild</strong> — Per-sample ParCa cache rebuild
-        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">L</span>
-        <span class="muted" style="font-size:0.78em;margin-left:4px">[harness]</span>
-      </summary>
-      <p style="margin:8px 0">Each deep-param perturbation needs a fresh ParCa cache build (~2.5 min/sample on
-the mini). Budget must account for ~n × 2.5 min of rebuild time.
-</p>
-      
-      
-      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
-        <code>deep-param-injection-feasible-and-ranked</code>
-      </p>
-      
-      
-    </details>
-    
-    
-  </div>
   
   
   
@@ -906,8 +591,8 @@ the mini). Budget must account for ~n × 2.5 min of rebuild time.
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">uq-deep-params-parca-rebuild</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
+      <strong style="font-size:1.05em">through-division-cv</strong>
+      <span class="sim-status-pill sim-status-ran">ran</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
@@ -918,12 +603,12 @@ the mini). Budget must account for ~n × 2.5 min of rebuild time.
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
+      · <strong>Seeds:</strong> <code>6</code>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 1 · 
-      
+      <strong>Runs recorded:</strong> 1
     </p>
     
     
@@ -961,7 +646,7 @@ the mini). Budget must account for ~n × 2.5 min of rebuild time.
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
-    <div id="readouts-table" data-study="param-uq-04-deep-params">
+    <div id="readouts-table" data-study="sm-04-through-division">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -981,6 +666,26 @@ the mini). Budget must account for ~n × 2.5 min of rebuild time.
     </div>
 
     
+    
+    <div class="embed-viz-section" style="margin-bottom:22px">
+      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Through division — emulator rollout vs the cell_mass halving (interactive)</strong>
+          <a href="/v2ecoli/dashboard/reports/figures/sm-04-through-division/through_division.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">One held-out lineage&#39;s true cell_mass across a division vs each emulator&#39;s autoregressive rollout (the rollout continues to ~2340 fg while the true mass halves to ~1221 fg), plus within-generation vs division-tick teacher-forced one-step error per emulator. Every emulator, trivial or neural, fails to represent the discontinuity; the best within-generation models fail worst at the boundary.</p>
+        
+        <iframe src="/v2ecoli/dashboard/reports/figures/sm-04-through-division/through_division.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Through division — emulator rollout vs the cell_mass halving (interactive)"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
     
 
     <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
@@ -1006,14 +711,14 @@ the mini). Budget must account for ~n × 2.5 min of rebuild time.
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
       <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=param-uq-04-deep-params">Download all (.zip)</a>
+         href="/api/study-analysis-zip?study=sm-04-through-division">Download all (.zip)</a>
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
       Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
-    <div id="data-files" data-study="param-uq-04-deep-params">
+    <div id="data-files" data-study="sm-04-through-division">
       <p class="empty-message">Loading result files…</p>
     </div>
 
@@ -1060,31 +765,39 @@ the mini). Budget must account for ~n × 2.5 min of rebuild time.
     
     
     
-    <li class="expected-behavior-item" id="bt-deep-param-injection-feasible-and-ranked"
+    <li class="expected-behavior-item" id="bt-emulators-hold-across-division"
         data-test-kind="behavioral"
         
-        data-pytest-node="deep-param-injection-feasible-and-ranked"
+        data-pytest-node="emulators-hold-across-division"
         data-classification="primary"
-        data-result="pending"
+        data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">deep-param-injection-feasible-and-ranked</strong>
+        <strong style="font-size: 0.9em;">emulators-hold-across-division</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Can the deep sim_data parameters be injected cleanly (ParCa rebuild per sample,
-no simulation crashes), and does a single parameter robustly dominate total-order
-Sobol across growth/mass observables?
+      <div style="margin-top: 6px; font-size: 0.95em;">Does the best within-generation emulator (linear) represent the division
+discontinuity — i.e. is its teacher-forced one-step error at the division
+tick comparable to its within-generation one-step error (ratio near 1)?
+The emulator &#34;holds&#34; only if the ratio stays small (&lt; 2).
 </div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Linear boundary/within one-step ratio 6204x (NN one-step 13100x); every emulator predicts continued growth at the halving. Informative negative.</code>
+        
+      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "PLANNED metric \u2014 (1) crash-free completion rate across all samples and (2) max\ntotal-order Sobol across the 6 candidate deep params; a parameter is dominant if\nits total-order Sobol \u2265 0.5. Not yet computed (study planned).\n", "kind": "authored", "measured_value": null}
-expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "6-fold leave-one-lineage-out CV (dt=8 s, cell_mass). Linear emulator\nboundary_over_within_onestep_ratio = median(division-tick one-step nRMSE)\n/ median(within-generation one-step nRMSE) = 3.59 / 0.00058 = 6204.\nA value near 1 would mean the emulator holds across division; 6204 means\nit fails completely to follow the cell_mass halving.\n", "kind": "authored", "measured_value": 6204.0}
+expect:  {"low": 2.0, "op": "lt"}</pre>
       </details>
       
       
@@ -1187,6 +900,27 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
     
     
     
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started ?
+      </div>
+      
+      
+      
+      <p class="muted" style="margin:0;font-size:0.9em">
+        <strong>1</strong> test outcome
+        — <span style="color:#065f46;font-weight:600">0 PASS</span> ·
+        <span style="color:#991b1b;font-weight:600">1 FAIL</span>.
+        Per-test outcomes (measured value · evaluator · band) are canonical on the
+        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
+      </p>
+      
+    </div>
+    
     
 
   </div>
@@ -1213,7 +947,7 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
-window._studyName = "param-uq-04-deep-params";
+window._studyName = "sm-04-through-division";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.
@@ -1344,7 +1078,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   
   var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
-  var slug = window._studyName || "param-uq-04-deep-params";
+  var slug = window._studyName || "sm-04-through-division";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
   // Read-only bundle: there's no live backend to run on — hide the remote-run
   // launcher (the Configure & Run widget already renders a disabled preview).

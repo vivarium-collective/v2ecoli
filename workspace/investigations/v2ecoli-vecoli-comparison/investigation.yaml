@@ -45,9 +45,3 @@ members:
 - statistical
 - succinate
 - with_aa
-studies:
-- metabolism_redux_basal
-- metabolism_redux_with_aa
-- metabolism_redux_succinate
-- metabolism_redux_no_oxygen
-- metabolism_redux_acetate

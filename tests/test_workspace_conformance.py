@@ -34,7 +34,11 @@ _PARAM_CONTRACT_EXCEPTIONS = {
     # swap: v2ecoli.composites.ecoli_baseline.ecoli_baseline has no `swap`
     # param; may belong under config_overrides/injected_processes -- a
     # domain call for the study owner, not auto-mapped here.
-    "metabolism_redux",
+    "metabolism_redux_basal",
+    "metabolism_redux_with_aa",
+    "metabolism_redux_succinate",
+    "metabolism_redux_no_oxygen",
+    "metabolism_redux_acetate",
     # mode: full: v2ecoli.composites.parca.parca declares debug/cpus/
     # cache_dir, not mode -- `mode` is a v2ecoli-parca CLI flag
     # (debug=(mode=='fast')), not a composite-generator parameter.

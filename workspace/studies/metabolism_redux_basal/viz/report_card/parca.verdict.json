@@ -1,0 +1,51 @@
+{
+  "schema": "report_card_verdict/v1",
+  "overall": "within_tol",
+  "groups": {
+    "parca": {
+      "verdict": "within_tol",
+      "axes": [
+        {
+          "id": "parca.cell mass (fg)",
+          "label": "cell mass (fg)",
+          "verdict": "within_tol",
+          "value": 0.0004955201226407233,
+          "meter": "t~60s · init Δ=+0.05% (median of 5 seed(s))",
+          "detail": {
+            "init_rel": 0.0004955201226407233
+          }
+        },
+        {
+          "id": "parca.dry mass (fg)",
+          "label": "dry mass (fg)",
+          "verdict": "within_tol",
+          "value": 0.0004982807411039722,
+          "meter": "t~60s · init Δ=+0.05% (median of 5 seed(s))",
+          "detail": {
+            "init_rel": 0.0004982807411039722
+          }
+        },
+        {
+          "id": "parca.protein mass (fg)",
+          "label": "protein mass (fg)",
+          "verdict": "within_tol",
+          "value": 0.0002210254392057671,
+          "meter": "t~60s · init Δ=+0.02% (median of 5 seed(s))",
+          "detail": {
+            "init_rel": 0.0002210254392057671
+          }
+        },
+        {
+          "id": "parca.RNA mass (fg)",
+          "label": "RNA mass (fg)",
+          "verdict": "within_tol",
+          "value": 0.0004111508703652536,
+          "meter": "t~60s · init Δ=+0.04% (median of 5 seed(s))",
+          "detail": {
+            "init_rel": 0.0004111508703652536
+          }
+        }
+      ]
+    }
+  }
+}

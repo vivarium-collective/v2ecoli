@@ -42,8 +42,7 @@
 
 
 <style>
-.status-detail-panel{margin:8px 0 14px 0;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
-.status-detail-panel h2{margin:0 0 6px 0;font-size:0.82em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:600}
+.status-detail-panel{margin:8px 0 12px 0;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
 .status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
 .status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
 .status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
@@ -54,52 +53,101 @@
 .gate-status-failed           { background:#fee2e2; color:#991b1b }
 .gate-status-stale            { background:#ede9fe; color:#5b21b6 }
 .status-pill.gate-status{font-weight:500}
+/* Redesign: compact one-line lifecycle stepper; full per-axis rows behind the expander. */
+.status-detail-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status-detail-panel > summary::-webkit-details-marker{display:none}
+.status-stepper{display:flex;gap:13px;flex-wrap:wrap;align-items:center;flex:1}
+.status-step{display:inline-flex;align-items:center;gap:5px;font-size:0.82em;color:#94a3b8;white-space:nowrap}
+.status-step .dot{width:9px;height:9px;border-radius:50%;background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
+.status-step.set{color:#334155}
+.status-step.set .dot{background:#10b981;box-shadow:none}
+.status-step .step-val{font-family:ui-monospace,monospace;font-size:0.92em;color:#64748b}
+.status-step.gate-status-blocked .dot{background:#9ca3af;box-shadow:none}
+.status-step.gate-status-needs_calibration .dot{background:#f59e0b;box-shadow:none}
+.status-step.gate-status-passed .dot{background:#10b981;box-shadow:none}
+.status-step.gate-status-failed .dot{background:#ef4444;box-shadow:none}
+.status-step.gate-status-stale .dot{background:#8b5cf6;box-shadow:none}
+.status-stepper-more{font-size:0.76em;color:#64748b;white-space:nowrap}
+.status-detail-panel[open] .status-stepper-more::after{content:" \25be"}
+.status-detail-panel:not([open]) .status-stepper-more::after{content:" \25b8"}
+.status-stepper-body{margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6}
 </style>
-<details class="status-detail-panel" aria-label="Multi-axis status detail" open>
-  <summary class="study-fold-summary">Status detail (Pass A multi-axis)</summary>
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Design</span>
-    <span class="status-chip ">complete</span>
+<details class="status-detail-panel" aria-label="Multi-axis lifecycle status">
+  <summary>
+    <span class="status-stepper">
+      
+      <span class="status-step axis-design_status set">
+        <span class="dot"></span>Design<span class="step-val">complete</span>
+      </span>
+      
+      <span class="status-step axis-implementation_status set">
+        <span class="dot"></span>Implementation<span class="step-val">planned</span>
+      </span>
+      
+      <span class="status-step axis-simulation_status set">
+        <span class="dot"></span>Simulation<span class="step-val">planned</span>
+      </span>
+      
+      <span class="status-step axis-evaluation_status set">
+        <span class="dot"></span>Evaluation<span class="step-val">planned</span>
+      </span>
+      
+      <span class="status-step axis-gate_status set gate-status-pending">
+        <span class="dot"></span>Gate<span class="step-val">pending</span>
+      </span>
+      
+      <span class="status-step axis-expert_review_status set">
+        <span class="dot"></span>Expert review<span class="step-val">pending</span>
+      </span>
+      
+    </span>
+    <span class="status-stepper-more">details</span>
+  </summary>
+  <div class="status-stepper-body">
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Design</span>
+      <span class="status-chip ">complete</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Implementation</span>
+      <span class="status-chip ">planned</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Simulation</span>
+      <span class="status-chip ">planned</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Evaluation</span>
+      <span class="status-chip ">planned</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Gate</span>
+      <span class="status-chip gate-status-pending">pending</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Expert review</span>
+      <span class="status-chip ">pending</span>
+    </div>
+    
+    
   </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Implementation</span>
-    <span class="status-chip ">planned</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Simulation</span>
-    <span class="status-chip ">planned</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Evaluation</span>
-    <span class="status-chip ">planned</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Gate</span>
-    <span class="status-chip gate-status-pending">pending</span>
-  </div>
-  
-  
-  
-  <div class="status-detail-row">
-    <span class="status-detail-axis">Expert review</span>
-    <span class="status-chip ">pending</span>
-  </div>
-  
-  
 </details>
 
 
@@ -244,75 +292,37 @@
 .di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
 </style>
 
+<style>
+/* ── Study Overview redesign: narrative order + progressive disclosure ── */
+.is-hidden{display:none !important}
+.narrative-field{margin:6px 0}
+.add-field-btn{background:none;border:1px dashed #cbd5e1;color:#64748b;font-size:0.82em;
+  padding:4px 12px;border-radius:6px;cursor:pointer;transition:border-color .12s,color .12s,background .12s}
+.add-field-btn:hover{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
+.conclusion-block{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:22px}
+.conclusion-insight{font-size:1.02em;line-height:1.55;color:#1e293b;margin:2px 0 12px;font-weight:500}
+.computed-tag{display:inline-block;font-size:0.68em;font-weight:600;text-transform:uppercase;
+  letter-spacing:0.04em;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;
+  padding:1px 7px;border-radius:9999px;margin-left:8px;vertical-align:middle}
+.conclusion-tags{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.tag-control{display:inline-flex;align-items:center;gap:6px}
+.tag-k{font-size:0.72em;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600}
+.tag-select,.tag-input{font-size:0.85em;padding:3px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}
+.tag-input{min-width:220px}
+</style>
 <section class="study-tab-panel active" data-kind="overview" id="panel-overview">
   <div class="study-overview">
 
     
     
     
-    <div class="overview-section narrative-card" data-narrative-card="report">
-      <h2 class="overview-label">📋 Summary</h2>
-      <div class="narrative-grid">
-        
-        <label class="narrative-row">
-          <span class="narrative-label">Verdict</span>
-          <span class="narrative-input verdict-badge-computed"
-                title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">not_started</span>
-          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-        </label>
-        <label class="narrative-row">
-          <span class="narrative-label">Confidence</span>
-          <select class="narrative-input" data-narrative-path="report.confidence">
-            <option value="">(unset)</option>
-            <option value="high" >high</option>
-            <option value="medium" >medium</option>
-            <option value="low" >low</option>
-          </select>
-        </label>
-        <label class="narrative-row">
-          <span class="narrative-label">Evidence quality</span>
-          <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
-                 value="pending — not yet run"
-                 placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
-        </label>
-        <div class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">tests: ungraded
-            <span class="muted small">— computed from findings</span></span>
-        </div>
-        <label class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Caveat</span>
-          <textarea class="narrative-input narrative-textarea" rows="2"
-                    data-narrative-path="report.caveat"
-                    placeholder="One sentence: the headline limitation a reviewer needs to know."></textarea>
-        </label>
-        <label class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Conclusion</span>
-          <textarea class="narrative-input narrative-textarea" rows="3"
-                    data-narrative-path="report.conclusion"
-                    placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
-        </label>
-      </div>
-    </div>
 
     
-    <div class="overview-section biology-summary-callout">
-      <h2 class="biology-glance-label">Biology — what this study is about</h2>
-      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                data-narrative-path="biological_summary"
-                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read.">(planned) Biosynthetic demand varies across the cell cycle, so elongation-rate
-influence may be stage-dependent: hypothesized strongest mid-cycle during peak
-biosynthesis, weaker early (small cell, limited ribosome pool) and late (resources
-committed to division). This study would test that hypothesis with cell-cycle-resolved Sobol.
-</textarea>
-      
-    </div>
+    
 
+    
     
     <h2 class="overview-label">Question &amp; approach</h2>
-
-    
     
     <div class="overview-section">
       
@@ -326,6 +336,20 @@ cell-cycle progress θ (birth→division)? (RFC006 strategy 4.)
       
     </div>
     
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about</h2>
+      
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Plain-English mechanism narrative.">(planned) Biosynthetic demand varies across the cell cycle, so elongation-rate
+influence may be stage-dependent: hypothesized strongest mid-cycle during peak
+biosynthesis, weaker early (small cell, limited ribosome pool) and late (resources
+committed to division). This study would test that hypothesis with cell-cycle-resolved Sobol.
+</textarea>
+      
+    </div>
 
     
     
@@ -426,6 +450,47 @@ cell-cycle progress θ (birth→division)? (RFC006 strategy 4.)
       </div>
     </div>
     
+
+    
+    
+    <div class="overview-section conclusion-block">
+      <h2 class="overview-label">Conclusion</h2>
+      
+      <p class="conclusion-insight">tests: ungraded<span class="computed-tag">computed from findings</span></p>
+      
+      
+    <div class="narrative-field">
+      <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
+      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.conclusion">
+        <span class="narrative-label">Conclusion</span>
+        <textarea class="narrative-input narrative-textarea" rows="3"
+                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated."></textarea>
+      </label>
+    </div>
+    
+      
+    <div class="narrative-field">
+      <button type="button" class="add-field-btn" data-reveal-field="report.caveat">+ Add caveat</button>
+      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.caveat">
+        <span class="narrative-label">Caveat</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know."></textarea>
+      </label>
+    </div>
+    
+      <div class="conclusion-tags">
+        <label class="tag-control"><span class="tag-k">confidence</span>
+          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
+            <option value="">—</option>
+            <option value="high" >high</option>
+            <option value="medium" >medium</option>
+            <option value="low" >low</option>
+          </select></label>
+        <label class="tag-control"><span class="tag-k">evidence</span>
+          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
+                 value="pending — not yet run" placeholder="calibrated | literature-matched | …"></label>
+      </div>
+    </div>
 
     
     <details class="overview-section">
@@ -1171,7 +1236,7 @@ expect:  {"high": 1.0, "low": 0.0, "op": "in_range"}</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "b42f53887352e72cc6044f94225cde53fa36a6b4", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/b42f53887352e72cc6044f94225cde53fa36a6b4", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-27 16:02 UTC"} };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
 window._studyName = "param-uq-03-growth-stratified";

@@ -183,76 +183,37 @@
 .di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
 </style>
 
+<style>
+/* ── Study Overview redesign: narrative order + progressive disclosure ── */
+.is-hidden{display:none !important}
+.narrative-field{margin:6px 0}
+.add-field-btn{background:none;border:1px dashed #cbd5e1;color:#64748b;font-size:0.82em;
+  padding:4px 12px;border-radius:6px;cursor:pointer;transition:border-color .12s,color .12s,background .12s}
+.add-field-btn:hover{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
+.conclusion-block{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:22px}
+.conclusion-insight{font-size:1.02em;line-height:1.55;color:#1e293b;margin:2px 0 12px;font-weight:500}
+.computed-tag{display:inline-block;font-size:0.68em;font-weight:600;text-transform:uppercase;
+  letter-spacing:0.04em;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;
+  padding:1px 7px;border-radius:9999px;margin-left:8px;vertical-align:middle}
+.conclusion-tags{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.tag-control{display:inline-flex;align-items:center;gap:6px}
+.tag-k{font-size:0.72em;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600}
+.tag-select,.tag-input{font-size:0.85em;padding:3px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}
+.tag-input{min-width:220px}
+</style>
 <section class="study-tab-panel active" data-kind="overview" id="panel-overview">
   <div class="study-overview">
 
     
     
     
-    <div class="overview-section narrative-card" data-narrative-card="report">
-      <h2 class="overview-label">📋 Summary</h2>
-      <div class="narrative-grid">
-        
-        <label class="narrative-row">
-          <span class="narrative-label">Verdict</span>
-          <span class="narrative-input verdict-badge-computed"
-                title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
-          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
-        </label>
-        <label class="narrative-row">
-          <span class="narrative-label">Confidence</span>
-          <select class="narrative-input" data-narrative-path="report.confidence">
-            <option value="">(unset)</option>
-            <option value="high" >high</option>
-            <option value="medium" >medium</option>
-            <option value="low" >low</option>
-          </select>
-        </label>
-        <label class="narrative-row">
-          <span class="narrative-label">Evidence quality</span>
-          <input type="text" class="narrative-input" data-narrative-path="report.evidence_quality"
-                 value=""
-                 placeholder="e.g. calibrated | literature-matched | aspirational | regression-only">
-        </label>
-        <div class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol (largest growth-rate delta of the five conditions). Matched gen-1 median |delta|: cell 0.70%, dry 0.70%, protein 0.20%, rna 1.23%, growth 15.3%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader&#39;s observable set).
-            <span class="muted small">— computed from findings</span></span>
-        </div>
-        <label class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Caveat</span>
-          <textarea class="narrative-input narrative-textarea" rows="2"
-                    data-narrative-path="report.caveat"
-                    placeholder="One sentence: the headline limitation a reviewer needs to know."></textarea>
-        </label>
-        <label class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Conclusion</span>
-          <textarea class="narrative-input narrative-textarea" rows="3"
-                    data-narrative-path="report.conclusion"
-                    placeholder="Multi-sentence: what the runs + tests demonstrated."></textarea>
-        </label>
-      </div>
-    </div>
 
     
-    <div class="overview-section biology-summary-callout">
-      <h2 class="biology-glance-label">Biology — what this study is about</h2>
-      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                data-narrative-path="biological_summary"
-                placeholder="Multi-paragraph plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
-      
-      <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
-        <em>Derived from findings (shown in the report when no override is set):</em>
-        <p style="margin:4px 0 0">Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol (largest growth-rate delta of the five conditions). Matched gen-1 median |delta|: cell 0.70%, dry 0.70%, protein 0.20%, rna 1.23%, growth 15.3%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader&#39;s observable set).</p>
-      </div>
-      
-    </div>
+    
 
+    
     
     <h2 class="overview-label">Question &amp; approach</h2>
-
-    
     
     <div class="overview-section">
       
@@ -264,6 +225,23 @@
       
     </div>
     
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about</h2>
+      
+      
+      <div class="biology-derived-preview muted small" style="margin-top:2px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+        <em>Derived from findings (shown until you write an override):</em>
+        <p style="margin:4px 0 0">Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol (largest growth-rate delta of the five conditions). Matched gen-1 median |delta|: cell 0.70%, dry 0.70%, protein 0.20%, rna 1.23%, growth 15.3%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader&#39;s observable set).</p>
+      </div>
+      
+      <button type="button" class="add-field-btn" data-reveal-field="biological_summary" style="margin-top:8px">+ Add biology narrative</button>
+      <textarea class="biology-prose narrative-input narrative-textarea is-hidden" rows="4"
+                data-narrative-path="biological_summary" data-field-editor="biological_summary"
+                placeholder="Plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
+      
+    </div>
 
     
     
@@ -364,6 +342,47 @@
       </div>
     </div>
     
+
+    
+    
+    <div class="overview-section conclusion-block">
+      <h2 class="overview-label">Conclusion</h2>
+      
+      <p class="conclusion-insight">Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol (largest growth-rate delta of the five conditions). Matched gen-1 median |delta|: cell 0.70%, dry 0.70%, protein 0.20%, rna 1.23%, growth 15.3%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader&#39;s observable set).<span class="computed-tag">computed from findings</span></p>
+      
+      
+    <div class="narrative-field">
+      <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
+      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.conclusion">
+        <span class="narrative-label">Conclusion</span>
+        <textarea class="narrative-input narrative-textarea" rows="3"
+                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated."></textarea>
+      </label>
+    </div>
+    
+      
+    <div class="narrative-field">
+      <button type="button" class="add-field-btn" data-reveal-field="report.caveat">+ Add caveat</button>
+      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.caveat">
+        <span class="narrative-label">Caveat</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know."></textarea>
+      </label>
+    </div>
+    
+      <div class="conclusion-tags">
+        <label class="tag-control"><span class="tag-k">confidence</span>
+          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
+            <option value="">—</option>
+            <option value="high" >high</option>
+            <option value="medium" >medium</option>
+            <option value="low" >low</option>
+          </select></label>
+        <label class="tag-control"><span class="tag-k">evidence</span>
+          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
+                 value="" placeholder="calibrated | literature-matched | …"></label>
+      </div>
+    </div>
 
     
     <details class="overview-section">
@@ -1080,7 +1099,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "b42f53887352e72cc6044f94225cde53fa36a6b4", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/b42f53887352e72cc6044f94225cde53fa36a6b4", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-27 16:02 UTC"} };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
 window._studyName = "metabolism_redux_no_oxygen";

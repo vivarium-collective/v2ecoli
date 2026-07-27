@@ -15,7 +15,7 @@
     
     
     
-    <span class="status-pill status-build-complete" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">build-complete</span>
+    <span class="status-pill status-ran" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">ran</span>
     
     
     
@@ -727,6 +727,20 @@ can show both declared-time snapshots for this study.
     
 
     
+    
+    <div class="decide-section" style="margin-top:18px">
+      <h3 class="overview-label">Conclusion</h3>
+      <pre style="background:#f8fafc;padding:12px;border-left:3px solid #94a3b8;border-radius:3px;white-space:pre-wrap;font-family:inherit;font-size:0.9em;line-height:1.5;margin:0">Ran end-to-end (seed 0, relax=true, division reached). Both declared-time
+snapshots packed and load in the Parsimony Viewer:
+  - initial (t ≈ 10 s):    287,013 placed instances (~314k molecules, 46 species)
+  - pre-division:          552,450 placed instances (~519k molecules, 46 species)
+Molecular content grows ~1.7–1.9× birth → division with conserved composition
+(same 46 species), and the envelope elongates ~1.5× at constant width — the
+rod-shaped growth expected of a dividing E. coli cell. Run artifacts (the 90–
+180 MB packs, runs.db) are regenerated per run and not committed; re-run the
+baseline condition to reproduce.
+</pre>
+    </div>
     
     
 

@@ -257,7 +257,7 @@
           <span class="narrative-label">Verdict</span>
           <span class="narrative-input verdict-badge-computed"
                 title="Computed from the gate evaluator (read-only)"
-                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">passed</span>
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">blocked</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row">
@@ -873,7 +873,7 @@ to the HPC follow-up.
         
         
         
-        
+        <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
       </div>
       
     </div>
@@ -1041,7 +1041,7 @@ so daughters tick normally after division.
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
       <strong style="font-size:1.05em">build-smoke-n2</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <span class="sim-status-pill sim-status-completed">completed</span>
       <span class="muted" style="font-size:0.85em">condition: pure-WC, 2 cells, env_size=30</span>
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
@@ -1057,7 +1057,7 @@ so daughters tick normally after division.
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 4 · 
-      <strong>Runs recorded:</strong> 1
+      <strong>Runs recorded:</strong> 5
     </p>
     
     <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
@@ -1099,7 +1099,7 @@ so daughters tick normally after division.
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 4 · 
-      <strong>Runs recorded:</strong> 1
+      
     </p>
     
     <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
@@ -1145,7 +1145,7 @@ so daughters tick normally after division.
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 4 · 
-      <strong>Runs recorded:</strong> 1
+      
     </p>
     
     <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
@@ -1191,7 +1191,7 @@ so daughters tick normally after division.
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 4 · 
-      <strong>Runs recorded:</strong> 1
+      
     </p>
     
     <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
@@ -1237,7 +1237,7 @@ so daughters tick normally after division.
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 4 · 
-      <strong>Runs recorded:</strong> 1
+      
     </p>
     
     <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
@@ -1433,12 +1433,12 @@ so daughters tick normally after division.
         
         data-pytest-node="daughters-hydrated"
         data-classification="primary"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">daughters-hydrated</strong>
         
@@ -1451,15 +1451,6 @@ advance (mass changes, EcoliWCM.update called) on subsequent ticks
 without the manual standalone-WCM workaround that exists in
 reports/colony_report.py.
 </div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">n_daughters_advance: 4</code>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: All 4 daughters had non-zero mass delta on the tick after division.</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1485,7 +1476,7 @@ pass_if: {"op": "all_daughters_advance"}</pre>
         
         data-pytest-node="two-generations-complete"
         data-classification="primary"
-        data-result="PASS-narrow"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
@@ -1500,18 +1491,6 @@ pass_if: {"op": "all_daughters_advance"}</pre>
       <div style="margin-top: 6px; font-size: 0.95em;">Pure-WC N=2 colony reaches ≥4 live cells by end of run (both
 mothers divided), with all four cells advancing on the final tick.
 </div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">n_cells_final: 4</code>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: ≥4 cells reached, but via forced same-tick division of both
-mothers, not natural 2-generation timeline. Full N-generation
-natural-division validation deferred (see follow_up_studies).
-</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1537,12 +1516,12 @@ pass_if: {"op": "at_least", "threshold": 4}</pre>
         
         data-pytest-node="reference-perf-recorded"
         data-classification="supporting"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-supporting">supporting</span>
         <strong style="font-size: 0.9em;">reference-perf-recorded</strong>
         
@@ -1553,11 +1532,6 @@ pass_if: {"op": "at_least", "threshold": 4}</pre>
 + per_tick_latency series — i.e. the perf harness is wired and writing
 rows into runs.db.
 </div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1583,12 +1557,12 @@ pass_if: {"op": "row_exists"}</pre>
         
         data-pytest-node="per-cell-cost-within-2x-reference"
         data-classification="primary"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">per-cell-cost-within-2x-reference</strong>
         
@@ -1599,15 +1573,6 @@ pass_if: {"op": "row_exists"}</pre>
 is at most 2× the N=1 reference per-cell wall-time. Catches super-linear
 blow-up that would block HPC scaling.
 </div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">ratio: 0.96</code>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: per-cell 70.4 ms vs reference 73.6 ms (slight decrease, Python startup amortization)</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1830,21 +1795,13 @@ mitigated footnote, not the result and not an HPC blocker.
     <div class="decide-section">
       <h3 class="overview-label">Latest run outcomes</h3>
       <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
-        nsweep-n8 · seed ? ·
-        60s simulated ·
+        baseline · seed ? ·
+        ?s simulated ·
         ? history rows ·
-        started 2026-05-16T22:29Z
+        started 1778970300.0
       </div>
       
       
-      
-      <p class="muted" style="margin:0;font-size:0.9em">
-        <strong>4</strong> test outcomes
-        — <span style="color:#065f46;font-weight:600">3 PASS</span> ·
-        <span style="color:#991b1b;font-weight:600">0 FAIL</span>.
-        Per-test outcomes (measured value · evaluator · band) are canonical on the
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
-      </p>
       
     </div>
     

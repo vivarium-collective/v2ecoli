@@ -80,6 +80,35 @@ def classify_process(cls) -> str:
         f"{cls.__name__}: not a recognizable process (no ports_schema/inputs).")
 
 
+def _should_inject_as_step(cls) -> bool:
+    """Whether a fork process must be injected as a pbg STEP (immediate,
+    cascade-applied at interval -1.0) rather than an interval-scheduled process.
+
+    A vivarium ``Step`` (deriver, ``update_condition``-gated — e.g.
+    ``MetabolismRedux``) MUST be a step: injected as an interval process its
+    ``next_update_time`` output (read by ``GlobalClock``) is deferred to its
+    front-time ``global_time + interval`` and so applies a tick late. On the
+    second tick ``GlobalClock.calculate_timestep`` then sees
+    ``next_update_time == global_time`` for that process, returns
+    ``full_step == 0``, and simulation time never advances — the run spins in
+    ``_run_inner`` forever (the metabolism_redux tick-2 hang). As a step the
+    deriver applies within the same tick, so ``next_update_time`` advances before
+    the clock recomputes. Steps (``PartitionedProcess``) are already rejected by
+    :func:`classify_process` as ``partitioned``, so the injectable set is plain
+    vivarium Processes (stay processes) plus vivarium Steps (become steps).
+
+    An explicit ``_force_step`` attribute always wins. A vivarium-free fixture
+    fork (no installed ``vivarium``) falls back to the explicit flag only.
+    """
+    if bool(getattr(cls, "_force_step", False)):
+        return True
+    try:
+        from vivarium.core.process import Step
+    except Exception:  # noqa: BLE001 — fixture fork has no vivarium
+        return False
+    return isinstance(cls, type) and issubclass(cls, Step)
+
+
 def _fork_registry(fork_repo: str):
     """Import the fork's ``ecoli.processes.process_registry`` and return it.
 
@@ -318,7 +347,7 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             "module": cls.__module__,
             "qualname": cls.__qualname__,
             "kind": kind,
-            "as_step": bool(getattr(cls, "_force_step", False)),
+            "as_step": _should_inject_as_step(cls),
             "config": config_dict,
             "topology": topo,
             "interval": interval,
@@ -514,6 +543,24 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
                 if root is not None and root not in cell_state:
                     cell_state[root] = {}
         core.register_link(spec["name"], wrapped)
+        # ALSO register under the exact address make_edge() will stamp on this
+        # edge (f'{type(instance).__module__}.{type(instance).__qualname__}').
+        # At division, process-bigraph re-realizes the daughter subtree
+        # (Composite._realize_structural_subtrees -> bigraph_schema's
+        # realize_link) for the daughter's copy of this edge, which has no
+        # live `instance` -- it resolves the process class purely from the
+        # edge's `address` via local_lookup_registry(core, data) ==
+        # core.link_registry.get(data), NOT by spec['name']. A dynamically
+        # wrapped vivarium_1 class (wrap_vivarium_process) keeps
+        # __module__ == 'v2ecoli.library.vivarium_bridge' and gets
+        # __qualname__ == f'{v1_cls.__name__}Bridge' -- a string that is
+        # neither importable nor equal to spec['name'], so without this extra
+        # registration division crashes with "no link found at address:
+        # {'protocol': 'local', 'data': 'v2ecoli.library.vivarium_bridge.
+        # <X>Bridge'}". Harmless (and not strictly needed) for pbg_native
+        # classes, whose real module.qualname IS importable; applied for all
+        # injected specs since this is the one shared registration point.
+        core.register_link(f"{wrapped.__module__}.{wrapped.__qualname__}", wrapped)
 
         instance = wrapped(spec["config"] or {}, core=core)
         edge_type = "step" if spec["kind"] == "pbg_native" and spec["as_step"] \

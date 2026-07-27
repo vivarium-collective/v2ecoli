@@ -1,11 +1,9 @@
 schema_version: 2
 name: ketchup-baseline-comparison
-title: Does v2ecoli's baseline central-carbon exchange phenotype match KETCHUP kinetic
-  models?
+title: Does v2ecoli's baseline central-carbon exchange phenotype match KETCHUP kinetic models?
 created: '2026-06-12'
 status: active
-question: 'Does the v2ecoli whole-cell baseline reproduce the central-carbon exchange
-  /
+question: 'Does the v2ecoli whole-cell baseline reproduce the central-carbon exchange /
 
   byproduct phenotype (glucose, O2, CO2, acetate, NH3, SO4) of the KETCHUP
 
@@ -17,30 +15,14 @@ question: 'Does the v2ecoli whole-cell baseline reproduce the central-carbon exc
 
   '
 executive:
-  what_is_this: 'Does the v2ecoli baseline reproduce central-carbon exchange fluxes?
-    One report-card study grades the baseline exchange-flux vector (signed, glucose-normalized,
-    matched) against KETCHUP k-ecoli74 and k-ecoli307, the Millard 2017 ODE, and the
-    live Millard FBA bridge, scored by identity-line R^2 (flux_scatter grader, PR
-    #134).
+  what_is_this: 'Does the v2ecoli baseline reproduce central-carbon exchange fluxes? One report-card study grades the baseline exchange-flux vector (signed, glucose-normalized, matched) against KETCHUP k-ecoli74 and k-ecoli307, the Millard 2017 ODE, and the live Millard FBA bridge, scored by identity-line R^2 (flux_scatter grader, PR #134).
 
     '
   verdict_status: characterized
-  verdict: "PARTIAL match across four kinetic reference models: matched exchanges\
-    \ agree\nin direction (glucose/O2/NH3/SO4 uptake, CO2 secretion) but diverge in\n\
-    magnitude. Per 100 glucose the KETCHUP cores respire far more (O2 ~-135 vs\nv2ecoli\
-    \ -9; CO2 ~+144 vs +33) and secrete acetate (~+71) where the baseline\nshows none,\
-    \ so acetate is 'lost' and identity-line R^2 is negative for both\n(-0.89 vs k-ecoli74,\
-    \ -0.72 vs k-ecoli307). v2ecoli agrees with the Millard\n2017 ODE (R^2 = 1.00,\
-    \ glucose-limited, acetate-free; narrow: glucose+acetate\nonly), and composing\
-    \ it with Millard via the live FBA-bridge\n(millard_fba_bridge_harness) is the\
-    \ closest candidate to the bare baseline\n(R^2 = +0.65), deepening respiration\
-    \ ~3\xD7 (O2 ~-26) toward but well below the\ncores without inducing acetate overflow.\
-    \ The KETCHUP FDH dynamic NADH(t) fit\nis shown as a figure; this whole-cell-FBA\
-    \ vs core 13C-MFA divergence is\nexpected, not a v2ecoli defect.\n"
+  verdict: "PARTIAL match across four kinetic reference models: matched exchanges agree\nin direction (glucose/O2/NH3/SO4 uptake, CO2 secretion) but diverge in\nmagnitude. Per 100 glucose the KETCHUP cores respire far more (O2 ~-135 vs\nv2ecoli -9; CO2 ~+144 vs +33) and secrete acetate (~+71) where the baseline\nshows none, so acetate is 'lost' and identity-line R^2 is negative for both\n(-0.89 vs k-ecoli74, -0.72 vs k-ecoli307). v2ecoli agrees with the Millard\n2017 ODE (R^2 = 1.00, glucose-limited, acetate-free; narrow: glucose+acetate\nonly), and composing it with Millard via the live FBA-bridge\n(millard_fba_bridge_harness) is the closest candidate to the bare baseline\n(R^2 = +0.65), deepening respiration ~3× (O2 ~-26) toward but well below the\ncores without inducing acetate overflow. The KETCHUP FDH dynamic NADH(t) fit\nis shown as a figure; this whole-cell-FBA vs core 13C-MFA divergence is\nexpected, not a v2ecoli defect.\n"
   decisions_needed:
-  - question: Is v2ecoli's low baseline O2:glucose (~0.09) physiological, or an artifact
-      of the baseline FBA regime / exchange representation?
-    status: "OPEN \u2014 flagged for review"
+  - question: Is v2ecoli's low baseline O2:glucose (~0.09) physiological, or an artifact of the baseline FBA regime / exchange representation?
+    status: "RESOLVED — real FBA-regime behavior, not an exchange-reporting artifact (see #143 root-cause)"
     context: 'Baseline O2 uptake is only -9 per 100 glucose (vs -135 in the KETCHUP
 
       cores), nearly fermentative, and dominates the magnitude divergence.
@@ -50,6 +32,45 @@ executive:
       external_exchange_fluxes under-reports O2.
 
       '
+    resolution: 'REAL low-respiration of the wcEcoli homeostatic FBA regime, NOT an
+
+      exchange-reporting artifact. The #143 root-cause investigation
+
+      (workspace/studies/showcase-6-equivalence-large/143-rootcause-findings.md,
+
+      branch harden/143-o2-rootcause) showed on a fresh seed-0 baseline that (a) O2
+
+      is UNCONSTRAINED in the media (not O2-limited); (b) the
+
+      external_exchange_fluxes listener equals the net O2 consumed by the internal
+
+      reactions (mass-balanced) so it does NOT under-report O2 \u2014 instrumentation is
+
+      ruled out; (c) the exchange fluxes follow a BIMODAL within-generation
+
+      trajectory \u2014 a brief respiratory burst early (O2 ~-1.3, CO2 0) then ~90% of
+
+      the generation non-respiring (O2 ~-0.005, CO2 ~+1.9), whose time-average is
+
+      the low O2:glucose ~0.09. This is genuine behavior of the homeostatic
+
+      (+kinetic) FBA objective + secretion penalty + NGAM/GAM maintenance: it
+
+      respires only to meet the modest per-tick ATP/redox deficit, so it runs far
+
+      below the fully-oxidative KETCHUP 13C-MFA cores. Confirmed by the live Millard
+
+      FBA-bridge, which pins the respiratory branch and lifts O2 ~3x (to -26) with
+
+      the cell staying viable \u2014 i.e. O2/CO2 sit on a weakly-determined branch of the
+
+      LP. So the ~0.09 is a real (if biologically low) property of the baseline FBA
+
+      regime shared with vEcoli (v1, O2:glucose ~0.14), not a v2 bug. To match the
+
+      cores physiological O2:glucose (~1.5) one would add a kinetic O2 / terminal-
+
+      oxidase target or pin the respiratory branch \u2014 a modeling choice, not a fix.'
 scientific_argument:
   main_claim: 'v2ecoli''s baseline central-carbon exchange phenotype is directionally
 
@@ -63,57 +84,20 @@ scientific_argument:
 
     '
   evidence_for:
-  - 'Graded via the PR #134 flux_scatter criterion over the 6 shared central-carbon
-    exchanges (glucose-normalized): signs match on the compared fluxes; identity-line
-    R^2 = -0.89 (k-ecoli74) and -0.72 (k-ecoli307).'
-  - 'Acetate is a qualitative mismatch: both KETCHUP models secrete acetate (~+71
-    per 100 glucose) while the baseline secretes none (0.0), flagged ''lost'' by the
-    grader.'
-  - The two KETCHUP models agree closely (shared K-FIT data lineage), so the divergence
-    is v2ecoli-vs-core-kinetic-model, not model-specific noise.
-  - 'v2ecoli agrees with the Millard 2017 ODE (flux_scatter R^2 = 1.00): both glucose-limited
-    with no acetate overflow (narrow: Millard exchanges only glucose + acetate).'
-  - "The v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness, run live off the\
-    \ ParCa cache) is the closest candidate to the bare baseline: flux_scatter R^2\
-    \ = +0.65, deepening respiration ~3\xD7 (O2 ~-26 per 100 glucose, toward but well\
-    \ below the cores' -135) without inducing acetate overflow."
+  - 'Graded via the PR #134 flux_scatter criterion over the 6 shared central-carbon exchanges (glucose-normalized): signs match on the compared fluxes; identity-line R^2 = -0.89 (k-ecoli74) and -0.72 (k-ecoli307).'
+  - 'Acetate is a qualitative mismatch: both KETCHUP models secrete acetate (~+71 per 100 glucose) while the baseline secretes none (0.0), flagged ''lost'' by the grader.'
+  - The two KETCHUP models agree closely (shared K-FIT data lineage), so the divergence is v2ecoli-vs-core-kinetic-model, not model-specific noise.
+  - 'v2ecoli agrees with the Millard 2017 ODE (flux_scatter R^2 = 1.00): both glucose-limited with no acetate overflow (narrow: Millard exchanges only glucose + acetate).'
+  - "The v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness, run live off the ParCa cache) is the closest candidate to the bare baseline: flux_scatter R^2 = +0.65, deepening respiration ~3× (O2 ~-26 per 100 glucose, toward but well below the cores' -135) without inducing acetate overflow."
   caveats:
-  - 'A characterization (cross-model agreement check), not a hypothesis test or a
-    v2ecoli pass/fail: the KETCHUP models describe 13C-MFA-style core kinetics at
-    their own condition, v2ecoli is whole-cell FBA, so divergence is expected.'
-  - Comparison covers only the 6 shared central-carbon exchanges; KETCHUP is a core-carbon
-    model and does not exchange the amino acids / ions v2ecoli's whole-cell model
-    does (expected absences, not phenotype changes).
-  - KETCHUP fluxes are at a bounded fit (status maxIterations); v2ecoli values are
-    the 20-seed population_phenotype_basal ensemble mean.
-  - v2ecoli's baseline O2:glucose is anomalously low (~0.09) and dominates the magnitude
-    divergence, flagged for review (decisions_needed).
-biological_story: "Central-carbon metabolism turns glucose into biomass and energy:\
-  \ glucose\nenters glycolysis and the TCA cycle, where its carbon is either oxidized\
-  \ to\nCO2 (with O2 as the terminal electron acceptor, releasing ATP) or partially\n\
-  diverted. When a fast-growing E. coli takes up more glucose than its\nrespiratory\
-  \ chain can fully oxidize, it spills the excess as acetate, the\naerobic overflow\
-  \ (Crabtree-like) phenotype. Nitrogen (NH3) and sulfur (SO4)\nare drawn in to build\
-  \ amino acids and cofactors. The KETCHUP cores (k-ecoli74,\nk-ecoli307) and the\
-  \ Millard 2017 ODE describe this network with measured\nenzyme kinetics fit to 13C-flux\
-  \ data, so their glucose-normalized exchange\npartitioning is a biology-grounded\
-  \ yardstick for a cell's carbon/redox economy.\n\nv2ecoli's whole-cell FBA baseline\
-  \ gets the directions right (glucose/O2/NH3/SO4\nin, CO2 out) but runs a more fermentative\
-  \ carbon economy than the kinetic\ncores: shallower respiration (O2 ~-9 vs ~-135\
-  \ per 100 glucose) and no aerobic\nacetate overflow where the cores secrete ~+71,\
-  \ so the baseline FBA partitions\ncentral-carbon flux toward biomass with little\
-  \ overflow or oxidative\nrespiration. Pinning the central-carbon FBA to the Millard\
-  \ ODE via the live\nFBA-bridge deepens respiration ~3\xD7 (toward, but well below,\
-  \ the cores) without\ninducing overflow, so the regime shift is real but bounded.\
-  \ Whether the\nbaseline's low O2:glucose (~0.09) is genuine physiology or an exchange-flux\n\
-  reporting artifact is the open question flagged for review.\n"
+  - 'A characterization (cross-model agreement check), not a hypothesis test or a v2ecoli pass/fail: the KETCHUP models describe 13C-MFA-style core kinetics at their own condition, v2ecoli is whole-cell FBA, so divergence is expected.'
+  - Comparison covers only the 6 shared central-carbon exchanges; KETCHUP is a core-carbon model and does not exchange the amino acids / ions v2ecoli's whole-cell model does (expected absences, not phenotype changes).
+  - KETCHUP fluxes are at a bounded fit (status maxIterations); v2ecoli values are the 20-seed population_phenotype_basal ensemble mean.
+  - v2ecoli's baseline O2:glucose is anomalously low (~0.09) and dominates the magnitude divergence, flagged for review (decisions_needed).
+biological_story: "Central-carbon metabolism turns glucose into biomass and energy: glucose\nenters glycolysis and the TCA cycle, where its carbon is either oxidized to\nCO2 (with O2 as the terminal electron acceptor, releasing ATP) or partially\ndiverted. When a fast-growing E. coli takes up more glucose than its\nrespiratory chain can fully oxidize, it spills the excess as acetate, the\naerobic overflow (Crabtree-like) phenotype. Nitrogen (NH3) and sulfur (SO4)\nare drawn in to build amino acids and cofactors. The KETCHUP cores (k-ecoli74,\nk-ecoli307) and the Millard 2017 ODE describe this network with measured\nenzyme kinetics fit to 13C-flux data, so their glucose-normalized exchange\npartitioning is a biology-grounded yardstick for a cell's carbon/redox economy.\n\nv2ecoli's whole-cell FBA baseline gets the directions right (glucose/O2/NH3/SO4\nin, CO2 out) but runs a more fermentative carbon economy than the kinetic\ncores: shallower respiration (O2 ~-9 vs ~-135 per 100 glucose) and no aerobic\nacetate overflow where the cores secrete ~+71, so the baseline FBA partitions\ncentral-carbon flux toward biomass with little overflow or oxidative\nrespiration. Pinning the central-carbon FBA to the Millard ODE via the live\nFBA-bridge deepens respiration ~3× (toward, but well below, the cores) without\ninducing overflow, so the regime shift is real but bounded. Whether the\nbaseline's low O2:glucose (~0.09) is genuine physiology or an exchange-flux\nreporting artifact is the open question flagged for review.\n"
 at_a_glance:
   studies:
-  - ketchup-exchange-comparison: grades the baseline central-carbon exchange vector
-      against KETCHUP k-ecoli74/307, the Millard 2017 ODE, and the live v2ecoli +
-      Millard FBA-bridge (flux_scatter, glucose-normalized, plus a KETCHUP FDH dynamic
-      NADH(t) figure); PARTIAL, with cores diverging (R^2 -0.89/-0.72, acetate overflow),
-      Millard agreeing (R^2 1.00), the FBA-bridge closest (R^2 +0.65)
+  - ketchup-exchange-comparison: grades the baseline central-carbon exchange vector against KETCHUP k-ecoli74/307, the Millard 2017 ODE, and the live v2ecoli + Millard FBA-bridge (flux_scatter, glucose-normalized, plus a KETCHUP FDH dynamic NADH(t) figure); PARTIAL, with cores diverging (R^2 -0.89/-0.72, acetate overflow), Millard agreeing (R^2 1.00), the FBA-bridge closest (R^2 +0.65)
 acceptance_criteria:
 - study: ketchup-exchange-comparison
   behavior: v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange
@@ -121,3 +105,22 @@ acceptance_criteria:
   behavior: v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange
 members:
 - ketchup-exchange-comparison
+glossary:
+- term: KETCHUP (k-ecoli74, k-ecoli307)
+  definition: |-
+    A pair of published kinetic (enzyme-mechanistic) core-metabolism models of E. coli central carbon, fit to measured flux data. Used here as independent reference phenotypes for glucose-normalized exchange partitioning.
+- term: FBA (Flux Balance Analysis)
+  definition: |-
+    A constraint-based method that solves for a steady-state flux distribution maximizing an objective (e.g. biomass) subject to stoichiometric and capacity constraints -- how the v2ecoli baseline sets metabolic exchange fluxes.
+- term: Central-carbon exchange phenotype
+  definition: |-
+    The vector of boundary exchange fluxes (glucose and O2/NH3/SO4 uptake, CO2/acetate secretion) summarizing how a cell partitions carbon and redox; the observable being compared.
+- term: Acetate overflow
+  definition: |-
+    Aerobic secretion of acetate when glucose uptake outpaces respiratory capacity (the Crabtree-like overflow). The KETCHUP cores show it; the baseline FBA does not -- a key divergence.
+- term: Identity-line R²
+  definition: |-
+    The goodness-of-fit score of the flux_scatter grader: how close the matched exchange fluxes fall to the y=x line when v2ecoli is plotted against a reference model.
+- term: Millard 2017 ODE / FBA-bridge
+  definition: |-
+    A kinetic ODE model of E. coli central metabolism (Millard et al. 2017) and the live composite (millard_fba_bridge_harness) that pins WCM fluxes to it -- a fourth reference and a way to deepen baseline respiration.

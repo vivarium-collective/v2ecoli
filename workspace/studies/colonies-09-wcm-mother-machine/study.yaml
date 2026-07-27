@@ -64,6 +64,7 @@ pipeline_gate:
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: colonies-05-mother-machine
     from: colonies-05-mother-machine
 conditions:

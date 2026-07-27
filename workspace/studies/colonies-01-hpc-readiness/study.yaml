@@ -2,7 +2,7 @@ schema_version: 4
 name: colonies-01-hpc-readiness
 investigation: colonies
 title: HPC scaling readiness for the colony composite
-description: "Build phase fixed daughter-process hydration so structural _add instantiates\ndaughter EcoliWCMs through the engine. Decide-phase N-sweep (N ∈ {1,2,4,8}) on\none machine measured per-tick wall, per-cell cost, peak RSS, and pymunk step,\nextrapolated to a cells-per-HPC-node budget, and identified the GIL as the\ndominant bottleneck. Output: 384 cells/node on 64-core/256GB.\n"
+description: "Build phase fixed daughter-process hydration so structural _add instantiates\ndaughter EcoliWCMs through the engine. Decide-phase N-sweep (N ∈ {1,2,4,8}) on\none machine measured per-tick wall, per-cell cost, peak RSS, and pymunk step,\nextrapolated to a cells-per-HPC-node budget, and identified the GIL as the\ndominant bottleneck. Output: 384 cells/node at 450 MB/cell (commit 2f950d9);\nthe 2026-07-27 hardening re-measurement on current main (bounded phenotype\nrecorder) gives ~291 MB/cell → ~700 cells/node (F-03).\n"
 topic: scaling
 tags:
   - colony
@@ -48,6 +48,11 @@ visualizations:
   - name: perf-tick-trace-largest
     address: dashboard:study_charts
     description: "Per-tick wall trace for the largest-N run — exposes warmup,\ndivision spikes, and steady-state variance.\n"
+  - name: percell-rss-budget
+    address: image:charts/percell_rss_budget.svg
+    chart: charts/percell_rss_budget.svg
+    render: python sims/make_percell_fig.py
+    description: "HARDENING (2026-07-27) — reconciled per-cell RSS and cells-per-node\nbudget. Left: steady-state RSS vs N (1,2,4) grown by division within one\nprocess on current main; fitted slope ≈291 MB/cell (sim_data lru-shared, numpy\nfootprint flat across N). Right: cells/node under each per-cell assumption\n(64 Ray actors × K cells, each actor pays its own sim_data): stale 450 MB/cell\n→ 384; current 291 MB/cell → ~700; the executive's unsupported ~1000 shown for\ncontrast. Regenerate via sims/percell_rss.py then sims/make_percell_fig.py.\n"
 purpose:
   question: "Is the pure whole-cell colony composite ready to scale on HPC? Can N\nparallel EcoliWCMs grow and divide cleanly for ≥2 generations inside one\ncomposite, and how does wall-time / RAM / per-tick cost scale with N on one\nmachine — well enough to project a cells-per-HPC-node budget?\n"
   mechanism: "The `colony` composite generator (v2ecoli/composites/colony.py) wires N\ncopies of EcoliWCM (v2ecoli/bridge.py) into a pymunk 2D physics environment.\nEach EcoliWCM holds an internal Composite of the 55-process baseline. At cell\ndivision the bridge returns a structural update (_remove mother, _add two\ndaughter EcoliWCMs) that the outer composite engine must hydrate. We sweep\nN ∈ {1,2,4,8} and instrument per-tick costs.\n"
@@ -667,11 +672,7 @@ findings:
   - id: F-03-per-cell-rss
     kind: computational
     status: confirms
-    statement: 'Steady-state per-cell RSS is ~450 MB, atop a ~1 GB Python baseline
-
-      (ParCa + WCM imports + cached numpy arrays).
-
-      '
+    statement: "Per-cell RSS is ADDITIVE and sim_data is shared WITHIN a process: each\nextra cell costs far less than a fresh sim_data load, because\nv2ecoli/core.py::_load_cache_bundle_cached is @lru_cache'd by cache_dir and\necoli_baseline deep-copies only initial_state per cell. Original N-sweep (commit\n2f950d9, emit_cells=True): ~450 MB/cell atop a ~1 GB baseline → 384 cells/node.\nHARDENING re-measurement (2026-07-27, current main, bounded\nColonyPhenotypeRecorder + emit_cells=False): ~291 MB/cell atop an ~888 MB\nbaseline; the gc-visible numpy footprint stays flat (+39 MB) as N goes 1→4,\ndirectly confirming sim_data is shared by reference and the per-cell increment\nis mutable state, not a duplicated bundle. Per-cell RSS DROPPED ~450→~291 MB\nbecause the bounded phenotype recorder replaced the in-RAM cells-map\naccumulation. Reconciled current-main budget: ~700 cells/node (see\nexpected.summary), superseding both the stale 384 and the unsupported ~1000 in\nthe investigation executive.\n"
     evidence:
       from_run: nsweep-n8
       from_test: per-cell-cost-within-2x-reference
@@ -682,8 +683,17 @@ findings:
         n8_mb: 4712
       slope_mb_per_cell: 450
       units: MB
+      hardening_remeasurement_2026_07_27:
+        note: "current main, bounded recorder, emit_cells=False; N grown 1→2→4 by\nforced division within one process (sim_data lru-shared).\n"
+        plateau_n1_mb: 1179
+        plateau_n2_mb: 1462
+        plateau_n4_mb: 2051
+        baseline_mb: 888
+        slope_mb_per_cell: 291
+        numpy_delta_n1_to_n4_mb: 39
+        raw_data_artifact: studies/colonies-01-hpc-readiness/runs/percell_rss.csv
     expected:
-      summary: "Linear in N up to N=8 within one process. Sets the per-node cell\nceiling on HPC: 6 cells/process × 64 processes = ~290 GB on a 256 GB\nnode; drop to 5-6 cells/process for headroom → ~384 cells/node.\n"
+      summary: "Additive in N within one process (sim_data lru-shared). HPC budget with\ntopology made explicit: deployment uses Ray actors (one OS process each) to\nlift the single-process GIL ceiling, so EACH actor pays its own ~888 MB\nsim_data+imports baseline; cells within an actor add ~291 MB each and share that\nactor's sim_data. Packing K cells per actor on 64 actors / 256 GB:\n888 + 291·K ≤ 4096 MB/actor → K ≤ 11, and K·57 ms ≤ 1000 ms realtime (K=11 →\n627 ms, under the GIL ceiling) → ~704 cells/node on current main (was 384 at\n450 MB/cell pre-recorder). One-cell-per-actor (max GIL headroom) is RAM-bound at\n~215 cells/node. The unsupported ~1000 in the investigation executive is\nreconciled to this ~700 figure.\n"
     provenance:
       run_ids:
         - 3
@@ -692,6 +702,7 @@ findings:
         - 6
       model_commit_hash: 2f950d9
       raw_data_artifact: studies/colonies-01-hpc-readiness/runs.db
+      hardening_analysis_script: studies/colonies-01-hpc-readiness/sims/percell_rss.py
   - id: F-04-pymunk-negligible
     kind: computational
     status: confirms
@@ -742,6 +753,7 @@ implementation_tasks: ''
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
 conditions:
   baseline:
     name: colony-pure-wc

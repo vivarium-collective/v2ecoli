@@ -170,6 +170,51 @@ def core():
     return allocate_core()
 
 
+# ---------------------------------------------------------------------------
+# Report-card state fixture (Task B0)
+# ---------------------------------------------------------------------------
+
+REDUX_CARDS_FIXTURE_DIR = os.path.join(
+    os.path.dirname(__file__), "fixtures", "redux_cards")
+
+
+def make_card_state():
+    """A valid report-card ``state`` dict (matches the ``CARD_INPUTS``
+    contract in ``scripts/_compare/report_cards/__init__.py``) for the
+    metabolism_redux basal fixture pair.
+
+    The four NEW cards (trajectory/distribution/metabolism/composition) read
+    the zarr stores directly off ``state["v2_dir"]``/``state["ve_dir"]`` via
+    ``read_v2ecoli_trajectory``/``read_vecoli_pbg_trajectory``/
+    ``read_pbg_local`` (see ``scripts/compare_matched_trajectories.py``) —
+    they do NOT consume ``observables``/``plot_trajs``. So those two keys
+    (plus ``v2_bounds``/``config``) are populated with minimally-valid empty
+    values here; only the OLDER cards (standard/parca/statistical/
+    config_diff) read them, and this fixture is not meant to drive those.
+    See ``tests/fixtures/redux_cards/README.md`` for the real shapes those
+    older cards expect, as built by ``scripts/comparison_report_card.py``.
+
+    ``v2_dir`` and ``ve_dir`` both point at ``tests/fixtures/redux_cards``:
+    ``read_v2ecoli_trajectory(v2_dir, 0, ...)`` opens
+    ``v2ecoli_seed00.zarr`` there and ``read_vecoli_pbg_trajectory(ve_dir,
+    0, ...)`` opens ``vecoli_seed00.zarr`` there — a matched 1-generation
+    basal MetabolismRedux pair.
+    """
+    return {
+        "name": "metabolism_redux_basal",
+        "condition": "basal",
+        "seeds": 1,
+        "generations": 1,
+        "variant": 0,
+        "observables": {},
+        "plot_trajs": {},
+        "v2_bounds": [],
+        "config": {},
+        "v2_dir": REDUX_CARDS_FIXTURE_DIR,
+        "ve_dir": REDUX_CARDS_FIXTURE_DIR,
+    }
+
+
 @pytest.fixture
 def minimal_xarray_config(tmp_path):
     """A minimum-valid config dict for v2ecoli.library.xarray_emitter.XArrayEmitter.

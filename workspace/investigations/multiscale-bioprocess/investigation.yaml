@@ -135,10 +135,12 @@ scientific_argument:
     - mbp-02 cells_per_agent scaling validated empirically across seeds {0,1,2} and cpa ∈ {1, 1e6, 1e9}, with log-y parallelism over 9 orders of magnitude and narrow variance ribbons; the per-cell-mass-invariant chart confirms the aggregator never touches per-cell state.
     - The mbp-03 hard prerequisite is satisfied. pbg-bioreactor-transport-fork merged to pbg-bioreactordesign main (f40f82f, PR #1), 43 tests green; MonodCellProcess publishes external_exchange_fluxes in mmol/(gDW·h), honouring the cell-side interface contract so a WCM/dFBA engine is a drop-in swap.
     - The mbp-05 comparison harness renders sim-vs-Beulig overlays plus categorized divergences from a YAML comparison_overlays list (13 overlays), so adding a comparison is configuration, not code.
+    - The keystone mbp-03 coupling is demonstrated green (2026-07-27). tests/test_mbp_03_bird_reactor_coupling.py ran against pbg-bioreactordesign origin/main (a360f92): 6 passed, 1 skipped. The full coupled composite produces a physically consistent 0D trajectory — DO rises to Henry saturation with no cells, drops below it under cell O2 demand (cstar_o2=6.58 mg/L, DO 2nd-half mean 6.24 mg/L at 310.15 K), higher kLa raises steady-state DO, one generation completes without divergence, and the O2 mass balance closes within ±5%.
+    - The upstream O2-saturation temperature-sign bug (pbg-bioreactordesign#2) is FIXED and verified. PR #3 (a06709b, 2026-06-15) flipped the van 't Hoff sign so O2 solubility correctly DECREASES with temperature; a regression test guards it. mbp-03 now reports the correct cstar_o2≈6.58 mg/L at 310.15 K (was the biased ~10.2), so all mbp-03/04 dissolved-O2 magnitudes inherit the corrected calibration.
   evidence_against:
     - Single-lineage population plateaus at ~4.3 mg/L vs the Beulig batch peak ~9.6 g/L, a ~3.3-order gap not closable by duration or the --no-single-daughters flag (chart 03 refuted that prediction); needs a both-daughters population runner plus fed-batch.
     - Whether an alternative kinetic metabolism (Millard FBA-bridge / dFBA) adapts better to these conditions is untested under coupling. The bridge is open-loop today (env→metabolism coupling deferred); scoped as the next study.
-    - O2 saturation has the wrong temperature sign upstream (pbg-bioreactordesign#2); masked at 298 K but mbp-03/04 target 310 K, biasing dissolved-O2 ~25% high until fixed.
+    - The CO2 leg of the mbp-03 coupler is wired but unexercised: in M9-minimal-glucose FBA v2ecoli reports zero CO2 environmental efflux, so cells cannot raise dissolved CO2 above saturation. It needs an overflow/anaerobic condition to test (deferred, not a wiring failure).
   key_figures:
     - studies/mbp-02-population-aggregation/charts/04_population-scaling-variance-bands.svg — cpa scaling robust across 3 seeds × 3 cpa (mean ± std, log-y).
     - studies/mbp-01-time-varying-environment/charts/01_driven-env-glc-trajectory.svg — first env-driven multigen boundary.external.GLC trajectories.
@@ -554,11 +556,33 @@ executive:
         (27→32 passing).
 
   decisions_needed:
-    - text: |
-        mbp-03 entry into Build: still gated by upstream
-        `pbg-bioreactor-transport-fork` PR. With mbp-01 now Build-
-        complete and mbp-02 already validated, the critical path
-        forward sits on the upstream side.
+    - id: mbp-03-build-gate
+      status: resolved
+      resolved: '2026-07-27'
+      text: |
+        RESOLVED. mbp-03 entry into Build was gated by the upstream
+        `pbg-bioreactor-transport-fork` PR; that fork merged (f40f82f,
+        PR #1) and the follow-on O2-saturation-sign fix merged (a06709b,
+        PR #3). With mbp-01 Build-complete and mbp-02 validated, the
+        keystone coupling was built and demonstrated green 2026-07-27:
+        tests/test_mbp_03_bird_reactor_coupling.py → 6 passed, 1 skipped
+        against pbg-bioreactordesign origin/main (a360f92). The critical
+        path no longer sits on the upstream side.
+    - id: add-bioreactor-dep-to-env
+      status: open
+      text: |
+        ENVIRONMENT GAP surfaced during the 2026-07-27 mbp-03 hardening.
+        `pbg_bioreactordesign` is NOT installed in the shared v2ecoli venv
+        (~/code/v2ecoli/.venv), so mbp-03 (and mbp-04's coupled arms)
+        cannot be reproduced there out of the box — they were run by
+        shadowing pbg-bioreactordesign origin/main on PYTHONPATH. The
+        shared venv also ships a bigraph_schema older than the worktree's
+        origin/main code requires (no `bigraph_schema.contract` module),
+        needing a bigraph_schema>=1.4.3 shadow to `import v2ecoli` at all.
+        DECISION NEEDED: add pbg-bioreactordesign (pinned to a commit ≥ #3)
+        and bump bigraph_schema in the canonical v2ecoli environment so the
+        reactor-coupled studies are reproducible without a PYTHONPATH shadow.
+        Owner: environment/CI maintainer.
 
   # 2026-05-29 new empirical evidence — landed AFTER the 2026-05-28
   # changeset above and shipped in commits a1b3f25..07e57f4. Surfaced

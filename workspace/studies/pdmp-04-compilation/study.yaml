@@ -485,5 +485,6 @@ conclusion_verdicts:
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: pdmp-02-jump-processes
     from: pdmp-02-jump-processes

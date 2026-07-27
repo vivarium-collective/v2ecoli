@@ -177,6 +177,12 @@ class Division(V2Step):
         self._unique_names = self.parameters.get('unique_names', [])
         self._seed = self.parameters.get('seed', 0)
         self._cache_dir = self.parameters.get('cache_dir', 'out/cache')
+        # Injected/swapped-process spec (fork_repo/fork_sim_data/swap_processes/…)
+        # threaded from baseline() via _helpers' division config. Passed straight
+        # back into each daughter's baseline() rebuild so an injected process
+        # (e.g. metabolism-redux) survives division. None for the normal baseline
+        # -> daughters rebuild the plain FBA baseline exactly as before.
+        self._injected_processes = self.parameters.get('injected_processes')
         # vEcoli's default (`d_period=True`): division fires D_period after
         # chromosome replication completes (via the flag MarkDPeriod raises at
         # the chromosome's division_time), and the dry-mass threshold is
@@ -366,7 +372,8 @@ class Division(V2Step):
                 try:
                     doc = baseline(
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
-                        emitter=_daughter_emitter)
+                        emitter=_daughter_emitter,
+                        injected_processes=self._injected_processes)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

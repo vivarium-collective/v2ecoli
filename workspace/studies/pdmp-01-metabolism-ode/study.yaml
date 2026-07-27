@@ -622,5 +622,6 @@ conclusion_verdicts:
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: pdmp-00-characterization
     from: pdmp-00-characterization

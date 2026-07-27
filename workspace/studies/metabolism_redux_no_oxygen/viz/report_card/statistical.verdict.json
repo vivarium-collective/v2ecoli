@@ -1,0 +1,92 @@
+{
+  "schema": "report_card_verdict/v1",
+  "overall": "drift",
+  "groups": {
+    "statistical": {
+      "verdict": "drift",
+      "axes": [
+        {
+          "id": "physiology.cell_mass",
+          "label": "Cell mass",
+          "verdict": "within_tol",
+          "value": 486.6338553419446,
+          "meter": "Δ = +0.8% · p = 0.901 · d = +0.08",
+          "detail": {
+            "p": 0.9005336099973551,
+            "t": 0.12901097070833428,
+            "cohens_d": 0.08159370211752055,
+            "delta_rel": 0.007877807371578963
+          }
+        },
+        {
+          "id": "physiology.growth_rate",
+          "label": "Growth rate",
+          "verdict": "drift",
+          "value": 0.00011460589543935154,
+          "meter": "Δ = +13.9% · p = 0.072 · d = +1.38",
+          "detail": {
+            "p": 0.07171262049959053,
+            "t": 2.183491673614299,
+            "cohens_d": 1.3809613881268328,
+            "delta_rel": 0.13935903630342214
+          }
+        },
+        {
+          "id": "physiology.dry_mass",
+          "label": "Dry mass",
+          "verdict": "within_tol",
+          "value": 146.02999365694518,
+          "meter": "Δ = +0.8% · p = 0.900 · d = +0.08",
+          "detail": {
+            "p": 0.9000868884624039,
+            "t": 0.1295940345719312,
+            "cohens_d": 0.08196246408358134,
+            "delta_rel": 0.00791444651046641
+          }
+        },
+        {
+          "id": "physiology.protein_mass",
+          "label": "Protein mass",
+          "verdict": "within_tol",
+          "value": 86.68152471841752,
+          "meter": "Δ = +0.5% · p = 0.941 · d = +0.05",
+          "detail": {
+            "p": 0.9406000602247556,
+            "t": 0.07688978559233389,
+            "cohens_d": 0.04862937025475645,
+            "delta_rel": 0.0048260755395985264
+          }
+        },
+        {
+          "id": "physiology.rna_mass",
+          "label": "RNA mass",
+          "verdict": "within_tol",
+          "value": 12.87497164205127,
+          "meter": "Δ = +1.2% · p = 0.871 · d = +0.11",
+          "detail": {
+            "p": 0.8706334737486363,
+            "t": 0.1681846643199444,
+            "cohens_d": 0.10636932135237562,
+            "delta_rel": 0.011757878793884376
+          }
+        },
+        {
+          "id": "ribosomes.active_ribosome",
+          "label": "Active ribosome",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "—",
+          "detail": {}
+        },
+        {
+          "id": "transcription.active_RNAP",
+          "label": "Active RNAP",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "—",
+          "detail": {}
+        }
+      ]
+    }
+  }
+}

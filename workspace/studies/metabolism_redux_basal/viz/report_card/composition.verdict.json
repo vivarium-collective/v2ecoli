@@ -1,0 +1,47 @@
+{
+  "schema": "report_card_verdict/v1",
+  "overall": "mismatch",
+  "groups": {
+    "composition": {
+      "verdict": "mismatch",
+      "axes": [
+        {
+          "id": "composition.protein_fraction",
+          "label": "protein fraction",
+          "verdict": "drift",
+          "value": 0.4447906079872441,
+          "meter": "Δ = -0.04167 (8.6% rel)",
+          "detail": {
+            "rel": 0.08565310928393031,
+            "ve_fraction": 0.48645717779923425,
+            "v2_fraction": 0.4447906079872441
+          }
+        },
+        {
+          "id": "composition.rna_fraction",
+          "label": "rna fraction",
+          "verdict": "within_tol",
+          "value": 0.13217823596697945,
+          "meter": "Δ = -0.00132 (1.0% rel)",
+          "detail": {
+            "rel": 0.009888622872124251,
+            "ve_fraction": 0.13349835081221195,
+            "v2_fraction": 0.13217823596697945
+          }
+        },
+        {
+          "id": "composition.other_fraction",
+          "label": "other fraction",
+          "verdict": "mismatch",
+          "value": 0.42303115604577646,
+          "meter": "Δ = +0.04299 (11.3% rel)",
+          "detail": {
+            "rel": 0.11310961714602472,
+            "ve_fraction": 0.3800444713885538,
+            "v2_fraction": 0.42303115604577646
+          }
+        }
+      ]
+    }
+  }
+}

@@ -2887,7 +2887,7 @@ dependencies = [
 [[package]]
 name = "pbg-emitters"
 version = "0.2.1"
-source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#2552b523de3789dcb6ec2e3846d1524b0590851c" }
+source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#494460118f528179bcabf915b8d6a62b145c4b79" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -2948,7 +2948,7 @@ dependencies = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.16.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#0050f8508541a961f6deedc060fc4e6e8fa3dde1" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#7b0cac9ca0b95b17c6af1b3d69308eb4de668325" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },

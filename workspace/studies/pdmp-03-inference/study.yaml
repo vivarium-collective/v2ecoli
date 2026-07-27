@@ -110,7 +110,7 @@ expected_behavior:
       note: Full acceptance band set as this test is built out.
     status: stub
   - name: uq-sbc-coverage
-    en: "Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90% credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming \"inference-ready\" for Phase 5. Increment 1 (2026-06-12): scripts/run_sbc.py now exists and passes at K=150 on the WCM-calibrated surrogate (χ² p=0.576); PPC coverage 0.91. The full K=1000 multi-modality full-WCM gate remains. SBC correctly rejected an under-converged ABC (ng=6) before passing at ng=12."
+    en: "Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90% credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming \"inference-ready\" for Phase 5. Increment 1 (2026-06-12): scripts/run_sbc.py now exists and reports χ² p=0.576 at K=150 on the WCM-calibrated surrogate (seed 0, mu0=12593.5); PPC coverage 0.84-0.91 by seed. Hardening (2026-07-27): this K=150 PASS is a knife-edge single-seed result (4/5 seeds pass; flips to FAIL under a 0.004% mu0 change) because the WCM Poisson posterior is ~6000x sharper than the prior and K=150 under-resolves it — it is NOT a robust calibration certificate (see finding sbc-k150-pass-is-knife-edge-not-robust). The full K=1000 multi-modality full-WCM gate remains the real bar. SBC correctly rejected an under-converged ABC (ng=6) before passing at ng=12."
     given:
       condition: K1000-sbc-draws
     measure:
@@ -142,7 +142,7 @@ bibliography:
 report:
   confidence: design-stage
   evidence_quality: scaffold
-  conclusion: "Predicted — per-modality observation likelihoods (neg-binom RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics) feeding an incremental log-likelihood accumulator + Vivarium observe/intervene effects will let ABC-SMC recover posteriors on synthetic data with SBC-validated coverage (≥85% on 90% CIs)."
+  conclusion: "Partial (surrogate). A real ABC-SMC (importance weights + perturbation kernel + adaptive-ε) recovers a transcription-init rate on a WCM-calibrated count surrogate (θ=1.2 → CI [1.1984,1.2006], robust; posterior shrinks ~1/√n) with a passing PPC (script gate cov≥0.80). SBC rank-uniformity at K=150 reproduces the recorded χ² p=0.576 but is a knife-edge single-seed pass (4/5 seeds; flips to FAIL under a 0.004% calibration change), so it is not yet a robust calibration certificate. The study acceptance gate — full-WCM-in-the-loop, K=1000, multi-modality — remains BLOCKED, deferred to the Phase-4 compiled runtime. Full per-modality likelihood library + observe/intervene effects remain design-stage."
   main_insight: Simulation-Based Calibration (Talts et al. 2018) is the gate that converts 'we have likelihoods' into 'we have inference-ready likelihoods'. Uniformity of the SBC rank histogram is the only credible test before Phase 5.
   caveat: ABC-SMC is the baseline engine, robust but slow. Gradient-based / VI methods wait on the Phase 4 compiled runtime; planning ABC compute on Phase 2 PDMP trajectories sets a realistic wall-clock floor.
   key_metrics:
@@ -336,7 +336,7 @@ tests:
   - name: sbc-calibration-uniform-rank
     classification: primary
     status: planned
-    description: "Increment 1 (2026-06-12): scripts/run_sbc.py exists and passes at K=150 on a WCM-calibrated count surrogate (χ² rank-uniformity p=0.576); the full-WCM K=1000 multi-modality SBC gate (pass_if below) remains unrun, so status stays planned. Intended full check: ABC-SMC posterior of kinetic-ODE parameters is calibrated under Simulation-Based Calibration (Talts 2018): the rank-histogram of true parameter values within posterior draws is uniform (Cramér–von Mises p > 0.05) across L=200 synthetic experiments. This checks that the inference machinery is correct; deviations diagnose specific failure modes."
+    description: "Increment 1 (2026-06-12): scripts/run_sbc.py exists and reports χ² rank-uniformity p=0.576 at K=150 on a WCM-calibrated count surrogate (seed 0, mu0=12593.5). Hardening (2026-07-27): that K=150 PASS is a knife-edge single-seed result (4/5 seeds pass; flips to FAIL under a 0.004% mu0 change) — not robust; the full-WCM K=1000 multi-modality SBC gate (pass_if below) remains unrun, so status stays planned. Intended full check: ABC-SMC posterior of kinetic-ODE parameters is calibrated under Simulation-Based Calibration (Talts 2018): the rank-histogram of true parameter values within posterior draws is uniform (Cramér–von Mises p > 0.05) across L=200 synthetic experiments. This checks that the inference machinery is correct; deviations diagnose specific failure modes."
     measure:
       source: scripts/run_sbc.py
       observable: "rank of θ_true within N=100 posterior draws, repeated L=200 times"
@@ -439,10 +439,10 @@ discovery_implications:
       requires_expert_approval: true
   followup_study_proposals:
     - id: pdmp-03-sbc-coverage
-      title: SBC rank-uniformity + credible-interval coverage on the count-based pipeline
+      title: Robust SBC rank-uniformity + credible-interval coverage (K>=1000, multi-seed) on the count-based pipeline
       study_type: calibration
       source_trigger: open_gate
-      proposed_experiment: Run >=1000 SBC draws through the count-based ABC-SMC pipeline; gate on chi^2 rank-uniformity p > 0.05 and >=85% empirical coverage of the 90% credible intervals.
+      proposed_experiment: "Run >=1000 SBC draws through the count-based ABC-SMC pipeline and gate on a MULTI-SEED robustness summary (e.g. median chi^2 rank-uniformity p > 0.05 over >=5 seeds) plus >=85% empirical coverage of the 90% credible intervals. Trigger: the K=150 surrogate SBC PASS is a knife-edge single-seed result (finding sbc-k150-pass-is-knife-edge-not-robust) -- 4/5 seeds pass and it flips to FAIL under a 0.004% calibration change because the WCM Poisson posterior is ~6000x sharper than the prior. K=1000 (rank resolution ~1e-3) is required to resolve a posterior this sharp. Also regenerate + commit the missing .pbg/runs/phase3-surrogate-calibration.json so the calibration is reproducible."
       expected_information_gain: high
       expert_gate_required: false
     - id: pdmp-03-pbg-merger-fix
@@ -480,8 +480,20 @@ findings:
         - phase3-abc-smc-2d
     next_action: Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.
     next_action_type: calibrate
+  - id: sbc-k150-pass-is-knife-edge-not-robust
+    kind: computational
+    status: partial
+    statement: 'Hardening re-derivation (2026-07-27): the recorded SBC K=150 PASS (chi2_p=0.576) reproduces EXACTLY under the current committed engine at the recorded calibration (mu0=12593.5, Poisson; rng seed 0) -- so it was not fabricated -- but it is a knife-edge single-seed result, NOT a robust calibration certificate. A 5-seed sweep passes only 4/5 (seed 2 chi2_p=0.0081 FAIL), and at seed 0 the pass is razor-thin in the calibration mean: mu0 in {12592, 12593, 12594, 12595} ALL FAIL (chi2_p 0.004-0.011); only the recorded mu0=12593.5 passes (0.576). Root cause (understood, no bug): the WCM Poisson count posterior is extraordinarily sharp -- theta std ~ 1/sqrt(mu0*n_obs) ~ 4.5e-4 vs prior width 2.8 (~6000x narrower) -- so at K=150 the ABC epsilon-resolution floor leaves the rank histogram only marginally uniform and the chi2 test sits on a knife edge. This is precisely why the study''s own gate spec requires K=1000 (rank resolution 1/(K+1) ~ 1e-3); K=150 is under-resolved for this posterior. Separately verified and EXONERATED: engine refactor 28cad208 ("N-D generalization; scalar back-compat preserved") does NOT change scalar-mode numerics -- both the pre- and post-refactor engines give byte-identical SBC results across all 5 seeds -- so there is no regression and the back-compat claim holds. The recovery (theta=1.2 -> post_mean 1.1995, CI [1.1984,1.2006]) and PPC (script gate cov>=0.80; cov 0.84-0.91 by seed) remain robust; only the SBC uniformity leg is thin.'
+    evidence:
+      from_run: 'hardening seed+calibration sweep of scripts/run_sbc.py params (n_particles=300, n_generations=12, prior (0.2,3.0), n_obs=400)'
+      observed: 'SBC K=150 seed sweep {0:0.576 PASS, 1:0.081 PASS, 2:0.008 FAIL, 3:0.181 PASS, 4:0.052 PASS} = 4/5 PASS; mu0 sweep at seed 0 {12592:0.009 FAIL, 12593:0.004 FAIL, 12593.5:0.576 PASS, 12594:0.011 FAIL, 12595:0.005 FAIL}; pre- vs post-28cad208 engine byte-identical across the 5 seeds.'
+    provenance:
+      run_ids:
+        - phase3-sbc-k150-robustness-sweep
+    next_action: 'Do NOT cite the K=150 pass as a calibration certificate. Gate on K>=1000 SBC with a multi-seed robustness summary (median chi2_p over >=5 seeds) on the full-WCM-in-the-loop pipeline (needs the Phase-4 compiled runtime). NOTE: the committed .pbg/runs/phase3-surrogate-calibration.json artifact is absent in this checkout; regenerate + commit it so the recorded mu0=12593.5 is reproducible without hand-supplied calibration.'
+    next_action_type: escalate_model
 runtime:
-  notes: 'simulation_status: not_started for the full-WCM inference loop (gate: blocked). The committed evidence is on count SURROGATES: ABC-SMC + SBC (K=150) + PPC on a WCM-calibrated negative-binomial/Poisson surrogate, and a 2-parameter ABC-SMC + SBC (K=80) on a synthetic over-dispersed surrogate.'
+  notes: 'simulation_status: not_started for the full-WCM inference loop (gate: blocked). The committed evidence is on count SURROGATES: ABC-SMC + SBC (K=150) + PPC on a WCM-calibrated negative-binomial/Poisson surrogate, and a 2-parameter ABC-SMC + SBC (K=80) on a synthetic over-dispersed surrogate. CAVEAT (hardening 2026-07-27, see finding sbc-k150-pass-is-knife-edge-not-robust): the K=150 SBC PASS reproduces at the recorded (seed 0, mu0=12593.5) point but is a knife-edge single-seed result -- 4/5 seeds pass and it flips to FAIL under a 0.004% calibration change -- because the WCM Poisson posterior is ~6000x sharper than the prior and K=150 under-resolves it. Recovery and PPC are robust; the SBC uniformity leg is thin and the real bar is the study''s own K=1000 gate.'
 assumptions:
   - A count-level likelihood (NegBin for RNA-seq, log-normal for proteomics, etc.) is an adequate observation model for Bayesian inference over the PDMP.
   - ABC-SMC, Simulation-Based Calibration, and posterior-predictive checks together validate the inference machinery.
@@ -507,8 +519,8 @@ implementation_requirements:
 design_pivot_required: No pivot. The engine is validated on surrogates; the remaining work is scaling to multi-modality summaries and the full WCM in the loop (needs the Phase-4 compiled runtime).
 conclusion_verdicts:
   - claim: A real ABC-SMC recovers a transcription-init rate, validated by SBC and PPC.
-    verdict: confirmed (on a WCM-calibrated count surrogate)
-    basis: "theta_true 1.2 → post_mean 1.1995; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC coverage 0.907; posterior shrinks ~1/sqrt(n)."
+    verdict: "confirmed for recovery+PPC on a WCM-calibrated count surrogate; SBC leg PARTIAL (knife-edge)"
+    basis: "theta_true 1.2 → post_mean 1.1995, CI [1.1984,1.2006] (robust); PPC coverage 0.84-0.91 by seed (PASS, script gate cov>=0.80); posterior shrinks ~1/sqrt(n). SBC K=150 chi2_p=0.576 reproduces at the recorded seed/calibration but is a knife-edge single-seed pass (4/5 seeds; flips to FAIL under a 0.004% mu0 change) -- NOT a robust calibration certificate; the K=1000 gate remains the bar. See finding sbc-k150-pass-is-knife-edge-not-robust."
   - claim: The ABC-SMC engine generalizes to vector theta with joint identifiability.
     verdict: confirmed (on a synthetic over-dispersed surrogate)
     basis: 2-param recovery [1.185, 0.993] vs [1.2, 1.0]; per-parameter SBC K=80 PASS; weak posterior correlation.
@@ -518,5 +530,6 @@ conclusion_verdicts:
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: pdmp-02-jump-processes
     from: pdmp-02-jump-processes

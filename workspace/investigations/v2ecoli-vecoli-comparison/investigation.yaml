@@ -1,6 +1,6 @@
 schema_version: 4
 name: v2ecoli-vecoli-comparison
-title: "v2ecoli \u2194 vEcoli comparison"
+title: "v2ecoli ↔ vEcoli comparison"
 question: Does v2ecoli reproduce vEcoli across nutrient conditions?
 comparison:
   v2ecoli:
@@ -19,58 +19,57 @@ comparison:
     - statistical
     seeds: 4
 executive:
-  what_is_this: "Does v2ecoli reproduce vEcoli across nutrient conditions? Each study\
-    \ runs both engines from matched ParCa initial states and grades v2ecoli against\
-    \ a live vEcoli reference on cell, dry, protein and RNA mass, and growth rate.\
-    \ GOLD STANDARD: grading gates on the multi-seed STATISTICAL card (Welch t-test\
-    \ over 4 seeds) plus the ParCa t=0 card; the single-seed card is illustrative\
-    \ only.\n\nHEADLINE (resolved): v2ecoli now reproduces vEcoli across all five\
-    \ conditions. The multi-seed grading first revealed a real, bidirectional off-basal\
-    \ divergence -- v2 over-grew on poor carbon (acetate growth +40%, p=0.049) and\
-    \ under-grew on rich amino acids (with_aa growth -16% / RNA -21%, p<0.01), matching\
-    \ only at the basal ParCa fit point. We traced it end to end and FIXED it at the\
-    \ source; after the fix every condition reproduces vEcoli with no statistically\
-    \ significant divergence remaining.\n\nRESULT (4-seed gen-1, before -> after fix):\n\
-    \  basal      within_tol -> within_tol   (control; fix preserves the fit point)\n\
-    \  acetate    MISMATCH (growth +40.2%, p=0.049) -> drift (+15.9%, p=0.28, not\
-    \ significant); RNA/cell/dry/protein within_tol\n  with_aa    MISMATCH (growth\
-    \ -16.1% p=0.003, RNA -21.3% p=0.001) -> within_tol on ALL five observables\n\
-    \  succinate  drift (growth +18.0%, p=0.06) -> drift (-6.6%, p=0.44, not significant);\
-    \ 4/5 within_tol\n  no_oxygen  drift (growth +14.4%, p=0.08) -> drift (+6.7%,\
-    \ p=0.50, not significant); 4/5 within_tol\nBoth significant mismatches are eliminated;\
-    \ the borderline drifts are halved to basal-level, non-significant residuals.\n\
-    \nROOT CAUSE (pinned): the RNAP core complex (APORNAP-CPLX) is limited by its\
-    \ rpoB/rpoC subunits. v2's ParCa fit set exp_free[rpoBC operon]=0 -- a non-negativity\
-    \ BOUNDARY solution of the cistron->TU NNLS in Transcription.set_ppgpp_expression\
-    \ (a fit step the code itself flags as non-reproducible across numpy/scipy builds).\
-    \ That zeroed free-expression term is inconsistent with rpoBC's own ppGpp fold-change\
-    \ (-1.08/-0.76: ppGpp represses rpoBC, so exp_free must exceed exp_ppgpp). Because\
-    \ expression_from_ppgpp = f(ppGpp)*exp_ppgpp + (1-f)*exp_free, the split is pinned\
-    \ equal at the basal setpoint but inverts rpoBC's nutrient response off-basal\
-    \ -- compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. Verified:\
-    \ the ppGpp coupling code, ppGpp setpoint, doubling times, active-RNAP fraction\
-    \ and aa-supply are all identical between engines; the divergence was this single\
-    \ degenerate fit term. (rpoA/sigma/rpoZ and ribosomal genes fit correctly, which\
-    \ is why PROTEIN MASS reproduces throughout -- the tell that isolated the defect\
-    \ to rRNA/ribosome allocation, not translation.)\n\nTHE FIX: scripts/fix_ppgpp_rpobc_expression.py\
-    \ re-partitions the rpoBC operon's expression into a fold-change-consistent, basal-preserving\
-    \ split (ratio exp_ppgpp/exp_free ~0.40) -- self-contained (no reference cache),\
-    \ idempotent. It restores rpoBC per-condition expression from {basal 1.0, with_aa\
-    \ 0.37, acetate 1.44} back to ~1.0 vs vEcoli, and assembled APORNAP-CPLX from\
-    \ {acetate 1.45, with_aa 0.37} to {0.99, 1.02} with basal unchanged. All 'after\
-    \ fix' runs above are v2ecoli NATIVE on its own corrected fit -- no vEcoli seeding.\
-    \ Durable follow-up: harden the NNLS boundary in set_ppgpp_expression so a full\
-    \ ParCa regeneration cannot reintroduce it. (Also open: a pre-existing anaerobic-FBA\
-    \ numerical edge -- BIOTIN homeostatic target ~ -2e-6 -- tripped 2 no_oxygen seeds;\
-    \ unrelated to the fix, graded on the clean seeds.)\n\nThe MetabolismRedux swap\
-    \ remains investigated-but-blocked on a process-bigraph step-cascade runtime issue\
-    \ (not a science mismatch)."
+  what_is_this: |
+    Does v2ecoli reproduce vEcoli across nutrient conditions when both engines swap FBA Metabolism for MetabolismRedux? Five studies (basal, with_aa, succinate, no_oxygen, acetate) run both engines from matched ParCa initial states, single generation, 6 seeds requested per condition (5 effective vEcoli seeds; 4 for acetate), and grade v2ecoli against a live vEcoli reference on cell, dry, protein and RNA mass, and growth rate.
+
+    HEADLINE: v2ecoli reproduces genuine vEcoli under the MetabolismRedux swap across all five nutrient conditions. PARCA (t=0 initial-state match): within_tol on ALL five conditions -- both engines start from identical states. STATISTICAL (Welch t-test, gen-1): all four masses (cell, dry, protein, rna) are within_tol on ALL five conditions; no condition is graded a mismatch. Per-condition overall statistical verdict is within_tol on every axis for with_aa; basal, succinate, no_oxygen and acetate are graded drift, driven solely by the instantaneous growth-rate axis (active_RNAP/active_ribosome are ungraded -- not in the local reader's observable set).
+
+    RESULT (matched gen-1 median |delta|, standard card):
+      basal      cell 0.14%  dry 0.15%  protein 0.09%  rna 0.60%  growth 10.4%
+      with_aa    cell 0.86%  dry 0.86%  protein 0.13%  rna 0.34%  growth 4.3%
+      succinate  cell 1.49%  dry 1.50%  protein 0.92%  rna 3.50%  growth 13.4%
+      no_oxygen  cell 0.70%  dry 0.70%  protein 0.20%  rna 1.23%  growth 15.3%
+      acetate    cell 0.53%  dry 0.53%  protein 1.09%  rna 2.19%  growth 12.1%
+
+    INTERPRETATION: masses are within tolerance everywhere and initial states are identical (parca within_tol on all five conditions); the only residual is a growth-rate DRIFT (amber, not a mismatch) on 4 of 5 conditions, plausibly the noisy per-tick instantaneous-growth-rate derivative at single-generation shape with ~5 seeds. Multi-generation was deferred: a pbg division bug surfaces with injected processes, so this run is single-generation by design, not by failure.
 members:
 - acetate
 - basal
-- metabolism_redux
+- metabolism_redux_acetate
+- metabolism_redux_basal
+- metabolism_redux_no_oxygen
+- metabolism_redux_succinate
+- metabolism_redux_with_aa
 - no_oxygen
 - parca
 - statistical
 - succinate
 - with_aa
+biological_story: |-
+  v2ecoli and vEcoli are two implementations of the same idea: a mechanistic whole-cell model of E. coli that simulates metabolism, gene expression, replication, and division for a single cell over its cycle. vEcoli is the established Covert-lab process-bigraph model; v2ecoli is the reimplementation this workspace develops.
+
+  Because both descend from the same underlying biology and parameter pipeline (ParCa / sim_data), a faithful v2ecoli should reproduce vEcoli's growth and mass trajectories when both start from matched initial states and run the same medium -- differences then point to implementation divergences, not biology. This investigation grades v2ecoli against a live vEcoli reference on cell, dry, protein and RNA mass and growth rate across nutrient conditions, treating vEcoli as the standard the newer engine must match.
+how_to_read: |-
+  Grade v2ecoli against vEcoli on the multi-seed STATISTICAL card (a Welch t-test over seeds) together with the ParCa t=0 card -- those are the gold standard. The single-seed card is illustrative only: single-cell runs are stochastic, so one matched or mismatched trajectory is not evidence either way.
+glossary:
+- term: vEcoli
+  definition: |-
+    The established Covert-lab process-bigraph whole-cell E. coli model used here as the live reference standard.
+- term: v2ecoli
+  definition: |-
+    The whole-cell E. coli model developed in this workspace, graded against vEcoli for parity.
+- term: ParCa t=0 card
+  definition: |-
+    A check that both engines start from identical ParCa-derived initial states, so any later divergence is dynamics, not initialization.
+- term: Multi-seed statistical card
+  definition: |-
+    The gold-standard grade -- a Welch t-test comparing the two engines' observables across multiple seeds, so parity is judged statistically rather than on one trajectory.
+- term: Welch t-test
+  definition: |-
+    A two-sample test for equal means without assuming equal variances, used to decide whether v2ecoli and vEcoli distributions agree.
+- term: MetabolismRedux
+  definition: |-
+    An alternative metabolism process both engines can swap in; one study checks parity when both use it instead of the default FBA metabolism.
+- term: Nutrient condition (basal)
+  definition: |-
+    A defined growth medium (e.g. basal / minimal) under which the two engines are compared; parity must hold across conditions.

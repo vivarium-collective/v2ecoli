@@ -61,7 +61,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -70,7 +70,7 @@ conditions:
       expected_contrast: "Seconds vs. ~24 h on the WCM; break-even after a handful of evals."
       measured_contrast: "0.02 s sweep; break-even ~8 evaluations; ~3.8e6× per traj."
 
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 tests:
   - name: cheap-emulator-amortizes-and-is-honest-about-limits

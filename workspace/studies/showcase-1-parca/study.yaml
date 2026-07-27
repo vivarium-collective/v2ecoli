@@ -168,7 +168,7 @@ simulation_set:
 
 conditions:
   baseline:
-    composite: parca
+    composite: v2ecoli.composites.parca.parca
     params:
       mode: full
       cache_dir: out/cache-showcase
@@ -178,11 +178,11 @@ conditions:
     - name: full-mode (51 TF conditions)
       role: reference
       detail: "The build configuration actually used (--mode full); the study's only simulation-ready configuration."
-      composite: parca
+      composite: v2ecoli.composites.parca.parca
     - name: fast/debug-mode (~7 TF conditions)
       role: contrast (NOT used for simulation)
       detail: "The debug build the full-mode proof is contrasted against; it mis-calibrates dnaA / replication, so it is never used to seed the showcase sims."
-      composite: parca
+      composite: v2ecoli.composites.parca.parca
   model_settings: []
 
 assumptions:

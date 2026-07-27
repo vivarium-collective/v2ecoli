@@ -545,5 +545,6 @@ conclusion_verdicts:
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: pdmp-01-metabolism-ode
     from: pdmp-01-metabolism-ode

@@ -61,5 +61,6 @@ findings:
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: basal
     from: basal

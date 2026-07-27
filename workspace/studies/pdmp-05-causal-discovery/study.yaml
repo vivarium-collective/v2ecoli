@@ -478,6 +478,7 @@ conclusion_verdicts:
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: pdmp-03-inference
     from: pdmp-03-inference
   - artifact: pdmp-04-compilation

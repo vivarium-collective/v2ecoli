@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: metabolism_redux</title>
+<title>Study: metabolism_redux_basal</title>
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/dashboard/assets/progress-track.css">
 </head>
@@ -11,7 +11,7 @@
 <header class="study-header">
   <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
   <h1 class="study-title">
-    <span class="study-name" id="study-name" data-slug="metabolism_redux" title="metabolism_redux">v2ecoli reproduces vEcoli with MetabolismRedux (basal, short-horizon)</span>
+    <span class="study-name" id="study-name" data-slug="metabolism_redux_basal" title="metabolism_redux_basal">v2ecoli reproduces vEcoli with MetabolismRedux (basal)</span>
     
     
     
@@ -31,7 +31,7 @@
 
 
 
-<div id="readiness-panel" data-slug="metabolism_redux"></div>
+<div id="readiness-panel" data-slug="metabolism_redux_basal"></div>
 
 
 
@@ -57,7 +57,7 @@
 .spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
 .spine-div{font-weight:600;color:#92400e}
 </style>
-<div id="spine-summary" class="spine-summary" data-slug="metabolism_redux"></div>
+<div id="spine-summary" class="spine-summary" data-slug="metabolism_redux_basal"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
@@ -214,7 +214,7 @@
         </label>
         <div class="narrative-row narrative-row-wide">
           <span class="narrative-label">Main insight</span>
-          <span class="narrative-input" style="background:transparent;border:0;color:#334155">BLOCKED on a runtime issue, not wiring. Both engines correctly swap FBA Metabolism -&gt; MetabolismRedux (vEcoli native via EcoliSim; v2ecoli via convert+inject bridge). The v2-side run is fast on tick 1 (~1.3 s) but degrades to 25-45 s/tick from tick 2 on, making even a 300-step run impractical (~a day for a full 2-gen run).
+          <span class="narrative-input" style="background:transparent;border:0;color:#334155">RESOLVED (short-horizon precursor run, 1 seed x 1 gen x 300 steps). The v2-side tick-2 hang was a GlobalClock zero-advance deadlock, NOT a step-cascade non-convergence (the earlier theory was a downstream symptom). MetabolismRedux is a vivarium Step but was injected as an interval pbg process, so its next_update_time output applied a tick late and GlobalClock.calculate_timestep pinned at 0. Fixed in v2ecoli PR #389 (inject vivarium Step subclasses as pbg steps). v2ecoli now runs 301 redux steps in ~125 s and REPRODUCES genuine vEcoli on basal within_tol on all graded axes (worst matched-time median |delta| = 0.79%). This study now runs the full 2-seed x 3-gen x 15000-step shape; the perf-blocker finding is carried forward as historical context for the injection fix, not yet re-validated at this shape.
             <span class="muted small">— computed from findings</span></span>
         </div>
         <label class="narrative-row narrative-row-wide">
@@ -241,7 +241,7 @@
       
       <div class="biology-derived-preview muted small" style="margin-top:6px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
         <em>Derived from findings (shown in the report when no override is set):</em>
-        <p style="margin:4px 0 0">BLOCKED on a runtime issue, not wiring. Both engines correctly swap FBA Metabolism -&gt; MetabolismRedux (vEcoli native via EcoliSim; v2ecoli via convert+inject bridge). The v2-side run is fast on tick 1 (~1.3 s) but degrades to 25-45 s/tick from tick 2 on, making even a 300-step run impractical (~a day for a full 2-gen run).</p>
+        <p style="margin:4px 0 0">RESOLVED (short-horizon precursor run, 1 seed x 1 gen x 300 steps). The v2-side tick-2 hang was a GlobalClock zero-advance deadlock, NOT a step-cascade non-convergence (the earlier theory was a downstream symptom). MetabolismRedux is a vivarium Step but was injected as an interval pbg process, so its next_update_time output applied a tick late and GlobalClock.calculate_timestep pinned at 0. Fixed in v2ecoli PR #389 (inject vivarium Step subclasses as pbg steps). v2ecoli now runs 301 redux steps in ~125 s and REPRODUCES genuine vEcoli on basal within_tol on all graded axes (worst matched-time median |delta| = 0.79%). This study now runs the full 2-seed x 3-gen x 15000-step shape; the perf-blocker finding is carried forward as historical context for the injection fix, not yet re-validated at this shape.</p><p style="margin:4px 0 0">Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol. Matched gen-1 median |delta|: cell 0.14%, dry 0.15%, protein 0.09%, rna 0.60%, growth 10.4%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader&#39;s observable set).</p>
       </div>
       
     </div>
@@ -269,20 +269,52 @@
       
       
       
-      <div class="finding-card finding-kind-methodological finding-status-blocked">
+      <div class="finding-card finding-kind-methodological finding-status-resolved">
         <div class="finding-header">
           <span class="finding-status-glyph">◆</span>
           <span class="finding-id">metabolism_redux-perf-blocker</span>
           <span class="finding-kind">methodological</span>
-          <span class="finding-status-text">blocked literature</span>
+          <span class="finding-status-text">resolved literature</span>
         </div>
-        <div class="finding-statement">BLOCKED on a runtime issue, not wiring. Both engines correctly swap FBA Metabolism -&gt; MetabolismRedux (vEcoli native via EcoliSim; v2ecoli via convert+inject bridge). The v2-side run is fast on tick 1 (~1.3 s) but degrades to 25-45 s/tick from tick 2 on, making even a 300-step run impractical (~a day for a full 2-gen run).</div>
+        <div class="finding-statement">RESOLVED (short-horizon precursor run, 1 seed x 1 gen x 300 steps). The v2-side tick-2 hang was a GlobalClock zero-advance deadlock, NOT a step-cascade non-convergence (the earlier theory was a downstream symptom). MetabolismRedux is a vivarium Step but was injected as an interval pbg process, so its next_update_time output applied a tick late and GlobalClock.calculate_timestep pinned at 0. Fixed in v2ecoli PR #389 (inject vivarium Step subclasses as pbg steps). v2ecoli now runs 301 redux steps in ~125 s and REPRODUCES genuine vEcoli on basal within_tol on all graded axes (worst matched-time median |delta| = 0.79%). This study now runs the full 2-seed x 3-gen x 15000-step shape; the perf-blocker finding is carried forward as historical context for the injection fix, not yet re-validated at this shape.</div>
         
         
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> CORRECTED root cause (supersedes the earlier ODE-fallback theory): it is a process-bigraph STEP-CASCADE NON-CONVERGENCE, not an ODE/units/allocator problem. Measured: ~170,000+ Composite.apply_updates rounds per tick under redux. A FIXED GROUP of ~8 steps re-runs together in equal counts (~3,750x/tick, climbing): ecoli-equilibrium, ecoli-two-component-system, ecoli-rna-maturation, unique_update_1..4, media_update. The re-trigger driver is the unique-molecule /update stores (unique/active_RNAP/update, .../RNA/update, .../active_ribosome/update, chromosome/replisome/oriC/promoter) flipping every round. Each round is fast (~0 s); the COUNT is the 25-45 s. Baseline (no redux): equilibrium runs ~1x/tick, the cascade converges, done. Redux tick-2+: the run_steps recursion (run_steps -&gt; apply_updates -&gt; cycle_step_state re-arms triggered steps -&gt; run_steps) never reaches a fixed point. EVERYTHING EARLIER WAS A DOWNSTREAM SYMPTOM of those ~170k tiny rounds — the &#34;LSODA stiffness&#34; was 170k tiny solves, the &#34;cProfile plum/schema&#34; was 170k tiny dispatches. RULED OUT (all, with evidence): ODE stiffness; JIT (cost is step-count not RHS speed); horizon cap (breaks equilibrium: &#34;Negative values at equilibrium steady state&#34;); bridge units (CORRECT — cell_mass=1269 fg, boundary.external[GLC]=11.1 mM, counts_to_molar sane); output_ports; negative bulk counts (clamp fired 0x); the two-component no-allocator fallback; PARTITIONING (would not fix a cascade loop — a partition design was drafted then abandoned); the redux flow reorder (removing it did NOT help); zeroing Equilibrium.update bulk output (did NOT break the loop — eq still participates via being triggered). =&gt; the metabolism_redux PROCESS SWAP itself perturbs the step trigger/deriver network so the reconciliation cascade does not terminate. NOT YET PINNED: the exact closing trigger edge (which step&#39;s write re-arms which via the unique /update stores). Fix paths: (true) trace the closing edge — a unique_update deriver / listener that redux&#39;s presence keeps re-arming; (pragmatic unblock) a max-iteration cap in process_bigraph.composite.run_steps to bound the cascade (risks slightly-incomplete reconciliation). Full evidence chain in project memory project_metabolism_redux_injection_ode_stiffness. · 
+          <strong>observed:</strong> ROOT CAUSE (pinned by direct measurement, 2026-07-26): GlobalClock.calculate_timestep returns min(next_update_time - global_time) over the next_update_time map; it advances sim time by that full_step. MetabolismRedux (vivarium Step, update_condition-gated) inherits FBA metabolism&#39;s topology so its next_update_time wires to (&#39;next_update_time&#39;,&#39;metabolism&#39;). The inject bridge set as_step only from an explicit _force_step attr (which redux lacks), so redux was injected as an interval pbg PROCESS. As a process its next_update_time output is deferred to front-time global_time+interval and applies one tick late; at tick 2 nut[&#39;metabolism&#39;]==global_time==1.0 =&gt; calculate_timestep returns 0 =&gt; global_time frozen =&gt; _run_inner spins (~170k apply_updates rounds/tick). A probe recorded 4001/4001 zero-advance clock calls, argmin always the orphaned &#39;metabolism&#39; key. FBA metabolism does not hang because it is built as partitioned Requester/Evolver STEPS (applied immediately in the cascade). FIX: _should_inject_as_step(cls) returns True for vivarium Step subclasses (PartitionedProcess already rejected as &#39;partitioned&#39;, so plain Processes stay processes); as a step the deriver applies within the tick so next_update_time advances before the clock recomputes. VERIFIED: redux basal advances global_time normally at ~0.4 s/tick; matched-timepoint gen-1 grade vs genuine vEcoli -- cell_mass 0.10%, dry_mass 0.10%, protein_mass 0.07%, rna_mass 0.52%, growth_rate 0.79% =&gt; within_tol all axes. See memory project_metabolism_redux_tick2_hang. (Supersedes the earlier STEP-CASCADE NON-CONVERGENCE theory and the missing project_metabolism_redux_injection_ode_stiffness memory.) · 
+          
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">metabolism_redux_basal-vs-vecoli-result</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol. Matched gen-1 median |delta|: cell 0.14%, dry 0.15%, protein 0.09%, rna 0.60%, growth 10.4%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader&#39;s observable set).</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> parca within_tol; cell/dry/protein/rna mass all within_tol (median |delta| 0.14%/0.15%/0.09%/0.60%); growth-rate median |delta| 10.4% (sole driver of the drift verdict). · 
           
           
           
@@ -367,6 +399,18 @@
       <summary class="overview-label">Plan &amp; provenance</summary>
 
       
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
+        
+        
+        
+      </div>
+      
 
       
 
@@ -380,8 +424,8 @@
         
         
         <p style="margin:0">
-          <strong>3</strong> tests defined —
-            <span class="classification-pill classification-primary">3 primary</span>
+          <strong>8</strong> tests defined —
+            <span class="classification-pill classification-primary">8 primary</span>
           <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
         </p>
       </div>
@@ -446,9 +490,9 @@
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"swap": "ecoli-metabolism-redux"}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"condition": "basal", "swap": "ecoli-metabolism-redux"}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>metabolism_redux</strong>
+        <strong>metabolism_redux_basal</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -488,6 +532,8 @@
       <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code></div>
       
       <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>basal</code></span>
         
         <span class="cond-pill"><span class="cond-pill-k">swap</span>=<code>ecoli-metabolism-redux</code></span>
         
@@ -539,7 +585,7 @@
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">metabolism_redux-baseline</strong>
+      <strong style="font-size:1.05em">metabolism_redux_basal-baseline</strong>
       <span class="sim-status-pill sim-status-completed">completed</span>
       <span class="muted" style="font-size:0.85em">condition: basal</span>
     </header>
@@ -555,7 +601,7 @@
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 3 · 
+      <strong>Tests applied:</strong> 8 · 
       <strong>Runs recorded:</strong> 1
     </p>
     
@@ -594,7 +640,7 @@
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
-    <div id="readouts-table" data-study="metabolism_redux">
+    <div id="readouts-table" data-study="metabolism_redux_basal">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -639,14 +685,14 @@
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
       <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=metabolism_redux">Download all (.zip)</a>
+         href="/api/study-analysis-zip?study=metabolism_redux_basal">Download all (.zip)</a>
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
       Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
-    <div id="data-files" data-study="metabolism_redux">
+    <div id="data-files" data-study="metabolism_redux_basal">
       <p class="empty-message">Loading result files…</p>
     </div>
 
@@ -708,7 +754,37 @@
         <strong style="font-size: 0.9em;">config-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux (config card)?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (config card)?</div>
+      
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-parca-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="parca-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">parca-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (parca card)?</div>
       
       
       
@@ -738,7 +814,7 @@
         <strong style="font-size: 0.9em;">standard-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux (standard card)?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (standard card)?</div>
       
       
       
@@ -768,14 +844,134 @@
         <strong style="font-size: 0.9em;">statistical-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux (statistical card)?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (statistical card)?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux", "group": "statistical", "kind": "report_card_axis"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/metabolism_redux_basal", "group": "statistical", "kind": "report_card_axis"}
 expect:  null</pre>
       </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-trajectory-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="trajectory-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">trajectory-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (trajectory card)?</div>
+      
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-distribution-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="distribution-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">distribution-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (distribution card)?</div>
+      
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-metabolism-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="metabolism-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">metabolism-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (metabolism card)?</div>
+      
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-composition-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="composition-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">composition-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on metabolism_redux_basal (composition card)?</div>
+      
       
       
       
@@ -916,7 +1112,7 @@ expect:  null</pre>
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main" };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script>
-window._studyName = "metabolism_redux";
+window._studyName = "metabolism_redux_basal";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.
@@ -1047,7 +1243,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   
   var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
-  var slug = window._studyName || "metabolism_redux";
+  var slug = window._studyName || "metabolism_redux_basal";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
   // Read-only bundle: there's no live backend to run on — hide the remote-run
   // launcher (the Configure & Run widget already renders a disabled preview).

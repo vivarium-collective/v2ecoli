@@ -1057,6 +1057,13 @@ def baseline(
     # CachedConfigLoader in _helpers — replaces the old nested _CachedLoader).
     loader = CachedConfigLoader(
         configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
+    # Carry the injected/swapped-process spec onto the loader so the DivisionStep
+    # config path (_helpers._get_special_step, 'division' branch) can thread it
+    # into each daughter's own baseline() rebuild. Without this, daughters revert
+    # to the plain FBA baseline at division and a swapped process (e.g. metabolism
+    # -> metabolism-redux) is lost across generations. Normal FBA baseline has
+    # injected_processes=None -> daughters rebuild plain baseline unchanged.
+    loader._injected_processes = injected_processes
 
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)

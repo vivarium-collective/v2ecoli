@@ -1503,6 +1503,15 @@ def _get_special_step(loader, step_name, core):
             div_config['configs'] = loader._configs
         div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
         div_config.setdefault('cache_dir', getattr(loader, 'cache_dir', 'out/cache'))
+        # Thread the injected/swapped-process spec (fork_repo/fork_sim_data/
+        # swap_processes/…) so the DivisionStep re-supplies it to each daughter's
+        # baseline() rebuild — otherwise daughters revert to plain FBA baseline
+        # and a swapped process (e.g. metabolism-redux) is lost across division,
+        # crashing the re-realization with KeyError: 'current_timeline'. Only set
+        # when non-empty so the normal baseline (None) leaves daughters unchanged.
+        _injected = getattr(loader, '_injected_processes', None)
+        if _injected:
+            div_config['injected_processes'] = _injected
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

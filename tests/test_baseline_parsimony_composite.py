@@ -135,9 +135,15 @@ def test_generator_appends_pack_step_with_core_none():
     though :func:`test_generator_appends_pack_step` (which passes a real core)
     stayed green.
     """
-    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
-        pytest.skip("cache dir 'out/cache' not present; "
-                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
+    # Building the composite loads the ParCa cache (out/cache/initial_state.json).
+    # Gate on that FILE, not just the dir or the CI env: the fast-tests CI job
+    # runs this build-only test but does NOT build the ParCa cache, so a
+    # dir/CI-based guard let it run and FileNotFoundError'd. Skip cleanly when
+    # the cache isn't present; the full behavior-tests job (which builds it) runs
+    # the assertion.
+    if not os.path.isfile("out/cache/initial_state.json"):
+        pytest.skip("ParCa cache (out/cache/initial_state.json) not present; "
+                    "build via `python scripts/build_cache.py`")
     from viva_superpowers.composite_generator import (
         _REGISTRY, build_generator, discover_generators,
     )

@@ -83,4 +83,3 @@ workspace/investigations/*/studies/*/viz/report_card/
 # structural-ecoli s01: generated 3D packs/meshes are large - keep local, not committed
 workspace/studies/s01-birth-and-division/viz/3d/
 .parsimony/
-.deps/

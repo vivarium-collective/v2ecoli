@@ -1,12 +1,23 @@
 schema_version: 4
 name: s01-birth-and-division
 created: '2026-07-25'
-status: build-complete
+status: ran
 
 question: |
   Pack the simulated whole-cell molecular state into a 3D cell at ~10 s
   (post-equilibration birth) and right before division, so the Parsimony Viewer
   can show both declared-time snapshots for this study.
+
+conclusion: |
+  Ran end-to-end (seed 0, relax=true, division reached). Both declared-time
+  snapshots packed and load in the Parsimony Viewer:
+    - initial (t ≈ 10 s):    287,013 placed instances (~314k molecules, 46 species)
+    - pre-division:          552,450 placed instances (~519k molecules, 46 species)
+  Molecular content grows ~1.7–1.9× birth → division with conserved composition
+  (same 46 species), and the envelope elongates ~1.5× at constant width — the
+  rod-shaped growth expected of a dividing E. coli cell. Run artifacts (the 90–
+  180 MB packs, runs.db) are regenerated per run and not committed; re-run the
+  baseline condition to reproduce.
 
 conditions:
   baseline:

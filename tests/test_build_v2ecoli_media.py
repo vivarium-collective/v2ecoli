@@ -14,6 +14,7 @@ symlink), so this is a ``sim``-marked test (slower, cache-dependent) like
 ``tests/test_baseline_injected.py``.
 """
 import os
+import pickle
 
 import pytest
 
@@ -22,7 +23,36 @@ pytestmark = pytest.mark.sim
 CACHE_DIR = "out/cache_full"
 
 
+def _cache_supports_with_aa(cache_dir: str) -> bool:
+    """True iff ``cache_dir`` is a condition-complete ParCa cache that can
+    build the ``with_aa`` condition.
+
+    CI's ``out/cache_full`` (built by ``scripts/build_cache.py``, the
+    ``--mode fast`` fixture) only carries the basal TF condition set, so
+    ``with_aa``'s per-condition regen in ``_build_v2ecoli`` produces no
+    bundle. Mirror the same lookup ``_build_v2ecoli`` does (condition's
+    required media via ``sim_data.conditions``, checked against
+    ``sim_data.external_state.saved_media``) to detect that up front,
+    without triggering the RuntimeError.
+    """
+    sd_path = os.path.join(cache_dir, "simData.cPickle")
+    if not os.path.exists(sd_path):
+        return False
+    with open(sd_path, "rb") as f:
+        sim_data = pickle.load(f)
+    expected_media = (sim_data.conditions.get("with_aa", {}) or {}).get("nutrients")
+    if expected_media is None:
+        return False
+    saved_media = getattr(sim_data.external_state, "saved_media", {}) or {}
+    return expected_media in saved_media
+
+
 def test_with_aa_builds_on_correct_media():
+    if not os.path.isdir(CACHE_DIR) or not _cache_supports_with_aa(CACHE_DIR):
+        pytest.skip(
+            "full-condition ParCa cache required (out/cache_full must support "
+            "the with_aa condition); CI uses the --mode fast fixture, which "
+            "omits non-basal conditions")
     from scripts.run_comparison_ensemble import _build_v2ecoli
 
     comp = _build_v2ecoli(0, "with_aa", CACHE_DIR, overrides=None)

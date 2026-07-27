@@ -21,9 +21,9 @@ from v2ecoli.library.report_card import (
 # 5-10% drift, >10% & p<0.05 mismatch — matches the vEcoli equivalence cards.
 CARD_AXES: list[dict[str, Any]] = [
     {"group": "Physiology", "path": "physiology.cell_mass",
-     "label": "Cell mass", "key": "cell_mass"},
+     "label": "Cell mass", "key": "cell_mass", "plot": "violin"},
     {"group": "Physiology", "path": "physiology.growth_rate",
-     "label": "Growth rate", "key": "growth_rate"},
+     "label": "Growth rate", "key": "growth_rate", "plot": "violin"},
 ]
 
 _TTEST = {"type": "ttest", "within_pct": 0.05, "mismatch_pct": 0.10, "p_min": 0.05}
@@ -64,6 +64,7 @@ def build_report_card(left_by_cell: dict[str, list[float]],
         reference_axes[path] = {
             "label": spec["label"], "group": spec["group"],
             "criterion": {**criterion_base, "ref_values": ref_vals},
+            "plot": spec.get("plot"),
         }
         # set the measured stat node at the dotted path in `card`
         node = _stat_node(meas_vals)  # safe for [] (n=0 -> ungraded downstream)

@@ -1,0 +1,6 @@
+{
+  "title": "Per-tick wall trace across the sweep",
+  "caption": "Full per-tick wall-time trace for every N in the sweep, overlaid. Each band is flat after warmup \u2014 steady, predictable per-tick cost at every N.",
+  "simulations": "All ticks of the four nsweep runs (not just steady-state), so the first ~10 warmup ticks are visible. One line per N.",
+  "interpretation": "Every trace settles to a flat steady state within ~10 ticks and stays there \u2014 no upward drift, no growing division spikes, no memory-pressure slowdown over the run. The bands are cleanly separated and evenly spaced (~73 ms apart), the time-domain twin of the linear per-cell cost: doubling N just stacks another constant slab of work. Predictable per-tick cost is what lets the realtime-ceiling projection hold."
+}

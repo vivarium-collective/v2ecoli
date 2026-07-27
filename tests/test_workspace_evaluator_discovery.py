@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-se = pytest.importorskip("pbg_superpowers.study_evaluator")
+se = pytest.importorskip("viva_superpowers.study_evaluator")
 
 if not hasattr(se, "load_workspace_evaluators"):
     pytest.skip("pbg-superpowers lacks the pluggable-evaluator seam",

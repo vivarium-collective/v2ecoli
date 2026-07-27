@@ -839,7 +839,7 @@ def _load_study(study_path):
 
         baseline:
         - name: <any>
-          composite: v2ecoli.composites.colony.colony
+          composite: v2ecoli.composites.ecoli_colony.ecoli_colony
           params: {seed?, n_adder?, env_size?, duration?, from_cache?}
         visualizations:
         - name: <any>
@@ -866,7 +866,7 @@ def _load_study(study_path):
     if not composite_ref.endswith(".colony.colony"):
         raise ValueError(
             f"study {study_path!r}: colony_report only handles the "
-            f"colony composite (e.g. v2ecoli.composites.colony.colony); "
+            f"colony composite (e.g. v2ecoli.composites.ecoli_colony.ecoli_colony); "
             f"got {composite_ref!r}"
         )
     if spec.get("lineage"):

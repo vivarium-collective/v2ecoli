@@ -17,7 +17,7 @@ The full **`baseline`** composite (the 55-process whole-cell model) calls
 publish time. Without a committed state it would resolve to `has_wiring=False`
 and the dashboard would hide its Explore button.
 
-## Regenerating `v2ecoli.composites.baseline.baseline.json`
+## Regenerating `v2ecoli.composites.ecoli_baseline.ecoli_baseline.json`
 
 This is a **manual artifact** — refresh it when the baseline model topology
 changes. On a machine with a valid ParCa cache (`out/cache/`, e.g. the lab
@@ -34,7 +34,7 @@ from vivarium_workbench.lib._root import set_workspace_root
 from vivarium_workbench.server import _json_default
 server.WORKSPACE = WS; set_workspace_root(WS)
 
-CID = "v2ecoli.composites.baseline.baseline"
+CID = "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
 data = server._composite_resolve_data(CID)            # needs out/cache
 
 def prune(o):                                          # truncate heavy arrays; keep topology
@@ -75,7 +75,7 @@ import json, importlib.util
 spec = importlib.util.spec_from_file_location("_remap", "v2ecoli/composites/_remap.py")
 rm = importlib.util.module_from_spec(spec); spec.loader.exec_module(rm)
 
-d = json.load(open("reports/composite-state/v2ecoli.composites.baseline.baseline.json"))
+d = json.load(open("reports/composite-state/v2ecoli.composites.ecoli_baseline.ecoli_baseline.json"))
 d["id"] = "v2ecoli.composites.biological.biological"
 d["name"] = "biological"
 d["module"] = "v2ecoli.composites.biological"

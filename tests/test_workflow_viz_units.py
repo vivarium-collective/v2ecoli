@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import v2ecoli.visualizations  # noqa: F401  — import triggers resolver registration
-from pbg_superpowers.visualization import Visualization
+from viva_superpowers.visualization import Visualization
 
 
 # ---------------------------------------------------------------------------

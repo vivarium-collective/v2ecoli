@@ -29,7 +29,7 @@ import time
 from html import escape
 from typing import Any
 
-from pbg_superpowers.visualization import Visualization
+from viva_superpowers.visualization import Visualization
 
 from v2ecoli.visualizations._helpers import (
     render_document,

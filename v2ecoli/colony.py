@@ -39,6 +39,7 @@ def make_colony_document(
     init_mass=None,
     transport='local',
     emit_cells=True,
+    phenotype_store=None,
 ):
     """Build a colony document with n whole-cell E. coli agents.
 
@@ -81,8 +82,14 @@ def make_colony_document(
         y = env_size / 2 + rng.uniform(-5, 5)
         angle = rng.uniform(0, 2 * np.pi)
 
+        # Deterministic initial-cell id (a_0, a_1, …). build_microbe's default id
+        # is randomly generated (untied to the seed), so it changes on every
+        # build — which breaks resolving a cell by id across two builds (the loom
+        # Explorer re-builds the colony to instantiate + drill into a cell).
+        # Seeding a stable id keeps the composite reproducible; daughters spawned
+        # at division still get fresh unique ids.
         agent_id, cell_body = build_microbe(
-            rng, env_size=env_size,
+            rng, agent_id=f'a_{i}', env_size=env_size,
             x=x, y=y, angle=angle,
             length=2.0, radius=0.5, density=0.02,
         )
@@ -148,20 +155,40 @@ def make_colony_document(
             },
         },
 
-        # Outer colony emitter. The full cells-map capture (emit_cells=True)
-        # appends every cell's state to an in-RAM history EVERY tick — an
-        # unbounded leak that scales with cell count (~1 MB/tick/cell; OOMs a
-        # growing colony around gen 3). It's only needed by callers that read
-        # the emitted cell trajectory (e.g. the gif/animation), so it defaults
-        # on for back-compat but perf/long runs pass emit_cells=False to emit
-        # only global_time. (The inner per-cell emitters are bounded separately
-        # in bridge.py via set_null_emitter_override.)
+        # Colony emitter: global_time only whenever we're capturing per-cell
+        # data the leak-free way (or when emit_cells is off).
+        #
+        # The heavy per-cell capture does NOT go through an emitter. Emitters
+        # deep-copy the wired `cells` map every tick — each cell's embedded
+        # 55-process WCM state — costing ~1.6 MB/tick of RSS that the OS never
+        # reclaims (the "colony RAM leak", ~94% of it, invisible to tracemalloc
+        # because it's numpy buffers). A *process* gets a cheap typed VIEW of the
+        # cells instead (that's why PymunkProcess, also wired to ['cells'], is
+        # leak-free). So per-cell phenotypes are recorded by a process
+        # (ColonyPhenotypeRecorder, added below when `phenotype_store` is set).
+        # The legacy emit_cells=True full-map RAMEmitter is kept only for
+        # back-compat callers that read the emitted trajectory (e.g. the GIF).
         'emitter': emitter_from_wires(
-            {'agents': ['cells'], 'time': ['global_time']}
-            if emit_cells else
             {'time': ['global_time']}
+            if (phenotype_store or not emit_cells) else
+            {'agents': ['cells'], 'time': ['global_time']}
         ),
     }
+
+    # Leak-free per-cell phenotype capture: a process typed map[pymunk_agent]
+    # sees a shallow view of the cells (never the deep `ecoli` state), so it
+    # streams mass/length/volume/x/y/angle to zarr at O(1) RAM.
+    if phenotype_store:
+        document['phenotype_recorder'] = {
+            '_type': 'process',
+            'address': 'local:ColonyPhenotypeRecorder',
+            'config': {'out_uri': phenotype_store},
+            'interval': ecoli_interval,
+            'inputs': {
+                'cells': ['cells'],
+                'global_time': ['global_time'],
+            },
+        }
 
     return document
 
@@ -177,6 +204,7 @@ def make_colony(
     transport='local',
     parallel_processes=None,
     emit_cells=True,
+    phenotype_store=None,
 ):
     """Create a colony Composite ready to run.
 
@@ -197,6 +225,11 @@ def make_colony(
     # Register EcoliWCM so Composite can resolve 'local:EcoliWCM' AND so the
     # Ray protocol's _resolve_target can find it in core.link_registry.
     core.register_link('EcoliWCM', EcoliWCM)
+    # Bounded-RAM per-cell phenotype sink (streams to zarr instead of
+    # accumulating the cells map in RAM). Registered on the colony's own core
+    # so 'local:ColonyPhenotypeRecorder' resolves even outside build_core().
+    from v2ecoli.colony_emitter import ColonyPhenotypeRecorder
+    core.register_link('ColonyPhenotypeRecorder', ColonyPhenotypeRecorder)
 
     if transport == 'ray':
         from process_bigraph.protocols import ray as ray_protocol
@@ -217,6 +250,7 @@ def make_colony(
         init_mass=init_mass,
         transport=transport,
         emit_cells=emit_cells,
+        phenotype_store=phenotype_store,
     )
 
     return Composite(

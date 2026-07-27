@@ -34,7 +34,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 
 from process_bigraph import Composite
-from pbg_superpowers.composite_generator import _REGISTRY, build_generator
+from viva_superpowers.composite_generator import _REGISTRY, build_generator
 
 from v2ecoli.core import build_core
 from v2ecoli.library.fba_reaction_map import load_reaction_map

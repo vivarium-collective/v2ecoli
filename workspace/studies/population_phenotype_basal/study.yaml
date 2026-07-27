@@ -27,28 +27,29 @@ question: |
 
 conditions:
   baseline:
-    composite: baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   # The blessed measured side is a MULTISEED + MULTIGEN ensemble (the
   # population_phenotype_basal sweep, post-burn-in gen≥3), baked to committed
   # per-cell fixtures by `scripts/render_basal_vs_literature.py --from-sweep`.
   variants:
-  - name: wild-type baseline (no perturbation)
-    role: reference
-    detail: Unperturbed glucose-minimal whole cell; the vs_literature reference is experimental data, not a pinned run.
+    - name: wild-type baseline (no perturbation)
+      role: reference
+      detail: Unperturbed glucose-minimal whole cell; the vs_literature reference is experimental data, not a pinned run.
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
-  - name: baked-fixture-measured-side
-    detail: Measured side reads committed model_*.json fixtures (the #268 reproducibility boundary), not a live sweep zarr — the card grades run-free.
-  - name: literature-reference-side
-    detail: Reference values read live from ecoli_sources.VALIDATION_BUNDLE_PATH (the validation manifest, bypassing the ParCa SourceBundle contract).
+    - name: baked-fixture-measured-side
+      detail: Measured side reads committed model_*.json fixtures (the #268 reproducibility boundary), not a live sweep zarr — the card grades run-free.
+    - name: literature-reference-side
+      detail: Reference values read live from ecoli_sources.VALIDATION_BUNDLE_PATH (the validation manifest, bypassing the ParCa SourceBundle contract).
 
 assumptions:
-- text: |
-    The committed model_*.json fixtures faithfully represent the blessed baseline
-    ensemble (post-burn-in gen≥3) — so grading the fixtures reproduces the verdict
-    the live sweep would give (reversible: a later study.run_zarr_paths() drop-in).
-  verified_in_v2ecoli: false
+  - text: |
+      The committed model_*.json fixtures faithfully represent the blessed baseline
+      ensemble (post-burn-in gen≥3) — so grading the fixtures reproduces the verdict
+      the live sweep would give (reversible: a later study.run_zarr_paths() drop-in).
+    verified_in_v2ecoli: false
 
 # Only the headline PHYSIOLOGY criteria are formalized as behavioral tests here
 # (μ, glucose uptake, biomass yield). The card grades a broader set against the
@@ -60,24 +61,24 @@ assumptions:
 # them is future work). The tests below mirror the golden values pinned in
 # tests/test_basal_vs_literature.py.
 tests:
-- name: growth-rate-in-band
-  classification: primary
-  status: passed
-  question: Is the ensemble growth rate μ within the measured band?
-  measure:
-    kind: derived
-    detail: μ (1/h) from per-cell doubling times; graded vs the curated measured band.
-- name: glucose-uptake-below-band
-  classification: primary
-  status: failed
-  question: Does the model under-consume glucose relative to the measured band?
-  measure:
-    kind: derived
-    detail: q_glc (mmol/gDW/h) = |GLC[p] exchange|; measured 8.5–10.6, model ~5.1 → mismatch.
-- name: biomass-yield-first-principles-violation
-  classification: primary
-  status: failed
-  question: Does the biomass yield exceed the theoretical-max stoichiometric ceiling?
-  measure:
-    kind: derived
-    detail: Yxs = ΔDW / ∫(q_glc·DW)dt by direct mass balance; exceeds the theoretical_max ceiling → differentiated first-principles violation.
+  - name: growth-rate-in-band
+    classification: primary
+    status: passed
+    question: Is the ensemble growth rate μ within the measured band?
+    measure:
+      kind: derived
+      detail: μ (1/h) from per-cell doubling times; graded vs the curated measured band.
+  - name: glucose-uptake-below-band
+    classification: primary
+    status: failed
+    question: Does the model under-consume glucose relative to the measured band?
+    measure:
+      kind: derived
+      detail: q_glc (mmol/gDW/h) = |GLC[p] exchange|; measured 8.5–10.6, model ~5.1 → mismatch.
+  - name: biomass-yield-first-principles-violation
+    classification: primary
+    status: failed
+    question: Does the biomass yield exceed the theoretical-max stoichiometric ceiling?
+    measure:
+      kind: derived
+      detail: Yxs = ΔDW / ∫(q_glc·DW)dt by direct mass balance; exceeds the theoretical_max ceiling → differentiated first-principles violation.

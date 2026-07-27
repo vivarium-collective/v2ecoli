@@ -1,6 +1,6 @@
 """Determinism under a fixed seed.
 
-Two independent `build_composite("baseline", cache_dir=..., seed=0)` calls,
+Two independent `build_composite("ecoli_baseline", cache_dir=..., seed=0)` calls,
 each run for the same duration, must produce identical simulation state. A
 failure means something in the process-bigraph graph or in v2ecoli's processes
 is reading from an unseeded source (dict iteration order, set iteration,
@@ -45,7 +45,7 @@ pytestmark = [
 
 
 def _run_baseline(duration: float):
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=0)
     composite.run(duration)
     return composite.state
 

@@ -29,7 +29,6 @@ import os
 from typing import Any, Callable
 
 from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.types.stores import InPlaceDict
 
 
 DEFAULT_N_SEEDS = 4
@@ -54,7 +53,18 @@ def resolve_out_dir(out_dir: "str | None" = None) -> str:
     """
     if out_dir:
         return out_dir
-    return os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR") or DEFAULT_OUT_DIR
+    sweep = os.environ.get("VIVARIUM_WORKBENCH_SWEEP_DIR")
+    if sweep:
+        return sweep
+    # On the sms-api compose / Ray-on-Batch path, run_pbg sets PBG_RESULTS_DIR to
+    # the dir the entrypoint syncs to S3 (RAY_OUT_DIR). Land the sweep, stores and
+    # analyses there so they're actually collected — the fixed workspace default
+    # would write outside the synced dir and the results would never leave the
+    # container.
+    results = os.environ.get("PBG_RESULTS_DIR")
+    if results:
+        return os.path.join(results, "batch_baseline")
+    return DEFAULT_OUT_DIR
 
 
 DEFAULT_EXPERIMENT_ID = "batch_baseline"
@@ -162,6 +172,8 @@ def build_workflow_config(
     variants: "dict | None" = None,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
+    base_config_overrides: "dict | None" = None,
+    media: str = "minimal",
 ) -> dict:
     """Translate the composite's parameters into a v2ecoli workflow config.
 
@@ -192,10 +204,19 @@ def build_workflow_config(
             analyses, n_seeds=n_seeds, n_generations=n_generations,
             single_daughters=single_daughters, variants=variants),
     }
+    if media and media != "minimal":
+        # Threaded to every per-seed baseline() build (see LineageProcess); a
+        # lightweight in-cache media shift applied panel-wide across the sweep.
+        config["media"] = media
     if study:
         # Lets the flush place analyses/visualizations/report cards into this
         # study's report dir even when out_dir isn't under studies/<slug>/.
         config["study"] = study
+    if base_config_overrides:
+        # Applied to every branch by expand_branches (panel-wide, under the
+        # variant grid) — how batch_baseline's `knockouts` knocks a gene out
+        # across all seeds without forking a comparison arm.
+        config["base_config_overrides"] = dict(base_config_overrides)
     return config
 
 
@@ -286,6 +307,8 @@ def dispatch_batch(
     variants: "dict | None" = None,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
+    base_config_overrides: "dict | None" = None,
+    media: str = "minimal",
     run_workflow_fn: "Callable[..., dict] | None" = None,
 ) -> dict:
     """Run the seeds × generations batch and assemble the ``batch`` result dict.
@@ -303,7 +326,8 @@ def dispatch_batch(
         single_daughters=single_daughters, time_step=time_step,
         max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
         experiment_id=experiment_id, emitter=emitter, parallel=parallel,
-        variants=variants, analyses=analyses, study=study)
+        variants=variants, analyses=analyses, study=study,
+        base_config_overrides=base_config_overrides, media=media)
 
     # Before the run, so the flush that follows it inside run_workflow can
     # resolve the sweep's sim_data (see link_sim_data).
@@ -364,6 +388,13 @@ class BatchBaselineRunner(Step):
         # single bigraph-schema type covers.
         "analyses": {"_default": DEFAULT_ANALYSES},
         "study": "string",
+        # Config overrides applied to every branch (panel-wide) — e.g. the
+        # translation-efficiency patch batch_baseline's `knockouts` builds. Untyped: the
+        # value is an arbitrary {'<proc>.<key>': value} map, and some values
+        # (a numpy efficiencies array) no bigraph-schema type covers.
+        "base_config_overrides": {"_default": {}},
+        # Panel-wide media condition, threaded to every per-seed baseline() build.
+        "media": {"_default": "minimal"},
     }
     topology = {
         "batch": ("batch",),
@@ -388,6 +419,8 @@ class BatchBaselineRunner(Step):
         analyses = cfg.get("analyses")
         self.analyses = DEFAULT_ANALYSES if analyses is None else analyses
         self.study = cfg.get("study") or ""
+        self.base_config_overrides = dict(cfg.get("base_config_overrides") or {})
+        self.media = cfg.get("media") or "minimal"
         # None => default "ray"; "" / "sequential" / "none" => sequential (None).
         p = cfg.get("parallel")
         if p is None:
@@ -398,7 +431,14 @@ class BatchBaselineRunner(Step):
     def inputs(self) -> dict[str, Any]:
         # Read `batch` so the idempotency guard is persistent (survives the
         # dashboard composite-runner rebuilding the Step from the document).
-        return {"batch": InPlaceDict()}
+        # Declare the port by its REGISTERED TYPE NAME ("inplace_dict" in
+        # ECOLI_TYPES), not an `InPlaceDict()` instance: the instance serializes
+        # to its repr in `to_document` (`"InPlaceDict(_default=None, ...)"`),
+        # which the parser can't reparse when the .pbg is round-tripped through
+        # remote dispatch (workbench export -> sms-api compose -> run_pbg on
+        # Batch), failing Composite() with an IncompleteParseError. The name
+        # string round-trips cleanly and resolves back to InPlaceDict via the core.
+        return {"batch": "inplace_dict"}
 
     def triggers(self) -> dict[str, Any]:
         """No trigger ports — ``batch`` is a SILENT input.
@@ -418,7 +458,9 @@ class BatchBaselineRunner(Step):
         return {}
 
     def outputs(self) -> dict[str, Any]:
-        return {"batch": InPlaceDict()}
+        # Registered type name, not an instance — see inputs() for the
+        # serialization round-trip rationale.
+        return {"batch": "inplace_dict"}
 
     def update(self, state, interval=None):
         batch = (state or {}).get("batch") or {}
@@ -439,5 +481,7 @@ class BatchBaselineRunner(Step):
             variants=self.variants,
             analyses=self.analyses,
             study=self.study,
+            base_config_overrides=self.base_config_overrides,
+            media=self.media,
         )
         return {"batch": result}

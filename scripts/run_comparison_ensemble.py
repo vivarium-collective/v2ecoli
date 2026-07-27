@@ -104,6 +104,10 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     """
     from v2ecoli import build_composite
     eff_cache = cache_dir
+    # Guaranteed-defined default: the block below (which normally sets this from
+    # sim_data) is skipped when `condition` is falsy or ("basal" and no simData
+    # present) — without this, later references would NameError on that path.
+    expected_media = None
     # Regenerate a per-(condition, seed) initial-state bundle from simData. This
     # MUST include basal: the base cache_full snapshot is a SINGLE seed's basal
     # initial state, so without regen every basal seed starts IDENTICAL (e.g.
@@ -205,7 +209,14 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     kwargs: dict = {"cache_dir": eff_cache, "seed": seed, "emitter": "null"}
     if overrides:
         kwargs.update(overrides)
-    comp = build_composite("baseline", **kwargs)
+    # Pass the condition's required media so the generator sets environment.media_id.
+    # The per-condition regen bakes only counts, not media; without this a non-basal
+    # build silently runs on the base cache's basal media and the assertion below
+    # fires. No-op for basal (expected_media == base 'minimal'). Only set when known
+    # and not already provided via overrides.
+    if expected_media is not None and "media" not in kwargs:
+        kwargs["media"] = expected_media
+    comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
     # on the media the condition requires. Anything else silently mis-models the
@@ -446,13 +457,13 @@ def _write_json_sidecar(path: str, obj: dict) -> None:
 # construction) rather than from two independent default sets. Today the gap is
 # a NAMESPACE one: ``translate_vecoli_config`` yields a vEcoli-WORKFLOW-shaped
 # dict (lineage_seed, single_daughters, max_duration_per_gen, condition, …),
-# but ``build_composite("baseline")`` accepts a DISJOINT set of generator
+# but ``build_composite("ecoli_baseline")`` accepts a DISJOINT set of generator
 # parameters (seed, cache_dir, transcript/polypeptide_initiation_mode,
 # config_overrides, the feature toggles, emitter, injected_processes). The two
 # share almost no key names, so a straight pass-through maps very little.
 #
 # What is default-vs-translatable today:
-#   * DEFAULT-only (set inside build_composite("baseline"), NOT from vEcoli cfg):
+#   * DEFAULT-only (set inside build_composite("ecoli_baseline"), NOT from vEcoli cfg):
 #       process set + topology, time_step (1 s), the feature toggles
 #       (ppgpp_regulation on, trna/supercoiling/mass off), the initiation modes,
 #       and emitter — these come from the generator defaults.
@@ -474,7 +485,7 @@ def _write_json_sidecar(path: str, obj: dict) -> None:
 def _baseline_param_names() -> set:
     """The declared ``baseline`` generator parameter names (for override filtering)."""
     import v2ecoli.composites  # noqa: F401  (register generators)
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     for e in _REGISTRY.values():
         if e.name == "baseline":
             return set(e.parameters)

@@ -18,7 +18,7 @@ import os
 import time
 
 import v2ecoli
-from v2ecoli.composites.baseline import enable_features
+from v2ecoli.composites.ecoli_baseline import enable_features
 from v2ecoli.composites._helpers import sqlite_emitter
 from pbg_emitters.sqlite_emitter import mark_simulation_finished
 
@@ -44,7 +44,7 @@ def run_one(study, seconds, seed=0, cache_dir="out/cache"):
         with sqlite_emitter(name=name,
                             study_slug=slug,
                             investigation_slug=INVESTIGATION) as cfg:
-            comp = v2ecoli.build_composite("baseline", cache_dir=cache_dir, seed=seed)
+            comp = v2ecoli.build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
             t0 = time.time()
             comp.update({}, float(seconds))
             elapsed = time.time() - t0

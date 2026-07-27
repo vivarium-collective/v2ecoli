@@ -10,7 +10,7 @@ this figure surfaces. oriC (green) and Ter (red square) are anchored at
 their canonical positions for orientation.
 
 Uses v2ecoli.visualizations.chromosome_circle.chromosome_circle_svg
-(circular SVG renderer, moved out of pbg_superpowers).
+(circular SVG renderer, moved out of viva_superpowers).
 
 Usage:
   .venv/bin/python scripts/render_dnaa_box_landscape.py \\
@@ -27,7 +27,7 @@ sys.path.insert(0, ".")
 import numpy as np
 from bigraph_schema import allocate_core
 from process_bigraph import Composite
-from pbg_superpowers.composite_generator import _REGISTRY, build_generator
+from viva_superpowers.composite_generator import _REGISTRY, build_generator
 import v2ecoli.composites  # noqa: F401
 from v2ecoli.visualizations.chromosome_circle import chromosome_circle_svg
 

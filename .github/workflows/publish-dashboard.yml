@@ -39,6 +39,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # The workbench wheel build warns+skips the loom bundle when npm is absent
+    # (so Node-less consumer builds don't fail). But the published read-only
+    # dashboard MUST include the Composite Explorer — require it here so a
+    # missing/broken bundle fails loudly instead of shipping a loom-less site.
+    env:
+      VIVARIUM_WORKBENCH_REQUIRE_LOOM: "1"
     steps:
       - uses: actions/checkout@v4
 

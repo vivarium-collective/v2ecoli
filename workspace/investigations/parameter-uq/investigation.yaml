@@ -30,12 +30,22 @@ executive:
     refuted: that 0.88 reading was a state-carryover artifact (fixed in v2ecoli
     PR #197), and gtpPerElongation / ribosomeElongationRate turned out to be inert.
   verdict_status: passed
-  decisions_needed:
+  decisions_resolved:
   - question: Expand to the DEEP sim_data physiological parameters (ParCa-level injection)?
-    context: |
-      This study varied only config-reachable top-level knobs. The richer
-      physiological params (kinetic rates, mass fractions) need sim_data-level
-      mutation + cache rebuild, a heavier path that would broaden the sensitivity map.
+    decision: YES — built and ran (param-uq-04-deep-params).
+    resolution: |
+      Built a sim_data injection adapter (pbg_v2ecoli.uq_sim_data_injection) that
+      routes each deep param either POST_PARCA (it surfaces as a runtime config key →
+      config_overrides, no rebuild) or REBUILD (it shapes initial_state → regenerate
+      the bundle with save_sim_input). Two premises of the original block were wrong:
+      the "rebuild" is a ~2 s bundle regeneration (no full ParCa refit, not ~2.5 min),
+      and several deep params (RNAP elongation rate, FBA weights) are reachable with
+      NO rebuild at all. Result: the dry-mass fraction (a deep param reachable only
+      via the rebuild path) dominates mass variance (total-order Sobol ≈ 1.0) and
+      co-dominates growth rate (≈0.5, shared with RNAP elongation rate); the FBA
+      kinetic-objective weight is inert. The deep physiological surface is now cheaply
+      sweepable; the open follow-up is to widen to the full uqEcoli deep-param set over
+      multi-generation runs and re-calibrate bounds to v2ecoli's current ParCa state.
 
 scientific_argument:
   main_claim: |
@@ -47,7 +57,7 @@ scientific_argument:
   - "PCE surrogate test relative error 1.3–2.1% supports the variance attribution."
   - "Mechanistically expected: basal_elongation_rate sets ribosome speed → protein synthesis → growth rate."
   evidence_against:
-  - "Scope: only config-reachable top-level knobs were varied; deep sim_data physiological params (kinetic rates, mass fractions) need ParCa-level injection and were not tested."
+  - "Scope (now partly addressed by param-uq-04): studies 00–02 varied only config-reachable top-level knobs. param-uq-04 added a sim_data injection adapter and tested 3 deep physiological params — finding the dry-mass fraction dominates MASS variance (Sobol ≈ 1.0) and co-dominates growth with the elongation rate. So the dominant lever depends on the observable and the parameter surface; a full deep-param sweep is still open."
   - "Observable is instantaneous growth rate over a 120-step window (~4% of a generation); mass observables don't respond at this window, and longer windows could shift weights."
   key_figures:
   - "charts/sobol_indices.png — Sobol bars (across-seed whiskers): basal_elongation_rate ≈ 0.97 dominant."
@@ -65,7 +75,7 @@ at_a_glance:
 - study: param-uq-03-growth-stratified
   role: "PLANNED: tests whether parameter influence on growth/mass is uniform or stage-dependent across the cell cycle (10 θ bins, requires multi-gen runs + pbg-uq extension)."
 - study: param-uq-04-deep-params
-  role: "PLANNED: extends UQ to deep SimulationDataEcoli physiological parameters (RNAP fractions, FBA weights, mass fraction) via ParCa-level injection, beyond the current config_overrides path."
+  role: "RAN: extends UQ to deep SimulationDataEcoli physiological params via a sim_data injection adapter. Finds the dry-mass fraction dominates mass variance (Sobol ≈ 1.0) and co-dominates growth (≈0.5, with RNAP elongation rate); FBA kinetic weight inert. Establishes a cheap (~2 s/sample) deep-param injection path — the pivot's ~2.5-min-ParCa premise was wrong."
 
 biological_story: |
   Translation is one of the cell's largest energy sinks, so which elongation dial
@@ -80,15 +90,34 @@ biological_story: |
   up only after independent samples, effective parameters, a responsive observable,
   and an adequate budget were in place.
 
-studies:
+acceptance_criteria:
+- study: param-uq-00-screen
+  behavior: screen-identifies-effective-knobs
+- study: param-uq-01-elongation
+  behavior: single-elongation-knob-robustly-dominates
+members:
 - param-uq-00-screen
 - param-uq-01-elongation
 - param-uq-02-observables
 - param-uq-03-growth-stratified
 - param-uq-04-deep-params
 
-acceptance_criteria:
-- study: param-uq-00-screen
-  behavior: screen-identifies-effective-knobs
-- study: param-uq-01-elongation
-  behavior: single-elongation-knob-robustly-dominates
+glossary:
+- term: Forward UQ
+  definition: |-
+    Uncertainty quantification that propagates input-parameter uncertainty forward to output variance (as opposed to inverse/parameter inference). Here it ranks which sim_data knobs drive variance in single-cell observables.
+- term: Sobol index (total-order)
+  definition: |-
+    A variance-based global-sensitivity measure giving the fraction of output variance attributable to a parameter including all its interactions. A total-order near 0.97 means one knob dominates.
+- term: PCE (Polynomial Chaos Expansion)
+  definition: |-
+    A surrogate representing model output as an orthogonal-polynomial series in the uncertain inputs, from which Sobol indices are read off analytically instead of by expensive Monte Carlo.
+- term: PCRV
+  definition: |-
+    The sampling scheme used to build the PCE surrogate; multiple PCRV seeds check that the sensitivity ranking is stable rather than a sampling artifact.
+- term: basal_elongation_rate
+  definition: |-
+    The ribosome translation-elongation-rate parameter this study identifies as the dominant driver of instantaneous growth-rate variance.
+- term: sim_data
+  definition: |-
+    The large calibrated parameter object produced by the ParCa that configures the whole-cell model; its many fields are the parameter space this investigation screens.

@@ -49,7 +49,7 @@ def _ws(tmp_path):
     (d / "viz" / "report_card" / "standard.verdict.json").write_text(
         json.dumps({"overall": "drift"}), encoding="utf-8")
     (d / "study.yaml").write_text(
-        "name: demo\nbaseline:\n- {name: b, composite: v2ecoli.composites.baseline.baseline}\n"
+        "name: demo\nbaseline:\n- {name: b, composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline}\n"
         "tests:\n"
         "- {name: behavioral-one, measure: {kind: listener_path, path: x}}\n"
         "- {name: card-one, kind: report_card, card: standard}\n",
@@ -337,7 +337,7 @@ def _fixture(tmp_path):
     (d / "viz" / "report_card" / "standard.verdict.json").write_text(
         json.dumps({"overall": "mismatch"}), encoding="utf-8")
     (d / "study.yaml").write_text(
-        "name: demo\nbaseline:\n- {name: b, composite: v2ecoli.composites.baseline.baseline}\n"
+        "name: demo\nbaseline:\n- {name: b, composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline}\n"
         "tests:\n- {name: beh, measure: {kind: listener_path, path: x}}\n"
         "- {name: std, kind: report_card, card: standard}\n", encoding="utf-8")
     return tmp_path

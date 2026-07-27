@@ -16,6 +16,7 @@ import yaml
 
 REPO = Path(__file__).resolve().parent.parent.parent
 INVEST_ROOT = REPO / "workspace" / "investigations"
+STUDIES_ROOT = REPO / "workspace" / "studies"
 DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
 # Cards that GATE (pass/fail). The multi-seed `statistical` card (Welch t-test over
 # >=4 seeds) is the gold standard for trajectory reproduction; `parca` gates the
@@ -71,9 +72,14 @@ def _context(inv_dir: Path) -> dict:
     data = data or {}
     comp = data.get("comparison") or {}
     fork_env = comp.get("vecoli_dir_env", "V2E_VECOLI_DIR")
+    # Canonical model (post-#390): investigations reference top-level
+    # workspace/studies/<slug>/ via `members:`. Fall back to the legacy
+    # `studies:` key for any investigation not yet migrated.
+    members = data.get("members") or data.get("studies") or []
     return {
         "invest_name": data.get("name", inv_dir.name),
-        "studies": data.get("studies", []),
+        "members": members,
+        "studies": members,
         "v2_cache": comp.get("v2_cache", _DEFAULT_V2_CACHE),
         "ve_cache": comp.get("ve_cache", _DEFAULT_VE_CACHE),
         "fork": os.environ.get(fork_env, ""),
@@ -117,16 +123,25 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
 def load_investigation(ref: str) -> tuple[dict, list]:
     """Return (context, [StudySpec, ...]) for an investigation name or path.
 
-    Studies are loaded in the order listed in the investigation's `studies:`;
-    a listed study whose study.yaml is missing is skipped.
+    Studies are loaded in the order listed in the investigation's `members:`
+    (legacy `studies:` for any un-migrated investigation); each is resolved
+    from the canonical TOP-LEVEL workspace/studies/<slug>/study.yaml (Study
+    Pipeline registry model, post-#390) -- NOT the legacy nested
+    inv_dir/studies/<slug>/. A listed study whose study.yaml is missing is
+    skipped.
     """
     inv_dir = _invest_dir(ref)
     if not (inv_dir / "investigation.yaml").exists():
         raise FileNotFoundError(f"investigation not found: {inv_dir}/investigation.yaml")
     ctx = _context(inv_dir)
+    # Top-level studies live as a SIBLING of investigations/ under the same
+    # workspace root (inv_dir is always <workspace>/investigations/<name>);
+    # derive it from inv_dir rather than hardcoding REPO so a caller pointing
+    # at an alternate/test workspace resolves studies within that workspace.
+    studies_root = inv_dir.parent.parent / "studies"
     specs = []
-    for sname in ctx["studies"]:
-        sp = inv_dir / "studies" / sname / "study.yaml"
+    for sname in ctx["members"]:
+        sp = studies_root / sname / "study.yaml"
         if sp.exists():
             specs.append(_spec_from_study(sp, ctx))
     return ctx, specs
@@ -142,7 +157,7 @@ def load_study(ref: str) -> StudySpec:
     elif p.is_dir() and (p / "study.yaml").exists():
         sp = p / "study.yaml"
     else:
-        sp = INVEST_ROOT / DEFAULT_INVEST / "studies" / ref / "study.yaml"
+        sp = STUDIES_ROOT / ref / "study.yaml"
     if not sp.exists():
         raise FileNotFoundError(f"study not found: {sp}")
     data = yaml.safe_load(sp.read_text(encoding="utf-8")) or {}

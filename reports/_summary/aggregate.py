@@ -122,6 +122,42 @@ def _config_json(study: dict) -> dict[str, Any]:
     return cfg
 
 
+def _prerequisites(study: dict) -> list[str]:
+    """A study's ordering dependencies. Source of truth is `inputs.from`
+    (Study Pipeline migration moved ordering off pipeline_gate.prerequisites,
+    which the registry migrator now strips entirely). Falls back to the
+    legacy `pipeline_gate.prerequisites` for any un-migrated study that still
+    carries it."""
+    from_inputs = [e.get("from") for e in (study.get("inputs") or []) if e.get("from")]
+    if from_inputs:
+        return from_inputs
+    return (study.get("pipeline_gate", {}) or {}).get("prerequisites", []) or []
+
+
+def _dag_order(studies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stable topological sort by each study's in-set `prerequisites`: a study
+    appears after every prerequisite that is itself in this list. Studies at the
+    same DAG depth keep their input order. A cycle or unresolvable ref falls
+    through in input order rather than dropping any study."""
+    by_slug = {s["slug"]: s for s in studies}
+    emitted: set[str] = set()
+    order: list[dict[str, Any]] = []
+    remaining = list(studies)
+    while remaining:
+        ready = [
+            s for s in remaining
+            if all(p in emitted for p in s["prerequisites"] if p in by_slug)
+        ]
+        if not ready:  # cycle / unresolvable — emit the rest as-is
+            order.extend(remaining)
+            break
+        for s in ready:
+            order.append(s)
+            emitted.add(s["slug"])
+            remaining.remove(s)
+    return order
+
+
 def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
     ws = Path(workspace_root)
     inv_dir = ws / "investigations" / slug
@@ -129,8 +165,14 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
 
     studies: list[dict[str, Any]] = []
     rollup = {"PASS": 0, "PARTIAL": 0, "FAIL": 0}
-    for study_slug in inv.get("studies", []) or []:
-        study_dir = inv_dir / "studies" / study_slug
+    # Registry model (Study Pipeline Spec 1): investigations REFERENCE top-level
+    # studies/<slug>/ via `members:`. Legacy investigations used a nested
+    # `studies:` list under investigations/<inv>/studies/<slug>/. Support both.
+    member_slugs = inv.get("members") or inv.get("studies") or []
+    for study_slug in member_slugs:
+        study_dir = ws / "studies" / study_slug
+        if not (study_dir / "study.yaml").is_file():
+            study_dir = inv_dir / "studies" / study_slug  # legacy nested fallback
         study = _load_yaml(study_dir / "study.yaml")
         result = _canonical_result(study)
         if result in rollup:
@@ -145,11 +187,17 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
             "title": study.get("title") or study.get("name") or study_slug,
             "status": study.get("status"),
             "result": result,
-            "prerequisites": (study.get("pipeline_gate", {}) or {}).get("prerequisites", []) or [],
+            "prerequisites": _prerequisites(study),
             "finding": _first_finding(study),
             "cards": cards,
             "config_json": _config_json(study),
         })
+
+    # Order studies by their prerequisite DAG (roots like `parca` first) so the
+    # summary + matrix read in pipeline order regardless of the investigation's
+    # members: list order — the registry migrator sorts members alphabetically,
+    # which is not a valid pipeline order (a variant could precede its ParCa).
+    studies = _dag_order(studies)
 
     # Build the verdict matrix
     columns: list[str] = []

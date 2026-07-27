@@ -363,8 +363,9 @@ def main():
             polypeptide_initiation_mode=mode,
         )
         results[f"pdmp_{mode}"] = run_ensemble(
-            "millard_pdmp_baseline", args.n, args.duration, args.sample_every,
+            "baseline_millard", args.n, args.duration, args.sample_every,
             f"pdmp_{mode}",
+            lqr=True,
             with_ref_growth=True,
             ref_growth_flux_source=args.flux_source,
             ref_growth_feedback_tau_s=args.feedback_tau_s,

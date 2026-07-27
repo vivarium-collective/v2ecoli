@@ -60,7 +60,7 @@ FLUSH = '__unique_flush__'
 # they pass to step builders: it serves configs by name and exposes the few
 # sim_data attributes those builders read (unique-molecule definitions +
 # expected dry-mass increase). Previously each generator (baseline,
-# millard_pdmp_baseline) defined its own nested
+# baseline_millard) defined its own nested
 # _CachedLoader with a 4-level inner-class mock; this is the single flattened,
 # module-level version.
 
@@ -102,7 +102,7 @@ def _expand_flushes(layers):
     """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
 
     N is assigned in declaration order so state keys stay stable across
-    architecture variants (baseline, colony, millard_pdmp_baseline).
+    architecture variants (baseline, colony, baseline_millard).
     """
     out, n = [], 0
     for layer in layers:
@@ -130,10 +130,10 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ---------------------------------------------------------------------------
 # Canonical visualization set for single-cell architectures.
 # ---------------------------------------------------------------------------
-# Shared by baseline / millard_pdmp_baseline — both resolve to the
+# Shared by baseline / baseline_millard — both resolve to the
 # same observables.mass / unique-molecule layout so the same viz tiles apply.
 # Opt-in: every study built on one of the v2ecoli single-cell composites
-# (baseline / millard_pdmp_baseline) that wants the legacy
+# (baseline / baseline_millard) that wants the legacy
 # WorkflowVisualization + NetworkVisualization panels must declare them
 # explicitly in its study.yaml `visualizations:` block. Auto-attaching them
 # here used to be the default, but the panels rendered confusingly empty for
@@ -293,7 +293,7 @@ ALLOCATOR_LAYERS = {
 # ``{'file_path': '.../workspace/studies/<name>', 'db_file': 'runs.db',
 #   'name': 'baseline-steady-state'}``) BEFORE building the composite.
 # When set, the special 'emitter' step in baseline /
-# millard_pdmp_baseline swaps RAMEmitter for SQLiteEmitter and expands the emit
+# baseline_millard swaps RAMEmitter for SQLiteEmitter and expands the emit
 # schema to cover the per-listener fields the dnaa investigation reads.
 #
 # Use the ``sqlite_emitter()`` context manager below for safety —
@@ -313,7 +313,7 @@ _PARQUET_EMITTER_OVERRIDE: dict | None = None
 # XArrayEmitter) and don't want the internal emitter wasting memory.
 _NULL_EMITTER_OVERRIDE: bool = False
 
-# The generator-declared default emitter (see pbg_superpowers
+# The generator-declared default emitter (see viva_superpowers
 # composite_generator's ``emitters=`` convention + ``emitter_defaults``). A
 # ``{address, config, paths?}`` dict that the 'emitter' step materialises when
 # NO external override (parquet / sqlite / null) is set — i.e. the composite's
@@ -361,7 +361,7 @@ def set_default_emitter_decl(decl: dict | None) -> None:
 
     ``decl`` is a ``{address, config, paths?}`` dict from a generator's
     ``@composite_generator(emitters=[...])`` declaration (read via
-    ``pbg_superpowers.composite_generator.emitter_defaults``). Pass None to
+    ``viva_superpowers.composite_generator.emitter_defaults``). Pass None to
     clear. The 'emitter' step uses it only when no external parquet / sqlite /
     null override is active. A generator should set this around its build and
     clear it in a ``finally`` so it never leaks into a later composite built in
@@ -1503,6 +1503,15 @@ def _get_special_step(loader, step_name, core):
             div_config['configs'] = loader._configs
         div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
         div_config.setdefault('cache_dir', getattr(loader, 'cache_dir', 'out/cache'))
+        # Thread the injected/swapped-process spec (fork_repo/fork_sim_data/
+        # swap_processes/…) so the DivisionStep re-supplies it to each daughter's
+        # baseline() rebuild — otherwise daughters revert to plain FBA baseline
+        # and a swapped process (e.g. metabolism-redux) is lost across division,
+        # crashing the re-realization with KeyError: 'current_timeline'. Only set
+        # when non-empty so the normal baseline (None) leaves daughters unchanged.
+        _injected = getattr(loader, '_injected_processes', None)
+        if _injected:
+            div_config['injected_processes'] = _injected
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

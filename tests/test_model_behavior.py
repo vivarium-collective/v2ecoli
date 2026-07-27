@@ -178,7 +178,7 @@ def test_daughters_build_and_grow(predivision_state, sim_data_cache):
     from process_bigraph import Composite
     from v2ecoli.library.division import divide_cell
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline, seed_mass_listener
+    from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
 
     cell = predivision_state
     d1_state, d2_state = divide_cell(cell)

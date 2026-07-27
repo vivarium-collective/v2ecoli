@@ -18,7 +18,7 @@ import numpy as np
 
 import v2ecoli
 from v2ecoli.core import load_cache_bundle
-from v2ecoli.composites.baseline import enable_features
+from v2ecoli.composites.ecoli_baseline import enable_features
 from v2ecoli.library.schema import bulk_name_to_idx
 
 INV = "workspace/investigations/flagella-cascade"
@@ -48,7 +48,7 @@ def run(features, seconds, sample, seed=0, cache_dir="out/cache"):
 
     if features:
         enable_features(*features)
-    comp = v2ecoli.build_composite("baseline", cache_dir=cache_dir, seed=seed)
+    comp = v2ecoli.build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
     enable_features()
 
     bulk = _arr(comp.state["agents"]["0"]["bulk"])

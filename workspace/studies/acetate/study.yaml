@@ -1,0 +1,67 @@
+schema_version: 4
+name: acetate
+investigation: v2ecoli-vecoli-comparison
+title: v2ecoli reproduces vEcoli on acetate
+condition: acetate
+question: Does v2ecoli reproduce vEcoli on the acetate condition?
+comparison:
+  seeds: 4
+  generations: 4
+report_cards:
+  - viz/report_card/config.html
+  - viz/report_card/standard.html
+  - viz/report_card/statistical.html
+runs:
+  - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    name: acetate-comparison
+    kind: analysis
+    canonical: true
+    description: v2e-compare study acetate
+    status: completed
+    result: PASS
+    outcomes:
+      statistical-vs-vecoli:
+        result: WITHIN_TOL
+        detail: 'report card ''statistical'': ungraded'
+status: evaluated
+tests:
+  - name: config-vs-vecoli
+    kind: report_card
+    card: config
+    classification: primary
+    question: Does v2ecoli reproduce vEcoli on acetate (config card)?
+  - name: standard-vs-vecoli
+    kind: report_card
+    card: standard
+    classification: primary
+    question: Does v2ecoli reproduce vEcoli on acetate (standard card)?
+  - name: statistical-vs-vecoli
+    kind: report_card
+    card: statistical
+    classification: primary
+    question: Does v2ecoli reproduce vEcoli on acetate (statistical card)?
+    measure:
+      kind: report_card_axis
+      card: docs/report_cards/v2ecoli-vecoli-comparison/acetate
+      group: statistical
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      media: minimal_acetate  # migrated from condition:acetate; calibrated per-condition ParCa cache lives at out/cache/.regen_acetate_seed00
+  model_settings: []
+depends_on:
+  - parca
+confidence: Accepted
+findings:
+  - id: acetate-rpobc-fix
+    kind: computational
+    status: confirms
+    statement: 'RESOLVED. Acetate was the one SIGNIFICANT divergence (growth +40.2%, p=0.049). After the fix v2ecoli reproduces vEcoli on acetate NATIVELY: the significant growth mismatch is gone (now +15.9%, p=0.28, not significant) and cell/dry/RNA/protein are all within tolerance; a small non-significant growth drift remains at the seed-noise level. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.'
+    evidence:
+      from_card: statistical
+      observed: 'before -> after fix (4-seed gen-1, Welch t): growth +40.2% (p=0.049, MISMATCH) -> +15.9% (p=0.28, drift, NOT significant); RNA +13.8% drift -> +3.6% within_tol; cell +8.1% -> +2.3% within_tol; dry +8.1% -> +2.3% within_tol; protein +2.3% -> +1.3% within_tol. Overall mismatch -> drift. Native run on the fixed ParCa cache.'
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir

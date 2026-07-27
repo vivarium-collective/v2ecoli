@@ -29,10 +29,10 @@ def test_all_visualizations_discoverable():
 
 @pytest.mark.fast
 def test_visualizations_are_visualization_subclasses():
-    """Each registered Visualization class is a pbg_superpowers Visualization subclass."""
+    """Each registered Visualization class is a viva_superpowers Visualization subclass."""
     import v2ecoli  # noqa
     from bigraph_schema import allocate_core
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
     core = allocate_core()
     for k, cls in core.link_registry.items():
         if not k.startswith("v2ecoli.visualizations."):

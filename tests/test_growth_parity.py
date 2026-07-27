@@ -116,7 +116,7 @@ def test_baseline_growth_trajectory_matches_vecoli(sim_data_cache):
     """
     from v2ecoli import build_composite
 
-    composite = build_composite("baseline", cache_dir='out/cache', seed=0)
+    composite = build_composite("ecoli_baseline", cache_dir='out/cache', seed=0)
 
     sim_time_so_far = 0
     for target_t, expected in GOLDEN:

@@ -1,0 +1,107 @@
+schema_version: 4
+name: colonies-09-wcm-mother-machine
+investigation: colonies
+title: "Whole-cell baseline (v2ecoli) in a mother machine — device run"
+description: |
+  Run the REAL v2ecoli whole-cell BASELINE \u2014 the full 55-process EcoliWCM \u2014 as
+  one whole cell per channel inside the mother-machine device geometry (narrow
+  dead-end channels + a flow channel that washes out cells crossing the top),
+  letting them grow and divide naturally. This is the highest-fidelity rung of
+  the phenotype ladder (simple viva-munk agent -> growth surrogate -> full WCM)
+  in the confined-channel device: it asks whether the emergent single-cell
+  phenotypes \u2014 adder size-homeostasis, size at division, added length before
+  division, inter-division time, and growth rate \u2014 survive whole-cell colony
+  embedding and division under channel confinement. Renders the running animation
+  and the same phenotype figures as the cheap-agent device studies, so the
+  whole-cell tier can be compared, in the same confined-channel device and on the
+  identical measurement pipeline, against the simple viva-munk agents
+  (colonies-05) and against experimental microfluidic-device data.
+
+  Heavier than the daughter-machine whole-cell run (colonies-08): N whole cells
+  run simultaneously (one per channel), kept small (2 channels). A bounded
+  per-cell phenotype panel (size, added length, division/birth times, growth
+  rate) is streamed to zarr by the ColonyPhenotypeRecorder \u2014 a process, not an
+  emitter, so recording stays cheap. Memory is characterised and Linux-bounded,
+  not a blocker: the inner WCM's per-tick RSS growth is localized to the
+  polypeptide-elongation step + mass-listener and is dominated on the dev mini by
+  a macOS allocator artifact (~1.6 MB/tick), but is only ~0.017 MB/tick on glibc
+  and ~0.000 with periodic malloc_trim. WCM-tier runs are therefore length-capped
+  on the dev mini yet effectively unbounded on the Linux HPC target. On the mini
+  this run spans only a few generations, so phenotype distributions are
+  PRELIMINARY (small n); full distributions await the Linux HPC run and
+  experimental data (colonies-10). The value is the whole-cell baseline running
+  inside the confined-channel device.
+
+topic: phenotype-quantification
+tags:
+  - colony
+  - mother-machine
+  - whole-cell
+  - wcm
+  - baseline
+  - device
+  - requires-viva-munk
+created: '2026-07-25'
+status: ran
+phase: Simulate
+design_status: approved
+implementation_status: complete
+simulation_status: ran
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+acceptance_criteria:
+  - behavior: whole-cell-runs-and-divides-in-device
+  - behavior: running-animation-rendered
+  - behavior: preliminary-phenotypes-extracted
+pipeline_gate:
+  proceed_condition: |
+    The highest-fidelity (whole-cell) rung of the phenotype ladder in the
+    mother-machine geometry; reuses the colonies-05 device + phenotype pipeline
+    to test whether WCM single-cell phenotypes survive confined-channel embedding.
+    Length-capped on the dev mini; Linux-bounded memory (characterised footnote,
+    not a blocker).
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+  - artifact: colonies-05-mother-machine
+    from: colonies-05-mother-machine
+conditions:
+  baseline:
+    name: wcm-mother-machine
+    composite: v2ecoli.composites.ecoli_colony.ecoli_colony
+    params:
+      seed: 0
+      n_cells: 2
+    note: "The whole-cell (EcoliWCM) tier placed into the mother-machine geometry via\nv2ecoli.colony_bench (build_bench_core('wcm') + geometries.mother_machine).\nBounded natural-division run; phenotypes extracted by colony_bench.phenotypes,\nfigures by colony_bench.viz — the same pipeline as colonies-05/06/08.\n"
+  model_settings: []
+question: |
+  Run the REAL v2ecoli whole-cell BASELINE \u2014 the full 55-process EcoliWCM \u2014 as
+  one whole cell per channel inside the mother-machine device geometry (narrow
+  dead-end channels + a flow channel that washes out cells crossing the top),
+  letting them grow and divide naturally. This is the highest-fidelity rung of
+  the phenotype ladder (simple viva-munk agent -> growth surrogate -> full WCM)
+  in the confined-channel device: it asks whether the emergent single-cell
+  phenotypes \u2014 adder size-homeostasis, size at division, added length before
+  division, inter-division time, and growth rate \u2014 survive whole-cell colony
+  embedding and division under channel confinement. Renders the running animation
+  and the same phenotype figures as the cheap-agent device studies, so the
+  whole-cell tier can be compared, in the same confined-channel device and on the
+  identical measurement pipeline, against the simple viva-munk agents
+  (colonies-05) and against experimental microfluidic-device data.
+
+  Heavier than the daughter-machine whole-cell run (colonies-08): N whole cells
+  run simultaneously (one per channel), kept small (2 channels). A bounded
+  per-cell phenotype panel (size, added length, division/birth times, growth
+  rate) is streamed to zarr by the ColonyPhenotypeRecorder \u2014 a process, not an
+  emitter, so recording stays cheap. Memory is characterised and Linux-bounded,
+  not a blocker: the inner WCM's per-tick RSS growth is localized to the
+  polypeptide-elongation step + mass-listener and is dominated on the dev mini by
+  a macOS allocator artifact (~1.6 MB/tick), but is only ~0.017 MB/tick on glibc
+  and ~0.000 with periodic malloc_trim. WCM-tier runs are therefore length-capped
+  on the dev mini yet effectively unbounded on the Linux HPC target. On the mini
+  this run spans only a few generations, so phenotype distributions are
+  PRELIMINARY (small n); full distributions await the Linux HPC run and
+  experimental data (colonies-10). The value is the whole-cell baseline running
+  inside the confined-channel device.

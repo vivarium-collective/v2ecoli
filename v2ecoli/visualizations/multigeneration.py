@@ -15,7 +15,7 @@ import time
 from html import escape
 from typing import Any
 
-from pbg_superpowers.visualization import Visualization
+from viva_superpowers.visualization import Visualization
 
 from v2ecoli.library.units_resolver import units_figure_to_html
 from v2ecoli.visualizations._helpers import (

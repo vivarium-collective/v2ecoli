@@ -164,12 +164,12 @@ refines Supply), so the chain is the honest structure.
 - **Hidden coupling in `sim_data.py`** importing model classes → audit why it
   imports them before deleting `elongation_models.py`.
 - **Discovery/registration** of three partitioned processes → verify all
-  three resolve via the registry and `build_composite('baseline')` still
+  three resolve via the registry and `build_composite("ecoli_baseline")` still
   builds.
 
 ## Done when
 
-- `build_composite('baseline')` wires `SteadyStatePolypeptideElongation` and
+- `build_composite("ecoli_baseline")` wires `SteadyStatePolypeptideElongation` and
   reproduces the golden trajectory.
 - The three variants are independently wireable; the two flags are gone.
 - `elongation_models.py` deleted; full test suite (incl. new behaviour +

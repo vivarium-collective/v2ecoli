@@ -30,7 +30,7 @@ def _agent(c):
 # ---------------------------------------------------------------------------
 def fig_growth_and_fluxes(n_steps=60):
     print(f"[1&2] baseline_millard, {n_steps} steps ...")
-    c = build_composite("baseline_millard", seed=0, cache_dir="out/cache")
+    c = build_composite("ecoli_millard", seed=0, cache_dir="out/cache")
     steps, mass = [], []
     flux_keys = ["PTS_4", "CYTBO", "PGI", "PYK"]
     flux_series = {k: [] for k in flux_keys}

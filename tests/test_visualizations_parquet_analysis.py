@@ -12,7 +12,7 @@ import pytest
 @pytest.mark.fast
 def test_parquet_analysis_view_is_visualization_subclass():
     from v2ecoli.visualizations.parquet_analysis import ParquetAnalysisView
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
     assert issubclass(ParquetAnalysisView, Visualization)
 
 

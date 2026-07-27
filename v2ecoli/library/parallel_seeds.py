@@ -67,12 +67,13 @@ def _resolve_threads(n_seeds: int, num_threads: int | None) -> int:
     return max(1, (os.cpu_count() or 1) // max(1, n_seeds))
 
 
-# A single whole-cell seed worker resides ~4 GB (peaks ~4.4 GB); reserve a bit
-# more so Ray bounds seed concurrency by RAM, not just CPUs. Without this, N cpus
-# schedule N ~4 GB workers and OOM a node — e.g. a single-node compose run packed
-# 16 seeds onto a 58 GB box (16×~4 GB), tripping Ray's OOM-killer and failing the
-# job. Override with V2E_RAY_SEED_MEMORY_GB; set it to 0 to disable the reservation.
-_DEFAULT_SEED_MEMORY_GB = 6.0
+# Per-seed RAM reservation so Ray bounds seed concurrency by memory, not just CPUs.
+# A single-generation seed resides ~4 GB, but a MULTI-generation lineage grows well
+# past that: the full 1000×10 sweep saw _run_seed_worker reach 7–9 GB by generation
+# ~3–4 and OOM the nodes (16 seeds × ~8 GB > 120 GB). Reserve 12 GB by default to
+# cover a deep lineage (10 generations); tune per run via V2E_RAY_SEED_MEMORY_GB
+# (0 disables). Higher reservation → fewer concurrent seeds per node, but no OOM.
+_DEFAULT_SEED_MEMORY_GB = 12.0
 
 
 def _resolve_seed_memory(memory_per_worker: int | None) -> int:

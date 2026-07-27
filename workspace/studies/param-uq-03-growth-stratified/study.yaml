@@ -63,10 +63,22 @@ report:
     RESULTS PENDING — study not yet run.
 
   interpretation: |
-    (pending)
+    (pending — study not run) Not resolved by param-uq-04. That study injected deep
+    sim_data params but over SINGLE-generation, 150-step windows, so it produces no
+    cell-cycle-stratified (θ-binned, birth→division) signal and cannot speak to
+    stage-dependence. One transferable observation from param-uq-04 IS relevant to the
+    design here, though: mass observables (dry_mass, cell_mass) barely move over a
+    short single-generation window — they respond almost entirely through the initial
+    mass partition — which reinforces that a stage-resolved mass sensitivity map
+    genuinely REQUIRES the multi-generation runs (≥1 division, ~2760 steps) this study
+    specifies, not a short-window proxy.
 
   decision: |
-    (pending)
+    (pending) Remains blocked on infrastructure: multi-generation runs with recorded
+    birth/division events plus the cell-cycle-stratified aggregation strategy
+    (RFC006 strategy 4) re-added to pbg-uq. param-uq-04 did not unblock this — its
+    injection adapter is orthogonal (it reaches deep params; it does not add θ-binned
+    aggregation or multi-gen lineage tracking).
 
 conditions:
   baseline:

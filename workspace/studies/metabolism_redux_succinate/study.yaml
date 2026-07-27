@@ -35,7 +35,7 @@ runs:
   kind: analysis
   canonical: true
   description: v2e-compare study metabolism_redux_succinate
-status: build
+status: evaluated
 tests:
 - name: config-vs-vecoli
   kind: report_card
@@ -89,7 +89,7 @@ conditions:
       swap: ecoli-metabolism-redux
 depends_on:
 - parca
-confidence: Investigating
+confidence: Accepted
 findings:
 - id: metabolism_redux_succinate-vs-vecoli-result
   kind: computational

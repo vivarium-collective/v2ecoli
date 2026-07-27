@@ -7,10 +7,10 @@ import pytest
 
 @pytest.mark.fast
 def test_baseline_function_is_registered():
-    from pbg_superpowers.composite_generator import _REGISTRY
-    from v2ecoli.composites import baseline  # noqa: F401 — fires decorator
+    from viva_superpowers.composite_generator import _REGISTRY
+    from v2ecoli.composites import ecoli_baseline  # noqa: F401 — fires decorator
     names = {e.name for e in _REGISTRY.values()}
-    assert "baseline" in names
+    assert "ecoli_baseline" in names
 
 
 @pytest.mark.fast
@@ -21,12 +21,17 @@ def test_baseline_function_signature():
     import inspect
     from v2ecoli.composites.ecoli_baseline import baseline
     sig = inspect.signature(baseline)
-    assert set(sig.parameters) == {
+    # Subset (not exact-equality) so legitimate ADDITIVE signature growth — e.g.
+    # the #373 composite unification added media/knockouts/n_seeds/study/analyses/… —
+    # doesn't hard-break this contract test. The stable core params must remain.
+    required = {
         "core", "seed", "cache_dir", "transcript_initiation_mode",
         "polypeptide_initiation_mode", "config_overrides",
         "ppgpp_regulation", "trna_attenuation", "supercoiling",
         "mass_conservation", "emitter", "bundle", "features",
         "injected_processes"}
+    missing = required - set(sig.parameters)
+    assert not missing, f"baseline() lost core params: {missing}"
 
 
 @pytest.mark.sim

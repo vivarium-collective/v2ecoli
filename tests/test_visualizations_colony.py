@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.fast
 def test_colony_subclass():
     from v2ecoli.visualizations.colony import ColonyVisualization
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
     assert issubclass(ColonyVisualization, Visualization)
 
 

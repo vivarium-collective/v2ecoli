@@ -67,6 +67,24 @@ def _resolve_threads(n_seeds: int, num_threads: int | None) -> int:
     return max(1, (os.cpu_count() or 1) // max(1, n_seeds))
 
 
+# Per-seed RAM reservation so Ray bounds seed concurrency by memory, not just CPUs.
+# A single-generation seed resides ~4 GB, but a MULTI-generation lineage grows well
+# past that: the full 1000×10 sweep saw _run_seed_worker reach 7–9 GB by generation
+# ~3–4 and OOM the nodes (16 seeds × ~8 GB > 120 GB). Reserve 12 GB by default to
+# cover a deep lineage (10 generations); tune per run via V2E_RAY_SEED_MEMORY_GB
+# (0 disables). Higher reservation → fewer concurrent seeds per node, but no OOM.
+_DEFAULT_SEED_MEMORY_GB = 12.0
+
+
+def _resolve_seed_memory(memory_per_worker: int | None) -> int:
+    """Bytes of Ray logical ``memory`` to reserve per seed task (0 = disabled)."""
+    if memory_per_worker is not None:
+        return max(0, int(memory_per_worker))
+    env = os.environ.get("V2E_RAY_SEED_MEMORY_GB")
+    gb = float(env) if env not in (None, "") else _DEFAULT_SEED_MEMORY_GB
+    return int(gb * 1024**3)
+
+
 def run_seeds_parallel(
     seeds: Iterable[int],
     run_one: Callable[..., Any],
@@ -75,6 +93,7 @@ def run_seeds_parallel(
     run_kwargs: dict | None = None,
     num_threads: int | None = None,
     ray_env: dict | None = None,
+    memory_per_worker: int | None = None,
 ) -> ParallelResult:
     """Run ``run_one(seed, **run_kwargs)`` for every seed; fan out across Ray
     workers when ``mode == "ray"``, else run sequentially. Always falls back to
@@ -94,6 +113,10 @@ def run_seeds_parallel(
       num_threads: BLAS/OpenMP threads per worker; default ``cores // n_seeds``.
       ray_env: extra ``env_vars`` to merge into the Ray worker environment
         (e.g. ``{"PYTHONPATH": ...}``). Thread caps are added automatically.
+      memory_per_worker: bytes of Ray logical ``memory`` to reserve per seed task
+        so concurrency is bounded by RAM as well as CPUs (prevents OOM when many
+        ~4 GB whole-cell seeds share one node). Default: ``V2E_RAY_SEED_MEMORY_GB``
+        env or ~6 GiB; pass ``0`` to disable.
 
     Returns:
       ParallelResult with per-seed ``results`` (seed order) + timing.
@@ -127,23 +150,40 @@ def run_seeds_parallel(
 
     # ---- Ray fan-out: one worker process per seed -----------------------
     threads = _resolve_threads(n, num_threads)
+    mem_bytes = _resolve_seed_memory(memory_per_worker)
     env_vars = {k: str(threads) for k in _THREAD_ENV_KEYS}
     if ray_env:
         env_vars.update({k: str(v) for k, v in ray_env.items()})
 
-    ray.init(ignore_reinit_error=True, log_to_driver=False,
-             runtime_env={"env_vars": env_vars})
+    # Nest-safe: only bootstrap Ray if we're not ALREADY inside a cluster. The
+    # compose / Ray-on-Batch entrypoint forms a cluster before running run_pbg,
+    # and tearing it down (ray.shutdown below) mid-run killed the workers — the
+    # batch came back empty in ~1s. When a cluster already exists we reuse it
+    # (fan out across its nodes) and leave it running.
+    started_ray = not ray.is_initialized()
+    if started_ray:
+        ray.init(ignore_reinit_error=True, log_to_driver=False,
+                 runtime_env={"env_vars": env_vars})
     try:
         remote = ray.remote(run_one)
         t0 = time.time()
-        futures = [remote.options(num_cpus=threads).remote(s, **kw) for s in seeds]
+        # Pass the thread env per task so workers get it whether or not we started
+        # Ray (a reused cluster keeps its own top-level runtime_env). `memory`
+        # bounds seed concurrency by RAM so N cpus don't schedule N ~4 GB workers
+        # and OOM the node (see _resolve_seed_memory).
+        opts: dict[str, Any] = {"num_cpus": threads, "runtime_env": {"env_vars": env_vars}}
+        if mem_bytes > 0:
+            opts["memory"] = mem_bytes
+        futures = [remote.options(**opts).remote(s, **kw) for s in seeds]
         results = ray.get(futures)           # critical-path wall = slowest seed
         wall = time.time() - t0
     finally:
-        ray.shutdown()
+        if started_ray:
+            ray.shutdown()               # never tear down a cluster we didn't start
 
     return ParallelResult(
         results=results, wall_s=round(wall, 2), mode="ray", n_seeds=n,
         n_threads_per_worker=threads,
-        detail={"cpu_total": os.cpu_count()},
+        detail={"cpu_total": os.cpu_count(),
+                "mem_per_worker_gb": round(mem_bytes / 1024**3, 2) if mem_bytes else 0},
     )

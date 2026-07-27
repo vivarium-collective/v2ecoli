@@ -165,3 +165,61 @@ def test_baseline_swaps_and_excludes_processes():
     assert "exchange_data" not in cell            # excluded removed
     assert "ecoli-mass-listener" not in doc["flow_order"]
     assert "exchange_data" not in doc["flow_order"]
+
+
+# ---------------------------------------------------------------------------
+# Division-time crash regression: injected edge must resolve by its
+# make_edge address, not just by spec['name'].
+# ---------------------------------------------------------------------------
+def test_injected_edge_address_resolves_via_link_registry():
+    """At division, process-bigraph re-realizes the daughter subtree
+    (Composite._realize_structural_subtrees -> bigraph_schema.methods.realize
+    .realize_link) for edges that have no live `instance` (a fresh daughter
+    copy). realize_link resolves the process CLASS purely from the edge's
+    `address` string via load_local_protocol -> local_lookup(core, data) ==
+    core.link_registry.get(data) -- it does NOT know about spec['name'].
+
+    make_edge() stamps `address = f'local:{type(instance).__module__}.'
+    f'{type(instance).__qualname__}'`. For a dynamically-wrapped vivarium_1
+    process (built by wrap_vivarium_process), the wrapper class's __module__
+    stays 'v2ecoli.library.vivarium_bridge' and its __qualname__ becomes
+    '<V1ClassName>Bridge' -- a string that is NOT importable and NOT the same
+    as spec['name'] (e.g. 'example-secretion').
+
+    apply_injected_processes only did `core.register_link(spec['name'], wrapped)`,
+    so `core.link_registry.get(f'{module}.{qualname}')` was None and division
+    crashed with `Exception: no link found at address: {'protocol': 'local',
+    'data': 'v2ecoli.library.vivarium_bridge.<X>Bridge'}`. This test exercises
+    the exact resolution path realize_link uses (bigraph_schema.protocols
+    .local_lookup) without needing a slow multi-generation run."""
+    from bigraph_schema.protocols import local_lookup
+    from v2ecoli.core import build_core
+
+    core = build_core()
+    cfg = {"add_processes": ["example-secretion"],
+           "process_configs": {"example-secretion": {"rate": 2.0}},
+           "topology": {"example-secretion": {"counts": ["bulk"]}},
+           "time_step": 1.0}
+    specs = inject.resolve_injections(FORK, cfg)
+    cell_state = {"bulk": {}}
+    inject.apply_injected_processes(cell_state, [], core, specs)
+
+    edge = cell_state["example-secretion"]
+    wrapped = type(edge["instance"])
+    # example-secretion is vivarium_1 -> dynamically wrapped, so its qualname
+    # ('ExampleSecretionBridge') must differ from spec['name'] for this test
+    # to actually exercise the gap (guards against a fixture/classification
+    # drift silently making this a no-op check).
+    assert wrapped.__qualname__ != "example-secretion"
+
+    protocol, address_data = edge["address"].split(":", 1)
+    assert protocol == "local"
+    assert address_data == f"{wrapped.__module__}.{wrapped.__qualname__}"
+
+    resolved = local_lookup(core, address_data)
+    assert resolved is wrapped, (
+        "division-time re-realization would crash with "
+        f"'no link found at address: {{...,\"data\": {address_data!r}}}' -- "
+        "apply_injected_processes must also register the wrapped class under "
+        "its make_edge address, not only under spec['name']."
+    )

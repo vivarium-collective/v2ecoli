@@ -1,0 +1,29 @@
+<svg viewBox="0 0 860 320" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto;max-width:860px">
+<rect width="860" height="320" fill="#ffffff"/>
+<text x="430" y="20" font-size="13" font-weight="600" fill="#0f172a" text-anchor="middle">Where the per-tick cost lives — EcoliWCM vs pymunk physics</text>
+<line x1="64" y1="274.0" x2="682" y2="274.0" stroke="#e2e8f0" stroke-dasharray="2,3"/><text x="57" y="277.0" font-size="10" fill="#64748b" text-anchor="end">0</text>
+<line x1="64" y1="214.0" x2="682" y2="214.0" stroke="#e2e8f0" stroke-dasharray="2,3"/><text x="57" y="217.0" font-size="10" fill="#64748b" text-anchor="end">130</text>
+<line x1="64" y1="154.0" x2="682" y2="154.0" stroke="#e2e8f0" stroke-dasharray="2,3"/><text x="57" y="157.0" font-size="10" fill="#64748b" text-anchor="end">261</text>
+<line x1="64" y1="94.0" x2="682" y2="94.0" stroke="#e2e8f0" stroke-dasharray="2,3"/><text x="57" y="97.0" font-size="10" fill="#64748b" text-anchor="end">391</text>
+<line x1="64" y1="34.0" x2="682" y2="34.0" stroke="#e2e8f0" stroke-dasharray="2,3"/><text x="57" y="37.0" font-size="10" fill="#64748b" text-anchor="end">521</text>
+<text x="64.0" y="289" font-size="10" fill="#64748b" text-anchor="middle">0</text>
+<text x="218.5" y="289" font-size="10" fill="#64748b" text-anchor="middle">2.1</text>
+<text x="373.0" y="289" font-size="10" fill="#64748b" text-anchor="middle">4.2</text>
+<text x="527.5" y="289" font-size="10" fill="#64748b" text-anchor="middle">6.4</text>
+<text x="682.0" y="289" font-size="10" fill="#64748b" text-anchor="middle">8.5</text>
+<line x1="64" y1="34" x2="64" y2="274" stroke="#94a3b8"/><line x1="64" y1="274" x2="682" y2="274" stroke="#94a3b8"/>
+<text x="373" y="312" font-size="11" fill="#475569" text-anchor="middle">N (cells in one process)</text>
+<text x="16" y="154" font-size="11" fill="#475569" text-anchor="middle" transform="rotate(-90 16 154)">wall time (ms / tick)</text>
+<polyline points="136.7,248.0 209.4,221.2 354.8,166.3 645.6,62.4" fill="none" stroke="#dc2626" stroke-width="1.8"/>
+<circle cx="136.7" cy="248.0" r="3" fill="#dc2626"/>
+<circle cx="209.4" cy="221.2" r="3" fill="#dc2626"/>
+<circle cx="354.8" cy="166.3" r="3" fill="#dc2626"/>
+<circle cx="645.6" cy="62.4" r="3" fill="#dc2626"/>
+<polyline points="136.7,274.0 209.4,274.0 354.8,274.0 645.6,273.9" fill="none" stroke="#16a34a" stroke-width="1.8"/>
+<circle cx="136.7" cy="274.0" r="3" fill="#16a34a"/>
+<circle cx="209.4" cy="274.0" r="3" fill="#16a34a"/>
+<circle cx="354.8" cy="274.0" r="3" fill="#16a34a"/>
+<circle cx="645.6" cy="273.9" r="3" fill="#16a34a"/>
+<rect x="694" y="40" width="12" height="3" fill="#dc2626"/><text x="710" y="44" font-size="10" fill="#1e293b">EcoliWCM (55-process WCM)</text>
+<rect x="694" y="58" width="12" height="3" fill="#16a34a"/><text x="710" y="62" font-size="10" fill="#1e293b">pymunk spatial physics</text>
+</svg>

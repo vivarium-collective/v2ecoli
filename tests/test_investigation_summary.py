@@ -12,10 +12,26 @@ def test_aggregate_discovers_studies_in_dag_order():
     assert summ["slug"] == SLUG
     assert summ["question"].startswith("Does v2ecoli reproduce vEcoli")
     slugs = [s["slug"] for s in summ["studies"]]
-    assert slugs == [
-        "parca", "basal", "metabolism_redux", "with_aa", "succinate",
-        "no_oxygen", "acetate", "statistical",
-    ]
+    # Same study set, asserted as a VALID DAG order (parca root first; every
+    # study after its in-set prerequisites) rather than a brittle exact authored
+    # sequence — the registry migrator sorts members alphabetically, so
+    # aggregate() topologically re-orders and the exact order isn't fixed.
+    # The single `metabolism_redux` study was superseded by 5 per-condition
+    # studies (Task A2): metabolism_redux_{basal,with_aa,succinate,no_oxygen,
+    # acetate}, each still gated on `parca`.
+    assert set(slugs) == {
+        "parca", "basal", "with_aa", "succinate", "no_oxygen", "acetate",
+        "statistical",
+        "metabolism_redux_basal", "metabolism_redux_with_aa",
+        "metabolism_redux_succinate", "metabolism_redux_no_oxygen",
+        "metabolism_redux_acetate",
+    }
+    assert slugs[0] == "parca"
+    pos = {s: i for i, s in enumerate(slugs)}
+    for s in summ["studies"]:
+        for p in s["prerequisites"]:
+            if p in pos:
+                assert pos[p] < pos[s["slug"]], f"{p} must precede {s['slug']}"
 
 
 def test_aggregate_per_study_metadata_and_rollup():
@@ -28,7 +44,11 @@ def test_aggregate_per_study_metadata_and_rollup():
     assert by["parca"]["result"] == "PASS"
     assert by["parca"]["prerequisites"] == []
     assert by["acetate"]["prerequisites"] == ["parca"]
-    assert by["statistical"]["prerequisites"] == ["basal"]
+    # post-migration: prerequisites come from inputs.from, which for
+    # `statistical` lists both its sim_data source (parca) and its
+    # comparison baseline (basal) — pipeline_gate.prerequisites (pre-migration)
+    # tracked only the direct gate (basal); inputs.from is now the source of truth.
+    assert by["statistical"]["prerequisites"] == ["parca", "basal"]
     # post-fix finding states acetate reproduces vEcoli natively
     assert "reproduces vEcoli" in (by["acetate"]["finding"] or "")
     # config + standard cards discovered for acetate; parca card for parca
@@ -64,7 +84,7 @@ def test_matrix_cell_verdicts_match_source_json():
     rows = {r["study"]: r["cells"] for r in m["rows"]}
     # acetate growth rate is a mismatch in the source verdict.json
     src = json.loads(
-        (WS / "investigations" / SLUG / "studies" / "acetate"
+        (WS / "studies" / "acetate"  # registry: studies live top-level (Spec 1)
          / "viz" / "report_card" / "standard.verdict.json").read_text(encoding='utf-8')
     )
     axis = {a["label"]: a["verdict"] for a in src["groups"]["standard"]["axes"]}
@@ -209,7 +229,9 @@ def test_aggregate_config_json_is_real_baseline_config():
     by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
     cfg = by["acetate"]["config_json"]
     assert cfg["composite"] == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
-    assert cfg["params"] == {"condition": "acetate"}
+    # migrated by the study-config↔generator contract: condition:acetate -> media:minimal_acetate
+    # (ecoli_baseline accepts `media`, not `condition`)
+    assert cfg["params"] == {"media": "minimal_acetate"}
     # comparison run settings folded in
     assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
     assert cfg["generations"] == 4

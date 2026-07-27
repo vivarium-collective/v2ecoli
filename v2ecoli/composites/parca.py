@@ -1,6 +1,6 @@
 """ParCa composite generator — registers the 9-step ParCa pipeline as a
 first-class ``@composite_generator`` peer of ``baseline`` / ``colony`` /
-``millard_pdmp_baseline``.
+``baseline_millard``.
 
 Why this wrapper exists
 -----------------------
@@ -31,7 +31,7 @@ real KB is injected by those runners), matching ``build_parca_document``.
 
 from typing import Any
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.processes.parca.composite import build_parca_document, STEP_ORDER
 from v2ecoli.processes.parca.schema import register_parca_schema

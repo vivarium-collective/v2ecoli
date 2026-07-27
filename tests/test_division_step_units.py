@@ -95,3 +95,71 @@ def test_mark_d_period_raises_divide_at_division_time():
     # at/after the earliest untriggered division_time -> divide
     after = m.next_update(1.0, {"full_chromosome": chrom, "global_time": 3000.0})
     assert after.get("divide") is True
+
+
+# --- injected_processes survive division -------------------------------------
+
+def test_division_threads_injected_processes_to_daughter_baseline(monkeypatch):
+    """The DivisionStep must re-supply its ``injected_processes`` spec to each
+    daughter's ``baseline()`` rebuild, so a swapped/injected process (e.g.
+    metabolism-redux) survives cell division instead of reverting to the plain
+    FBA baseline. Before the fix ``_build_daughter_doc`` called ``baseline(...)``
+    without ``injected_processes`` and the daughter re-realization crashed with
+    ``KeyError: 'current_timeline'`` at the first division.
+
+    Fast proxy for the 40-min multi-gen run: monkeypatch ``baseline`` (and the
+    heavy biology helpers) so a division trigger drives ``_build_daughter_doc``
+    without any real ParCa/sim, then assert the captured kwargs carry the spec.
+    """
+    injected = {
+        "fork_repo": "/Users/x/vEcoli",
+        "fork_sim_data": "/Users/x/simData.cPickle",
+        "swap_processes": {"ecoli-metabolism": "ecoli-metabolism-redux"},
+    }
+
+    # 1. initialize() captures the spec off the config.
+    d = Division.__new__(Division)
+    d.core = None  # normally set by the Edge constructor; unused here (baseline patched)
+    d.initialize({"agent_id": "0", "d_period": True,
+                  "injected_processes": injected})
+    assert d._injected_processes == injected
+
+    # Capture every baseline() call the daughter rebuild makes.
+    calls = []
+
+    def _fake_baseline(**kwargs):
+        calls.append(kwargs)
+        # Minimal doc shape _build_daughter_doc consumes.
+        agent = {"listeners": {}, "division": None}
+        return {"state": {"agents": {"0": agent}}}
+
+    # next_update imports these lazily from their source modules at call time,
+    # so patch the SOURCE symbols (patching the division module would miss them).
+    import v2ecoli.composites.ecoli_baseline as _eb
+    import v2ecoli.library.division as _libdiv
+    import v2ecoli.composites._helpers as _h
+    monkeypatch.setattr(_eb, "baseline", _fake_baseline)
+    monkeypatch.setattr(_eb, "seed_mass_listener", lambda *a, **k: None)
+    _proxy_bulk = {"count": np.array([1, 2, 3])}
+    monkeypatch.setattr(_libdiv, "divide_cell",
+                        lambda cell_data: ({"bulk": dict(_proxy_bulk)},
+                                           {"bulk": dict(_proxy_bulk)}))
+    monkeypatch.setattr(_h, "finalize_emitter_for_agent", lambda *a, **k: None)
+
+    # Fabricate a state that fires the d_period division trigger.
+    states = {
+        "bulk": {}, "unique": {"full_chromosome": _chroms(2)},
+        "listeners": {"mass": {"dry_mass": units.Quantity(500.0, "fg")}},
+        "environment": {}, "boundary": {},
+        "global_time": 3600.0, "divide": True,
+    }
+    update = d.next_update(1.0, states)
+
+    # Division actually fired (two daughters added), and BOTH daughter baseline()
+    # calls received the injected_processes spec unchanged (incl. fork_sim_data,
+    # the path build_fork_config needs to re-supply current_timeline).
+    assert "_add" in update["agents"]
+    assert len(calls) == 2
+    for kwargs in calls:
+        assert kwargs.get("injected_processes") == injected
+        assert kwargs["injected_processes"]["fork_sim_data"] == injected["fork_sim_data"]

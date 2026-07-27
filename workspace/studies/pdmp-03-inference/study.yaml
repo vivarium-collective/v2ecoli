@@ -1,0 +1,535 @@
+schema_version: 4
+name: pdmp-03-inference
+investigation: v2ecoli-pdmp
+title: "Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface"
+claim: "A likelihood → emission → XArrayEmitter(zarr) → rejection-ABC pipeline runs on a self-generated toy\nparameter grid. On a 3×3 (Ts, Ps) grid (N=4 replicates, 60 s) the combined count vector\nsqrt(d_rna² + d_ribosome²) separates truth from its next-nearest cell better (3.06×) than aggregate\nlog-likelihood (2.39×) — a grid-separation diagnostic, not a posterior or credible interval.\n"
+confidence: Investigating
+status: running
+phase: Build
+topic: pdmp
+tags:
+  - pdmp
+  - phase-3
+  - likelihoods
+  - bayesian
+  - abc-smc
+  - observe
+  - intervene
+  - algebraic-effects
+  - chirho
+  - xarray-emitter
+created: '2026-05-24'
+question: "Can the Phase 2 PDMP support well-formed observation likelihoods for the dominant cell-biology\nmeasurement modalities (RNA-seq, proteomics, growth rate, metabolomics) and recover posteriors via\nABC-SMC on synthetic data — establishing the inference-ready substrate that motivated the DUF rescoping?\n"
+hypothesis: "(a) Per-modality observation likelihoods — negative binomial for RNA-seq, log-normal for proteomics,\nnormal-on-log-growth for growth rate, normal/log-normal for metabolites — admit a likelihood\naccumulator that runs alongside the PDMP and computes log-likelihood contributions incrementally from\nODE segments and jump events. (b) Extending Vivarium's algebraic effect system with observe(variable,\nlikelihood) and intervene(variable, value) (the ChiRho primitives) gives a tractable inference\ninterface. (c) A baseline ABC-SMC engine using growth rate, mean mRNA/protein abundances, and\nmetabolite concentrations as summary statistics recovers known parameter values on synthetic data\nwithin published precision targets.\n"
+objective: 'Implement an observation-likelihood library covering the four modalities, a likelihood accumulator
+
+  hooking the Phase 2 PDMP runner, Vivarium observe/intervene algebraic effects, and a structured-
+
+  population layer for population-level omics likelihoods. Deploy ABC-SMC as the baseline inference
+
+  engine and demonstrate posterior recovery on synthetic data against a published uncertainty target.
+
+  '
+description: "Phase 3 of the v2ecoli → PDMP roadmap. With the PDMP in place, every trajectory is a sample from a\nwell-defined process measure with a constructible likelihood; this phase makes that likelihood\ncomputable and tractable for Bayesian workflows. ChiRho (BasisResearch, 2024) is the reference for the\nalgebraic-effect interpretation of observe / intervene, and the DUF report Sec. 4.2.2 notes Vivarium\ncan be read as a domain-specific algebraic effect system for discrete-event simulation. ABC-SMC is the\nbaseline engine because it is robust to nonlinear, partially observed dynamics; the structured-\npopulation layer handles the fact that omics data are bulk-culture expectations over the single-cell\nPDMP measure.\n\n# Numerical considerations\nLikelihood library. Each modality's likelihood is fit with its dispersion/noise scale and reported with\na 95% CI: RNA-seq NegBin(μ, φ), φ MLE'd on held-out calibration (expect φ ∈ [0.1, 1.0] for E. coli);\nproteomics LogNormal(μ, σ²), σ from technical-replicate spread (σ_log ≈ 0.2 for SILAC/iBAQ); growth\nNormal(log μ, σ_μ²) on log-scale; metabolomics Normal/LogNormal per-metabolite by dynamic range.\n\nAccumulator numerics. Log-likelihood contributions are summed in log space to avoid underflow (typical\nfull-run log-likelihood ≪ -10³); mixtures use log-sum-exp with the shift trick; cross-cell population\nreductions use pairwise/Kahan summation so the result is order-independent and reproducible.\n\nABC-SMC schedule. ε-decay is adaptive at quantile q=0.5 of the previous population's distance, minimum\npopulation N=1000, terminating on ESS < 0.5·N or a wall-clock cap. Distance (PLANNED, NOT YET\nIMPLEMENTED — the current pilot uses an unweighted SSE/Euclidean distance with no covariance and no\ncondition-number/kappa guard): Mahalanobis on a hand-picked summary vector (growth rate, mean log-mRNA\nand log-protein per high-coverage gene, key metabolite log-conc). Posterior ESS and acceptance rate are\nreported every SMC step.\n\nPosterior calibration. Simulation-Based Calibration (Talts et al. 2018): for K=1000 draws of (θ*, y*),\nrun ABC-SMC and record the rank of θ*; the rank histogram must pass a χ² uniformity test (p > 0.05) and\n90% credible intervals must reach ≥85% empirical coverage. K=1000 gives rank-resolution 1/(K+1) ≈ 10⁻³.\n\nIdentifiability. Re-run the Phase 1 Fisher-information check for any new parameters (likelihood\ndispersions, population-layer parameters) and flag non-identifiable combinations.\n\n# Emitter\nABC-SMC iterates ~10⁶ PDMP runs, so XArrayEmitter runs in \"summary-only\" mode writing only the\npredeclared summary-statistic vector per trajectory (zarr group 'summary'), skipping full time-series.\nPosterior particles, per-SMC-step ε, ESS, and acceptance go to zarr ('posterior'/'diagnostics'); SBC\nruns (K=1000) produce a separate zarr keyed by SBC iteration for rank-histogram analysis.\n"
+expected_behavior:
+  - name: likelihoods-per-modality
+    en: Each measurement modality has a documented observation likelihood (neg-binom, log-normal, normal-on-log-growth, normal/log-normal) with explicit dispersion / noise parameters and references to the calibration literature.
+    given:
+      condition: rna-seq AND proteomics AND growth AND metabolomics
+    measure:
+      kind: observable-comparison
+      observable: likelihood-library
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: accumulator-runs-alongside-pdmp
+    en: The likelihood accumulator computes log-likelihood contributions from ODE segments (continuous-measurement likelihoods) and jump events (discrete-event likelihoods) incrementally during a single PDMP run.
+    given:
+      condition: per-segment AND per-jump
+    measure:
+      kind: observable-comparison
+      observable: log-likelihood-trace
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: observe-intervene-effects
+    en: The Vivarium runner supports observe(variable, likelihood) and intervene(variable, value) as first-class algebraic effects, with the same surface area as ChiRho's primitives.
+    given:
+      condition: pdmp-runner
+    measure:
+      kind: observable-comparison
+      observable: vivarium-algebraic-effect-set
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: abc-posterior-recovery-on-synthetic
+    en: 'On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the ground truth at the published credible level using summary statistics: growth rate, mean mRNA/protein abundances, metabolite concentrations. (Gating criterion.) Increment 1 (2026-06-12) passes for the transcription-count channel on a WCM-calibrated surrogate: scripts/run_abc_smc.py recovers theta_true=1.2 -> 90% CI [1.198, 1.201]. See findings. Full multi-modality + full-WCM remains.'
+    given:
+      condition: synthetic-truth-data
+    measure:
+      kind: observable-comparison
+      observable: posterior-recovery-metric
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: uq-likelihood-dispersion-fit-with-ci
+    en: "Per-modality dispersion / noise parameters (NegBin φ for RNA-seq, σ for log-normal proteomics, σ_μ for growth, per-metabolite σ for metabolomics) are MLE-fit on calibration data and reported with 95% bootstrap CIs."
+    given:
+      condition: per-modality
+    measure:
+      kind: observable-comparison
+      observable: dispersion-parameters-with-95-CI
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: uq-accumulator-numerical-stability
+    en: "Log-likelihood accumulation maintains log-space throughout; no underflows recorded across N=10⁴ test runs. log-sum-exp shift used in all mixture terms. Pairwise/Kahan summation in population reductions; result invariant to trajectory ordering."
+    given:
+      condition: full-run
+    measure:
+      kind: observable-comparison
+      observable: log-likelihood-underflow-rate
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: uq-abc-ess-and-acceptance
+    en: "ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC step; runs are terminated cleanly when ESS falls below 0.5·N (resample) or wall-clock cap is hit. No silent degeneracy."
+    given:
+      condition: per-smc-iteration
+    measure:
+      kind: observable-comparison
+      observable: ess-and-acceptance-per-step
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: uq-sbc-coverage
+    en: "Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90% credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming \"inference-ready\" for Phase 5. Increment 1 (2026-06-12): scripts/run_sbc.py now exists and reports χ² p=0.576 at K=150 on the WCM-calibrated surrogate (seed 0, mu0=12593.5); PPC coverage 0.84-0.91 by seed. Hardening (2026-07-27): this K=150 PASS is a knife-edge single-seed result (4/5 seeds pass; flips to FAIL under a 0.004% mu0 change) because the WCM Poisson posterior is ~6000x sharper than the prior and K=150 under-resolves it — it is NOT a robust calibration certificate (see finding sbc-k150-pass-is-knife-edge-not-robust). The full K=1000 multi-modality full-WCM gate remains the real bar. SBC correctly rejected an under-converged ABC (ng=6) before passing at ng=12."
+    given:
+      condition: K1000-sbc-draws
+    measure:
+      kind: observable-comparison
+      observable: sbc-rank-histogram AND credible-interval-coverage
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+  - name: uq-mahalanobis-distance-justified
+    en: "Mahalanobis distance uses the empirical summary-statistic covariance from N≥200 PDMP runs at the prior mean. Condition number of the covariance reported; if κ > 10⁶ the summary vector is reduced (drop near-collinear summaries)."
+    given:
+      condition: abc-distance-function
+    measure:
+      kind: observable-comparison
+      observable: summary-statistic-covariance
+    expect:
+      op: within-tolerance
+      note: Full acceptance band set as this test is built out.
+    status: stub
+interventions: []
+runs: []
+bibliography:
+  bib_keys:
+    - saa2017
+    - backman2023
+    - talts2018sbc
+    - cook2006posterior
+report:
+  confidence: design-stage
+  evidence_quality: scaffold
+  conclusion: "Partial (surrogate). A real ABC-SMC (importance weights + perturbation kernel + adaptive-ε) recovers a transcription-init rate on a WCM-calibrated count surrogate (θ=1.2 → CI [1.1984,1.2006], robust; posterior shrinks ~1/√n) with a passing PPC (script gate cov≥0.80). SBC rank-uniformity at K=150 reproduces the recorded χ² p=0.576 but is a knife-edge single-seed pass (4/5 seeds; flips to FAIL under a 0.004% calibration change), so it is not yet a robust calibration certificate. The study acceptance gate — full-WCM-in-the-loop, K=1000, multi-modality — remains BLOCKED, deferred to the Phase-4 compiled runtime. Full per-modality likelihood library + observe/intervene effects remain design-stage."
+  main_insight: Simulation-Based Calibration (Talts et al. 2018) is the gate that converts 'we have likelihoods' into 'we have inference-ready likelihoods'. Uniformity of the SBC rank histogram is the only credible test before Phase 5.
+  caveat: ABC-SMC is the baseline engine, robust but slow. Gradient-based / VI methods wait on the Phase 4 compiled runtime; planning ABC compute on Phase 2 PDMP trajectories sets a realistic wall-clock floor.
+  key_metrics:
+    - label: likelihood dispersion fits w/ 95% CI
+      status: stub
+      value: 4 modalities
+    - label: "log-accumulator underflows in 10⁴ runs"
+      status: stub
+      value: '0'
+    - label: ABC-SMC ESS at terminate
+      status: stub
+      value: "≥ 0.5·N"
+    - label: "SBC rank-uniformity χ²"
+      status: stub
+      value: p > 0.05
+    - label: 90% CI empirical coverage
+      status: stub
+      value: "≥ 85%"
+design_status: in_progress
+implementation_status: not_started
+simulation_status: not_started
+evaluation_status: not_started
+gate_status: blocked
+expert_review_status: not_requested
+pipeline_gate:
+  proceed_condition: "Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p > 0.05), 90% credible intervals achieve ≥85% empirical coverage."
+study_card:
+  goal: "Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference engine validated by Simulation-Based Calibration."
+  why_before_next: This asks whether the new model can assign probabilities to observations, which is what makes parameter fitting and Bayesian inference possible.
+readouts:
+  - name: likelihood-dispersion-fits
+    status: planned
+    path: (planned) out/trajectories/likelihood_fits.csv
+    units: MLE +/- 95% CI
+    notes: 'Per modality: NegBin phi (RNA-seq), log-normal sigma (proteomics), normal-on-log sigma_mu (growth), per-metabolite sigma (metabolomics).'
+  - name: log-likelihood-accumulator
+    status: planned
+    path: (planned) .pbg/runs/<id>/log_likelihood.zarr
+    units: log-likelihood units
+    notes: 'Time-series of incremental log-L contributions from ODE segments + jump events. Required: zero underflows over 10^4 test runs.'
+  - name: abc-smc-posterior
+    status: planned
+    path: (planned) .pbg/runs/<id>/posterior_particles.zarr
+    units: particle samples + weights
+    notes: 'ABC-SMC convergence trace: ESS, proposal acceptance rate, epsilon-decay schedule per SMC step.'
+  - name: sbc-rank-histogram
+    status: planned
+    path: (planned) out/trajectories/sbc_ranks.csv
+    units: rank in [0, K]
+    notes: 'K=1000 SBC draws. Gating: chi^2 uniformity p > 0.05 + 90% CI coverage >= 85% empirical.'
+planned_runs:
+  - name: likelihood-dispersion-fit
+    status: planned
+    n_steps: (MLE)
+    details: fit per-modality dispersion + CIs on held-out calibration data
+  - name: accumulator-numerical-stability
+    status: planned
+    n_steps: 10000
+    details: "10⁴ test runs; zero underflows required"
+  - name: abc-smc-synthetic-recovery
+    status: scaffold-pilot-done
+    n_steps: "30 particles × 3 rounds = 90 forward sims (~66s wall)"
+    details: "Pilot 2026-05-25. scripts/run_abc_smc_pilot.py runs a minimal iterated rejection-ABC with box-narrowing (not true SMC, no importance weights or transition kernel) on Millard with known-truth parameters. The 2 inferred parameters are Millard COPASI kinetic parameters, unrelated to the PDMP jump processes this study is about. Setup: take 2 Millard kinetic parameters (PTS_4.kF, ENO.Vmax), generate \"observations\" by running Millard at default values, hide the true parameters, sample log-uniform priors around default ±50%, run 3 SMC rounds with top-25% acceptance. Round-by-round threshold: 1.8e-4 → 1.8e-4 → 4.3e-5 (narrowing). Final-round min distance 5.5e-6. A scaffold because it has only 2 parameters, 30 particles, and 3 rounds; the full target is 100s of parameters, 1000s of particles, and ≥8 rounds. But the machinery works and populates the posterior-shrinks-with-data primary test with real data."
+  - name: sbc-K1000-validation
+    status: planned
+    n_steps: 1000
+    details: "SBC pipeline; rank-histogram χ² uniformity (p > 0.05) + 90% CI ≥ 85% coverage (gating)"
+visualizations:
+  - name: phase3-grid-loglikelihood-surface
+    address: file:reports/figures/pdmp-03/phase3_grid_loglikelihood_surface.html
+    description: Real forward runs. Total log-likelihood on the 3x3 (translation_scale, protein_scale) grid, mean of 4 seeds/cell. Monotone toward the (0.85, 0.85) corner, so the grid does not bracket the MLE; a follow-up sweep must extend below 0.85. This is the real likelihood landscape, not the planned ABC-SMC posterior. Generated by sims/make_charts.py from .pbg/runs/pdmp-03-abc-2d/.
+  - name: phase3-loglikelihood-components
+    address: file:reports/figures/pdmp-03/phase3_loglikelihood_components.html
+    description: Real. Additive decomposition of total log-likelihood into protein-init and transcript-init contributions along the grid diagonal; confirms the log-space accumulator is wired (total == sum of parts, verified exactly). sims/make_charts.py.
+  - name: phase3-observable-ensemble
+    address: file:reports/figures/pdmp-03/phase3_observable_ensemble.html
+    description: Real. Cell-mass trajectories for the 8-seed likelihood ensemble; tight inter-seed spread shows the PDMP forward model is stable across the replicates the inference layer averages over. sims/make_charts.py.
+  - name: phase3-sbc-rank-histogram
+    address: file:reports/figures/planned-comparisons/phase3_sbc_rank_histogram.html
+    description: "PLANNED. SBC rank histogram with χ² uniformity test + Poisson 95% confidence band. The gate for declaring the inference stack inference-ready."
+  - name: sbc-workflow
+    address: file:reports/figures/pdmp-03/sbc_workflow.html
+    description: SBC workflow
+conditions:
+  baseline:
+    composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    params:
+      emitter: xarray
+      summary_only: true
+  variants:
+    - name: likelihood-library-4-modalities
+      base_composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+      description: "Per-modality observation likelihoods: NegBin(μ,φ) RNA-seq, log-normal proteomics, normal-on-log-growth, normal/log-normal metabolomics. φ MLE'd on held-out calibration data with 95% bootstrap CIs."
+      params:
+        modalities:
+          - rna-seq
+          - proteomics
+          - growth
+          - metabolomics
+      composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    - name: likelihood-accumulator
+      base_composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+      description: Incremental log-likelihood accumulator running alongside the PDMP, log-sum-exp for mixtures, pairwise/Kahan summation for cross-cell population reductions.
+      params:
+        underflow_protection: log-space + log-sum-exp
+      composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    - name: observe-intervene-effects
+      base_composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+      description: "Vivarium algebraic-effect extensions: observe(variable, likelihood) and intervene(variable, value) — the ChiRho primitives, lifted into Vivarium's discrete-event runtime."
+      params:
+        effect_runtime: vivarium-algebraic-effects
+      composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    - name: abc-smc-baseline
+      base_composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+      description: "ABC-SMC as the baseline inference engine: adaptive ε-decay at q=0.5 of previous-population distance, N=1000 particles, terminate on ESS < 0.5·N or wall-clock cap."
+      params:
+        n_particles: 1000
+        epsilon_schedule: adaptive-quantile
+      composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    - name: sbc-validation-K1000
+      base_composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+      description: "Simulation-Based Calibration (Talts 2018): K=1000 synthetic (θ*, y*) draws from prior + forward model, verify uniformity of rank histogram and 90% CI empirical coverage ≥ 85%."
+      params:
+        K: 1000
+        n_bins: 20
+        ci_coverage_target: 0.85
+      composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+  model_settings: []
+simulation_set:
+  - name: likelihood-dispersion-fit
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    duration_steps: (MLE)
+    details: fit per-modality dispersion + CIs on held-out calibration data
+    metrics:
+      - likelihood-dispersion-fits
+      - log-likelihood-accumulator
+      - abc-smc-posterior
+      - sbc-rank-histogram
+    pass_fail_tests:
+      - likelihoods-per-modality
+      - accumulator-runs-alongside-pdmp
+      - observe-intervene-effects
+  - name: accumulator-numerical-stability
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    duration_steps: 10000
+    details: "10⁴ test runs; zero underflows required"
+    metrics:
+      - likelihood-dispersion-fits
+      - log-likelihood-accumulator
+      - abc-smc-posterior
+      - sbc-rank-histogram
+    pass_fail_tests:
+      - likelihoods-per-modality
+      - accumulator-runs-alongside-pdmp
+      - observe-intervene-effects
+  - name: abc-smc-synthetic-recovery
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    duration_steps: (SMC)
+    details: ABC-SMC on synthetic data with known parameters; test posterior recovery + ESS + acceptance rate
+    metrics:
+      - likelihood-dispersion-fits
+      - log-likelihood-accumulator
+      - abc-smc-posterior
+      - sbc-rank-histogram
+    pass_fail_tests:
+      - likelihoods-per-modality
+      - accumulator-runs-alongside-pdmp
+      - observe-intervene-effects
+  - name: sbc-K1000-validation
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    duration_steps: 1000
+    details: "SBC pipeline; rank-histogram χ² uniformity (p > 0.05) + 90% CI ≥ 85% coverage (gating)"
+    metrics:
+      - likelihood-dispersion-fits
+      - log-likelihood-accumulator
+      - abc-smc-posterior
+      - sbc-rank-histogram
+    pass_fail_tests:
+      - likelihoods-per-modality
+      - accumulator-runs-alongside-pdmp
+      - observe-intervene-effects
+tests:
+  - name: sbc-calibration-uniform-rank
+    classification: primary
+    status: planned
+    description: "Increment 1 (2026-06-12): scripts/run_sbc.py exists and reports χ² rank-uniformity p=0.576 at K=150 on a WCM-calibrated count surrogate (seed 0, mu0=12593.5). Hardening (2026-07-27): that K=150 PASS is a knife-edge single-seed result (4/5 seeds pass; flips to FAIL under a 0.004% mu0 change) — not robust; the full-WCM K=1000 multi-modality SBC gate (pass_if below) remains unrun, so status stays planned. Intended full check: ABC-SMC posterior of kinetic-ODE parameters is calibrated under Simulation-Based Calibration (Talts 2018): the rank-histogram of true parameter values within posterior draws is uniform (Cramér–von Mises p > 0.05) across L=200 synthetic experiments. This checks that the inference machinery is correct; deviations diagnose specific failure modes."
+    measure:
+      source: scripts/run_sbc.py
+      observable: "rank of θ_true within N=100 posterior draws, repeated L=200 times"
+      reduce: "Cramér-von Mises test of rank histogram vs Uniform(0, N)"
+    pass_if:
+      operator: greater-than
+      threshold: 0.05
+      field: CvM_p_value
+    requires_simulation: sbc-L200-N100
+    cites:
+      - talts2018
+      - cook2006
+  - name: posterior-shrinks-with-data
+    classification: primary
+    status: planned
+    description: "Increment 1 (2026-06-12): scripts/run_abc_smc.py exists; on a WCM-calibrated count surrogate it recovers theta_true=1.2 → 90% CI [1.198, 1.201], so the posterior is informative. Full-WCM-in-the-loop is deferred to Phase 4, so status stays planned. Intended full check: Posterior 95% interval width monotonically decreases with the size of the observed dataset (1, 10, 100, 1000 observation points). Asymptote at <30% of the prior width with 1000 points confirms the data is informative for the posterior. Constant width means inference is ignoring the data."
+    measure:
+      source: scripts/run_abc_smc.py --vary-data-size
+      observable: posterior 95% interval width per parameter
+      reduce: ratio to prior width
+    pass_if:
+      operator: less-than
+      threshold: 0.3
+      field: shrinkage_at_N=1000
+    requires_simulation: abc-data-scaling
+    cites:
+      - beaumont2010
+  - name: ppc-coverage-95-pct
+    classification: supporting
+    status: planned
+    description: "Increment 1 (2026-06-12): scripts/run_ppc.py exists; PPC 90% coverage = 0.91 on a WCM-calibrated surrogate; the full-WCM multi-modality PPC remains pending, so status stays planned. Intended full posterior predictive check: ≥95% of held-out Phase 0 ensemble observations fall within the posterior predictive 95% interval. Higher means overconfidence; lower means underconfidence."
+    measure:
+      source: scripts/run_ppc.py
+      observable: held-out observation coverage by posterior predictive 95% CI
+      reduce: fraction
+    pass_if:
+      operator: within-band
+      lower: 0.9
+      upper: 0.99
+      field: coverage
+    requires_simulation: ppc-heldout-100
+    cites:
+      - gelman2013
+embed_visualizations:
+  - name: SBC workflow
+    url: /reports/figures/pdmp-03/sbc_workflow.html
+    description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_workflow.html. Inlined into the downloaded report as iframe srcdoc.
+  - name: "Phase 3 — ABC-SMC posterior shrinkage over rounds"
+    url: /reports/figures/pdmp-03/abc_posterior_shrinkage.html
+    description: Posterior shrinkage diagnostic over SMC generations.
+  - name: "Phase 3 sprint 12 — count-based ABC distance"
+    url: /reports/figures/pdmp-03/abc_count_metric.html
+    description: "On a self-generated 3×3 (Ts, Ps) parameter grid (N=4 replicates, 60 s), the combined count vector sqrt(d_rna² + d_ribosome²) gives a higher truth-vs-next-nearest-cell grid-separation ratio (3.06×) than the aggregate log-likelihood (2.39×). A grid-separation diagnostic on a self-generated toy grid, not a posterior, credible interval, or validated \"canonical\" ABC distance."
+  - name: "Phase 3 sprint 11 — multi-observable ABC"
+    url: /reports/figures/pdmp-03/abc_multi_observable.html
+    description: Per-channel vs aggregate ABC. Diagnoses the self-calibration issue that motivated the pivot to count-based distances.
+  - name: "Phase 3 sprint 10 — 2D (Ts, Ps) ABC sweep"
+    url: /reports/figures/pdmp-03/abc_smc_2d.html
+    description: 'Reveals the anti-diagonal ridge under aggregate log-likelihood: reducing transcription while raising translation partially cancels. Per-channel distances break the ridge.'
+  - name: "Phase 3 sprint 9 — sequential ε refinement"
+    url: /reports/figures/pdmp-03/abc_smc_sequential.html
+    description: "On the self-generated scale grid, the smallest-distance node is retained as ε tightens through p95/p75/p50/p25/p05 quantiles. The \"observed\" data is generated at scale=1.0 — itself a grid node — so retaining scale=1.0 is tautological, not a posterior collapse. (The \"~4× below the next-closest\" figure is a hardcoded string literal in the script, not a computed value.)"
+  - name: "Phase 3 sprint 7 — ABC-SMC stub"
+    url: /reports/figures/pdmp-03/abc_smc_stub.html
+    description: First ABC stub at scale-vs-distance, before the noise-floor recalibration.
+  - name: "Phase 3 sprint 5 — ensemble likelihood figure"
+    url: /reports/figures/pdmp-03/likelihood_ensemble.html
+    description: Per-replicate log-likelihood trajectories + intra-ensemble noise floor band.
+  - name: Posterior Predictive Check
+    url: /reports/figures/pdmp-03/posterior_predictive_check.html
+    description: "Auto-wired existing figure at /reports/figures/pdmp-03/posterior_predictive_check.html. Promoted from disk by the embed-wiring sweep — refine the name and description if a richer caption is wanted."
+  - name: Sbc Per Parameter
+    url: /reports/figures/pdmp-03/sbc_per_parameter.html
+    description: PLANNED / synthetic placeholder. The on-disk sbc_per_parameter.html is a labelled-PLANNED stub with synthetic content; no SBC per-parameter analysis has been run.
+discovery_implications:
+  resolved_uncertainties:
+    - 'The inference substrate is built and runs: per-tick emission for both initiation Processes, an aggregate LikelihoodCollector, XArrayEmitter persistence to per-replicate zarr, mean-to-mean epsilon calibration, SMC sequential refinement, and a 2D multi-parameter sweep.'
+    - The emitted aggregate likelihood is self-calibrated log P(simulated | simulated_param), not the ABC-correct log P(observed | proposed); switching to count-based ABC distances is the architectural fix.
+    - 'On a self-generated 3x3 (Ts, Ps) toy grid (N=4 replicates, 60 s), count-based distances separate the truth node from its next-nearest cell better than aggregate log-likelihood: the combined count vector reaches a 3.06x grid-separation ratio (vs 2.39x for aggregate log-likelihood). These are grid-separation diagnostics, not a posterior or credible interval. No script computes a "row-separation" metric; the earlier "~150x row-separation" figure was not actually computed.'
+  remaining_uncertainties:
+    - "SBC rank-uniformity (chi^2 p > 0.05 over >=1000 draws) and >=85% empirical coverage of 90% credible intervals — the gate that converts \"we have likelihoods\" into \"inference-ready likelihoods\" — have not been demonstrated on the count-based pipeline."
+    - 'The pbg scalar-pruning quirk (task #14) was only worked around (pin-via-consumer declarations in sprints 1 and 13); the root cause at the merger layer is unresolved.'
+  alternate_hypotheses:
+    - id: aggregate-ll-sufficient
+      statement: Aggregate log-likelihood is a sufficient ABC distance, and the apparent superiority of count vectors is an artifact of the 2D sweep's anti-diagonal ridge rather than a general identifiability win.
+      why_plausible: Under a 1-parameter sweep the aggregate metric still ranks truth highest; the ridge only appears when Ts and Ps trade off.
+      mechanism_elements_affected:
+        - abc-distance-metric
+        - parameter-identifiability
+      discriminating_observables:
+        - truth-vs-next-nearest separation, aggregate-LL vs combined-count-vector, across 1D and 2D sweeps
+        - presence of the anti-diagonal ridge under per-channel distance
+      evidence_for: []
+      evidence_against:
+        - The 2D (Ts, Ps) sweep shows reducing transcription while raising translation partially cancels under aggregate LL (anti-diagonal ridge); per-channel distance breaks the ridge.
+  mechanism_update_proposals:
+    - mechanism_node_or_edge: abc-distance (aggregate-LL -> count-based)
+      update_type: replace
+      rationale: "Adopt the combined count vector sqrt(d_rna^2 + d_ribosome^2) as the candidate ABC distance; on the self-generated 3x3 toy grid it is ~28% better-separated (truth-vs-next-nearest CELL, 3.06x vs 2.39x) than aggregate log-likelihood. Grid-separation diagnostic only — not validated as a posterior or a \"canonical\" distance."
+      requires_expert_approval: true
+  followup_study_proposals:
+    - id: pdmp-03-sbc-coverage
+      title: Robust SBC rank-uniformity + credible-interval coverage (K>=1000, multi-seed) on the count-based pipeline
+      study_type: calibration
+      source_trigger: open_gate
+      proposed_experiment: "Run >=1000 SBC draws through the count-based ABC-SMC pipeline and gate on a MULTI-SEED robustness summary (e.g. median chi^2 rank-uniformity p > 0.05 over >=5 seeds) plus >=85% empirical coverage of the 90% credible intervals. Trigger: the K=150 surrogate SBC PASS is a knife-edge single-seed result (finding sbc-k150-pass-is-knife-edge-not-robust) -- 4/5 seeds pass and it flips to FAIL under a 0.004% calibration change because the WCM Poisson posterior is ~6000x sharper than the prior. K=1000 (rank resolution ~1e-3) is required to resolve a posterior this sharp. Also regenerate + commit the missing .pbg/runs/phase3-surrogate-calibration.json so the calibration is reproducible."
+      expected_information_gain: high
+      expert_gate_required: false
+    - id: pdmp-03-pbg-merger-fix
+      title: Root-cause fix for the pbg scalar-pruning merger quirk (task
+      study_type: infrastructure
+      source_trigger: workaround_debt
+      proposed_experiment: Fix scalar listener-field pruning at the pbg merger layer so pin-via-consumer workarounds are unnecessary; regression-test against the sprint-1 and sprint-13 cases.
+      expected_information_gain: medium
+      expert_gate_required: false
+findings:
+  - id: abc-smc-sbc-validated-on-count-surrogate
+    kind: computational
+    status: confirms
+    statement: 'Phase-3 increment 1: a real ABC-SMC (importance weights + Gaussian perturbation kernel + adaptive-epsilon schedule) recovers a transcription-init rate from count-level observations, validated by Simulation-Based Calibration and a posterior-predictive check. The forward model is a negative-binomial count surrogate calibrated once to real WCM rna_init_event statistics (mu0=12593, Poisson limit). This replaces the prior grid-diagnostic phase3_abc_* scripts with the cited-but-missing run_abc_smc / run_sbc / run_ppc. Scope: validated on the WCM-calibrated count likelihood (single parameter, K=150 SBC), not the full WCM in the ABC loop (deferred to the Phase-4 compiled runtime) and not the K=1000 multi-modality full gate. A methodological result fell out: the WCM Poisson posterior is sharp (~300x tighter than a toy), so ABC needs n_generations=12 to converge; SBC correctly rejected an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).'
+    evidence:
+      from_run: phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)
+      observed: 'recovery theta_true=1.2 -> post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS). Posterior shrinks with data: CI90 width 0.0068 (n_obs=25) -> 0.0034 (100) -> 0.0019 (400) -> 0.0013 (1600), truth contained at every n; ~1/sqrt(n) through n=400 (ABC eps-resolution floors the shrinkage at the tightest end)'
+    provenance:
+      run_ids:
+        - phase3-surrogate-calibration
+        - phase3-abc-smc-recovery
+        - phase3-sbc-k150
+        - phase3-ppc
+    next_action: Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.
+    next_action_type: escalate_model
+  - id: abc-smc-multiparameter-identifiable
+    kind: computational
+    status: confirms
+    statement: 'Phase-3 increment 2: the ABC-SMC engine generalizes to vector theta (independent per-dim perturbation kernel + product importance weights; scalar back-compat preserved). A 2-parameter joint inference of (count mean-scale, dispersion-scale) from count data is recovered and per-parameter SBC-validated, with a weak posterior correlation -- i.e. the two parameters are jointly identifiable from the [mean, std] summary. Scope: uses a synthetic overdispersed surrogate (mu0=40, phi0=8) because the real WCM transcription count is Poisson (no dispersion to infer); this validates the multi-parameter machinery for when richer overdispersed/multi-modal WCM observables are added.'
+    evidence:
+      from_run: scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom)
+      observed: recovery [1.185, 0.993] vs truth [1.2, 1.0]; posterior corr=+0.12 (weak -> identifiable); 2-param SBC K=80 chi2_p mean-scale=0.78 PASS, disp-scale=0.62 PASS
+    provenance:
+      run_ids:
+        - phase3-abc-smc-2d
+    next_action: Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.
+    next_action_type: calibrate
+  - id: sbc-k150-pass-is-knife-edge-not-robust
+    kind: computational
+    status: partial
+    statement: 'Hardening re-derivation (2026-07-27): the recorded SBC K=150 PASS (chi2_p=0.576) reproduces EXACTLY under the current committed engine at the recorded calibration (mu0=12593.5, Poisson; rng seed 0) -- so it was not fabricated -- but it is a knife-edge single-seed result, NOT a robust calibration certificate. A 5-seed sweep passes only 4/5 (seed 2 chi2_p=0.0081 FAIL), and at seed 0 the pass is razor-thin in the calibration mean: mu0 in {12592, 12593, 12594, 12595} ALL FAIL (chi2_p 0.004-0.011); only the recorded mu0=12593.5 passes (0.576). Root cause (understood, no bug): the WCM Poisson count posterior is extraordinarily sharp -- theta std ~ 1/sqrt(mu0*n_obs) ~ 4.5e-4 vs prior width 2.8 (~6000x narrower) -- so at K=150 the ABC epsilon-resolution floor leaves the rank histogram only marginally uniform and the chi2 test sits on a knife edge. This is precisely why the study''s own gate spec requires K=1000 (rank resolution 1/(K+1) ~ 1e-3); K=150 is under-resolved for this posterior. Separately verified and EXONERATED: engine refactor 28cad208 ("N-D generalization; scalar back-compat preserved") does NOT change scalar-mode numerics -- both the pre- and post-refactor engines give byte-identical SBC results across all 5 seeds -- so there is no regression and the back-compat claim holds. The recovery (theta=1.2 -> post_mean 1.1995, CI [1.1984,1.2006]) and PPC (script gate cov>=0.80; cov 0.84-0.91 by seed) remain robust; only the SBC uniformity leg is thin.'
+    evidence:
+      from_run: 'hardening seed+calibration sweep of scripts/run_sbc.py params (n_particles=300, n_generations=12, prior (0.2,3.0), n_obs=400)'
+      observed: 'SBC K=150 seed sweep {0:0.576 PASS, 1:0.081 PASS, 2:0.008 FAIL, 3:0.181 PASS, 4:0.052 PASS} = 4/5 PASS; mu0 sweep at seed 0 {12592:0.009 FAIL, 12593:0.004 FAIL, 12593.5:0.576 PASS, 12594:0.011 FAIL, 12595:0.005 FAIL}; pre- vs post-28cad208 engine byte-identical across the 5 seeds.'
+    provenance:
+      run_ids:
+        - phase3-sbc-k150-robustness-sweep
+    next_action: 'Do NOT cite the K=150 pass as a calibration certificate. Gate on K>=1000 SBC with a multi-seed robustness summary (median chi2_p over >=5 seeds) on the full-WCM-in-the-loop pipeline (needs the Phase-4 compiled runtime). NOTE: the committed .pbg/runs/phase3-surrogate-calibration.json artifact is absent in this checkout; regenerate + commit it so the recorded mu0=12593.5 is reproducible without hand-supplied calibration.'
+    next_action_type: escalate_model
+runtime:
+  notes: 'simulation_status: not_started for the full-WCM inference loop (gate: blocked). The committed evidence is on count SURROGATES: ABC-SMC + SBC (K=150) + PPC on a WCM-calibrated negative-binomial/Poisson surrogate, and a 2-parameter ABC-SMC + SBC (K=80) on a synthetic over-dispersed surrogate. CAVEAT (hardening 2026-07-27, see finding sbc-k150-pass-is-knife-edge-not-robust): the K=150 SBC PASS reproduces at the recorded (seed 0, mu0=12593.5) point but is a knife-edge single-seed result -- 4/5 seeds pass and it flips to FAIL under a 0.004% calibration change -- because the WCM Poisson posterior is ~6000x sharper than the prior and K=150 under-resolves it. Recovery and PPC are robust; the SBC uniformity leg is thin and the real bar is the study''s own K=1000 gate.'
+assumptions:
+  - A count-level likelihood (NegBin for RNA-seq, log-normal for proteomics, etc.) is an adequate observation model for Bayesian inference over the PDMP.
+  - ABC-SMC, Simulation-Based Calibration, and posterior-predictive checks together validate the inference machinery.
+  - A surrogate forward model calibrated once to real WCM count statistics is a faithful stand-in until the compiled full-WCM-in-the-loop runtime (Phase 4) lands.
+enforced_params:
+  - name: implementation_status
+    value: inference engine validated on surrogates; full-WCM-in-the-loop deferred to Phase 4
+  - name: gate
+    value: "blocked — the K=1000 multi-modality full-WCM inference-ready gate is not met"
+biological_summary: "Builds the likelihood + Bayesian-inference layer that lets the PDMP whole-cell model be fit to (and questioned by) data: per-modality likelihoods, a streaming log-likelihood accumulator, ABC-SMC posteriors, and SBC/PPC validation. A methodological result fell out: the WCM Poisson count posterior is sharp (~300× tighter than a toy), so ABC needs n_generations=12 to converge, and SBC correctly rejected an under-converged ng=6 run before passing at ng=12."
+literature_anchors:
+  - key: talts2018sbc
+    relevance: "Simulation-Based Calibration — the core posterior-validation method used here."
+  - key: saa2017
+    relevance: Bayesian inference for kinetic/metabolic model parameters.
+  - key: cook2006posterior
+    relevance: Posterior-quantile / calibration validation underpinning the SBC check.
+model_change: Adds an inference layer (likelihoods + ABC-SMC + SBC/PPC) alongside the PDMP; no change to the forward biological mechanism. The observation models are the new modelling commitment.
+implementation_requirements:
+  - "A likelihood library across ≥4 data modalities + a numerically-stable streaming log-likelihood accumulator (zero underflow over 1e4 runs)."
+  - ABC-SMC with adaptive-epsilon, importance weights, and an N-dimensional perturbation kernel (scalar + vector theta).
+  - SBC (rank-uniformity) and PPC (coverage) harnesses; the compiled full-WCM-in-the-loop runtime from Phase 4 for the K=1000 gate.
+design_pivot_required: No pivot. The engine is validated on surrogates; the remaining work is scaling to multi-modality summaries and the full WCM in the loop (needs the Phase-4 compiled runtime).
+conclusion_verdicts:
+  - claim: A real ABC-SMC recovers a transcription-init rate, validated by SBC and PPC.
+    verdict: "confirmed for recovery+PPC on a WCM-calibrated count surrogate; SBC leg PARTIAL (knife-edge)"
+    basis: "theta_true 1.2 → post_mean 1.1995, CI [1.1984,1.2006] (robust); PPC coverage 0.84-0.91 by seed (PASS, script gate cov>=0.80); posterior shrinks ~1/sqrt(n). SBC K=150 chi2_p=0.576 reproduces at the recorded seed/calibration but is a knife-edge single-seed pass (4/5 seeds; flips to FAIL under a 0.004% mu0 change) -- NOT a robust calibration certificate; the K=1000 gate remains the bar. See finding sbc-k150-pass-is-knife-edge-not-robust."
+  - claim: The ABC-SMC engine generalizes to vector theta with joint identifiability.
+    verdict: confirmed (on a synthetic over-dispersed surrogate)
+    basis: 2-param recovery [1.185, 0.993] vs [1.2, 1.0]; per-parameter SBC K=80 PASS; weak posterior correlation.
+  - claim: Full-WCM, multi-modality, K=1000 inference-ready gate is met.
+    verdict: not_met
+    basis: Full-WCM-in-the-loop deferred to Phase 4; only surrogate validation exists. Gate blocked.
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+  - artifact: pdmp-02-jump-processes
+    from: pdmp-02-jump-processes

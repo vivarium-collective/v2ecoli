@@ -15,6 +15,7 @@ from v2ecoli.library.quantity_helpers import as_quantity
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
+from bigraph_schema.contract import ProcessContract
 
 NAME = "ppgpp-initiation"
 TOPOLOGY = {
@@ -34,6 +35,64 @@ class PpgppInitiation(Step):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Optional regulator: computes ppGpp-dependent per-TU basal synthesis "
+            "probabilities and the RNAP active fraction from the current ppGpp "
+            "concentration, and publishes them to the ppgpp_state store that "
+            "TranscriptInitiation reads."
+        ),
+        math=[
+            "ppgpp_conc = ppGpp_count / (n_avogadro · cell_volume);  cell_volume = cell_mass / cell_density",
+            "basal_prob = synth_prob(ppgpp_conc, copy_number)",
+            "f_bound = ppgpp_conc² / (km_sq + ppgpp_conc²)",
+            "frac_active_rnap = f_bound · frac_active_rnap_bound + (1 − f_bound) · frac_active_rnap_free",
+        ],
+        inputs={
+            'bulk': "reads the ppGpp molecule count and converts it to a concentration ppgpp_conc.",
+            'listeners': "reads listeners.mass.cell_mass to form the cell volume and the count→molar factor.",
+        },
+        outputs={
+            'ppgpp_state': (
+                "writes basal_prob (per-TU ppGpp-dependent synthesis probabilities) "
+                "and frac_active_rnap for TranscriptInitiation to consume; when absent "
+                "TranscriptInitiation falls back to media defaults."
+            ),
+        },
+        config={
+            'ppgpp': "bulk id of ppGpp whose count sets the regulatory concentration.",
+            'synth_prob': "fitted callable mapping (ppgpp_conc, copy_number) to per-TU basal synthesis probabilities.",
+            'copy_number': "expected gene copy number at the reference doubling time, passed to synth_prob.",
+            'fraction_active_rnap_bound': "active RNAP fraction in the ppGpp-bound limit (frac_active_rnap_bound).",
+            'fraction_active_rnap_free': "active RNAP fraction in the ppGpp-free limit (frac_active_rnap_free).",
+            'ppgpp_km_squared': "squared half-saturation ppGpp concentration km_sq for the RNAP-binding Hill term.",
+            'get_rnap_active_fraction_from_ppGpp': "legacy opaque callable used for the active fraction when the Hill parameters are not supplied.",
+            'cell_density': "cell density used to convert cell_mass to volume.",
+            'n_avogadro': "Avogadro constant for the count→molar conversion.",
+            'trna_attenuation': "whether fitted attenuation adjustments are added to basal_prob for attenuated TUs.",
+            'attenuated_rna_indices': "TU indices receiving the attenuation adjustment when trna_attenuation is on.",
+            'attenuation_adjustments': "additive basal_prob adjustments applied at the attenuated TU indices.",
+        },
+        symbols={
+            'ppgpp_conc': "ppGpp concentration derived from its bulk count (converted to µmol/L for the Hill term)",
+            'basal_prob': "per-TU ppGpp-dependent baseline synthesis probability (dimensionless)",
+            'copy_number': "expected gene copy number at the reference doubling time (dimensionless)",
+            'f_bound': "fraction of RNAP in the ppGpp-bound state (dimensionless, 0–1)",
+            'km_sq': "squared half-saturation ppGpp concentration for RNAP binding ((µmol/L)²)",
+            'frac_active_rnap': "resulting active RNAP fraction published to ppgpp_state (dimensionless, 0–1)",
+            'frac_active_rnap_bound': "active RNAP fraction in the fully ppGpp-bound limit (dimensionless)",
+            'frac_active_rnap_free': "active RNAP fraction in the ppGpp-free limit (dimensionless)",
+            'cell_mass': "cell mass used to form the volume (fg)",
+            'cell_density': "cell density used in the volume conversion (g/L)",
+        },
+        assumptions=[
+            "ppGpp concentration is computed from its bulk count and the cell volume (cell_mass / cell_density).",
+            "The RNAP active fraction follows a Hill relation in ppGpp (exponent 2) interpolating between the free and bound limiting fractions; a legacy callable is used when Hill parameters are absent.",
+            "When tRNA attenuation is enabled, fixed adjustments are added to the basal probabilities of the attenuated TUs.",
+        ],
+        references=[],
+    )
 
     config_schema = {
         'ppgpp': 'string',

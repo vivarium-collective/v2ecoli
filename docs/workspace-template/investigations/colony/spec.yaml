@@ -21,7 +21,7 @@ baseline: colony
 
 variants:
   - name: colony
-    source: local:colony
+    source: local:ecoli_colony
     parameters:
       seed: 0
       cache_dir: ${V2ECOLI_CACHE}

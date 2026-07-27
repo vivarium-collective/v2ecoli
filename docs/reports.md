@@ -72,13 +72,16 @@ publishes the result to `gh-pages:investigations/` on every push to `main`.
 Generated on demand by a script under `reports/` or `scripts/`, committed under
 `docs/`, and served at the gallery root. Each writes a self-contained HTML file.
 
-### Interactive model viewers — *explore the model in your browser*
+### Interactive composite wiring graphs — *explore the model in your browser*
 
-The [**baseline whole-cell composite viewer**](https://vivarium-collective.github.io/v2ecoli/baseline-viewer/)
-opens the full process/store wiring in an interactive
+Open any composite on the dashboard's
+[**Composites page**](https://vivarium-collective.github.io/v2ecoli/dashboard/#simulation-setup)
+and click **Explore** to open its full process/store wiring in an interactive
 [bigraph-loom](https://github.com/vivarium-collective/bigraph-loom) viewer — pan
 the bigraph, expand stores, click any process for its formal `describe()`
-description. Runs entirely in-browser.
+description. Runs entirely in-browser. (This replaces the retired standalone
+composite-viewers hub; the old `/baseline-viewer/` and `/viewers/` URLs now
+redirect here.)
 
 | Report | Published | Generate locally |
 |---|---|---|

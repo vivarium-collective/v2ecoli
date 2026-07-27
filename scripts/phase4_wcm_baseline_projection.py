@@ -2,7 +2,7 @@
 
 Sprint 3 + 4 measured column-centric vs pbg-style on toy models. Both
 showed steady ~3× wall savings + parallel lockstep advantage. This
-sprint runs the ACTUAL production composite (millard_pdmp_baseline +
+sprint runs the ACTUAL production composite (baseline_millard lqr=True +
 poisson + ref_growth + likelihood_collector) at small N to:
 
   1. Confirm linear pbg scaling vs N on the real WCM.
@@ -76,7 +76,8 @@ def time_one_wcm_run(seed: int, t_ticks: int) -> tuple[float, float]:
 
     t0 = time.perf_counter()
     c = build_composite(
-        "millard_pdmp_baseline",
+        "ecoli_millard",
+        lqr=True,
         seed=seed,
         with_ref_growth=True,
         ref_growth_flux_source="consumption_matched",
@@ -257,7 +258,7 @@ def write_html(out_path, results, projections, t_ticks, n_targets,
 <h1>Phase 4 sprint 5 — real WCM baseline + column-centric projection</h1>
 <p style='color:#6b7280;font-size:0.9em;'>
   Measures the actual production composite
-  (millard_pdmp_baseline + poisson initiation + ref_growth +
+  (baseline_millard lqr=True + poisson initiation + ref_growth +
   likelihood_collector). Applies sprint 3 + 4's calibration
   (column-centric saves ~{CC_WALL_SAVINGS:.0f}× the per-trajectory
   wall AND runs N trajectories in lockstep) to project total

@@ -55,6 +55,36 @@ class EcoliWCM(Process):
     update() to avoid heavy imports at discovery time.
     """
 
+    # Structured contract — what this process reads, computes, and writes.
+    # Surfaced by the workbench loom (card contract band + Inspector) and by
+    # ``bigraph_schema.contract.resolve_contract``. Each port bridges an
+    # internal store of the embedded 55-process whole-cell model.
+    contract = {
+        "summary": (
+            "Whole-cell E. coli as one process — the full v2ecoli model "
+            "(transcription, translation, metabolism, replication, …) embedded "
+            "via a Composite bridge, exposing a handful of colony-facing ports."
+        ),
+        "inputs": {
+            "local": "Local environment metabolite concentrations (mM) the cell senses/imports.",
+            "agent_id": "This cell's unique id within the colony.",
+            "location": "Cell centroid (x, y) in the 2D environment (µm).",
+            "angle": "Cell body orientation (radians).",
+        },
+        "outputs": {
+            "mass": "Dry-mass increment this step (fg), accumulated onto the physical body.",
+            "length": "Updated cell length (µm) from biomass growth.",
+            "volume": "Updated cell volume (µm³).",
+            "exchange": "Net metabolite exchange fluxes with the environment (counts/step).",
+            "agents": "Division events written to the colony agents map ({_add: daughter, _remove: mother}).",
+        },
+        "assumptions": [
+            "Each cell runs an independent whole-cell model; cells couple only through pymunk physics + the shared environment.",
+            "The inner Composite is built lazily on first update() and needs a ParCa cache.",
+            "The embedded model's own emitter is minimized (global_time only) to avoid a per-cell RAM leak in growing colonies.",
+        ],
+    }
+
     config_schema = {
         'cache_dir':      {'_type': 'string', '_default': ''},
         'seed':           {'_type': 'integer', '_default': 0},
@@ -76,12 +106,25 @@ class EcoliWCM(Process):
         self._prev_volume = 0.0
         self._prev_length = 2.0
 
+    def inner_composite(self):
+        """The full inner whole-cell ``Composite`` this process wraps.
+
+        The ``inner_composite()`` convention marks this as a "Composite Process"
+        and lets tooling (the workbench loom Explorer) drill from this single
+        ``EcoliWCM`` node into the 55-process model it embeds. Built lazily (same
+        path as ``update()``), so browsing a colony only pays the ParCa cost for
+        the cell actually opened.
+        """
+        if self._composite is None:
+            self._build_composite()
+        return self._composite
+
     def inputs(self):
         return {
-            'local': 'map[float]',
+            'local': 'map[millimolar]',       # environment metabolite concentrations (mM)
             'agent_id': 'string',
-            'location': 'tuple[float,float]',
-            'angle': 'float',
+            'location': 'tuple[micrometer,micrometer]',  # cell centroid (x, y) in µm
+            'angle': 'radian',                # body orientation (rad)
         }
 
     def _build_composite(self):
@@ -209,12 +252,12 @@ class EcoliWCM(Process):
 
     def outputs(self):
         return {
-            'mass': 'float',
-            'length': 'float',
-            'volume': 'float',
-            'exchange': 'map[float]',
-            'agents': 'map[map]',
-            'chromosome_state': 'map',  # snapshot of chromosome for visualization
+            'mass': 'femtogram',          # dry-mass increment (fg)
+            'length': 'micrometer',       # cell length (µm)
+            'volume': 'femtoliter',       # cell volume (fL)
+            'exchange': 'map[float]',     # net metabolite exchange (counts/step)
+            'agents': 'map[map]',         # division events ({_add, _remove})
+            'chromosome_state': 'map',    # snapshot of chromosome for visualization
         }
 
     def update(self, state, interval):

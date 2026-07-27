@@ -108,6 +108,7 @@ class LineageProcess(Process):
         "out_dir": {"_type": "string", "_default": "out/workflow"},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
         "time_step": {"_type": "float", "_default": 1.0},
+        "media": {"_type": "string", "_default": "minimal"},
         # "parquet" (default), "xarray", or "both". xarray drives an external
         # XArrayEmitter per lineage (validated multigen pattern); the internal
         # baseline emitter step then falls back to RAM (not read). "both" keeps
@@ -182,6 +183,7 @@ class LineageProcess(Process):
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
                                config_overrides=overrides,
+                               media=self.config.get("media", "minimal"),
                                injected_processes=self.config.get("injected_processes"))
             finally:
                 set_parquet_emitter_override(None)
@@ -192,6 +194,7 @@ class LineageProcess(Process):
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
                                config_overrides=overrides,
+                               media=self.config.get("media", "minimal"),
                                injected_processes=self.config.get("injected_processes"))
             finally:
                 set_null_emitter_override(False)

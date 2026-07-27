@@ -4,7 +4,7 @@ rendered figures can carry it in their ``.meta.json``.
 The canonical run id is the run's ``experiment_id`` — the top parquet
 partition key (``.../configuration/experiment_id=<id>/...``). Figures that
 carry it can be traced back to the exact config that produced the run via
-``python -m pbg_superpowers.provenance <figure>`` (see
+``python -m viva_superpowers.provenance <figure>`` (see
 docs/conventions/run-provenance.md).
 
 Resolution:

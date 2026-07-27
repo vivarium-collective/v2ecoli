@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.composites.ecoli_millard import baseline_millard
 from v2ecoli.composites.ecoli_population import add_population_aggregator

@@ -33,6 +33,14 @@ _MODULE_REMAP_PREFIXES = [
     ('reconstruction.',   'v2ecoli.processes.parca.reconstruction.'),
     ('wholecell.',        'v2ecoli.processes.parca.wholecell.'),
     ('ecoli.',            'v2ecoli.processes.parca.ecoli.'),
+    # SciPy vendored array-api-compat under ``scipy._lib.array_api_compat``
+    # in older releases; SciPy >=1.16 dropped the vendored copy and depends
+    # on the external ``array_api_compat`` package instead.  Blobs pickled
+    # under the old SciPy embed a reference to e.g.
+    # ``scipy._lib.array_api_compat.numpy._aliases.asarray``; rewrite it to
+    # the identical function in the external package so the load still
+    # resolves.  (The vendored copy was taken verbatim from that package.)
+    ('scipy._lib.array_api_compat.', 'array_api_compat.'),
 ]
 
 

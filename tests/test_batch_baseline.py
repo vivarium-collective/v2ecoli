@@ -1,7 +1,10 @@
-"""Tests for the batch_baseline composite + BatchBaselineRunner Step.
+"""Tests for baseline's batch mode (n_seeds>1 / n_generations>1) + the
+BatchBaselineRunner Step it dispatches to.
 
-Fast: the dispatch logic is exercised with a STUB ``run_workflow`` (no ParCa, no
-simulations); document construction calls the generator directly. The real
+Batch mode was the former standalone ``batch_baseline`` composite; it is now
+``baseline(n_seeds=N, n_generations=M, ...)``. Fast: the dispatch logic is
+exercised with a STUB ``run_workflow`` (no ParCa, no simulations); document
+construction calls the generator directly. The real
 workflow run (LineageProcess -> baseline per generation, parquet + zarr emission,
 post-sim flush) is covered by the workflow/lineage suites and is not re-run here.
 """
@@ -205,56 +208,53 @@ def test_runner_update_dispatches_once_then_is_idempotent(monkeypatch):
     assert out2 == {}
 
 
-def test_build_batch_baseline_document_is_cheap_and_well_formed():
-    """The generator builds a doc WITHOUT running any baseline (no ParCa)."""
+def test_baseline_batch_mode_document_is_cheap_and_well_formed():
+    """n_seeds>1 / n_generations>1 makes baseline build the batch-orchestrator doc
+    WITHOUT running any baseline cell (no ParCa)."""
     from v2ecoli.core import build_core
-    from v2ecoli.composites.batch_baseline import batch_baseline, BATCH_RUNNER_STEP_NAME
+    from v2ecoli.composites.ecoli_baseline import baseline
 
-    doc = batch_baseline(core=build_core(), n_seeds=2, n_generations=3,
-                         max_duration=1234.0)
+    doc = baseline(core=build_core(), n_seeds=2, n_generations=3,
+                   max_duration=1234.0)
     state = doc["state"]
     assert state["batch"] == {}                    # empty until run
-    node = state[BATCH_RUNNER_STEP_NAME]
+    node = state["batch_runner"]
     assert node["_type"] == "step"
     assert "BatchBaselineRunner" in node["address"]
     assert node["config"]["n_seeds"] == 2
     assert node["config"]["n_generations"] == 3
     assert node["config"]["max_duration"] == 1234.0
-    assert node["config"]["emitter"] == "both"
+    assert node["config"]["base_seed"] == 0        # baseline's `seed` is the base seed
+    # Unified baseline's default emitter is 'parquet' (single-cell default); pass
+    # emitter='both' for the per-lineage zarr the dashboard per-run charts read.
+    assert node["config"]["emitter"] == "parquet"
+    assert baseline(core=build_core(), n_seeds=2, emitter="both")[
+        "state"]["batch_runner"]["config"]["emitter"] == "both"
 
 
-def test_batch_baseline_registered_for_build_composite():
-    """build_composite resolves the new architecture by name."""
-    from pbg_superpowers.composite_generator import _REGISTRY
+def test_batch_baseline_composite_is_gone_baseline_absorbed_it():
+    """The standalone batch_baseline composite no longer exists; baseline(n_seeds>1)
+    is the only batch entry point."""
+    from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401 — fires the @composite_generator
 
     names = {e.name for e in _REGISTRY.values()}
-    assert "batch_baseline" in names
+    assert "batch_baseline" not in names
+    assert "ecoli_baseline" in names
 
 
-def test_batch_baseline_exposes_the_vecoli_workflow_knobs():
-    """The Setup & Run form renders these; they are the batch's whole contract."""
-    from pbg_superpowers.composite_generator import _REGISTRY
+def test_baseline_exposes_the_vecoli_workflow_knobs():
+    """The Setup & Run form renders these; they are the batch's whole contract,
+    now on baseline itself (with `seed` as the base seed, not `base_seed`)."""
+    import inspect
+    from viva_superpowers.composite_generator import _REGISTRY
     import v2ecoli.composites  # noqa: F401
 
-    entry = next(e for e in _REGISTRY.values() if e.name == "batch_baseline")
-    assert {"n_seeds", "n_generations", "base_seed", "single_daughters",
+    entry = next(e for e in _REGISTRY.values() if e.name == "ecoli_baseline")
+    params = set(inspect.signature(entry.func).parameters)
+    assert {"seed", "n_seeds", "n_generations", "single_daughters",
             "time_step", "max_duration", "variants", "emitter", "analyses",
-            "study", "cache_dir", "out_dir", "experiment_id", "parallel"} <= set(
-                entry.parameters)
-
-
-def test_batch_baseline_declares_the_multi_scale_visualizations():
-    """A seeds x generations batch ships the single-cell gallery PLUS the
-    multigeneration/multiseed panels vEcoli's workflow emits."""
-    from pbg_superpowers.composite_generator import _REGISTRY
-    import v2ecoli.composites  # noqa: F401
-
-    entry = next(e for e in _REGISTRY.values() if e.name == "batch_baseline")
-    names = {v["name"] for v in entry.visualizations}
-    assert {"cell_mass", "mass_fraction_summary"} <= names          # single-cell
-    assert {"ribosome_usage", "new_gene_counts"} <= names           # multigeneration
-    assert {"doubling_time_distribution"} <= names                  # multiseed
+            "study", "cache_dir", "out_dir", "experiment_id", "parallel"} <= params
 
 
 # --- sim_data pairing --------------------------------------------------------
@@ -351,7 +351,7 @@ def test_emitter_captures_the_completed_batch(monkeypatch):
     """
     from process_bigraph import Composite
 
-    from v2ecoli.composites.batch_baseline import batch_baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     from v2ecoli.core import build_core
 
     monkeypatch.setattr(
@@ -359,7 +359,8 @@ def test_emitter_captures_the_completed_batch(monkeypatch):
         lambda **kw: {"completed": True, "n_seeds": 1, "mode": "stub"})
 
     core = build_core()
-    state = batch_baseline(core=core, n_seeds=1, analyses="none")["state"]
+    # n_seeds=2 -> batch-orchestrator document (n_seeds=1 would be a single cell).
+    state = baseline(core=core, n_seeds=2, analyses="none")["state"]
     # The emitter the workbench injects for the run's selected paths, inlined
     # (mirrors vivarium_workbench.lib.composite_runs.inject_emitter_for_paths)
     # so this test doesn't depend on the workbench being installed.
@@ -393,3 +394,62 @@ def test_runner_declares_no_scheduling_triggers():
     runner = _make_instance(BatchBaselineRunner, {"n_seeds": 1}, build_core())
     assert runner.triggers() == {}
     assert "batch" in runner.inputs()      # still received, just silent
+
+
+def test_batch_ports_use_registered_type_name_for_pbg_roundtrip():
+    """The `batch` port must be declared by its registered type NAME string, not
+    an ``InPlaceDict()`` instance.
+
+    An instance serializes to its repr (``"InPlaceDict(_default=None, ...)"``) in
+    ``to_document``, which is not a parseable type expression — so when the
+    composite is round-tripped as a ``.pbg`` through remote dispatch (workbench
+    export -> sms-api compose -> ``run_pbg`` on Batch), ``Composite()`` dies with
+    ``bigraph_schema`` ``IncompleteParseError``. The registered name
+    ``"inplace_dict"`` (ECOLI_TYPES) round-trips cleanly and resolves back to the
+    ``InPlaceDict`` type via the core.
+    """
+    from v2ecoli.composites._helpers import _make_instance
+    from v2ecoli.core import build_core
+
+    runner = _make_instance(BatchBaselineRunner, {"n_seeds": 1}, build_core())
+    assert runner.inputs()["batch"] == "inplace_dict"
+    assert runner.outputs()["batch"] == "inplace_dict"
+    assert isinstance(runner.inputs()["batch"], str)
+
+
+def test_inplace_dict_store_serializes_its_merged_result_keys():
+    """serialize_state() must capture an inplace_dict store's merged data.
+
+    run_pbg's SOLE output artifact on the remote-dispatch path is
+    Composite.serialize_state(); if it drops the batch runner's merged result to
+    {"_value": {}}, a successful GovCloud run produces an empty batch. Guard the
+    serialize dispatch that emits the merged (non-schema) keys.
+    """
+    from process_bigraph import Composite
+    from v2ecoli.core import build_core
+
+    core = build_core()
+    comp = Composite({"state": {"batch": {"_type": "inplace_dict"}}}, core=core)
+    # mimic InPlaceDict.apply deep-merging a Step's result onto the store node
+    comp.state["batch"].update({"completed": True, "n_seeds": 1, "seeds": {0: {"path": "x"}}})
+
+    out = comp.serialize_state()["batch"]
+    assert out.get("completed") is True
+    assert out.get("n_seeds") == 1
+    assert out.get("seeds") == {0: {"path": "x"}}
+    assert "_value" not in out
+
+
+def test_resolve_out_dir_falls_back_to_compose_results_dir(monkeypatch):
+    """Under sms-api run_pbg, land the sweep in PBG_RESULTS_DIR (S3-synced), not
+    the unsynced workspace default."""
+    from v2ecoli.steps.batch_baseline_runner import resolve_out_dir, DEFAULT_OUT_DIR
+    monkeypatch.delenv("VIVARIUM_WORKBENCH_SWEEP_DIR", raising=False)
+    monkeypatch.setenv("PBG_RESULTS_DIR", "/tmp/pbg_out")
+    assert resolve_out_dir() == "/tmp/pbg_out/batch_baseline"
+    assert resolve_out_dir("explicit") == "explicit"          # explicit always wins
+    monkeypatch.setenv("VIVARIUM_WORKBENCH_SWEEP_DIR", "/ws/sweep")
+    assert resolve_out_dir() == "/ws/sweep"                    # workbench dir wins over compose
+    monkeypatch.delenv("VIVARIUM_WORKBENCH_SWEEP_DIR", raising=False)
+    monkeypatch.delenv("PBG_RESULTS_DIR", raising=False)
+    assert resolve_out_dir() == DEFAULT_OUT_DIR                # neither set -> default

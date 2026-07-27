@@ -46,7 +46,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from v2ecoli import build_composite
 from v2ecoli.composites._helpers import parquet_emitter
 from v2ecoli.library.parquet_emitter import ParquetEmitter
-from pbg_superpowers.runner import pbg_runner
+from viva_superpowers.runner import pbg_runner
 
 
 def _parquet_dir_has_runs(parquet_root: Path) -> bool:

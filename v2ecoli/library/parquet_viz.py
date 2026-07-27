@@ -132,7 +132,7 @@ def _discover_visualization_classes() -> dict[str, type]:
     if _VIZ_CLASS_CACHE is not None:
         return _VIZ_CLASS_CACHE
 
-    from pbg_superpowers.visualization import Visualization
+    from viva_superpowers.visualization import Visualization
 
     pkg = importlib.import_module("v2ecoli.visualizations")
     classes: dict[str, type] = {}

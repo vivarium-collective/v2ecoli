@@ -90,7 +90,8 @@ def profile_one_tick(duration: int = 1, warmup: int = 3):
     from v2ecoli import build_composite
 
     c = build_composite(
-        "millard_pdmp_baseline",
+        "ecoli_millard",
+        lqr=True,
         seed=0,
         with_ref_growth=True,
         ref_growth_flux_source="consumption_matched",

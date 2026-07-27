@@ -1032,7 +1032,7 @@ a.viv-bs-commit:hover { text-decoration: underline; }
       <span class="inv-export-actions" style="display:inline-flex; gap:6px">
         <button class="btn-mini" onclick="_generateInvestigationReport()" title="Generate a shareable HTML report (self-contained, attach to email)">Report 📄</button>
         <button class="btn-mini" onclick="_downloadInvestigationNotebook()" title="Download a self-contained Jupyter notebook (+ matching .py) that re-runs this investigation's studies via the process-bigraph protocol and renders their figures. The coder-facing complement to the HTML report.">Notebook 📓</button>
-        <button id="investigation-rerun" class="btn-mini" onclick="_rerunInvestigation()" title="Re-run every study's baseline">Rerun investigation</button>
+        <button id="investigation-rerun" class="btn-mini" onclick="_rerunInvestigation()" title="Re-run every member study's CURRENT baseline spec (re-derives from each study's study.yaml)">▶ Run current spec</button>
       </span>
     </div>
     <!-- Run-progress panel: rendered while a run-unblocked job is active. -->
@@ -1817,7 +1817,7 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
      DataSource global that renderers call to fetch narrative data.
      local-server mode (default) fetches from the same-origin /api/* endpoints.
      Hosted mode (sub-projects #2/#3) will set a different config here. -->
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "6ac792750a7a59170135e9cf9536eb07fd9fce8c", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/6ac792750a7a59170135e9cf9536eb07fd9fce8c", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-27 19:15 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/dashboard", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "05df498583e252939e7456ce8af8f7624a893f1b", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/05df498583e252939e7456ce8af8f7624a893f1b", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-27 21:24 UTC"} };</script>
 <script src="/v2ecoli/dashboard/assets/data-source.js"></script>
 <script src="/v2ecoli/dashboard/assets/render-helpers.js"></script>
 <script src="/v2ecoli/dashboard/assets/client.js" onerror="/* live mode unavailable */"></script>

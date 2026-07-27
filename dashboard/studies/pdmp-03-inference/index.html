@@ -305,7 +305,7 @@
           <span class="narrative-label">Conclusion</span>
           <textarea class="narrative-input narrative-textarea" rows="3"
                     data-narrative-path="report.conclusion"
-                    placeholder="Multi-sentence: what the runs + tests demonstrated.">Predicted — per-modality observation likelihoods (neg-binom RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics) feeding an incremental log-likelihood accumulator + Vivarium observe/intervene effects will let ABC-SMC recover posteriors on synthetic data with SBC-validated coverage (≥85% on 90% CIs).</textarea>
+                    placeholder="Multi-sentence: what the runs + tests demonstrated.">Partial (surrogate). A real ABC-SMC (importance weights + perturbation kernel + adaptive-ε) recovers a transcription-init rate on a WCM-calibrated count surrogate (θ=1.2 → CI [1.1984,1.2006], robust; posterior shrinks ~1/√n) with a passing PPC (script gate cov≥0.80). SBC rank-uniformity at K=150 reproduces the recorded χ² p=0.576 but is a knife-edge single-seed pass (4/5 seeds; flips to FAIL under a 0.004% calibration change), so it is not yet a robust calibration certificate. The study acceptance gate — full-WCM-in-the-loop, K=1000, multi-modality — remains BLOCKED, deferred to the Phase-4 compiled runtime. Full per-modality likelihood library + observe/intervene effects remain design-stage.</textarea>
         </label>
       </div>
     </div>
@@ -417,6 +417,44 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
         
         
         <div class="finding-next"><strong>→ Next:</strong> Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-partial">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◐</span>
+          <span class="finding-id">sbc-k150-pass-is-knife-edge-not-robust</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">partial literature</span>
+        </div>
+        <div class="finding-statement">Hardening re-derivation (2026-07-27): the recorded SBC K=150 PASS (chi2_p=0.576) reproduces EXACTLY under the current committed engine at the recorded calibration (mu0=12593.5, Poisson; rng seed 0) -- so it was not fabricated -- but it is a knife-edge single-seed result, NOT a robust calibration certificate. A 5-seed sweep passes only 4/5 (seed 2 chi2_p=0.0081 FAIL), and at seed 0 the pass is razor-thin in the calibration mean: mu0 in {12592, 12593, 12594, 12595} ALL FAIL (chi2_p 0.004-0.011); only the recorded mu0=12593.5 passes (0.576). Root cause (understood, no bug): the WCM Poisson count posterior is extraordinarily sharp -- theta std ~ 1/sqrt(mu0*n_obs) ~ 4.5e-4 vs prior width 2.8 (~6000x narrower) -- so at K=150 the ABC epsilon-resolution floor leaves the rank histogram only marginally uniform and the chi2 test sits on a knife edge. This is precisely why the study&#39;s own gate spec requires K=1000 (rank resolution 1/(K+1) ~ 1e-3); K=150 is under-resolved for this posterior. Separately verified and EXONERATED: engine refactor 28cad208 (&#34;N-D generalization; scalar back-compat preserved&#34;) does NOT change scalar-mode numerics -- both the pre- and post-refactor engines give byte-identical SBC results across all 5 seeds -- so there is no regression and the back-compat claim holds. The recovery (theta=1.2 -&gt; post_mean 1.1995, CI [1.1984,1.2006]) and PPC (script gate cov&gt;=0.80; cov 0.84-0.91 by seed) remain robust; only the SBC uniformity leg is thin.</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> SBC K=150 seed sweep {0:0.576 PASS, 1:0.081 PASS, 2:0.008 FAIL, 3:0.181 PASS, 4:0.052 PASS} = 4/5 PASS; mu0 sweep at seed 0 {12592:0.009 FAIL, 12593:0.004 FAIL, 12593.5:0.576 PASS, 12594:0.011 FAIL, 12595:0.005 FAIL}; pre- vs post-28cad208 engine byte-identical across the 5 seeds. · 
+          
+          in run <a href="#run-hardening"><code>hardening seed+calibration sweep of scripts/run_sbc.py params (n_particles=300, n_generations=12, prior (0.2,3.0), n_obs=400)</code></a>
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-phase3-sbc-k150-robustness-sweep"><code>phase3-sbc-k150-robustness-sweep</code></a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Do NOT cite the K=150 pass as a calibration certificate. Gate on K&gt;=1000 SBC with a multi-seed robustness summary (median chi2_p over &gt;=5 seeds) on the full-WCM-in-the-loop pipeline (needs the Phase-4 compiled runtime). NOTE: the committed .pbg/runs/phase3-surrogate-calibration.json artifact is absent in this checkout; regenerate + commit it so the recorded mu0=12593.5 is reproducible without hand-supplied calibration.</div>
       </div>
       
     </div>
@@ -1574,13 +1612,13 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
           
           <div class="di-card di-fup-card">
             <div class="followup-header">
-              <strong class="followup-title">SBC rank-uniformity + credible-interval coverage on the count-based pipeline</strong>
+              <strong class="followup-title">Robust SBC rank-uniformity + credible-interval coverage (K&gt;=1000, multi-seed) on the count-based pipeline</strong>
               <span class="di-chip">calibration</span>
               <span class="di-chip">open_gate</span>
               <span class="di-chip di-gain-high">gain: high</span>
               
             </div>
-            <div class="di-card-why">Run &gt;=1000 SBC draws through the count-based ABC-SMC pipeline; gate on chi^2 rank-uniformity p &gt; 0.05 and &gt;=85% empirical coverage of the 90% credible intervals.</div>
+            <div class="di-card-why">Run &gt;=1000 SBC draws through the count-based ABC-SMC pipeline and gate on a MULTI-SEED robustness summary (e.g. median chi^2 rank-uniformity p &gt; 0.05 over &gt;=5 seeds) plus &gt;=85% empirical coverage of the 90% credible intervals. Trigger: the K=150 surrogate SBC PASS is a knife-edge single-seed result (finding sbc-k150-pass-is-knife-edge-not-robust) -- 4/5 seeds pass and it flips to FAIL under a 0.004% calibration change because the WCM Poisson posterior is ~6000x sharper than the prior. K=1000 (rank resolution ~1e-3) is required to resolve a posterior this sharp. Also regenerate + commit the missing .pbg/runs/phase3-surrogate-calibration.json so the calibration is reproducible.</div>
             
             <div class="followup-actions" style="margin-top:8px">
               <button class="btn-seed-followup"

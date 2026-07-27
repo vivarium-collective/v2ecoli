@@ -185,13 +185,25 @@ def build_run_config(args, *, perturbations: dict[str, float],
     cache dir + cheap fingerprint, seed, generations, max_min, resume_dill,
     and the verifiable ParCa-derived synth prob read back from the cache for
     each perturbed RNA.
+
+    ``cache_fingerprint`` is the plain short-hash string (``None`` if the
+    cache file is missing), not the detailed dict — this is
+    reproducible-rerun-spine Task 2's env-threading key: a downstream
+    manifest builder (``vivarium_workbench.lib.composite_runs.build_run_manifest``)
+    sniffs a plain-string ``params["cache_fingerprint"]`` straight onto
+    ``manifest["env"]["cache_fingerprint"]``, so it must land here as a
+    scalar, not a dict. The full diagnostic dict (path/exists/size/mtime)
+    is preserved under ``cache_fingerprint_detail`` for anyone reading the
+    run_config directly.
     """
+    cache_fp = cache_fingerprint(args.cache_dir)
     return {
         "experiment_id": args.experiment_id,
         "perturbations": dict(perturbations),
         "perturbations_detail": applied_record,
         "cache_dir": args.cache_dir,
-        "cache_fingerprint": cache_fingerprint(args.cache_dir),
+        "cache_fingerprint": cache_fp.get("fingerprint"),
+        "cache_fingerprint_detail": cache_fp,
         "seed": args.seed,
         "generations": args.generations,
         "start_gen": args.start_gen,

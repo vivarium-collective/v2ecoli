@@ -28,8 +28,10 @@ Four moving parts:
      recorded run-time decision, not an opaque cache name.
    - It assembles a `run_config` dict — the decision-relevant knobs:
      `perturbations` (applied) + `perturbations_detail` (which overrode a
-     cache-baked value), `cache_dir` + a cheap `cache_fingerprint`
-     (sim_data_cache.dill size + mtime + short hash), `seed`, `generations`,
+     cache-baked value), `cache_dir` + a cheap `cache_fingerprint` (a short
+     hash derived from sim_data_cache.dill's size + mtime — a plain string,
+     `None` if the cache is missing; the full diagnostic dict, including
+     size/mtime, is under `cache_fingerprint_detail`), `seed`, `generations`,
      `max_min`, `resume_dill`, and **`dnaA_synth_prob_from_cache`** — the
      ParCa-derived basal probability read back from the cache for each
      perturbed RNA (the ground truth the perturbation overrides; this is the

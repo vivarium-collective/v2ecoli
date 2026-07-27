@@ -1,7 +1,7 @@
 schema_version: 4
 name: colonies-05-mother-machine
 investigation: colonies
-title: "Mother machine (viva-munk) \u2014 device run + phenotype distributions"
+title: "Mother machine (viva-munk) — device run + phenotype distributions"
 description: |
   Part B (phenotype tier) \u2014 run the canonical viva-munk MOTHER MACHINE (narrow
   dead-end channels with a flow channel that washes out cells crossing the top),
@@ -19,23 +19,13 @@ description: |
   biological conclusion is drawn at the simple-agent tier.
 topic: phenotype-quantification
 tags:
-- colony
-- mother-machine
-- phenotype
-- adder
-- device
-- requires-viva-munk
+  - colony
+  - mother-machine
+  - phenotype
+  - adder
+  - device
+  - requires-viva-munk
 created: '2026-07-25'
-baseline:
-- name: mother-machine-simple
-  composite: v2ecoli.composites.ecoli_colony.ecoli_colony
-  params:
-    seed: 0
-    n_cells: 8
-  note: "Nominal composite for the workbench catalog. The actual run drives the\n\
-    viva-munk mother_machine_document (via v2ecoli.colony_bench.devices) with\nsimple\
-    \ grow/divide agents \u2014 the canonical device geometry, not the free\ncolony.\
-    \ Phenotypes are extracted uniformly by colony_bench.phenotypes.\n"
 purpose:
   question: |
     Do the core emergent single-cell phenotypes — size-at-division,
@@ -62,22 +52,34 @@ evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
 acceptance_criteria:
-- behavior: mother-machine-runs-and-divides
-- behavior: running-animation-rendered
-- behavior: size-at-division-distribution
-- behavior: interdivision-time-distribution
-- behavior: added-size-distribution
+  - behavior: mother-machine-runs-and-divides
+  - behavior: running-animation-rendered
+  - behavior: size-at-division-distribution
+  - behavior: interdivision-time-distribution
+  - behavior: added-size-distribution
 pipeline_gate:
-  prerequisites:
-  - colonies-04-device-phenotype-harness
-  enables:
-  - colonies-09-wcm-mother-machine
-  proceed_condition: 'Requires the shared cell-tier factory, geometry builders, and
-    phenotype
+  proceed_condition: 'Requires the shared cell-tier factory, geometry builders, and phenotype
 
     extractor stood up in colonies-04.
 
     '
 inputs:
-- artifact: sim_data
-  from: parca
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+  - artifact: colonies-04-device-phenotype-harness
+    from: colonies-04-device-phenotype-harness
+conditions:
+  baseline:
+    name: mother-machine-simple
+    composite: v2ecoli.composites.ecoli_colony.ecoli_colony
+    params:
+      seed: 0
+      n_cells: 8
+    note: "Nominal composite for the workbench catalog. The actual run drives the\nviva-munk mother_machine_document (via v2ecoli.colony_bench.devices) with\nsimple grow/divide agents — the canonical device geometry, not the free\ncolony. Phenotypes are extracted uniformly by colony_bench.phenotypes.\n"
+  model_settings: []
+question: |
+  Do the core emergent single-cell phenotypes — size-at-division,
+  inter-division time, added length, the adder size-homeostasis relation, and
+  growth rate — stay measurable when simple viva-munk agents run in the
+  canonical mother-machine device geometry?

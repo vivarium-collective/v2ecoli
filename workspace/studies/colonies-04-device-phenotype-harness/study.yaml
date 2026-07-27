@@ -19,27 +19,13 @@ description: |
   and against experimental microfluidic-device data.
 topic: phenotype-quantification
 tags:
-- colony
-- mother-machine
-- daughter-machine
-- phenotype
-- adder
-- requires-viva-munk
+  - colony
+  - mother-machine
+  - daughter-machine
+  - phenotype
+  - adder
+  - requires-viva-munk
 created: '2026-07-25'
-baseline:
-- name: free-colony-simple
-  composite: v2ecoli.composites.ecoli_colony.ecoli_colony
-  params:
-    seed: 0
-    n_cells: 2
-    env_size: 30
-  note: "The free-colony geometry populated with simple viva-munk grow_divide\nagents.\
-    \ This study also exercises the mother-machine and daughter-machine\ngeometries\
-    \ via v2ecoli.colony_bench (geometry builders that place any\ncell-model tier\
-    \ \u2014 simple / surrogate / wcm \u2014 into a device); those are not\nregistered\
-    \ composite generators, but the phenotype panel (growth rate,\nsize-at-division,\
-    \ added length, inter-division time) is extracted uniformly\nacross all three\
-    \ geometries.\n"
 purpose:
   question: |
     Does the shared harness — cell-tier factory, geometry builders, and
@@ -68,16 +54,11 @@ evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
 acceptance_criteria:
-- behavior: factory-yields-runnable-cell-per-tier
-- behavior: geometry-builders-run-with-simple-agents
-- behavior: extractor-recovers-known-division-stats
-- behavior: harness-produces-phenotype-panel
+  - behavior: factory-yields-runnable-cell-per-tier
+  - behavior: geometry-builders-run-with-simple-agents
+  - behavior: extractor-recovers-known-division-stats
+  - behavior: harness-produces-phenotype-panel
 pipeline_gate:
-  prerequisites:
-  - colonies-03-wcm-rss-leak
-  enables:
-  - colonies-05-mother-machine
-  - colonies-06-daughter-machine
   proceed_condition: |
     Part B builds on the Part A enabling infrastructure. The colonies-03 RSS
     growth is now a characterised, Linux-bounded, mitigated footnote (localized
@@ -87,5 +68,24 @@ pipeline_gate:
     artifact) but unbounded on the Linux HPC target; the simple-agent tier here
     runs freely.
 inputs:
-- artifact: sim_data
-  from: parca
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+  - artifact: colonies-03-wcm-rss-leak
+    from: colonies-03-wcm-rss-leak
+conditions:
+  baseline:
+    name: free-colony-simple
+    composite: v2ecoli.composites.ecoli_colony.ecoli_colony
+    params:
+      seed: 0
+      n_cells: 2
+      env_size: 30
+    note: "The free-colony geometry populated with simple viva-munk grow_divide\nagents. This study also exercises the mother-machine and daughter-machine\ngeometries via v2ecoli.colony_bench (geometry builders that place any\ncell-model tier — simple / surrogate / wcm — into a device); those are not\nregistered composite generators, but the phenotype panel (growth rate,\nsize-at-division, added length, inter-division time) is extracted uniformly\nacross all three geometries.\n"
+  model_settings: []
+question: |
+  Does the shared harness — cell-tier factory, geometry builders, and
+  tier-agnostic phenotype extractor — recover a correct, uniform single-cell
+  phenotype panel (growth rate, size-at-division, added length, inter-division
+  time, adder size-homeostasis) across the three device geometries, validated
+  first with cheap simple viva-munk agents before spending WCM compute?

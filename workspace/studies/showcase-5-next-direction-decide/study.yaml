@@ -70,30 +70,30 @@ report:
     but no direction is committed.
 
   decisions_needed:
-  - question: "Which direction should the showcase take next, given the showcase-4 ranking?"
-    status: "OPEN — reviewers to choose"
-    context: |
-      Four candidate directions seeded from the showcase-4 5-variant sweep. The
-      agent recommends A (deepen the strongest contrast) or B (chase the most
-      informative surprise); none is committed.
-        A. DEEPEN THE STRONGEST CONTRAST — growth-condition panel. media-succinate
-           was the strongest, most interpretable contrast (4 axes at once:
-           mass, replication, composition, Toya-flux collapse). Run a small
-           panel of carbon sources (glucose / succinate / acetate / glycerol /
-           +amino-acids) and chart the growth / flux / composition response.
-           FLAG: one full ParCa cache per condition (~2.5 min each).
-        B. CHASE THE SURPRISE — ppGpp synthesis vs regulation (2x2). ppgpp-off
-           de-repressed rather than collapsed ppGpp (1.86x). Separate ppGpp
-           *synthesis* (RelA/SpoT) from the *regulatory* coupling and run a
-           synthesis-off / regulation-off 2x2 to pin the mechanism.
-        C. PUSH THE PARTIAL — dnaA knob deepening. dnaA-2x advanced re-init
-           timing + dropped Toya r but did not raise the oriC ceiling. Sweep the
-           dnaA init-probability (1x..4x) and connect to the dnaa-replication
-           investigation's replication-initiation readouts.
-        D. RESCUE THE NULL — graded translation dose-response. elong-down (0.7x)
-           was a near-null; sweep the basal elongation rate across a wider range
-           (e.g. 1.0x..0.4x) to find where the steady-state-charging compensation
-           breaks and growth actually slows.
+    - question: "Which direction should the showcase take next, given the showcase-4 ranking?"
+      status: "OPEN — reviewers to choose"
+      context: |
+        Four candidate directions seeded from the showcase-4 5-variant sweep. The
+        agent recommends A (deepen the strongest contrast) or B (chase the most
+        informative surprise); none is committed.
+          A. DEEPEN THE STRONGEST CONTRAST — growth-condition panel. media-succinate
+             was the strongest, most interpretable contrast (4 axes at once:
+             mass, replication, composition, Toya-flux collapse). Run a small
+             panel of carbon sources (glucose / succinate / acetate / glycerol /
+             +amino-acids) and chart the growth / flux / composition response.
+             FLAG: one full ParCa cache per condition (~2.5 min each).
+          B. CHASE THE SURPRISE — ppGpp synthesis vs regulation (2x2). ppgpp-off
+             de-repressed rather than collapsed ppGpp (1.86x). Separate ppGpp
+             *synthesis* (RelA/SpoT) from the *regulatory* coupling and run a
+             synthesis-off / regulation-off 2x2 to pin the mechanism.
+          C. PUSH THE PARTIAL — dnaA knob deepening. dnaA-2x advanced re-init
+             timing + dropped Toya r but did not raise the oriC ceiling. Sweep the
+             dnaA init-probability (1x..4x) and connect to the dnaa-replication
+             investigation's replication-initiation readouts.
+          D. RESCUE THE NULL — graded translation dose-response. elong-down (0.7x)
+             was a near-null; sweep the basal elongation rate across a wider range
+             (e.g. 1.0x..0.4x) to find where the steady-state-charging compensation
+             breaks and growth actually slows.
 
   review_asks: |
     For reviewers, before any next-direction run:
@@ -119,11 +119,11 @@ runtime:
   status: "not run — reviewer-decision study; no compute until a direction is selected"
 
 readouts:
-- {name: decision-outcome, description: "Decision outcome: which candidate next-direction(s) the reviewer selects"}
-- {name: per-direction-readout, description: "Per direction, the proposed primary readout (growth rate, central-carbon flux / Toya-r, ppGpp pool, or replication-initiation timing — to be chosen by the reviewer)"}
+  - {name: decision-outcome, description: "Decision outcome: which candidate next-direction(s) the reviewer selects"}
+  - {name: per-direction-readout, description: "Per direction, the proposed primary readout (growth rate, central-carbon flux / Toya-r, ppGpp pool, or replication-initiation timing — to be chosen by the reviewer)"}
 
 enforced_params:
-- {name: basis, value: "showcase-4 5-variant ranking", why: "the candidate directions are seeded from the measured contrasts (media strongest, ppGpp-off most informative surprise, dnaA-2x partial, elong-down near-null)"}
+  - {name: basis, value: "showcase-4 5-variant ranking", why: "the candidate directions are seeded from the measured contrasts (media strongest, ppGpp-off most informative surprise, dnaA-2x partial, elong-down near-null)"}
 
 biological_summary: |
   This study commits no direction. It frames an explicit reviewer choice among
@@ -134,7 +134,7 @@ biological_summary: |
   dose-response). The biology of each candidate lives in followup_study_proposals.
 
 literature_anchors:
-- {cite: macklin2020, note: "The Covert-lab whole-cell model; the wild-type baseline and validation surfaces (Toya-2010 flux, ppGpp, replication) the candidate directions would extend."}
+  - {cite: macklin2020, note: "The Covert-lab whole-cell model; the wild-type baseline and validation surfaces (Toya-2010 flux, ppGpp, replication) the candidate directions would extend."}
 
 model_change: |
   None yet — the model change is the OPEN decision. Each candidate would alter a
@@ -150,161 +150,162 @@ implementation_requirements: |
 design_pivot_required: true   # intentionally a decision/pivot gate — a reviewer choice is REQUIRED before any run
 
 conclusion_verdicts:
-- {claim: "the next-direction choice is open", verdict: pending, basis: "four candidates seeded from showcase-4; none committed — resolves when a reviewer selects one (or more). Agent recommends A or B."}
+  - {claim: "the next-direction choice is open", verdict: pending, basis: "four candidates seeded from showcase-4; none committed — resolves when a reviewer selects one (or more). Agent recommends A or B."}
 
 simulation_set:
-- name: direction-A-growth-condition-panel
-  kind: simulation
-  status: planned   # FLAG: one full ParCa cache per condition (~2.5 min each)
-  base_model: baseline
-  duration_steps: "ensemble per carbon source (glucose / succinate / acetate / glycerol / +amino-acids)"
-  seeds: "set when the reviewer selects this candidate"
-  metrics: [growth rate, central-carbon flux / Toya-r, mass composition]
-  pass_fail_tests: [reviewer-selects-next-direction]
-- name: direction-B-ppgpp-synthesis-vs-regulation
-  kind: simulation
-  status: planned
-  base_model: baseline
-  duration_steps: "synthesis-off / regulation-off 2×2 on the glucose cache"
-  seeds: "set when the reviewer selects this candidate"
-  metrics: [ppGpp pool, growth rate per quadrant]
-  pass_fail_tests: [reviewer-selects-next-direction]
-- name: direction-C-dnaa-knob-deepening
-  kind: simulation
-  status: planned
-  base_model: baseline
-  duration_steps: "dnaA init-probability sweep 1x..4x on the glucose cache"
-  seeds: "set when the reviewer selects this candidate"
-  metrics: [oriC, critical mass per oriC, replication-initiation timing]
-  pass_fail_tests: [reviewer-selects-next-direction]
-- name: direction-D-graded-translation-dose-response
-  kind: simulation
-  status: planned
-  base_model: baseline
-  duration_steps: "basal elongation-rate sweep 1.0x..0.4x on the glucose cache"
-  seeds: "set when the reviewer selects this candidate"
-  metrics: [doubling time, tRNA charging (to find where compensation breaks)]
-  pass_fail_tests: [reviewer-selects-next-direction]
+  - name: direction-A-growth-condition-panel
+    kind: simulation
+    status: planned # FLAG: one full ParCa cache per condition (~2.5 min each)
+    base_model: baseline
+    duration_steps: "ensemble per carbon source (glucose / succinate / acetate / glycerol / +amino-acids)"
+    seeds: "set when the reviewer selects this candidate"
+    metrics: [growth rate, central-carbon flux / Toya-r, mass composition]
+    pass_fail_tests: [reviewer-selects-next-direction]
+  - name: direction-B-ppgpp-synthesis-vs-regulation
+    kind: simulation
+    status: planned
+    base_model: baseline
+    duration_steps: "synthesis-off / regulation-off 2×2 on the glucose cache"
+    seeds: "set when the reviewer selects this candidate"
+    metrics: [ppGpp pool, growth rate per quadrant]
+    pass_fail_tests: [reviewer-selects-next-direction]
+  - name: direction-C-dnaa-knob-deepening
+    kind: simulation
+    status: planned
+    base_model: baseline
+    duration_steps: "dnaA init-probability sweep 1x..4x on the glucose cache"
+    seeds: "set when the reviewer selects this candidate"
+    metrics: [oriC, critical mass per oriC, replication-initiation timing]
+    pass_fail_tests: [reviewer-selects-next-direction]
+  - name: direction-D-graded-translation-dose-response
+    kind: simulation
+    status: planned
+    base_model: baseline
+    duration_steps: "basal elongation-rate sweep 1.0x..0.4x on the glucose cache"
+    seeds: "set when the reviewer selects this candidate"
+    metrics: [doubling time, tRNA charging (to find where compensation breaks)]
+    pass_fail_tests: [reviewer-selects-next-direction]
 
 planned_runs:
-- name: chosen-direction-run
-  status: planned
-  n_steps: "depends on the chosen direction (single-cache for B/C/D; one ParCa cache per condition for A)"
-  details: "Runs ONLY after a reviewer selects one (or more) of the four candidate directions below; until then this study is intentionally un-run."
+  - name: chosen-direction-run
+    status: planned
+    n_steps: "depends on the chosen direction (single-cache for B/C/D; one ParCa cache per condition for A)"
+    details: "Runs ONLY after a reviewer selects one (or more) of the four candidate directions below; until then this study is intentionally un-run."
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     # No direction committed — this is a reviewer-decision study. The four
     # candidate directions live in decisions_needed +
     # discovery_implications.followup_study_proposals, seeded from showcase-4.
   variants:
   # PROPOSED, not committed — the reviewer chooses among these four candidate
   # next-directions (seeded from the showcase-4 ranking). status: proposed.
-  - name: A-growth-condition-panel
-    role: proposed (uncommitted)
-    status: proposed
-    detail: "Deepen the strongest contrast (media-succinate): a carbon-source panel. FLAG: one full ParCa cache per condition (~2.5 min each). Agent-recommended."
-  - name: B-ppgpp-synthesis-vs-regulation
-    role: proposed (uncommitted)
-    status: proposed
-    detail: "Chase the surprise: a synthesis-off / regulation-off 2×2 to pin why ppGpp de-repressed (rose 1.86x). Single-cache. Agent-recommended."
-  - name: C-dnaa-knob-deepening
-    role: proposed (uncommitted)
-    status: proposed
-    detail: "Push the partial: sweep the dnaA init-probability 1x..4x to test whether a larger knob raises the oriC ceiling that 2x did not. Single-cache."
-  - name: D-graded-translation-dose-response
-    role: proposed (uncommitted)
-    status: proposed
-    detail: "Rescue the null: sweep the ribosome elongation rate over a wider range to find where the elong-down compensation breaks. Single-cache."
+    - name: A-growth-condition-panel
+      role: proposed (uncommitted)
+      status: proposed
+      detail: "Deepen the strongest contrast (media-succinate): a carbon-source panel. FLAG: one full ParCa cache per condition (~2.5 min each). Agent-recommended."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    - name: B-ppgpp-synthesis-vs-regulation
+      role: proposed (uncommitted)
+      status: proposed
+      detail: "Chase the surprise: a synthesis-off / regulation-off 2×2 to pin why ppGpp de-repressed (rose 1.86x). Single-cache. Agent-recommended."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    - name: C-dnaa-knob-deepening
+      role: proposed (uncommitted)
+      status: proposed
+      detail: "Push the partial: sweep the dnaA init-probability 1x..4x to test whether a larger knob raises the oriC ceiling that 2x did not. Single-cache."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    - name: D-graded-translation-dose-response
+      role: proposed (uncommitted)
+      status: proposed
+      detail: "Rescue the null: sweep the ribosome elongation rate over a wider range to find where the elong-down compensation breaks. Single-cache."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 
 assumptions:
-- text: |
-    The showcase-4 5-variant sweep is complete and its ranking (media strongest,
-    ppGpp-off most informative surprise, dnaA-2x partial, elong-down near-null)
-    is the trusted basis for choosing the next direction.
-  verified_in_v2ecoli: true
+  - text: |
+      The showcase-4 5-variant sweep is complete and its ranking (media strongest,
+      ppGpp-off most informative surprise, dnaA-2x partial, elong-down near-null)
+      is the trusted basis for choosing the next direction.
+    verified_in_v2ecoli: true
 
 tests:
-- name: reviewer-selects-next-direction
-  classification: decision
-  status: pending
-  question: "Have reviewers selected which next direction to pursue, given the showcase-4 ranking?"
-  measure:
-    kind: reviewer_decision
-    detail: |
-      Placeholder decision gate. Resolves when a reviewer picks one (or more) of
-      the four candidate directions (A growth-condition panel, B ppGpp
-      synthesis-vs-regulation 2x2, C dnaA knob deepening, D graded translation
-      dose-response). No quantitative pass/fail — the outcome is the chosen
-      direction, which then becomes a committed follow-up study.
-  pass_if:
-    op: reviewer_selected_variant
+  - name: reviewer-selects-next-direction
+    classification: decision
+    status: pending
+    question: "Have reviewers selected which next direction to pursue, given the showcase-4 ranking?"
+    measure:
+      kind: reviewer_decision
+      detail: |
+        Placeholder decision gate. Resolves when a reviewer picks one (or more) of
+        the four candidate directions (A growth-condition panel, B ppGpp
+        synthesis-vs-regulation 2x2, C dnaA knob deepening, D graded translation
+        dose-response). No quantitative pass/fail — the outcome is the chosen
+        direction, which then becomes a committed follow-up study.
+    pass_if:
+      op: reviewer_selected_variant
 
 discovery_implications:
   resolved_uncertainties: []
   remaining_uncertainties:
-  - "Which direction to deepen is an OPEN reviewer choice; no direction is committed in this scaffold."
-  - "elong-down's near-null leaves open where (if anywhere) a translation-rate cut starts to slow growth in v2ecoli — candidate D would resolve it."
-  - "The ppGpp-off de-repression mechanism (rise, not collapse) is asserted but not decomposed — candidate B would confirm it."
+    - "Which direction to deepen is an OPEN reviewer choice; no direction is committed in this scaffold."
+    - "elong-down's near-null leaves open where (if anywhere) a translation-rate cut starts to slow growth in v2ecoli — candidate D would resolve it."
+    - "The ppGpp-off de-repression mechanism (rise, not collapse) is asserted but not decomposed — candidate B would confirm it."
   followup_study_proposals:
-  - id: direction-growth-condition-panel
-    title: "A — Growth-condition panel (deepen the strongest contrast)"
-    study_type: condition-sweep
-    source_trigger: showcase-4-strongest-contrast
-    proposed_experiment: |
-      Run a small panel of carbon sources (glucose / succinate / acetate /
-      glycerol / +amino-acids), each with its own full ParCa cache, and chart the
-      growth rate / central-carbon flux (Toya-r) / mass-composition response as a
-      function of carbon source. Builds directly on media-succinate, the
-      strongest showcase-4 contrast.
-    expected_information_gain: high
-    effort: high   # one full ParCa cache per condition (~2.5 min each)
-    expert_gate_required: true
-    recommended: true
-  - id: direction-ppgpp-synthesis-vs-regulation
-    title: "B — ppGpp synthesis vs regulation 2x2 (chase the surprise)"
-    study_type: mechanism-probe
-    source_trigger: showcase-4-counterintuitive-result
-    proposed_experiment: |
-      Separate ppGpp *synthesis* (RelA/SpoT) from the *regulatory* coupling and
-      run a synthesis-off / regulation-off 2x2 on the existing glucose cache to
-      confirm that the showcase-4 ppGpp rise is de-repression. Reads the ppGpp
-      pool + growth rate per quadrant.
-    expected_information_gain: high
-    effort: medium   # single-cache, no extra ParCa build
-    expert_gate_required: true
-    recommended: true
-  - id: direction-dnaa-knob-deepening
-    title: "C — dnaA init-probability sweep (push the partial)"
-    study_type: parameter-sweep
-    source_trigger: showcase-4-partial-contrast
-    proposed_experiment: |
-      Sweep the dnaA (TU00259[c]) transcription-init probability across 1x..4x on
-      the existing glucose cache and connect to the dnaa-replication
-      investigation's replication-initiation readouts (oriC, critical mass per
-      oriC). Tests whether a larger knob raises the oriC ceiling that 2x did not.
-    expected_information_gain: medium
-    effort: low   # single-cache
-    expert_gate_required: true
-  - id: direction-graded-translation-dose-response
-    title: "D — graded translation dose-response (rescue the null)"
-    study_type: parameter-sweep
-    source_trigger: showcase-4-near-null-result
-    proposed_experiment: |
-      Sweep the ribosome basal elongation rate across a wider range
-      (e.g. 1.0x..0.4x of 22 aa/s) on the existing glucose cache to find where
-      the steady-state-charging compensation breaks and growth actually slows —
-      resolving why the 0.7x elong-down point was a near-null in showcase-4.
-    expected_information_gain: medium
-    effort: low   # single-cache
-    expert_gate_required: true
+    - id: direction-growth-condition-panel
+      title: "A — Growth-condition panel (deepen the strongest contrast)"
+      study_type: condition-sweep
+      source_trigger: showcase-4-strongest-contrast
+      proposed_experiment: |
+        Run a small panel of carbon sources (glucose / succinate / acetate /
+        glycerol / +amino-acids), each with its own full ParCa cache, and chart the
+        growth rate / central-carbon flux (Toya-r) / mass-composition response as a
+        function of carbon source. Builds directly on media-succinate, the
+        strongest showcase-4 contrast.
+      expected_information_gain: high
+      effort: high # one full ParCa cache per condition (~2.5 min each)
+      expert_gate_required: true
+      recommended: true
+    - id: direction-ppgpp-synthesis-vs-regulation
+      title: "B — ppGpp synthesis vs regulation 2x2 (chase the surprise)"
+      study_type: mechanism-probe
+      source_trigger: showcase-4-counterintuitive-result
+      proposed_experiment: |
+        Separate ppGpp *synthesis* (RelA/SpoT) from the *regulatory* coupling and
+        run a synthesis-off / regulation-off 2x2 on the existing glucose cache to
+        confirm that the showcase-4 ppGpp rise is de-repression. Reads the ppGpp
+        pool + growth rate per quadrant.
+      expected_information_gain: high
+      effort: medium # single-cache, no extra ParCa build
+      expert_gate_required: true
+      recommended: true
+    - id: direction-dnaa-knob-deepening
+      title: "C — dnaA init-probability sweep (push the partial)"
+      study_type: parameter-sweep
+      source_trigger: showcase-4-partial-contrast
+      proposed_experiment: |
+        Sweep the dnaA (TU00259[c]) transcription-init probability across 1x..4x on
+        the existing glucose cache and connect to the dnaa-replication
+        investigation's replication-initiation readouts (oriC, critical mass per
+        oriC). Tests whether a larger knob raises the oriC ceiling that 2x did not.
+      expected_information_gain: medium
+      effort: low # single-cache
+      expert_gate_required: true
+    - id: direction-graded-translation-dose-response
+      title: "D — graded translation dose-response (rescue the null)"
+      study_type: parameter-sweep
+      source_trigger: showcase-4-near-null-result
+      proposed_experiment: |
+        Sweep the ribosome basal elongation rate across a wider range
+        (e.g. 1.0x..0.4x of 22 aa/s) on the existing glucose cache to find where
+        the steady-state-charging compensation breaks and growth actually slows —
+        resolving why the 0.7x elong-down point was a near-null in showcase-4.
+      expected_information_gain: medium
+      effort: low # single-cache
+      expert_gate_required: true
 
 pipeline_gate:
-  prerequisites:
-  - showcase-4-variant-comparison
-  enables: []
   gate_status: pending
 
 runs: []
@@ -312,27 +313,27 @@ runs: []
 visualizations:
 # PLANNED mockup — reviewer-decision study with no run yet. Describes what the
 # chosen direction WOULD produce once a reviewer selects a candidate.
-- name: PLANNED — chosen next-direction response (mockup)
-  status: planned
-  address: "planned:chosen-next-direction-response"   # no rendered chart yet — decision study
-  config:
-    title: "PLANNED: chosen direction's response curve — carbon-source panel / ppGpp 2×2 / dnaA sweep / translation dose-response"
-    caption: >-
-      Placeholder for the chosen-direction figure. Once a reviewer selects one
-      (or more) of the four candidates (A growth-condition panel / B ppGpp
-      synthesis-vs-regulation 2×2 / C dnaA knob sweep / D graded translation
-      dose-response), this becomes the corresponding response chart on the
-      reviewer's chosen readout. No data yet — the study is intentionally un-run.
-  chart: planned-mockup
+  - name: PLANNED — chosen next-direction response (mockup)
+    status: planned
+    address: "planned:chosen-next-direction-response" # no rendered chart yet — decision study
+    config:
+      title: "PLANNED: chosen direction's response curve — carbon-source panel / ppGpp 2×2 / dnaA sweep / translation dose-response"
+      caption: >-
+        Placeholder for the chosen-direction figure. Once a reviewer selects one
+        (or more) of the four candidates (A growth-condition panel / B ppGpp
+        synthesis-vs-regulation 2×2 / C dnaA knob sweep / D graded translation
+        dose-response), this becomes the corresponding response chart on the
+        reviewer's chosen readout. No data yet — the study is intentionally un-run.
+    chart: planned-mockup
 
 # Units Atlas — folded in from the retired units-atlas investigation so the
 # unit-bearing readouts are visible in every baseline-showcase study.
 embed_visualizations:
-- name: Units Atlas (interactive)
-  url: /reports/figures/showcase-5-next-direction-decide/units_atlas.html
-  description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range.
+  - name: Units Atlas (interactive)
+    url: /reports/figures/showcase-5-next-direction-decide/units_atlas.html
+    description: Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range.
 
 
 # --- registry model (Study Pipeline Spec 1): declared artifact I/O; graph edges derive from inputs.from. Mirrors pipeline_gate.prerequisites. ---
 inputs:
-- {artifact: variant_ranking, from: showcase-4-variant-comparison}
+  - {artifact: variant_ranking, from: showcase-4-variant-comparison}

@@ -1,0 +1,208 @@
+{
+  "study": "param-uq-04-deep-params",
+  "n_train": 26,
+  "n_test": 8,
+  "order": 2,
+  "seeds": [
+    0,
+    1
+  ],
+  "n_steps": 150,
+  "observables": [
+    "dry_mass",
+    "cell_mass",
+    "instantaneous_growth_rate"
+  ],
+  "param_names": [
+    "rnap_elongation_rate",
+    "cell_dry_mass_fraction",
+    "kinetic_objective_weight"
+  ],
+  "designs": [
+    {
+      "seed": 0,
+      "param_names": [
+        "rnap_elongation_rate",
+        "cell_dry_mass_fraction",
+        "kinetic_objective_weight"
+      ],
+      "per_obs": {
+        "dry_mass": {
+          "total_order": [
+            0.0004397730516149721,
+            0.9996032162366145,
+            2.2201507205407238e-05
+          ],
+          "first_order": [
+            0.00037798023109278215,
+            0.9995399908306096,
+            1.6838142862822955e-05
+          ],
+          "relerr_test": 0.0004712762000021733,
+          "Y_std": 5.367725460481461,
+          "Y_mean": 388.16866099109023
+        },
+        "cell_mass": {
+          "total_order": [
+            4.8598075307988e-05,
+            0.9999706086896251,
+            2.402577155239827e-05
+          ],
+          "first_order": [
+            2.7960898950044727e-05,
+            0.9999273833645163,
+            1.4232000481586539e-06
+          ],
+          "relerr_test": 0.0013883915317530297,
+          "Y_std": 95.27753172212347,
+          "Y_mean": 1306.416958199342
+        },
+        "instantaneous_growth_rate": {
+          "total_order": [
+            0.2499468104797102,
+            0.8157095886288546,
+            0.018998684767811393
+          ],
+          "first_order": [
+            0.17968639912449363,
+            0.7313015434471735,
+            0.00435697355195658
+          ],
+          "relerr_test": 0.01652944968748607,
+          "Y_std": 4.030466276014978e-06,
+          "Y_mean": 0.00022373312693363103
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "param_names": [
+        "rnap_elongation_rate",
+        "cell_dry_mass_fraction",
+        "kinetic_objective_weight"
+      ],
+      "per_obs": {
+        "dry_mass": {
+          "total_order": [
+            0.00038175635423484786,
+            0.9995988902197848,
+            6.250615761914608e-05
+          ],
+          "first_order": [
+            0.00034250639664020973,
+            0.9995842573447659,
+            3.0083526954723207e-05
+          ],
+          "relerr_test": 0.0001825375695867813,
+          "Y_std": 6.988967269107699,
+          "Y_mean": 384.0050214881504
+        },
+        "cell_mass": {
+          "total_order": [
+            0.00010617721717143591,
+            0.9999046275551676,
+            2.794540537397858e-05
+          ],
+          "first_order": [
+            6.968669976673959e-05,
+            0.999888125323023,
+            3.4377994971328615e-06
+          ],
+          "relerr_test": 0.0004969456948982998,
+          "Y_std": 124.15508764778538,
+          "Y_mean": 1301.9383688979528
+        },
+        "instantaneous_growth_rate": {
+          "total_order": [
+            0.7493915470849773,
+            0.2134211220217781,
+            0.19709476906108106
+          ],
+          "first_order": [
+            0.6124846594131548,
+            0.16778737633884244,
+            0.05982052608016633
+          ],
+          "relerr_test": 0.015812181168325508,
+          "Y_std": 5.006095740936461e-06,
+          "Y_mean": 0.00021690960098457368
+        }
+      }
+    }
+  ],
+  "aggregate": {
+    "dry_mass": {
+      "param_names": [
+        "rnap_elongation_rate",
+        "cell_dry_mass_fraction",
+        "kinetic_objective_weight"
+      ],
+      "total_order_mean": [
+        0.00041076470292491,
+        0.9996010532281996,
+        4.235383241227666e-05
+      ],
+      "total_order_min": [
+        0.00038175635423484786,
+        0.9995988902197848,
+        2.2201507205407238e-05
+      ],
+      "total_order_max": [
+        0.0004397730516149721,
+        0.9996032162366145,
+        6.250615761914608e-05
+      ],
+      "relerr_test_mean": 0.00032690688479447734,
+      "Y_std_mean": 6.17834636479458
+    },
+    "cell_mass": {
+      "param_names": [
+        "rnap_elongation_rate",
+        "cell_dry_mass_fraction",
+        "kinetic_objective_weight"
+      ],
+      "total_order_mean": [
+        7.738764623971195e-05,
+        0.9999376181223963,
+        2.5985588463188425e-05
+      ],
+      "total_order_min": [
+        4.8598075307988e-05,
+        0.9999046275551676,
+        2.402577155239827e-05
+      ],
+      "total_order_max": [
+        0.00010617721717143591,
+        0.9999706086896251,
+        2.794540537397858e-05
+      ],
+      "relerr_test_mean": 0.0009426686133256648,
+      "Y_std_mean": 109.71630968495442
+    },
+    "instantaneous_growth_rate": {
+      "param_names": [
+        "rnap_elongation_rate",
+        "cell_dry_mass_fraction",
+        "kinetic_objective_weight"
+      ],
+      "total_order_mean": [
+        0.4996691787823438,
+        0.5145653553253163,
+        0.10804672691444622
+      ],
+      "total_order_min": [
+        0.2499468104797102,
+        0.2134211220217781,
+        0.018998684767811393
+      ],
+      "total_order_max": [
+        0.7493915470849773,
+        0.8157095886288546,
+        0.19709476906108106
+      ],
+      "relerr_test_mean": 0.01617081542790579,
+      "Y_std_mean": 4.518281008475719e-06
+    }
+  },
+  "wall_min": 19.51985928958311
+}

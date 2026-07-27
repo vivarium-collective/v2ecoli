@@ -65,12 +65,12 @@ executive:
     \ observables, which the homeostat washes out (scripts/phase2_count_variance.py).\
     \ PHASE 3 (pdmp-03): a real ABC-SMC (importance weights + perturbation kernel\
     \ + adaptive-epsilon) plus Simulation-Based Calibration and a posterior-predictive\
-    \ check are built and their gates PASS on a WCM-calibrated count likelihood: posterior\
+    \ check are built and the SBC/PPC/recovery checks below run on a WCM-calibrated count SURROGATE -- the study's acceptance gate (full-WCM-in-the-loop, K=1000, multi-modality) remains BLOCKED: posterior\
     \ recovery (theta=1.2 -> 90%% CI [1.198,1.201], shrinks ~1/sqrt(n)), SBC rank-histogram\
-    \ uniformity (K=150, chi2 p=0.576), PPC coverage 0.91, and a 2-parameter joint\
+    \ uniformity (K=150, chi2 p=0.576 -- but a knife-edge single-seed pass: only 4/5 seeds pass and it flips to FAIL under a 5th-significant-figure calibration change, so not a robust certificate), PPC coverage 0.84-0.91 by seed, and a 2-parameter joint\
     \ inference with per-parameter SBC. Scope: validated on the count likelihood,\
     \ not the full WCM in the ABC loop (deferred to Phase 4); the SBC gate twice rejected\
-    \ under-converged inference before passing, i.e. it works. PHASE 4 (pdmp-04):\
+    \ under-converged inference before passing at ng=12, i.e. the gate does its job -- though the K=150 pass itself is a knife-edge single-seed result (not robust; see pdmp-03 finding sbc-k150-pass-is-knife-edge-not-robust), so the real inference-ready bar remains the deferred full-WCM K=1000 gate. A separate hardening check exonerated the ABC engine refactor (commit 28cad208): pre- and post-refactor engines give byte-identical SBC results, so scalar back-compat holds. PHASE 4 (pdmp-04):\
     \ per-tick profiling is real (76%% of per-tick time outside process_update; 13,817\
     \ isinstance + 4,213 __array_finalize__ + 52 process_update calls/tick); the earlier\
     \ \"~1500x\" speedup was corrected to an illustrative projection (a compiled column-centric\
@@ -377,9 +377,10 @@ at_a_glance:
     gate failed (wrong observable) and the redirect to count-level listeners is confirmed
     (~30x more variance at rna_init_event).
 - study: pdmp-03-inference
-  role: Observation likelihoods + ABC-SMC inference; a real ABC-SMC + SBC + PPC passes
-    its gates on a WCM-calibrated count likelihood, with full-WCM-in-loop inference
-    deferred to the Phase-4 compiled runtime.
+  role: Observation likelihoods + ABC-SMC inference; a real ABC-SMC + SBC + PPC run on a WCM-calibrated count SURROGATE (recovery robust; PPC passes; SBC K=150 is a
+    knife-edge single-seed pass -- 4/5 seeds, flips to FAIL under a tiny calibration
+    change -- so not a robust certificate); the study acceptance gate (full-WCM-in-loop,
+    K=1000, multi-modality) stays BLOCKED, deferred to the Phase-4 compiled runtime.
 - study: pdmp-04-compilation
   role: "Compiled column-centric runtime for \u226510\xB3 parallel trajectories; per-tick\
     \ profiling is real and building the runtime is the planned Design-stage deliverable\

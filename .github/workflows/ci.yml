@@ -183,3 +183,73 @@ jobs:
 
       - name: Quarantine watch (never fails; reports tests that now pass)
         run: bash scripts/pytest_gate.sh --only-known
+
+  audit-gate:
+    # L0–L5 study-reproducibility contract gate (viva_superpowers.study_audit).
+    # HARD-tier failures (L0 structure, L1 resolvability, L5 graph-validity)
+    # fail CI; richness (L2–L5) only warns. The 11 known/WIP failures on main
+    # are parked in workspace/known_audit_failures.txt (a ratchet — a stale
+    # entry that no longer fails ALSO reds CI, so the list only shrinks).
+    # --package v2ecoli.composites registers the workspace's own generators so
+    # its composites resolve (vivarium-workbench is intentionally NOT installed;
+    # study_audit has no workbench dependency).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12.9
+
+      - name: Install dependencies (PyPI only)
+        run: uv sync --extra dev --no-install-package vivarium-workbench || uv sync --no-install-package vivarium-workbench
+
+      - name: Run the L0–L5 audit gate
+        run: |
+          uv run python -m viva_superpowers.study_audit \
+            --workspace workspace \
+            --package v2ecoli.composites \
+            --gate \
+            --allowlist workspace/known_audit_failures.txt
+
+  readme-check:
+    # README.md's composites + investigations tables are generated from the
+    # workspace by `vivarium-workbench gen-readme` (the ecosystem-wide command;
+    # composites via composite_lookup, investigations from investigation.yaml).
+    # This job needs vivarium-workbench + the workspace importable, so it uses
+    # the full env (like publish-dashboard.yml), not the lean PyPI-only sync.
+    # Regenerate locally with: vivarium-workbench gen-readme --workspace .
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12.9
+
+      - name: Install dependencies (incl. vivarium-workbench)
+        # The hatchling build works now that bigraph-schema is un-pinned; the
+        # `|| uv sync` fallback keeps this resilient (mirrors publish-dashboard.yml).
+        run: uv sync --extra dev || uv sync
+
+      - name: Install latest vivarium-workbench (for gen-readme)
+        # uv.lock may pin a vivarium-workbench commit predating the gen-readme
+        # command; reinstall @main so the CLI subcommand is present.
+        run: uv pip install --reinstall-package vivarium-workbench "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-workbench.git@main"
+
+      - name: Check README generated sections are fresh
+        # NB: activate the venv rather than `uv run` — `uv run` re-syncs to
+        # uv.lock and would undo the ad-hoc vivarium-workbench@main install.
+        run: |
+          source .venv/bin/activate
+          vivarium-workbench gen-readme --workspace "$PWD" --check

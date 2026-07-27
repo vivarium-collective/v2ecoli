@@ -83,116 +83,114 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
-  - name: compact-surrogate
-    perturbation: "Residual-MLP (64,64) on mass+chromosome (8 dims), delta parameterization."
-    expected_contrast: "High-fidelity, stable rollout."
-    measured_contrast: "mass R^2=1.000; cell_mass rollout corr 1.000; ~2700x speedup."
-  - name: broad-surrogate
-    perturbation: "Residual-MLP (256,256) on the full 11569-observable panel."
-    expected_contrast: "Demonstration-grade; high-dim fidelity is the open challenge."
-    measured_contrast: "~2% of columns R^2>0.5; rollout diverges (NaN); ~265x speedup."
+    - name: compact-surrogate
+      perturbation: "Residual-MLP (64,64) on mass+chromosome (8 dims), delta parameterization."
+      expected_contrast: "High-fidelity, stable rollout."
+      measured_contrast: "mass R^2=1.000; cell_mass rollout corr 1.000; ~2700x speedup."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    - name: broad-surrogate
+      perturbation: "Residual-MLP (256,256) on the full 11569-observable panel."
+      expected_contrast: "Demonstration-grade; high-dim fidelity is the open challenge."
+      measured_contrast: "~2% of columns R^2>0.5; rollout diverges (NaN); ~265x speedup."
 
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  model_settings: []
 tests:
-- name: surrogate-beats-trivial-baselines
-  classification: primary
-  status: failed
-  question: |
-    In cross-validated multi-step rollout, does the neural surrogate beat a
-    linear baseline at emulating cell_mass (ratio of surrogate to linear rollout
-    nRMSE < 1, i.e. lower error)?
-  measure:
-    kind: authored
-    detail: |
-      8-fold leave-one-trajectory-out CV (compact panel). Median rollout nRMSE:
-      surrogate 0.032 vs linear 0.019 -> ratio 1.68 (surrogate WORSE). The
-      surrogate also destabilizes on 2/8 folds; linear on 0/8.
-    measured_value: 1.68
-  pass_if:
-    op: lt
-    low: 1.0
-  cites_note: "Methodological: surrogate must beat the linear baseline to justify itself."
-- name: high-dim-observables-learnable-from-panel
-  classification: primary
-  status: failed
-  question: |
-    On the broad panel, does a meaningful fraction (>5%) of observables beat
-    persistence one-step (i.e. are they predictable from the observable view)?
-  measure:
-    kind: authored
-    detail: "Fraction of 4058 varying broad observables with positive skill vs persistence."
-    measured_value: 0.0
-  pass_if:
-    op: gt
-    low: 0.05
+  - name: surrogate-beats-trivial-baselines
+    classification: primary
+    status: failed
+    question: |
+      In cross-validated multi-step rollout, does the neural surrogate beat a
+      linear baseline at emulating cell_mass (ratio of surrogate to linear rollout
+      nRMSE < 1, i.e. lower error)?
+    measure:
+      kind: authored
+      detail: |
+        8-fold leave-one-trajectory-out CV (compact panel). Median rollout nRMSE:
+        surrogate 0.032 vs linear 0.019 -> ratio 1.68 (surrogate WORSE). The
+        surrogate also destabilizes on 2/8 folds; linear on 0/8.
+      measured_value: 1.68
+    pass_if:
+      op: lt
+      low: 1.0
+    cites_note: "Methodological: surrogate must beat the linear baseline to justify itself."
+  - name: high-dim-observables-learnable-from-panel
+    classification: primary
+    status: failed
+    question: |
+      On the broad panel, does a meaningful fraction (>5%) of observables beat
+      persistence one-step (i.e. are they predictable from the observable view)?
+    measure:
+      kind: authored
+      detail: "Fraction of 4058 varying broad observables with positive skill vs persistence."
+      measured_value: 0.0
+    pass_if:
+      op: gt
+      low: 0.05
 
 runs:
-- name: kfold-baselines-compact
-  status: completed
-  kind: cross_validation
-  canonical: true
-  description: |
-    8-fold leave-one-trajectory-out CV (code/rigor_eval.py --mode kfold) comparing
-    the surrogate against persistence / mean-delta / linear on one-step median R²
-    and multi-step cell_mass rollout nRMSE.
-  dispatch: serial
-  emitter: null
-  result: FAIL
-  outcomes:
-    surrogate-beats-trivial-baselines:
-      result: FAIL
-      detail: "Rollout nRMSE median: linear 0.019 (0/8 unstable) < surrogate 0.032 (2/8 explode); one-step R²=1.000 for ALL incl. persistence (artifact)."
-  computed_outcomes:
-    _status: store_unresolved
-- name: skill-vs-persistence-broad
-  status: completed
-  kind: cross_validation
-  canonical: true
-  description: |
-    Per-observable skill vs persistence on the broad held-out trajectory
-    (code/rigor_eval.py --mode skill).
-  dispatch: serial
-  emitter: null
-  result: FAIL
-  outcomes:
-    high-dim-observables-learnable-from-panel:
-      result: FAIL
-      detail: "0% of 4058 varying observables beat persistence (negative skill everywhere)."
-  computed_outcomes:
-    _status: store_unresolved
+  - name: kfold-baselines-compact
+    status: completed
+    kind: cross_validation
+    canonical: true
+    description: |
+      8-fold leave-one-trajectory-out CV (code/rigor_eval.py --mode kfold) comparing
+      the surrogate against persistence / mean-delta / linear on one-step median R²
+      and multi-step cell_mass rollout nRMSE.
+    dispatch: serial
+    emitter:
+    result: FAIL
+    outcomes:
+      surrogate-beats-trivial-baselines:
+        result: FAIL
+        detail: "Rollout nRMSE median: linear 0.019 (0/8 unstable) < surrogate 0.032 (2/8 explode); one-step R²=1.000 for ALL incl. persistence (artifact)."
+    computed_outcomes:
+      _status: store_unresolved
+  - name: skill-vs-persistence-broad
+    status: completed
+    kind: cross_validation
+    canonical: true
+    description: |
+      Per-observable skill vs persistence on the broad held-out trajectory
+      (code/rigor_eval.py --mode skill).
+    dispatch: serial
+    emitter:
+    result: FAIL
+    outcomes:
+      high-dim-observables-learnable-from-panel:
+        result: FAIL
+        detail: "0% of 4058 varying observables beat persistence (negative skill everywhere)."
+    computed_outcomes:
+      _status: store_unresolved
 
 embed_visualizations:
-- name: "Surrogate vs. trivial baselines — the honest test (interactive)"
-  url: /reports/figures/sm-01-nn-surrogate/surrogate_vs_baselines.html
-  description: "THE headline. 8-fold CV rollout error per model (log scale): linear wins (0.019, 0 unstable), the neural net is no better and explodes on 2/8 folds; persistence drifts. Plus error-vs-horizon (the surrogate diverging vs linear staying flat) and the broad-panel learnability bar (0% of observables beat persistence)."
-- name: "Compact surrogate — per-group coverage, parity, rollout (single split, interactive)"
-  url: /reports/figures/sm-01-nn-surrogate/compact_surrogate.html
-  description: "Single-split views retained for detail: per-group coverage bar, one-step parity scatter, per-column R² histogram, and a (single, lucky) cell_mass rollout. The cross-validated baseline comparison above supersedes this panel's optimistic headline."
-- name: "Broad 11.5k-observable surrogate — coverage & divergence (interactive)"
-  url: /reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
-  description: "Per-group coverage + per-column R² histogram (~2.5% of columns R²>0.5) + an autoregressive rollout that diverges to NaN at ~step 9 — the high-dimensional instability."
+  - name: "Surrogate vs. trivial baselines — the honest test (interactive)"
+    url: /reports/figures/sm-01-nn-surrogate/surrogate_vs_baselines.html
+    description: "THE headline. 8-fold CV rollout error per model (log scale): linear wins (0.019, 0 unstable), the neural net is no better and explodes on 2/8 folds; persistence drifts. Plus error-vs-horizon (the surrogate diverging vs linear staying flat) and the broad-panel learnability bar (0% of observables beat persistence)."
+  - name: "Compact surrogate — per-group coverage, parity, rollout (single split, interactive)"
+    url: /reports/figures/sm-01-nn-surrogate/compact_surrogate.html
+    description: "Single-split views retained for detail: per-group coverage bar, one-step parity scatter, per-column R² histogram, and a (single, lucky) cell_mass rollout. The cross-validated baseline comparison above supersedes this panel's optimistic headline."
+  - name: "Broad 11.5k-observable surrogate — coverage & divergence (interactive)"
+    url: /reports/figures/sm-01-nn-surrogate/broad_panel_coverage.html
+    description: "Per-group coverage + per-column R² histogram (~2.5% of columns R²>0.5) + an autoregressive rollout that diverges to NaN at ~step 9 — the high-dimensional instability."
 
 pipeline_gate:
-  prerequisites:
-  - sm-00-data-collection
-  enables:
-  - sm-02-utility-and-limits
-  - sm-03-improving-the-surrogate
   gate_status: failed
 
 conclusion_verdicts:
-- claim: "The neural surrogate beats trivial baselines at emulating coarse growth."
-  verdict: refuted
-  basis: "8-fold CV: linear rollout nRMSE 0.019 (0/8 unstable) < surrogate 0.032 (2/8 explode); one-step R²=1.000 even for persistence."
-- claim: "The broad high-dimensional panel is learnable from the observable view."
-  verdict: refuted
-  basis: "0% of 4058 varying observables beat persistence; full-vector rollout diverges to NaN."
-- claim: "A cheap linear emulator is the right tool for the smooth observable, not a neural net."
-  verdict: supported
-  basis: "Linear is the most accurate AND most stable emulator; see sm-02 for its amortized value."
+  - claim: "The neural surrogate beats trivial baselines at emulating coarse growth."
+    verdict: refuted
+    basis: "8-fold CV: linear rollout nRMSE 0.019 (0/8 unstable) < surrogate 0.032 (2/8 explode); one-step R²=1.000 even for persistence."
+  - claim: "The broad high-dimensional panel is learnable from the observable view."
+    verdict: refuted
+    basis: "0% of 4058 varying observables beat persistence; full-vector rollout diverges to NaN."
+  - claim: "A cheap linear emulator is the right tool for the smooth observable, not a neural net."
+    verdict: supported
+    basis: "Linear is the most accurate AND most stable emulator; see sm-02 for its amortized value."
 
 robustness:
   n_replicates: 1
@@ -205,17 +203,20 @@ falsifiability: |
   drops below 0.95 or the rollout diverges. The speedup claim fails below 100x.
 
 simulation_set:
-- name: train-eval-compact
-  kind: surrogate_training
-  status: ran
-  base_model: v2ecoli.composites.ecoli_baseline
-  duration_steps: 0
-  seeds: 0
-  details: "Uses sm-00 dataset; trains compact surrogate; evaluates fidelity + speed."
-  metrics:
-  - median_r2
-  - rollout_correlation
-  - inference_speedup
-  pass_fail_tests:
-  - surrogate-emulates-growth-and-profiles-speedup
-  - surrogate-delivers-speedup
+  - name: train-eval-compact
+    kind: surrogate_training
+    status: ran
+    base_model: v2ecoli.composites.ecoli_baseline
+    duration_steps: 0
+    seeds: 0
+    details: "Uses sm-00 dataset; trains compact surrogate; evaluates fidelity + speed."
+    metrics:
+      - median_r2
+      - rollout_correlation
+      - inference_speedup
+    pass_fail_tests:
+      - surrogate-emulates-growth-and-profiles-speedup
+      - surrogate-delivers-speedup
+inputs:
+  - artifact: sm-00-data-collection
+    from: sm-00-data-collection

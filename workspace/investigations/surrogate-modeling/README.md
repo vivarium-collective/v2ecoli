@@ -62,6 +62,9 @@ generic surrogate machinery:
   works) is worth: amortized break-even vs. the simulator, and the limits.
 - **sm-03-improving-the-surrogate** — follow-up: does multi-step rollout-loss
   training close the gap?
+- **sm-04-through-division** — boundary test: follow one daughter lineage across
+  a real division and ask whether the emulators hold across the cell_mass
+  halving, or fail to represent the discontinuity.
 
 ## What we found
 
@@ -83,10 +86,21 @@ but rigor overturned it:
   the instability (0/8) and improves the net (0.053 vs 0.069), yet linear still
   wins. Rollout-loss is the technique to carry to nonlinear targets.
 
-The result is a **scoping** one, not a capability claim. Documented next steps:
-rollout to/through **division** (test the cell-cycle limit); a **latent
-encode–decode** model and **more data on the Mac mini** for the high-dimensional
-groups.
+- **The emulator does not survive division** (sm-04): following one daughter
+  lineage across a real division, every emulator (linear and neural) emulates
+  coarse growth within a generation (linear one-step nRMSE 0.0006) but none
+  represents the cell_mass halving at the boundary — fed the true pre-division
+  state, each predicts continued growth while the truth halves (ratio 0.498),
+  a ~6200× one-step error jump. The discontinuity is not learnable from the
+  observable view; the emulator is valid only within a generation.
+
+The result is a **scoping** one, not a capability claim. sm-04 closed the
+top documented next step (rollout to/through **division**) with another
+informative negative that localizes what the observable view is missing.
+Remaining next steps: a **latent encode–decode** model that carries cell-cycle
+phase (would address both the high-dim unlearnability and the division
+boundary — see sm-04's `followup_proposals`), and **more data on the Mac mini**
+for the high-dimensional groups.
 
 ## Reproduce
 
@@ -109,3 +123,24 @@ $PY train_surrogate.py --data ../run_compact --hidden 64 64 --epochs 400 --lr 5e
 $PY evaluate_surrogate.py --data ../run_compact
 $PY report_figures.py --kind surrogate --data ../run_compact --out ../../../../reports/figures/sm-01-nn-surrogate/compact_surrogate.html
 ```
+
+### sm-04 — through division
+
+```bash
+cd code
+# The shared v2ecoli venv does not ship pbg-torch / plotly / the newer
+# bigraph_schema (with .contract) this branch needs; the worktree vendors them
+# into .deps (gitignored). Prepend the worktree AND .deps to PYTHONPATH:
+PY=~/code/v2ecoli/.venv/bin/python
+PP=<worktree>:<worktree>/.deps
+# 1. follow 6 lineages to/through one division (~tick 2526; ~1244 s wall)
+PYTHONPATH=$PP $PY sample_through_division.py --seeds 0 1 2 3 4 5 \
+    --max-steps 3400 --tail 120 --groups mass chromosome --out ../run_through_division
+# 2. 6-fold leave-one-lineage-out CV of the emulators across the boundary (dt=8 s)
+PYTHONPATH=$PP $PY eval_through_division.py --data ../run_through_division \
+    --hidden 64 64 --epochs 80 --rollout-k 10 --stride 8
+# 3. figure
+PYTHONPATH=$PP $PY make_through_division_figure.py --data ../run_through_division \
+    --out ../../../../reports/figures/sm-04-through-division/through_division.html
+```
+

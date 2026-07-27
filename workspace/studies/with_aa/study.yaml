@@ -48,7 +48,7 @@ conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
-      condition: with_aa
+      media: minimal_plus_amino_acids  # migrated from condition:with_aa; calibrated per-condition ParCa cache lives at out/cache/.regen_with_aa_seed00
   model_settings: []
 depends_on:
   - parca

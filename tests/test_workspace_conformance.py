@@ -1,7 +1,19 @@
-import pathlib, yaml, graphlib
+import locale, pathlib, yaml, graphlib
 from viva_superpowers.composite_generator import discover_generators, _REGISTRY
 WS = pathlib.Path(__file__).resolve().parents[1] / "workspace"
-discover_generators()
+
+# discover_generators() (via a transitive import, e.g. polars) resets LC_CTYPE
+# to "C", which silently flips Path.read_text()'s default encoding to ASCII
+# for the rest of THIS PROCESS -- including other tests running later in the
+# same pytest session that read non-ASCII study.yaml/reference files (see the
+# matching fix in scripts/lint-workspace.py's check_generator_contract()).
+# Save + restore around the module-level call so importing this test module
+# has no side effect on the process locale.
+_saved_lc_ctype = locale.setlocale(locale.LC_CTYPE)
+try:
+    discover_generators()
+finally:
+    locale.setlocale(locale.LC_CTYPE, _saved_lc_ctype)
 
 # Documented exceptions to the canonical conditions-form rule:
 NO_MODEL = {"parca"}                                  # upstream artifact producer, no model

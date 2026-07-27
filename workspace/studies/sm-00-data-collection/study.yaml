@@ -1,6 +1,8 @@
 schema_version: 4
 name: sm-00-data-collection
 investigation: surrogate-modeling
+uses_modules:
+  - pbg-torch   # NN surrogate Processes / TransitionDataset used via the runner (no composite reference)
 title: "Surrogate data collection — broad observable transition-dataset from baseline rollouts"
 created: '2026-06-16'
 status: evaluated

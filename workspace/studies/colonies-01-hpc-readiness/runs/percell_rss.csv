@@ -1,0 +1,9 @@
+label,n_cells,rss_mb,numpy_mb,native_mb,note
+import0,0,34.9,0.0,34.9,"after psutil/numpy import, before v2ecoli"
+import1,0,478.1,0.0,478.1,"after v2ecoli import (imports loaded, no sim_data)"
+build_n1,1,484.0,0.0,484.0,"colony built, sim_data loaded once"
+plateau_n1,1,1179.0,9.5,1169.5,steady N=1
+divided_2,2,1185.0,9.5,1175.5,immediately post first division
+plateau_n2,2,1461.5,22.4,1439.1,steady N=2
+divided_4,4,1468.2,22.4,1445.7,immediately post second division
+plateau_n4,4,2050.8,48.4,2002.5,steady N=4

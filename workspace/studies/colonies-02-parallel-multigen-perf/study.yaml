@@ -35,11 +35,19 @@ visualizations:
     address: image:charts/02_footprint_and_leak_by_ncells.svg
     chart: charts/02_footprint_and_leak_by_ncells.svg
     render: python sims/make_memory_figs.py
-    description: 'Left: per-cell footprint (GB/cell). Each colony cell is an independent full
+    description: 'Left: per-cell footprint. CORRECTION (colonies-01 F-03, 2026-07-27):
 
-      baseline whole-cell composite that loads its own sim_data, so RAM scales ~1+
+      WITHIN a process sim_data is @lru_cache-shared by reference, so an extra cell
 
-      GB per cell (bounded, but the dominant cells-per-node limiter). Right: the
+      adds only ~291 MB (current main) / ~450 MB (commit 2f950d9), NOT a fresh ~1 GB
+
+      sim_data — the "~1 GB/cell" reading conflated the per-PROCESS baseline (paid
+
+      once per OS process / Ray actor) with the per-cell increment. The ~1 GB
+
+      applies per ACTOR (each Ray process loads its own sim_data), which is why the
+
+      HPC budget counts 64 actor baselines + per-cell increments. Right: the
 
       per-tick RSS-growth rate (within-plateau slope, MB/tick). Measured on the
 

@@ -94,15 +94,15 @@ TOL, TOL2 = 0.05, 0.10  # within_tol / drift bands
 # extra report-card axes beyond CARD_AXES (cell_mass + growth_rate).
 EXTRA_AXES = [
     {"group": "Physiology", "path": "physiology.dry_mass",
-     "label": "Dry mass", "key": "dry_mass"},
+     "label": "Dry mass", "key": "dry_mass", "plot": "violin"},
     {"group": "Physiology", "path": "physiology.protein_mass",
-     "label": "Protein mass", "key": "protein_mass"},
+     "label": "Protein mass", "key": "protein_mass", "plot": "violin"},
     {"group": "Physiology", "path": "physiology.rna_mass",
-     "label": "RNA mass", "key": "rna_mass"},
+     "label": "RNA mass", "key": "rna_mass", "plot": "violin"},
     {"group": "Ribosomes", "path": "ribosomes.active_ribosome",
-     "label": "Active ribosome", "key": "active_ribosome"},
+     "label": "Active ribosome", "key": "active_ribosome", "plot": "violin"},
     {"group": "Transcription", "path": "transcription.active_RNAP",
-     "label": "Active RNAP", "key": "active_RNAP"},
+     "label": "Active RNAP", "key": "active_RNAP", "plot": "violin"},
 ]
 
 

@@ -18,12 +18,12 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 # See friction-log session-3 #24 and 2026-05-19 item #15. Blanket `.pbg/`
 # covers every dashboard-authored runtime file (composite-runs.db + shm +
 # wal, dashboard/ pid+log+info, runs/ per-run logs, server/, state.json,
-# study-test-results/, default-baseline/, …) so the dashboard's
+# study-test-results/, default-baseline/, ...) so the dashboard's
 # dirty-tree gate stops blocking Install / Workstream Commit on its own
 # writes.
 .venv
 .pbg/
-# schemas under .pbg/schemas/ are source — keep them tracked
+# schemas under .pbg/schemas/ are source - keep them tracked
 !.pbg/schemas/
 **/runs.db
 **/runs.db-shm
@@ -35,7 +35,7 @@ studies/*/sims/parquet-rerun-*/
 studies/*/viz/
 # ParquetEmitter hive-partitioned per-study runs (workspace-default
 # emitter per workspace.yaml.runtime.default_emitter). Each experiment_id
-# is its own hive subtree under studies/<study>/parquet-runs/ —
+# is its own hive subtree under studies/<study>/parquet-runs/ -
 # regenerable by re-running scripts/run_mbp_tracked.py --emitter parquet.
 studies/*/parquet-runs/
 # Ignore reports/ contents (not the dir itself) so specific subtrees can be
@@ -58,21 +58,21 @@ investigations/*/viz/
 reports/assets/*
 !reports/assets/.keep
 
-# Local git-worktree checkouts under .claude/worktrees/ — per-session working
+# Local git-worktree checkouts under .claude/worktrees/ - per-session working
 # trees, never part of the repo.
 .claude/worktrees/
-# Project-level Claude skills — use the pbg-superpowers skills instead of
+# Project-level Claude skills - use the pbg-superpowers skills instead of
 # committing copies here.
 .claude/skills/
 
 # Per-session agent notes (friction logs, overnight summaries, internal
 # observations meant for the pbg-superpowers improvement-cycle agent).
-# These are local-only working notes — not part of the investigation's
+# These are local-only working notes - not part of the investigation's
 # published artefacts.
 docs/superpowers/notes/
 /out
 
-# Report-card render OUTPUTS — regenerated deterministically from the committed
+# Report-card render OUTPUTS - regenerated deterministically from the committed
 # golden fixtures (tests/fixtures/<card>/) + the ecoli-sources pin. The model
 # fixtures are tracked; these rendered artifacts are not (the HTML alone is ~1 MB).
 docs/report_cards/**/report_card.html
@@ -80,6 +80,6 @@ docs/report_cards/**/report_card_verdict.json
 docs/report_cards/**/*_reference.json
 workspace/investigations/*/studies/*/viz/report_card/
 
-# structural-ecoli s01: generated 3D packs/meshes are large — keep local, not committed
+# structural-ecoli s01: generated 3D packs/meshes are large - keep local, not committed
 workspace/studies/s01-birth-and-division/viz/3d/
 .parsimony/

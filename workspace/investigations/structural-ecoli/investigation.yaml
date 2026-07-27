@@ -12,10 +12,40 @@ question: |
 
 description: |
   Reconstructs a 3D structural view of the E. coli cell directly from a live
-  baseline whole-cell run, using the baseline_parsimony composite (baseline +
+  baseline whole-cell run, using the ecoli_structural composite (baseline +
   an EcoliPackStep that packs the molecular state at declared simulation times).
   First study saves two snapshots — an initial state ~10 s in and a pre-division
   state — for the Analysis Tools Parsimony Viewer.
+
+findings: |
+  Confirmed both parts of the question. The whole-cell molecular state CAN be
+  reconstructed as a faithful 3D structural view directly from a live baseline
+  run, packed at declared cell-cycle timepoints and viewed in the Parsimony
+  Viewer. Study s01 packed the top-40 most-abundant species (each relaxed in
+  explicit-water MD, cached) into a gram-negative envelope at two timepoints of
+  a single cell cycle (seed 0, division reached):
+
+    - initial (t ≈ 10 s, post-birth):      287,013 placed instances (~314k molecules)
+    - pre-division (scheduled division):    552,450 placed instances (~519k molecules)
+
+  Reading across the two snapshots:
+    - Molecular content grows ~1.7–1.9× from birth to division — the cell
+      duplicates its contents before dividing.
+    - Composition is conserved: both snapshots draw from the SAME 46-species
+      ingredient set, so growth is a scaling-up of the same machinery (more
+      ribosomes, RNA polymerase, chaperonins, …) rather than a compositional
+      shift.
+    - The envelope elongates ~1.5× along its long axis at constant width
+      (aspect ratio ≈ 1.7 → 2.5) — the expected rod-shaped elongation of an
+      E. coli cell approaching division.
+
+  Method note: this only works because the packing step now runs on the
+  standard build path (v2ecoli #392 fixed a bug that silently dropped the
+  EcoliPackStep whenever the composite was built with core=None — i.e. every
+  real run — so earlier runs produced no packs at all).
+
+  Interactive viewer (Cloudflare R2, reuses the parsimony web viewer):
+  https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html
 
 members:
   - s01-birth-and-division

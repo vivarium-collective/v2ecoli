@@ -16,9 +16,11 @@
   <h1 class="study-title">
     <span class="study-name" id="study-name" data-slug="s01-birth-and-division" title="s01-birth-and-division">s01 birth and division</span>
     
+    <span class="phase-pill phase-simulate" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Simulate</span>
     
     
-    <span class="status-pill status-ran" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">ran</span>
+    
+    <span class="status-pill status-in_progress" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">in_progress</span>
     
     
     
@@ -40,6 +42,62 @@
 
 
 
+
+<style>
+.status-detail-panel{margin:8px 0 14px 0;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+.status-detail-panel h2{margin:0 0 6px 0;font-size:0.82em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:600}
+.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
+.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
+/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
+.gate-status-blocked          { background:#e5e7eb; color:#374151 }
+.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
+.gate-status-passed           { background:#d1fae5; color:#065f46 }
+.gate-status-failed           { background:#fee2e2; color:#991b1b }
+.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
+.status-pill.gate-status{font-weight:500}
+</style>
+<details class="status-detail-panel" aria-label="Multi-axis status detail" open>
+  <summary class="study-fold-summary">Status detail (Pass A multi-axis)</summary>
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Design</span>
+    <span class="status-chip ">complete</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Implementation</span>
+    <span class="status-chip ">complete</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Simulation</span>
+    <span class="status-chip ">not_run</span>
+  </div>
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Evaluation</span>
+    <span class="status-chip ">in_progress</span>
+  </div>
+  
+  
+  
+  
+  
+  <div class="status-detail-row">
+    <span class="status-detail-axis">Expert review</span>
+    <span class="status-chip ">not_requested</span>
+  </div>
+  
+  
+</details>
 
 
 
@@ -335,6 +393,21 @@ can show both declared-time snapshots for this study.
       
 
       
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>6</strong> tests defined —
+            <span class="classification-pill classification-primary">5 primary</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
 
       
 
@@ -351,6 +424,8 @@ can show both declared-time snapshots for this study.
         
         
 
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Simulate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
         
       </div>
 
@@ -513,7 +588,7 @@ can show both declared-time snapshots for this study.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      
+      <strong>Tests applied:</strong> 6 · 
       
     </p>
     
@@ -642,11 +717,236 @@ can show both declared-time snapshots for this study.
   
   
   
-  <ul class="tests-list" id="tests-list" style="margin-top: 12px;">
-    <li class="placeholder">No <code>expected_behavior:</code> entries declared in study.yaml yet.
-      Add some to see them appear here as test rows. Click "Run tests" to discover and
-      execute additional <code>studies/&lt;slug&gt;/tests/test_*.py</code> files alongside
-      the auto-generated assertions.</li>
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-snapshot-scheduling-fires-once-at-declared-times"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="snapshot-scheduling-fires-once-at-declared-times"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">snapshot-scheduling-fires-once-at-declared-times</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>none</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Each declared snapshot (&#34;initial&#34; at a fixed sim-time, &#34;pre-division&#34; at the chromosome&#39;s scheduled division_time) fires exactly once, at/after its target, within epsilon_s, and skips (without marking fired) when &#39;shape&#39; has no volume yet. Reproducible with installed deps (no parsimony binary).</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "unit_test", "ref": "tests/test_pack_step.py"}
+pass_if: {"op": "tests_green"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-selection-layer-conserves-counts"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="selection-layer-conserves-counts"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">selection-layer-conserves-counts</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>none</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">v2ecoli&#39;s counts -&gt; ingredient selection (build.select_ingredients) conserves every selected species&#39; count EXACTLY (0 mismatches), caps auto-expanded monomers at top_n, and is deterministic. Verified via a permissive Ingredient shim so it does not depend on the stale installed pbg_parsimony API. This is the reproducible core of &#34;packed counts conserve the simulation&#39;s counts&#34;.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "selection_conservation", "ref": "v2ecoli.structural.acceptance.check_selection_conservation"}
+pass_if: {"op": "count_mismatches_at_most", "value": 0}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-both-snapshots-written"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="both-snapshots-written"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">both-snapshots-written</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>baseline</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">A real run writes BOTH snapshots&#39; pack.json + meta.json + recipe under &lt;study&gt;/viz/3d, each with a non-empty &#39;placements&#39; array. Skipped (never falsely passed) while the pack toolchain is absent.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "pack_artifacts_present", "ref": "v2ecoli.structural.acceptance.evaluate_pack_gate"}
+pass_if: {"op": "both_present_and_nonempty"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-count-conservation-placed-vs-requested"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="count-conservation-placed-vs-requested"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">count-conservation-placed-vs-requested</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>baseline</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Per snapshot, the number of PLACED instances is within [0.80, 1.0] of the requested (scaled) count summed over ingredients — i.e. the packer drops at most ~20% for steric feasibility and never duplicates. Band is provisional; calibrate against the first real pack.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "placed_over_requested", "ref": "v2ecoli.structural.acceptance.evaluate_pack_gate"}
+pass_if: {"high": 1.0, "low": 0.8, "op": "in_range"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-no-overpack"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="no-overpack"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">no-overpack</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>baseline</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Placed instances never exceed requested (placed/requested &lt;= 1.0) — a direct &#34;no &gt;100% packing / no gross steric overlap / no duplication&#34; physical-plausibility floor.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "placed_at_most_requested", "ref": "v2ecoli.structural.acceptance.evaluate_pack_gate"}
+pass_if: {"op": "at_most", "value": 1.0}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-growth-direction-birth-to-division"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="growth-direction-birth-to-division"
+        data-classification="secondary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-secondary">secondary</span>
+        <strong style="font-size: 0.9em;">growth-direction-birth-to-division</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>baseline</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Pre-division has MORE placed instances than birth, the SAME ingredient-id set (conserved composition — growth is scaling-up, not a compositional shift), and a MORE elongated envelope (capsule aspect ratio increases). Encodes the study&#39;s biological reading as a testable check.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "growth_direction", "ref": "v2ecoli.structural.acceptance.evaluate_pack_gate"}
+pass_if: {"op": "predivision_gt_initial_same_composition_more_elongated"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
   </ul>
   
 </section>
@@ -733,15 +1033,39 @@ can show both declared-time snapshots for this study.
     
     <div class="decide-section" style="margin-top:18px">
       <h3 class="overview-label">Conclusion</h3>
-      <pre style="background:#f8fafc;padding:12px;border-left:3px solid #94a3b8;border-radius:3px;white-space:pre-wrap;font-family:inherit;font-size:0.9em;line-height:1.5;margin:0">Ran end-to-end (seed 0, relax=true, division reached). Both declared-time
-snapshots packed and load in the Parsimony Viewer:
+      <pre style="background:#f8fafc;padding:12px;border-left:3px solid #94a3b8;border-radius:3px;white-space:pre-wrap;font-family:inherit;font-size:0.9em;line-height:1.5;margin:0">RECONCILED 2026-07-27 (hardening). The pack pipeline previously ran end-to-end
+(seed 0, relax=true, division reached) on a newer toolchain and reportedly
+produced two loadable snapshots:
   - initial (t ≈ 10 s):    287,013 placed instances (~314k molecules, 46 species)
   - pre-division:          552,450 placed instances (~519k molecules, 46 species)
-Molecular content grows ~1.7–1.9× birth → division with conserved composition
-(same 46 species), and the envelope elongates ~1.5× at constant width — the
-rod-shaped growth expected of a dividing E. coli cell. Run artifacts (the 90–
-180 MB packs, runs.db) are regenerated per run and not committed; re-run the
-baseline condition to reproduce.
+with content growing ~1.7-1.9x birth -&gt; division at conserved composition and a
+~1.5x envelope elongation — the rod-shaped growth expected of a dividing cell.
+
+HOWEVER these numbers are NOT currently reproducible or verifiable in the
+canonical environment, and were NOT re-derived by this hardening:
+  * The ~90-180 MB pack artifacts were never committed — nothing on disk to
+    check the numbers against (verified: workspace/studies/s01-birth-and-division/
+    has only study.yaml; no viz/3d/).
+  * The 3D pack cannot be produced here: pbg-parsimony is pinned to a moving
+    `branch = &#34;main&#34;` and the installed editable checkout is stale — it lacks the
+    `Ingredient(compartment=...)`, `build_pack(envelope=...)`, and multi-chromosome
+    `Chromosome(...)` API that v2ecoli/structural/build.py requires (4 structural
+    tests RED on canonical main for this reason) — and the `parsimony` mesh/pack
+    binary is absent from the machine entirely.
+
+What IS verified in the canonical env (green today, no parsimony binary needed):
+  * Snapshot scheduling: both declared snapshots fire exactly once at their
+    declared times / at division_time (tests/test_pack_step.py — green).
+  * Count conservation at the selection layer: v2ecoli&#39;s counts -&gt; ingredient
+    selection conserves every selected species&#39; count exactly, caps auto-
+    expansion at top_n, and is deterministic
+    (tests/structural/test_s01_acceptance_gate.py::test_selection_layer... — green).
+
+The end-to-end pack gate (both snapshots written, placed-vs-requested
+conservation, no over-pack, birth-&gt;division growth direction) is now DEFINED and
+implemented (v2ecoli/structural/acceptance.py + the artifact test) but SKIPS
+(not falsely passes) until a real pack is produced with a pinned toolchain.
+See decisions_needed / followups on the investigation to unblock reproduction.
 </pre>
     </div>
     

@@ -1,0 +1,34 @@
+# Known-accepted L0–L5 audit hard failures (the audit gate's allowlist).
+#
+# Format: one "slug:check-name" per line; "#" starts a comment; blanks ignored.
+# The `audit-gate` CI job (viva_superpowers.study_audit --gate --allowlist)
+# SUPPRESSES these hard failures but STILL FAILS on any entry here that no
+# longer occurs — so this list may only SHRINK (a ratchet). When a study is
+# fixed, its line must be deleted or CI goes red.
+#
+# Each entry is real debt, tracked so a hard gate can enforce "no NEW
+# violations" while these are worked down. Do NOT add new lines to silence a
+# fresh failure — fix the study instead.
+
+# --- params: undeclared generator params (4) ---
+# 3 of these were explicitly accepted by #393's _PARAM_CONTRACT_EXCEPTIONS
+# (study owners' call: swap / mode / features are legitimate for these studies).
+metabolism_redux:params-are-generator-accepted           # `swap` (accepted #393)
+showcase-1-parca:params-are-generator-accepted           # `mode` (accepted #393)
+mbp-04-multigeneration-runs:params-are-generator-accepted # `features` (accepted #393)
+param-uq-04-deep-params:params-are-generator-accepted     # `transcription.rnap_active_fraction` (owner to resolve)
+
+# --- schema: multi-baseline needs a human decision (1) ---
+mbp-07-millard-kinetic-metabolism:canonical-model-schema  # multi_baseline_needs_human
+
+# --- composites: WIP investigations referencing absent packages (6) ---
+# The pdmp investigation is WIP (de-slopped; no study met gate). Its composites
+# come from packages not installed in CI (v2ecoli_pdmp.*, pbg_copasi) or that
+# do not yet exist (v2ecoli.composites.diagnostic). Remove each line when the
+# study's composite resolves.
+pdmp-00-characterization:composite-resolves
+pdmp-01-metabolism-ode:composite-resolves
+pdmp-02-jump-processes:composite-resolves
+pdmp-03-inference:composite-resolves
+pdmp-04-compilation:composite-resolves
+pdmp-05-causal-discovery:composite-resolves

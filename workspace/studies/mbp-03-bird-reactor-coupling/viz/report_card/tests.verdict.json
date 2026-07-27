@@ -2,24 +2,24 @@
  "schema": "report_card_verdict/v1",
  "model_ref": "v2ecoli",
  "reference_model": "behavioral spec",
- "generated": "",
- "overall": "ungraded",
+ "generated": "2026-07-27",
+ "overall": "pass",
  "groups": {
   "pytest": {
-   "verdict": "ungraded",
+   "verdict": "pass",
    "axes": [
     {
      "id": "tests.pytest_auto_discover",
      "label": "pytest auto-discover",
-     "verdict": "ungraded",
-     "value": null,
-     "meter": "1 pytest target(s); no results recorded yet",
+     "verdict": "pass",
+     "value": "6 passed, 1 skipped",
+     "meter": "tests/test_mbp_03_bird_reactor_coupling.py — 6 passed, 1 skipped (CO2-efflux leg: documented FBA-model limitation, not a failure)",
      "detail": {
-      "text": ""
+      "text": "Executed 2026-07-27 against pbg-bioreactordesign origin/main (a360f92, incl. O2-saturation-sign fix PR #3). Coupled cstar_o2=6.58 mg/L @310.15 K (was biased ~10.2); DO drops below saturation under cell load (2nd-half mean 6.24 mg/L); no-cells DO -> Henry saturation; higher kLa raises steady-state DO; one generation completes without divergence; O2 mass balance closes within +-5%. Requires pbg_bioreactordesign on PYTHONPATH (not in shared venv) + bigraph_schema>=1.4.3 shadow."
      }
     }
    ]
   }
  },
- "title": "mbp-03-bird-reactor-coupling \u2014 default tests"
+ "title": "mbp-03-bird-reactor-coupling — default tests"
 }

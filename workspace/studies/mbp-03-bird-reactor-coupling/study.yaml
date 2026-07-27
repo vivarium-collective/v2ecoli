@@ -84,12 +84,20 @@ purpose:
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
 pipeline_gate:
   gate_status_summary: |
-    Blocked on mbp-01 (env hook so BiRD's DO can drive v2ecoli), mbp-02
-    (population aggregator so v2ecoli's biomass can drive BiRD), AND the
-    upstream `pbg-bioreactor-transport-fork` PR landing in
-    pbg-bioreactordesign (Option-B decision per chris_feedback_2026_05_26
-    §5; Eran's choice 2026-05-26). The keystone study: this is where
-    v2ecoli ↔ reactor coupling becomes real.
+    UNBLOCKED and PASSING (2026-07-27). All three prerequisites are met:
+    mbp-01 (env hook) and mbp-02 (population aggregator) are build-complete,
+    and the upstream `pbg-bioreactor-transport-fork` merged to
+    pbg-bioreactordesign main (f40f82f, PR #1; Option-B per
+    chris_feedback_2026_05_26 §5). The keystone coupling now runs green: the
+    7 behavior tests in tests/test_mbp_03_bird_reactor_coupling.py were
+    executed 2026-07-27 against pbg-bioreactordesign origin/main (a360f92,
+    which includes the O2-saturation-sign fix PR #3) → 6 passed, 1 skipped
+    (the CO2-efflux leg, a documented FBA-model limitation, not a wiring
+    failure). This is where v2ecoli ↔ reactor coupling became real.
+    NOTE: reproducing these runs needs pbg_bioreactordesign importable — it
+    is NOT in the shared v2ecoli venv; it was shadowed on PYTHONPATH from a
+    checkout of pbg-bioreactordesign origin/main (see investigation
+    decisions_needed: add-bioreactor-dep-to-env).
   proceed_condition: |
     Coupling direction tests pass (DO drops with cells, dissolved CO2
     rises with cells, higher kLa lifts DO and lowers dissolved CO2);
@@ -391,11 +399,10 @@ required_knowledge:
       asked_to: unassigned
       status: open
     - id: bird-o2-saturation-temperature-sign-bug
-      question: 'KNOWN UPSTREAM DIVERGENCE (pbg-bioreactordesign#2), NOT fixed here. transport.saturation_concentration applies the Henry temperature correction with the WRONG SIGN: T_factor = exp(-DH*(1/T - 1/298.15)) makes O2 solubility INCREASE with temperature, but O2 solubility physically DECREASES with temperature. Exactly masked at 298.15 K (T_factor == 1) but biases saturation at the mbp-03 310.15 K target: cstar_o2 is reported ~10.24 mg/L where the correct 37 C value is ~6.7 mg/L (should be BELOW the 25 C value of 8.21, not above). All mbp-03 dissolved-O2 magnitudes inherit this bias; the coupling-DIRECTION tests (DO drops with cells, higher kLa raises DO, O2 mass-balance closure) are unaffected because they compare against the same (biased) cstar. Fix belongs upstream in pbg-bioreactordesign.'
-      blocks:
-        - absolute dissolved-O2 calibration at 310 K
-      asked_to: 'pbg-bioreactordesign maintainer (Chris) — file/confirm issue #2'
-      status: open
+      question: 'RESOLVED UPSTREAM 2026-06-15 (pbg-bioreactordesign PR #3, commit a06709b; closes issue #2). transport.saturation_concentration HAD applied the Henry temperature correction with the WRONG SIGN: T_factor = exp(-DH*(1/T - 1/298.15)) made O2 solubility INCREASE with temperature, but O2 solubility physically DECREASES with temperature. Masked at 298.15 K (T_factor == 1) but biased saturation at the mbp-03 310.15 K target: cstar_o2 was reported ~10.2 mg/L where the correct 37 C value is ~6.6 mg/L (below the 25 C value of ~8.2, not above). The fix flips the sign to T_factor = exp(+DH*(1/T - 1/298.15)), consistent with henry_constant() in the same module, and adds a regression test (test_o2_saturation_decreases_with_temperature) asserting c*(O2,310K) < c*(O2,298K) and landing in the 6.5-7.5 mg/L literature band. VERIFIED in mbp-03 2026-07-27 against pbg-bioreactordesign origin/main (a360f92): saturation_concentration(O2,310.15K)=6.55 mg/L standalone, and the full coupled composite reports cstar_o2=6.58 mg/L at 310.15 K (was the biased ~10.2). All mbp-03 dissolved-O2 magnitudes now inherit the corrected calibration; the coupling-DIRECTION tests were already sign-agnostic (they compare against the same cstar) and remain green.'
+      blocks: []
+      asked_to: 'pbg-bioreactordesign maintainer (Chris) — DONE, merged PR #3'
+      status: resolved
     - id: reactor-geometry-for-beulig
       question: |
         bubble-column is the mbp-03 default; limitations note "stirred-tank
@@ -550,10 +557,23 @@ visualizations:
     address: image:charts/do-vs-saturation-coupled.png
     status: planned
     kind: mockup
-    render: 'PLANNED (mockup; mbp-03 in Design, BLOCKED on the upstream pbg-bioreactor-transport-fork): dissolved O2 vs Henry saturation over a coupled run, expected to drop below saturation as cells consume O2 and rise with kLa.'
+    render: 'PLANNED (mockup): dissolved O2 vs Henry saturation over a coupled run. The behavior tests confirm the expected shape empirically (DO drops below saturation as cells consume O2, cstar_o2=6.58 mg/L at 310.15 K, DO 2nd-half mean 6.24 mg/L); the static chart is the remaining render task (see followups).'
 runtime:
-  status: not_run
-  note: No runs yet. mbp-03 cannot enter Build until the upstream pbg-bioreactor-transport-fork (BiRDTransportProcess) lands (Option-B fork, chris_feedback_2026_05_26 §5).
+  status: ran
+  note: |
+    Behavior tests executed 2026-07-27 (in-process WCM builds via the
+    reactor_bird_coupled composite; no emitted parquet hive — these are
+    pytest behavior tests, hence runs:[] stays empty). Result: 6 passed,
+    1 skipped (CO2-efflux leg, documented FBA-model limitation).
+    Reproduce:
+      PYTHONPATH=<worktree>/.deps:<worktree>:<pbg-bioreactordesign origin/main> \
+      <v2ecoli venv python> -m pytest tests/test_mbp_03_bird_reactor_coupling.py
+    Requires pbg_bioreactordesign importable — NOT in the shared v2ecoli
+    venv; shadowed on PYTHONPATH from pbg-bioreactordesign origin/main
+    (a360f92, includes O2-sign fix PR #3) plus bigraph_schema>=1.4.3
+    shadowed in git-ignored .deps/ (shared venv ships an older
+    bigraph_schema without the .contract module the worktree needs).
+    See investigation decisions_needed: add-bioreactor-dep-to-env.
 report:
   headline: Couple v2ecoli (time-varying env + population aggregator) to pbg-bioreactordesign BiRDTransportProcess via a thin ReactorCellCoupler.
   status: design-blocked-on-upstream
@@ -589,9 +609,25 @@ design_pivot_required:
   required: true
   note: ADOPTED Option B (fork BiRDTransportProcess, no internal biomass ODE) over the disable-flag approach (chris_feedback_2026_05_26 §5; Eran 2026-05-26). Makes the upstream pbg-bioreactor-transport-fork a HARD prerequisite for Build.
 conclusion_verdicts:
-  - verdict: PENDING
-    statement: Coupling not yet built or run — blocked on mbp-01/mbp-02 impl + the upstream pbg-bioreactor-transport-fork PR.
-    evidence: 'pipeline_gate.prerequisites includes pbg-bioreactor-transport-fork (upstream); runs: [].'
+  - verdict: SUPPORTED
+    statement: |
+      Keystone coupling built and demonstrated green. v2ecoli (time-varying
+      env + population aggregator) couples to pbg-bioreactordesign's
+      BiRDTransportProcess via the BiRDTransportHours time-base adapter and
+      the ReactorCellCoupler Step, producing a physically consistent 0D
+      well-mixed coupled trajectory: DO rises to Henry saturation with no
+      cells, drops below saturation under cell O2 demand, higher kLa raises
+      steady-state DO, one generation completes without divergence, and the
+      O2 mass balance closes within ±5%. Absolute DO calibration is now
+      correct after the upstream O2-saturation-sign fix (PR #3): cstar_o2 =
+      6.58 mg/L at 310.15 K (was the biased ~10.2). The CO2 leg is wired but
+      unexercised in M9-minimal FBA (zero CO2 efflux) — deferred, not failed.
+    evidence: |
+      tests/test_mbp_03_bird_reactor_coupling.py executed 2026-07-27 against
+      pbg-bioreactordesign origin/main (a360f92, incl. PR #3): 6 passed, 1
+      skipped. Measured coupled cstar_o2=6.58, DO 2nd-half mean=6.24 mg/L,
+      cell_count=2e10. See runtime.note for the reproduce command + the env
+      shadow required (pbg_bioreactordesign not in shared venv).
 # >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
 embed_visualizations:
   - name: "Reactor-cell coupling — dissolved O2 falls under cell load (interactive)"

@@ -69,7 +69,7 @@ def main():
 
     print(f"Building kFBA baseline composite...")
     t0 = time.perf_counter()
-    c = build_composite("baseline")
+    c = build_composite("ecoli_baseline")
     print(f"  build: {time.perf_counter() - t0:.1f}s", flush=True)
 
     cell = c.state["agents"]["0"]

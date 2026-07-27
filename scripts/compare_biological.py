@@ -25,7 +25,7 @@ def _mass(agent_listeners) -> dict:
 def run(steps: int, cache: str):
     from process_bigraph import Composite
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline, load_cache_bundle
+    from v2ecoli.composites.ecoli_baseline import baseline, load_cache_bundle
     from v2ecoli.composites.biological import biological
 
     bundle = load_cache_bundle(cache)

@@ -19,7 +19,7 @@ import numpy as np
 
 import v2ecoli
 from v2ecoli.core import load_cache_bundle
-from v2ecoli.composites.baseline import enable_features
+from v2ecoli.composites.ecoli_baseline import enable_features
 from v2ecoli.library.schema import bulk_name_to_idx
 
 STUDY_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -48,7 +48,7 @@ def run(seconds, sample, seed, cache_dir):
     tu_III = set(rna_ids.index(r) for r in cfg["flg_classIII_rnaids"])
 
     enable_features("flagella_regulation")
-    comp = v2ecoli.build_composite("baseline", cache_dir=cache_dir, seed=seed)
+    comp = v2ecoli.build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
     enable_features()
 
     bulk = _arr(comp.state["agents"]["0"]["bulk"])

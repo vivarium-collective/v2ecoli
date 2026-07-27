@@ -21,7 +21,7 @@ import numpy as np
 
 from v2ecoli import build_composite
 from v2ecoli.core import build_core, load_cache_bundle
-from v2ecoli.composites.baseline import baseline, seed_mass_listener, enable_features
+from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener, enable_features
 from v2ecoli.composites._helpers import set_null_emitter_override
 from v2ecoli.library.division import divide_cell
 from v2ecoli.library.quantity_helpers import fg_magnitude
@@ -132,7 +132,7 @@ def run_multigen(features, n_gens, sample, max_dur, seed, cache_dir):
     t_cum = 0.0
 
     enable_features(*features)
-    comp = build_composite("baseline", cache_dir=cache_dir, seed=seed)
+    comp = build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
     enable_features()
     dur, divided, last_cell = _run_gen(comp, tu_II, tu_III, sample, max_dur, t_cum, 1, rows)
     t_cum += dur

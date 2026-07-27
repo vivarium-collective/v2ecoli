@@ -33,7 +33,7 @@ Sign convention: ``environment.exchange[name]`` is the cumulative count added to
 the *environment* (FBA convention: secretion positive, uptake negative), so the
 per-tick mass entering the *cell* is ``−Σ Δcount·mass``.
 
-STATUS — opt-in (``v2ecoli.composites.baseline.enable_features('mass_conservation')``;
+STATUS — opt-in (``v2ecoli.composites.ecoli_baseline.enable_features('mass_conservation')``;
 OFF by default). MEASURED (baseline seed 0, 60 ticks, 2026-05-30): with the
 per-tick diff + full per-molecule masses, the **net boundary exchange
 (0.22 fg/tick) matches metabolism's own bulk addition (0.20 fg/tick)** and

@@ -1,4 +1,4 @@
-"""Unit tests for v2ecoli.composites.baseline."""
+"""Unit tests for v2ecoli.composites.ecoli_baseline."""
 
 import os
 
@@ -19,7 +19,7 @@ def test_baseline_function_signature():
     transcript_initiation_mode, polypeptide_initiation_mode, config_overrides,
     feature toggles, emitter, bundle)."""
     import inspect
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     sig = inspect.signature(baseline)
     assert set(sig.parameters) == {
         "core", "seed", "cache_dir", "transcript_initiation_mode",
@@ -37,7 +37,7 @@ def test_baseline_returns_a_document():
         pytest.skip("cache dir 'out/cache' not present; "
                     "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     doc = baseline(core=core, seed=0, cache_dir="out/cache")
     assert isinstance(doc, dict)

@@ -179,7 +179,7 @@ _EXTRA_FEATURES: list = []
 
 def enable_features(*names: str) -> None:
     """Enable opt-in feature modules (e.g. 'mass_conservation') for the next
-    baseline build. Call before ``build_composite('baseline', ...)``; pass no
+    baseline build. Call before ``build_composite("ecoli_baseline", ...)``; pass no
     args to clear."""
     global _EXTRA_FEATURES
     _EXTRA_FEATURES = list(names)

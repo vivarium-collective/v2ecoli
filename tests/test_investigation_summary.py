@@ -208,7 +208,7 @@ def test_aggregate_config_json_is_real_baseline_config():
 
     by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
     cfg = by["acetate"]["config_json"]
-    assert cfg["composite"] == "v2ecoli.composites.baseline.baseline"
+    assert cfg["composite"] == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
     assert cfg["params"] == {"condition": "acetate"}
     # comparison run settings folded in
     assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
@@ -234,7 +234,7 @@ def test_config_json_replaces_config_card():
     html = render(aggregate(SLUG, WS))
     # the actual baseline config JSON is shown (HTML-escaped inside <pre>)...
     assert "config (JSON)" in html
-    assert "v2ecoli.composites.baseline.baseline" in html
+    assert "v2ecoli.composites.ecoli_baseline.ecoli_baseline" in html
     assert "&quot;composite&quot;" in html  # JSON keys escaped, not raw-injected
     # ...and the config *report card* is no longer embedded as a card block
     assert "config card" not in html

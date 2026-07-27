@@ -57,7 +57,7 @@ def test_composite_runs_at_positive_realtime_rate(sim_data_cache):
     """
     from v2ecoli import build_composite
 
-    composite = build_composite("baseline", cache_dir='out/cache', seed=0)
+    composite = build_composite("ecoli_baseline", cache_dir='out/cache', seed=0)
     composite.run(1)  # warm-up — first tick builds per-process caches
 
     t0 = time.time()

@@ -25,7 +25,7 @@ gate_status: blocked                  # F-04: dominant colony leak is C-level/na
 
 baseline:
 - name: single-ecoliwcm-long
-  composite: v2ecoli.composites.baseline.baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
     seed: 0
     cache_dir: out/cache

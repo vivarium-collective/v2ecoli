@@ -16,7 +16,7 @@
 
 - Each study's cards are written to `studies/<study>/viz/report_card/<card>.html` + `<card>.verdict.json` (`{schema, overall, groups}`, `overall` ∈ within_tol/drift/mismatch/ungraded).
 - A study's `tests:` lists one `report_card` module per assigned card: `{name: "<card>-vs-vecoli", kind: report_card, card: <card>, classification: primary}`. The graded cards (standard/statistical) keep a `measure` so the gate still aggregates; config/parca are informational (no measure).
-- Studies keep a real `baseline: [{name: v2ecoli-baseline, composite: v2ecoli.composites.baseline.baseline, params: {condition: <cond>}}]` and the canonical run with `outcomes` (the pre-rendered gate).
+- Studies keep a real `baseline: [{name: v2ecoli-baseline, composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline, params: {condition: <cond>}}]` and the canonical run with `outcomes` (the pre-rendered gate).
 - `report_card_axis` gate verdict mapping unchanged (within_tol→PASS, drift→PARTIAL, mismatch→FAIL).
 - All reads/writes `encoding="utf-8"`. Investigation name `v2ecoli-vecoli-comparison`. Never auto-merge.
 

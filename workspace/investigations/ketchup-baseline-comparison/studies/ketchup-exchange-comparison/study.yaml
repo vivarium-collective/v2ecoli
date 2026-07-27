@@ -122,7 +122,7 @@ conditions:
       seed: 0
       solver_options: ''   # vendored IPOPT default (the old v2e-ketchup-compare worktree was removed)
   - name: v2ecoli-baseline
-    composite: v2ecoli.composites.baseline.baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       cache_dir: out/cache
   - name: fba-bridge
@@ -304,13 +304,13 @@ runs:
   emitter:
     kind: unknown
   params: '{"model_name": "FDH", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
-- name: v2ecoli.composites.baseline.baseline__1781294008__810680
+- name: v2ecoli.composites.ecoli_baseline.baseline__1781294008__810680
   status: completed
   timestamp: 1781294020.363904
   emitter:
     kind: unknown
   params: '{"cache_dir": "out/cache"}'
-- name: v2ecoli.composites.baseline.baseline__1781292628__c9cf06
+- name: v2ecoli.composites.ecoli_baseline.baseline__1781292628__c9cf06
   status: failed
   timestamp: 1781292633.446089
   emitter:

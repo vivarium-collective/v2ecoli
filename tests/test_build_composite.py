@@ -27,7 +27,7 @@ def test_build_composite_baseline_returns_composite():
                     "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli import build_composite
     from process_bigraph.composite import Composite
-    comp = build_composite("baseline", seed=0, cache_dir="out/cache")
+    comp = build_composite("ecoli_baseline", seed=0, cache_dir="out/cache")
     assert isinstance(comp, Composite)
 
 
@@ -52,5 +52,5 @@ def test_build_composite_accepts_core_override():
     from v2ecoli import build_composite
     from v2ecoli.core import build_core
     core = build_core()
-    comp = build_composite("baseline", seed=0, cache_dir="out/cache", core=core)
+    comp = build_composite("ecoli_baseline", seed=0, cache_dir="out/cache", core=core)
     assert comp.core is core

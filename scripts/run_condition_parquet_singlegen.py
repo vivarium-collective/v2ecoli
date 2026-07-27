@@ -63,7 +63,7 @@ def main() -> None:
         generation=1,
     ):
         t_build = time.time()
-        comp = build_composite("baseline", cache_dir=cache_dir)
+        comp = build_composite("ecoli_baseline", cache_dir=cache_dir)
         cell0 = comp.state["agents"]["0"]
         dry0 = float(cell0["listeners"]["mass"].get("dry_mass", 0))
         print(f"  composite built in {time.time()-t_build:.1f}s — "

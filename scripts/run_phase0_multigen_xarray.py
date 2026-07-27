@@ -88,7 +88,7 @@ def run_one(seed: int, max_steps: int, max_generations: int, chunk: int) -> dict
         shutil.rmtree(store_path)
 
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
     # Scalar-only view (no vector coord arrays). run_multigen_xarray warms the
     # composite + filters the view to existing leaves itself.
     view = view_from_emit_paths(EMIT_PATHS, include_vectors=False)

@@ -54,8 +54,8 @@ from typing import Any
 from pbg_superpowers.composite_generator import composite_generator
 
 from v2ecoli.composites._helpers import _make_instance, make_edge
-from v2ecoli.composites.baseline_population import baseline_population
-from v2ecoli.composites.baseline_time_varying_env import (
+from v2ecoli.composites.ecoli_population import baseline_population
+from v2ecoli.composites.ecoli_time_varying_env import (
     ENVIRONMENT_DRIVER_STEP_NAME,
     ENVIRONMENT_MIRROR_STEP_NAME,
     _empty_environment_store,

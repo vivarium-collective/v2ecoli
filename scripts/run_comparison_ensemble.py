@@ -205,7 +205,7 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     kwargs: dict = {"cache_dir": eff_cache, "seed": seed, "emitter": "null"}
     if overrides:
         kwargs.update(overrides)
-    comp = build_composite("baseline", **kwargs)
+    comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
     # on the media the condition requires. Anything else silently mis-models the
@@ -446,13 +446,13 @@ def _write_json_sidecar(path: str, obj: dict) -> None:
 # construction) rather than from two independent default sets. Today the gap is
 # a NAMESPACE one: ``translate_vecoli_config`` yields a vEcoli-WORKFLOW-shaped
 # dict (lineage_seed, single_daughters, max_duration_per_gen, condition, …),
-# but ``build_composite("baseline")`` accepts a DISJOINT set of generator
+# but ``build_composite("ecoli_baseline")`` accepts a DISJOINT set of generator
 # parameters (seed, cache_dir, transcript/polypeptide_initiation_mode,
 # config_overrides, the feature toggles, emitter, injected_processes). The two
 # share almost no key names, so a straight pass-through maps very little.
 #
 # What is default-vs-translatable today:
-#   * DEFAULT-only (set inside build_composite("baseline"), NOT from vEcoli cfg):
+#   * DEFAULT-only (set inside build_composite("ecoli_baseline"), NOT from vEcoli cfg):
 #       process set + topology, time_step (1 s), the feature toggles
 #       (ppgpp_regulation on, trna/supercoiling/mass off), the initiation modes,
 #       and emitter — these come from the generator defaults.

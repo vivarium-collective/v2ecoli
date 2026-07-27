@@ -113,7 +113,7 @@ def run_one(seed: int, n_steps: int, chunk: int) -> dict:
         shutil.rmtree(store_path)
 
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=seed)
     view = view_from_emit_paths(EMIT_PATHS, include_vectors=False)
     metadata_base = {
         "experiment_id": f"phase0-xarray-seed{seed:02d}",

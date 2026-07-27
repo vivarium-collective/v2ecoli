@@ -86,7 +86,7 @@ save_cache(sd_path, 'out/cache')
 
 ```python
 from v2ecoli import build_composite
-composite = build_composite("baseline", cache_dir='out/cache')
+composite = build_composite("ecoli_baseline", cache_dir='out/cache')
 composite.run(10)  # 10 timesteps, ~30s
 print('OK')
 ```

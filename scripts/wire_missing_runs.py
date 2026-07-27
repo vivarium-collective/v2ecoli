@@ -46,7 +46,7 @@ ADDITIONS = {
                 "name": "phase0-profile-instrumented-baseline",
                 "kind": "single",
                 "status": "planned",
-                "base_model": "v2ecoli.composites.baseline",
+                "base_model": "v2ecoli.composites.ecoli_baseline",
                 "duration_steps": 1000,
                 "seeds": [0],
                 "metrics": ["per_step_wall_ms_by_bucket", "tracemalloc_peak"],

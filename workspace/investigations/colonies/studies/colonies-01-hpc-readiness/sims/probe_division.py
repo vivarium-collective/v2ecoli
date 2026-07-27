@@ -65,7 +65,7 @@ def main() -> int:
     args = parser.parse_args()
 
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     from process_bigraph import Composite
     import v2ecoli.types  # noqa: F401  -- registers dispatch
 

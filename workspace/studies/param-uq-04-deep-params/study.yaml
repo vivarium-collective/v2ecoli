@@ -73,7 +73,7 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   variants:
@@ -206,7 +206,7 @@ literature_anchors:
   cites: [macklin2020]
 
 model_change:
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   new_processes: []
   new_parameters: []
   modified_processes: []
@@ -255,7 +255,7 @@ simulation_set:
 - name: uq-deep-params-parca-rebuild
   kind: sensitivity_analysis
   status: planned
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 360
   details: "(planned) n=30+10 PCRV over 6 deep sim_data params; each sample requires a fresh ParCa cache rebuild (~2.5 min). Blocked on the pbg-uq sim_data injection adapter."
   metrics:

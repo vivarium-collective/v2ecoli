@@ -238,7 +238,7 @@ simulation_set:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
       cache_dir: out/cache-showcase

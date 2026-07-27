@@ -76,7 +76,7 @@ def test_materialize_declares_report_card_test_modules(tmp_path):
     assert "measure" not in tests["standard-vs-vecoli"]          # single-seed: illustrative only (gold standard)
     assert tests["parca-vs-vecoli"]["measure"]["kind"] == "report_card_axis"   # parca gates t=0
     assert "behavior_tests" not in data                          # replaced by tests
-    assert data["conditions"]["baseline"]["composite"] == "v2ecoli.composites.baseline.baseline"
+    assert data["conditions"]["baseline"]["composite"] == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
 
 
 def _axis(label, verdict, median_rel):

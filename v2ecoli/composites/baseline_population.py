@@ -25,7 +25,7 @@ from typing import Any
 from pbg_superpowers.composite_generator import composite_generator
 
 from v2ecoli.composites._helpers import _make_instance, make_edge
-from v2ecoli.composites.baseline import baseline as _baseline_builder
+from v2ecoli.composites.ecoli_baseline import baseline as _baseline_builder
 from v2ecoli.steps.population_aggregator import (
     DEFAULT_CELLS_PER_AGENT,
     DEFAULT_OD_TO_GDW,
@@ -155,7 +155,7 @@ def baseline_population(
     """Build the baseline_population document.
 
     Returns a process-bigraph document dict with the same shape as
-    ``v2ecoli.composites.baseline.baseline`` plus an added top-level
+    ``v2ecoli.composites.ecoli_baseline.ecoli_baseline`` plus an added top-level
     ``population`` store and ``population_aggregator`` Step.
     """
     document = _baseline_builder(core, seed=seed, cache_dir=cache_dir)

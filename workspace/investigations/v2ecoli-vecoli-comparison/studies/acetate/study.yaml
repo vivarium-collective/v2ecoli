@@ -49,7 +49,7 @@ tests:
     group: statistical
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       condition: acetate
 depends_on:

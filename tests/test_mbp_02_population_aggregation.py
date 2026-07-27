@@ -23,8 +23,8 @@ import pytest
 
 from process_bigraph import Composite
 
-from v2ecoli.composites.baseline import baseline
-from v2ecoli.composites.baseline_population import baseline_population
+from v2ecoli.composites.ecoli_baseline import baseline
+from v2ecoli.composites.ecoli_population import baseline_population
 from v2ecoli.core import build_core
 from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.steps.population_aggregator import FG_PER_GRAM

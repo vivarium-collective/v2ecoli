@@ -81,7 +81,7 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
   variants:
@@ -206,7 +206,7 @@ simulation_set:
 - name: train-eval-compact
   kind: surrogate_training
   status: ran
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   duration_steps: 0
   seeds: 0
   details: "Uses sm-00 dataset; trains compact surrogate; evaluates fidelity + speed."

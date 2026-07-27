@@ -27,7 +27,7 @@ from v2ecoli.composites import (  # noqa: F401
 # --- Clean-id aliases so the dashboard resolves the studies' short refs ------
 # ``@composite_generator(name="baseline")`` in module ``v2ecoli.composites.
 # baseline`` ids the generator as ``{__module__}.{name}`` == the DOUBLED
-# ``v2ecoli.composites.baseline.baseline`` (same for ``parca``). That id's
+# ``v2ecoli.composites.ecoli_baseline.ecoli_baseline`` (same for ``parca``). That id's
 # after-``.composites.`` segment is ``baseline.baseline``, so the dashboard's
 # trailing-segment resolver never matches the studies' short ``baseline`` ref
 # and the study UI shows "composite not found in registry: baseline".

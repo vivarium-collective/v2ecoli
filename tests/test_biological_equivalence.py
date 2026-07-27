@@ -61,7 +61,7 @@ def _data_pairs(baseline_agent, bio_agent):
 def test_biological_is_bit_identical_to_baseline():
     from process_bigraph import Composite
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline, load_cache_bundle
+    from v2ecoli.composites.ecoli_baseline import baseline, load_cache_bundle
     from v2ecoli.composites.biological import biological
     from _state_equal import deep_equal  # tests/ is on sys.path under pytest
 

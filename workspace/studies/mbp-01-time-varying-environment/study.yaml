@@ -21,7 +21,7 @@ question: 'Can v2ecoli''s `media_update` / `exchange_data` Layer-1 Steps consume
 status: build-complete
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline_time_varying_env
+    composite: v2ecoli.composites.ecoli_time_varying_env
     params:
       seed: 0
       cache_dir: out/cache
@@ -51,7 +51,7 @@ conditions:
   model_settings: []
 baseline:
 - name: time-varying-env-baseline
-  composite: v2ecoli.composites.baseline_time_varying_env
+  composite: v2ecoli.composites.ecoli_time_varying_env
   params:
     seed: 0
     cache_dir: out/cache
@@ -127,7 +127,7 @@ pipeline_gate:
     '
 simulation_set:
 - name: zero-substrate-clamp
-  base_model: v2ecoli.composites.baseline_time_varying_env
+  base_model: v2ecoli.composites.ecoli_time_varying_env
   perturbation:
     external_glucose_clamp_gL: 0.0
     external_DO_clamp_mmolL: 0.0
@@ -144,7 +144,7 @@ simulation_set:
   - zero-substrate-blocks-uptake
   status: planned
 - name: saturating-glucose-low
-  base_model: v2ecoli.composites.baseline_time_varying_env
+  base_model: v2ecoli.composites.ecoli_time_varying_env
   perturbation:
     external_glucose_clamp_gL: 5.0
   condition: glucose-minimal
@@ -159,7 +159,7 @@ simulation_set:
   - plateau-across-saturating-range
   status: planned
 - name: saturating-glucose-high
-  base_model: v2ecoli.composites.baseline_time_varying_env
+  base_model: v2ecoli.composites.ecoli_time_varying_env
   perturbation:
     external_glucose_clamp_gL: 50.0
   condition: glucose-minimal
@@ -174,7 +174,7 @@ simulation_set:
   - plateau-across-saturating-range
   status: planned
 - name: linear-glucose-decline
-  base_model: v2ecoli.composites.baseline_time_varying_env
+  base_model: v2ecoli.composites.ecoli_time_varying_env
   perturbation:
     external_glucose_trajectory: linear_decline
     glucose_start_gL: 5.0
@@ -192,7 +192,7 @@ simulation_set:
   - cumulative-mass-balance-closes
   status: planned
 - name: static-env-regression
-  base_model: v2ecoli.composites.baseline_time_varying_env
+  base_model: v2ecoli.composites.ecoli_time_varying_env
   perturbation:
   condition: M9-minimal-glucose
   duration_min: 60
@@ -205,7 +205,7 @@ simulation_set:
   - static-env-baseline-unchanged
   status: planned
 model_change:
-  base_model: v2ecoli.composites.baseline
+  base_model: v2ecoli.composites.ecoli_baseline
   new_state_variables:
   - environment.external_concentrations (map[float], mM) — populated by external physics each timestep
   new_processes:
@@ -322,10 +322,10 @@ behavior_tests:
   classification: primary
   acceptance_form: quantitative_range
   description: With env_driver_mode=static, the composite produces the same baseline trajectory (e.g. DnaA count, growth
-    rate) as the unmodified v2ecoli.composites.baseline. Regression guard.
+    rate) as the unmodified v2ecoli.composites.ecoli_baseline. Regression guard.
   measure:
     kind: trajectory_match
-    reference: v2ecoli.composites.baseline:default-run
+    reference: v2ecoli.composites.ecoli_baseline:default-run
     series:
     - dnaA_protein_count
     - cell_mu_per_h
@@ -582,9 +582,9 @@ implementation_requirements:
   - all primary tests
 - id: req-2-time-varying-composite
   kind: composite
-  title: v2ecoli.composites.baseline_time_varying_env
+  title: v2ecoli.composites.ecoli_time_varying_env
   effort: XS
-  description: 'Thin wrapper around v2ecoli.composites.baseline that injects
+  description: 'Thin wrapper around v2ecoli.composites.ecoli_baseline that injects
 
     EnvironmentDriver and the environment.external_concentrations store.
 

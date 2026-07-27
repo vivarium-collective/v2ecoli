@@ -1,4 +1,4 @@
-"""Unit tests for v2ecoli.composites.colony."""
+"""Unit tests for v2ecoli.composites.ecoli_colony."""
 
 import os
 
@@ -18,7 +18,7 @@ def test_colony_function_signature():
     """The generator takes (core, *, seed, cache_dir, n_cells, env_size,
     physics_interval, ecoli_interval)."""
     import inspect
-    from v2ecoli.composites.colony import colony
+    from v2ecoli.composites.ecoli_colony import colony
     sig = inspect.signature(colony)
     assert set(sig.parameters) == {
         "core", "seed", "cache_dir",
@@ -39,7 +39,7 @@ def test_colony_returns_a_document():
     except ImportError:
         pytest.skip("viva_munk package not installed; colony requires it")
 
-    from v2ecoli.composites.colony import colony
+    from v2ecoli.composites.ecoli_colony import colony
     doc = colony(seed=0, cache_dir="out/cache", n_cells=1)
     assert isinstance(doc, dict)
     assert "state" in doc

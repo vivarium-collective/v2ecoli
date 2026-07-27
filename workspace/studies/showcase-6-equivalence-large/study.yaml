@@ -52,7 +52,7 @@ report:
     ensemble; cell-level aggregation — time-mean within a cell, then population
     stats across cells). Reference mode: v1↔v2 equivalence (vs vEcoli).
 
-    MEASURED (v2) side: v2ecoli.composites.baseline.baseline driven by the basal
+    MEASURED (v2) side: v2ecoli.composites.ecoli_baseline.ecoli_baseline driven by the basal
     stimulus config v2ecoli/configs/population_phenotype_basal_16x16.json
     (16 seeds × 16 generations, single_daughters, burn-in 3), resumed from a
     full-ParCa cache (out/cache_full, 51 TF conditions). Dispatched Ray-parallel
@@ -203,7 +203,7 @@ model_change: |
   from ~17 h to ~3.6 h.
 
 implementation_requirements: |
-  v2 side: v2ecoli.composites.baseline.baseline driven by
+  v2 side: v2ecoli.composites.ecoli_baseline.ecoli_baseline driven by
   configs/population_phenotype_basal_16x16.json, Ray-parallel dispatch, parquet
   store; card regenerated with v2ecoli-analyze (no re-sim). Reference side: a
   matched 16×16 vEcoli ensemble from the in-repo sibling vEcoli (CovertLab/vEcoli
@@ -253,7 +253,7 @@ simulation_set:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: ecoli_baseline
     params:
       seed: 0
       cache_dir: out/cache_full
@@ -385,7 +385,7 @@ runs:
   canonical: true
   description: |
     v2ecoli 16-seed × 16-generation basal ensemble (measured side of the v1↔v2
-    equivalence card), v2ecoli.composites.baseline.baseline resumed from the full
+    equivalence card), v2ecoli.composites.ecoli_baseline.ecoli_baseline resumed from the full
     ParCa cache (out/cache_full → showcase-1's 51-condition cache). Dispatched via
     the NEW parallel-by-default multi-seed path (run_workflow → run_seeds_parallel,
     one Ray worker per seed, ~6 concurrent on the 12-core/64 GB mini). 256/256

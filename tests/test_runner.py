@@ -58,16 +58,20 @@ def test_run_study_render_only_skips_engines(monkeypatch):
 
 
 def test_run_investigation_loops_studies(monkeypatch, tmp_path):
-    inv = tmp_path / "workspace/investigations/v2ecoli-vecoli-comparison"
-    (inv / "studies/basal").mkdir(parents=True)
-    (inv / "studies/with_aa").mkdir(parents=True)
+    # Canonical top-level layout (post-#390): studies/ is a SIBLING of
+    # investigations/ under the workspace root, referenced via `members:`.
+    ws = tmp_path / "workspace"
+    inv = ws / "investigations/v2ecoli-vecoli-comparison"
+    (ws / "studies/basal").mkdir(parents=True)
+    (ws / "studies/with_aa").mkdir(parents=True)
+    inv.mkdir(parents=True)
     (inv / "investigation.yaml").write_text(textwrap.dedent("""
         name: v2ecoli-vecoli-comparison
         comparison: {defaults: {cards: [config, parca, standard]}}
-        studies: [basal, with_aa]
+        members: [basal, with_aa]
     """), encoding="utf-8")
     for n in ("basal", "with_aa"):
-        (inv / f"studies/{n}/study.yaml").write_text(textwrap.dedent(f"""
+        (ws / f"studies/{n}/study.yaml").write_text(textwrap.dedent(f"""
             name: {n}
             investigation: v2ecoli-vecoli-comparison
             condition: {n}

@@ -16,9 +16,15 @@ def test_aggregate_discovers_studies_in_dag_order():
     # study after its in-set prerequisites) rather than a brittle exact authored
     # sequence — the registry migrator sorts members alphabetically, so
     # aggregate() topologically re-orders and the exact order isn't fixed.
+    # The single `metabolism_redux` study was superseded by 5 per-condition
+    # studies (Task A2): metabolism_redux_{basal,with_aa,succinate,no_oxygen,
+    # acetate}, each still gated on `parca`.
     assert set(slugs) == {
-        "parca", "basal", "metabolism_redux", "with_aa", "succinate",
-        "no_oxygen", "acetate", "statistical",
+        "parca", "basal", "with_aa", "succinate", "no_oxygen", "acetate",
+        "statistical",
+        "metabolism_redux_basal", "metabolism_redux_with_aa",
+        "metabolism_redux_succinate", "metabolism_redux_no_oxygen",
+        "metabolism_redux_acetate",
     }
     assert slugs[0] == "parca"
     pos = {s: i for i, s in enumerate(slugs)}

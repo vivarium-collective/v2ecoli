@@ -12,7 +12,10 @@ def _write(p, text):
 
 
 def _make_invest(tmp_path):
-    inv = tmp_path / "workspace/investigations/v2ecoli-vecoli-comparison"
+    # Canonical top-level layout (post-#390): studies/ is a SIBLING of
+    # investigations/ under the workspace root, referenced via `members:`.
+    ws = tmp_path / "workspace"
+    inv = ws / "investigations/v2ecoli-vecoli-comparison"
     _write(inv / "investigation.yaml", """
         schema_version: 4
         name: v2ecoli-vecoli-comparison
@@ -21,15 +24,15 @@ def _make_invest(tmp_path):
           v2_cache: out/cache_full
           ve_cache: out/compare_harness/vecoli_parca
           defaults: {cards: [config, parca, standard, statistical]}
-        studies: [basal, basal_4x4, missing_one]
+        members: [basal, basal_4x4, missing_one]
     """)
-    _write(inv / "studies/basal/study.yaml", """
+    _write(ws / "studies/basal/study.yaml", """
         name: basal
         investigation: v2ecoli-vecoli-comparison
         condition: basal
         comparison: {seeds: 1, generations: 4}
     """)
-    _write(inv / "studies/basal_4x4/study.yaml", """
+    _write(ws / "studies/basal_4x4/study.yaml", """
         name: basal_4x4
         investigation: v2ecoli-vecoli-comparison
         condition: basal
@@ -83,7 +86,7 @@ def test_context_reads_fork_from_named_env(tmp_path, monkeypatch):
 
 def test_load_study_by_path_resolves_context(tmp_path):
     inv = _make_invest(tmp_path)
-    spec = load_study(str(inv / "studies/basal_4x4"))
+    spec = load_study(str(tmp_path / "workspace/studies/basal_4x4"))
     assert isinstance(spec, StudySpec)
     assert spec.name == "basal_4x4" and spec.condition == "basal"
 

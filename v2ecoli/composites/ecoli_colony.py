@@ -36,23 +36,19 @@ def _register_colony_core(core=None):
     return core
 
 
-# Canonical visualizations for the multi-cell colony composite. ColonyVisualization
-# is the integrated colony report (per-cell positions over time + colony total
-# mass + cell-count trajectory). Standalone TimeSeriesPlots aren't appropriate
-# here — colony state is per-cell, so the canonical view is the whole-colony
-# report. Topology is included for inspecting the colony's process wiring.
-DEFAULT_COLONY_VISUALIZATIONS = [
-    {
-        'name': 'colony-report',
-        'address': 'local:ColonyVisualization',
-        'config': {'title': 'v2ecoli colony — agent positions + mass over time'},
-    },
-    {
-        'name': 'topology',
-        'address': 'local:NetworkVisualization',
-        'config': {'title': 'Colony composite topology'},
-    },
-]
+# Visualizations for the multi-cell colony composite.
+#
+# The colony declares NO canonical visualizations, so the run's analysis flush
+# falls back to the standard `_render_default_viz` → `TimeSeriesFromObservables`,
+# which reads this run's emitter output and plots every numeric observable
+# (per-cell mass, length, position, colony totals) over time — the same
+# "standard flush visualization of simulation outputs" every other composite
+# gets. The former `ColonyVisualization` needed a flat `history` list the run
+# never supplies (so it rendered all "?"), and the bigraph `topology` view added
+# no simulation-output insight; both are dropped. Richer colony-specific views
+# (spatial GIF, per-cell traces) are being added as post-hoc analyses that read
+# the emitter output in the flush — not per-tick Steps.
+DEFAULT_COLONY_VISUALIZATIONS: list = []
 
 
 @composite_generator(

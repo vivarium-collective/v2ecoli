@@ -18,34 +18,146 @@ description: |
   state — for the Analysis Tools Parsimony Viewer.
 
 findings: |
-  Confirmed both parts of the question. The whole-cell molecular state CAN be
-  reconstructed as a faithful 3D structural view directly from a live baseline
-  run, packed at declared cell-cycle timepoints and viewed in the Parsimony
-  Viewer. Study s01 packed the top-40 most-abundant species (each relaxed in
-  explicit-water MD, cached) into a gram-negative envelope at two timepoints of
-  a single cell cycle (seed 0, division reached):
+  RECONCILED 2026-07-27 (hardening). The concept is demonstrated but the
+  headline numbers are NOT reproducible or verified in the canonical
+  environment — the earlier "confirmed, faithful 3D view" framing overclaimed.
 
+  What a prior run (on a newer toolchain, seed 0, relax=true, division reached)
+  REPORTEDLY produced, packing the top-40 species into a gram-negative envelope:
     - initial (t ≈ 10 s, post-birth):      287,013 placed instances (~314k molecules)
     - pre-division (scheduled division):    552,450 placed instances (~519k molecules)
+  read as ~1.7-1.9x content growth at conserved 46-species composition and a
+  ~1.5x envelope elongation (aspect ratio ≈ 1.7 → 2.5).
 
-  Reading across the two snapshots:
-    - Molecular content grows ~1.7–1.9× from birth to division — the cell
-      duplicates its contents before dividing.
-    - Composition is conserved: both snapshots draw from the SAME 46-species
-      ingredient set, so growth is a scaling-up of the same machinery (more
-      ribosomes, RNA polymerase, chaperonins, …) rather than a compositional
-      shift.
-    - The envelope elongates ~1.5× along its long axis at constant width
-      (aspect ratio ≈ 1.7 → 2.5) — the expected rod-shaped elongation of an
-      E. coli cell approaching division.
+  These remain PLAUSIBLE but UNVERIFIED here, because:
+    - The ~90-180 MB pack artifacts were never committed — nothing on disk to
+      re-derive the numbers from (s01 dir holds only study.yaml).
+    - The 3D pack pipeline cannot run in the canonical env: pbg-parsimony is
+      pinned to a moving `branch = "main"` and the installed editable checkout is
+      STALE — it lacks the `Ingredient(compartment=...)`, `build_pack(envelope=...)`
+      and multi-chromosome `Chromosome(...)` API that v2ecoli/structural/build.py
+      now requires (4 structural tests are RED on canonical main for this exact
+      reason), AND the `parsimony` mesh/pack binary is absent from the machine
+      entirely (no PARSIMONY_BIN/PARSIMONY_HOME, not on PATH).
 
-  Method note: this only works because the packing step now runs on the
-  standard build path (v2ecoli #392 fixed a bug that silently dropped the
-  EcoliPackStep whenever the composite was built with core=None — i.e. every
-  real run — so earlier runs produced no packs at all).
+  What IS verified green in the canonical env (no parsimony binary needed) — the
+  reproducible core of the claim:
+    - Snapshot scheduling: both declared snapshots fire once, at their declared
+      times / at division_time (tests/test_pack_step.py).
+    - Count conservation at the selection layer: counts -> ingredient selection
+      conserves every selected species' count exactly, caps auto-expansion at
+      top_n, deterministic (tests/structural/test_s01_acceptance_gate.py).
 
-  Interactive viewer (Cloudflare R2, reuses the parsimony web viewer):
+  This hardening's real deliverable: s01 previously had NO acceptance gate at all
+  (asserted numbers, nothing testable). It now has a concrete, artifact-derived
+  gate (v2ecoli/structural/acceptance.py + tests/structural/test_s01_acceptance_gate.py:
+  both-snapshots-written, placed-vs-requested conservation, no-overpack,
+  birth->division growth direction), reproducible sub-tests green, and the
+  end-to-end pack gate wired to SKIP (never falsely pass) until the toolchain is
+  pinned and present. See decisions_needed / followups to unblock reproduction.
+
+  Method note: the pack step DOES run on the standard build path (v2ecoli #392
+  fixed a bug that silently dropped the EcoliPackStep on the core=None build path
+  — verified indirectly: the step's append + scheduling logic is green; the
+  DROP would have prevented any snapshot from firing).
+
+  Interactive viewer (Cloudflare R2, from the prior out-of-env run; not
+  regenerable here until the toolchain is pinned):
   https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html
 
+executive:
+  what_is_this: |
+    Reconstruct the whole-cell E. coli molecular state as a 3D structural view
+    directly from a live baseline run, packed into a gram-negative envelope at
+    two declared cell-cycle times (birth ~10 s, pre-division) and viewed in the
+    Parsimony Viewer. Single member study s01.
+  verdict: |
+    Concept demonstrated; headline numbers NOT reproducible/verified in the
+    canonical env. Gap closed by this hardening: s01 went from "ran, no gate,
+    uncommitted artifacts" to a defined, artifact-derived acceptance gate with
+    the reproducible core (snapshot scheduling + selection-layer count
+    conservation) verified GREEN, and the end-to-end pack gate implemented but
+    skipping until the pack toolchain is pinned and present. The 287k/552k
+    placed-instance numbers are from a prior run on a newer toolchain and were
+    NOT re-derived — the packs were never committed and the pack pipeline
+    (newer pbg-parsimony API + `parsimony` binary) is absent from the canonical
+    environment (4 structural tests RED on main).
+  verdict_status: reconciled_concept_shown_repro_blocked
+  confidence: medium
+
+decisions_needed:
+  - id: pin-pack-toolchain-for-reproducibility
+    status: open
+    question: |
+      The 3D pack pipeline is not reproducible from the pinned environment.
+      pyproject pins pbg-parsimony to `branch = "main"` (a moving target) and the
+      installed editable checkout is stale relative to the API
+      v2ecoli/structural/build.py requires, so 4 structural tests are RED on
+      canonical main; the `parsimony` mesh/pack binary is also not provisioned on
+      the machine. Decide how to pin: (a) pin pbg-parsimony to a specific commit
+      SHA that provides the compartment/envelope/multi-chromosome API, and
+      (b) vendor or document the `parsimony` binary (PARSIMONY_BIN / build-from-
+      source instructions) in the run environment so s01 can be re-run and gated.
+    resolution_hint: |
+      Bump pyproject's pbg-parsimony pin from branch to a SHA; refresh the
+      editable checkout to it; set PARSIMONY_BIN (or PARSIMONY_HOME with a built
+      target/release/parsimony) in the run env. Then the 4 RED structural tests
+      and the end-to-end pack gate can go green.
+
+followups:
+  - id: reproducible-pack-run-and-gate
+    rationale: |
+      Once the toolchain is pinned (see decisions_needed), re-run the s01
+      baseline condition end-to-end to division, produce both snapshots, and run
+      tests/structural/test_s01_acceptance_gate.py::test_pack_gate_over_artifacts
+      to gate the real packs (both-snapshots-written, placed-vs-requested
+      conservation, no-overpack, growth-direction). Flip s01 simulation_status
+      back to `ran` and evaluation_status to `evaluated` on the basis of that run.
+  - id: commit-golden-pack-fixture
+    rationale: |
+      Commit a SMALL golden pack fixture (one snapshot, small top_n, no relax) so
+      the placed-vs-requested conservation + occupancy numbers are inspectable
+      from disk and the gate has a committed regression anchor — instead of
+      relying on a >90 MB per-run artifact that is never committed.
+  - id: calibrate-conservation-band
+    rationale: |
+      The count-conservation band [0.80, 1.0] in s01's behavior_tests is
+      provisional. Calibrate the floor against the first real pack's actual
+      placed/requested fraction (the staged packer legitimately drops some
+      large assemblies for steric feasibility).
+
+acceptance_criteria:
+  - study: s01-birth-and-division
+    behavior: snapshot-scheduling-fires-once-at-declared-times
+  - study: s01-birth-and-division
+    behavior: selection-layer-conserves-counts
+  - study: s01-birth-and-division
+    behavior: both-snapshots-written
+  - study: s01-birth-and-division
+    behavior: count-conservation-placed-vs-requested
+  - study: s01-birth-and-division
+    behavior: no-overpack
+  - study: s01-birth-and-division
+    behavior: growth-direction-birth-to-division
+
 members:
-  - s01-birth-and-division
+- s01-birth-and-division
+biological_story: |-
+  An E. coli cell is not a well-mixed bag: its molecules occupy an ~2 um rod with distinct spatial organization. The chromosome condenses into a nucleoid that excludes ribosomes toward the poles and periphery; ribosomes and most translation crowd the cytoplasm around it; membrane proteins and transporters sit in the inner membrane; and the arrangement changes over the cell cycle as the chromosome replicates and segregates and the cell elongates toward division.
+
+  The whole-cell model tracks molecular counts but is spatially implicit -- it knows how many of each molecule exist, not where. This investigation gives those counts a body: it packs the simulated molecular inventory into a 3D cell envelope at two declared cell-cycle times -- just after birth (post-equilibration) and just before division -- so the abstract state vector can be seen as a physical cell and inspected in the Parsimony Viewer. It is a visualization/spatialization layer over the existing dynamics, not a new spatial simulation.
+glossary:
+- term: Nucleoid
+  definition: |-
+    The condensed, membrane-less region occupied by the E. coli chromosome; it excludes ribosomes and sets much of the cell's internal spatial structure.
+- term: Post-equilibration (just after birth)
+  definition: |-
+    The cell-cycle snapshot taken once a newborn cell has settled after division -- one of the two declared times packed into 3D.
+- term: Pre-division snapshot
+  definition: |-
+    The state captured just before the cell divides, when it is longest and its replicated chromosome is segregating -- the second declared time.
+- term: 3D packing
+  definition: |-
+    Placing the model's molecular counts into an explicit cell-shaped volume (respecting the envelope and nucleoid) so an implicit count vector becomes a viewable spatial arrangement.
+- term: Parsimony Viewer
+  definition: The 3D viewer in which the packed declared-time snapshots are rendered and explored.

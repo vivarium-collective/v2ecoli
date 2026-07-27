@@ -143,6 +143,28 @@ report:
     statistics (TOST + per-axis δ margins) would convert the strict-band
     gene-expression "mismatch" into an explicit equivalence-margin verdict.
 
+# --- Issue #143 ROOT-CAUSE (resolved on branch harden/143-o2-rootcause) -----------
+# See 143-rootcause-findings.md for the full evidence trail.
+rootcause_143:
+  verdict: "Not instrumentation. The low O2 is REAL wcEcoli-FBA behavior; the v2-vs-v1 -40% O2 delta is an averaging-window fragility, not a localized respiratory defect."
+  mechanism: |
+    On a fresh seed-0 baseline: (1) O2/CO2 are UNCONSTRAINED in the media (not O2-
+    limited); (2) the external_exchange_fluxes listener equals the net O2 consumed
+    by the internal reactions (mass-balanced) -> instrumentation ruled out; (3) the
+    exchange fluxes follow a BIMODAL within-generation trajectory — a brief
+    respiratory burst early (O2 ~-1.3, CO2 0) then ~90% of the generation
+    non-respiring (O2 ~-0.005, CO2 ~+1.9). O2 is FRONT-loaded, CO2 BACK-loaded, so
+    the per-cell time-average O2 is strongly generation-length-sensitive (truncating
+    the trajectory at tick 1600 vs 2520 changes mean O2 by -36% but mean CO2 <1%).
+    v2's ensemble has longer / non-dividing generations (#142, 24/256 cells hit the
+    3600s cap), which dilute its mean O2 ~40% below v1's — the #143 headline — while
+    CO2 (length-insensitive) diverges less (-20%). The absolute low O2:glucose
+    (~0.09) is the honest time-mean of the mostly-non-respiring homeostatic-FBA
+    solution (objective = homeostatic+kinetic + secretion penalty + NGAM/GAM), shared
+    with v1 (~0.14). Corroborated by the ketchup FBA-bridge lifting O2 3x (viable).
+  status: "root-caused — #143 closable as 'real, understood'; exchange-flux axis is correct but fragile (recommend a matched averaging window)"
+  ketchup_decision: "RESOLVED the ketchup-baseline-comparison open decision (O2:glucose ~0.09 is real FBA-regime behavior, not an exchange-reporting artifact)."
+
 # --- v4 narrative-spine sections (filled from this study's recorded results) ---
 study_card:
   phase: Simulate / Evaluate

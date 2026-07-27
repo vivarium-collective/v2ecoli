@@ -44,6 +44,13 @@ jobs:
         # so skip building it here.
         run: uv sync --extra dev --no-install-package vivarium-workbench || uv sync --no-install-package vivarium-workbench
 
+      - name: Check README generated sections are fresh
+        # README.md's composites + investigations tables are generated from the
+        # workspace by scripts/gen_readme.py (AST of v2ecoli/composites/*.py +
+        # workspace/investigations/*/investigation.yaml). Fail if a source change
+        # left the README stale — regenerate with: python scripts/gen_readme.py
+        run: uv run python scripts/gen_readme.py --check
+
       - name: Run fast tests (no .run() calls)
         # Delegates to scripts/pytest_gate.sh: same IN-PROCESS selection as before
         # (no pytest-xdist — the runner's execnet worker intermittently dies mid-

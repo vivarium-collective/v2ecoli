@@ -1,16 +1,16 @@
 <!doctype html>
 <html lang="en"><head><meta charset="UTF-8"/>
 <title>v2ecoli baseline — redirecting</title>
+<meta http-equiv="refresh" content="0; url=../dashboard/#simulation-setup"/>
 <script>
-  // The standalone baseline-viewer has moved into the composite viewers hub
-  // (../viewers/). Preserve this URL + its QR by redirecting into the hub's
-  // baseline entry. stateUrl/viewUrl are relative to the loom page
-  // (viewers/loom/), exactly as the hub's own baseline link builds them.
-  location.replace('../viewers/loom/index.html?static=1'
-    + '&id=v2ecoli.composites.ecoli_baseline.ecoli_baseline'
-    + '&stateUrl=../data/baseline.state.json'
-    + '&viewUrl=../data/baseline.view.json');
+  // The standalone baseline viewer has been retired along with the composite
+  // viewers hub. Composite wiring graphs (baseline included) now live in the
+  // read-only dashboard's Composites page — open "baseline" and click Explore
+  // to view it in bigraph-loom. Preserve this URL + its printed QR by
+  // redirecting there.
+  location.replace('../dashboard/#simulation-setup');
 </script>
 </head><body>
-<p>Redirecting to the <a href="../viewers/">composite viewers hub</a>…</p>
+<p>The baseline viewer has moved to the
+<a href="../dashboard/#simulation-setup">dashboard Composites page</a>. Redirecting…</p>
 </body></html>

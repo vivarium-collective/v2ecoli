@@ -87,12 +87,12 @@ def main() -> int:
     from vivarium_workbench.lib.composite_state_views import build_composite_state
     set_workspace_root(ws_root)
 
-    # Reuse the viewers-hub trimmer: caps the long molecule-data arrays (bulk
-    # counts ~16k, unique-molecule instance lists) that loom/viz never render,
-    # shrinking each heavy state ~5.5MB -> a few hundred KB WITHOUT touching the
-    # bigraph structure (stores/processes/wiring/schemas/describe docs).
+    # Trim the long molecule-data arrays (bulk counts ~16k, unique-molecule
+    # instance lists) that loom never renders, shrinking each heavy state
+    # ~5.5MB -> a few hundred KB WITHOUT touching the bigraph structure
+    # (stores/processes/wiring/schemas/describe docs).
     sys.path.insert(0, str(ws_root / "scripts"))
-    from regenerate_viewers import trim_state_for_view
+    from _state_trim import trim_state_for_view
 
     composites = _composites_data(ws_root)
     comps = composites.get("composites") or []

@@ -650,7 +650,19 @@ def run_multigen_xarray(
             divided = True
 
         if not divided:
-            _emit_followed(em, agents, followed)
+            # Same pbg-emitters quirk guarded at the per-gen and final closes
+            # below: a per-tick emit that triggers an internal buffer-full flush
+            # (buffer_size overflow) can hit zarr_writer's flush assert MID-RUN.
+            # Unguarded it propagates out of the Ray task and fails the whole run
+            # BEFORE reaching division — an emitter-layer flakiness orthogonal to
+            # the biology. The overflowed rows are already on disk; swallow the
+            # trailing-buffer assert and keep going, exactly as the closes do.
+            try:
+                _emit_followed(em, agents, followed)
+            except AssertionError:
+                print(f"[multigen_xarray] tick {done}: pbg-emitters buffer-flush "
+                      "assert (buffer full mid-run); flushed rows retained, "
+                      "continuing.")
             prev_ids = curr_ids
             continue
 

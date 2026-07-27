@@ -1,6 +1,8 @@
 schema_version: 4
 name: sm-01-nn-surrogate
 investigation: surrogate-modeling
+uses_modules:
+  - pbg-torch   # NN surrogate Processes / TransitionDataset used via the runner (no composite reference)
 title: "NN surrogate — does it beat trivial baselines?"
 created: '2026-06-16'
 status: evaluated

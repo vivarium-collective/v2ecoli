@@ -128,10 +128,24 @@ def _run_sweep_parallel(config: dict[str, Any], branches, mode: str, *,
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
 
     seeds = [spec.seed for spec in branches]
+    # ABSOLUTE paths: run_seeds_parallel's contract (its docstring) requires
+    # absolute paths in run_kwargs — Ray workers do not share the driver's cwd.
+    # A "ray"-mode run auto-packages the driver's working directory into a
+    # per-job snapshot that excludes gitignored paths (e.g. out/), so a
+    # RELATIVE cache_dir/out_dir resolved against the worker's cwd silently
+    # points somewhere that was never packaged, surfacing deep inside the
+    # worker as e.g. FileNotFoundError: out/cache/initial_state.json. Resolve
+    # both against the DRIVER's cwd before dispatch; the ORIGINAL (possibly
+    # relative) config is left untouched for the driver-side code below.
+    dispatch_config = dict(config)
+    for key in ("cache_dir", "out_dir"):
+        val = dispatch_config.get(key)
+        if val:
+            dispatch_config[key] = os.path.abspath(val)
     pr = run_seeds_parallel(
         seeds, _run_seed_worker, mode=mode,
         num_threads=config.get("parallel_threads"),
-        run_kwargs={"config": dict(config), "max_sim_time": max_sim_time})
+        run_kwargs={"config": dispatch_config, "max_sim_time": max_sim_time})
 
     branch_result: dict[str, dict] = {}
     for r in pr.results:

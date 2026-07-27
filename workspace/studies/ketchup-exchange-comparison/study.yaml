@@ -4,6 +4,9 @@ investigation: ketchup-baseline-comparison
 title: v2ecoli baseline central-carbon exchange phenotype vs KETCHUP kinetic models
 created: '2026-06-12'
 status: evaluated
+# Canonical 6-axis status. The KETCHUP kinetic models run as real dashboard
+# simulations (KetchupEstimator / KetchupDynamicEstimator, IPOPT); the v2ecoli
+# baseline side is the pinned population_phenotype_basal reference vector.
 design_status: complete
 implementation_status: complete
 simulation_status: complete
@@ -20,12 +23,10 @@ question: 'Does the v2ecoli baseline central-carbon exchange / byproduct phenoty
 
   '
 report:
-  title: "ketchup-exchange-comparison \u2014 v2ecoli baseline vs KETCHUP k-ecoli74/307\
-    \ + Millard 2017"
+  title: "ketchup-exchange-comparison — v2ecoli baseline vs KETCHUP k-ecoli74/307 + Millard 2017"
   verdict: partial
   confidence: high
-  evidence_quality: multi-axis report cards (whole-vector R^2 + per-metabolite rel-tol)
-    over 3 kinetic models
+  evidence_quality: multi-axis report cards (whole-vector R^2 + per-metabolite rel-tol) over 3 kinetic models
   objective: 'Grade the v2ecoli whole-cell baseline central-carbon exchange-flux vector
 
     against three kinetic reference sources (KETCHUP k-ecoli74, KETCHUP
@@ -37,339 +38,284 @@ report:
     characterization, not a v2ecoli pass/fail.
 
     '
-  setup: "Measured = v2ecoli baseline exchange fluxes (pinned population_phenotype_basal\n\
-    reference, 20-seed ensemble mean), glucose-normalized to -100. References =\n\
-    KETCHUP k-ecoli74 / k-ecoli307 fitted exchange fluxes (pbg-ketchup\nKetchupEstimator,\
-    \ boundary reactions \u2192 EcoCyc IDs) and the Millard 2017 ODE\n(millard2017_metabolism\
-    \ / COPASI, the flux source of millard_fba_bridge_harness;\nglucose + acetate\
-    \ only). Each model graded by report_card.py with a\nwhole-vector flux_scatter\
-    \ axis plus per-metabolite rel_tol axes (O2/CO2/NH3).\n"
-  finding: "v2ecoli's baseline phenotype lines up with a glucose-limited kinetic model,\n\
-    not the batch-aerobic MFA cores. Pinning its central-carbon FBA to the\nMillard\
-    \ ODE (the FBA-bridge) moves it part-way toward the cores' respiration\nwithout\
-    \ flipping into acetate overflow.\n  \u2022 Millard 2017 ODE \u2014 WITHIN_TOL\
-    \ (R^2 = 1.00): both glucose-limited, no\n    acetate overflow. (Narrow: Millard\
-    \ exchanges only glucose + acetate.)\n  \u2022 KETCHUP k-ecoli74 / k-ecoli307\
-    \ \u2014 MISMATCH (R^2 = -0.89 / -0.72): directions\n    agree (uptake \u2212\
-    , CO2 secretion +) but per 100 glucose the cores respire\n    far harder (O2 \u2248\
-    \ -135 vs v2ecoli -9; CO2 \u2248 +144 vs +33) and secrete acetate\n    (\u2248\
-    \ +71, absent in v2ecoli, so 'lost'). Per-metabolite: O2/CO2 mismatch,\n    NH3\
-    \ drift.\n  \u2022 v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness) \u2014\
-    \ MISMATCH but\n    closest (R^2 = +0.65 vs the cores' negative R^2; 3 matched,\
-    \ 1 appeared,\n    1 lost). The live whole-cell run (viable: dry_mass 380\u2192\
-    385 fg) respires\n    ~3\xD7 the bare baseline (O2 \u2248 -26 vs -9 per 100 glucose,\
-    \ toward but far below\n    the cores' -135) while keeping the acetate-free, CO2-quiet\
-    \ signature.\n  \u2022 KETCHUP FDH dynamic \u2014 a NADH(t) data-vs-fit figure\
-    \ (real IPOPT time-series\n    fit, optimal, SSE 0.011 over 9 conditions); not\
-    \ an exchange model, so not\n    graded on the scatter axis.\nThe two KETCHUP\
-    \ models agree closely (shared K-FIT lineage). Caveat flagged\nfor review: v2ecoli's\
-    \ baseline O2:glucose is anomalously low (~0.09), driving\nmuch of the magnitude\
-    \ divergence.\n"
+  setup: "Measured = v2ecoli baseline exchange fluxes (pinned population_phenotype_basal\nreference, 20-seed ensemble mean), glucose-normalized to -100. References =\nKETCHUP k-ecoli74 / k-ecoli307 fitted exchange fluxes (pbg-ketchup\nKetchupEstimator, boundary reactions → EcoCyc IDs) and the Millard 2017 ODE\n(millard2017_metabolism / COPASI, the flux source of millard_fba_bridge_harness;\nglucose + acetate only). Each model graded by report_card.py with a\nwhole-vector flux_scatter axis plus per-metabolite rel_tol axes (O2/CO2/NH3).\n"
+  finding: "v2ecoli's baseline phenotype lines up with a glucose-limited kinetic model,\nnot the batch-aerobic MFA cores. Pinning its central-carbon FBA to the\nMillard ODE (the FBA-bridge) moves it part-way toward the cores' respiration\nwithout flipping into acetate overflow.\n  • Millard 2017 ODE — WITHIN_TOL (R^2 = 1.00): both glucose-limited, no\n    acetate overflow. (Narrow: Millard exchanges only glucose + acetate.)\n  • KETCHUP k-ecoli74 / k-ecoli307 — MISMATCH (R^2 = -0.89 / -0.72): directions\n    agree (uptake −, CO2 secretion +) but per 100 glucose the cores respire\n    far harder (O2 ≈ -135 vs v2ecoli -9; CO2 ≈ +144 vs +33) and secrete acetate\n    (≈ +71, absent in v2ecoli, so 'lost'). Per-metabolite: O2/CO2 mismatch,\n    NH3 drift.\n  • v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness) — MISMATCH but\n    closest (R^2 = +0.65 vs the cores' negative R^2; 3 matched, 1 appeared,\n    1 lost). The live whole-cell run (viable: dry_mass 380→385 fg) respires\n    ~3× the bare baseline (O2 ≈ -26 vs -9 per 100 glucose, toward but far below\n    the cores' -135) while keeping the acetate-free, CO2-quiet signature.\n  • KETCHUP FDH dynamic — a NADH(t) data-vs-fit figure (real IPOPT time-series\n    fit, optimal, SSE 0.011 over 9 conditions); not an exchange model, so not\n    graded on the scatter axis.\nThe two KETCHUP models agree closely (shared K-FIT lineage). Caveat flagged\nfor review: v2ecoli's baseline O2:glucose is anomalously low (~0.09), driving\nmuch of the magnitude divergence.\n"
   report_cards:
-  - docs/report_cards/ketchup_vs_baseline/index.html
-  - docs/report_cards/ketchup_vs_baseline/fba-bridge.html
-  - docs/report_cards/ketchup_vs_baseline/k-ecoli307.html
-  - docs/report_cards/ketchup_vs_baseline/k-ecoli74.html
-  - docs/report_cards/ketchup_vs_baseline/millard2017.html
-  - docs/report_cards/ketchup_vs_baseline/fdh-dynamic.html
+    - docs/report_cards/ketchup_vs_baseline/index.html
+    - docs/report_cards/ketchup_vs_baseline/fba-bridge.html
+    - docs/report_cards/ketchup_vs_baseline/k-ecoli307.html
+    - docs/report_cards/ketchup_vs_baseline/k-ecoli74.html
+    - docs/report_cards/ketchup_vs_baseline/millard2017.html
+    - docs/report_cards/ketchup_vs_baseline/fdh-dynamic.html
+# The same cards are mirrored to reports/figures/ketchup-exchange-comparison/
+# so the dashboard report generator auto-embeds them as iframe figures.
+
+# Structured bibliography (resolved in references/papers.bib) so the report's
+# References section renders the kinetic-model + estimator sources this study
+# compares against, which were previously named only in the run-outcome prose:
+# Millard 2017 (the central-carbon kinetic ODE) and K-FIT / Gopalakrishnan 2020
+# (the IPOPT estimator that fits the KETCHUP k-ecoli74 / k-ecoli307 models).
 bibliography:
   bib_keys:
-  - millard2017
-  - gopalakrishnan2020
+    - millard2017
+    - gopalakrishnan2020
 assumptions:
-- text: 'The pinned population_phenotype_basal reference (20-seed baseline ensemble
+  - text: 'The pinned population_phenotype_basal reference (20-seed baseline ensemble
 
-    mean) is a faithful stand-in for the v2ecoli baseline exchange phenotype, so
+      mean) is a faithful stand-in for the v2ecoli baseline exchange phenotype, so
 
-    no new sim is run for the measured side.
+      no new sim is run for the measured side.
 
-    '
-  verified_in_v2ecoli: true
-- text: 'The KETCHUP boundary reactions (up_glc/out_co2/out_ac/up_o2/up_nh3/up_so4
+      '
+    verified_in_v2ecoli: true
+  - text: 'The KETCHUP boundary reactions (up_glc/out_co2/out_ac/up_o2/up_nh3/up_so4
 
-    for k-ecoli74; gluc_up/EX_* for k-ecoli307) map 1:1 to the v2ecoli EcoCyc
+      for k-ecoli74; gluc_up/EX_* for k-ecoli307) map 1:1 to the v2ecoli EcoCyc
 
-    exchange compound IDs (GLC[p], CARBON-DIOXIDE[p], ACET[p],
+      exchange compound IDs (GLC[p], CARBON-DIOXIDE[p], ACET[p],
 
-    OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
+      OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
 
-    '
-  verified_in_v2ecoli: true
+      '
+    verified_in_v2ecoli: true
 conditions:
+# The runnable models in this investigation ARE the KETCHUP kinetic models
+# (from pbg-ketchup); the v2ecoli baseline is the pinned reference vector they
+# are graded against. Each composite below is a real, dashboard-runnable
+# KetchupEstimator / KetchupDynamicEstimator estimation that emits its fitted
+# fluxes / kinetic parameters.
   baseline:
     composite: pbg_ketchup.composites.estimation.ketchup_baseline
     params:
       model_name: k-ecoli74
       seed: 0
-      solver_options: ''
+      solver_options: ''  # vendored IPOPT default (the old v2e-ketchup-compare worktree was removed)
   variants:
-  - name: k-ecoli307
-    composite: pbg_ketchup.composites.estimation.ketchup_baseline
-    params:
-      model_name: k-ecoli307
-      seed: 0
-      solver_options: ''
-  - name: fdh-dynamic
-    composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
-    params:
-      model_name: FDH
-      seed: 0
-      solver_options: ''
-  - name: v2ecoli-baseline
-    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    params:
-      cache_dir: out/cache
-  - name: fba-bridge
-    composite: v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness
-    params:
-      cache_dir: out/cache
-      seed: 0
+    - name: k-ecoli307
+      composite: pbg_ketchup.composites.estimation.ketchup_baseline
+      params:
+        model_name: k-ecoli307
+        seed: 0
+        solver_options: ''  # vendored IPOPT default (the old v2e-ketchup-compare worktree was removed)
+    - name: fdh-dynamic
+      composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
+      params:
+        model_name: FDH
+        seed: 0
+        solver_options: ''  # vendored IPOPT default (the old v2e-ketchup-compare worktree was removed)
+    - name: v2ecoli-baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+      params:
+        cache_dir: out/cache
+    - name: fba-bridge
+      composite: v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness
+      params:
+        cache_dir: out/cache
+        seed: 0
+# v2ecoli's REAL whole-cell tFBA with the Millard 2017 ODE wired in as a flux
+# source pinning the central-carbon FBA reactions. Run live for 60 ticks off
+# the ParCa cache; the exchange vector is the time-averaged
+# listeners.fba_results.external_exchange_fluxes (scripts/run_ketchup_models.py
+# bridge). This is "v2ecoli composed with Millard + FBA bridge".
+
+# Millard 2017 participates as a report-card REFERENCE (model_settings below),
+# not a runnable variant: its composite is a file-discovered YAML spec, and
+# that run path doesn't substitute ${model_source}, so it can't run as a
+# dashboard sim. Its central-carbon flux vector comes from the ODE directly
+# (scripts/ketchup_baseline_report_cards.py → millard_exchange.json).
   model_settings:
-  - name: v2ecoli-baseline-reference
-    gate: optional
-    detail: 'The measured model: v2ecoli whole-cell baseline. Now also a runnable
-      dashboard variant (v2ecoli-baseline, off a built ParCa cache at out/cache).
-      The report-card measured vector still uses the pinned population_phenotype_basal
-      reference (20-seed ensemble mean), a better estimate than a short fresh single-cell
-      run.'
-  - name: ketchup-k-ecoli74-reference
-    gate: optional
-    detail: KETCHUP k-ecoli74 (108-reaction core) reference source; fitted exchange
-      fluxes from pbg-ketchup (github.com/vivarium-collective/pbg-ketchup).
-  - name: ketchup-k-ecoli307-reference
-    gate: optional
-    detail: KETCHUP k-ecoli307 (305-reaction) reference source; fitted exchange fluxes
-      from pbg-ketchup.
-  - name: millard2017-reference
-    gate: optional
-    detail: "Millard 2017 central-carbon ODE (millard2017_metabolism, COPASI) \u2014\
-      \ the flux source of millard_fba_bridge_harness. Covers glucose + acetate only\
-      \ (no O2/CO2/NH3/SO4 exchange)."
-  - name: fba-bridge-reference
-    gate: optional
-    detail: "v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness): the real whole-cell\
-      \ tFBA with the Millard 2017 ODE wired in as a flux source that pins the central-carbon\
-      \ FBA reactions (fba-flux-coupler). Now run live off the ParCa cache (60 ticks,\
-      \ viable: dry_mass 380\u2192385 fg); the exchange vector is the time-averaged\
-      \ listeners.fba_results.external_exchange_fluxes (scripts/run_ketchup_models.py\
-      \ bridge). Graded vs the v2ecoli baseline: R^2 = +0.65, the closest candidate\
-      \ (the bare cores score negative R^2)."
-  - name: ketchup-fdh-dynamic-figure
-    gate: optional
-    detail: 'KETCHUP FDH dynamic (KetchupDynamicEstimator): a real IPOPT time-series
-      fit of cell-free formate-dehydrogenase NADH(t) across 9 conditions (optimal,
-      SSE 0.011, 7 params). Shown as a data-vs-fit small-multiples figure (fdh-dynamic.html).
-      A dynamic kinetic fit has no central-carbon exchange vector, so it is not graded
-      on the scatter axis.'
-  - name: glucose-normalized-multiaxis-cards
-    gate: optional
-    detail: All models glucose-normalized to -100; graded by report_card.py with a
-      whole-vector flux_scatter axis (identity-line R^2) plus per-metabolite rel_tol
-      axes (O2/CO2/NH3, 30% tol).
+    - name: v2ecoli-baseline-reference
+      gate: optional
+      detail: 'The measured model: v2ecoli whole-cell baseline. Now also a runnable dashboard variant (v2ecoli-baseline, off a built ParCa cache at out/cache). The report-card measured vector still uses the pinned population_phenotype_basal reference (20-seed ensemble mean), a better estimate than a short fresh single-cell run.'
+    - name: ketchup-k-ecoli74-reference
+      gate: optional
+      detail: KETCHUP k-ecoli74 (108-reaction core) reference source; fitted exchange fluxes from pbg-ketchup (github.com/vivarium-collective/pbg-ketchup).
+    - name: ketchup-k-ecoli307-reference
+      gate: optional
+      detail: KETCHUP k-ecoli307 (305-reaction) reference source; fitted exchange fluxes from pbg-ketchup.
+    - name: millard2017-reference
+      gate: optional
+      detail: "Millard 2017 central-carbon ODE (millard2017_metabolism, COPASI) — the flux source of millard_fba_bridge_harness. Covers glucose + acetate only (no O2/CO2/NH3/SO4 exchange)."
+    - name: fba-bridge-reference
+      gate: optional
+      detail: "v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness): the real whole-cell tFBA with the Millard 2017 ODE wired in as a flux source that pins the central-carbon FBA reactions (fba-flux-coupler). Now run live off the ParCa cache (60 ticks, viable: dry_mass 380→385 fg); the exchange vector is the time-averaged listeners.fba_results.external_exchange_fluxes (scripts/run_ketchup_models.py bridge). Graded vs the v2ecoli baseline: R^2 = +0.65, the closest candidate (the bare cores score negative R^2)."
+    - name: ketchup-fdh-dynamic-figure
+      gate: optional
+      detail: 'KETCHUP FDH dynamic (KetchupDynamicEstimator): a real IPOPT time-series fit of cell-free formate-dehydrogenase NADH(t) across 9 conditions (optimal, SSE 0.011, 7 params). Shown as a data-vs-fit small-multiples figure (fdh-dynamic.html). A dynamic kinetic fit has no central-carbon exchange vector, so it is not graded on the scatter axis.'
+    - name: glucose-normalized-multiaxis-cards
+      gate: optional
+      detail: All models glucose-normalized to -100; graded by report_card.py with a whole-vector flux_scatter axis (identity-line R^2) plus per-metabolite rel_tol axes (O2/CO2/NH3, 30% tol).
 tests:
-- name: v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange
-  classification: primary
-  status: partial
-  question: Does the v2ecoli baseline central-carbon exchange vector match KETCHUP
-    k-ecoli74 (flux_scatter R^2)?
-  measure:
-    kind: flux_scatter
-    reference: KETCHUP k-ecoli74
-    detail: Identity-line R^2 over the 6 shared glucose-normalized central-carbon
-      exchange fluxes, plus appeared/disappeared, via report_card.py.
-  cites:
-  - gopalakrishnan2020
-  pass_if:
-    op: correlates
-    r2_min: 0.8
-- name: v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange
-  classification: primary
-  status: partial
-  question: Does the v2ecoli baseline central-carbon exchange vector match KETCHUP
-    k-ecoli307 (flux_scatter R^2)?
-  measure:
-    kind: flux_scatter
-    reference: KETCHUP k-ecoli307
-    detail: Whole-vector flux_scatter R^2 + per-metabolite rel_tol (O2/CO2/NH3) vs
-      KETCHUP k-ecoli307, via report_card.py.
-  cites:
-  - gopalakrishnan2020
-  pass_if:
-    op: correlates
-    r2_min: 0.8
-- name: v2ecoli-baseline-matches-millard2017-exchange
-  classification: primary
-  status: passed
-  question: Does the v2ecoli baseline central-carbon exchange vector match the Millard
-    2017 ODE (flux_scatter R^2)?
-  measure:
-    kind: flux_scatter
-    reference: Millard 2017 ODE
-    detail: Whole-vector flux_scatter R^2 vs the Millard 2017 central-carbon ODE (glucose
-      + acetate only), via report_card.py.
-  cites:
-  - millard2017
-  pass_if:
-    op: correlates
-    r2_min: 0.8
-- name: v2ecoli-baseline-matches-fba-bridge-exchange
-  classification: secondary
-  status: partial
-  question: How close is the v2ecoli + Millard FBA-bridge exchange vector to the bare
-    v2ecoli baseline (flux_scatter R^2)?
-  measure:
-    kind: flux_scatter
-    reference: v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness, live run)
-    detail: Whole-vector flux_scatter R^2 + per-metabolite rel_tol vs the live FBA-bridge
-      exchange vector (time-averaged external_exchange_fluxes), via report_card.py.
-  pass_if:
-    op: correlates
-    r2_min: 0.8
+  - name: v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange
+    classification: primary
+    status: partial
+    question: Does the v2ecoli baseline central-carbon exchange vector match KETCHUP k-ecoli74 (flux_scatter R^2)?
+    measure:
+      kind: flux_scatter
+      reference: KETCHUP k-ecoli74
+      detail: Identity-line R^2 over the 6 shared glucose-normalized central-carbon exchange fluxes, plus appeared/disappeared, via report_card.py.
+    cites:  # KETCHUP k-ecoli74 is fit by the K-FIT estimator
+      - gopalakrishnan2020
+    pass_if:
+      op: correlates
+      r2_min: 0.8
+  - name: v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange
+    classification: primary
+    status: partial
+    question: Does the v2ecoli baseline central-carbon exchange vector match KETCHUP k-ecoli307 (flux_scatter R^2)?
+    measure:
+      kind: flux_scatter
+      reference: KETCHUP k-ecoli307
+      detail: Whole-vector flux_scatter R^2 + per-metabolite rel_tol (O2/CO2/NH3) vs KETCHUP k-ecoli307, via report_card.py.
+    cites:  # KETCHUP k-ecoli307 is fit by the K-FIT estimator
+      - gopalakrishnan2020
+    pass_if:
+      op: correlates
+      r2_min: 0.8
+  - name: v2ecoli-baseline-matches-millard2017-exchange
+    classification: primary
+    status: passed
+    question: Does the v2ecoli baseline central-carbon exchange vector match the Millard 2017 ODE (flux_scatter R^2)?
+    measure:
+      kind: flux_scatter
+      reference: Millard 2017 ODE
+      detail: Whole-vector flux_scatter R^2 vs the Millard 2017 central-carbon ODE (glucose + acetate only), via report_card.py.
+    cites:  # the Millard 2017 kinetic ODE this band is anchored to
+      - millard2017
+    pass_if:
+      op: correlates
+      r2_min: 0.8
+  - name: v2ecoli-baseline-matches-fba-bridge-exchange
+    classification: secondary
+    status: partial
+    question: How close is the v2ecoli + Millard FBA-bridge exchange vector to the bare v2ecoli baseline (flux_scatter R^2)?
+    measure:
+      kind: flux_scatter
+      reference: v2ecoli + Millard FBA-bridge (millard_fba_bridge_harness, live run)
+      detail: Whole-vector flux_scatter R^2 + per-metabolite rel_tol vs the live FBA-bridge exchange vector (time-averaged external_exchange_fluxes), via report_card.py.
+    pass_if:
+      op: correlates
+      r2_min: 0.8
 pipeline_gate:
-  prerequisites: []
-  enables: []
   gate_status: passed
 runs:
-- name: ketchup-k-ecoli74-estimation
-  status: completed
-  kind: simulation
-  composite: pbg_ketchup.composites.estimation.ketchup_baseline
-  description: Real KETCHUP/IPOPT steady-state fit of k-ecoli74 (KetchupEstimator),
-    run through the dashboard composite-runner; emits fitted exchange fluxes, SSE,
-    status, parameter count. 986 params / 108 fluxes.
-  dispatch: local
-  emitter: sqlite
-- name: ketchup-k-ecoli307-estimation
-  status: completed
-  kind: simulation
-  composite: pbg_ketchup.composites.estimation.ketchup_baseline
-  description: Real KETCHUP/IPOPT fit of k-ecoli307 (2476 params / 305 fluxes), run
-    through the dashboard composite-runner.
-  dispatch: local
-  emitter: sqlite
-- name: ketchup-fdh-dynamic-estimation
-  status: completed
-  kind: simulation
-  composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
-  description: Real KETCHUP/IPOPT time-series fit of cell-free FDH (KetchupDynamicEstimator),
-    run through the dashboard composite-runner; fits NADH(t) across 9 conditions.
-  dispatch: local
-  emitter: sqlite
-- composite: pbg_ketchup.composites.estimation.ketchup_baseline
-  name: ketchup-exchange-comparison-grade
-  status: completed
-  kind: analysis
-  canonical: true
-  description: 'Graded the v2ecoli baseline central-carbon exchange vector against
-    four
+  - name: ketchup-k-ecoli74-estimation
+    status: completed
+    kind: simulation
+    composite: pbg_ketchup.composites.estimation.ketchup_baseline
+    description: Real KETCHUP/IPOPT steady-state fit of k-ecoli74 (KetchupEstimator), run through the dashboard composite-runner; emits fitted exchange fluxes, SSE, status, parameter count. 986 params / 108 fluxes.
+    dispatch: local
+    emitter: sqlite
+  - name: ketchup-k-ecoli307-estimation
+    status: completed
+    kind: simulation
+    composite: pbg_ketchup.composites.estimation.ketchup_baseline
+    description: Real KETCHUP/IPOPT fit of k-ecoli307 (2476 params / 305 fluxes), run through the dashboard composite-runner.
+    dispatch: local
+    emitter: sqlite
+  - name: ketchup-fdh-dynamic-estimation
+    status: completed
+    kind: simulation
+    composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
+    description: Real KETCHUP/IPOPT time-series fit of cell-free FDH (KetchupDynamicEstimator), run through the dashboard composite-runner; fits NADH(t) across 9 conditions.
+    dispatch: local
+    emitter: sqlite
+  - composite: pbg_ketchup.composites.estimation.ketchup_baseline
+    name: ketchup-exchange-comparison-grade
+    status: completed
+    kind: analysis
+    canonical: true
+    description: 'Graded the v2ecoli baseline central-carbon exchange vector against four
 
-    kinetic models with the PR #134 report-card flux_scatter criterion: the two
+      kinetic models with the PR #134 report-card flux_scatter criterion: the two
 
-    KETCHUP cores (k-ecoli74 / k-ecoli307), the Millard 2017 ODE, and the live
+      KETCHUP cores (k-ecoli74 / k-ecoli307), the Millard 2017 ODE, and the live
 
-    v2ecoli + Millard FBA-bridge run. KETCHUP fluxes from pbg-ketchup
+      v2ecoli + Millard FBA-bridge run. KETCHUP fluxes from pbg-ketchup
 
-    (KetchupEstimator, boundary reactions mapped to EcoCyc IDs, glucose-normalized);
+      (KetchupEstimator, boundary reactions mapped to EcoCyc IDs, glucose-normalized);
 
-    the FBA-bridge vector from a live millard_fba_bridge_harness run
+      the FBA-bridge vector from a live millard_fba_bridge_harness run
 
-    (scripts/run_ketchup_models.py bridge); v2ecoli side from the pinned
+      (scripts/run_ketchup_models.py bridge); v2ecoli side from the pinned
 
-    population_phenotype_basal reference. Built by
+      population_phenotype_basal reference. Built by
 
-    scripts/ketchup_baseline_report_cards.py; cards in
+      scripts/ketchup_baseline_report_cards.py; cards in
 
-    docs/report_cards/ketchup_vs_baseline/ (mirrored to
+      docs/report_cards/ketchup_vs_baseline/ (mirrored to
 
-    reports/figures/ketchup-exchange-comparison/ for report embedding).
+      reports/figures/ketchup-exchange-comparison/ for report embedding).
 
-    '
-  dispatch: local
-  emitter: none
-  result: PARTIAL
-  outcomes:
-    v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange:
-      result: PARTIAL
-      detail: 'Report card: MISMATCH (whole-vector R^2 = -0.89, 4 matched + 2 lost
-        [acetate, SO4]; per-metabolite O2/CO2 mismatch). Directions agree but v2ecoli
-        respires far less per glucose (O2 -9 vs -135, CO2 +33 vs +144) and secretes
-        no acetate (KETCHUP +71). PARTIAL = directionally consistent, quantitatively
-        divergent; expected whole-cell-FBA vs batch-MFA core divergence.'
-    v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange:
-      result: PARTIAL
-      detail: 'Report card: MISMATCH (whole-vector R^2 = -0.72; same pattern as k-ecoli74,
-        the two KETCHUP models agree closely). NH3 closer here (v2ecoli -136 vs -81).
-        Directions consistent, magnitudes + acetate overflow diverge.'
-    v2ecoli-baseline-matches-millard2017-exchange:
-      result: PASS
-      detail: 'Report card: WITHIN_TOL (R^2 = 1.00 over the 1 active shared exchange).
-        v2ecoli''s baseline agrees with the Millard 2017 ODE: both glucose-limited
-        with no acetate overflow. Millard exchanges only glucose + acetate (no O2/CO2/NH3/SO4),
-        so the match is narrow but directionally and qualitatively consistent. v2ecoli''s
-        phenotype lines up with a glucose-limited kinetic model, not the batch-aerobic
-        KETCHUP cores.'
-    v2ecoli-baseline-matches-fba-bridge-exchange:
-      result: PARTIAL
-      detail: "Report card: MISMATCH but the closest candidate (whole-vector R^2 =\
-        \ +0.65, positive, vs the bare cores' negative R^2; 3 matched, 1 appeared,\
-        \ 1 lost). Pinning v2ecoli's central-carbon FBA to the Millard ODE deepens\
-        \ respiration ~3\xD7 (O2 \u2248 -26 vs baseline -9 per 100 glucose, toward\
-        \ but well below the cores' -135) while keeping the baseline's acetate-free,\
-        \ CO2-quiet exchange signature. Live whole-cell run, viable (dry_mass 380\u2192\
-        385 fg over 60 ticks)."
-- name: ketchup-fba-bridge-run
-  status: completed
-  kind: simulation
-  composite: v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness
-  description: "Live v2ecoli + Millard FBA-bridge run: the real whole-cell tFBA (~55\
-    \ procs) with the Millard 2017 ODE wired in as a flux source pinning the central-carbon\
-    \ FBA reactions. 60 1-second ticks off the ParCa cache (out/cache), viable (dry_mass\
-    \ 380\u2192385 fg). Exchange phenotype = time-averaged listeners.fba_results.external_exchange_fluxes\
-    \ (post 10-tick burn-in). Run via scripts/run_ketchup_models.py bridge."
-  dispatch: local
-  emitter: none
-- name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600
-  status: completed
-  timestamp: 1781291221.6566389
-  emitter:
-    kind: unknown
-  params: '{"model_name": "k-ecoli74", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
-- name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291117__17c61b
-  status: failed
-  timestamp: 1781291119.6608388
-  emitter:
-    kind: unknown
-  params: '{"model_name": "k-ecoli74", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
-- name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291240__39a3de
-  status: completed
-  timestamp: 1781291254.439636
-  emitter:
-    kind: unknown
-  params: '{"model_name": "k-ecoli307", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
-- name: pbg_ketchup.composites.dynamic.ketchup_dynamic__1781291254__d95513
-  status: completed
-  timestamp: 1781291260.063742
-  emitter:
-    kind: unknown
-  params: '{"model_name": "FDH", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
-- name: v2ecoli.composites.ecoli_baseline.baseline__1781294008__810680
-  status: completed
-  timestamp: 1781294020.363904
-  emitter:
-    kind: unknown
-  params: '{"cache_dir": "out/cache"}'
-- name: v2ecoli.composites.ecoli_baseline.baseline__1781292628__c9cf06
-  status: failed
-  timestamp: 1781292633.446089
-  emitter:
-    kind: unknown
-  params: '{"cache_dir": "out/cache"}'
-- name: v2ecoli.composites.millard2017_metabolism__1781292303__cbfeeb
-  status: failed
-  timestamp: 1781292307.564183
-  emitter:
-    kind: unknown
-  params: '{}'
+      '
+    dispatch: local
+    emitter: none
+    result: PARTIAL
+# keys MUST match tests[].name exactly (lowercase), or the report renders
+# the pill as 'pending' (walkthrough.js: outcomeByTest[t.name]).
+    outcomes:
+      v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange:
+        result: PARTIAL
+        detail: 'Report card: MISMATCH (whole-vector R^2 = -0.89, 4 matched + 2 lost [acetate, SO4]; per-metabolite O2/CO2 mismatch). Directions agree but v2ecoli respires far less per glucose (O2 -9 vs -135, CO2 +33 vs +144) and secretes no acetate (KETCHUP +71). PARTIAL = directionally consistent, quantitatively divergent; expected whole-cell-FBA vs batch-MFA core divergence.'
+      v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange:
+        result: PARTIAL
+        detail: 'Report card: MISMATCH (whole-vector R^2 = -0.72; same pattern as k-ecoli74, the two KETCHUP models agree closely). NH3 closer here (v2ecoli -136 vs -81). Directions consistent, magnitudes + acetate overflow diverge.'
+      v2ecoli-baseline-matches-millard2017-exchange:
+        result: PASS
+        detail: 'Report card: WITHIN_TOL (R^2 = 1.00 over the 1 active shared exchange). v2ecoli''s baseline agrees with the Millard 2017 ODE: both glucose-limited with no acetate overflow. Millard exchanges only glucose + acetate (no O2/CO2/NH3/SO4), so the match is narrow but directionally and qualitatively consistent. v2ecoli''s phenotype lines up with a glucose-limited kinetic model, not the batch-aerobic KETCHUP cores.'
+      v2ecoli-baseline-matches-fba-bridge-exchange:
+        result: PARTIAL
+        detail: "Report card: MISMATCH but the closest candidate (whole-vector R^2 = +0.65, positive, vs the bare cores' negative R^2; 3 matched, 1 appeared, 1 lost). Pinning v2ecoli's central-carbon FBA to the Millard ODE deepens respiration ~3× (O2 ≈ -26 vs baseline -9 per 100 glucose, toward but well below the cores' -135) while keeping the baseline's acetate-free, CO2-quiet exchange signature. Live whole-cell run, viable (dry_mass 380→385 fg over 60 ticks)."
+  - name: ketchup-fba-bridge-run
+    status: completed
+    kind: simulation
+    composite: v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness
+    description: "Live v2ecoli + Millard FBA-bridge run: the real whole-cell tFBA (~55 procs) with the Millard 2017 ODE wired in as a flux source pinning the central-carbon FBA reactions. 60 1-second ticks off the ParCa cache (out/cache), viable (dry_mass 380→385 fg). Exchange phenotype = time-averaged listeners.fba_results.external_exchange_fluxes (post 10-tick burn-in). Run via scripts/run_ketchup_models.py bridge."
+    dispatch: local
+    emitter: none
+  - name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291205__477600
+    status: completed
+    timestamp: 1781291221.6566389
+    emitter:
+      kind: unknown
+    params: '{"model_name": "k-ecoli74", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+  - name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291117__17c61b
+    status: failed
+    timestamp: 1781291119.6608388
+    emitter:
+      kind: unknown
+    params: '{"model_name": "k-ecoli74", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+  - name: pbg_ketchup.composites.estimation.ketchup_baseline__1781291240__39a3de
+    status: completed
+    timestamp: 1781291254.439636
+    emitter:
+      kind: unknown
+    params: '{"model_name": "k-ecoli307", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+  - name: pbg_ketchup.composites.dynamic.ketchup_dynamic__1781291254__d95513
+    status: completed
+    timestamp: 1781291260.063742
+    emitter:
+      kind: unknown
+    params: '{"model_name": "FDH", "seed": 0, "solver_options": "/Users/eranagmon/code/v2e-ketchup-compare/v2ecoli/composites/ketchup_demo_ipopt.opt"}'
+  - name: v2ecoli.composites.ecoli_baseline.baseline__1781294008__810680
+    status: completed
+    timestamp: 1781294020.363904
+    emitter:
+      kind: unknown
+    params: '{"cache_dir": "out/cache"}'
+  - name: v2ecoli.composites.ecoli_baseline.baseline__1781292628__c9cf06
+    status: failed
+    timestamp: 1781292633.446089
+    emitter:
+      kind: unknown
+    params: '{"cache_dir": "out/cache"}'
+  - name: v2ecoli.composites.millard2017_metabolism__1781292303__cbfeeb
+    status: failed
+    timestamp: 1781292307.564183
+    emitter:
+      kind: unknown
+    params: '{}'
 inputs:
-- artifact: sim_data
-  from: parca
+  - artifact: sim_data
+    from: parca
+    into: cache_dir

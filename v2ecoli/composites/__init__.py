@@ -57,6 +57,8 @@ for _new in (
     "ecoli_time_varying_env",
     "ecoli_colony",
     "parca",
+    "reactor_bird_coupled",
+    "reactor_bird_coupled_millard",
 ):
     _register_clean_alias(_new)
 

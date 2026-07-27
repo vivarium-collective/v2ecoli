@@ -58,6 +58,8 @@ at_a_glance:
   role: "What the cheap linear emulator is worth: amortized break-even (~8 evals) plus a 5,000-traj sweep in 0.02 s, and the limits."
 - study: sm-03-improving-the-surrogate
   role: "Follow-up: does multi-step rollout-loss training close the gap to the linear baseline?"
+- study: sm-04-through-division
+  role: "Boundary test: follow one daughter lineage across a real division and ask whether the emulators hold across the cell_mass halving or fail to represent the discontinuity."
 
 biological_story: |
   The v2ecoli whole-cell model integrates 55 processes to advance one cell by
@@ -69,12 +71,6 @@ biological_story: |
   view at all. The value is knowing which is which, and having a cheap emulator
   for the part that is emulable.
 
-studies:
-- sm-00-data-collection
-- sm-01-nn-surrogate
-- sm-02-utility-and-limits
-- sm-03-improving-the-surrogate
-
 acceptance_criteria:
 - study: sm-00-data-collection
   behavior: ensemble-builds-broad-transition-dataset
@@ -84,3 +80,34 @@ acceptance_criteria:
   behavior: cheap-emulator-amortizes-and-is-honest-about-limits
 - study: sm-03-improving-the-surrogate
   behavior: rollout-loss-training-narrows-the-gap
+- study: sm-04-through-division
+  behavior: emulators-hold-across-division
+members:
+- sm-00-data-collection
+- sm-01-nn-surrogate
+- sm-02-utility-and-limits
+- sm-03-improving-the-surrogate
+- sm-04-through-division
+
+glossary:
+- term: Surrogate / emulator
+  definition: |-
+    A cheap learned model trained to reproduce the expensive simulator's input->output map, so predictions can be made without running the full whole-cell model.
+- term: Persistence baseline
+  definition: |-
+    The trivial predictor "next state = current state." It scores near-perfect one-step R² on slow observables, which is why one-step accuracy alone is misleading.
+- term: Mean-delta / linear baseline
+  definition: |-
+    Trivial emulators (predict the average step change, or a linear map) against which any neural surrogate must prove it earns its complexity.
+- term: Leave-one-trajectory-out CV
+  definition: |-
+    Cross-validation that holds out an entire simulation rollout for testing, so the surrogate is judged on unseen trajectories rather than interpolated timepoints.
+- term: Multi-step rollout
+  definition: |-
+    Feeding a surrogate's own predictions back as input over many steps; error accumulation here (not one-step fit) is the real test of an emulator.
+- term: nRMSE
+  definition: |-
+    Normalized root-mean-square error, the accuracy metric used to compare emulators on a common scale.
+- term: pbg-torch
+  definition: |-
+    The PyTorch-based process-bigraph toolkit used to collect rollouts and train/evaluate the surrogates.

@@ -63,76 +63,69 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
-  - name: rollout-loss-training
-    perturbation: "Train the SurrogateNet on K=10-step unrolled predictions."
-    expected_contrast: "Fewer unstable rollouts; lower rollout error than one-step training."
-    measured_contrast: "0/8 unstable (vs 1/8); nRMSE 0.053 (vs 0.069). Still > linear 0.019."
+    - name: rollout-loss-training
+      perturbation: "Train the SurrogateNet on K=10-step unrolled predictions."
+      expected_contrast: "Fewer unstable rollouts; lower rollout error than one-step training."
+      measured_contrast: "0/8 unstable (vs 1/8); nRMSE 0.053 (vs 0.069). Still > linear 0.019."
 
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  model_settings: []
 tests:
-- name: rollout-loss-training-narrows-the-gap
-  classification: primary
-  status: passed
-  question: |
-    Does rollout-loss training improve the neural surrogate over one-step
-    training — eliminating instability AND lowering rollout error?
-  measure:
-    kind: authored
-    detail: |
-      8-fold CV. Improvement ratio = one-step nRMSE / rollout-loss nRMSE =
-      0.069 / 0.053 = 1.30 (>1 means improved); rollout-loss unstable folds = 0
-      (vs 1 for one-step).
-    measured_value: 1.30
-  pass_if:
-    op: gt
-    low: 1.0
-  cites_note: "Methodological: the fix must measurably improve the net to be worth adopting."
+  - name: rollout-loss-training-narrows-the-gap
+    classification: primary
+    status: passed
+    question: |
+      Does rollout-loss training improve the neural surrogate over one-step
+      training — eliminating instability AND lowering rollout error?
+    measure:
+      kind: authored
+      detail: |
+        8-fold CV. Improvement ratio = one-step nRMSE / rollout-loss nRMSE =
+        0.069 / 0.053 = 1.30 (>1 means improved); rollout-loss unstable folds = 0
+        (vs 1 for one-step).
+      measured_value: 1.30
+    pass_if:
+      op: gt
+      low: 1.0
+    cites_note: "Methodological: the fix must measurably improve the net to be worth adopting."
 
 runs:
-- name: rollout-loss-cv
-  status: completed
-  kind: cross_validation
-  canonical: true
-  description: |
-    code/rollout_train.py: 8-fold CV comparing one-step vs rollout-loss (K=10)
-    SurrogateNet training vs the linear baseline on cell_mass rollout.
-  dispatch: serial
-  emitter: null
-  result: PASS
-  outcomes:
-    rollout-loss-training-narrows-the-gap:
-      result: PASS
-      detail: "rollout-loss 0.053 nRMSE, 0/8 unstable (vs one-step 0.069, 1/8). Linear still best at 0.019."
-  computed_outcomes:
-    _status: store_unresolved
+  - name: rollout-loss-cv
+    status: completed
+    kind: cross_validation
+    canonical: true
+    description: |
+      code/rollout_train.py: 8-fold CV comparing one-step vs rollout-loss (K=10)
+      SurrogateNet training vs the linear baseline on cell_mass rollout.
+    dispatch: serial
+    emitter:
+    result: PASS
+    outcomes:
+      rollout-loss-training-narrows-the-gap:
+        result: PASS
+        detail: "rollout-loss 0.053 nRMSE, 0/8 unstable (vs one-step 0.069, 1/8). Linear still best at 0.019."
+    computed_outcomes:
+      _status: store_unresolved
 
 embed_visualizations:
-- name: "Rollout-loss training — does it help? (interactive)"
-  url: /reports/figures/sm-03-improving-the-surrogate/rollout_loss_improvement.html
-  description: "8-fold CV rollout error (log) for the one-step net, the rollout-loss net, and the linear baseline. Rollout-loss eliminates the instability (0/8) and improves accuracy, but the linear model still wins for this smooth target — rollout-loss is the technique for harder, nonlinear targets."
+  - name: "Rollout-loss training — does it help? (interactive)"
+    url: /reports/figures/sm-03-improving-the-surrogate/rollout_loss_improvement.html
+    description: "8-fold CV rollout error (log) for the one-step net, the rollout-loss net, and the linear baseline. Rollout-loss eliminates the instability (0/8) and improves accuracy, but the linear model still wins for this smooth target — rollout-loss is the technique for harder, nonlinear targets."
 
 pipeline_gate:
-  prerequisites:
-  # Depends on sm-01 having been EVALUATED, NOT on sm-01 passing — sm-01's
-  # behaviour tests intentionally FAIL (the surrogate does not beat baselines),
-  # and this study follows up by trying to improve it. A bare-string
-  # prerequisite defaults to condition `tests-passed`, which would (wrongly)
-  # keep this study blocked.
-  - study: sm-01-nn-surrogate
-    condition: ran
-  enables: []
   gate_status: passed
 
 conclusion_verdicts:
-- claim: "Rollout-loss training fixes the neural surrogate's autoregressive instability."
-  verdict: supported
-  basis: "0/8 unstable folds with rollout loss vs 1/8 with one-step training."
-- claim: "Rollout-loss training makes the neural net beat the linear baseline."
-  verdict: refuted
-  basis: "Rollout-loss nRMSE 0.053 still > linear 0.019; little nonlinear structure to exploit."
+  - claim: "Rollout-loss training fixes the neural surrogate's autoregressive instability."
+    verdict: supported
+    basis: "0/8 unstable folds with rollout loss vs 1/8 with one-step training."
+  - claim: "Rollout-loss training makes the neural net beat the linear baseline."
+    verdict: refuted
+    basis: "Rollout-loss nRMSE 0.053 still > linear 0.019; little nonlinear structure to exploit."
 
 robustness:
   n_replicates: 1
@@ -145,15 +138,18 @@ falsifiability: |
   of unstable folds or does not lower the median rollout error vs one-step.
 
 simulation_set:
-- name: rollout-loss-cv
-  kind: cross_validation
-  status: ran
-  base_model: v2ecoli.composites.ecoli_baseline
-  duration_steps: 0
-  seeds: 8
-  details: "8-fold CV: one-step vs rollout-loss vs linear on cell_mass rollout."
-  metrics:
-  - rollout_mass_nrmse_median
-  - unstable_folds
-  pass_fail_tests:
-  - rollout-loss-training-narrows-the-gap
+  - name: rollout-loss-cv
+    kind: cross_validation
+    status: ran
+    base_model: v2ecoli.composites.ecoli_baseline
+    duration_steps: 0
+    seeds: 8
+    details: "8-fold CV: one-step vs rollout-loss vs linear on cell_mass rollout."
+    metrics:
+      - rollout_mass_nrmse_median
+      - unstable_folds
+    pass_fail_tests:
+      - rollout-loss-training-narrows-the-gap
+inputs:
+  - artifact: sm-01-nn-surrogate
+    from: sm-01-nn-surrogate

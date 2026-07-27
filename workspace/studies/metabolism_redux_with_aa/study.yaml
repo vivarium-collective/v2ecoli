@@ -35,7 +35,7 @@ runs:
   kind: analysis
   canonical: true
   description: v2e-compare study metabolism_redux_with_aa
-status: build
+status: evaluated
 tests:
 - name: config-vs-vecoli
   kind: report_card

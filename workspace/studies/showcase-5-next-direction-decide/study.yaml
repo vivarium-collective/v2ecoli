@@ -194,7 +194,7 @@ planned_runs:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     # No direction committed — this is a reviewer-decision study. The four
     # candidate directions live in decisions_needed +
     # discovery_implications.followup_study_proposals, seeded from showcase-4.
@@ -205,22 +205,22 @@ conditions:
       role: proposed (uncommitted)
       status: proposed
       detail: "Deepen the strongest contrast (media-succinate): a carbon-source panel. FLAG: one full ParCa cache per condition (~2.5 min each). Agent-recommended."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: B-ppgpp-synthesis-vs-regulation
       role: proposed (uncommitted)
       status: proposed
       detail: "Chase the surprise: a synthesis-off / regulation-off 2×2 to pin why ppGpp de-repressed (rose 1.86x). Single-cache. Agent-recommended."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: C-dnaa-knob-deepening
       role: proposed (uncommitted)
       status: proposed
       detail: "Push the partial: sweep the dnaA init-probability 1x..4x to test whether a larger knob raises the oriC ceiling that 2x did not. Single-cache."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: D-graded-translation-dose-response
       role: proposed (uncommitted)
       status: proposed
       detail: "Rescue the null: sweep the ribosome elongation rate over a wider range to find where the elong-down compensation breaks. Single-cache."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 
 assumptions:

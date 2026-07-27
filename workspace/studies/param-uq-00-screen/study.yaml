@@ -76,7 +76,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -86,26 +86,26 @@ conditions:
         ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
       expected_contrast: "Largest growth-rate response among screened knobs."
       measured_contrast: "13.8% — EFFECTIVE (rank 1)."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: kS-swing
       perturbation: "ppGpp/charging saturation constant kS low→high"
       config_overrides:
         ecoli-polypeptide-elongation.kS: [60, 140]
       expected_contrast: "Moderate growth-rate response."
       measured_contrast: "5.5% — EFFECTIVE (rank 2)."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: chrom-basal_elongation_rate-swing
       perturbation: "DNA-polymerase elongation rate low→high"
       config_overrides:
         ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
       expected_contrast: "Small growth-rate response."
       measured_contrast: "2.8% — EFFECTIVE (rank 3)."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: inert-knobs
       perturbation: "k_RelA, gtpPerElongation, import_threshold, D_period low→high"
       expected_contrast: "Negligible growth-rate response."
       measured_contrast: "≤1.4% (k_RelA 1.4%, others 0.0%) — excluded from the UQ budget."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
     - name: fresh-initial-state
       detail: "Each low/high perturbation uses a fresh initial_state (v2ecoli PR #197) to prevent state carryover across samples."

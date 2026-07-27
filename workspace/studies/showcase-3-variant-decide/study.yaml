@@ -167,7 +167,7 @@ planned_runs:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     # No variant committed — this is a reviewer-decision study. The four
     # candidate perturbations live in decisions_needed +
     # discovery_implications.followup_study_proposals.
@@ -178,22 +178,22 @@ conditions:
       role: proposed (uncommitted)
       status: proposed
       detail: "Disable the ppGpp regulatory layer — a clean global single-switch knock-out."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: parameter-sweep-linspace
       role: proposed (uncommitted)
       status: proposed
       detail: "Sweep a transcription/translation knob (e.g. RNAP or ribosome elongation-rate factor) across a linspace — a dose-response."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: media-condition-change
       role: proposed (uncommitted)
       status: proposed
       detail: "Switch growth condition (e.g. glucose->succinate). FLAG: needs its own full ParCa cache per condition (~2.5 min each)."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: dnaa-expression-knob
       role: proposed (uncommitted)
       status: proposed
       detail: "Targeted single-gene perturbation via sim_data.genetic_perturbations['TU00259[c]'] (the dnaa-replication Mechanism-A lever)."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings: []
 
 assumptions:

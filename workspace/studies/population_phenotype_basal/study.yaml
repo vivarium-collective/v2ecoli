@@ -27,7 +27,7 @@ question: |
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   # The blessed measured side is a MULTISEED + MULTIGEN ensemble (the
@@ -37,7 +37,7 @@ conditions:
     - name: wild-type baseline (no perturbation)
       role: reference
       detail: Unperturbed glucose-minimal whole cell; the vs_literature reference is experimental data, not a pinned run.
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
     - name: baked-fixture-measured-side
       detail: Measured side reads committed model_*.json fixtures (the #268 reproducibility boundary), not a live sweep zarr — the card grades run-free.

@@ -130,7 +130,7 @@ report:
 
 conditions:
   baseline:
-    composite: ecoli_baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
@@ -140,21 +140,21 @@ conditions:
         ecoli-polypeptide-elongation.basal_elongation_rate: [15, 28]
       expected_contrast: "Dominant driver of growth-rate variance."
       measured_contrast: "Total-order Sobol 0.966 (range 0.955–0.987 across 3 seeds) — rank 1."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: kS
       perturbation: "ppGpp/charging saturation constant, uniform prior"
       config_overrides:
         ecoli-polypeptide-elongation.kS: [60, 140]
       expected_contrast: "Minor contribution."
       measured_contrast: "Total-order Sobol 0.036 — rank 2."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     - name: chrom-basal_elongation_rate
       perturbation: "DNA-polymerase elongation rate, uniform prior"
       config_overrides:
         ecoli-chromosome-replication.basal_elongation_rate: [700, 1200]
       expected_contrast: "Negligible contribution."
       measured_contrast: "Total-order Sobol 0.011 — rank 3."
-      composite: ecoli_baseline
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
     - name: effective-params-only
       detail: "Parameters screened for real effect; ribosomeElongationRate (runtime-overwritten) and gtpPerElongation (energy-only) were inert and excluded."

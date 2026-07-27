@@ -675,6 +675,7 @@ implementation_tasks: ''
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: colonies-01-hpc-readiness
     from: colonies-01-hpc-readiness
 conditions:

@@ -543,4 +543,4 @@ embed_visualizations:
 outputs:
   - baseline
 inputs:
-  - {artifact: sim_data, from: showcase-1-parca}
+  - {artifact: sim_data, from: showcase-1-parca, into: cache_dir}

@@ -401,6 +401,7 @@ implementation_tasks: ''
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
   - artifact: colonies-02-parallel-multigen-perf
     from: colonies-02-parallel-multigen-perf
 conditions:

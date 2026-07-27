@@ -742,6 +742,7 @@ implementation_tasks: ''
 inputs:
   - artifact: sim_data
     from: parca
+    into: cache_dir
 conditions:
   baseline:
     name: colony-pure-wc

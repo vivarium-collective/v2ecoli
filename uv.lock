@@ -2887,7 +2887,7 @@ dependencies = [
 [[package]]
 name = "pbg-emitters"
 version = "0.2.1"
-source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#2552b523de3789dcb6ec2e3846d1524b0590851c" }
+source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#494460118f528179bcabf915b8d6a62b145c4b79" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },

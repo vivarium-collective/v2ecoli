@@ -118,6 +118,122 @@ def test_with_cross_cell_stats_orders_and_computes():
     assert out["mean"].to_list() == [2.0, 15.0]
 
 
+# ---------------------------------------------------------------------------
+# Parity against REAL vEcoli cd1 outputs.
+#
+# The private vEcoli repo ships cd1 result tables from actual runs. They are a
+# different model (vEcoli v1) on different variants (mecillinam / violacein),
+# so the NUMBERS are not comparable — but the schema and the entity-id
+# vocabulary are, and the vocabulary is the risky part of the port: v2ecoli has
+# no listener field-metadata table, so each port re-derives those ids from
+# sim_data. These tests pin that re-derivation against ground truth.
+#
+# Skipped when the private repo isn't checked out alongside (CI, other clones).
+# ---------------------------------------------------------------------------
+
+_VECOLI_PLOTS = [
+    "/Users/alexanderpatrie/sms/vEcoli-private/api_integration/"
+    "mec_analyses_carina/variant=1/plots",
+    "/Users/alexanderpatrie/sms/vEcoli-private/api_integration/"
+    "vio_met_analyses_carina/variant=1/plots",
+]
+
+# vEcoli filename -> (id column, expected id count in the v2ecoli baseline)
+_PARITY = {
+    "proteomics.tsv": ("EcoCyc Monomer ID", 4309),
+    "transcriptomics.tsv": ("EcoCyc Gene ID", 4345),
+    "metabolomics.tsv": ("EcoCyc Compound ID", 165),
+    "higher_order_properties.tsv": ("Properties", 5),
+}
+
+
+def _find_vecoli_output(filename):
+    import os
+
+    for d in _VECOLI_PLOTS:
+        p = os.path.join(d, filename)
+        if os.path.isfile(p):
+            return p
+    return None
+
+
+def _read_tsv(path):
+    import csv
+
+    with open(path) as f:
+        rows = list(csv.reader(f, delimiter="\t"))
+    return rows[0], [r[0] for r in rows[1:] if r]
+
+
+@pytest.mark.parametrize("filename", sorted(_PARITY))
+def test_cd1_matches_vecoli_output_schema(filename):
+    """The ported table has the same column layout as the real cd1 output."""
+    path = _find_vecoli_output(filename)
+    if path is None:
+        pytest.skip("vEcoli-private cd1 outputs not available")
+    header, _ = _read_tsv(path)
+    id_col, _count = _PARITY[filename]
+    assert header[:3] == [id_col, "mean", "std"]
+    assert all(c.startswith("Cell: ") for c in header[3:])
+
+
+def _load_sim_data():
+    """A local ParCa sim_data, or None. Mirrors ``resolve_sim_data``'s fallbacks."""
+    import os
+
+    candidates = [
+        os.environ.get("V2ECOLI_SIM_DATA"),
+        os.path.join("out", "kb", "simData.cPickle"),
+        os.path.join("out", "workflow", "simData.cPickle"),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            from v2ecoli.library.sim_data import LoadSimData
+
+            return LoadSimData(sim_data_path=path).sim_data
+    return None
+
+
+# vEcoli filename -> callable deriving the same id set from v2ecoli sim_data,
+# exactly as the corresponding port does.
+_ID_SOURCES = {
+    "proteomics.tsv": lambda sd: {
+        str(m)[:-3] for m in sd.process.translation.monomer_data["id"]
+    },
+    "transcriptomics.tsv": lambda sd: {
+        str(c)[:-4]
+        for c in sd.process.transcription.cistron_data["id"][
+            sd.process.transcription.cistron_data["is_mRNA"]
+        ]
+    },
+    "metabolomics.tsv": lambda sd: {
+        str(k)[:-3] for k in sd.process.metabolism.conc_dict
+    },
+}
+
+
+@pytest.mark.parametrize("filename", sorted(_ID_SOURCES))
+def test_cd1_id_vocabulary_matches_vecoli(filename):
+    """The sim_data-derived entity ids reproduce vEcoli's field_metadata ids.
+
+    This is the substantive parity check: v2ecoli has no listener
+    field-metadata table, so each port re-derives the entity ids from sim_data.
+    If that substitution were wrong, the tables would be mislabelled while
+    still looking structurally fine. Measured at 100% overlap against the real
+    cd1 outputs for all three id spaces.
+    """
+    path = _find_vecoli_output(filename)
+    if path is None:
+        pytest.skip("vEcoli-private cd1 outputs not available")
+    sim_data = _load_sim_data()
+    if sim_data is None:
+        pytest.skip("no local ParCa sim_data (set V2ECOLI_SIM_DATA)")
+
+    _header, vecoli_ids = _read_tsv(path)
+    derived = _ID_SOURCES[filename](sim_data)
+    assert set(vecoli_ids) == derived
+
+
 def test_cd1_filter_clause_treats_zero_bound_as_a_filter():
     """A 0 bound is a real (if permissive) bound, not an absent one.
 

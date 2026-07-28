@@ -1,0 +1,73 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Phase 5 — Causal Discovery and Functional Annotation — study plan summary</title>
+<style>
+body{font-family:system-ui;max-width:1280px;margin:1em auto;padding:0 1em;color:#0f172a}
+h1{font-size:1.5em;border-bottom:2px solid #e2e8f0;padding-bottom:0.4em}
+h2{font-size:1.2em;color:#1e40af;margin-top:1.8em}
+h3{font-size:1.0em;color:#334155;margin-top:1.3em}
+.meta{color:#64748b;font-size:0.9em;margin-top:-0.3em}
+.cap{color:#475569;font-size:0.94em;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:0.7em 0;font-size:0.9em}
+table th,table td{border:1px solid #e2e8f0;padding:7px 11px;text-align:left;vertical-align:top}
+table th{background:#f8fafc;color:#475569;font-size:0.85em;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+table tr:nth-child(even) td{background:#fcfcfd}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:0.92em;color:#334155}
+.section{background:#fafbfc;border-left:4px solid #3b82f6;padding:0.5em 1em;margin:1em 0}
+.section h2{margin-top:0.5em}
+.dim{color:#94a3b8;font-style:italic;font-size:0.92em}
+.gantt{font-family:ui-monospace,monospace;font-size:0.83em;color:#475569;background:#fafbfc;padding:9px 13px;border-radius:6px;overflow-x:auto;white-space:pre}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;margin:0.5em 0}
+.kv .k{color:#64748b;font-size:0.85em}
+.kv .v{color:#0f172a}
+</style></head>
+<body>
+<h1>Phase 5 — Causal Discovery and Functional Annotation</h1>
+<p class='meta'>pdmp-05-causal-discovery</p>
+
+
+    <div class='kv'>
+      <span class='k'>Phase</span><span class='v'>Design</span>
+      <span class='k'>Status</span><span class='v'><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></span>
+      <span class='k'>Depends on</span><span class='v'><code>pdmp-03-inference, pdmp-04-compilation</code></span>
+      <span class='k'>Enables</span><span class='v'><code>(terminal)</code></span>
+      <span class='k'># planned runs</span><span class='v'>4</span>
+      <span class='k'># readouts</span><span class='v'>5</span>
+      <span class='k'># tests (predictions)</span><span class='v'>10</span>
+      <span class='k'># variants</span><span class='v'>4</span>
+    </div>
+
+<div class='section'>
+<h2>Simulation plan</h2>
+<p class='cap'>Planned + completed runs for this study, in execution order. [##] = ran/completed; [--] = planned; [!!] = blocked.</p>
+<div class='gantt'>[--]  rr-estimator-variance-floor                 n_steps=(per Z)   status=planned
+[--]  model-comparison-sbc-K500                   n_steps=500       status=planned
+[--]  active-inference-loop-pilot                 n_steps=(adaptive)  status=planned
+[--]  benchmark-20-gene-recovery                  n_steps=(per gene)  status=planned</div>
+<h3>Per-run detail</h3>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>n_steps</th><th>details</th></tr></thead><tbody><tr><td>rr-estimator-variance-floor</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(per Z)</code></td><td>monitor N_eff ≥ 100; fall back to thermodynamic integration if below</td></tr><tr><td>model-comparison-sbc-K500</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>500</code></td><td>extended SBC at model-comparison level; rank-histogram χ² p &gt; 0.05 required</td></tr><tr><td>active-inference-loop-pilot</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(adaptive)</code></td><td>10-gene pilot; EIG MCSE non-zero per proposal</td></tr><tr><td>benchmark-20-gene-recovery</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(per gene)</code></td><td>20 benchmark E. coli genes; BH-FDR ≤ 0.10 (investigation gating)</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Readouts — what we measure</h2>
+<p class='cap'>The observables this study captures + the on-disk path where they land.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>path</th><th>units</th><th>notes</th></tr></thead><tbody><tr><td><code>rr-estimator-trace</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>.pbg/runs/&lt;id&gt;/rr_estimate.zarr</code></td><td>log-marginal-likelihood + N_eff</td><td>Per candidate annotation. Gating: N_eff &gt;= 100 or fallback to thermodynamic integration.</td></tr><tr><td><code>log-bayes-factor-cis</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/log_bf_cis.csv</code></td><td>log Bayes factor + 95% bootstrap CI</td><td>Per pairwise annotation comparison. Recovery claim requires CI entirely above Jeffreys |log BF| &gt; 1.</td></tr><tr><td><code>model-comparison-sbc</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/model_sbc_ranks.csv</code></td><td>model-posterior rank</td><td>K=500 synthetic datasets from known true annotations. Gating: chi^2 uniformity p &gt; 0.05.</td></tr><tr><td><code>eig-per-intervention</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/eig_proposals.csv</code></td><td>expected information gain (nats)</td><td>Per active-inference intervention proposal. MCSE-bounded; proposals with CI overlapping zero not selected.</td></tr><tr><td><code>benchmark-recovery</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/benchmark_recovery.csv</code></td><td>per-gene q-value (BH-adjusted)</td><td>20-gene benchmark E. coli set. Investigation success: BH-FDR q &lt;= 0.10 + CI shrinkage rate log-log slope &lt;= -0.4.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Tests — what passes / fails</h2>
+<p class='cap'>The structured predictions this study evaluates. Each test maps to a measurement + a decision criterion.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>given</th><th>prediction (en)</th></tr></thead><tbody><tr><td><code>annotation-bayes-model-compare</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>candidate-annotations</td><td>Marginal likelihoods are estimated via Russian Roulette / doubly-intractable methods with quantified variance bounds; the implementation passes published unit tests on simpler model-comparison benchmarks before being applied to WCM candidat</td></tr><tr><td><code>active-causal-discovery-loop</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-annotation</td><td>The active-inference loop proposes in-silico interventions (knockouts, overexpression) and selects them by expected information gain over the candidate annotation set; the selection record shows the loop converges in expected number of inte</td></tr><tr><td><code>benchmark-recovery-with-credible-intervals</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>e-coli-known-function-benchmark</td><td>On a curated benchmark of ≥20 E. coli genes with established functions, the pipeline recovers the correct annotation at the published credible level, with credible-interval widths that shrink predictably as sample size grows. (Gating criter</td></tr><tr><td><code>genome-wide-resource-estimate</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>benchmark-results</td><td>Per-annotation compute cost on the benchmark extrapolates to a defensible total compute estimate for genome-wide scaling (≥4000 E. coli genes); the estimate identifies the binding constraint (compute time, memory, or convergence).</td></tr><tr><td><code>uq-rr-estimator-ess</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-marginal-likelihood</td><td>Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff; estimates with N_eff &lt; 100 are flagged and either rerun with a tighter proposal or replaced by a documented-bias method (TI / nested sampling).</td></tr><tr><td><code>uq-bayes-factor-CIs</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-pairwise-comparison</td><td>log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI lies entirely above the Jeffreys |log BF| &gt; 1 threshold (&quot;substantial evidence&quot;).</td></tr><tr><td><code>uq-sbc-at-model-comparison-level</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>K500-synthetic-datasets</td><td>Extended SBC over K=500 synthetic datasets from known true annotations: rank histogram of true-model posterior probability passes χ² uniformity (p &gt; 0.05). Required before trusting the pipeline on real annotations.</td></tr><tr><td><code>uq-eig-MCSE-nonzero</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-intervention-proposal</td><td>Every intervention proposal carries an EIG estimate ± MCSE; proposals whose EIG CI overlaps zero are not selected. NMC bias bound reported, or DV/DAD variational lower bound used where feasible.</td></tr><tr><td><code>uq-fdr-on-benchmark-recoveries</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>benchmark-gene-set</td><td>Recoveries on the benchmark gene set are reported with BH-adjusted q-values; success claim requires q ≤ 0.1 at the gene-set level, not just per-gene posterior probability.</td></tr><tr><td><code>uq-credible-interval-shrinkage-rate</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-parameter</td><td>Credible-interval-width-vs-N curves are fit on a log-log scale; expected slope -1/2 for well-identified parameters. Slopes shallower than -0.4 trigger MCMC mixing diagnostics and identifiability re-check.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Variants — planned configurations</h2>
+<p class='cap'>Distinct parameterisations / perturbations to be run.</p>
+<table class='ut'><thead><tr><th>name</th><th>description</th><th>params</th></tr></thead><tbody><tr><td><code>russian-roulette-marginal-likelihood</code></td><td>RR estimator (Lyne et al. 2015) for the marginal-likelihood ratio between candidate gene-function annotations. ESS-equivalent N_eff ≥ 100 per Z estimate.</td><td><code>{&#x27;estimator&#x27;: &#x27;russian-roulette&#x27;, &#x27;n_eff_floor&#x27;: 100}</code></td></tr><tr><td><code>active-causal-inference-loop</code></td><td>Active Bayesian causal inference (Toth et al. 2022): propose targeted in-silico interventions (knockouts, overexpression), score by expected information gain (EIG) with MCSE-bounded estimates.</td><td><code>{&#x27;intervention_menu&#x27;: [&#x27;knockout&#x27;, &#x27;overexpression&#x27;, &#x27;promoter-swap&#x27;]}</code></td></tr><tr><td><code>benchmark-gene-set</code></td><td>≥20 E. coli genes with literature-established functions across diverse mechanism classes (kinases, TFs, transporters, structural). The validation target.</td><td><code>{&#x27;n_genes&#x27;: 20, &#x27;classes&#x27;: [&#x27;kinase&#x27;, &#x27;TF&#x27;, &#x27;transporter&#x27;, &#x27;structural&#x27;]}</code></td></tr><tr><td><code>sbc-at-model-comparison-level</code></td><td>Extended SBC over K=500 synthetic datasets generated under known true annotations; verify uniformity of posterior model probability ranks.</td><td><code>{&#x27;K&#x27;: 500}</code></td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Proceed condition (gate to next phase)</h2>
+<p class='cap' style='white-space:pre-wrap'>RR marginal-likelihood estimator achieves N_eff ≥ 100 per estimate. Log BF CIs lie entirely above |log BF| &gt; 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p &gt; 0.05. Active-inference EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4.</p>
+</div>
+
+</body></html>

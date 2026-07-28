@@ -1,0 +1,7 @@
+{
+  "mode": "snapshot",
+  "smsApiBase": "",
+  "repo": "https://github.com/vivarium-collective/v2ecoli.git",
+  "commit": "4bfca82f8ff827be6f91dcc09d50aa6bf293596f",
+  "generated_from_ref": "study-registry-migration"
+}

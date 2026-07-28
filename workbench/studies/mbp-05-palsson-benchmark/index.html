@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study: mbp-05-palsson-benchmark</title>
+<link rel="stylesheet" href="/v2ecoli/workbench/assets/style.css">
+<link rel="stylesheet" href="/v2ecoli/workbench/assets/progress-track.css">
+<!-- Inherit the workbench light/dark theme (this page loads in an iframe;
+     same-origin, so it shares the parent's localStorage 'viv.theme'). -->
+<script>(function(){try{var t=localStorage.getItem('viv.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+<main class="study-page">
+<header class="study-header">
+  <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
+  <h1 class="study-title">
+    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">mbp-05</span><span class="study-name" id="study-name" data-slug="mbp-05-palsson-benchmark" title="mbp-05-palsson-benchmark">Palsson benchmark</span>
+    
+    <span class="phase-pill phase-evaluate" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Evaluate</span>
+    
+    
+    
+    <span class="status-pill status-in_progress" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">in_progress</span>
+    
+    
+    
+    
+  </h1>
+  <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
+    <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
+    <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+  </span>
+  </div>
+</header>
+
+
+
+
+
+<div id="readiness-panel" data-slug="mbp-05-palsson-benchmark"></div>
+
+
+
+
+
+
+<style>
+.status-detail-panel{margin:8px 0 12px 0;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
+.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
+/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
+.gate-status-blocked          { background:#e5e7eb; color:#374151 }
+.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
+.gate-status-passed           { background:#d1fae5; color:#065f46 }
+.gate-status-failed           { background:#fee2e2; color:#991b1b }
+.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
+.status-pill.gate-status{font-weight:500}
+/* Redesign: compact one-line lifecycle stepper; full per-axis rows behind the expander. */
+.status-detail-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status-detail-panel > summary::-webkit-details-marker{display:none}
+.status-stepper{display:flex;gap:13px;flex-wrap:wrap;align-items:center;flex:1}
+.status-step{display:inline-flex;align-items:center;gap:5px;font-size:0.82em;color:#94a3b8;white-space:nowrap}
+.status-step .dot{width:9px;height:9px;border-radius:50%;background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
+.status-step.set{color:#334155}
+.status-step.set .dot{background:#10b981;box-shadow:none}
+.status-step .step-val{font-family:ui-monospace,monospace;font-size:0.92em;color:#64748b}
+.status-step.gate-status-blocked .dot{background:#9ca3af;box-shadow:none}
+.status-step.gate-status-needs_calibration .dot{background:#f59e0b;box-shadow:none}
+.status-step.gate-status-passed .dot{background:#10b981;box-shadow:none}
+.status-step.gate-status-failed .dot{background:#ef4444;box-shadow:none}
+.status-step.gate-status-stale .dot{background:#8b5cf6;box-shadow:none}
+.status-stepper-more{font-size:0.76em;color:#64748b;white-space:nowrap}
+.status-detail-panel[open] .status-stepper-more::after{content:" \25be"}
+.status-detail-panel:not([open]) .status-stepper-more::after{content:" \25b8"}
+.status-stepper-body{margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6}
+</style>
+<details class="status-detail-panel" aria-label="Multi-axis lifecycle status">
+  <summary>
+    <span class="status-stepper">
+      
+      <span class="status-step axis-design_status set">
+        <span class="dot"></span>Design<span class="step-val">complete</span>
+      </span>
+      
+      <span class="status-step axis-implementation_status set">
+        <span class="dot"></span>Implementation<span class="step-val">complete</span>
+      </span>
+      
+      <span class="status-step axis-simulation_status set">
+        <span class="dot"></span>Simulation<span class="step-val">ran</span>
+      </span>
+      
+      <span class="status-step axis-evaluation_status set">
+        <span class="dot"></span>Evaluation<span class="step-val">in_progress</span>
+      </span>
+      
+      <span class="status-step axis-gate_status">
+        <span class="dot"></span>Gate
+      </span>
+      
+      <span class="status-step axis-expert_review_status set">
+        <span class="dot"></span>Expert review<span class="step-val">not_requested</span>
+      </span>
+      
+    </span>
+    <span class="status-stepper-more">details</span>
+  </summary>
+  <div class="status-stepper-body">
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Design</span>
+      <span class="status-chip ">complete</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Implementation</span>
+      <span class="status-chip ">complete</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Simulation</span>
+      <span class="status-chip ">ran</span>
+    </div>
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Evaluation</span>
+      <span class="status-chip ">in_progress</span>
+    </div>
+    
+    
+    
+    
+    
+    <div class="status-detail-row">
+      <span class="status-detail-axis">Expert review</span>
+      <span class="status-chip ">not_requested</span>
+    </div>
+    
+    
+  </div>
+</details>
+
+
+
+
+
+
+<style>
+.spine-summary{margin:8px 0 0 0;border:1px solid #cbd5e1;border-left-width:5px;border-bottom:none;border-radius:6px 6px 0 0;background:#f8fafc;font-size:0.9em}
+.spine-summary:empty{display:none}
+.spine-summary-head{padding:7px 14px 4px 14px;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700}
+.spine-row{display:flex;align-items:baseline;gap:10px;padding:4px 14px;border-top:1px solid #eef2f6}
+.spine-key{min-width:92px;color:#475569;font-weight:600;font-size:0.85em;text-transform:uppercase;letter-spacing:0.03em}
+.spine-val{flex:1;color:#1e293b}
+.spine-jump{white-space:nowrap}
+.spine-jump a,.spine-val a{color:#3b82f6;text-decoration:none}
+.spine-jump a:hover,.spine-val a:hover{text-decoration:underline}
+.spine-label{font-size:0.8em;color:#64748b;font-weight:500}
+.spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
+.spine-div{font-weight:600;color:#92400e}
+</style>
+<div id="spine-summary" class="spine-summary" data-slug="mbp-05-palsson-benchmark"></div>
+
+<nav class="study-tabs" aria-label="Study sections">
+  <div class="study-pillars">
+    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Overview</button>
+    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Model</button>
+    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulations</button>
+    <button class="study-pillar"        data-pillar="readouts"   onclick="_setStudyPillar('readouts')">Readouts</button>
+    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualizations</button>
+    <button class="study-pillar"        data-pillar="tests"      onclick="_setStudyPillar('tests')">Tests</button>
+    <button class="study-pillar"        data-pillar="decide"     onclick="_setStudyPillar('decide')">Decide</button>
+    <button class="study-pillar"        data-pillar="data"       onclick="_setStudyPillar('data')">Exports</button>
+  </div>
+  <div class="study-subnav" id="study-subnav">
+    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
+    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Model</button>
+    <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulations</button>
+    <button class="study-tab" data-kind="readouts" data-pillar="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
+    
+    <button class="study-tab" data-kind="report-cards" data-pillar="tests" onclick="_setStudyTab('report-cards')">Report Cards</button>
+    <button class="study-tab" data-kind="tests" data-pillar="tests" onclick="_setStudyTab('tests')">Behavioral Tests</button>
+    
+    <button class="study-tab" data-kind="conclusions" data-pillar="decide" onclick="_setStudyTab('conclusions')">Decide</button>
+    <button class="study-tab" data-kind="data" data-pillar="data" onclick="_setStudyTab('data')">Exports</button>
+  </div>
+</nav>
+<style>
+.phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
+.phase-design   { background:#e0e7ff; color:#3730a3 }
+.phase-build    { background:#fef3c7; color:#92400e }
+.phase-simulate { background:#dbeafe; color:#1e40af }
+.phase-evaluate { background:#fce7f3; color:#9d174d }
+.phase-decide   { background:#d1fae5; color:#065f46 }
+.classification-pill{display:inline-block;font-size:0.7em;padding:1px 8px;border-radius:9999px;margin-right:4px;font-weight:500}
+.classification-primary    { background:#fee2e2; color:#991b1b }
+.classification-supporting { background:#dbeafe; color:#1e40af }
+.classification-diagnostic { background:#fef3c7; color:#92400e }
+.classification-regression { background:#e5e7eb; color:#374151 }
+.sim-status-pill{display:inline-block;font-size:0.72em;padding:1px 8px;border-radius:9999px;margin-left:4px}
+.sim-status-ready  { background:#d1fae5; color:#065f46 }
+.sim-status-gated  { background:#fef3c7; color:#92400e }
+.sim-status-running{ background:#dbeafe; color:#1e40af }
+.sim-status-ran    { background:#d1fae5; color:#065f46 }
+.purpose-callout{margin-bottom:10px;padding:10px 14px;border-radius:4px;line-height:1.55}
+.purpose-callout strong{margin-right:6px}
+.followup-list{display:flex;flex-direction:column;gap:10px}
+.followup-card{padding:10px 14px;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.93em}
+.followup-card.followup-kind-existing{border-left-color:#3b82f6;background:#eff6ff}
+.followup-card.followup-kind-infrastructure_fix{border-left-color:#dc2626;background:#fef2f2}
+.followup-card.followup-kind-calibration_task{border-left-color:#f59e0b;background:#fefce8}
+.followup-card.followup-kind-expert_question{border-left-color:#a855f7;background:#faf5ff}
+.followup-card.followup-kind-new{border-left-color:#10b981;background:#f0fdf4}
+.followup-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.followup-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-effort{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-family:ui-monospace,monospace}
+.followup-status{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-status.status-blocked{background:#fef3c7;color:#92400e}
+.followup-status.status-done{background:#d1fae5;color:#065f46}
+.followup-title{flex:1;font-size:1em}
+.followup-why,.followup-unblocks,.followup-acceptance,.followup-hypothesis{margin:4px 0 0 0;font-size:0.92em;line-height:1.45}
+.followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
+.btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
+.btn-seed-followup:hover{background:#3b82f6;color:#fff}
+.charts-panel{margin-top:18px;display:flex;flex-direction:column;gap:18px}
+.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px 12px 12px}
+/* SVGs scale to fit their card; preserves aspect ratio so a 1400×484
+   chart shrinks instead of overflowing horizontally + clipping. */
+.chart-card svg,.chart-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+.chart-caption{font-size:0.83em;color:#475569;margin-top:4px;line-height:1.4}
+/* findings */
+.findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
+.finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
+.finding-card.finding-status-confirms{border-left-color:#10b981}
+.finding-card.finding-status-partial{border-left-color:#f59e0b}
+.finding-card.finding-status-contradicts{border-left-color:#dc2626}
+.finding-card.finding-status-novel{border-left-color:#8b5cf6}
+.finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
+.finding-status-confirms .finding-status-glyph{color:#10b981}
+.finding-status-partial .finding-status-glyph{color:#f59e0b}
+.finding-status-contradicts .finding-status-glyph{color:#dc2626}
+.finding-status-novel .finding-status-glyph{color:#8b5cf6}
+.finding-id{font-family:ui-monospace,monospace;font-size:0.78em;color:#475569;background:#f1f5f9;padding:1px 6px;border-radius:3px}
+.finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
+.finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
+.finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
+.finding-explanation em{color:#475569;font-style:normal;font-weight:600}
+.finding-expert{margin:6px 0;padding:6px 10px;background:#fafafa;border:1px solid #e2e8f0;border-radius:4px}
+.finding-expert summary{cursor:pointer;font-size:0.85em;color:#475569;font-weight:500}
+.finding-expert-quote{border-left:3px solid #6366f1;margin:6px 0 4px 0;padding:6px 10px;background:#fafbff;font-style:italic;color:#1e1b4b;font-size:0.92em;line-height:1.5}
+.finding-expert-note{font-size:0.88em;color:#475569;margin-top:4px;font-style:italic}
+.finding-next{padding:6px 10px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:3px;font-size:0.9em;margin-top:8px;line-height:1.5}
+.finding-next strong{color:#065f46}
+/* discovery implications */
+.di-group{margin:14px 0}
+.di-group h3{margin:0 0 6px 0;font-size:0.95em}
+.di-uncertainties{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}
+.di-unc{flex:1;min-width:220px}
+.di-unc h4{margin:0 0 4px 0;font-size:0.88em}
+.di-unc-resolved h4{color:#065f46}
+.di-unc-remaining h4{color:#92400e}
+.di-unc ul{margin:0 0 0 18px;padding:0;font-size:0.9em;line-height:1.45}
+.di-card{padding:10px 14px;margin:8px 0;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.92em}
+.di-card-stmt{font-size:0.98em;line-height:1.5}
+.di-card-why{margin:4px 0 0 0;color:#475569;line-height:1.45}
+.di-card-line{margin:4px 0 0 0;font-size:0.88em;color:#475569;line-height:1.4}
+.di-lbl{color:#475569;font-weight:600;font-size:0.85em}
+.di-mech-card{border-left-color:#a855f7;background:#faf5ff}
+.di-mech-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.di-update-chip{font-size:0.7em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3}
+.di-conf-change{font-size:0.78em;color:#475569;font-family:ui-monospace,monospace}
+.di-approval-badge{font-size:0.68em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e}
+.di-fup-card{border-left-color:#10b981;background:#f0fdf4}
+.di-gain-high{background:#d1fae5;color:#065f46}
+.di-gain-medium{background:#fef3c7;color:#92400e}
+.di-gain-low{background:#e5e7eb;color:#374151}
+.di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+</style>
+
+<style>
+/* ── Study Overview redesign: narrative order + progressive disclosure ── */
+.is-hidden{display:none !important}
+.narrative-field{margin:6px 0}
+.add-field-btn{background:none;border:1px dashed #cbd5e1;color:#64748b;font-size:0.82em;
+  padding:4px 12px;border-radius:6px;cursor:pointer;transition:border-color .12s,color .12s,background .12s}
+.add-field-btn:hover{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
+.conclusion-block{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:22px}
+.conclusion-insight{font-size:1.02em;line-height:1.55;color:#1e293b;margin:2px 0 12px;font-weight:500}
+.computed-tag{display:inline-block;font-size:0.68em;font-weight:600;text-transform:uppercase;
+  letter-spacing:0.04em;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;
+  padding:1px 7px;border-radius:9999px;margin-left:8px;vertical-align:middle}
+.conclusion-tags{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.tag-control{display:inline-flex;align-items:center;gap:6px}
+.tag-k{font-size:0.72em;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600}
+.tag-select,.tag-input{font-size:0.85em;padding:3px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}
+.tag-input{min-width:220px}
+</style>
+<section class="study-tab-panel active" data-kind="overview" id="panel-overview">
+  <div class="study-overview">
+
+    
+    
+    
+
+    
+    
+
+    
+    
+    <h2 class="overview-label">Question &amp; approach</h2>
+    
+    <div class="overview-section">
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Configured with operating conditions matched to the 2025 Palsson lab
+high-density E. coli study, does the v2ecoli ↔ pbg-bioreactordesign
+coupled model **render a structured comparison report** (sim-vs-
+published overlays + categorized divergences + open questions) on
+the published WT batch-phase prefix trajectories, suitable to feed
+mbp-06&#39;s gap-analysis synthesis?
+
+Investigation-level note: the original question framing (&#34;match within
+tolerance&#34;) was reframed 2026-05-26 to &#34;render a structured comparison.&#34;
+The success definition is whether the comparison was EXECUTED AND
+REPORTED COHERENTLY, not whether biology matched. All biological
+divergences feed mbp-06 unchanged.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> For each entry in `comparison_overlays`, the harness produces a single
+overlay panel + derived comparison metrics. The deliverable is the
+report card: a markdown document with all overlay panels and a
+structured `## Divergence triage` section enumerating divergences
+against the four-category taxonomy, each pointing at the specific
+sim path / published column / observation that drove the categorization.
+
+Pass / fail of each test below is about whether the overlay+triage
+artifact was produced — not whether biology matched. Divergences are
+valuable: each one is a specific mbp-06 gap finding seed.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> The benchmark paper is Beulig et al. 2025 (mSystems 10(7),
+doi:10.1128/msystems.00323-25; senior author B. Palsson), titled
+&#34;Trade-off between resistance and persistence in high cell density
+cultures.&#34; Open access, PDF at
+`references/papers/Beulig_2025_mSystems_high_cell_density.pdf`;
+extracted metadata + scope notes at
+`references/expert/palsson_2025_fed_batch.md`. Digitized trajectories
+at `references/papers/palsson-2025-supp/`.
+
+Two-stage batch → fed-batch fermentation to 50–80 gDW/L in parallel
+well-controlled bioreactors; exponential feeding after batch-to-fed-
+batch transition (t=0 h); &gt;470 transcriptomic samples across five
+strain groups (WT BW25113, 31 SGKO, TRP, TRPp, MEL) and four
+fermentation phases (I–IV).
+
+For mbp-05, scope is WT only and (until fed-batch lands in
+pbg-bioreactordesign) the BATCH PHASE PREFIX. Configure the mbp-03/04
+coupled composite to the published operating profile (reactor geometry,
+aeration, medium, initial conditions). Run; render comparison overlays
+for every sim ↔ published trajectory pair listed in `comparison_overlays`
+below (~8 surfaces); categorize divergences in the report card across
+four categories (v2ecoli metabolic deficiency / coupling-adapter
+limitation / experimental uncertainty / placeholder-induced).
+
+**No new model capability.** model_change is empty. The comparison
+harness (`req-2-comparison-harness`) is generic over the
+`comparison_overlays` config — adding a new comparison = adding one
+YAML entry. Future investigations reuse the harness with their own
+list.
+
+Transcriptional-state matching against the &gt;470 transcriptomes is a
+natural extension (v2ecoli outputs transcript counts) — out of mbp-05
+scope; pre-seeded as mbp-09 candidate-future-study in mbp-06.
+
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="overview-section biology-summary-callout">
+      <h2 class="biology-glance-label">Biology — what this study is about</h2>
+      
+      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
+                data-narrative-path="biological_summary"
+                placeholder="Plain-English mechanism narrative.">Benchmark: Beulig et al. 2025 (mSystems, doi:10.1128/msystems.00323-25; Palsson lab), two-stage batch-&gt;fed-batch to 50-80 gDW/L. mbp-05 scopes to WT, BATCH-PHASE PREFIX (Beulig batch peak ~9.6 g/L). Compared surfaces: OD600/biomass, glucose, acetate + mixed-acid byproducts (lactate/formate/ethanol/pyruvate/succinate), GUR, OTR/CTR, base addition. v2ecoli&#39;s calibration (slow-growth M9, single cell) is OUTSIDE the high-density envelope — divergences are EXPECTED outputs categorized for mbp-06, not failures.</textarea>
+      
+    </div>
+
+    
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-novel">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">report-card-tests</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">novel literature</span>
+        </div>
+        <div class="finding-statement">tests: ungraded</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          
+          
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        
+        
+      </div>
+      
+    </div>
+    
+
+    
+    
+    <div class="overview-section" id="epistemic-debts-panel">
+      <h2 class="overview-label">🧾 Open epistemic debts
+        <span class="narrative-card-hint">(what this study has not yet established)</span>
+      </h2>
+      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">alternative-not-excluded</strong>
+            <code style="font-size:0.82em">alternatives</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">replication</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    
+    <div class="overview-section conclusion-block">
+      <h2 class="overview-label">Conclusion</h2>
+      
+      <p class="conclusion-insight">tests: ungraded<span class="computed-tag">computed from findings</span></p>
+      
+      
+    <div class="narrative-field">
+      <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
+      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.conclusion">
+        <span class="narrative-label">Conclusion</span>
+        <textarea class="narrative-input narrative-textarea" rows="3"
+                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated."></textarea>
+      </label>
+    </div>
+    
+      
+    <div class="narrative-field">
+      <button type="button" class="add-field-btn" data-reveal-field="report.caveat">+ Add caveat</button>
+      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.caveat">
+        <span class="narrative-label">Caveat</span>
+        <textarea class="narrative-input narrative-textarea" rows="2"
+                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know."></textarea>
+      </label>
+    </div>
+    
+      <div class="conclusion-tags">
+        <label class="tag-control"><span class="tag-k">confidence</span>
+          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
+            <option value="">—</option>
+            <option value="high" >high</option>
+            <option value="medium" >medium</option>
+            <option value="low" >low</option>
+          </select></label>
+        <label class="tag-control"><span class="tag-k">evidence</span>
+          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
+                 value="" placeholder="calibrated | literature-matched | …"></label>
+      </div>
+    </div>
+
+    
+    <details class="overview-section">
+      <summary class="overview-label">Plan &amp; provenance</summary>
+
+      
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
+          <code>mbp-04-multigeneration-runs</code>
+        </div>
+        
+        
+        
+        <div><strong>Proceed when:</strong> <span class="muted">All comparison overlay panels rendered (one per `comparison_overlays`
+entry); report.md committed with `## Divergence triage` section
+populated against the four-category taxonomy. Divergences themselves
+are PASSED to mbp-06 as input — they do not gate this phase. The
+`divergences-categorized-in-report-card` test is the load-bearing
+one (per chris_feedback_2026_05_26 §10).
+</span></div>
+        
+      </div>
+      
+
+      
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">Published trajectories are digitizable / available at sufficient resolution to overlay.</li><li style="margin:2px 0">OD600 ↔ gDW conversion factor (od_to_gdw, default 0.34 — Beulig 2025 value; was textbook 0.33; matches mbp-02 default) holds at Palsson&#39;s cell-density regime, or is refit from the paper.</li><li style="margin:2px 0">If Palsson is fed-batch only, this study scopes to the batch-phase prefix until pbg-bioreactordesign gains fed-batch (deferred enhancement).</li><li style="margin:2px 0">0D well-mixed assumption holds at the paper&#39;s reactor scale (bench).</li>
+        </ul>
+      </div>
+      
+
+      
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>13</strong> tests defined —
+            <span class="classification-pill classification-primary">8 primary</span>
+            <span class="classification-pill classification-diagnostic">5 diagnostic</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
+      
+
+      
+
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Limitations</h2>
+        <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">EVALUATION PHASE (chris_feedback_2026_05_26 §10): mbp-05 deliberately does NOT make tolerance-based biology claims. The original framing (`end-of-run-od-matches-published` etc.) structurally encoded an open-ended menu of model knobs to turn — even with the &#39;no silent tuning&#39; discipline, the impulse to tune to a tolerance-test was built into the test design. The reframe shifts the bound on the AI agent to &#39;execute and report&#39;.</li><li style="margin:2px 0">Single benchmark study; not a multi-dataset validation.</li><li style="margin:2px 0">Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); this study scopes to the BATCH-PHASE PREFIX of the Beulig dataset.</li><li style="margin:2px 0">v2ecoli&#39;s calibration is slow-growth M9-glucose (~60-min doubling, single cell); the high-density 50–80 gDW/L regime is OUTSIDE the calibration envelope. Under the new framing this is no longer a &#39;tolerance must reflect this&#39; caveat — it becomes one of the divergences mbp-06&#39;s gap analysis categorizes.</li><li style="margin:2px 0">Strain scope: WT BW25113 only. SGKO (31 knockouts) / TRP / TRPp / MEL are deferred — natural candidate-future-studies under v2ecoli&#39;s variant scope.</li><li style="margin:2px 0">Transcriptional-state matching against &gt;470 Beulig transcriptomes is a unique benchmark axis (v2ecoli has transcripts; upstream dFBA path does not) — deferred to mbp-09 (pre-seeded in mbp-06).</li>
+        </ul>
+      </div>
+      
+
+      
+      
+
+      
+      
+      <div class="overview-section literature-anchors">
+        <h3 class="overview-label">Literature anchors</h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          The biological expectations this study tests, mapped to the
+          model observable that will measure each one. Full citations
+          live in the Tests tab.
+        </p>
+        <ul class="literature-anchor-list">
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+          <li class="literature-anchor-card">
+            <div class="anchor-expectation"></div>
+            <div class="anchor-observable">
+              <em>Model observable:</em> <code></code>
+            </div>
+            
+            
+          </li>
+        
+        </ul>
+      </div>
+      
+
+      <div class="overview-section">
+        <h3 class="overview-label">Status</h3>
+        
+        
+
+        
+        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Evaluate</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
+        
+      </div>
+
+      <div class="study-counts-strip">
+        <div class="count-cell">
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
+        </div>
+        <div class="count-cell">
+          <strong>14</strong>
+          <span class="count-label">readouts</span>
+        </div>
+        <div class="count-cell">
+          <strong>2</strong>
+          <span class="count-label">requirements</span>
+        </div>
+        <div class="count-cell">
+          <strong>0</strong>
+          <span class="count-label">runs</span>
+        </div>
+      </div>
+
+    </details>
+
+    
+    <div id="feedback-tracked-panel"></div>
+
+  </div>
+</section>
+
+
+
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  
+  
+  
+
+  
+  
+  <div class="overview-section" id="model-section">
+    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
+    <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
+    
+    <div class="cond-block" data-model-composite="v2ecoli.composites.reactor_bird_coupled" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
+      <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong>palsson-matched-coupled</strong>
+        
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.reactor_bird_coupled</code>
+        <button type="button" class="action-btn" style="font-size:0.8em"
+                onclick="_openCompositeLoom('v2ecoli.composites.reactor_bird_coupled')">🧬 explore &amp; run ↗</button>
+        
+      </div>
+      
+      <div class="model-config-mount" style="margin-top:8px">
+        <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
+      
+      
+      
+    </div>
+    
+  </div>
+  
+
+  
+  
+
+  
+  <div class="overview-section">
+    <h3>Model change</h3>
+    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
+    <p><strong>Base model:</strong> <code>v2ecoli.composites.reactor_bird_coupled</code></p>
+    
+    
+    
+    
+    
+    <p class="muted" style="font-size:0.88em">EVALUATION PHASE — no new model capability. The previous
+`operating_profile` / `published_trajectory_path` parameters were
+misclassified as model_change (they&#39;re harness configuration, not
+model state). Configuration of the harness lives in
+`comparison_overlays` below. Knowledge ingestion (raw PDF + structured
+extraction) is prerequisite work, tracked in req-1-palsson-ingestion
+(already complete; see implementation_requirements).
+</p>
+  </div>
+  
+
+  
+  <div class="overview-section">
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(2 items)</span></h3>
+    <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #10b981">
+      <summary style="cursor:pointer">
+        <strong>req-1-palsson-ingestion</strong> — Beulig 2025 structured ingestion
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">XS</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[knowledge]</span>
+      </summary>
+      <p style="margin:8px 0">RESOLVED 2026-05-22. All artefacts in place:
+* PDF — references/papers/Beulig_2025_mSystems_high_cell_density.pdf
+* Bib — references/papers.bib @Beulig2025mSystems
+* Expert-doc — references/expert/palsson_2025_fed_batch.md
+* Digitized trajectories — references/papers/palsson-2025-supp/
+  (mirrored from github.com/febedtu/hd_ecoli/data/fermentation_data
+  with attribution; MIT). Includes per-reactor time-series for OD600,
+  glucose, OTR, CTR, feed rate, organic-acid byproducts; plus
+  experiment_mapping.csv (reactor↔strain) and
+  process_summary_interpol.csv (time-aligned interpolated long-format).
+REMAINING (spec-PR scope, NOT blocking impl): filter to the WT BW25113
+batch-phase prefix (fed-batch time h &lt; 0) and set per-metric tolerance
+bands. Note: paper&#39;s OD-to-gDW factor is 0.34 (not 0.33).
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>all mbp-05 behavior_tests</code>
+      </p>
+      
+      
+    </details>
+    
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #3b82f6">
+      <summary style="cursor:pointer">
+        <strong>req-2-comparison-harness</strong> — Generic sim-vs-published comparison harness
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">S</span>
+        <span class="muted" style="font-size:0.78em;margin-left:4px">[tooling]</span>
+      </summary>
+      <p style="margin:8px 0">Iterates over the study&#39;s `comparison_overlays` list, for each entry:
+  - Resolves `sim_path` against the run output (handles `aggregation:
+    per_biomass` and any other reductions).
+  - Loads `published_csv` and extracts `published_column`.
+  - Renders an overlay panel (sim trajectory + published trajectory,
+    time-aligned) → report/overlay_&lt;name&gt;.png
+  - Computes per-overlay derived metrics (end-of-run value diff,
+    shape-similarity, peak timing, etc. — keyed by the panel&#39;s
+    `backs_tests`).
+  - Categorizes any large divergences into the four-axis taxonomy in
+    report/divergence_triage.md (with evidence pointer to the panel
+    + sim_path + published_column).
+The harness is GENERIC: adding a new comparison surface = adding one
+`comparison_overlays` entry. No code change. Future investigations
+reuse the harness with their own `comparison_overlays` list.
+
+Framework-layer (chris_feedback_2026_05_26 §2): hoisting
+`comparison_overlays` into pbg-superpowers schema is a deferred-upstream
+candidate (tracked in mbp-06 axis-E gap entry).
+</p>
+      
+      
+      <p style="margin:8px 0 0 0;font-size:0.88em"><strong>Unblocks:</strong>
+        <code>all *-comparison-rendered tests</code> · <code>divergences-categorized-in-report-card</code>
+      </p>
+      
+      
+    </details>
+    
+    
+  </div>
+  
+  
+  
+  
+</section>
+
+
+
+<section class="study-tab-panel" data-kind="simulate" id="panel-simulate" hidden>
+
+  <div id="reproduce-card" class="reproduce-card"
+       style="margin:0 0 14px 0;padding:10px 12px;background:#f8fafc;
+              border:1px solid #e2e8f0;border-radius:6px;font-size:0.9em"></div>
+
+
+<div class="overview-section" id="simulations-section">
+  <h3 style="display:flex;align-items:center;gap:8px">Simulations
+    <span class="muted" style="font-size:0.85em;font-weight:normal">— this study's runs</span>
+    <button type="button" class="btn-mini" title="Reload this study's runs"
+            onclick="_loadStudySims(true)" style="margin-left:auto;font-size:0.8em">↻ Refresh</button>
+  </h3>
+  <p class="muted" style="font-size:0.88em">Every run recorded for this study (the same view as the Simulations DB, scoped here) — data location, origin, emitter, time, status, and downloads. Click a run to open its results; launch new runs below.</p>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-run-detail" style="margin-top:14px"></div>
+</div>
+
+  
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">palsson-matched-batch</strong>
+      <span class="sim-status-pill sim-status-planned">planned</span>
+      <span class="muted" style="font-size:0.85em">condition: palsson-2025-batch</span>
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.reactor_bird_coupled</code>
+    </div>
+    
+    <details style="margin:4px 0">
+      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
+      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
+  "operating_profile": "palsson_2025_batch_only"
+}</pre>
+    </details>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> 480 min
+      · <strong>Seeds:</strong> <code>0</code>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      <strong>Tests applied:</strong> 4 · 
+      
+    </p>
+    
+    <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
+      <code>population_OD600</code> · <code>population_total_biomass_gDW</code> · <code>reactor_glucose_gL</code> · <code>reactor_acetate_gL</code> · <code>reactor_dissolved_o2</code> · <code>metabolism_glucose_uptake_rate</code> · <code>reactor_lactate_gL</code> · <code>reactor_formate_gL</code> · <code>reactor_ethanol_gL</code> · <code>reactor_pyruvate_gL</code> · <code>reactor_succinate_gL</code> · <code>reactor_OTR</code> · <code>reactor_CTR</code> · <code>cumulative_base_addition</code>
+    </p>
+    
+    
+    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
+      <code>end-of-run-od-comparison-rendered</code> · <code>time-to-target-od-comparison-rendered</code> · <code>acetate-profile-comparison-rendered</code> · <code>byproduct-comparison-rendered</code> · <code>otr-ctr-comparison-rendered</code> · <code>gur-comparison-rendered</code> · <code>base-addition-comparison-rendered</code> · <code>divergences-categorized-in-report-card</code>
+    </p>
+    
+    
+  </div>
+  
+  
+  
+  <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
+  <div id="study-configure-run" style="margin-bottom:18px"></div>
+  <div class="panel" id="remote-run-panel" style="margin-bottom:18px">
+    <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
+    <p class="muted" style="font-size:0.9em">
+      Pushes the workspace's current branch, builds a simulator from that commit, and runs
+      it on the Ray backend. Results land as a run on this study. Requires GitHub login.
+    </p>
+    <form id="remote-run-form" onsubmit="return _submitRemoteRun(event)">
+      <label>Generations: <input name="num_generations" type="number" min="1" value="1" required></label>
+      <label>Seeds: <input name="num_seeds" type="number" min="1" value="1" required></label>
+      <label><input type="checkbox" name="run_parca" checked> Run ParCa</label>
+      <button type="submit" class="btn-mini" id="remote-run-btn">▶ Run on remote</button>
+    </form>
+    <div id="remote-run-progress" hidden></div>
+  </div>
+
+</section>
+
+<section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
+  <div class="observables-section">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h3 class="section-title" style="margin-right:auto">Readouts</h3>
+    </div>
+    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+
+    
+    <div id="readouts-download" style="margin:0 0 16px 0"></div>
+
+    <div id="readouts-table" data-study="mbp-05-palsson-benchmark">
+      <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
+
+  <div class="viz-section">
+
+    <h3 class="section-title">Visualizations</h3>
+    <p class="muted" style="margin:0 0 12px 0;font-size:0.88em">Figures for this study: the native analysis gallery from its latest run, any embedded HTML artefacts, and charts auto-rendered from <code>runs.db</code>.</p>
+    <div class="native-gallery-section" style="margin-bottom:22px">
+      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Baseline analysis gallery <span style="font-weight:normal">— latest completed run</span></h4>
+      <div id="native-gallery-panel"><p class="empty-message">Loading baseline figures…</p></div>
+    </div>
+
+    
+    
+    <div class="embed-viz-section" style="margin-bottom:22px">
+      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">3-arm Beulig overlay — WCM-FBA / Millard / iML1515 vs reference (interactive)</strong>
+          <a href="/v2ecoli/workbench/reports/figures/mbp-05-palsson-benchmark/beulig_3arm_biomass_overlay_interactive.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Sim arms vs the Beulig 2025 batch reference for biomass/growth. Each arm is a toggleable trace; the published reference is shown as markers. Makes the ~3-order batch-scale gap directly comparable.</p>
+        
+        <iframe src="/v2ecoli/workbench/reports/figures/mbp-05-palsson-benchmark/beulig_3arm_biomass_overlay_interactive.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="3-arm Beulig overlay — WCM-FBA / Millard / iML1515 vs reference (interactive)"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Byproduct reference — secretion vs Beulig peaks (interactive)</strong>
+          <a href="/v2ecoli/workbench/reports/figures/mbp-05-palsson-benchmark/beulig_byproduct_reference_interactive.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">Byproduct trajectories (acetate/lactate/formate/...) against the Beulig reference peaks. Hover for values; toggle species in the legend.</p>
+        
+        <iframe src="/v2ecoli/workbench/reports/figures/mbp-05-palsson-benchmark/beulig_byproduct_reference_interactive.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Byproduct reference — secretion vs Beulig peaks (interactive)"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
+          <strong style="flex:1">Report-card verdict heatmap — graded axes (interactive)</strong>
+          <a href="/v2ecoli/workbench/reports/figures/mbp-05-palsson-benchmark/beulig_verdict_heatmap_interactive.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
+        </div>
+        
+        <p class="muted" style="margin:6px 12px;font-size:0.88em">groups x axes colored within_tol / drift / mismatch from report_card_verdict.json; hover for the per-axis sim/ref/tolerance detail. The graded summary of the 3-arm comparison.</p>
+        
+        <iframe src="/v2ecoli/workbench/reports/figures/mbp-05-palsson-benchmark/beulig_verdict_heatmap_interactive.html"
+                style="width:100%;min-height:200px;border:0;display:block"
+                loading="lazy" title="Report-card verdict heatmap — graded axes (interactive)"
+                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+                ></iframe>
+      </div>
+      
+    </div>
+    
+
+    <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
+    <div id="viz-charts-panel" class="charts-panel"></div>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="report-cards" id="panel-report-cards" hidden>
+  <div class="report-cards-section">
+    <h3 class="section-title">Report cards</h3>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.9em">
+      Graded comparison scorecards for this study (v2ecoli vs vEcoli / literature).
+      Each card's verdict summarises whether the compared observables fall within
+      tolerance. Cards are produced during the post-sim flush from the study's
+      <code>report_cards:</code> declaration into <code>viz/report_card/</code>.
+    </p>
+    <div id="report-cards-panel"><p class="empty-message">Loading report cards…</p></div>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="data" id="panel-data" hidden>
+  <div class="data-section">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
+      <a id="data-download-all" class="btn-mini" style="display:none"
+         href="/api/study-analysis-zip?study=mbp-05-palsson-benchmark">Download all (.zip)</a>
+    </div>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
+      Analysis steps — e.g. per-run analysis tables and exports. Click a file to
+      download it.
+    </p>
+    <div id="data-files" data-study="mbp-05-palsson-benchmark">
+      <p class="empty-message">Loading result files…</p>
+    </div>
+
+    
+    <h3 class="section-title" style="margin-top:22px">Raw simulation data</h3>
+    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+      Each run's raw emitter store (zarr / parquet / <code>runs.db</code>) — the full
+      per-step trajectory. Analysis outputs above are derived from these.
+    </p>
+    <div id="raw-data-list"><p class="empty-message">Loading runs…</p></div>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <div class="tests-header">
+    <h3>Behavioral Tests</h3>
+    <p class="muted" style="margin: 0 0 8px 0;">
+      Each prediction below is paired with a precise <code>given / measure / expect</code>
+      rule so one English sentence auto-generates one pytest assertion. The
+      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
+      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
+      against the latest simulation run.
+    </p>
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <button id="run-tests-btn" class="btn-primary">Run tests</button>
+      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+    </div>
+    <div class="tests-config" style="margin-top: 6px;">
+      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+    </div>
+  </div>
+
+  
+  
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-end-of-run-od-comparison-rendered"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="end-of-run-od-comparison-rendered"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">end-of-run-od-comparison-rendered</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Overlay panel rendered for population.OD600 (sim) vs Beulig OD600 (published) at end-of-run; metric values (end_of_run_OD_sim, end_of_run_OD_published, difference) computed and emitted to the report card. NOT a tolerance check on biology — only a check that the comparison was executed.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifact": "report/overlay_population.OD600.png", "kind": "artifact_check", "required_metrics": ["end_of_run_OD_sim", "end_of_run_OD_published", "end_of_run_OD_diff"]}
+pass_if: {"op": "artifact_exists_with_metrics"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-time-to-target-od-comparison-rendered"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="time-to-target-od-comparison-rendered"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">time-to-target-od-comparison-rendered</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Time-to-target-OD metric computed for both sim and published trajectories; reported in the report card. Process-level only.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifact": "report/divergence_triage.md", "kind": "artifact_check", "required_metrics": ["time_to_target_OD_sim_min", "time_to_target_OD_published_min", "time_to_target_OD_diff_min"]}
+pass_if: {"op": "artifact_exists_with_metrics"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-acetate-profile-comparison-rendered"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="acetate-profile-comparison-rendered"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">acetate-profile-comparison-rendered</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Overlay panel rendered for acetate (sim ENV ACET[p] vs Beulig acetate_gL); shape-similarity metrics (peak timing, peak magnitude, decay rate) computed. Process-level.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifact": "report/overlay_acetate.png", "kind": "artifact_check", "required_metrics": ["peak_time_sim", "peak_time_published", "peak_mag_sim", "peak_mag_published"]}
+pass_if: {"op": "artifact_exists_with_metrics"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-byproduct-comparison-rendered"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="byproduct-comparison-rendered"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">byproduct-comparison-rendered</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Overlay panels rendered for all mixed-acid byproducts wired up (lactate / formate / ethanol / pyruvate / succinate); each panel checks that the simulated trajectory was extracted, the published CSV was loaded, and overlay metrics computed.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifacts": ["report/overlay_lactate.png", "report/overlay_formate.png", "report/overlay_ethanol.png", "report/overlay_pyruvate.png", "report/overlay_succinate.png"], "kind": "multi_artifact_check"}
+pass_if: {"op": "all_artifacts_exist"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-otr-ctr-comparison-rendered"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="otr-ctr-comparison-rendered"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">otr-ctr-comparison-rendered</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">OTR and CTR derived from BiRD kLa × (saturation - dissolved) overlaid against Beulig published OTR/CTR. Process-level check; biological divergences (e.g. v2ecoli RQ wrong) feed mbp-06.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifacts": ["report/overlay_OTR.png", "report/overlay_CTR.png"], "kind": "multi_artifact_check"}
+pass_if: {"op": "all_artifacts_exist"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-gur-comparison-rendered"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="gur-comparison-rendered"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">gur-comparison-rendered</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Glucose uptake rate (mmol/(gDW·h)) overlaid against Beulig published GUR. The shape of this comparison directly stresses the transport-kinetics question deferred from mbp-01 (saturable vs constant-bound vs linear).</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifact": "report/overlay_GUR.png", "kind": "artifact_check", "required_metrics": ["gur_shape_class_sim", "gur_shape_class_published"]}
+pass_if: {"op": "artifact_exists_with_metrics"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-base-addition-comparison-rendered"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="base-addition-comparison-rendered"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">base-addition-comparison-rendered</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Cumulative base addition (integrated net acid production from v2ecoli&#39;s organic-acid exchange) overlaid against Beulig published base-addition trace.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifact": "report/overlay_base_addition.png", "kind": "artifact_check", "required_metrics": ["cumulative_base_sim_mmol", "cumulative_base_published_mmol"]}
+pass_if: {"op": "artifact_exists_with_metrics"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-divergences-categorized-in-report-card"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="divergences-categorized-in-report-card"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">divergences-categorized-in-report-card</strong>
+        
+        <span class="muted" style="font-size:0.78em">requires: <code>palsson-matched-batch</code></span>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Divergences categorized in the report card across the four-category taxonomy (v2ecoli metabolic deficiency / coupling-adapter limitation / experimental uncertainty / placeholder-induced). Each divergence entry references the specific overlay panel + sim path + published column that drove the categorization, suitable for direct ingestion as a mbp-06 gap finding seed.</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"artifact": "report/divergence_triage.md", "kind": "structural_check", "predicate": "divergence_entries_categorized_with_4axis_taxonomy_and_evidence"}
+pass_if: {"op": "all_pass"}
+cites:   ["Beulig2025mSystems"]</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-growth-axes-graded-vs-beulig"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="growth-axes-graded-vs-beulig"
+        data-classification="diagnostic"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
+        <strong style="font-size: 0.9em;">growth-axes-graded-vs-beulig</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/beulig_batch/vs_beulig", "detail": "growth axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).", "group": "growth", "kind": "report_card_axis"}
+pass_if: {"op": "report_card_group_within_tol"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-substrate-axes-graded-vs-beulig"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="substrate-axes-graded-vs-beulig"
+        data-classification="diagnostic"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
+        <strong style="font-size: 0.9em;">substrate-axes-graded-vs-beulig</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/beulig_batch/vs_beulig", "detail": "substrate axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).", "group": "substrate", "kind": "report_card_axis"}
+pass_if: {"op": "report_card_group_within_tol"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-byproducts-axes-graded-vs-beulig"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="byproducts-axes-graded-vs-beulig"
+        data-classification="diagnostic"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
+        <strong style="font-size: 0.9em;">byproducts-axes-graded-vs-beulig</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/beulig_batch/vs_beulig", "detail": "byproducts axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).", "group": "byproducts", "kind": "report_card_axis"}
+pass_if: {"op": "report_card_group_within_tol"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-gas_transfer-axes-graded-vs-beulig"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="gas_transfer-axes-graded-vs-beulig"
+        data-classification="diagnostic"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
+        <strong style="font-size: 0.9em;">gas_transfer-axes-graded-vs-beulig</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/beulig_batch/vs_beulig", "detail": "gas_transfer axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).", "group": "gas_transfer", "kind": "report_card_axis"}
+pass_if: {"op": "report_card_group_within_tol"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-ph_control-axes-graded-vs-beulig"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="ph_control-axes-graded-vs-beulig"
+        data-classification="diagnostic"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
+        <strong style="font-size: 0.9em;">ph_control-axes-graded-vs-beulig</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/beulig_batch/vs_beulig", "detail": "ph_control axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).", "group": "ph_control", "kind": "report_card_axis"}
+pass_if: {"op": "report_card_group_within_tol"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+  </ul>
+  
+</section>
+
+<section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
+
+  
+  
+  
+  
+  
+
+  
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+
+    
+    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
+      Synthesises the latest run's outcomes against the pre-stated
+      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
+      you can either review (existing studies) or seed (new ones).
+    </p>
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+      </h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
+        Each track is independent. <em>Regression</em> answers "does the code
+        still build and run cleanly?", <em>biological</em> answers "does the
+        model match the literature?", <em>explanatory</em> answers "did we
+        learn something new?". Each <strong>result is computed</strong> from
+        canonical fields (gate evaluator, run status, finding tiers) — author
+        only the <em>basis</em> (the rationale) for each track.
+      </p>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Biological basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed."></textarea>
+        </label>
+      </div>
+    </div>
+
+    
+    
+    
+
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
+  
+
+</section>
+
+</main>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/vivarium-workbench", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/study-registry-migration", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "branch": "study-registry-migration", "lockfile": "uv.lock@d6dad4298718", "generated_at": "2026-07-28 00:06 UTC"} };</script>
+<script src="/v2ecoli/workbench/assets/data-source.js"></script>
+<script>
+window._studyName = "mbp-05-palsson-benchmark";
+window._study = null;  // populated by _bootstrapStudy() in study-detail.js
+
+// Save handler for the Conditions → Model settings editable rows.
+// POSTs to /api/study-expert-input-set (route kept for back-compat)
+// which patches study.yaml in place.
+// On success: flashes "saved" + updates the row's data-current attribute.
+// On failure: flashes the error (HTTP body) for ~5s.
+function _saveExpertInput(studyName, eiName, btn) {
+  var row = btn.closest('tr');
+  var input = row && row.querySelector('.cond-ei-input');
+  var flash = row && row.querySelector('.cond-ei-flash');
+  if (!input || !flash) return;
+  var raw = (input.value || '').trim();
+  // Coerce numeric inputs so yaml carries the right type
+  var val = raw;
+  if (input.type === 'number' && raw !== '') {
+    var n = Number(raw);
+    if (!isNaN(n)) val = n;
+  } else if (raw === '') {
+    val = null;
+  }
+  btn.disabled = true;
+  flash.className = 'cond-ei-flash';
+  flash.style.display = '';
+  flash.textContent = 'saving…';
+  fetch('/api/study-expert-input-set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({study: studyName, name: eiName, current: val}),
+  }).then(function(r) {
+    return r.text().then(function(t) { return {ok: r.ok, status: r.status, body: t}; });
+  }).then(function(res) {
+    if (res.ok) {
+      flash.className = 'cond-ei-flash saved';
+      flash.textContent = '✓ saved';
+      setTimeout(function() { flash.style.display = 'none'; }, 2500);
+    } else {
+      flash.className = 'cond-ei-flash error';
+      flash.textContent = '✗ ' + (res.body || ('HTTP ' + res.status));
+    }
+  }).catch(function(err) {
+    flash.className = 'cond-ei-flash error';
+    flash.textContent = '✗ ' + String(err);
+  }).finally(function() {
+    btn.disabled = false;
+  });
+}
+
+// ── Seed a child study from this study's discovery_implications /
+//    follow_up_studies and make it appear in the investigation graph ──────
+// Both POST /api/study-seed-followup. On success they flash an inline
+// confirmation on the clicked button, then refresh the surface the user is
+// in: when embedded inside the investigation iframe, ask the parent to
+// re-render the investigation detail (and reload as a fallback); standalone,
+// reload the page so the seeded child is reflected.
+//
+// NOTE: these are defined AFTER /study-detail.js loads (see the script order
+// below) so they take precedence over the legacy _seedFollowupStudy there,
+// which navigates away instead of refreshing the embedded investigation.
+function _flashSeedBtn(btn, text, ok) {
+  if (!btn) return;
+  btn.textContent = text;
+  btn.style.borderColor = ok ? '#10b981' : '#dc2626';
+  btn.style.color = ok ? '#065f46' : '#991b1b';
+}
+function _afterSeedRefresh() {
+  // Embedded inside the investigation iframe → refresh the parent's graph.
+  if (window.parent && window.parent !== window) {
+    try {
+      if (window.parent._refreshInvestigationDetail) {
+        window.parent._refreshInvestigationDetail();
+        return;
+      }
+    } catch (e) { /* cross-origin or missing — fall through to reload */ }
+    try { window.parent.location.reload(); return; } catch (e) { /* fall through */ }
+  }
+  location.reload();
+}
+function _seedFollowup(payload, btn) {
+  var orig = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; _flashSeedBtn(btn, '… seeding', true); }
+  fetch('/api/study-seed-followup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(function(r) {
+    return r.json().then(function(d) { return {ok: r.ok, status: r.status, body: d}; })
+      .catch(function() { return {ok: r.ok, status: r.status, body: {}}; });
+  }).then(function(res) {
+    if (!res.ok || (res.body && res.body.error)) {
+      _flashSeedBtn(btn, '✗ ' + ((res.body && res.body.error) || ('HTTP ' + res.status)), false);
+      if (btn) btn.disabled = false;
+      return;
+    }
+    _flashSeedBtn(btn, '✓ added', true);
+    setTimeout(_afterSeedRefresh, 600);
+  }).catch(function(err) {
+    _flashSeedBtn(btn, '✗ ' + String(err), false);
+    if (btn) btn.disabled = false;
+  });
+}
+function _seedFollowupStudy(parent, idx) {
+  _seedFollowup({parent: parent, followup_idx: idx}, window.event && window.event.target);
+}
+function _seedFollowupProposal(parent, proposalId) {
+  _seedFollowup({parent: parent, proposal_id: proposalId}, window.event && window.event.target);
+}
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script src="/v2ecoli/workbench/assets/configure-run.js"></script>
+<!-- ProgressTrack must load BEFORE study-detail.js: _renderRemoteRunProgress
+     (the pinned-build run card's progress adapter) depends on window.ProgressTrack. -->
+<script src="/v2ecoli/workbench/assets/progress-track.js"></script>
+<script src="/v2ecoli/workbench/assets/sim-table.js"></script>
+<script src="/v2ecoli/workbench/assets/study-detail.js"></script>
+<script>
+// Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
+// defines its own navigate-away _seedFollowupStudy). The embedded
+// investigation view prefers staying in place over a full navigation.
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script>
+(function () {
+  var el = document.getElementById("study-configure-run");
+  if (!el || !window.ConfigureRun) return;
+  
+  var compositeRef = "v2ecoli.composites.reactor_bird_coupled";
+  
+  var slug = window._studyName || "mbp-05-palsson-benchmark";
+  ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
+  // Read-only bundle: there's no live backend to run on — hide the remote-run
+  // launcher (the Configure & Run widget already renders a disabled preview).
+  // The ProgressTrack progress bar (progress-track.js) is inert here by
+  // construction: it makes ZERO network calls and only ever renders via
+  // _renderRemoteRunProgress, which is reachable only from the run button
+  // inside this now-hidden panel — so snapshots never invoke it.
+  if (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.mode === "snapshot") {
+    var rp = document.getElementById("remote-run-panel");
+    if (rp) rp.style.display = "none";
+    // "Reproduce" / "Run current spec" both POST to live-only endpoints —
+    // hide them alongside the remote-run launcher in a published read-only
+    // snapshot (reproducible-rerun-spine Task 4 / G2: two distinct buttons,
+    // both equally inert with no live backend to launch against).
+    var reproduceBtn = document.getElementById("study-reproduce");
+    if (reproduceBtn) reproduceBtn.style.display = "none";
+    var runCurrentBtn = document.getElementById("study-run-current-spec");
+    if (runCurrentBtn) runCurrentBtn.style.display = "none";
+  } else if (window._initRemoteRunPinned) {
+    // Live backend: relabel the remote-run card if pinned mode is enabled.
+    window._initRemoteRunPinned();
+  }
+})();
+</script>
+</body>
+</html>

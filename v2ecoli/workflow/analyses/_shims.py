@@ -28,6 +28,13 @@ the ptools analyses:
         ``listeners__rnap_data__active_rnap_unique_indexes`` (an INTEGER[]
         per row).  Use ``ACTIVE_RNAP_SQL`` in SELECT lists and read
         ``active_RNAP``.
+
+    Shim E – external exchange flux ordering
+        vEcoli explodes external exchange fluxes into one column per molecule
+        (``listeners__fba_results__external_exchange_fluxes__<MOL>[p]``), so a
+        port can find them by name.  v2ecoli emits a single 87-wide list column
+        with no name metadata.  ``external_exchange_molecule_ids`` returns the
+        ordering to index it by.
 """
 
 from __future__ import annotations
@@ -68,6 +75,32 @@ ACTIVE_RNAP_SQL = (
 vEcoli used ``listeners__unique_molecule_counts__active_RNAP``; v2ecoli has
 no such scalar column — the equivalent is the length of
 ``listeners__rnap_data__active_rnap_unique_indexes`` (an INTEGER[] per row)."""
+
+
+# ---------------------------------------------------------------------------
+# Shim E — external exchange flux ordering
+# ---------------------------------------------------------------------------
+
+def external_exchange_molecule_ids(sim_data) -> list[str]:
+    """Molecule ids, in the order of the ``external_exchange_fluxes`` list column.
+
+    The emitted vector is ``col_primals[external_exchange_idx]``
+    (``library/fba_fast.py``), whose index array is built from the FBA model's
+    ``_externalExchangeIDs``.  That list is appended index-parallel with
+    ``_externalMoleculeIDs`` in a single loop over the ``externalExchangedMolecules``
+    argument (``processes/parca/wholecell/utils/modular_fba.py:_initExternalExchange``),
+    and Metabolism passes that argument **sorted**
+    (``processes/metabolism.py``: ``exchange_molecules = sorted(...)``).  So the
+    flux vector is indexed by the sorted external-exchange molecule ids.
+
+    Verified against the three indices pinned independently in
+    ``scripts/render_basal_vs_literature.py`` (``_GLC_IDX, _CO2_IDX, _ACET_IDX =
+    37, 11, 3``, 1-indexed): sorted position 37 is ``GLC[p]``, 11 is
+    ``CARBON-DIOXIDE[p]``, 3 is ``ACET[p]``.
+    """
+    return sorted(
+        str(m) for m in sim_data.external_state.all_external_exchange_molecules
+    )
 
 
 # ---------------------------------------------------------------------------

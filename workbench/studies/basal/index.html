@@ -322,9 +322,9 @@
         <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
           <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
           <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">replication</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
           </div>
         </div>
         
@@ -332,11 +332,11 @@
         
         
         <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
           <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">only 2 replicates — add seeds for a robustness claim</div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
           </div>
         </div>
         
@@ -390,20 +390,6 @@
       <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      <div class="overview-section">
-        <h3 class="overview-label">Pipeline gate</h3>
-        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-        </p>
-        
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>parca</code>
-        </div>
-        
-        
-        
-      </div>
-      
 
       
 
@@ -456,7 +442,7 @@
           <span class="count-label">requirements</span>
         </div>
         <div class="count-cell">
-          <strong>2</strong>
+          <strong>1</strong>
           <span class="count-label">runs</span>
         </div>
       </div>
@@ -483,7 +469,7 @@
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"condition": "basal"}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <strong>basal</strong>
         
@@ -500,9 +486,9 @@
       
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
         
-        <span class="cond-pill"><span class="cond-pill-k">steps</span>=60</span>
         
-        <span class="cond-pill"><span class="cond-pill-k">status</span>=running</span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
       </div>
       
     </div>
@@ -523,12 +509,6 @@
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
       <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code></div>
-      
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        
-        <span class="cond-pill"><span class="cond-pill-k">condition</span>=<code>basal</code></span>
-        
-      </div>
       
     </div>
     
@@ -593,7 +573,7 @@
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 3 · 
-      <strong>Runs recorded:</strong> 2
+      <strong>Runs recorded:</strong> 1
     </p>
     
     
@@ -654,21 +634,6 @@
     
     <div class="embed-viz-section" style="margin-bottom:22px">
       <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">comparison_plotly (auto)</strong>
-          <a href="/v2ecoli/workbench/workspace/studies/basal/viz/comparison_plotly.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Auto-discovered Plotly viz (60 KB) rendered by render_visualizations against the study&#39;s runs.db history.</p>
-        
-        <iframe src="/v2ecoli/workbench/workspace/studies/basal/viz/comparison_plotly.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="comparison_plotly (auto)"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
       
       <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
         <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
@@ -1075,7 +1040,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/vivarium-workbench", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/study-registry-migration", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "branch": "study-registry-migration", "lockfile": "uv.lock@d6dad4298718", "generated_at": "2026-07-28 00:36 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "5766ea4db3e430014607c646fa0c8c6db1df3d8e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/5766ea4db3e430014607c646fa0c8c6db1df3d8e", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-28 02:30 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "basal";

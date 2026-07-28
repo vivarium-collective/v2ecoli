@@ -327,13 +327,35 @@
     
     <h2 class="overview-label">Question &amp; approach</h2>
     
-    
     <div class="overview-section">
-      <div id="question-text" class="overview-prose" data-editable="true" data-field="question"
-           data-placeholder="+ Add the research question this study asks"></div>
-      <div id="hypothesis-text" class="overview-prose" data-editable="true" data-field="hypothesis"
-           data-placeholder="(predicted outcome)"></div>
-      <div id="objective-text" class="overview-prose" data-editable="true" data-field="objective"></div>
+      
+      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
+        <strong>Question.</strong> Do the core emergent single-cell phenotypes — size-at-division,
+inter-division time, added length, the adder size-homeostasis relation, and
+growth rate — stay measurable when simple viva-munk agents run in the
+canonical mother-machine device geometry?
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
+        <strong>Hypothesis / Expected outcome.</strong> The device runs and divides, the running animation renders, and the size-at-
+division, inter-division-time, and added-length distributions (plus the adder
+plot) are produced and held for later comparison against the WCM tier
+(colonies-09) and experimental data. This tier makes no biological claim — it
+validates the measurement pipeline against cheap agents.
+
+      </div>
+      
+      
+      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
+        <strong>Mechanism / Model change.</strong> The mother_machine_document geometry (via v2ecoli.colony_bench.devices) is
+populated with simple grow/divide agents; colony_bench.phenotypes extracts
+the uniform phenotype panel over the lineage, and the resulting
+distributions are the object of study.
+
+      </div>
+      
     </div>
     
 
@@ -462,14 +484,8 @@
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>colonies-04-device-phenotype-harness</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>colonies-09-wcm-mother-machine</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">Requires the shared cell-tier factory, geometry builders, and phenotype
@@ -505,8 +521,8 @@ extractor stood up in colonies-04.
 
       <div class="study-counts-strip">
         <div class="count-cell">
-          <strong>0</strong>
-          <span class="count-label">variants</span>
+          <strong>1</strong>
+          <span class="count-label">simulations</span>
         </div>
         <div class="count-cell">
           <strong>0</strong>
@@ -546,7 +562,7 @@ extractor stood up in colonies-04.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"n_cells": 8, "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>mother-machine-simple</strong>
+        <strong>colonies-05-mother-machine</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_colony.ecoli_colony</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -565,6 +581,34 @@ extractor stood up in colonies-04.
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>8</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+
+    
+  </div>
   
 
   
@@ -595,6 +639,39 @@ extractor stood up in colonies-04.
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+  
+  
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
+  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">colonies-05-mother-machine-baseline</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
+      
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      
+      
+    </p>
+    
+    
+    
+  </div>
+  
   
   
   <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
@@ -839,7 +916,7 @@ extractor stood up in colonies-04.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/vivarium-workbench", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/study-registry-migration", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "branch": "study-registry-migration", "lockfile": "uv.lock@d6dad4298718", "generated_at": "2026-07-28 00:36 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "5766ea4db3e430014607c646fa0c8c6db1df3d8e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/5766ea4db3e430014607c646fa0c8c6db1df3d8e", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-28 02:30 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "colonies-05-mother-machine";

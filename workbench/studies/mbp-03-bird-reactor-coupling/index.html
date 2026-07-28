@@ -424,14 +424,14 @@ side; reactor-side cleanup is upstream.
       
       
       
-      <div class="finding-card finding-kind-computational finding-status-novel">
+      <div class="finding-card finding-kind-computational finding-status-confirms">
         <div class="finding-header">
-          <span class="finding-status-glyph">◆</span>
+          <span class="finding-status-glyph">✓</span>
           <span class="finding-id">report-card-tests</span>
           <span class="finding-kind">computational</span>
-          <span class="finding-status-text">novel literature</span>
+          <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">tests: ungraded</div>
+        <div class="finding-statement">tests: within tolerance</div>
         
         
         
@@ -510,7 +510,7 @@ side; reactor-side cleanup is upstream.
     <div class="overview-section conclusion-block">
       <h2 class="overview-label">Conclusion</h2>
       
-      <p class="conclusion-insight">tests: ungraded<span class="computed-tag">computed from findings</span></p>
+      <p class="conclusion-insight">tests: within tolerance<span class="computed-tag">computed from findings</span></p>
       
       
     <div class="narrative-field">
@@ -557,14 +557,8 @@ side; reactor-side cleanup is upstream.
           Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
         </p>
         
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong>
-          <code>mbp-01-time-varying-environment</code> · <code>mbp-02-population-aggregation</code> · <code>pbg-bioreactor-transport-fork</code>
-        </div>
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>mbp-04-multigeneration-runs</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">Coupling direction tests pass (DO drops with cells, dissolved CO2
@@ -716,7 +710,7 @@ fix).
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.reactor_bird_coupled" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>bird-coupled-baseline</strong>
+        <strong>mbp-03-bird-reactor-coupling</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.reactor_bird_coupled</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -735,6 +729,89 @@ fix).
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.reactor_bird_coupled</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>one-generation-coupled</code></td>
+            <td>
+              <code>v2ecoli.composites.reactor_bird_coupled</code>
+              
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>kla-sweep-coupled</code></td>
+            <td>
+              <code>v2ecoli.composites.reactor_bird_coupled</code>
+              
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          <tr>
+            <td><code>no-cells-henry-equilibrium</code></td>
+            <td>
+              <code>v2ecoli.composites.reactor_bird_coupled</code>
+              
+            </td>
+            <td>
+              
+              
+                <em class="muted">(no overrides)</em>
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+  </div>
   
 
   
@@ -912,7 +989,7 @@ has no biomass ODE by construction.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 9 · 
       
     </p>
     
@@ -958,7 +1035,7 @@ has no biomass ODE by construction.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 9 · 
       
     </p>
     
@@ -1000,7 +1077,7 @@ has no biomass ODE by construction.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 4 · 
+      <strong>Tests applied:</strong> 9 · 
       
     </p>
     
@@ -1625,7 +1702,7 @@ cites:   ["Sander2015AtmosChemPhys"]</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/vivarium-workbench", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/study-registry-migration", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "branch": "study-registry-migration", "lockfile": "uv.lock@d6dad4298718", "generated_at": "2026-07-28 00:36 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "5766ea4db3e430014607c646fa0c8c6db1df3d8e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/5766ea4db3e430014607c646fa0c8c6db1df3d8e", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-28 02:30 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-03-bird-reactor-coupling";

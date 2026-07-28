@@ -558,10 +558,6 @@ to the model&#39;s internal biomass accounting.
         <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
         
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>mbp-03-bird-reactor-coupling</code>
-        </div>
-        
         
         <div><strong>Proceed when:</strong> <span class="muted">cell_count and total_biomass_gDW track Division events (with
 cells_per_agent=1.0 default); per-cell observables match the
@@ -713,7 +709,7 @@ scales linearly and per-cell observables remain unchanged.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_population" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>population-aggregation-baseline</strong>
+        <strong>mbp-02-population-aggregation</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_population</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -773,7 +769,8 @@ scales linearly and per-cell observables remain unchanged.
           <tr>
             <td><code>cells-per-agent-1</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_population</code>
+              
             </td>
             <td>
               
@@ -787,7 +784,8 @@ scales linearly and per-cell observables remain unchanged.
           <tr>
             <td><code>cells-per-agent-1e6</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_population</code>
+              
             </td>
             <td>
               
@@ -801,7 +799,8 @@ scales linearly and per-cell observables remain unchanged.
           <tr>
             <td><code>cells-per-agent-1e9</code></td>
             <td>
-              <em class="muted">(inherits baseline)</em>
+              <code>v2ecoli.composites.ecoli_population</code>
+              
             </td>
             <td>
               
@@ -1637,7 +1636,7 @@ pass_if: {"op": "numerical_match", "tolerance": "1e-12"}</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/vivarium-workbench", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/study-registry-migration", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "branch": "study-registry-migration", "lockfile": "uv.lock@d6dad4298718", "generated_at": "2026-07-28 00:36 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "5766ea4db3e430014607c646fa0c8c6db1df3d8e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/5766ea4db3e430014607c646fa0c8c6db1df3d8e", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-28 02:30 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-02-population-aggregation";

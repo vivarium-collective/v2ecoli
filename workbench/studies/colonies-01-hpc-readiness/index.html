@@ -369,25 +369,46 @@ N ∈ {1,2,4,8} and instrument per-tick costs.
       
       <div class="biology-derived-preview muted small" style="margin-top:2px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
         <em>Derived from findings (shown until you write an override):</em>
-        <p style="margin:4px 0 0">Per-cell wall time is flat at ~57 ms across N ∈ {1, 2, 4, 8}. Composite
-scales linearly on one machine. (2026-07-26 re-run; ~20% faster than the
-original 73.6 ms on current code + mini hardware.)
+        <p style="margin:4px 0 0">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+decrease with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
 </p><p style="margin:4px 0 0">The GIL is the dominant bottleneck at colony scale. Process-bigraph
 composites are single-threaded by design — one process uses ~1 CPU core
 regardless of how many cells it holds. Scaling means more processes, not
 more cells/process.
-</p><p style="margin:4px 0 0">Steady-state per-cell RSS is ~154 MB, atop a ~1.24 GB Python baseline
-(ParCa + WCM imports + cached numpy arrays). This is 3× lower than the
-original ~450 MB/cell (2026-07-26 re-run @ f69f9690) — the biggest change
-of the re-run, and it moves the HPC ceiling from RAM-bound to CPU-bound.
+</p><p style="margin:4px 0 0">Per-cell RSS is ADDITIVE and sim_data is shared WITHIN a process: each
+extra cell costs far less than a fresh sim_data load, because
+v2ecoli/core.py::_load_cache_bundle_cached is @lru_cache&#39;d by cache_dir and
+ecoli_baseline deep-copies only initial_state per cell. Original N-sweep (commit
+2f950d9, emit_cells=True): ~450 MB/cell atop a ~1 GB baseline → 384 cells/node.
+HARDENING re-measurement (2026-07-27, current main, bounded
+ColonyPhenotypeRecorder + emit_cells=False): ~291 MB/cell atop an ~888 MB
+baseline; the gc-visible numpy footprint stays flat (+39 MB) as N goes 1→4,
+directly confirming sim_data is shared by reference and the per-cell increment
+is mutable state, not a duplicated bundle. Per-cell RSS DROPPED ~450→~291 MB
+because the bounded phenotype recorder replaced the in-RAM cells-map
+accumulation. Reconciled current-main budget: ~700 cells/node (see
+expected.summary), superseding both the stale 384 and the unsupported ~1000 in
+the investigation executive.
 </p><p style="margin:4px 0 0">pymunk 2D physics is essentially free at the N values we tested
 (≤ 0.2 ms/tick at N=8). All wall-time cost is the inner EcoliWCM.
 </p><p style="margin:4px 0 0">Three independent bugs blocked daughter hydration through the engine
 and had to be fixed before the Decide phase could run.
 </p><p style="margin:4px 0 0">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
-(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Indicates
+(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Originally read as
 either accumulating state in the EcoliWCM internal composite or a leak;
 visible only in long runs, not in the 60s N-sweep windows.
+
+Characterised by the 2026-07-26 leak hunt (supersedes the leak framing): the
+growth is localized to the inner WCM&#39;s polypeptide-elongation step (~82%) +
+mass-listener (~17%), and is NOT an unbounded native leak. Only ~0.2 MB/tick is
+truly retained (tracemalloc-visible: scipy LSODA integrator work arrays held
+per solve); the remainder is macOS allocator arena churn — large per-tick numpy
+working arrays that are freed but not returned to the OS. Linux validation (glibc
+container) showed RSS growth of only 0.017 MB/tick with no fix and 0.000 with
+periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. On the Linux HPC
+target the colony&#39;s memory is bounded, so the cells-per-node budget stands; the
+~5 MB/s reading here was substantially a macOS measurement artifact.
 </p>
       </div>
       
@@ -412,16 +433,16 @@ visible only in long runs, not in the 60s N-sweep windows.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">Per-cell wall time is flat at ~57 ms across N ∈ {1, 2, 4, 8}. Composite
-scales linearly on one machine. (2026-07-26 re-run; ~20% faster than the
-original 73.6 ms on current code + mini hardware.)
+        <div class="finding-statement">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+decrease with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
 </div>
         
         
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> {&#39;n1&#39;: 56.5, &#39;n2&#39;: 57.4, &#39;n4&#39;: 58.5, &#39;n8&#39;: 57.4} ms/tick/cell · 
+          <strong>observed:</strong> {&#39;n1&#39;: 73.6, &#39;n2&#39;: 73.2, &#39;n4&#39;: 72.7, &#39;n8&#39;: 70.4} ms/tick/cell · 
           via test <a href="#bt-per-cell-cost-within-2x-reference"><code>per-cell-cost-within-2x-reference</code></a> · 
           
           
@@ -432,7 +453,7 @@ original 73.6 ms on current code + mini hardware.)
         <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
           
           
-          runs: <a href="#run-2"><code>2</code></a>, <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>
+          runs: <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>, <a href="#run-6"><code>6</code></a>
         </div>
         
         
@@ -450,7 +471,7 @@ original 73.6 ms on current code + mini hardware.)
         
         
         
-        <div class="finding-next"><strong>→ Next:</strong> Use ~57 ms/tick/cell as the projection input for colonies-02-hpc-deployment.
+        <div class="finding-next"><strong>→ Next:</strong> Use 73 ms/tick/cell as the projection input for colonies-02-hpc-deployment.
 </div>
       </div>
       
@@ -484,7 +505,7 @@ more cells/process.
         <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
           
           
-          runs: <a href="#run-5"><code>5</code></a>
+          runs: <a href="#run-6"><code>6</code></a>
         </div>
         
         
@@ -494,7 +515,7 @@ more cells/process.
         <div class="finding-explanation"><em>Why:</em> All 55 inner WCM steps are walked sequentially in one Python thread.
 pymunk is free even at N=8, so any super-linear cost would have to be in
 the EcoliWCM update — but per-cell stays flat. The only ceiling visible
-is total wall vs realtime per process, which crosses ~1.0 around N≈16.
+is total wall vs realtime per process, which crosses ~1.0 around N≈13.
 </div>
         
         <div class="finding-next"><strong>→ Next:</strong> Seed gil-aware-engine-research follow-up.
@@ -510,17 +531,27 @@ is total wall vs realtime per process, which crosses ~1.0 around N≈16.
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">confirms literature</span>
         </div>
-        <div class="finding-statement">Steady-state per-cell RSS is ~154 MB, atop a ~1.24 GB Python baseline
-(ParCa + WCM imports + cached numpy arrays). This is 3× lower than the
-original ~450 MB/cell (2026-07-26 re-run @ f69f9690) — the biggest change
-of the re-run, and it moves the HPC ceiling from RAM-bound to CPU-bound.
+        <div class="finding-statement">Per-cell RSS is ADDITIVE and sim_data is shared WITHIN a process: each
+extra cell costs far less than a fresh sim_data load, because
+v2ecoli/core.py::_load_cache_bundle_cached is @lru_cache&#39;d by cache_dir and
+ecoli_baseline deep-copies only initial_state per cell. Original N-sweep (commit
+2f950d9, emit_cells=True): ~450 MB/cell atop a ~1 GB baseline → 384 cells/node.
+HARDENING re-measurement (2026-07-27, current main, bounded
+ColonyPhenotypeRecorder + emit_cells=False): ~291 MB/cell atop an ~888 MB
+baseline; the gc-visible numpy footprint stays flat (+39 MB) as N goes 1→4,
+directly confirming sim_data is shared by reference and the per-cell increment
+is mutable state, not a duplicated bundle. Per-cell RSS DROPPED ~450→~291 MB
+because the bounded phenotype recorder replaced the in-RAM cells-map
+accumulation. Reconciled current-main budget: ~700 cells/node (see
+expected.summary), superseding both the stale 384 and the unsupported ~1000 in
+the investigation executive.
 </div>
         
         
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> {&#39;n1_mb&#39;: 1391, &#39;n2_mb&#39;: 1532, &#39;n4_mb&#39;: 1845, &#39;n8_mb&#39;: 2466} MB · 
+          <strong>observed:</strong> {&#39;n1_mb&#39;: 1508, &#39;n2_mb&#39;: 2013, &#39;n4_mb&#39;: 2946, &#39;n8_mb&#39;: 4712} MB · 
           via test <a href="#bt-per-cell-cost-within-2x-reference"><code>per-cell-cost-within-2x-reference</code></a> · 
           in run <a href="#run-nsweep-n8"><code>nsweep-n8</code></a>
           
@@ -531,7 +562,7 @@ of the re-run, and it moves the HPC ceiling from RAM-bound to CPU-bound.
         <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
           
           
-          runs: <a href="#run-2"><code>2</code></a>, <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>
+          runs: <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>, <a href="#run-6"><code>6</code></a>
         </div>
         
         
@@ -545,9 +576,16 @@ of the re-run, and it moves the HPC ceiling from RAM-bound to CPU-bound.
           
           
         </div>
-        <div class="finding-exp-summary"><em>Reference says:</em> Linear in N up to N=8 within one process. At 154 MB/cell RAM is no
-longer binding: 16 cells/process × 64 processes ≈ 222 GB on a 256 GB
-node → ~1024 cells/node, CPU-bound at ~realtime.
+        <div class="finding-exp-summary"><em>Reference says:</em> Additive in N within one process (sim_data lru-shared). HPC budget with
+topology made explicit: deployment uses Ray actors (one OS process each) to
+lift the single-process GIL ceiling, so EACH actor pays its own ~888 MB
+sim_data+imports baseline; cells within an actor add ~291 MB each and share that
+actor&#39;s sim_data. Packing K cells per actor on 64 actors / 256 GB:
+888 + 291·K ≤ 4096 MB/actor → K ≤ 11, and K·57 ms ≤ 1000 ms realtime (K=11 →
+627 ms, under the GIL ceiling) → ~704 cells/node on current main (was 384 at
+450 MB/cell pre-recorder). One-cell-per-actor (max GIL headroom) is RAM-bound at
+~215 cells/node. The unsupported ~1000 in the investigation executive is
+reconciled to this ~700 figure.
 </div>
         
         
@@ -583,7 +621,7 @@ node → ~1024 cells/node, CPU-bound at ~realtime.
         <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
           
           
-          runs: <a href="#run-5"><code>5</code></a>
+          runs: <a href="#run-6"><code>6</code></a>
         </div>
         
         
@@ -612,7 +650,7 @@ and had to be fixed before the Decide phase could run.
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> After all three fixes, pure-WC N=2 force-divided to 4 hydrated daughters that all advance on the next tick. Re-confirmed on the 2026-07-26 re-run @ f69f9690 (build-smoke-n2, run_id 1). · 
+          <strong>observed:</strong> After all three fixes, pure-WC N=2 force-divided to 4 hydrated daughters that all advance on the next tick. · 
           via test <a href="#bt-daughters-hydrated"><code>daughters-hydrated</code></a> · 
           in run <a href="#run-build-smoke-n2"><code>build-smoke-n2</code></a>
           
@@ -623,7 +661,7 @@ and had to be fixed before the Decide phase could run.
         <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
           
           
-          runs: <a href="#run-1"><code>1</code></a>
+          runs: <a href="#run-2"><code>2</code></a>
         </div>
         
         
@@ -656,9 +694,20 @@ once per 60s instead of inheriting the mother&#39;s 1s cadence.
           <span class="finding-status-text">novel literature</span>
         </div>
         <div class="finding-statement">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
-(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Indicates
+(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Originally read as
 either accumulating state in the EcoliWCM internal composite or a leak;
 visible only in long runs, not in the 60s N-sweep windows.
+
+Characterised by the 2026-07-26 leak hunt (supersedes the leak framing): the
+growth is localized to the inner WCM&#39;s polypeptide-elongation step (~82%) +
+mass-listener (~17%), and is NOT an unbounded native leak. Only ~0.2 MB/tick is
+truly retained (tracemalloc-visible: scipy LSODA integrator work arrays held
+per solve); the remainder is macOS allocator arena churn — large per-tick numpy
+working arrays that are freed but not returned to the OS. Linux validation (glibc
+container) showed RSS growth of only 0.017 MB/tick with no fix and 0.000 with
+periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. On the Linux HPC
+target the colony&#39;s memory is bounded, so the cells-per-node budget stands; the
+~5 MB/s reading here was substantially a macOS measurement artifact.
 </div>
         
         
@@ -685,8 +734,10 @@ visible only in long runs, not in the 60s N-sweep windows.
         
         
         
-        <div class="finding-next"><strong>→ Next:</strong> Folded into multi-gen-perf-drift follow-up — quantify drift over
-natural divisions and isolate the source (cache, history, fragmentation).
+        <div class="finding-next"><strong>→ Next:</strong> Source identified (elongation + mass-listener; scipy LSODA retention);
+growth is Linux-bounded. Residual ~0.2 MB/tick scipy retention is a small
+optimization target (solver reuse / method change / periodic malloc_trim),
+tracked in the multi-gen-perf-drift follow-up.
 </div>
       </div>
       
@@ -746,9 +797,9 @@ natural divisions and isolate the source (cache, history, fragmentation).
     <div class="overview-section conclusion-block">
       <h2 class="overview-label">Conclusion</h2>
       
-      <p class="conclusion-insight">Per-cell wall time is flat at ~57 ms across N ∈ {1, 2, 4, 8}. Composite
-scales linearly on one machine. (2026-07-26 re-run; ~20% faster than the
-original 73.6 ms on current code + mini hardware.)
+      <p class="conclusion-insight">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+decrease with N as Python/import overhead amortizes). Composite scales
+linearly on one machine.
 <span class="computed-tag">computed from findings</span></p>
       
       
@@ -798,10 +849,6 @@ original 73.6 ms on current code + mini hardware.)
         
         <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
         
-        
-        <div style="margin-bottom:6px"><strong>Enables:</strong>
-          <code>colonies-02-hpc-deployment</code>
-        </div>
         
         
         <div><strong>Proceed when:</strong> <span class="muted">Build-phase acceptance test passes (N=2 pure-WC → 4 daughters,
@@ -911,7 +958,7 @@ to the HPC follow-up.
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"cache_dir": "out/cache", "ecoli_interval": 1.0, "env_size": 30, "n_cells": 2, "physics_interval": 1.0, "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>colony-pure-wc</strong>
+        <strong>colonies-01-hpc-readiness</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_colony.ecoli_colony</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -937,6 +984,42 @@ to the HPC follow-up.
   
 
   
+  
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
+
+    
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Baseline</div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></div>
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        
+        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>2</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">physics_interval</span>=<code>1.0</code></span>
+        
+        <span class="cond-pill"><span class="cond-pill-k">ecoli_interval</span>=<code>1.0</code></span>
+        
+      </div>
+      
+    </div>
+    
+
+    
+
+    
+  </div>
   
 
   
@@ -1749,32 +1832,30 @@ Build-phase fixes required to get here:
 After all three fixes, a pure-WC N=2 colony with both initial cells
 force-divided produces 4 hydrated daughters that all advance.
 
-Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window;
-2026-07-26 remote re-run @ f69f9690):
+Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window):
 
-- Per-cell wall is flat at ~57 ms across N=1..8 (56.5 / 57.4 / 58.5 / 57.4);
-  per-cell-cost-within-2x-reference passes at all N with ratio ≈ 1.0. This is
-  ~20% faster than the original 73.6 ms (current code + mini hardware).
-- pymunk is essentially free (≤0.15 ms/tick even at N=8). All cost is the inner
+- Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease with N as
+  Python/import overhead amortizes); per-cell-cost-within-2x-reference passes
+  at all N.
+- pymunk is essentially free (&lt;0.2 ms/tick even at N=8). All cost is the inner
   EcoliWCM composite (55 biological steps × N cells, walked sequentially in one
   Python thread).
-- RSS grows only ~154 MB per added cell, atop a ~1.24 GB Python baseline —
-  down 3× from the original ~450 MB/cell. RAM is no longer the binding limit.
+- RSS grows ~450 MB per added cell, atop a ~1 GB Python baseline.
 
-Bottleneck at scale is still the GIL: process-bigraph composites are
-single-threaded, so one process uses ~1 CPU core regardless of cell count.
-Scaling to many cells means scaling processes, not cells-per-process.
+Bottleneck at scale is the GIL: process-bigraph composites are single-threaded,
+so one process uses ~1 CPU core regardless of cell count. Scaling to many cells
+means scaling processes, not cells-per-process.
 
-HPC node sizing (64-core / 256 GB target) — re-derived from the new numbers:
+HPC node sizing (64-core / 256 GB target):
 
-- CPU-limited realtime ceiling per process: ~17 cells (17 × 57 ms ≈ 970 ms,
-  ~realtime) — now the binding constraint.
-- RAM at 16 cells/process × 64 processes = 1024 cells/node uses
-  64 × (1 GB + 16 × 0.154 GB) ≈ 222 GB, fits 256 GB with headroom.
-- Recommendation: 16 cells/process × 64 processes = ~1024 cells/node
-  (per-process tick wall ~920 ms, ≈ realtime; ~222 GB RAM). This ~2.7×
-  raises the original 384 cells/node budget — the improvement is driven by
-  the 3× lower per-cell RSS, not by CPU (which barely moved).
+- RAM-limited ceiling per node: 256 GB / 0.45 GB ≈ 570 cells (RAM-bound, single
+  process — not practical at speed).
+- CPU-limited realtime ceiling per process: ~13 cells (13 × 73 ms ≈ 950 ms,
+  ~realtime).
+- Recommendation: 8 cells/process × 64 processes = 512 cells/node uses
+  64 × (1 GB + 8 × 0.45 GB) = ~290 GB, just over budget. Drop to
+  6 cells/process × 64 = 384 cells/node, fits 256 GB with ~10% headroom;
+  per-process tick wall ~440 ms (~2× realtime).
 
 Not validated here (handed to colonies-02):
 
@@ -1784,6 +1865,21 @@ Not validated here (handed to colonies-02):
 - Multi-generation drift in per-tick cost (daughters&#39; internal composites may
   bloat over many divisions).
 - Per-cell ParCa cache contention if processes share cache_dir.
+
+Memory (2026-07-26 leak hunt): the per-tick RSS growth in the long N=1 run
+(finding F-06) is now characterised, not an unbounded native leak. It is
+localized to the inner WCM&#39;s elongation step (~82%) + mass-listener (~17%),
+with only ~0.2 MB/tick truly retained (scipy LSODA work arrays) and the rest
+macOS allocator arena churn. On Linux (glibc) the growth is 0.017 MB/tick
+unfixed and 0.000 with periodic malloc_trim(0), versus ~1.6 MB/tick on the
+macOS mini, so memory on the HPC target is bounded and the cells-per-node
+budget stands. The &#34;unbounded native leak&#34; framing was substantially a macOS
+measurement artifact.
+
+Role: this study is Part A - enabling compute infrastructure (correct
+division, flat per-cell cost, Linux-bounded memory) for the phenotype-first
+colonies investigation. The memory behaviour is a characterised, Linux-bounded,
+mitigated footnote, not the result and not an HPC blocker.
 </pre>
     </div>
     
@@ -1834,7 +1930,7 @@ Not validated here (handed to colonies-02):
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/vivarium-workbench", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/study-registry-migration", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4bfca82f8ff827be6f91dcc09d50aa6bf293596f", "branch": "study-registry-migration", "lockfile": "uv.lock@d6dad4298718", "generated_at": "2026-07-28 00:36 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "5766ea4db3e430014607c646fa0c8c6db1df3d8e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/5766ea4db3e430014607c646fa0c8c6db1df3d8e", "branch": "main", "lockfile": "uv.lock@5d96f2da0cb9", "generated_at": "2026-07-28 02:30 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "colonies-01-hpc-readiness";

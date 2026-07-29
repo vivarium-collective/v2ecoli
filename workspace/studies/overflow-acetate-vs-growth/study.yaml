@@ -1,0 +1,470 @@
+schema_version: 4
+name: overflow-acetate-vs-growth
+investigation: metabolism-overflow   # owning investigation (back-reference)
+title: "Does v2ecoli reproduce the aerobic acetate-overflow curve (acetate-carbon yield vs growth rate) — Vemuri 2006 / Basan 2015?"
+created: '2026-06-15'
+kind: confirmatory   # tests a pre-declared experimental relationship (the overflow curve)
+
+# Canonical 6-axis status. Baseline-FBA arm run + graded (2026-07-22); the two
+# Millard arms are still unbuilt, and the titration premise needs revisiting
+# (see report.caveat + findings[] below) before the verdict carries much weight.
+design_status: in_progress
+implementation_status: in_progress  # baseline-FBA arm only; Millard arms unbuilt
+simulation_status: ran              # 6-cap light sweep, 1 seed x 2 gens
+evaluation_status: evaluated        # baseline arm graded: mismatch (no overflow)
+gate_status: planned
+expert_review_status: pending
+
+question: |
+  Across a glucose-uptake-rate titration, does v2ecoli reproduce the aerobic
+  acetate-overflow response — the acetate-carbon yield rising ~linearly with
+  growth rate above a critical threshold (Vemuri 2006 primary, Basan 2015
+  context) — and how do the FBA baseline, the Millard kinetic ODE, and the
+  v2ecoli+Millard FBA-bridge arms compare?
+
+# The Gen-2 report card this study grades with. NOTE: `report_cards:` must be the
+# NAMES form, not HTML paths — the Gen-2 allowlist is a name-membership test
+# (workflow/flush.py + workflow/report_cards/__init__.py::applicable), so a
+# path-style list silently prevents any Gen-2 card from ever running.
+report_cards: [acetate_overflow]
+report_card_refs:
+  acetate_overflow: tests/fixtures/overflow_acetate_vs_growth
+
+report:
+  title: "overflow-acetate-vs-growth — v2ecoli acetate response vs Vemuri 2006 / Basan 2015"
+  verdict: mismatch          # baseline-FBA arm: no overflow across the sweep
+  confidence: low            # see `caveat` — the titration does not move growth rate
+  evidence_quality: preliminary
+  caveat: |
+    Two findings from the 2026-07-22 run limit how much this verdict carries
+    (recorded as findings[] `gur-knob-does-not-titrate-growth` and
+    `carbon-created-under-binding-uptake-cap`).
+
+    1. THE TITRATION DOES NOT TITRATE GROWTH. Across a 5.6x glucose-uptake range
+       (caps 1-6; the cap binds exactly at 1-4, goes slack above ~5.6) the emergent
+       growth rate moves only 0.954 -> 0.925 /h, non-monotonically. Division runs on
+       the D-period replication clock (`d_period=True`, the vEcoli default), where the
+       dry-mass threshold is deliberately ignored (v2ecoli/steps/division.py:181-190),
+       so mean division time — and hence the mu this study reads out — is set by
+       replication timing, not carbon supply. The acetate-vs-growth-rate framing
+       assumes carbon uptake drives mu; in this model it does not. The graded x-range
+       is therefore ~0.03 /h wide, all of it above the reference onset (lac 0.408).
+
+    2. CARBON BALANCE FAILS UNDER A BINDING CAP. At cap=1 the model takes up
+       6.0 mmolC/gDCW/h as glucose and secretes 11.6 mmolC/gDCW/h as CO2 — about 2x
+       the carbon in, while still growing — tripping the assumption-free
+       `violation_C_created` flag. CO2 output RISES as glucose is restricted
+       (11.62 / 5.00 / 1.82 at caps 1 / 2 / 6). Biomass yield tracks the same
+       non-physicality: 5.30 / 2.59 / 0.92 gDW/g glucose at caps 1 / 2 / 6, against a
+       measured literature band of 0.355-0.444 and a stoichiometric ceiling of 0.538.
+       DIAGNOSIS IS OUT OF SCOPE HERE — it belongs to the sibling investigation
+       `metabolism-biomass-yield` (v2ecoli#421), which has since resolved it to two
+       distinct defects. This study records the observation and points there.
+
+    The verdict below (acetate = 0.0 at every cap, so "no overflow") is the PREDICTED
+    baseline-FBA outcome and is consistent with the basal card, but it is graded on a
+    degenerate sweep. Read it as "overflow physiology is absent", not as a quantitative
+    curve comparison.
+  objective: |
+    Sweep the carbon-uptake knob (the glucose-uptake cap) and read out the
+    acetate-secretion response as a function of the resulting growth rate, for
+    three arms (baseline FBA / Millard kinetic ODE / v2ecoli+Millard FBA-bridge).
+    Grade each arm's response CURVE against the reference overflow curve with the
+    `threshold_linear` criterion (supra-threshold linearity + yield slope; the
+    threshold position reported but non-gating). A CHARACTERIZATION of where the
+    model reproduces overflow physiology — state + trend, not a pass/fail.
+  setup: |
+    Control knob = the ExchangeData step's aerobic glucose-uptake cap, swept via a
+    bespoke runner (declarative sweeps were not runnable in the framework when this
+    ran, so a script executes the titration). Reference x-axis = growth rate (an
+    emergent model output at each knob setting), matching how the references report
+    the curve — and matching the causal direction of Basan's experiment, which
+    titrates transporter EXPRESSION (Pu-ptsG, inducer 3MBA) -> carbon uptake ->
+    emergent growth rate (a chemostat would invert this: clamp growth, let uptake
+    follow). Arms reuse the composites from ketchup-baseline-comparison: baseline
+    FBA (ecoli_baseline), the Millard kinetic ODE, and the live FBA-bridge
+    (millard_fba_bridge_harness). Reference = the ecoli-sources
+    `perturbation__overflow__acetate_vs_growth` slot: Vemuri 2006 (MG1655
+    glucose-limited chemostat) is the PRIMARY graded curve — it co-measures glucose
+    uptake, so the acetate-carbon yield Y_ac = (2*acetate)/(6*glucose) is raw per
+    point; Basan 2015 `ptsG_glucose` (NCM3722) rides along as context via the SI
+    closed form, plus an independent MG1655 13C anchor. Grading is shape-first on the
+    dimensionless Y_ac, which cancels per-OD vs per-gDCW on both sides — so the
+    OD600->gDCW factor flagged in inputs/notes/basan2015.md is NOT needed (resolved
+    2026-06-24; that note is superseded).
+    Key test: overflow is a constraint phenomenon — plain growth-max FBA respires
+    fully and excretes no acetate (the ketchup baseline finding), so this grades
+    whether v2ecoli encodes the proteome/respiration limit that makes overflow
+    emerge (baseline-FBA predicted no overflow; the kinetic/bridge arms may differ).
+
+bibliography:
+  bib_keys:
+  - basan2015
+
+assumptions:
+- text: |
+    The acetate exchange flux (ACET[p], listeners.fba_results.external_exchange_fluxes)
+    is the model observable for overflow; growth rate is read from the mass listener.
+  verified_in_v2ecoli: false   # to confirm at Build
+- text: |
+    A glucose-uptake-rate titration moves the model along a growth-rate axis
+    comparable to the references', on the existing glucose ParCa cache — no new data
+    bundle needed for this condition. (Mirrors Basan's transporter-titration causal
+    direction: set uptake -> growth emerges.)
+  verified_in_v2ecoli: false
+  # REFUTED 2026-07-22 by finding `gur-knob-does-not-titrate-growth`. The cap
+  # titrates uptake exactly (-1.0 to -5.59 mmol/gDCW/h, 5.6x) but growth rate moves
+  # only 0.954 -> 0.925 /h, because division fires on the D-period replication clock
+  # (d_period=True) rather than on dry mass. The "growth emerges" half of the causal
+  # direction does not hold in v2ecoli. This assumption gates the study design.
+  status: refuted
+- text: |
+    The OD600->gDCW factor used to convert Basan's reported Jac (mM/OD600/h) to the
+    model's acetate exchange flux (mmol/gDCW/h) is an EXTERNAL assumption (not in
+    Basan 2015) — either import a sourced NCM3722 factor or grade in per-OD units
+    by converting the model side. See inputs/notes/basan2015.md.
+  verified_in_v2ecoli: false
+  # SUPERSEDED 2026-06-24: grading moved to the dimensionless acetate-carbon yield
+  # Y_ac = (2*acetate)/(6*glucose), where per-OD vs per-gDCW cancels on both sides,
+  # so no OD600->gDCW factor is needed at all. inputs/notes/basan2015.md is stale on
+  # this point. Vemuri 2006 (which co-measures glucose uptake) is now the primary
+  # graded reference and needs no conversion.
+  status: superseded
+
+conditions:
+  # Arms reused from ketchup-baseline-comparison. The GUR titration itself is
+  # executed by the bespoke sims/run_gur_titration.py runner (sweep gap at the time
+  # of the run), not as enumerated dashboard variants.
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      cache_dir: out/cache
+  variants:
+  - name: fba-bridge
+    composite: v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness
+    params:
+      cache_dir: out/cache
+      seed: 0
+  model_settings:
+  - name: glucose-uptake-titration
+    gate: required-before-run
+    detail: "The swept control knob: the ExchangeData step's `glc_uptake_cap_aerobic` config field (v2ecoli#420), titrated across the physiological range on the existing glucose ParCa cache (out/cache). Executed by sims/run_gur_titration.py, which delivers the cap per level as a native `config_overrides` variant."
+  - name: millard-arm
+    gate: optional
+    detail: "Millard 2017 central-carbon kinetic ODE arm (the flux source behind the FBA-bridge). Included to test whether the kinetic core induces overflow the baseline FBA misses. UNBUILT."
+  - name: overflow-reference-curves
+    gate: required-before-run
+    detail: "Reference: the ecoli-sources `perturbation__overflow__acetate_vs_growth` slot (ecoli-sources#4). PRIMARY graded curve = Vemuri 2006, MG1655 glucose-limited chemostat — it co-measures glucose uptake, so the acetate-carbon yield Y_ac = (2*acetate)/(6*glucose) is raw per row, needing no model and no OD600->gDCW factor. CONTEXT = Basan 2015 `ptsG_glucose` (NCM3722), converted to Y_ac via the Supplementary-Note-1 carbon-partition closed form, plus an independent MG1655 13C anchor (Long/LaCroix/Crown). The `carbon_source` / `carbon_source_aa` Basan series are not graded here."
+  - name: threshold-linear-criterion
+    gate: required-before-run
+    detail: "Grading: the `threshold_linear` criterion (v2ecoli#419), which fits y = max(0, slope*(x - x0)) and emits a within_tol/drift/mismatch verdict from the swept {x: growth rate, y: Y_ac} against the reference curve. Primary = worst-of(supra-threshold linearity R^2, yield-slope relative delta); threshold position reported but NON-gating. Reference-aware: absence of the rise across a sweep spanning past the reference threshold is a mismatch, not a pass. Surfaced to the framework via the `report_card_axis` workspace evaluator."
+
+tests:
+# Grading is wired as of 2026-07-22: the card emits a populated 'overflow' group
+# (threshold_linear), so report_card_axis returns a real outcome, not 'ungraded'.
+- name: v2ecoli-reproduces-acetate-overflow-onset
+  classification: primary
+  status: failed            # baseline-FBA arm: mismatch (no overflow) — the PREDICTED outcome
+  question: Does v2ecoli's acetate response show the overflow rise (acetate-carbon yield rising above a critical growth rate)?
+  measure:
+    kind: report_card_axis
+    card: workspace/studies/overflow-acetate-vs-growth/viz/report_card
+    card_name: acetate_overflow   # Gen-2 flush writes <card_name>.verdict.json
+    group: overflow
+    detail: "Overflow group graded by the threshold_linear criterion (shape-first on the dimensionless acetate-carbon yield Y_ac vs growth rate; threshold reported but non-gating) vs Vemuri 2006 primary / Basan 2015 context. Group verdict = worst axis. Baseline-FBA arm only so far; Millard / FBA-bridge arms unbuilt."
+  cites: [basan2015]
+  pass_if:
+    op: report_card_group_within_tol   # advisory label; the report_card_axis evaluator returns the outcome
+
+# Diagnostics the GUR-titration runner computes per cap. NOT wired as report-card
+# axes — recorded here because the 2026-07-22 run falsified both.
+#
+# ⚠️ KNOWN INERT (pbg-superpowers-log #50): `measure.kind: runner_diagnostic` is
+# registered in neither the framework nor pbg_v2ecoli/evaluators.py, so these two
+# tests normalise to SKIP before `pass_if` is ever consulted. They are a record of
+# what the runner measured, not a live gate. Making them grade means declaring the
+# runner's carbon-closure + Yxs diagnostics as report-card axes first — real work,
+# deliberately out of scope for this PR (see the findings' next_action).
+- name: carbon-balance-closes-under-titration
+  classification: diagnostic
+  status: failed            # cap=1 trips violation_C_created (C_out 11.83 > C_in 6.0 mmolC/gDCW/h)
+  question: Across the uptake titration, does the model's carbon bookkeeping close — i.e. is secreted carbon never greater than carbon taken up?
+  measure:
+    kind: runner_diagnostic
+    runner: sims/run_gur_titration.py
+    field: carbon.violation_C_created
+    detail: "Assumption-free check computed per cap by the titration runner: sum of secreted C-exchange fluxes vs glucose-C uptake. Needs no biomass C-content assumption; if C_out > C_in, carbon was created."
+  pass_if:
+    op: eq          # was `equals`, which is not in _SUPPORTED_OPS (`eq` / `==` are)
+    value: false
+
+# Renamed 2026-07-29 from `biomass-yield-within-thermodynamic-limit`. Two reasons.
+# (1) The test was written as in_range over what was believed to be the band, but
+# the ecoli-sources `basal__biomass_yield` slot has FIVE rows of which only FOUR are
+# kind: measured (varma_1994 0.355, kavvas_2022 0.42, lacroix_2015 0.44, long_2017
+# 0.444) — varma_1993 0.538 is kind: theoretical_max and loads into a SEPARATE slot,
+# so the measured band is 0.355-0.444, not 0.355-0.538. (2) "Inside the measured
+# spread" and "under the ceiling" are different tests: in_range would fail a model
+# that is BELOW the band, which is no violation at all. This test checks the ceiling,
+# so it is now `op: <=` against it — and the ceiling is Varma-'93 STOICHIOMETRIC/FBA
+# (what the network's stoichiometry permits), not thermodynamic. The finding id
+# `biomass-yield-exceeds-thermodynamic-limit` keeps its original wording because it
+# is cited from v2ecoli#421, which is open and under review.
+- name: biomass-yield-within-stoichiometric-ceiling
+  classification: diagnostic
+  status: failed            # 0.92-5.30 gDW/g glucose across caps 6->1; all above the ceiling
+  question: Is the emergent biomass yield Yxs at or below the stoichiometric ceiling for aerobic glucose growth?
+  measure:
+    kind: runner_diagnostic
+    runner: sims/run_gur_titration.py
+    field: yield_gDW_per_g_glc
+    detail: "Yxs = mu / (|q_glc| * M_glc). Ceiling 0.538 gDW/g_glucose = Varma 1993, the ecoli-sources basal__biomass_yield slot's single `kind: theoretical_max` row (FBA, fully aerobic, no maintenance energy). For context the four `kind: measured` rows in the same slot span 0.355-0.444 (Varma 1994, Kavvas 2022, LaCroix 2015, Long 2017)."
+  pass_if:
+    op: <=
+    value: 0.538
+
+# Bespoke sweep runner (declarative simulation_set sweeps were not runnable in the
+# framework at the time of the run). At each glucose-uptake cap it runs the
+# basal-card ensemble (run-to-division, Ray), then extracts mu (build_cell_records
+# doubling_time) + exchange phenotype (extract_vectors) and derives biomass yield +
+# carbon balance. Knob = the ExchangeData step's `glc_uptake_cap_aerobic` config
+# field, delivered per cap as a native `config_overrides` variant.
+# STATUS: validated end-to-end 2026-07-22 — the cap binds at EVERY generation
+# (needs v2ecoli#293, merged 2026-06-30).
+runs:
+- name: gur-cap-delivery-gate-post-293
+  status: completed
+  kind: simulation
+  canonical: false
+  started_at: '2026-07-22'
+  emitter: parquet
+  dispatch: sequential      # n_seeds=1 -> parallel_seeds runs sequentially
+  artifact: workspace/studies/overflow-acetate-vs-growth/sims/gate_2cap_post293.json
+  description: |
+    Verification gate for the multigeneration exchange-bound fix (v2ecoli#293,
+    merged 2026-06-30), re-run after merging current main into the investigation
+    branch. Caps 2 and 6, 1 seed x 2 generations. The pre-#293 counterpart is
+    committed alongside as sims/gate_2cap.json for the before/after comparison.
+
+    RESULT — PASS. At cap=2 the glucose exchange pins at exactly -2.0 mmol/gDCW/h
+    for BOTH gen_lb=0 and gen_lb=1. Pre-#293 the same probe gave -3.51 pooled,
+    with generation 1 ballooning to -4.61 because the carried daughter store had
+    lost its overwrite updater and the per-tick bound accumulated. At cap=6 the
+    cap is slack and glucose sits at -5.59, the unconstrained FBA optimum.
+    Acetate is 0.0 at both caps.
+  outcomes:
+    gur-cap-binds-at-every-generation:
+      result: PASS
+      note: "cap=2 -> glucose exactly -2.0 at gen_lb=0 AND gen_lb=1 (pre-#293: -3.51 pooled, gen-1 -4.61). cap=6 slack -> -5.59 = FBA optimum."
+
+- name: gur-titration-light-6cap
+  status: completed
+  kind: simulation
+  canonical: true
+  started_at: '2026-07-22'
+  emitter: parquet
+  dispatch: sequential
+  generations: 2
+  params:
+    caps: [1, 2, 3, 4, 5, 6]
+    n_seeds: 1
+    gen_lb: 0
+    knob: exchange_data.glc_uptake_cap_aerobic
+  artifact: workspace/studies/overflow-acetate-vs-growth/sims/gur_titration_light.json
+  description: |
+    First end-to-end GUR titration of the baseline-FBA arm. LIGHT (1 seed x 2
+    generations) — enough to establish the response shape, not enough for ensemble
+    statistics. Baked to tests/fixtures/overflow_acetate_vs_growth/model_overflow_baseline.json
+    and consumed by the acetate_overflow report card.
+
+    The cap binds exactly at caps 1-4 and goes slack above ~5.6 (the FBA optimum),
+    confirming the knob works across the physiological range. Acetate is 0.0 at
+    EVERY cap. Two unplanned results dominate the run and are written up in
+    findings[]: growth rate barely moves across the sweep, and carbon balance
+    fails under a binding cap.
+  outcomes:
+    # NOTE: the card-verdict strings quoted below are the LITERAL 2026-07-22 output
+    # of the then-named `curve_response` criterion. The criterion has since been
+    # renamed `threshold_linear` (v2ecoli#419) and its messages de-phenomenon'd —
+    # it now emits "no threshold-linear rise (y <= 0.005 through x=...; reference
+    # rises)". The VERDICT is unchanged (`mismatch`). These are dated run records,
+    # so the original wording is kept rather than back-fitted.
+    v2ecoli-reproduces-acetate-overflow-onset:
+      result: FAIL
+      note: "Card verdict mismatch — 'no overflow (yield <= 0.005 through x=0.954; ref overflows)'. Acetate 0.0 at all 6 caps. This is the PREDICTED baseline-FBA outcome, but see the caveat: graded on a ~0.03/h wide x-range."
+    carbon-balance-closes-under-titration:
+      result: FAIL
+      note: "cap=1 trips violation_C_created: C_out 11.83 > C_in 6.0 mmolC/gDCW/h. Closure degrades monotonically as the cap tightens (1.11 / 1.26 / 1.53 / 2.31 / 3.59 / 7.93 at caps 6 -> 1)."
+    biomass-yield-within-stoichiometric-ceiling:
+      result: FAIL
+      note: "Yxs = 0.92 / 1.04 / 1.29 / 1.71 / 2.59 / 5.30 gDW/g glucose at caps 6 -> 1; measured band 0.355-0.444, stoichiometric ceiling 0.538. Even the slack-cap value (0.92) is ~1.7x the ceiling."
+  computed_outcomes:
+    rows_per_cap: 6
+    growth_rate_per_h: [0.954, 0.933, 0.924, 0.931, 0.927, 0.925]   # caps 1 -> 6
+    glucose_mmol_gDCW_h: [-1.0, -2.0, -3.0, -4.0, -4.97, -5.59]
+    acetate_mmol_gDCW_h: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    yield_gDW_per_g_glc: [5.30, 2.59, 1.71, 1.29, 1.04, 0.92]
+    carbon_closure_fraction: [7.93, 3.59, 2.31, 1.53, 1.26, 1.11]
+    co2_mmol_gDCW_h: [11.62, 5.00, null, null, null, 1.82]          # measured at caps 1, 2, 6
+
+# Findings from the 2026-07-22 baseline-FBA run. `overflow-absent-across-titration`
+# is the answer to this study's pre-registered question; the other three were
+# unplanned, and two of them (carbon creation, yield over the ceiling) seeded the
+# sibling investigation `metabolism-biomass-yield` (v2ecoli#421).
+findings:
+- id: overflow-absent-across-titration
+  kind: computational
+  status: confirms
+  statement: |
+    The v2ecoli baseline FBA exhibits NO aerobic acetate overflow anywhere in a
+    glucose-uptake titration: acetate is identically 0.0 mmol/gDCW/h at all six
+    caps, so the acetate-carbon yield stays flat at 0 while the Vemuri 2006
+    reference rises to ~0.25 above an onset of 0.408 /h. This confirms the
+    pre-registered prediction (and the ketchup-baseline-comparison prior that
+    v2ecoli secretes 0.0 acetate per 100 glucose where the KETCHUP cores secrete
+    ~+71): overflow is a constraint phenomenon, and unconstrained growth-max FBA
+    respires fully rather than spilling carbon.
+  evidence:
+    from_test: v2ecoli-reproduces-acetate-overflow-onset
+    from_card: overflow
+    observed: "acetate 0.0 mmol/gDCW/h at caps 1,2,3,4,5,6; card verdict mismatch — 'no overflow (yield <= 0.005 through x=0.954; ref overflows)'; reference onset lac=0.408 /h, reference yield slope 1.31"
+  expected:
+    summary: "Y_ac rising from ~0 to ~linear above the reference onset (Vemuri 2006 MG1655 chemostat, primary graded curve)"
+  provenance:
+    run_ids: [gur-titration-light-6cap]
+  next_action: Build the Millard kinetic-ODE and FBA-bridge arms to test whether a kinetic central-carbon core induces the overflow the baseline FBA misses.
+  next_action_type: escalate_model
+
+- id: gur-knob-does-not-titrate-growth
+  kind: methodological
+  # STATUS SUBSTITUTION (2026-07-29): this finding REFUTES the study's own design
+  # assumption, but `refutes` is not in the framework's finding-status vocabulary
+  # (viva_superpowers/report.py:170 accepts only confirms|partial|contradicts|novel)
+  # and a non-conforming status is SKIPPED SILENTLY at render, dropping the finding
+  # from reports/findings.html with no error. Mapped to the nearest canonical value;
+  # the refutation is carried explicitly in the statement text below so no meaning is
+  # lost. Framework defect logged as pbg-superpowers-log #49.
+  status: contradicts
+  statement: |
+    THIS FINDING REFUTES THIS STUDY'S OWN SECOND DESIGN ASSUMPTION — that a
+    glucose-uptake titration moves the model along a growth-rate axis comparable to
+    the references'. It is FALSE for v2ecoli. This is a refutation of our premise,
+    not a disagreement with a reference.
+
+    Across a 5.6x uptake range the emergent growth rate moves only 0.954 -> 0.925 /h,
+    non-monotonically. The cause is by design, not a bug: division runs with
+    d_period=True (the vEcoli default), so it fires on the D-period replication
+    clock and the dry-mass threshold is deliberately ignored (the `threshold=nan fg`
+    in every DIVISION log line; see v2ecoli/steps/division.py:181-190). Mean division
+    time — and hence the mu this study reads out — is therefore set by replication
+    timing, not carbon supply, and cells divide on schedule at ~695 fg regardless of
+    how tightly glucose is capped.
+
+    Consequence for the instrument: an acetate-vs-growth-rate card cannot be driven
+    by a carbon knob in this model. All six sweep points land in a ~0.03 /h band,
+    entirely above the reference onset, so the `overflow-absent-across-titration`
+    verdict is graded on a degenerate x-range. Adding seeds or generations will not
+    help — the axis is structurally pinned, not noisy.
+  evidence:
+    from_run: gur-titration-light-6cap
+    observed: "growth rate 0.954 / 0.933 / 0.924 / 0.931 / 0.927 / 0.925 per h at caps 1-6 while glucose uptake spans -1.0 to -5.59 mmol/gDCW/h (5.6x); x-range 0.030 /h vs a reference onset at 0.408 /h"
+    smoking_gun: "division.py runs d_period=True, which sets threshold=float('nan') and gates division on the replication clock rather than dry mass"
+  provenance:
+    run_ids: [gur-titration-light-6cap]
+  next_action: Decide how mu should be made carbon-responsive for perturbation cards — mass-gated division (d_period=False, accepting the early-division regression the code comment describes, and noting `division` is absent from _CACHE_CONFIG_NAMES so this is a code change not a config flip), or re-axis the card onto the knob (Y_ac vs GUR) instead of emergent growth rate.
+  next_action_type: refine_representation
+
+- id: carbon-created-under-binding-uptake-cap
+  kind: computational
+  status: novel
+  statement: |
+    Under a binding glucose cap the model creates carbon. At cap=1 it takes up
+    6.0 mmolC/gDCW/h as glucose and secretes 11.83 mmolC/gDCW/h of carbon — 11.62 of
+    it as CO2 — while still growing at 0.954 /h and therefore also building biomass
+    carbon. This trips the assumption-free `violation_C_created` flag, which compares
+    secreted C-exchange against C uptake and needs no biomass C-content assumption.
+
+    The effect is inverted with respect to carbon supply: CO2 output RISES as glucose
+    is restricted (11.62 / 5.00 / 1.82 mmol/gDCW/h at caps 1 / 2 / 6), and the carbon
+    closure fraction degrades monotonically as the cap tightens (1.11 -> 7.93 across
+    caps 6 -> 1). At the slack cap the books nearly close; the tighter the constraint,
+    the more carbon appears from nowhere. Undiagnosed here. Candidate mechanisms: FBA
+    infeasibility handling under a binding bound, non-FBA replenishment of metabolite
+    pools, or per-gDCW flux normalisation against a stale mass.
+  evidence:
+    from_test: carbon-balance-closes-under-titration
+    from_run: gur-titration-light-6cap
+    observed: "cap=1: C_in 6.0 vs C_out 11.83 mmolC/gDCW/h (violation_C_created=true); closure fraction 7.93 / 3.59 / 2.31 / 1.53 / 1.26 / 1.11 at caps 1 -> 6; CO2 11.62 / 5.00 / 1.82 at caps 1 / 2 / 6"
+    smoking_gun: "secreted carbon exceeds carbon taken up while the cell is simultaneously accumulating biomass — a mass-balance violation independent of any biomass composition assumption"
+  expected:
+    summary: "C_out <= C_in at every cap (no carbon creation); violation_C_created false throughout"
+  provenance:
+    run_ids: [gur-titration-light-6cap]
+    artifacts:
+    - workspace/studies/overflow-acetate-vs-growth/sims/gur_titration_light.json
+  next_action: "Diagnosis moved OUT of this investigation 2026-07-28 — it seeds the sibling investigation `metabolism-biomass-yield` (v2ecoli#421). A model that creates carbon cannot be meaningfully asked a carbon-partitioning question, so this gates the overflow study rather than the other way round."
+  next_action_type: escalate_model
+
+- id: biomass-yield-exceeds-thermodynamic-limit
+  # ID PRESERVED DELIBERATELY. The ceiling is Varma-1993 STOICHIOMETRIC/FBA, not
+  # thermodynamic, and the behavior test above was renamed accordingly. This id is
+  # cited from v2ecoli#421, which is open and under review, so churning it mid-review
+  # would break a live cross-reference for a naming improvement. A deliberate
+  # vocabulary sweep across artifacts is tracked separately.
+  kind: computational
+  status: contradicts
+  statement: |
+    Emergent biomass yield exceeds the stoichiometric ceiling at every cap, and the
+    excess grows as carbon is restricted: Yxs = 0.92 / 1.04 / 1.29 / 1.71 / 2.59 /
+    5.30 gDW per g glucose at caps 6 -> 1, against a measured literature band of
+    0.355-0.444 (Varma 1994, Kavvas 2022, LaCroix 2015, Long 2017 — the four
+    `kind: measured` rows of the ecoli-sources basal__biomass_yield slot) and a
+    stoichiometric ceiling of 0.538 (Varma 1993, the slot's single
+    `kind: theoretical_max` row). Even at the slack cap, where the FBA runs at its
+    unconstrained optimum and the carbon books nearly close, the yield is ~1.7x the
+    ceiling; at cap=1 it is ~10x.
+
+    This is the same defect the basal vs_literature card already reports (biomass
+    yield over the limit), but the titration shows it is not a fixed offset — it is
+    a function of how hard the carbon constraint binds, which points at the same
+    bookkeeping problem as `carbon-created-under-binding-uptake-cap` rather than at
+    a mis-parameterised biomass composition.
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ⚠️ SUPERSEDING NOTE — 2026-07-29, from v2ecoli#421 (metabolism-biomass-yield S1)
+  #
+  # The final paragraph's MECHANISM CLAIM is superseded. It is kept above as the
+  # dated 2026-07-22 record of what was concluded at the time; this note records
+  # what a subsequent experiment showed. What survives and what does not:
+  #
+  #   SURVIVES  "the same defect the basal vs_literature card already reports"
+  #             — confirmed: a fresh 4x8 basal sweep gives 0.8313 vs the basal
+  #             card's 0.8257, agreement 0.67%.
+  #   SURVIVES  "not a fixed offset — a function of how hard the carbon constraint
+  #             binds" — the 0.92 -> 5.30 progression is an observation and stands.
+  #   SUPERSEDED "...which points at the same bookkeeping problem as
+  #             `carbon-created-under-binding-uptake-cap`." IT DOES NOT. S1 shows
+  #             carbon CONSERVING at baseline (implied biomass C 0.4549 gC/gDW,
+  #             RQ 3.43, O2:glucose 0.096) while yield sits 1.55x the ceiling. The
+  #             baseline defect is ENERGETIC — the model barely respires — and is
+  #             mechanistically DISTINCT from the carbon CREATION that appears only
+  #             under a binding cap. One-vs-two resolved to TWO.
+  #
+  # Note also that the alternative this finding REJECTED — "a mis-parameterised
+  # biomass composition" — is also not it: S1 measured implied biomass C at a
+  # plausible 0.4549 gC/gDW. The answer was a third thing neither option named.
+  #
+  # This is the design contract working as intended: it flagged that mechanism claim
+  # as a hypothesis to test rather than a premise, and it was tested.
+  # ─────────────────────────────────────────────────────────────────────────────
+  evidence:
+    from_test: biomass-yield-within-stoichiometric-ceiling
+    from_run: gur-titration-light-6cap
+    observed: "Yxs 0.92 / 1.04 / 1.29 / 1.71 / 2.59 / 5.30 gDW/g_glucose at caps 6 -> 1"
+    units: gDW/g_glucose
+  expected:
+    range: [0.355, 0.444]
+    summary: "measured aerobic glucose biomass yield, ecoli-sources basal__biomass_yield slot (4 `kind: measured` sources); stoichiometric ceiling 0.538 (Varma 1993, the slot's `kind: theoretical_max` row)"
+  provenance:
+    run_ids: [gur-titration-light-6cap]
+  next_action: "SUPERSEDED 2026-07-29. The former next_action — 'check whether the basal card's yield violation moves with the same knob; the two cards are likely reporting one underlying defect' — has been PERFORMED and its premise DISCONFIRMED by v2ecoli#421's S1 diagnostic (two distinct defects, not one). The live follow-up is #421's S3, scoped to maintenance-ATP / NGAM-GAM and respiratory capacity — NOT mass accounting. Nothing further is owed by this study."
+  next_action_type: escalate_model

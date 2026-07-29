@@ -17,14 +17,24 @@ executive:
     baseline produces more biomass per gram of glucose than carbon and energy balance
     permit. The object of evaluation is the model - a defect with a fix at the end - as
     distinct from the sibling metabolism-overflow investigation, which evaluates a method.
-  verdict_status: in_progress
+  verdict_status: characterized
   verdict: >-
-    Not yet reached. S1 is the diagnostic: re-measure yield on a run whose commit is
-    recorded, and settle whether the baseline yield violation and the carbon creation seen
-    under a binding uptake cap are one defect or two.
+    CONFIRMED and LOCALISED. A fresh 4x8 run on a recorded commit gives Yxs 0.831 gDW/g
+    glucose - 1.87x the top of the measured band and 1.55x the first-principles ceiling -
+    reproducing the committed fixture's 0.826 to within 0.67%, so the violation is real and
+    not an artefact of the fixtures' unrecorded provenance. The same run localises it: carbon
+    accounting stays self-consistent at baseline (implied biomass carbon 0.455 gC/gDW, inside
+    the physically plausible range), while respiration is nearly absent (O2:glucose 0.096,
+    RQ 3.43 against ~1) and 94.5% of glucose carbon is retained as biomass. The baseline
+    defect is therefore ENERGETIC - biomass built without paying its ATP cost - and distinct
+    from the mass-bookkeeping failure that appears under a binding uptake cap. The fix should
+    be scoped around maintenance-ATP and respiratory capacity, not around mass accounting.
   decisions_needed:
     - question: Is the baseline yield violation one defect with the binding-cap carbon creation, or two?
-      status: open
+      status: >-
+        RESOLVED (2026-07-29, S1) - two distinct defects. Carbon conserves at baseline while
+        yield violates the ceiling; a single bookkeeping bug would break conservation
+        everywhere and does not.
       context: >-
         The overflow study's finding concludes the violation points at the same bookkeeping
         problem as carbon-created-under-binding-uptake-cap. That is the hypothesis S1 tests,
@@ -32,6 +42,17 @@ executive:
         nearly close) while yield is ~2x the ceiling; under a binding cap closure degrades to
         7.93 and carbon is created. A pure bookkeeping bug should break conservation
         everywhere, so the baseline behaviour points instead at an energetic defect.
+      resolution: >-
+        S1 measured implied biomass carbon at 0.4549 gC/gDW on 20 cells at commit 84383530 -
+        squarely inside the 0.45-0.50 gC/gDW a real E. coli has - so the model is not creating
+        carbon at baseline. It is failing to burn any: O2:glucose 0.096, CO2:glucose 0.331,
+        RQ 3.43, 94.5% of glucose carbon to biomass. Two defects, and only the baseline one is
+        in scope for this investigation. CAVEAT: S1 computes biomass carbon by difference,
+        which fixes the closure ratio at 1.0 by construction and moves the information into
+        the implied carbon content; that content is the evidence. It is therefore not a
+        like-for-like comparison against the overflow's 1.11 / 7.93, which use an independent
+        biomass-carbon estimate. Strong positive evidence, not proof. Making it like-for-like
+        needs the overflow runner's closure estimator, which lives only on that branch.
 
 scientific_argument:
   main_claim: >-
@@ -40,15 +61,20 @@ scientific_argument:
     metabolism rather than to mass bookkeeping.
   evidence_for:
     - >-
-      Basal vs_literature card, 20-cell blessed ensemble, direct mass balance: Yxs = 0.826
-      gDW/g glucose (CV 1.55%) against a measured band of 0.355-0.444 and a theoretical_max
-      of 0.538 - 1.86x the top of the band and 1.54x the ceiling.
+      S1, fresh 4x8 run at commit 84383530, 20 post-burn-in cells, direct mass balance:
+      Yxs = 0.8313 gDW/g glucose (CV 1.44%) against a measured band of 0.355-0.444 and a
+      theoretical_max of 0.538 - 1.87x the top of the band and 1.55x the ceiling.
     - >-
-      Carbon nonetheless conserves at baseline: implied biomass carbon ~0.457 gC/gDW is
-      physically plausible, so this is not mass creation.
+      The committed fixture reproduces: 0.8313 fresh vs 0.8257 baked, a 0.67% difference
+      inside the ensemble CV, so the 2026-06-17 verdict is not an artefact of the fixtures'
+      unrecorded provenance.
     - >-
-      The baseline under-respires: O2:glucose ~0.09, CO2:glucose ~0.33, RQ ~3.6 against ~1
-      for full oxidation, so almost no glucose carbon is burned for maintenance and ATP.
+      Carbon conserves at baseline: implied biomass carbon 0.4549 gC/gDW sits inside the
+      0.45-0.50 range a real E. coli has, so this is not mass creation.
+    - >-
+      The baseline barely respires: O2:glucose 0.096, CO2:glucose 0.331, RQ 3.43 against ~1
+      for full oxidation, leaving 94.5% of glucose carbon in biomass and almost none burned
+      for maintenance and ATP.
   caveats:
     - >-
       The 0.826 figure comes from committed fixtures stamped reconstructed: True,

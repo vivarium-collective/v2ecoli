@@ -2,7 +2,7 @@ schema_version: 4
 name: metabolism-biomass-yield-s1-diagnostic
 title: Re-measure biomass yield on a recorded commit, and discriminate one defect from two
 created: '2026-07-29'
-status: designed
+status: evaluated
 
 question: >-
   On a fresh basal run whose code revision is recorded, what is the biomass yield - and
@@ -35,6 +35,18 @@ assumptions:
       ensemble - same config, same cache, same burn-in window - so a divergence in Yxs is
       attributable to code or to the unrecorded provenance of the fixtures rather than to a
       different experimental design.
+    verified_in_v2ecoli: false
+  - text: >-
+      ★ The carbon-closure evidence here is NOT the same statistic as the overflow titration's
+      1.11 / 7.93. Those are closure ratios computed against an independent estimate of biomass
+      carbon. This study instead computes biomass carbon BY DIFFERENCE
+      (glucose_C - CO2_C - 2*acetate_C), which makes the closure ratio 1.0 by construction and
+      moves all the information into the implied carbon CONTENT - 0.4549 gC/gDW here. That
+      number is the real test: if the model were creating carbon at baseline the by-difference
+      content would come out implausible or negative, and it does not. So this is strong
+      positive evidence for two distinct defects, but it is not a like-for-like comparison
+      against the overflow numbers. Making it like-for-like needs the overflow runner's closure
+      estimator, which lives only on the overflow branch and is deliberately out of scope here.
     verified_in_v2ecoli: false
 
 inputs:
@@ -80,7 +92,120 @@ tests:
         bake_model_metabolism.py. Reference points from the overflow titration: closure 1.11
         at a slack cap, 7.93 under a binding cap.
 
-report_cards: [vs_literature]
+# No `report_cards:` declaration on purpose. The vs_literature card grades the COMMITTED
+# tests/fixtures/population_phenotype_basal/ fixtures, so rendering a card for this study's
+# fresh numbers would mean writing new fixture files — i.e. re-baking, which is #296 and
+# forbidden here. S1's grading is recorded in computed_outcomes instead, measured with the
+# same estimator against the same band and theoretical_max the card uses, so the axis is
+# reused exactly as the plan requires. Declaring a card we cannot render would be a false
+# claim, and (per the Gen-2 allowlist semantics) a name here is an eligibility assertion.
+
+runs:
+  - name: s1-basal-4x8-recorded-commit
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    kind: simulation
+    canonical: true
+    status: completed
+    result: FAIL
+    description: >-
+      Fresh 4-seed x 8-generation basal sweep on commit 84383530 (clean tree), config
+      v2ecoli/configs/population_phenotype_basal.json, cache out/cache, gen_lb 3 -> 20
+      post-burn-in cells. 4/4 branches complete. Measured with the canonical estimator
+      (physiology_from_sweep) and the boundary-exchange path from bake_model_metabolism;
+      neither writes to tests/fixtures, which are untouched (#296).
+    computed_outcomes:
+      biomass-yield-remeasured-on-recorded-commit:
+        result: FAIL
+        measured_value: 0.8312577059063886
+        evaluated_by: code
+        operator: direct_mass_balance/exceeds_theoretical_max
+        detail: >-
+          Yxs 0.8313 gDW/g glucose (20 cells, CV 1.44%) - 1.87x the top of the measured band
+          0.355-0.444 and 1.55x the first-principles ceiling 0.538. Reproduces the committed
+          fixture 0.8257 to within 0.67%, which is inside the ensemble CV.
+        reconcile: agree
+      carbon-closure-discriminates-one-defect-from-two:
+        result: PASS
+        measured_value: 0.45485802028104627
+        evaluated_by: code
+        operator: mass_balance/implied_biomass_carbon_plausible
+        detail: >-
+          Implied biomass carbon 0.4549 gC/gDW, inside the physically plausible 0.45-0.50
+          range for E. coli biomass, so carbon accounting is self-consistent at baseline.
+          Exchanges (mmol/gDW/h): glucose 4.810, O2 0.463, CO2 1.590, acetate 0.000;
+          O2:glucose 0.096, CO2:glucose 0.331, RQ 3.43 against ~1 for full oxidation.
+          PASS means the discriminator resolved, not that the model is healthy.
+        reconcile: agree
+
+findings:
+  - id: baseline-yield-violation-is-energetic-not-mass-creation
+    kind: computational
+    status: contradicts
+    statement: >-
+      On a run whose commit is recorded, the baseline makes 0.831 gDW per gram of glucose -
+      1.87x the top of the measured band and 1.55x the first-principles ceiling - while its
+      carbon accounting stays self-consistent: the implied biomass carbon content is 0.455
+      gC/gDW, squarely inside the 0.45-0.50 range a real E. coli has. The model is not
+      creating carbon at baseline. What it is not doing is burning any: O2:glucose is 0.096
+      and RQ is 3.43 against ~1 for full oxidation, so 94.5% of glucose carbon is retained as
+      biomass and almost none is respired for maintenance and ATP. The violation is therefore
+      energetic in origin - the cell builds biomass it never pays the ATP cost for - and is
+      a different failure from the carbon creation seen under a binding uptake cap, where
+      closure degrades to 7.93. Two defects, not one.
+    evidence:
+      from_test: carbon-closure-discriminates-one-defect-from-two
+      observed: 0.45485802028104627
+      units: gC/gDW
+      commit: '84383530'
+      n_cells: 20
+      n_seeds: 4
+      exchanges_mmol_per_gDW_h:
+        glucose: 4.810092804481517
+        o2: 0.4631219379541564
+        co2: 1.5900294959198429
+        acetate: 0.0
+      rq: 3.4332847693283686
+      glucose_carbon_to_biomass_pct: 94.49
+    expected:
+      summary: >-
+        A pure mass-bookkeeping defect should break carbon conservation everywhere it is
+        exercised. The overflow titration shows closure of 1.11 at a slack cap and 7.93 under
+        a binding cap, so if one bug drove both, baseline carbon accounting should also be
+        visibly broken. It is not.
+    next_action: >-
+      Scope the fix around the energetic side - maintenance-ATP / NGAM-GAM parameterization
+      and respiratory capacity - rather than around mass bookkeeping. Enzyme-capacity
+      constraints remain downstream of this: they bite when a cell pushes respiration to its
+      ceiling, and this model barely respires.
+    next_action_type: escalate_model
+
+  - id: committed-basal-fixture-reproduces-on-current-main
+    kind: computational
+    status: confirms
+    statement: >-
+      The fresh run gives Yxs 0.8313 against the committed fixture's 0.8257, a difference of
+      0.67% - well inside the ensemble CV of 1.44%. Growth rate 0.851 vs 0.814 and glucose
+      uptake 4.81 vs 5.14 are likewise close. So the fixture's headline number is reproducible
+      on current main even though its provenance was never recorded, and the
+      first_principles_violation verdict standing since 2026-06-17 is not an artefact of a
+      stale or unattributable bake.
+    evidence:
+      from_test: biomass-yield-remeasured-on-recorded-commit
+      observed: 0.8312577059063886
+      units: gDW/g glucose
+      fixture_value: 0.825746175353658
+      ratio_to_fixture: 1.0067
+      commit: '84383530'
+    expected:
+      summary: >-
+        The committed fixtures stamp reconstructed: True, commit: None, sweep_dir: None,
+        baked: unknown, so agreement was not guaranteed and a material divergence would
+        itself have been the finding.
+    next_action: >-
+      No re-bake. The fixtures are the reference everything else is graded against and moving
+      them mid-investigation shifts that reference; this run is evidence for #296 (auto
+      re-bake / re-grade), not a reason to pre-empt it.
+    next_action_type: replicate
 
 # Deliberately NOT part of this study, and why:
 #   - Reconciling 0.826 against the overflow runner's inline 0.92 estimator. That code lives

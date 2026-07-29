@@ -26,6 +26,13 @@ organism-behavior card and the v1<->v2 equivalence card share one grader:
                    closure residual (unaccounted node influx, expected small)
                    that guards against carbon leaving by an unmodeled route.
   - ``boolean``  — a behavioral assertion that must hold.
+  - ``threshold_linear`` — a swept response curve fit to
+                   ``y = max(0, slope·(x − x0))``: grades how LINEAR the rise
+                   above the threshold is and how its SLOPE compares to a
+                   reference curve. The threshold position ``x0`` is reported
+                   but does not gate. The qualitative check is *reference-aware*:
+                   the reference establishes that a response is expected over
+                   the swept range, so its ABSENCE is the mismatch.
 
 Verdicts use a 4-state band (adopted from the vEcoli<->v2ecoli report):
 ``within_tol`` (pass) / ``drift`` (amber warning) / ``mismatch`` (fail) /
@@ -38,6 +45,10 @@ import math
 from typing import Any
 
 VERDICTS = ("within_tol", "drift", "mismatch", "ungraded")
+
+# Severity order matches pbg_v2ecoli/evaluators.py::_SEVERITY — used to take the
+# worst-of across the sub-verdicts that make up a single axis grade.
+_SEVERITY = {"mismatch": 3, "drift": 2, "within_tol": 1, "ungraded": 0}
 
 
 def _band(value: float, good: float, warn: float, *, higher_is_better: bool) -> str:
@@ -85,6 +96,40 @@ def _r2(cand: list[float], ref: list[float]) -> float:
     ss_tot = sum((y - my) ** 2 for y in ys)
     ss_res = sum((y - x) ** 2 for x, y in zip(xs, ys))  # residual vs identity y=x
     return 1.0 - ss_res / ss_tot if ss_tot else 1.0
+
+
+def _fit_threshold_linear(x: list, y: list, floor: float) -> dict | None:
+    """Fit a threshold-linear response ``y = max(0, slope·(x − x0))`` to a swept
+    ``(x, y)`` curve — ``x`` the driver, ``y`` the response.
+
+    Linear-regress the SUPRA-FLOOR points (``y > floor``) and read ``slope`` =
+    regression slope, ``onset`` = the line's x-intercept (the threshold ``x0``),
+    and ``r2`` = the coefficient of determination of that fit (how LINEAR the
+    supra-threshold rise is — the shape signal). ``r2`` is trivially 1.0 with only
+    2 supra points, so a consumer should treat linearity as assessable only at
+    ``n_supra >= 3``. Returns ``{onset, slope, r2, n_supra}``; ``onset`` is
+    ``None`` when there is no positive rise (slope <= 0). Returns ``None`` when
+    fewer than 2 supra-floor points exist (no curve to fit). A proper hinge
+    least-squares (using the sub-floor zeros as constraints) is a later
+    refinement; ``onset`` from the supra-floor intercept is a sound v1 estimate.
+    """
+    pts = [(float(xi), float(yi)) for xi, yi in zip(x, y) if yi is not None and yi > floor]
+    if len(pts) < 2:
+        return None
+    n = len(pts)
+    mx = sum(p[0] for p in pts) / n
+    my = sum(p[1] for p in pts) / n
+    sxx = sum((p[0] - mx) ** 2 for p in pts)
+    if sxx == 0:
+        return None
+    sxy = sum((p[0] - mx) * (p[1] - my) for p in pts)
+    syy = sum((p[1] - my) ** 2 for p in pts)
+    slope = sxy / sxx
+    r2 = (sxy * sxy) / (sxx * syy) if syy > 0 else 1.0
+    if slope <= 0:
+        return {"onset": None, "slope": slope, "r2": r2, "n_supra": n}
+    onset = mx - my / slope  # x where the regression line y = my + slope·(x − mx) = 0
+    return {"onset": onset, "slope": slope, "r2": r2, "n_supra": n}
 
 
 def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
@@ -238,6 +283,97 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
                 "detail": {"r2": r2, "appeared": appeared,
                            "disappeared": disappeared, "sub_floor": sub_floor,
                            "n_matched": len(matched), "qual_eps": qual_eps}}
+
+    if ctype == "threshold_linear":
+        # A swept response graded SHAPE-FIRST against a reference curve of the same
+        # shape: the response is ~0 below a threshold, then rises ~linearly. Two
+        # primary readouts (worst-of):
+        #   (1) LINEARITY — R² of the supra-threshold rise (is it "0-then-linear"?).
+        #   (2) SLOPE — relative |Δ| of the rise slope vs the reference.
+        # The threshold position is SECONDARY: graded for the record but NOT
+        # included in the verdict, because it is the feature most likely to shift
+        # with conditions that leave the shape intact.
+        # The qualitative check is REFERENCE-AWARE: the reference establishes that
+        # a rise is expected above its threshold, so ABSENCE of the rise across a
+        # sweep that spans past it is the mismatch — not a pass.
+        #
+        # Worked example (the study this criterion was written for): acetate
+        # overflow graded as a dimensionless carbon yield Y_ac = (2·acetate)/
+        # (6·glucose) vs glucose uptake rate, against the Vemuri 2006 chemostat
+        # curve — exercised by the `overflow-acetate-vs-growth` study in the
+        # `metabolic-perturbation-response` investigation. Nothing about the
+        # criterion is specific to that phenomenon.
+        #
+        #   measured  = {x: [driver], y: [response], ...}
+        #   criterion = {ref_x, ref_y, active_eps, lin_good/lin_warn,
+        #                slope_tol/slope_warn, onset_tol/onset_warn (reported)}
+        ref_x, ref_y = criterion.get("ref_x"), criterion.get("ref_y")
+        mx = measured.get("x") if isinstance(measured, dict) else None
+        my = measured.get("y") if isinstance(measured, dict) else None
+        # Response floor separating "flat" from "rising". The 5e-3 default assumes
+        # a NORMALIZED, dimensionless y (e.g. a yield fraction); callers whose y
+        # carries units must set this explicitly.
+        floor = criterion.get("active_eps", 5e-3)
+        lin_good = criterion.get("lin_good", 0.90)        # R² of the supra-threshold rise
+        lin_warn = criterion.get("lin_warn", 0.70)
+        slope_good = criterion.get("slope_tol", 0.30)     # |Δslope| relative
+        slope_warn = criterion.get("slope_warn", 0.60)
+        # Threshold tolerances are RELATIVE to the reference threshold, so the
+        # criterion is invariant to the units of x. Reported, never gating.
+        onset_good = criterion.get("onset_tol", 0.25)
+        onset_warn = criterion.get("onset_warn", 0.50)
+        if not ref_x or not ref_y or not mx or not my:
+            return _ungraded("threshold-linear shape + slope vs reference curve")
+        ref_fit = _fit_threshold_linear(ref_x, ref_y, floor)
+        if ref_fit is None or ref_fit["onset"] is None:
+            return _ungraded("reference is not threshold-linear")
+        onset_ref, slope_ref = ref_fit["onset"], ref_fit["slope"]
+        cstr = (f"shape-first: linear-rise R² ≥ {lin_good} (drift ≥ {lin_warn}); "
+                f"slope within {slope_good:.0%} (drift {slope_warn:.0%}); "
+                f"threshold reported (secondary)")
+        # Reference-aware gate (1): must sweep past the reference threshold to
+        # assess a shape you never entered.
+        if max(mx) <= onset_ref:
+            return {"verdict": "ungraded",
+                    "value": {"slope": None, "slope_ref": slope_ref, "onset_ref": onset_ref},
+                    "criterion_str": cstr,
+                    "meter": f"sweep max x={max(mx):.3g} ≤ threshold x_ref={onset_ref:.3g} — extend sweep",
+                    "detail": {"reason": "sweep below reference threshold", "onset_ref": onset_ref}}
+        fit = _fit_threshold_linear(mx, my, floor)
+        # Reference-aware gate (2): spans past the threshold but stays flat → the
+        # expected response is absent → wrong shape → mismatch.
+        if fit is None or fit["onset"] is None:
+            return {"verdict": "mismatch",
+                    "value": {"slope": 0.0, "slope_ref": slope_ref, "onset_ref": onset_ref},
+                    "criterion_str": cstr,
+                    "meter": (f"no threshold-linear rise (y ≤ {floor:g} through "
+                              f"x={max(mx):.3g}; reference rises)"),
+                    "detail": {"reason": "no rise in model (flat) — wrong shape",
+                               "onset_ref": onset_ref, "slope_ref": slope_ref}}
+        onset_m, slope_m, r2_m, n_supra = fit["onset"], fit["slope"], fit["r2"], fit["n_supra"]
+        # (1) LINEARITY — only assessable with ≥3 supra-threshold points (R² is
+        # trivially 1.0 with 2); otherwise report it but don't gate on it.
+        v_lin = _band(r2_m, lin_good, lin_warn, higher_is_better=True) if n_supra >= 3 else "ungraded"
+        # (2) SLOPE — relative difference of the rise slope.
+        d_slope = abs(slope_m - slope_ref) / abs(slope_ref) if slope_ref else float("inf")
+        v_slope = _band(d_slope, slope_good, slope_warn, higher_is_better=False)
+        # THRESHOLD — secondary: graded for the record, NOT included in the verdict.
+        d_onset = abs(onset_m - onset_ref) / abs(onset_ref) if onset_ref else float("inf")
+        v_onset = _band(d_onset, onset_good, onset_warn, higher_is_better=False)
+        primary = [v for v in (v_lin, v_slope) if v != "ungraded"]
+        verdict = max(primary, key=_SEVERITY.get) if primary else "ungraded"
+        return {"verdict": verdict,
+                "value": {"slope": slope_m, "slope_ref": slope_ref, "r2": r2_m,
+                          "onset": onset_m, "onset_ref": onset_ref},
+                "criterion_str": cstr,
+                "meter": (f"rise R²={r2_m:.2f} · slope {slope_m:.3g} "
+                          f"(ref {slope_ref:.3g}, {d_slope:+.0%}) · threshold {onset_m:.3g} "
+                          f"(ref {onset_ref:.3g}, {d_onset:+.0%}, 2°)"),
+                "detail": {"slope": slope_m, "slope_ref": slope_ref, "d_slope_rel": d_slope,
+                           "r2_linear": r2_m, "onset": onset_m, "onset_ref": onset_ref,
+                           "d_onset_rel": d_onset, "lin_verdict": v_lin,
+                           "slope_verdict": v_slope, "onset_verdict": v_onset,
+                           "onset_gating": False, "n_supra": n_supra}}
 
     if ctype == "literature":
         # Grade a scalar model value against an EXPERIMENTAL reference: a band of

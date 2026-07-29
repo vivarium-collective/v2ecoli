@@ -53,6 +53,38 @@ executive:
         like-for-like comparison against the overflow's 1.11 / 7.93, which use an independent
         biomass-carbon estimate. Strong positive evidence, not proof. Making it like-for-like
         needs the overflow runner's closure estimator, which lives only on that branch.
+    - question: >-
+        How should implied biomass carbon content be graded absolutely, rather than only by
+        contrast against another condition?
+      status: open
+      context: >-
+        S1 deliberately makes no absolute claim about the 0.455 gC/gDW it measured, because
+        the only in-repo reference for that quantity does not survive inspection. The range
+        ~0.45-0.50 gC/gDW at scripts/render_basal_vs_literature.py:77 is an uncited constant
+        introduced 2026-06-17; its units may be a slip from biomass YIELD (gDW/g glucose),
+        whose curated band overlaps the same numeric window so the error leaves no trace;
+        tests/test_basal_vs_literature.py:122 independently uses 0.40-0.55 for the same
+        quantity; and there is no biomass-carbon-content key anywhere in the ecoli-sources
+        validation bundle, unlike the ten other basal__* observables.
+      options:
+        - >-
+          PREFERRED - grade against the model's OWN composition-derived carbon content. The
+          model knows its biomass composition, so its carbon content follows; disagreement
+          between that and the flux-derived number IS non-conservation, decided internally
+          with no literature required. Blocked on sim_data (bake_model_metabolism._load()
+          needs out/sim_data_full/parca_state.pkl.gz, absent in the s3 worktree).
+        - >-
+          Tiered band on the yield-axis pattern (expected / questionable / first-principles
+          violation). Note the failure directions invert relative to intuition: because the
+          quantity is computed BY DIFFERENCE, carbon CREATION drives implied content DOWN
+          (the leftover cannot pay for the biomass built) and carbon LOSS drives it UP. So a
+          hard ceiling guards the less interesting direction. A >1.0 gC/gDW ceiling is free -
+          biomass cannot exceed 100% carbon, which is arithmetic, not biology - while a
+          tighter ~0.8 bound (no whole cell approaches even pure lipid at ~0.77 gC/g) costs
+          an argument.
+        - >-
+          Curate a basal__biomass_carbon_content key into ecoli-sources with a real citation,
+          matching how the other ten observables are handled.
 
 scientific_argument:
   main_claim: >-

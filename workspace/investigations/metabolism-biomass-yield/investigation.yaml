@@ -1,0 +1,87 @@
+schema_version: 2
+name: metabolism-biomass-yield
+title: Is v2ecoli's central carbon metabolism physically correct?
+created: '2026-07-29'
+status: active
+question: >-
+  Does the v2ecoli baseline conserve carbon and respect the thermodynamic ceiling on
+  biomass yield? The basal population_phenotype_basal vs_literature card grades
+  physiology.biomass_yield at 0.826 gDW/g glucose against a measured band of 0.355-0.444
+  and a first-principles ceiling of 0.538, a verdict of first_principles_violation that
+  has stood committed since 2026-06-17. This investigation is named for that failing axis
+  and carries no hypothesis about mechanism.
+
+executive:
+  what_is_this: >-
+    A model-correctness thread on v2ecoli's central carbon metabolism, opened because the
+    baseline produces more biomass per gram of glucose than carbon and energy balance
+    permit. The object of evaluation is the model - a defect with a fix at the end - as
+    distinct from the sibling metabolism-overflow investigation, which evaluates a method.
+  verdict_status: in_progress
+  verdict: >-
+    Not yet reached. S1 is the diagnostic: re-measure yield on a run whose commit is
+    recorded, and settle whether the baseline yield violation and the carbon creation seen
+    under a binding uptake cap are one defect or two.
+  decisions_needed:
+    - question: Is the baseline yield violation one defect with the binding-cap carbon creation, or two?
+      status: open
+      context: >-
+        The overflow study's finding concludes the violation points at the same bookkeeping
+        problem as carbon-created-under-binding-uptake-cap. That is the hypothesis S1 tests,
+        not its premise. The signatures differ: at a slack cap carbon closure is 1.11 (books
+        nearly close) while yield is ~2x the ceiling; under a binding cap closure degrades to
+        7.93 and carbon is created. A pure bookkeeping bug should break conservation
+        everywhere, so the baseline behaviour points instead at an energetic defect.
+
+scientific_argument:
+  main_claim: >-
+    The v2ecoli baseline violates the first-principles ceiling on biomass yield while still
+    conserving carbon, which localises the baseline defect to the energetic side of
+    metabolism rather than to mass bookkeeping.
+  evidence_for:
+    - >-
+      Basal vs_literature card, 20-cell blessed ensemble, direct mass balance: Yxs = 0.826
+      gDW/g glucose (CV 1.55%) against a measured band of 0.355-0.444 and a theoretical_max
+      of 0.538 - 1.86x the top of the band and 1.54x the ceiling.
+    - >-
+      Carbon nonetheless conserves at baseline: implied biomass carbon ~0.457 gC/gDW is
+      physically plausible, so this is not mass creation.
+    - >-
+      The baseline under-respires: O2:glucose ~0.09, CO2:glucose ~0.33, RQ ~3.6 against ~1
+      for full oxidation, so almost no glucose carbon is burned for maintenance and ATP.
+  caveats:
+    - >-
+      The 0.826 figure comes from committed fixtures stamped reconstructed: True,
+      commit: None, sweep_dir: None, baked: unknown. The code and sweep that produced it
+      were never recorded, so it cannot be attributed to any particular revision. Removing
+      that ambiguity is S1's first duty.
+    - >-
+      The equivalence reference mode cannot see this defect. v2ecoli is a port of v1 with
+      byte-level equivalence demonstrated, so if both share the defect the card returns
+      within_tol on a thermodynamically forbidden number. Correctness evidence has to come
+      from the literature / first-principles side.
+
+acceptance_criteria:
+  - study: metabolism-biomass-yield-s1-diagnostic
+    behavior: biomass-yield-remeasured-on-recorded-commit
+  - study: metabolism-biomass-yield-s1-diagnostic
+    behavior: carbon-closure-discriminates-one-defect-from-two
+
+members:
+  - population_phenotype_basal
+  - metabolism-biomass-yield-s1-diagnostic
+  - metabolism-biomass-yield-s1b-anaerobic-contrast
+
+glossary:
+  - term: Biomass yield (Yxs)
+    definition: |-
+      Grams of dry cell weight produced per gram of glucose consumed, here computed by direct mass balance as dDW / integral(q_glc * DW) dt over post-burn-in cells.
+  - term: First-principles ceiling (theoretical_max)
+    definition: |-
+      The maximum Yxs a carbon- and energy-balanced cell can achieve, 0.538 gDW/g glucose from Varma 1993 (FBA, fully aerobic, no maintenance energy). A model above it is forbidden, not merely unusual.
+  - term: Carbon closure
+    definition: |-
+      The ratio of carbon accounted for on the output side (CO2, secreted acetate, biomass) to carbon entering as glucose. A value near 1 means the books balance; the binding-cap overflow condition reaches 7.93, meaning carbon is created.
+  - term: RQ (respiratory quotient)
+    definition: |-
+      CO2 evolved per O2 consumed. Full glucose oxidation gives ~1; the v2ecoli baseline gives ~3.6, indicating it barely respires.

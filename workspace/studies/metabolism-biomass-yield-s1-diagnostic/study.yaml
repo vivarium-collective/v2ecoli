@@ -1,0 +1,96 @@
+schema_version: 4
+name: metabolism-biomass-yield-s1-diagnostic
+title: Re-measure biomass yield on a recorded commit, and discriminate one defect from two
+created: '2026-07-29'
+status: designed
+
+question: >-
+  On a fresh basal run whose code revision is recorded, what is the biomass yield - and
+  does carbon close at the same time? The first half removes the provenance ambiguity in
+  the committed fixtures; the second half is the discriminator, because if carbon closes
+  at baseline while yield sits above the first-principles ceiling, the baseline defect is
+  energetic and therefore distinct from the carbon creation seen under a binding uptake cap.
+
+seeded_from:
+  study: population_phenotype_basal
+  proposal_id: metabolism-biomass-yield-s1-diagnostic
+  finding: biomass-yield-exceeds-thermodynamic-limit
+  evidence:
+    from_card: vs_literature
+    observed: 0.825746175353658
+    units: gDW/g glucose
+    divergence_factor: 0.8598
+    n_cells: 20
+    dispersion: CV 1.55% (sd 0.0128 over 20 post-burn-in cells)
+    provenance_limitation: >-
+      The measured side is the committed tests/fixtures/population_phenotype_basal/
+      fixtures, which stamp reconstructed: True, commit: None, sweep_dir: None,
+      baked: unknown. The exact code and sweep that produced 0.826 were never recorded,
+      so this value cannot be attributed to any particular revision of the model.
+
+assumptions:
+  - text: >-
+      A single 4-seed x 8-generation run with generation_lower_bound 3 (the 20 post-burn-in
+      cells the committed fixtures record) is a like-for-like re-measurement of the blessed
+      ensemble - same config, same cache, same burn-in window - so a divergence in Yxs is
+      attributable to code or to the unrecorded provenance of the fixtures rather than to a
+      different experimental design.
+    verified_in_v2ecoli: false
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      seed: 0
+  variants: []
+  model_settings:
+    - name: no-model-change
+      detail: >-
+        Diagnostic only. This study runs current main unmodified; the fix is a later,
+        separate study with its own parity gate and golden regeneration.
+
+tests:
+  - name: biomass-yield-remeasured-on-recorded-commit
+    classification: primary
+    question: >-
+      Does a fresh run on a recorded commit reproduce the committed fixture's Yxs of 0.826
+      gDW/g glucose, and does it still exceed the 0.538 first-principles ceiling?
+    measure:
+      kind: derived
+      detail: >-
+        Yxs = dDW / integral(q_glc * DW) dt by direct mass balance over post-burn-in cells,
+        via the canonical estimator (physiology_from_sweep / render_basal_vs_literature.py
+        --from-sweep). Graded on the same physiology.biomass_yield axis the basal card uses -
+        literature criterion, measured band 0.355-0.444, theoretical_max 0.538.
+  - name: carbon-closure-discriminates-one-defect-from-two
+    classification: primary
+    question: >-
+      Does carbon close at baseline while yield exceeds the ceiling - the signature of an
+      energetic defect distinct from the binding-cap carbon creation?
+    measure:
+      kind: derived
+      detail: >-
+        Carbon closure = (CO2 + 2*acetate + biomass carbon) / (6 * glucose), plus
+        RQ = CO2/O2, computed from the same sweep parquet via the exchange fluxes in
+        bake_model_metabolism.py. Reference points from the overflow titration: closure 1.11
+        at a slack cap, 7.93 under a binding cap.
+
+report_cards: [vs_literature]
+
+# Deliberately NOT part of this study, and why:
+#   - Reconciling 0.826 against the overflow runner's inline 0.92 estimator. That code lives
+#     only on the overflow branch, and the question it answers - does the overflow runner's
+#     diagnostic agree with the canonical estimator - is about the overflow instrument, not
+#     about the yield defect. It rides with the overflow work instead.
+#   - Re-baking tests/fixtures/population_phenotype_basal/. That is issue #296 and belongs
+#     after the fix; moving the goldens mid-investigation silently moves the reference
+#     everything else is graded against.
+#   - Testing the clock-gated-division hypothesis by flipping d_period. `division` is absent
+#     from _CACHE_CONFIG_NAMES (v2ecoli/core.py:163) and _helpers.py never populates it from
+#     cache, so config_overrides {"division.d_period": false} raises KeyError. It is a code
+#     change, not a parameter flip.

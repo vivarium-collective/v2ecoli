@@ -1,9 +1,17 @@
-"""Pin a v1<->v2 *equivalence* reference for the basal population-phenotype card.
+"""Pin a v1<->v2 *equivalence* reference for a population-phenotype card.
 
 Unlike ``pin_population_phenotype_basal_reference.py`` (which self-pins v2ecoli
 against its own blessed ensemble = a DRIFT instrument), this bakes a **vEcoli
 ("v1") ensemble** as the reference so the v2ecoli card grades as an EQUIVALENCE
 instrument: "is v2 still the same E. coli as v1, within tolerance?"
+
+**Any nutrient condition** (``--condition``, default ``basal``). Nothing in the
+measurement depends on the condition — the readers below name listener columns
+that every condition emits — so a condition is a *stimulus* label plus an output
+location, not a code path. That is the point: five conditions are five
+invocations, not five scripts. The template is shared for the same reason (it
+carries presentation, criterion bands and flux ordering, all condition-independent);
+only ``--out`` and the provenance stamp move.
 
 It reuses the self-pin reference as the presentation/criterion TEMPLATE and only
 swaps the reference values/vectors to the v1 ensemble's. **Full card**: Physiology,
@@ -21,20 +29,26 @@ differs from v2ecoli's in two ways, handled here in self-contained readers:
 Omics/flux ensemble-mean vectors are read with the shared ``extract_vectors``
 (column names match), since v1 emits the same listener columns.
 
+``--sweep-dir`` may be a local path or an ``s3://`` URI (see
+``v2ecoli.library.sweep_io``), so a reference can be pinned against a sweep that
+never lands on local disk.
+
 Run (after extracting the two bulk indices from v1 sim_data in the vEcoli env):
     python scripts/pin_vecoli_equivalence_reference.py \\
         --sweep-dir /Users/chris/projects/SMS/vecoli-benchmarking/out/v1v2_8x16 \\
-        --model-ref <vEcoli git SHA> --gen-lb 3 \\
-        --s30-idx 5456 --s50-idx 5464 \\
-        --out docs/report_cards/population_phenotype_basal/vs_vecoli/vecoli_reference.json
+        --condition basal --model-ref <vEcoli git SHA> --gen-lb 3 \\
+        --s30-idx 5456 --s50-idx 5464
 
 Layout: reference modes live as subdirs of the card they grade
-(``<card>/vs_vecoli/``). "Equivalence" is a reference MODE, not a card.
+(``<card>/vs_vecoli/``). "Equivalence" is a reference MODE, not a card. The card
+is named for its stimulus, so ``--condition acetate`` defaults ``--out`` to
+``docs/report_cards/population_phenotype_acetate/vs_vecoli/vecoli_reference.json``
+— parallel to the existing basal card rather than nested inside it, which leaves
+``population_phenotype_basal`` untouched.
 """
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
 
@@ -62,6 +76,13 @@ _FLUX_SCATTER = "fluxes.exchange"
 _DEFAULT_TEMPLATE = "tests/fixtures/population_phenotype_basal_reference.json"
 
 
+def _default_out(condition: str) -> str:
+    """The vs_vecoli reference path for the card named after ``condition``."""
+    return os.path.join("docs", "report_cards",
+                        f"population_phenotype_{condition}", "vs_vecoli",
+                        "vecoli_reference.json")
+
+
 def _replication_events(times, oric, nforks):
     init = next((times[i] for i in range(1, len(oric)) if oric[i] > oric[i - 1]), None)
     completion = next((times[i] for i in range(1, len(nforks))
@@ -77,14 +98,14 @@ def _read_vecoli_cells(sweep_dir: str, s30_idx=None, s50_idx=None) -> list[dict]
     subunit counts sliced from the positional `bulk` list by integer index
     (vEcoli has no bulk__id/bulk__count). Cell-level aggregation throughout:
     time-mean WITHIN a cell, one value per cell."""
-    import duckdb
+    from v2ecoli.library.sweep_io import connect_for, history_files
 
-    files = glob.glob(os.path.join(sweep_dir, "**", "history", "**", "*.pq"),
-                      recursive=True)
+    files = history_files(sweep_dir)
     if not files:
         return []
+    con = connect_for(sweep_dir)
     flist = "[" + ",".join("'" + f.replace("'", "''") + "'" for f in files) + "]"
-    avail = {d[0] for d in duckdb.sql(
+    avail = {d[0] for d in con.sql(
         f"DESCRIBE SELECT * FROM read_parquet({flist}, hive_partitioning=true)").fetchall()}
     tcol = "global_time" if "global_time" in avail else "time"
     have_ribo = (s30_idx is not None and s50_idx is not None
@@ -103,7 +124,7 @@ def _read_vecoli_cells(sweep_dir: str, s30_idx=None, s50_idx=None) -> list[dict]
            "listeners__mass__cell_mass, listeners__mass__volume, "
            "listeners__replication_data__number_of_oric, "
            "len(listeners__replication_data__fork_coordinates)" + ribo)
-    rows = duckdb.sql(
+    rows = con.sql(
         f"SELECT {sel} FROM read_parquet({flist}, hive_partitioning=true) "
         f"ORDER BY variant, lineage_seed, generation, agent_id, {tcol}").fetchall()
 
@@ -161,9 +182,14 @@ def _read_vecoli_cells(sweep_dir: str, s30_idx=None, s50_idx=None) -> list[dict]
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--sweep-dir", required=True, help="vEcoli parquet sweep dir")
+    ap.add_argument("--sweep-dir", required=True,
+                    help="vEcoli parquet sweep dir (local path or s3:// URI)")
+    ap.add_argument("--condition", default="basal",
+                    help="nutrient condition this ensemble was run under; sets the "
+                         "card title, the provenance stamp and the default --out")
     ap.add_argument("--template", default=_DEFAULT_TEMPLATE,
-                    help="self-pin reference used as presentation/criterion template")
+                    help="self-pin reference used as presentation/criterion template "
+                         "(condition-independent: presentation, bands, flux ordering)")
     ap.add_argument("--model-ref", required=True, help="vEcoli git commit (provenance)")
     ap.add_argument("--ensemble", default="", help="ensemble description (provenance)")
     ap.add_argument("--gen-lb", type=int, default=0,
@@ -172,8 +198,11 @@ def main() -> None:
                     help="0-indexed position of CPLX0-3953[c] (30S) in v1 bulk (sim_data)")
     ap.add_argument("--s50-idx", type=int, default=None,
                     help="0-indexed position of CPLX0-3962[c] (50S) in v1 bulk (sim_data)")
-    ap.add_argument("--out", required=True, help="output reference json path")
+    ap.add_argument("--out", default=None,
+                    help="output reference json path (default: the vs_vecoli "
+                         "reference of the card named for --condition)")
     args = ap.parse_args()
+    out_path = args.out or _default_out(args.condition)
 
     records = _read_vecoli_cells(args.sweep_dir, args.s30_idx, args.s50_idx)
     if args.gen_lb:
@@ -242,9 +271,10 @@ def main() -> None:
 
     out = {
         "$schema_note": template.get("$schema_note", ""),
-        "title": "Basal-condition population phenotype — v1↔v2 equivalence",
+        "title": (f"{args.condition} population phenotype — v1↔v2 equivalence"),
         "status": "populated",
         "stimulus": {
+            "condition": args.condition,
             "reference_model": "vEcoli (v1)",
             "measured_model": "v2ecoli (v2)",
             "blessed_model_ref": args.model_ref,
@@ -259,17 +289,22 @@ def main() -> None:
             "v1<->v2 share cistron/monomer/flux ordering exactly — vectors align "
             "positionally (no ID remapping). Ribosome 30S/50S sliced from v1's "
             "positional bulk by index (s30/s50 from v1 sim_data).",
-            "v1 values read by scripts/pin_vecoli_equivalence_reference.py "
-            "(self-contained cross-impl reader; shared analysis_runner is untouched).",
+            "v1 values read by scripts/pin_vecoli_equivalence_reference.py — a "
+            "self-contained cross-impl reader for the two v1<->v2 emit-schema "
+            "differences; it shares only sweep location/access "
+            "(v2ecoli.library.sweep_io), not analysis logic.",
             "tolerance bands inherited from the self-pin template; revisit per-axis "
             "equivalence margins (delta) — and consider TOST for the formal claim.",
+            ("The condition is a stimulus label: the same measurement runs unchanged "
+             "on every nutrient condition, so a cross-condition read is a comparison "
+             "of like-measured ensembles."),
         ],
         "axes": axes,
     }
-    os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    json.dump(out, open(args.out, "w", encoding="utf-8"), indent=2,
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+    json.dump(out, open(out_path, "w", encoding="utf-8"), indent=2,
               ensure_ascii=False)
-    print(f"\nwrote {args.out} ({len(axes)} axes)")
+    print(f"\nwrote {out_path} ({len(axes)} axes)")
 
 
 if __name__ == "__main__":

@@ -255,8 +255,19 @@ def main() -> None:
         # flux_ids: v1 == v2 exactly (verified), so the template's order applies.
         axes[_FLUX_SCATTER] = ax
         print(f"  {_FLUX_SCATTER:36} vector len={len(exch['vector'])} n_cells={len(per_cell)}")
-        # flux KPI ttest axes (slice per_cell by the template's flux_id index)
+        # flux KPI ttest axes (slice per_cell by the template's flux_id index).
+        # The index comes from the TEMPLATE's flux_ids but slices the MEASURED
+        # vector, so the two must describe the same molecule set. A medium that
+        # changes the external-exchange molecules changes that width, which would
+        # otherwise slice silently-wrong values (or IndexError) — so check.
         flux_ids = ax["criterion"].get("flux_ids") or []
+        width = len(exch["vector"])
+        if flux_ids and len(flux_ids) != width:
+            print(f"  [warn] template flux_ids ({len(flux_ids)}) != measured flux "
+                  f"vector ({width}) — the exchange molecule set differs from the "
+                  f"template's, so KPI axes indexed by name are not positionally "
+                  f"safe. Re-pin flux_ids for this condition; skipping KPI axes.")
+            flux_ids = []
         idx = {m: i for i, m in enumerate(flux_ids)}
         for path, spec in taxes.items():
             crit = spec.get("criterion", {})

@@ -1,0 +1,77 @@
+schema_version: 4
+name: flagella-05-spatial-transport
+title: "Spatial Transport — Flagellar Protein Movement"
+question: >-
+  (SCAFFOLDED, not yet implemented) How do flagellar assembly proteins move
+  across compartments over time — cytosol -> inner membrane -> periplasm/
+  projection -> extracellular via the type-III secretion export pathway — and
+  can that transport be visualized/quantified as a spatial process rather than
+  a snapshot?
+description: |
+  Placeholder slot reserved during the 2026-07-28 investigation-wide study
+  renumbering (Maya's request). Not yet designed or implemented — this is a
+  named slot, not a result. The natural starting point is study 02's Voronoi
+  compartment plot (a static snapshot of where flagellar protein mass sits at
+  a given time); this study would extend that into an actual TRANSPORT view —
+  e.g. tracking individual proteins' compartment-mass trajectories over time as
+  they're synthesized in the cytosol and exported through the flagellar
+  type-III secretion system, rather than two independent snapshots.
+topic: regulation
+tags: [flagella, spatial, transport, compartments, aim1, not-yet-implemented]
+created: '2026-07-28'
+
+pipeline_gate:
+  prerequisites:
+  - flagella-03-voronoi-compartments   # shares the compartment-mass listener approach
+  enables: []
+
+status: draft
+phase: Design
+
+design_status: draft
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_started
+gate_status: pending
+expert_review_status: not_requested
+
+findings: []
+
+visualizations: []
+
+baseline: []
+
+purpose:
+  question: |
+    Not yet designed. Candidate framing: does the model reproduce the expected
+    TEMPORAL ORDER of compartment occupancy for a flagellar protein (synthesized
+    in cytosol -> transits inner membrane / projection -> exported to
+    extracellular), and can that be shown as a trajectory rather than a
+    two-point snapshot?
+  mechanism: |
+    Not yet implemented. Likely reuses the same compartment mass listeners and
+    monomer-mass calculation as flagella-03-voronoi-compartments
+    (run_flagella_voronoi.py), sampled at many timepoints instead of two, per
+    protein rather than aggregated per compartment.
+  expected_outcome: |
+    Not yet defined.
+
+behavior_tests: []
+
+success_criteria:
+  model: []
+  biology: []
+
+open_decisions:
+  - id: define-spatial-transport-scope
+    raised_by: MA
+    date: '2026-07-28'
+    question: "What should 'spatial transport' actually measure/show? (e.g.
+      per-protein compartment trajectories over time, actual 3D/spatial
+      diffusion via a physical transport process, or something else.)"
+    recommendation: |
+      Awaiting Maya's design input before implementation starts.
+
+notes: |
+  This is a scaffolded slot, not a completed study — do not cite it as
+  evidence for anything until it has an actual implementation.

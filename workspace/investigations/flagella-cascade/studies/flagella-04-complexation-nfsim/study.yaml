@@ -1,6 +1,6 @@
 schema_version: 4
-name: flagella-04-nfsim-assembly
-title: "Aim 2B — rule-based flagellar assembly via NFsim (pbg-nfsim)"
+name: flagella-04-complexation-nfsim
+title: "Complexation via NFsim — Rule-Based Flagellar Assembly"
 question: >-
   Does NFsim rule-based assembly build flagella through ordered, conditional
   intermediates (export apparatus -> motor/basal body -> hook -> complete flagellum)
@@ -84,7 +84,7 @@ findings:
 visualizations:
 - address: image:charts/01_nfsim_assembly.svg
   chart: charts/01_nfsim_assembly.svg
-  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-nfsim-assembly/run_nfsim_assembly.py --seconds 2400 --sample 120
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/run_nfsim_assembly.py --seconds 2400 --sample 120
   description: |
     Which model is this? (answers Maya's "NFsim run on what baseline WCM, with or
     without regulation?"): NEITHER — this is a STANDALONE NFsim + monomer-production
@@ -103,7 +103,7 @@ visualizations:
     flagella=9.
 - address: image:charts/02_nfsim_assembly_stacked.svg
   chart: charts/02_nfsim_assembly_stacked.svg
-  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-nfsim-assembly/run_nfsim_assembly.py --seconds 2400 --sample 120
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/run_nfsim_assembly.py --seconds 2400 --sample 120
   description: |
     Stacked-area view of the cumulative assembly hierarchy over time (export
     apparatus -> motor/basal body -> hook -> complete flagellum), showing flux

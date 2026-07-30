@@ -6,8 +6,12 @@ following reports/multigeneration_report.py, but (a) enables the opt-in
 flagella observables directly from composite.state each chunk.
 
 Two lineages:
-  * feature OFF  -> flagella-01-overexpression-baseline (multigen)
-  * feature ON   -> flagella-02-sumgate-cascade + flagella-03-flgm-flia-feedback (multigen)
+  * regulation OFF -> flagella-01-overexpression-baseline (multigen)
+  * regulation ON  -> flagella-02-transcription-regulation (multigen sumgate + flgm/flia charts)
+    "Regulation ON" = the flagella_regulation feature (2 process Steps) PLUS
+    Maya's full 4-value initial-state override (FULL_OVERRIDE below), applied
+    once at generation 1's start — investigation-wide definition, used
+    uniformly for both studies' figures now.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
@@ -40,6 +44,13 @@ _CELL_DATA_KEYS = {
 CLASS_II_CISTRONS = ["EG10322", "EG11346", "EG11347", "G358", "G357", "G7028", "EG11355"]
 CLASS_III_CISTRONS = ["EG10321", "EG10317", "EG11967", "EG11545",
                       "EG10601", "EG10602", "EG10146", "EG10149", "G369"]
+
+FULL_OVERRIDE = {
+    "CPLX0-7452[j]": 4,
+    "FLAGELLAR-MOTOR-COMPLEX[j]": 0,
+    "EG11355-MONOMER[c]": 500,
+    "G369-MONOMER[c]": 800,
+}
 
 
 def _arr(s):
@@ -134,6 +145,12 @@ def run_multigen(features, n_gens, sample, max_dur, seed, cache_dir):
     enable_features(*features)
     comp = build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
     enable_features()
+    if features:
+        # Investigation-wide "regulation ON" = feature + full override, together.
+        bulk = _arr(comp.state["agents"]["0"]["bulk"])
+        bids = bulk["id"]
+        for name, val in FULL_OVERRIDE.items():
+            bulk["count"][bulk_name_to_idx(name, bids)] = val
     dur, divided, last_cell = _run_gen(comp, tu_II, tu_III, sample, max_dur, t_cum, 1, rows)
     t_cum += dur
     print(f"    gen 1: sim {dur:.0f}s divided={divided} flag={rows[-1]['flag']}")
@@ -210,14 +227,14 @@ def fig_baseline(off, on):
     plt = _mpl()
     fig, (a, b) = plt.subplots(1, 2, figsize=(12, 4.6))
     a.plot(_cols(off, "t_cum") / 60, _cols(off, "flag"), "-", color="#9467bd", label="flagella (reg OFF)")
-    a.plot(_cols(on, "t_cum") / 60, _cols(on, "flag"), "-", color="#2ca02c", label="flagella (reg ON)")
+    a.plot(_cols(on, "t_cum") / 60, _cols(on, "flag"), "-", color="#2ca02c", label="flagella (reg ON: feature + full override)")
     _shade(a, off)
-    a.set_title("Complete flagella across generations — OFF vs ON")
+    a.set_title("Complete flagella across generations — OFF vs ON (feature + full override)")
     a.set_xlabel("time (min)"); a.set_ylabel("CPLX0-7452 count"); a.legend(fontsize=8)
 
     a2 = b
     a2.plot(_cols(off, "t_cum") / 60, _cols(off, "dry_mass"), "-", color="#9467bd", label="reg OFF")
-    a2.plot(_cols(on, "t_cum") / 60, _cols(on, "dry_mass"), "-", color="#2ca02c", label="reg ON")
+    a2.plot(_cols(on, "t_cum") / 60, _cols(on, "dry_mass"), "-", color="#2ca02c", label="reg ON: feature + full override")
     _shade(a2, off)
     a2.set_title("Dry mass across generations (division = dashed)")
     a2.set_xlabel("time (min)"); a2.set_ylabel("dry mass (fg)"); a2.legend(fontsize=8)
@@ -234,7 +251,7 @@ def fig_cascade(on):
     ax.set_title("SUM-gate Class II vs Class III across generations")
     ax.set_xlabel("time (min)"); ax.set_ylabel("mean init_prob_override"); ax.legend(fontsize=8)
     fig.tight_layout()
-    save(fig, "flagella-02-sumgate-cascade", "02_multigen_classII_classIII")
+    save(fig, "flagella-02-transcription-regulation", "03_multigen_classII_classIII")
 
 
 def fig_feedback(on):
@@ -251,7 +268,7 @@ def fig_feedback(on):
     h1, l1 = ax.get_legend_handles_labels(); h2, l2 = axb.get_legend_handles_labels()
     ax.legend(h1 + h2, l1 + l2, fontsize=8, loc="upper right")
     fig.tight_layout()
-    save(fig, "flagella-03-flgm-flia-feedback", "02_multigen_flgm_flia")
+    save(fig, "flagella-02-transcription-regulation", "05_multigen_flgm_flia")
 
 
 def main():
@@ -263,9 +280,9 @@ def main():
     ap.add_argument("--cache-dir", default="out/cache")
     args = ap.parse_args()
 
-    print("== feature OFF lineage (study 01) ==")
+    print("== regulation OFF lineage (study 01 baseline) ==")
     off = run_multigen([], args.generations, args.sample, args.max_gen_dur, args.seed, args.cache_dir)
-    print("== feature ON lineage (studies 02 + 03) ==")
+    print("== regulation ON lineage: feature + full override (studies 01 + 03) ==")
     on = run_multigen(["flagella_regulation"], args.generations, args.sample, args.max_gen_dur, args.seed, args.cache_dir)
 
     fig_baseline(off, on)
@@ -273,10 +290,10 @@ def main():
     fig_feedback(on)
 
     ng_off = len({r["gen"] for r in off}); ng_on = len({r["gen"] for r in on})
-    print(f"\nOFF generations: {ng_off}  ON generations: {ng_on}")
+    print(f"\nOFF generations: {ng_off}  ON (full override) generations: {ng_on}")
     print("OFF flagella by gen-end: " +
           ", ".join(f"g{g}={[r['flag'] for r in off if r['gen']==g][-1]}" for g in sorted({r['gen'] for r in off})))
-    print("ON  flagella by gen-end: " +
+    print("ON  flagella by gen-end (full override): " +
           ", ".join(f"g{g}={[r['flag'] for r in on if r['gen']==g][-1]}" for g in sorted({r['gen'] for r in on})))
 
 

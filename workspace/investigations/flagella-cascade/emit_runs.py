@@ -26,9 +26,8 @@ INVESTIGATION = "flagella-cascade"
 
 # Each study's declared baseline (from its study.yaml `baseline:` block).
 STUDIES = [
-    {"slug": "flagella-01-overexpression-baseline", "features": []},
-    {"slug": "flagella-02-sumgate-cascade",          "features": ["flagella_regulation"]},
-    {"slug": "flagella-03-flgm-flia-feedback",       "features": ["flagella_regulation"]},
+    {"slug": "flagella-01-overexpression-baseline",   "features": []},
+    {"slug": "flagella-02-transcription-regulation",  "features": ["flagella_regulation"]},
 ]
 
 

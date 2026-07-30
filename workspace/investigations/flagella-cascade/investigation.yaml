@@ -29,47 +29,44 @@ lead: |
   prelim proposal, "Abdalla Prelim Exam Proposal 051326") from the vEcoli `biofilm`
   branch (https://github.com/vivarium-collective/vEcoli/tree/biofilm) onto v2ecoli's
   process-bigraph stack. The cascade is an opt-in `flagella_regulation` feature.
-  This is a living integration branch (draft PR #276), NOT a merge target. It now
-  covers Aim 2A (the transcriptional regulatory network — studies 01-03) AND brings
-  in Aim 2B (NFsim rule-based assembly — study 04, from vivarium-collective/pbg-nfsim).
-  Aim 1 (spatial / Voronoi compartments) remains out of scope here.
+  This is a living integration branch (draft PR #276), NOT a merge target. Five
+  studies, reorganized 2026-07-28 (see `merge_history` on study 02), renumbered
+  again 2026-07-28 (transcription regulation moved to slot 2, Voronoi to slot 3):
+  01 (unregulated baseline, full-mode ParCa), 02 (Kalir & Alon transcription
+  regulation — the SUM-gate, FlgM/FliA feedback, and override-parity validation,
+  all consolidated into one study), 03 (Voronoi spatial-compartment plot of
+  flagellar proteins, ported from vivarium-collective/vEcoli-spatial-voronoi —
+  Aim 1's spatial angle, now IN scope alongside the transcriptional work), 04
+  (complexation via NFsim rule-based assembly, from vivarium-collective/pbg-nfsim),
+  05 (spatial transport — scaffolded, not yet implemented).
+
+  **What drives the cascade** — two new process-bigraph Steps, the full
+  initial-state override, and the ParCa data + wiring behind them:
+
+  1. ecoli-flagella-transcription-regulation — the Kalir & Alon bilinear SUM-gate. Promoter activity = weighted sum of FlhD4C2 (CPLX0-3930) and free FliA/sigma28 (EG11355-MONOMER); Class II weighted to FlhDC, Class III to FliA. Writes a per-promoter init_prob_override for 7 Class II + 9 Class III TUs (incl. flgM, closing the negative-feedback loop). transcript_initiation substitutes the override where > 0.
+  2. ecoli-flagella-flgm-secretion — depletes cytoplasmic FlgM (G369-MONOMER[c]) proportional to complete flagella (CPLX0-7452[j]); the Class II -> Class III timing gate that releases sequestered FliA after basal-body completion.
+
+  Initial-state override (part of "regulation ON," investigation-wide since
+  2026-07-28): CPLX0-7452[j]=4, FLAGELLAR-MOTOR-COMPLEX[j]=0,
+  EG11355-MONOMER[c]=500, G369-MONOMER[c]=800 — Maya's original vEcoli
+  flagellum_initial_value.json, applied together with the two Steps above.
+
+  Supporting data: FLGM-FLIA-CPLX sequestration equilibrium, an init_prob_override
+  field on the promoter unique molecule, and a metabolism guard so a
+  protein-protein equilibrium coexists with ParCa biomass fitting.
 
 executive:
   what_is_this: |
-    Two new process-bigraph Steps plus the ParCa data + wiring that drive them:
-
-    1. ecoli-flagella-transcription-regulation — the Kalir & Alon bilinear SUM-gate.
-       Promoter activity = weighted sum of FlhD4C2 (CPLX0-3930) and free FliA/sigma28
-       (EG11355-MONOMER); Class II weighted to FlhDC, Class III to FliA. Writes a
-       per-promoter init_prob_override for 7 Class II + 9 Class III TUs (incl. flgM,
-       closing the negative-feedback loop). transcript_initiation substitutes the
-       override where > 0.
-
-    2. ecoli-flagella-flgm-secretion — depletes cytoplasmic FlgM (G369-MONOMER[c])
-       proportional to complete flagella (CPLX0-7452[j]); the Class II -> Class III
-       timing gate that releases sequestered FliA after basal-body completion.
-
-    Supporting data: FLGM-FLIA-CPLX sequestration equilibrium, an init_prob_override
-    field on the promoter unique molecule, and a metabolism guard so a
-    protein-protein equilibrium coexists with ParCa biomass fitting.
+    Two new process-bigraph Steps, the full initial-state override, and the
+    ParCa data + wiring that drive the cascade — see Background for the
+    step-by-step breakdown.
 
   verdict: |
-    Infrastructure landed and the cascade is functional across TWO cell generations
-    (real divisions at the ~700 fg threshold). Feature-off is seam-neutral; with the
-    cascade on, the SUM-gate holds Class II > Class III and FlgM secretion releases
-    bounded free FliA.
-
-    COUNT VERDICT (settled) — the cascade does NOT reduce flagellar overexpression;
-    under proper calibration it INCREASES it. The fast-mode cache suggested a
-    reduction (OFF g1=53,g2=44 vs ON g1=44,g2=34), but a 4-seed x 3-gen ensemble on
-    the FULL-mode (calibrated) cache robustly reverses that: ON means 62.5/54.8/59.0
-    vs OFF means 49.5/44.2/40.8 (ON > OFF in 11 of 12 seed-generations). So the
-    reduction was a fast-mode artifact; Maya's overexpression-reduction hypothesis is
-    REFUTED for the cascade as currently implemented (the SUM-gate override,
-    p_i/p_i_ref * basal_prob, over-drives the flagella TUs once basal_prob is
-    properly calibrated). The mechanistic results (seam neutrality, Class II>III
-    ordering, FlgM->FliA release, ordered NFsim assembly) are unaffected — only the
-    count claim flips.
+    Mechanistic results are settled (seam-neutral off; Class II>III + bounded
+    FliA on). Count direction is NOT settled: regulation ON now shows fewer
+    flagella than OFF (12/12 seed-generations), but this is confounded by the
+    two conditions starting from different initial flagella counts — see
+    Scientific argument below for the full caveat and Glossary for what ON/OFF mean.
   verdict_status: in-progress
 
 biological_story: |
@@ -84,21 +81,40 @@ biological_story: |
   investigation embeds that gate in the whole-cell model so flagellar expression is
   governed mechanistically rather than by hand-tuned overrides.
 
+  **What drives the cascade** — two new process-bigraph Steps, the full
+  initial-state override, and the ParCa data + wiring behind them:
+
+  1. ecoli-flagella-transcription-regulation — the Kalir & Alon bilinear SUM-gate. Promoter activity = weighted sum of FlhD4C2 (CPLX0-3930) and free FliA/sigma28 (EG11355-MONOMER); Class II weighted to FlhDC, Class III to FliA. Writes a per-promoter init_prob_override for 7 Class II + 9 Class III TUs (incl. flgM, closing the negative-feedback loop). transcript_initiation substitutes the override where > 0.
+  2. ecoli-flagella-flgm-secretion — depletes cytoplasmic FlgM (G369-MONOMER[c]) proportional to complete flagella (CPLX0-7452[j]); the Class II -> Class III timing gate that releases sequestered FliA after basal-body completion.
+
+  Initial-state override (part of "regulation ON," investigation-wide since
+  2026-07-28): CPLX0-7452[j]=4, FLAGELLAR-MOTOR-COMPLEX[j]=0,
+  EG11355-MONOMER[c]=500, G369-MONOMER[c]=800 — Maya's original vEcoli
+  flagellum_initial_value.json, applied together with the two Steps above.
+
+  Supporting data: FLGM-FLIA-CPLX sequestration equilibrium, an init_prob_override
+  field on the promoter unique molecule, and a metabolism guard so a
+  protein-protein equilibrium coexists with ParCa biomass fitting.
+
 study_order:
-  # The studies DO have an ordering dependence (rendered per-study as pipeline_gate
-  # prerequisites/enables). Two arms under one ParCa cache:
-  #   TRANSCRIPTION ARM (Aim 2A):  parca -> 01 -> 02 -> 03
+  # Reorganized 2026-07-28 (Maya's study renumbering; transcription/Voronoi
+  # swapped a second time same day so transcription regulation is slot 2).
+  # Three arms under one ParCa cache:
+  #   TRANSCRIPTION ARM (Aim 2A):  parca -> 01 -> 02
   #     01 (byte-neutral baseline + overexpression reference) must land first — it is
   #        the control every regulated result is measured against.
-  #     02 (SUM-gate writes Class II>III overrides) builds on that baseline.
-  #     03 (FlgM secretion gate + FliA feedback) closes the loop 02 opens, so it
-  #        depends on 02's cascade being wired.
-  #   ASSEMBLY ARM (Aim 2B):  04 (NFsim) runs PARALLEL / standalone — no dependency
-  #        on the transcription studies today; it becomes downstream of 02/03 only
-  #        once NFsim is coupled into the WCM (future edge).
+  #     02 (Kalir & Alon SUM-gate + FlgM/FliA feedback + override-parity, consolidated
+  #        from the former 02/03/05) depends on 01's baseline.
+  #   SPATIAL ARM (Aim 1):  03 (Voronoi compartment plot) and 05 (spatial transport,
+  #        scaffolded) — brought into scope alongside the transcriptional work.
+  #        No dependency on the transcription arm today.
+  #   ASSEMBLY ARM (Aim 2B):  04 (complexation via NFsim) runs PARALLEL / standalone
+  #        — no dependency on the transcription studies today; it becomes downstream
+  #        of 02 only once NFsim is coupled into the WCM (future edge).
   arms:
-    transcription: [flagella-01-overexpression-baseline, flagella-02-sumgate-cascade, flagella-03-flgm-flia-feedback]
-    assembly: [flagella-04-nfsim-assembly]
+    transcription: [flagella-01-overexpression-baseline, flagella-02-transcription-regulation]
+    spatial: [flagella-03-voronoi-compartments, flagella-05-spatial-transport]
+    assembly: [flagella-04-complexation-nfsim]
 
 report_cards_status:
   # Answer to "report cards?": the flagella studies have NONE yet, and generating
@@ -109,9 +125,11 @@ report_cards_status:
   # `findings` (with observed/expected evidence) + `runs` as its evidence surface.
   # Proposed card axes once bands exist (a science input from Maya):
   #   01: feature-off neutrality (0 overrides), unregulated flagella count vs biological target
-  #   02: Class II>III override ratio, onset-lag (needs low-IC), cross-generation stability
-  #   03: FlgM depletion fraction, free-FliA fold-change vs a literature band
+  #   02: Class II>III override ratio + onset-lag, FlgM depletion fraction,
+  #       free-FliA fold-change vs a literature band, override-parity (full vs reduced)
+  #   03: Voronoi compartment-mass fidelity vs the underlying bulk-mass listener
   #   04: assembly-order correctness, complete-flagella yield vs expected
+  #   05: not yet implemented — no card axes proposed
   proposed: true
   blocking_input: literature/vEcoli acceptance bands for the axes above
 
@@ -124,10 +142,14 @@ glossary:
       flagella_regulation was taken directly from Maya's vEcoli config script.
   - term: "regulation ON vs OFF"
     meaning: |
-      ON = the two flagella Steps (SUM-gate + FlgM secretion) are active and writing
-      promoter init_prob_override. OFF = they are not wired at all. Several baseline
-      figures show BOTH (OFF as the reference, ON for comparison) — that is why a
-      "baseline" study can contain an ON trace.
+      Investigation-wide definition since 2026-07-28. ON = BOTH the flagella
+      Steps (SUM-gate + FlgM secretion, writing promoter init_prob_override)
+      ARE wired AND Maya's full 4-value initial-state override is applied
+      (CPLX0-7452[j]=4, FLAGELLAR-MOTOR-COMPLEX[j]=0, EG11355-MONOMER[c]=500,
+      G369-MONOMER[c]=800) — the two always go together now. OFF = neither: the
+      stock WCM on the default already-flagellated cache, no override. Several
+      baseline figures show BOTH (OFF as the reference, ON for comparison) —
+      that is why a "baseline" study can contain an ON trace.
   - term: "byte-neutral (seam-neutral)"
     meaning: |
       With the feature OFF the model output is bit-for-bit identical to pre-port
@@ -200,6 +222,18 @@ open_decisions:
       for the dashboard maintainers. Interim mitigation applied here: each study's
       title + description now leads with its Aim (2A/2B) and a one-line scope so the
       studies read as distinct sections.
+  - id: should-study-03-adopt-full-override
+    raised_by: MA
+    date: '2026-07-28'
+    question: "The former study 05 showed the former study 03's reduced 2-value
+      override was an unnecessary precaution (the full 4-value vEcoli override
+      runs cleanly against a full-mode cache)."
+    recommendation: |
+      RESOLVED by the 2026-07-28 study renumbering: both studies' content is now
+      merged into flagella-02-transcription-regulation (charts 06 = reduced
+      override, 07 = full override, shown side by side as a documented before/after
+      rather than one superseding the other). See that study's `open_decisions`
+      (retire-reduced-override-chart) for the remaining follow-up.
 
 review_log:
   - reviewer: Maya Abdalla (MA)
@@ -210,88 +244,111 @@ review_log:
       point-by-point mapping of each comment to the action taken.
 
 studies:
-  - flagella-01-overexpression-baseline
-  - flagella-02-sumgate-cascade
-  - flagella-03-flgm-flia-feedback
-  - flagella-04-nfsim-assembly
+- flagella-01-overexpression-baseline
+- flagella-02-transcription-regulation
+- flagella-03-voronoi-compartments
+- flagella-04-complexation-nfsim
+- flagella-05-spatial-transport
 
 acceptance_criteria:
-  - id: AC1
-    behavior: feature-off-seam-neutral
-    study: flagella-01-overexpression-baseline
-    detail: |
-      With flagella_regulation OFF, promoters.init_prob_override stays 0 on every
-      promoter across a run and transcript_initiation is unchanged — so the port is
-      a true no-op until the feature is enabled (and the uncontrolled ~48-flagella
-      overexpression baseline is reproduced for comparison).
-  - id: AC2
-    behavior: cascade-classII-before-classIII
-    study: flagella-02-sumgate-cascade
-    detail: |
-      With the feature on, Class II init_prob_override rises before Class III, and
-      Class III stays near 0 until complete flagella accumulate and FlgM is secreted
-      — the experimentally observed temporal order (Kalir et al. 2001).
-  - id: AC3
-    behavior: fliA-not-overproduced
-    study: flagella-03-flgm-flia-feedback
-    detail: |
-      Free FliA (EG11355-MONOMER[c]) stays within a biologically plausible band
-      rather than running away — the FlgM secretion gate plus the flgM
-      negative-feedback loop (flgM is itself a Class III gene) hold it in check.
-  - id: AC4
-    behavior: ordered-hierarchical-assembly
-    study: flagella-04-nfsim-assembly
-    detail: |
-      NFsim rule-based assembly (pbg-nfsim) builds flagella through ordered,
-      conditional steps (export apparatus -> motor/basal body -> hook -> complete
-      flagellum) that the stochastic Gillespie complexation cannot enforce — Maya's
-      Aim 2B.
+- id: AC1
+  behavior: feature-off-seam-neutral
+  study: flagella-01-overexpression-baseline
+  detail: |
+    With flagella_regulation OFF, promoters.init_prob_override stays 0 on every
+    promoter across a run and transcript_initiation is unchanged — so the port is
+    a true no-op until the feature is enabled (and the uncontrolled ~48-flagella
+    overexpression baseline is reproduced for comparison).
+- id: AC2
+  behavior: cascade-classII-before-classIII
+  study: flagella-02-transcription-regulation
+  detail: |
+    With the feature on, Class II init_prob_override rises before Class III, and
+    Class III stays near 0 until complete flagella accumulate and FlgM is secreted
+    — the experimentally observed temporal order (Kalir et al. 2001).
+- id: AC3
+  behavior: fliA-not-overproduced
+  study: flagella-02-transcription-regulation
+  detail: |
+    Free FliA (EG11355-MONOMER[c]) stays within a biologically plausible band
+    rather than running away — the FlgM secretion gate plus the flgM
+    negative-feedback loop (flgM is itself a Class III gene) hold it in check.
+- id: AC4
+  behavior: ordered-hierarchical-assembly
+  study: flagella-04-complexation-nfsim
+  detail: |
+    NFsim rule-based assembly (pbg-nfsim) builds flagella through ordered,
+    conditional steps (export apparatus -> motor/basal body -> hook -> complete
+    flagellum) that the stochastic Gillespie complexation cannot enforce — Maya's
+    Aim 2B.
+- id: AC5
+  behavior: voronoi-compartment-fidelity
+  study: flagella-03-voronoi-compartments
+  detail: |
+    The Voronoi plot correctly sections all flagellar proteins by their
+    compartment label ([c] cytosol, [i] inner membrane, etc.) and the overlay
+    correctly reflects each compartment's total mass.
 
 scientific_argument:
   main_claim: |
     Mechanistic transcriptional regulation — the Kalir & Alon SUM-gate coupled to
     FlgM/sigma-28 sequestration relieved by type-III secretion — gives the v2ecoli
     whole-cell model temporally ordered flagellar expression WITHOUT the manual
-    multipliers/overrides the current WCM relies on. It does NOT lower flagella
-    counts — under calibration it raises them (4-seed x 3-gen calibrated ensemble,
-    ON > OFF in 11/12 seed-generations); the fast-mode reduction was an artifact.
-    NFsim rule-based assembly
+    multipliers/overrides the current WCM relies on. The COUNT direction claim is
+    UNRESOLVED, not settled either way: under the investigation-wide "regulation
+    ON = feature + full initial-state override" definition, a 4-seed x 3-gen
+    ensemble shows ON below OFF in 12/12 seed-generations, but ON is rising and
+    OFF is falling generation-over-generation (converging) — consistent with ON
+    simply recovering from a much lower starting flagella count (the override sets
+    4) rather than a clean regulatory suppression at steady state. The PRIOR
+    override-free ensemble had shown the opposite (ON > OFF, 11/12) — the two
+    results answer different questions (regulation alone vs. regulation + the
+    full override) and neither should be read as a clean answer to Maya's
+    original overexpression-REDUCTION hypothesis. NFsim rule-based assembly
     additionally supplies the ordered, conditional construction that stochastic
     Gillespie complexation cannot.
   evidence_for:
-    - The SUM-gate writes per-promoter init_prob_override with Class II > Class III,
-      and the ordering is maintained across a cell division (study 02).
-    - FlgM is secreted (1481 -> 5) and free FliA is released but stays bounded
-      (~1.35x initial) via the flgM negative-feedback loop (study 03).
-    - (Mechanistic, cache-independent) the cascade is wired and functional; the
-      count direction is covered under evidence_against, not here.
-    - NFsim assembles complete flagella through ordered intermediates
-      (export -> motor -> hook -> flagellum); 9 complete flagella in 2400 s (study 04).
-    - Under a low-flagella initial condition (study 03), the Class III override starts
-      at exactly 0 and rises only as FlgM is secreted (1481 -> 115) — the
-      assembly-gated Class II -> Class III onset, made explicit.
+  - The SUM-gate writes per-promoter init_prob_override with Class II > Class III, and the ordering is maintained across a cell division (study 02).
+  - FlgM is secreted (1481 -> 5) and free FliA is released but stays bounded (~1.35x initial) via the flgM negative-feedback loop (study 02).
+  - (Mechanistic, cache-independent) the cascade is wired and functional; the count direction is covered under evidence_against, not here.
+  - NFsim assembles complete flagella through ordered intermediates (export -> motor -> hook -> flagellum); 9 complete flagella in 2400 s (study 04).
+  - Under a low-flagella initial condition (study 02), the Class III override starts at exactly 0 and rises only as FlgM is secreted (1481 -> 115) — the assembly-gated Class II -> Class III onset, made explicit.
+  - The complete (non-reduced) initial-state override also reproduces the same onset delay with no equilibrium error (study 02, chart 01, the study's lead figure) — the reduced override used elsewhere was an unnecessary precaution.
   evidence_against:
-    - CALIBRATION REVERSAL (multi-seed confirmed) — on the full-mode calibrated
-      cache the regulated lineage has MORE flagella, not fewer, robustly across a
-      4-seed x 3-gen ensemble (ON means 62.5/54.8/59.0 vs OFF means 49.5/44.2/40.8;
-      ON > OFF in 11 of 12 seed-generations). The fast-mode reduction was an
-      artifact; the cascade as implemented over-drives flagella expression.
-    - The reduction within one generation is modest; the full overexpression ->
-      biological-count correction is not demonstrated.
-    - All lineages are single-seed, daughter-1-carry-forward; robustness across
-      seeds/daughters is untested.
-    - The assembly-gated Class III onset is shown only under a hand-set low-flagella
-      initial condition (study 03); from the default already-flagellated cache the
-      cascade shows the magnitude ordering but not the onset delay.
+  - COUNT DIRECTION IS CONFOUNDED, NOT RESOLVED (2026-07-28) — under the current
+    "regulation ON = feature + full override" definition, ON sits below OFF in
+    12/12 seed-generations of a fresh 4-seed x 3-gen ensemble (ON means
+    20.5/28.0/31.0 vs OFF means 49.25/43.25/39.5), but this is NOT a clean
+    regulation effect -- OFF still starts from the default cache's ~30-45
+    already-flagellated state while ON starts from the override's 4, and the two
+    trajectories are CONVERGING (ON rising, OFF falling) across generations —
+    consistent with ON recovering from a lower start rather than steady-state
+    suppression. The prior override-free ensemble had shown the opposite (ON
+    means 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8, ON > OFF in 11/12) — that result
+    is superseded by this redefinition, not contradicted by it, since it answers
+    a different question (regulation alone, same initial condition for both arms).
+  - Neither ensemble isolates "regulation's effect" cleanly -- the override-free one
+    holds initial condition constant but omits Maya's real initial state; the
+    override one uses Maya's real initial state but only for ON, confounding it
+    with regulation. A same-initial-condition comparison (OFF also given the
+    override) or a longer ensemble (to see if ON's rising trend crosses OFF) would
+    be needed to separate the two effects — neither has been run yet.
+  - All lineages are single-seed, daughter-1-carry-forward within each of the 4
+    ensemble seeds; robustness beyond 3 generations is untested.
+  - The assembly-gated Class III onset is shown only under a hand-set low-flagella
+    initial condition (study 02); from the default already-flagellated cache the
+    cascade shows the magnitude ordering but not the onset delay.
   key_figures:
-    - flagella-01-overexpression-baseline/charts/02_multigen_flagella_and_mass.svg
-    - flagella-02-sumgate-cascade/charts/01_sumgate_classII_classIII.svg
-    - flagella-03-flgm-flia-feedback/charts/01_flgm_secretion_flia_release.svg
-    - flagella-04-nfsim-assembly/charts/01_nfsim_assembly.svg
+  - flagella-01-overexpression-baseline/charts/02_multigen_flagella_and_mass.svg
+  - flagella-02-transcription-regulation/charts/01_full_override_gated_cascade.svg
+  - flagella-02-transcription-regulation/charts/02_sumgate_classII_classIII.svg
+  - flagella-03-voronoi-compartments/charts/01_flagella_protein_compartments.svg
+  - flagella-04-complexation-nfsim/charts/01_nfsim_assembly.svg
   caveats:
-    - The transcriptional cascade (Aim 2A) and the NFsim assembly (Aim 2B) run as
-      separate opt-in pieces; NFsim is standalone, not yet wired to replace
-      ecoli-complexation inside the WCM.
-    - Spatial organization (Aim 1) is out of scope.
-    - Quantitative count results use a local full-mode ParCa rebuild (out/cache_full);
-      the committed ParCa fixture stays fast-mode.
+  - The transcriptional cascade (Aim 2A) and the NFsim assembly (Aim 2B) run as separate opt-in pieces; NFsim is standalone, not yet wired to replace ecoli-complexation inside the WCM.
+  - Spatial organization (Aim 1) now has two studies (03 Voronoi compartments, 05 spatial transport) but neither is coupled to the transcriptional cascade or the WCM's actual spatial dynamics yet — both are visualization/scaffolding, not mechanistic spatial simulation.
+  - Quantitative count results use a local full-mode ParCa rebuild (out/cache_full); the committed ParCa fixture stays fast-mode.
+  - Regulation ON (feature + full override) and regulation OFF (default cache, no override) now start from DIFFERENT initial flagella counts (4 vs ~30-45) -- by Maya's explicit choice, since OFF is meant to stay the unregulated reference. Any ON-vs-OFF count comparison therefore mixes the regulatory effect with the initial-condition gap; see the COUNT VERDICT section above for the full caveat.
+inputs:
+  references:
+  - _pending_1784907287

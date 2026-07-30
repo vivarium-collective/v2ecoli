@@ -1,0 +1,473 @@
+schema_version: 4
+name: flagella-02-transcription-regulation
+title: "Transcription Regulation — SUM-gate, FlgM/FliA Feedback & Override Parity"
+question: >-
+  When the flagella_regulation SUM-gate is ON: (a) does Class II promoter activity
+  rise before and stay above Class III (the Kalir & Alon temporal order), surviving
+  cell division; (b) does the FlgM secretion gate deplete cytoplasmic FlgM in
+  proportion to complete flagella, shift the FlgM-FliA equilibrium to release free
+  FliA, and keep FliA bounded via the flgM negative-feedback loop; and (c) does that
+  all still hold under Maya's COMPLETE original vEcoli initial-state override
+  (all 4 values), not just a reduced approximation of it?
+description: |
+  Consolidated study covering the full transcriptional half of Maya's Specific Aim
+  2A: the Kalir & Alon (Cell 2004) bilinear SUM-gate driving Class II -> Class III
+  ordering, the FlgM secretion gate + FliA negative-feedback loop that times the
+  Class III onset, and a direct override-parity check against Maya's original
+  vEcoli flagellum_initial_value.json. This was originally split across three
+  studies (flagella-02-sumgate-cascade, flagella-03-flgm-flia-feedback, and
+  flagella-05-full-override-parity); they are merged here because all three are
+  the same underlying mechanism — the transcriptional regulatory cascade — viewed
+  from different angles (the gate itself, its timing/feedback loop, and a fidelity
+  check on its initial-state input). See `merge_history` below for provenance.
+topic: regulation
+tags: [flagella, transcription-regulation, kalir-alon, sum-gate, classII, classIII,
+       sigma28, flhDC, flgM, fliA, secretion, negative-feedback, anti-sigma,
+       override-parity, full-parca, aim2a, ported-from-vecoli-biofilm]
+created: '2026-06-20'
+
+# Depends on 01's byte-neutral baseline (the reference it is measured against) and
+# the ParCa cache. Nothing downstream currently depends on this study.
+pipeline_gate:
+  prerequisites:
+  - flagella-01-overexpression-baseline
+  enables: []
+
+status: in_progress
+phase: Evaluate
+
+design_status: complete
+implementation_status: complete    # both Steps ported, wired as flagella_regulation feature, cache rebuilt
+simulation_status: ran
+evaluation_status: partial
+gate_status: pending
+expert_review_status: requested    # Maya Abdalla reviewed 2026-07-24 (feedback imported)
+
+# Provenance for the 2026-07-28 merge (Maya asked for this to be explicit).
+merge_history:
+  - date: '2026-07-28'
+    merged_from: [flagella-02-sumgate-cascade, flagella-03-flgm-flia-feedback, flagella-05-full-override-parity]
+    reason: >-
+      Slot 2 was reassigned to a new Voronoi compartment-plot study and slot 5 to a
+      new spatial-transport study, per Maya's investigation-wide study renumbering.
+      All three retired studies' findings/charts/tests were folded in here rather
+      than discarded, since they're all transcription-regulation content.
+    chart_renumbering: >-
+      As of 2026-07-28 (superseding the numbering below): 01 = ex-flagella-05's
+      full-override chart (01->07->06->01), promoted to the LEAD figure per
+      Maya's request since it's the complete 900 s version of the story.
+      02/03/04 = ex-flagella-02's sumgate + multigen + phase portrait (former
+      01/02/03, shifted +1 to make room for 01). 05 = ex-flagella-03's multigen
+      flgm/flia chart (unchanged number). Two charts were retired as redundant
+      once 01 became the lead: the 600 s default-cache flgm/flia chart (former
+      04, a strict subset of 01's 900 s window) and the low-IC reduced-override
+      chart (former 06, superseded by 01's complete override with no
+      equilibrium error). See `notes` for the retired-file trail.
+      --- superseded numbering (kept for history, do not follow) ---
+      01/02/03 = ex-flagella-02 (sumgate + multigen + phase portrait, unchanged
+      numbers). 04/05 = ex-flagella-03's default-cache charts (01->04, 02->05).
+      06 = ex-flagella-03's low-IC chart (02->06, disambiguated from 05).
+      07 = ex-flagella-05's full-override chart (01->07).
+
+# Tracked simulations backing this study's figures (Simulations DB + the standalone runs).
+runs:
+- name: flagella-02-transcription-regulation__regON__seed0__600s
+  kind: simulation
+  canonical: true
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  description: >-
+    baseline composite, features=[flagella_regulation] + full 4-value initial-state
+    override (investigation-wide ON definition, 2026-07-28), seed 0, out/cache_full, 600 s
+  status: completed
+  result: PASS
+  outcomes:
+    classII-above-classIII:
+      result: CONFIRMED
+      detail: "Class II mean override 1.532e-4 > Class III 4.338e-5 throughout the run"
+    flgm-secreted-flia-bounded:
+      result: CONFIRMED
+      detail: "FlgM 800 -> 278; free FliA 500 -> 288, stays bounded"
+- name: flagella-02-full-override__seed0__900s
+  kind: analysis
+  canonical: false
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  description: >-
+    Maya's COMPLETE 4-value vEcoli override (4 flagella, 0 motor, 500 FliA, 800 FlgM),
+    900 s, out/cache_full, seed 0 — the standard regulation-ON initial condition,
+    confirming it does not break the equilibrium solver.
+  status: completed
+  result: PASS
+  outcomes:
+    full-override-runs-clean:
+      result: CONFIRMED
+      detail: "No equilibrium ValueError at 60s or 900s; FlgM 800->117, free FliA 500->580, Class III override 0.0->6.09e-05"
+
+findings:
+- id: flagella-02-gate-writes-overrides
+  kind: computational
+  status: confirms
+  statement: >-
+    With the feature ON the Kalir & Alon SUM-gate writes nonzero init_prob_override
+    onto the flagella Class II/III promoters within the first ticks, and
+    transcript_initiation substitutes it where > 0 — the MODEL mechanism fires.
+  evidence:
+    observed: "17 nonzero promoter overrides after 10 s (feature ON)"
+    expected: "nonzero overrides on the 7 Class II + 9 Class III flagellar TUs once the gate is wired"
+- id: flagella-02-classII-before-classIII
+  kind: computational
+  status: confirms
+  statement: >-
+    Mean Class II init_prob_override sits above Class III for the whole run and the
+    ordering is re-established after a cell division — the experimentally observed
+    Class II -> Class III hierarchy (BIOLOGY-level success).
+  evidence:
+    observed: "600 s single-gen: Class II 1.532e-4 vs Class III 4.338e-5; 2-gen: ordering re-established in the daughter"
+    expected: "Class II (FlhDC-weighted) > Class III (FliA-weighted) — Kalir & Alon, Cell 2004"
+- id: flagella-02-temporal-lag-needs-low-IC
+  kind: computational
+  status: inconclusive
+  statement: >-
+    A clean TEMPORAL lag (Class III rising later, not merely lower) is not fully
+    resolved even under the current full-override ON condition (4 flagella at t=0)
+    within a single 600 s window — see the low-IC findings below for the clearer
+    900 s demonstration of the onset delay.
+  evidence:
+    observed: "regulation ON (feature + override) starts at 4 flagella, 500 FliA, 800 FlgM at t=0"
+    expected: "Class III ~ 0 until FlgM export frees FliA — visible from a pre-assembly start"
+- id: flagella-02-flgm-secreted
+  kind: computational
+  status: confirms
+  statement: >-
+    Type-III secretion depletes cytoplasmic FlgM in proportion to complete flagella,
+    and the FlgM-FliA equilibrium releases free FliA — the anti-sigma-factor gate
+    fires (MODEL mechanism).
+  evidence:
+    observed: "FlgM (G369-MONOMER[c]) 800 -> 278 over 600 s with complete flagella present"
+    expected: "FlgM falls when flagella are present; free FliA rises as FlgM is cleared"
+- id: flagella-02-flia-bounded
+  kind: computational
+  status: confirms
+  statement: >-
+    Free FliA stays within a bounded band rather than running away — the flgM
+    Class III negative-feedback loop caps it (BIOLOGY-level: the runaway
+    sigma-28 seen without the loop is prevented). Under the full-override IC,
+    FliA is NET SEQUESTERED (declining) over the first 600 s, since FlgM (800
+    at t=0) is still substantial and continues pulling free FliA into the
+    FLGM-FLIA-CPLX; the actual release (rising FliA as FlgM depletes further)
+    only becomes visible over a longer window — see chart 01 (900 s: FliA
+    500 -> 580, a net rise once FlgM has fallen further).
+  evidence:
+    observed: "600 s: free FliA 500 -> 288 (still declining, FlgM still 278); 900 s (chart 01): FliA 500 -> 580 (net risen, bounded)"
+    expected: "bounded free FliA, not unbounded growth (Stefan et al. 2015) -- direction depends on the window length relative to FlgM depletion"
+- id: flagella-02-assembly-gated-onset
+  kind: computational
+  status: supports
+  statement: >-
+    From the standard low-flagella regulation-ON initial condition (full 4-value
+    override) the Class III override starts at exactly 0 and rises only as FlgM
+    is secreted — the assembly-gated Class II -> Class III onset delay that the
+    default already-flagellated cache hides.
+  evidence:
+    observed: "900 s full-override run (chart 01): FlgM 800 -> 117, Class III override 0.0e+00 -> 6.09e-05, rising gradually from exactly 0"
+    expected: "Class III delayed until basal-body completion exports FlgM"
+- id: flagella-02-full-override-no-equilibrium-error
+  kind: computational
+  status: confirms
+  statement: >-
+    Applying all 4 of Maya's original vEcoli override values (including direct
+    FliA/FlgM overrides, not just the reduced flagella/motor-only approximation
+    above) runs cleanly against a full-mode ParCa cache for 900 s, with no
+    equilibrium-solver error. The rate constants for FLGM-FLIA-CPLX_RXN are also
+    byte-identical between v2ecoli and vEcoli (kf=1, kr=2E-7 in both
+    flat_overrides/equilibrium_reaction_rates.tsv files), so this isn't a
+    calibration difference either — the reduced override above was an unnecessary
+    precaution, most likely written against the fast-mode cache (which fails
+    immediately with an unrelated missing-field error, easily mistaken for "the
+    solver went negative").
+  evidence:
+    observed: "comp.run(900) completes with no exception; FlgM 800->117, FliA 500->580, Class III override 0.0e+00->6.09e-05"
+    expected: "(if the reduced-override precaution were necessary) equilibrium solver goes negative at steady state"
+
+visualizations:
+- address: image:charts/01_full_override_gated_cascade.svg
+  chart: charts/01_full_override_gated_cascade.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/studies/flagella-02-transcription-regulation/run_full_override_gate.py --seconds 900 --sample 30 --cache-dir out/cache_full
+  description: |
+    LEAD figure (promoted from #7, then #6, to #1 on 2026-07-28 per Maya). The
+    complete 900 s "regulation ON" run: Maya's COMPLETE 4-value vEcoli override
+    (4 flagella, 0 motor, 500 free FliA, 800 FlgM at t=0) plus the
+    flagella_regulation feature. Left — FlgM (orange) depletes 800 -> 117 as the
+    few starting flagella export it; free FliA (green) is net SEQUESTERED at
+    first (FlgM still high) then RELEASED as FlgM keeps falling, ending net
+    risen (500 -> 580, bounded — not runaway); flagella count (purple, right
+    axis, integer ticks) shown for reference. Right — Class II/III mean
+    init_prob_override: Class III starts at exactly 0 and rises only as FlgM is
+    secreted, the assembly-gated Class II -> Class III onset delay. See
+    findings/flagella-02-full-override-no-equilibrium-error: no equilibrium
+    solver error occurs, contrary to the precaution that originally motivated a
+    reduced 2-value override (now retired — see `notes`).
+- address: image:charts/02_sumgate_classII_classIII.svg
+  chart: charts/02_sumgate_classII_classIII.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py --cache-dir out/cache_full
+  description: |
+    UPDATED 2026-07-28: retired the mean Class II vs Class III line panel this
+    chart used to show alongside the heatmap — it was a duplicate of chart 01's
+    right panel (same trace, same override condition, just a 600 s subset of
+    chart 01's 900 s window). Now a single panel: per-gene init_prob_override
+    heatmap (top block: 7 Class II TUs incl. flhD/fliA; bottom block: 9 Class
+    III TUs incl. fliC/flgM) over a single 600 s generation, showing the
+    Kalir & Alon SUM-gate driving each operon individually. For the class-level
+    mean-override summary this chart used to pair it with, see chart 01
+    (900 s window, superset of this one).
+- address: image:charts/03_multigen_classII_classIII.svg
+  chart: charts/03_multigen_classII_classIII.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
+  description: |
+    TWO generations — mean Class II vs Class III init_prob_override, generations
+    shaded, division dashed. The Class II > Class III ordering is maintained through
+    the division boundary and re-established in the daughter — the SUM-gate is
+    stable across the cell cycle. Transient bursts (~14 min, ~60 min) coincide with
+    division boundaries — a re-initialization transient (promoter set re-partitioned,
+    FlhDC/free-FliA pools halve), not a gate mis-calculation.
+- address: image:charts/04_phase_portrait_X_Y.svg
+  chart: charts/04_phase_portrait_X_Y.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py --cache-dir out/cache_full
+  description: |
+    UPDATED 2026-07-28 (Maya flagged the plot as looking broken): X = FlhDC
+    activity [FlhDC]/(K_flhDC+[FlhDC]), Y = free-FliA activity
+    [FliA]/(K_fliA+[FliA]). K_flhDC=50, K_fliA=600 are NOT visualization-only
+    constants -- they are the literal production SUM-gate constants from
+    ecoli-flagella-transcription-regulation's own config (sim_data.py), so
+    this plot is faithful to the real gate math, not an independent
+    approximation. Under the full-override IC, FlhDC (CPLX0-3930[c]) only
+    ranges ~353->406 over 600 s, which K_flhDC=50 places deep in the gate's
+    saturated regime (X ~ 0.876->0.890 the whole run) -- Class II activity is
+    essentially insensitive to further FlhDC increases at this count scale.
+    The trajectory is therefore dominated by the Y-axis: free FliA crashes
+    500 -> ~124 via the FLGM-FLIA-CPLX equilibration, then climbs back to 288
+    by 600 s. Sampling was densified to every 5 s for the first 120 s (from a
+    uniform 20 s grid) to check whether that crash was a sampling-resolution
+    artifact -- it is NOT: a 1 s-resolution check confirms FliA is already at
+    124 by t=5 s, so the equilibration genuinely completes within a single
+    sub-5-second tick. The vertical drop in the plot is real, near-instant
+    equilibrium dynamics, not an under-sampled straight-line approximation of
+    a gradual curve. The subsequent slow climb (124 -> 288 over the remaining
+    ~595 s, visible as the dense cluster of points) is the real,
+    resolvable dynamic -- driven by the much slower flagellar-export-paced
+    FlgM depletion. Time is the color; o marks birth and star the end. This is
+    NOT "two master regulators rising together" (the old caption's claim) --
+    FlhDC is essentially flat/saturated here; only free FliA activity
+    meaningfully moves within this window, in two distinct phases (instant
+    crash, then slow release). UPDATED again 2026-07-29 (Maya): axes were
+    fixed 0-1, which buried the entire trajectory in one corner (X ~0.87-0.89,
+    Y ~0.17-0.45) since both are normalized activities but the data only
+    spans a narrow slice of that range. Zoomed to the observed data range
+    (with a small pad) instead of the full 0-1 box, so the actual shape --
+    instant drop, flat trough, then a smooth curve back up as FlgM depletes
+    -- is legible. The 0-1 normalization is still real (axis labels still say
+    so); this is a view/zoom change only, not a change to the underlying
+    data or gate math.
+- address: image:charts/05_multigen_flgm_flia.svg
+  chart: charts/05_multigen_flgm_flia.svg
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
+  description: |
+    FlgM (G369-MONOMER) and free FliA (EG11355-MONOMER) across TWO generations
+    (generations shaded; division dashed). "regulation ON" means feature + full
+    4-value override (4 flagella, 0 motor, 500 FliA, 800 FlgM at generation-1
+    start), the investigation-wide definition. FlgM is progressively secreted
+    and free FliA stays bounded across the division boundary — the flgM
+    negative-feedback loop carries through into the daughter cell, starting
+    from the true low-flagella initial condition rather than an
+    already-flagellated one. composite v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    with features=['flagella_regulation'] + full override, seed 0, cache
+    out/cache_full, 2 generations, single followed lineage (daughter-1 carried
+    forward), division at the ~700 fg dry-mass threshold.
+
+baseline:
+- name: wcm-flagella-regulation
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    seed: 0
+    cache_dir: out/cache_full
+    features: ['flagella_regulation']
+
+purpose:
+  question: |
+    (a) Does Class II init_prob_override rise before Class III, with Class III
+    gated until complete flagella (CPLX0-7452) accumulate and FlgM (G369-MONOMER)
+    is secreted, releasing free FliA (EG11355-MONOMER / sigma-28)? (b) Does the
+    FlgM secretion gate keep FliA bounded via the flgM negative-feedback loop?
+    (c) Does this all still hold under Maya's complete, unreduced initial-state
+    override?
+  mechanism: |
+    Promoter activity p_i = (beta*X + beta'*Y)/(beta+beta') with X=[FlhDC]/(K+[FlhDC]),
+    Y=[free FliA]/(K+[FliA]). Class II beta-weighted (FlhDC), Class III beta'-weighted
+    (FliA). The SUM-gate writes p_i (normalized to basal scale) to
+    promoters.init_prob_override; transcript_initiation substitutes it where > 0.
+    ecoli-flagella-flgm-secretion: exported = min(FlgM, round(n_flagella * 0.1 * dt)).
+    FLGM-FLIA-CPLX equilibrium sequesters FliA; as FlgM falls, FliA is released.
+    flgM is itself driven as a Class III gene: as free FliA rises, flgM
+    transcription rises, making more FlgM to re-sequester FliA — the cap that
+    prevents runaway FliA (Stefan et al. 2015, PLoS Comput Biol 11:e1004028).
+  expected_outcome: |
+    Mean Class III override trajectory lags mean Class II override; Class III stays
+    near 0 while FliA is sequestered, rising as free FliA is released. Cytoplasmic
+    FlgM falls when flagella are present; free FliA rises then plateaus within a
+    plausible band rather than growing without bound. This holds under both the
+    reduced and the complete initial-state override.
+
+behavior_tests:
+  - id: gate-writes-overrides
+    statement: |
+      With the feature ON, the SUM-gate writes nonzero init_prob_override onto the
+      flagella Class II/III promoters within the first few ticks.
+    status: passing      # verified: 17 nonzero overrides after 10 s
+  - id: classIII-lags-classII
+    statement: |
+      Over a multi-minute run, the mean Class III override rises later than (or
+      stays below until FliA is freed) the mean Class II override.
+    status: passing      # 600 s run (full-override IC): Class II <ov> 1.532e-4 >
+                         # Class III 4.338e-5 throughout
+    caveat: |
+      Magnitude ordering (Class II > Class III) holds; a clean temporal LAG needs a
+      low-flagella initial condition (chart 01 below).
+  - id: bursts-are-division-transients
+    statement: |
+      The transient bursts in the multigen mean-override trace (~14 min, ~60 min)
+      occur at the division boundaries and decay within a few ticks — a re-partition
+      transient at division, not a persistent SUM-gate artifact or a stochastic
+      rounding error in the override write.
+    status: untested     # raised in Maya's 2026-07-24 review; needs a run that logs
+                         # division times alongside the override trace to confirm.
+  - id: flgm-secreted-when-flagella-present
+    statement: |
+      With complete flagella (CPLX0-7452[j]) > 0, cytoplasmic FlgM (G369-MONOMER[c])
+      decreases over the run.
+    status: passing      # verified: FlgM 800 -> 278 over 600 s (full-override IC)
+  - id: fliA-released-and-bounded
+    statement: |
+      Free FliA (EG11355-MONOMER[c]) stays within a plausible band (does not run
+      away) thanks to the flgM negative-feedback loop, across the full trajectory
+      from initial net sequestration through eventual release.
+    status: passing      # 600 s: FlgM 800->278, FliA 500->288 (still declining,
+                         # net sequestration); 900 s (chart 01): FliA 500->580
+                         # (net risen) -- bounded throughout, no runaway either way
+  - id: full-override-no-equilibrium-crash
+    statement: |
+      Applying EG11355-MONOMER[c]=500 and G369-MONOMER[c]=800 directly (in addition
+      to the flagella/motor overrides) does not raise an equilibrium ValueError over
+      a 900 s run against out/cache_full.
+    status: passing      # verified directly: comp.run(900) completed with no exception
+  - id: class-III-onset-delayed-full-override
+    statement: |
+      Class III init_prob_override starts at 0 and rises only as FlgM is secreted,
+      under the full override (same qualitative behavior as the reduced override).
+    status: passing      # Class III 0.0 -> 6.09e-05 over 900 s, tracking FlgM 800 -> 117
+
+success_criteria:
+  model:
+    - Feature ON writes nonzero init_prob_override onto the flagella promoters within
+      the first ticks, and transcript_initiation substitutes it (verified).
+    - The regulated composite runs to division without error and the Class II > III
+      ordering is stable across the cell cycle (2 generations shown).
+    - FlgM (G369-MONOMER[c]) is depleted by type-III secretion when complete
+      flagella are present, and the FlgM-FliA equilibrium releases free FliA
+      (verified — FlgM 1481 -> 5).
+    - Free FliA rises but stays bounded (~1.35x initial) rather than running away —
+      the flgM negative-feedback loop holds (verified).
+    - The full 4-value override runs without an equilibrium error (verified, 900 s,
+      out/cache_full).
+  biology:
+    - Class II (FlhDC-driven, hook-basal-body + fliA) expression precedes Class III
+      (FliA/sigma-28-driven, fliC/motAB/che) — the Kalir & Alon temporal order.
+    - The secretion gate reproduces the anti-sigma-factor logic — FliA (sigma-28) is
+      held sequestered until basal-body completion exports FlgM, then released — the
+      molecular clock that orders Class III after Class II.
+    - Confirms the anti-sigma-factor gate logic holds under the TRUE vEcoli initial
+      condition, not just a reduced approximation.
+    - FUTURE (Maya's biological-success target) — a clean Class II -> III LAG (not
+      just a magnitude ordering) demonstrated across generations from a physiological
+      initial condition, a demonstrated response to perturbation, and a
+      literature-calibrated free-FliA band.
+
+open_decisions:
+  - id: retire-reduced-override-chart
+    raised_by: system
+    date: '2026-07-28'
+    status: RESOLVED (2026-07-28)
+    question: >-
+      Chart 06 (reduced override) exists to demonstrate the assembly-gated onset,
+      but chart 07 (full override) shows the same qualitative result with the
+      complete, correct initial condition and no equilibrium error. Should chart 06
+      / run_low_flagella_gate.py be retired now that 07 supersedes it?
+    recommendation: |
+      Keep both for now as a documented before/after — chart 06 is also referenced
+      historically in Maya's 2026-07-24 review thread. Revisit once the investigation
+      does its next report pass.
+    resolution: |
+      Maya asked to retire it directly ("Retire it, renumber 07 to 06"). Chart
+      06 (charts/06_lowIC_gated_cascade.svg) and run_low_flagella_gate.py were
+      deleted; the full-override chart was renumbered 07 -> 06, then promoted
+      to 01 in the same session once Maya asked for it to lead the study — see
+      `retire-chart-04-and-promote-chart-07-to-lead` below.
+  - id: charts-01-05-now-overlap-with-chart-07
+    raised_by: system
+    date: '2026-07-28'
+    status: RESOLVED (2026-07-28)
+    question: >-
+      Since "regulation ON" became investigation-wide feature+full-override
+      (2026-07-28), charts 01/02/03/04/05 (driven by the shared run_studies.py /
+      run_studies_multigen.py scripts) now ALL start from the same full-override
+      initial condition as chart 07 (dedicated run_full_override_gate.py script)
+      -- the distinction that used to exist between "default already-flagellated
+      cache" charts (01/02/03/04/05) and "low-flagella override" charts (06/07)
+      is gone for everything except chart 06 (which still uses a reduced 2-value
+      override) and 07 itself. Should charts 04/05 (the most redundant with 07)
+      be consolidated or retired, or is the shorter 600s/2-gen window they show
+      still independently useful alongside 07's longer 900s single-gen run?
+    recommendation: |
+      Not yet decided -- flagging for Maya's input rather than unilaterally
+      deleting content. No chart has been removed as part of today's change.
+    resolution: |
+      Maya reviewed chart 04 (the 600s flgm/flia release chart) directly and
+      confirmed it's redundant with chart 07/06/01 (same override, strictly
+      shorter window, misses the FliA release turnaround) — she chose to
+      retire it. Chart 05 (multigen flgm/flia) was kept: its 2-generation
+      window shows the cell-division boundary that the single-gen chart 01
+      cannot, so it remains independently useful.
+  - id: retire-chart-04-and-promote-chart-07-to-lead
+    raised_by: MA
+    date: '2026-07-28'
+    status: RESOLVED (2026-07-28)
+    question: >-
+      Maya reported not fully understanding the difference between chart 04 and
+      chart 07 (both show FlgM/FliA/flagella count over time under
+      "regulation ON"), confirmed chart 07 was the correct one, and asked for it
+      to lead the study as figure #1.
+    resolution: |
+      Chart 04 (600 s window, run_studies.py fig_feedback) retired — commented
+      out in run_studies.py per the standing preserve-old-code rule, not
+      deleted; its 04_flgm_secretion_flia_release.svg file was deleted since a
+      commented-out generator no longer produces it. Chart 07 (by then already
+      renumbered 06 in this same pass) was promoted to chart 01 and is now the
+      study's lead figure. Charts 02/03/04 renumbered from the former 01/02/03
+      to make room; chart 05 unchanged. Verified beforehand that ALL charts in
+      this study (former 01-06) apply the investigation-wide "regulation ON" =
+      feature + full 4-value override definition (run_studies.py and
+      run_studies_multigen.py both apply FULL_OVERRIDE whenever features is
+      truthy) — nothing needed regenerating, only renumbering/retiring.
+
+notes: |
+  Ported from Maya Abdalla's vEcoli `biofilm` branch.
+
+  Feature-name provenance: the v2ecoli feature name `flagella_regulation` was taken
+  directly from the name of Maya's vEcoli config / run script for this model.
+
+  Generators: make_cascade_report.py, run_full_override_gate.py (produces
+  chart 01, this study's lead figure) — both in this study dir — plus the
+  shared run_studies.py / run_studies_multigen.py drivers at the investigation
+  root (charts 02-05). run_low_flagella_gate.py was retired/deleted 2026-07-28
+  (its chart, formerly 06, was superseded by chart 01's complete override).
+
+  Are the tests/claims editable? Yes — every behavior_test and success_criterion
+  here is hand-authored YAML in this study.yaml; edit it directly.

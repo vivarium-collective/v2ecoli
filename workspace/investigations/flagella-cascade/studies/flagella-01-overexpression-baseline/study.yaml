@@ -1,6 +1,6 @@
 schema_version: 4
 name: flagella-01-overexpression-baseline
-title: "Aim 2 motivation — uncontrolled flagellar overexpression & seam neutrality"
+title: "Overexpression Baseline — Regulation OFF vs ON"
 question: >-
   Is the flagella_regulation port byte-neutral when the feature is OFF, and how
   over-expressed are flagellar components in the unregulated WCM baseline it
@@ -17,13 +17,13 @@ tags: [flagella, baseline, overexpression, seam-neutrality, feature-off, aim2, p
 created: '2026-06-20'
 
 # This study is the ROOT of the transcription-arm DAG: it establishes the
-# byte-neutral baseline + overexpression reference that 02 and 03 are measured
-# against. Depends only on the ParCa cache.
+# byte-neutral baseline + overexpression reference that 02 (transcription
+# regulation) is measured against. Depends only on the ParCa cache.
 pipeline_gate:
   prerequisites:
   - parca
   enables:
-  - flagella-02-sumgate-cascade   # 02 -> 03 downstream; 01 gates the transcription arm
+  - flagella-02-transcription-regulation   # 01 gates the transcription arm
 
 status: in_progress
 phase: Evaluate
@@ -70,22 +70,28 @@ findings:
   evidence:
     observed: "~48 complete flagella in the unregulated baseline (Maya's prelim figure)"
     expected: "far above the biological handful of flagella per cell"
-- id: flagella-01-calibration-reversal
+- id: flagella-01-count-direction-confounded
   kind: computational
-  status: contradicts
+  status: inconclusive
   statement: >-
-    On the CALIBRATED full-mode cache the regulated lineage carries MORE complete
-    flagella than the unregulated one, robustly across seeds — refuting the
-    overexpression-REDUCTION hypothesis for the cascade as currently implemented.
+    Under the investigation-wide "regulation ON = feature + full initial-state
+    override" definition (2026-07-28), a fresh 4-seed x 3-gen calibrated ensemble
+    shows the regulated lineage carrying FEWER complete flagella than the
+    unregulated one in 12/12 seed-generations — but this is NOT a clean
+    re-confirmation of Maya's original overexpression-reduction hypothesis. OFF
+    still starts from the default cache's ~30-45 already-flagellated state while
+    ON starts from the override's 4, and the two trajectories CONVERGE across
+    generations (ON rising, OFF falling) — consistent with ON simply recovering
+    from a lower starting point rather than steady-state regulatory suppression.
   evidence:
-    observed: "4-seed x 3-gen ensemble: ON means 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON > OFF in 11/12 seed-generations"
-    expected: "hypothesis was ON < OFF (reduction); the fast-mode reduction was a calibration artifact"
-    divergence: "direction reversed under calibration — cascade over-drives flagella expression"
+    observed: "4-seed x 3-gen ensemble: ON means 20.5/28.0/31.0 vs OFF means 49.25/43.25/39.5 per generation; ON < OFF in 12/12 seed-generations"
+    expected: "ambiguous by design — the confound (differing initial conditions) is not yet resolved by more generations or a same-IC comparison"
+    divergence: "supersedes the prior override-free ensemble finding (ON means 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8, ON > OFF in 11/12) — that answered a different question (regulation alone, same initial condition) and should not be quoted interchangeably with this one"
 
 visualizations:
 - address: image:charts/01_overexpression_and_neutrality.svg
   chart: charts/01_overexpression_and_neutrality.svg
-  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies.py --cache-dir out/cache_full
   description: |
     TWO runs are shown here on purpose (this answers "why is there a regulation-ON
     line in the baseline study?"): the study's job is to (a) characterize the
@@ -95,40 +101,67 @@ visualizations:
     Left — unregulated flagellar components (complete flagella CPLX0-7452 + the
     motor/HBB FLAGELLAR-MOTOR-COMPLEX) over a 600 s run with regulation OFF.
     Right — complete-flagella count, regulation OFF vs ON, so you can see the
-    baseline against the regulated case side by side. (On the fast-mode cache the
-    OFF-vs-ON direction shown here is a calibration artifact — the CALIBRATED
-    answer is the canonical seed-band figure below.) Feature-off
-    init_prob_override stays 0 throughout (seam neutral), and that neutrality
-    result is cache-independent.
+    baseline against the regulated case side by side. "Regulation ON" here means
+    the flagella_regulation feature PLUS Maya's full 4-value initial-state
+    override (4 flagella, 0 motor, 500 FliA, 800 FlgM) — the investigation-wide
+    ON definition as of 2026-07-28. At t=600s: OFF=33, ON=8 — ON starts from a
+    much lower flagella count (the override) so this single short run mostly
+    reflects that starting-point gap, not yet a steady-state regulatory effect
+    (see the multigen and ensemble figures below for the fuller picture).
+    Regenerated against out/cache_full (the flagella Steps and overrides depend
+    on full-mode ParCa — the fast-mode fixture is missing the FLGM-FLIA-CPLX
+    reaction and the init_prob_override field outright, so this study no longer
+    runs on it at all). Feature-off init_prob_override stays 0 throughout (seam
+    neutral), and that neutrality result is cache-independent.
 - address: image:charts/02_multigen_flagella_and_mass.svg
   chart: charts/02_multigen_flagella_and_mass.svg
-  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2
+  render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_multigen.py --generations 2 --cache-dir out/cache_full
   description: |
     Again two runs — regulation OFF vs ON — over TWO full cell generations on the
     CALIBRATED full-mode cache (generations shaded; division = dashed). "Regulation
-    ON" means the flagella_regulation feature is enabled (the Kalir & Alon SUM-gate
-    is wired and writing promoter overrides); "OFF" is the stock WCM. Left —
-    complete flagella per generation: regulation ON sits ABOVE OFF (OFF g1=46,g2=43;
-    ON g1=61,g2=50) — the calibrated direction (see the canonical seed-band figure).
-    Right — dry-mass sawtooth (division at ~700 fg). NOTE: regenerated from
-    out/cache_full; on the fast cache the order was reversed (the artifact).
+    ON" means the flagella_regulation feature PLUS Maya's full 4-value
+    initial-state override (4 flagella, 0 motor, 500 FliA, 800 FlgM) — the
+    investigation-wide ON definition as of 2026-07-28; "OFF" is the stock WCM on
+    the default (already-flagellated) cache. Left — complete flagella per
+    generation: regulation ON sits BELOW OFF (OFF g1=47,g2=40; ON g1=18,g2=24) —
+    but ON is RISING (18->24) while OFF is falling, consistent with ON simply
+    recovering from its much lower starting point (4 flagella vs OFF's ~30) rather
+    than a settled regulatory effect; see the canonical seed-band figure for the
+    fuller multi-seed/multi-generation picture and its caveats. Right — dry-mass
+    sawtooth (division at ~700 fg).
 - address: image:charts/04_ensemble_seed_band.svg
   chart: charts/04_ensemble_seed_band.svg
   render: PYTHONPATH=$PWD .venv/bin/python workspace/investigations/flagella-cascade/run_studies_ensemble.py --seeds 0 1 2 3 --generations 3 --cache-dir out/cache_full
   description: |
     CANONICAL count figure — calibrated full-mode cache, 4 seeds x 3 generations.
     Mean ± seed range of complete flagella per generation (OFF vs ON) plus per-seed
-    trajectories. The regulated (ON) band sits ABOVE the unregulated (OFF) band at
-    every generation (ON means 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON > OFF in
-    11/12 seed-generations). The cascade as implemented INCREASES flagella — the
-    fast-mode "reduction" was a calibration artifact.
+    trajectories. "Regulation ON" = flagella_regulation feature + Maya's full
+    4-value initial-state override (investigation-wide definition as of
+    2026-07-28); "OFF" = stock WCM on the default already-flagellated cache (no
+    override — kept that way deliberately as the unregulated reference). The
+    regulated (ON) band sits BELOW the unregulated (OFF) band at every generation
+    (ON means 20.5/28.0/31.0 vs OFF means 49.25/43.25/39.5; ON < OFF in 12/12
+    seed-generations).
+    READ THIS BEFORE CITING THE DIRECTION: this is NOT a clean regulation effect.
+    OFF and ON start from different initial flagella counts (~30-45 vs the
+    override's 4) by construction, and the per-generation means CONVERGE (ON:
+    20.5 -> 28.0 -> 31.0 rising; OFF: 49.25 -> 43.25 -> 39.5 falling) — consistent
+    with ON simply catching up from a lower start rather than a steady-state
+    suppression that would hold the gap constant or widen it. This supersedes
+    (does not contradict) the PRIOR override-free ensemble finding (ON means
+    62.5/54.8/59.0 vs OFF 49.5/44.2/40.8, ON > OFF in 11/12) — that answered a
+    different question (regulation alone, matched initial condition). Neither
+    ensemble cleanly isolates the regulatory effect from the initial-condition
+    effect; see investigation.yaml's COUNT VERDICT for the full discussion.
 
 baseline:
 - name: wcm-unregulated
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
     seed: 0
-    cache_dir: out/cache
+    cache_dir: out/cache_full      # full-mode ParCa — the flagella Steps + overrides
+                                    # require it (fast-mode fixture lacks the
+                                    # FLGM-FLIA-CPLX reaction and init_prob_override field)
     features: []                   # regulation OFF — the unregulated baseline
 
 purpose:
@@ -165,18 +198,38 @@ behavior_tests:
     status: passing      # verified via the shipped-fixture control
   - id: regulation-reduces-flagella-across-generations
     statement: |
-      Across two cell generations, the flagella_regulation lineage carries fewer
-      complete flagella (CPLX0-7452) than the unregulated lineage at each generation
-      — the cascade reduces overexpression and the gap persists through division.
-    status: refuted        # holds ONLY on the fast (mis-calibrated) cache; the
-                           # calibrated 4-seed x 3-gen ensemble reverses it.
-  - id: regulation-increases-flagella-calibrated
+      Across cell generations, the flagella_regulation lineage (regulation ON =
+      feature + full initial-state override) carries fewer complete flagella
+      (CPLX0-7452) than the unregulated lineage at each generation.
+    status: passing        # 2026-07-28: literally true again under the new full-
+                           # override ON definition (4-seed x 3-gen: ON < OFF in
+                           # 12/12), but see the caveat test below before citing
+                           # this as "the cascade reduces overexpression."
+  - id: count-direction-is-confounded-not-a-clean-regulatory-effect
     statement: |
-      On the calibrated full-mode cache, the regulated lineage carries MORE complete
-      flagella than the unregulated one, robustly across seeds — refuting the
-      overexpression-reduction hypothesis for the cascade as implemented.
-    status: passing        # 4-seed x 3-gen calibrated ensemble: ON means
-                           # 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON>OFF in 11/12.
+      The ON < OFF count gap seen under the full-override ON definition is
+      confounded with the initial-condition difference (OFF starts ~30-45,
+      ON starts at 4) and should NOT be read as a clean demonstration that
+      regulation reduces flagella count: the per-generation means CONVERGE
+      (ON rising, OFF falling) rather than holding a steady gap.
+    status: passing        # confirmed: ON means 20.5/28.0/31.0 (rising) vs OFF
+                           # means 49.25/43.25/39.5 (falling) across 3 generations
+    caveat: |
+      Resolving this needs either more generations (does ON's rise cross OFF?)
+      or a same-initial-condition comparison (OFF also given the override) —
+      neither has been run yet.
+  - id: regulation-increases-flagella-calibrated-override-free
+    statement: |
+      On the calibrated full-mode cache, WITHOUT the initial-state override
+      (regulation ON = feature only), the regulated lineage carries MORE complete
+      flagella than the unregulated one, robustly across seeds.
+    status: superseded     # 2026-07-28: this was true under the PRIOR "ON = feature
+                           # only" definition (4-seed x 3-gen: ON means
+                           # 62.5/54.8/59.0 vs OFF 49.5/44.2/40.8; ON>OFF in 11/12).
+                           # That definition is no longer the investigation's
+                           # standard "regulation ON" (see full-override tests
+                           # above) -- kept here for historical record, not
+                           # re-run under the current definition.
 
 # Two-tier acceptance (Maya's suggestion — separate "did the MODEL behave" from
 # "is it BIOLOGICALLY right"). For the baseline study, biological success is
@@ -190,7 +243,8 @@ success_criteria:
     - Reproduces the documented unregulated overexpression (~48 complete flagella,
       far above the biological handful) — the motivation the cascade must address.
     - FUTURE — a calibrated model would bring counts toward the biological few; this
-      baseline only establishes the gap (see the count verdict in flagella-02).
+      baseline only establishes the gap (see the COUNT VERDICT in investigation.yaml
+      and this study's own ensemble chart/findings for the current, unresolved state).
 
 notes: |
   Maya's prelim (Aim 2 rationale): "current expression of flagella is exceedingly

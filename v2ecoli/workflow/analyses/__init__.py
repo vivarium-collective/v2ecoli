@@ -24,6 +24,17 @@ from v2ecoli.workflow.analyses import average_monomer_counts  # noqa: F401
 from v2ecoli.workflow.analyses import subgenerational_expression_table  # noqa: F401
 from v2ecoli.workflow.analyses import protein_counts_validation  # noqa: F401
 
+# The cd1 omics suite — multiseed TSV tables (fluxomics / proteomics /
+# transcriptomics / metabolomics / exchange fluxes / higher-order properties).
+# Registering them here is what puts them in a batch run's "applicable"
+# analysis set, so a multiseed sweep reproduces the cd1 result tables.
+from v2ecoli.workflow.analyses import cd1_exchange_fluxes  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_fluxomics  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_higher_order_properties  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_metabolomics  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_proteomics  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_transcriptomics  # noqa: F401
+
 # Cross-variant COMPARISON analyses (variant-comparison study, showcase-4):
 # overlay / group / delta baseline + variants instead of one-panel-per-variant.
 from v2ecoli.workflow.analyses import growth_overlay  # noqa: F401

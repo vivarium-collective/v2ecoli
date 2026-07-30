@@ -43,8 +43,8 @@ from v2ecoli.library.xarray_run import (
     filter_view_to_existing_leaves,
     extract_output_metadata_from_state,
     _filter_agent_state,
+    _build_emitter,
 )
-from v2ecoli.library.xarray_emitter import XArrayEmitter
 from v2ecoli.library.parallel_seeds import run_seeds_parallel
 
 # Absolute so Ray workers (which deserialize run_one by value and don't re-run
@@ -136,27 +136,29 @@ def run_one(seed: int, n_steps: int, chunk: int) -> dict:
         raise RuntimeError(f"No view leaves remain after filtering against composite state. View: {view}")
     output_metadata = extract_output_metadata_from_state(state_after_warmup, filtered_view)
 
-    # Build emitter with buffer_size=1 so every update flushes.
-    em = XArrayEmitter(config={
-        "emit": {"global_time": "node"},
-        "out_uri": str(store_path),
-        "transducer": {
-            "predicate": [[{"subsample": {"interval": 1}}]],
-            "buffer": {"size": 3},
-        },
-        "view": filtered_view,
-        "writer": {
+    # Build emitter via the shared build_emitter_config()/_build_emitter() helper
+    # (the same one LineageProcess's emitter path uses) rather than a hand-rolled
+    # config — that helper sets strategy="colony" + emit_root=["agents", agent_id]
+    # so the transducer strips the {"agents": {...}} envelope emitted below. A
+    # prior hand-rolled config here omitted both, so the transducer saw the raw
+    # envelope path and raised `KeyError: "Unexpected emit path:
+    # ('agents', '0', ...)"` deterministically on every update, for every seed.
+    em = _build_emitter(
+        core=composite.core,
+        store_path=store_path,
+        view=filtered_view,
+        metadata_base=metadata_base,
+        generation=1,
+        agent_id="0",
+        buffer_size=3,
+        output_metadata=output_metadata or {},
+        writer={
             "backend": "zarr",
-            "store": str(store_path),
             "buffers_per_chunk": 1,
             "backend_config": {"format": 3},
         },
-        "metadata": metadata_base,
-        "metadata_keys": [],
-        "metadata_validators": {},
-        "output_metadata": output_metadata or {},
-        "debug": False,
-    }, core=composite.core)
+        predicate=[[{"subsample": {"interval": 1}}]],
+    )
 
     followed = "0"
     done = 1

@@ -125,15 +125,28 @@ def run(out_uri: str, n_seeds: int, modules: dict[str, dict[str, Any]],
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--out-uri", required=True, help="s3:// experiment output prefix")
-    p.add_argument("--n-seeds", type=int, required=True)
-    p.add_argument("--modules", required=True, help='JSON: {"scale": {"name": {}}}')
-    p.add_argument("--analysis-name", required=True)
+    p.add_argument("--config-file", help="JSON file with out_uri/n_seeds/modules/analysis_name "
+                                          "-- avoids shell-quoting the modules JSON on the CLI")
+    p.add_argument("--out-uri", help="s3:// experiment output prefix")
+    p.add_argument("--n-seeds", type=int)
+    p.add_argument("--modules", help='JSON: {"scale": {"name": {}}}')
+    p.add_argument("--analysis-name")
     args = p.parse_args()
 
-    modules = json.loads(args.modules)
+    if args.config_file:
+        cfg = json.loads(Path(args.config_file).read_text())
+        out_uri, n_seeds = cfg["out_uri"], int(cfg["n_seeds"])
+        modules, analysis_name = cfg["modules"], cfg["analysis_name"]
+    else:
+        missing = [f for f in ("out_uri", "n_seeds", "modules", "analysis_name")
+                   if getattr(args, f) is None]
+        if missing:
+            p.error(f"missing required arguments (or use --config-file): {missing}")
+        out_uri, n_seeds = args.out_uri, args.n_seeds
+        modules, analysis_name = json.loads(args.modules), args.analysis_name
+
     with tempfile.TemporaryDirectory() as td:
-        manifest = run(args.out_uri, args.n_seeds, modules, args.analysis_name, Path(td))
+        manifest = run(out_uri, n_seeds, modules, analysis_name, Path(td))
     print(json.dumps(manifest, indent=2))
     if manifest["status"] == "failed":
         sys.exit(1)

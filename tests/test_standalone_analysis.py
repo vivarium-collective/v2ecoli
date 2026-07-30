@@ -98,3 +98,25 @@ def test_run_records_error_for_missing_seed_summary(tmp_path, monkeypatch):
 
     assert manifest["status"] == "failed"
     assert "no summary.json" in manifest["errors"][0]["error"]
+
+
+def test_main_reads_config_file(tmp_path, monkeypatch, capsys):
+    """The K8s job template writes args to a ConfigMap-mounted JSON file
+    rather than embedding the modules JSON in a shell command string."""
+    import scripts.run_standalone_analysis as mod
+
+    written: dict[str, str] = {}
+    _fake_aws_cp(monkeypatch, {0: {"seed": 0, "dry_mass_fg": 200.0}}, written)
+
+    config_file = tmp_path / "params.json"
+    config_file.write_text(json.dumps({
+        "out_uri": "s3://bucket/exp", "n_seeds": 1,
+        "modules": {"multiseed": {"doubling_time_distribution": {}}},
+        "analysis_name": "test-analysis",
+    }))
+    monkeypatch.setattr(sys, "argv", ["run_standalone_analysis.py", "--config-file", str(config_file)])
+
+    mod.main()
+
+    assert "s3://bucket/exp/analyses/test-analysis/doubling_time_distribution.json" in written
+    assert '"status": "done"' in capsys.readouterr().out

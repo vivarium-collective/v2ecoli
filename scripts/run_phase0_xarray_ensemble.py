@@ -38,14 +38,14 @@ sys.path.insert(0, str(REPO_ROOT))
 import numpy as np
 
 from v2ecoli import build_composite
-from v2ecoli.library.xarray_run import (
-    view_from_emit_paths,
-    filter_view_to_existing_leaves,
-    extract_output_metadata_from_state,
-    _filter_agent_state,
-    _build_emitter,
-)
 from v2ecoli.library.parallel_seeds import run_seeds_parallel
+from v2ecoli.library.xarray_run import (
+    _build_emitter,
+    _filter_agent_state,
+    extract_output_metadata_from_state,
+    filter_view_to_existing_leaves,
+    view_from_emit_paths,
+)
 
 # Absolute so Ray workers (which deserialize run_one by value and don't re-run
 # this module's os.chdir) resolve them regardless of worker cwd.
@@ -283,6 +283,15 @@ def main():
     if "ATP[c]_count_stats" in ensemble:
         s = ensemble["ATP[c]_count_stats"]
         print(f"ATP[c] across seeds: mean={s['mean']:.2e} std={s['std']:.2e} CV={s['cv_pct']:.2f}%")
+
+    if not successful:
+        # _safe_run_one swallows every per-seed exception, so this process would
+        # otherwise exit 0 with zero usable output. AWS Batch (the GovCloud
+        # dispatch backend) derives SUCCEEDED/FAILED purely from this process's
+        # exit code -- a 0/N-seed crash was confirmed to land as sms-api status
+        # "completed" with no error, silently masking a real failure. A non-zero
+        # exit here is the whole fix: no sms-api changes needed.
+        sys.exit(f"all {args.n_seeds} seeds failed -- see per_seed errors in summary.json")
 
 
 if __name__ == "__main__":

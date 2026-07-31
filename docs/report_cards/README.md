@@ -238,6 +238,48 @@ aggregates **per cell** (time-average within a cell, then across cells; n=20 at
 4×8 with `gen_lb 3`) — at n=4 the p-value guard is nearly inert. Different
 aggregation unit, so a different card.
 
+#### Run size is a dial, not a property of the study
+
+A study is **one** study per condition, and its run size is a parameter chosen
+**for purpose**: a quick local run to check that the plumbing and the gross
+behaviour are sane, or a large run for rigorous population statistics. There is
+deliberately no `acetate-small` / `acetate-large` pair — the same scientific
+question should not be split across two artifacts that can drift apart.
+
+What makes that collapse safe is that **the card must decline to conclude when
+the evidence is too thin**, rather than grading whatever happens to be there:
+
+- Each per-cell axis declares the **minimum n** it needs. The count is already
+  carried next to the values (`_stat_node` → `{values, mean, std, cv, n}`), so
+  the threshold is a declaration, not new measurement.
+- Below it, the axis reads **insufficient** — visually distinct from a failure
+  (a thin run is not a wrong model), and it must not be maskable by a passing
+  axis in the card-level roll-up.
+- A run that clears the threshold everywhere grades normally.
+
+Read a card's verdict as a statement about *the evidence supplied*, not about
+the study: `insufficient` means "run it deeper", a mismatch means "look at the
+model". The rigorous setting for this card is **4 seeds × 8 generations with
+`gen_lb 3`** (20 post-burn-in cells) — that is the depth the n=20 argument above
+assumes, and shallower runs should be expected to come back partly inconclusive.
+
+> **Status:** the *thresholds* are declared with this card; the *verdict state
+> and its roll-up semantics* are shared grading machinery and are tracked
+> separately. Until that lands, a thin run can still report a pass — so treat
+> small-run cards as provisional.
+
+#### Visualizations alongside the card
+
+The card is the graded instrument; it is not the place to explore. Every study
+should also carry **visualizations** — the readable surface for looking at what
+happened — and only a subset of what is plotted needs to be scored. The useful
+rule of thumb: **wherever the card collapses something rich into one number,
+that is a visualization worth having.** For this card that means the exchange
+scatter behind the flux R², the log-log expression scatter and its outlier genes
+behind the transcriptome/proteome R², per-lineage traces behind the per-cell
+scalars, a run-health view (did every seed and generation actually divide?), and
+— once more than one condition is graded — a condition × axis overview.
+
 ⚠️ **Current state: declared, inert.** Each of the five studies declares
 
 ```yaml

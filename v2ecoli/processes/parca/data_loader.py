@@ -15,6 +15,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from v2ecoli.processes.parca import _scipy_compat
+
+# ParCa states pickled before a scipy upgrade embed old-format interpolators
+# (CubicSpline mass fits) that fail when called under the current scipy. Bridge
+# them on load so the analysis viewers render. No-op on matching scipy versions.
+_scipy_compat.install()
+
 
 # ``v2ecoli/processes/parca/data_loader.py`` → repo root is four parents up.
 _REPO_ROOT = Path(__file__).resolve().parents[3]

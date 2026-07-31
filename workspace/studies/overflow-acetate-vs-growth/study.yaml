@@ -48,7 +48,7 @@ report:
        so mean division time — and hence the mu this study reads out — is set by
        replication timing, not carbon supply. The acetate-vs-growth-rate framing
        assumes carbon uptake drives mu; in this model it does not. The graded x-range
-       is therefore ~0.03 /h wide, all of it above the reference onset (lac 0.408).
+       is therefore ~0.03 /h wide, all of it above the reference onset (mu 0.408).
 
     2. CARBON BALANCE FAILS UNDER A BINDING CAP. At cap=1 the model takes up
        6.0 mmolC/gDCW/h as glucose and secretes 11.6 mmolC/gDCW/h as CO2 — about 2x
@@ -327,7 +327,7 @@ findings:
   evidence:
     from_test: v2ecoli-reproduces-acetate-overflow-onset
     from_card: overflow
-    observed: "acetate 0.0 mmol/gDCW/h at caps 1,2,3,4,5,6; card verdict mismatch — 'no overflow (yield <= 0.005 through x=0.954; ref overflows)'; reference onset lac=0.408 /h, reference yield slope 1.31"
+    observed: "acetate 0.0 mmol/gDCW/h at caps 1,2,3,4,5,6; card verdict mismatch — 'no overflow (yield <= 0.005 through x=0.954; ref overflows)'; reference onset mu=0.408 /h, reference yield slope 1.31"
   expected:
     summary: "Y_ac rising from ~0 to ~linear above the reference onset (Vemuri 2006 MG1655 chemostat, primary graded curve)"
   provenance:

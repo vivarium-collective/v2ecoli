@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: colonies-04-device-phenotype-harness</title>
+<title>Study: overflow-acetate-vs-growth</title>
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/progress-track.css">
 <!-- Inherit the workbench light/dark theme (this page loads in an iframe;
@@ -14,13 +14,11 @@
 <header class="study-header">
   <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
   <h1 class="study-title">
-    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">colonies-04</span><span class="study-name" id="study-name" data-slug="colonies-04-device-phenotype-harness" title="colonies-04-device-phenotype-harness">Device harness + simple-agent phenotype baseline</span>
-    
-    <span class="phase-pill phase-build" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Build</span>
+    <span class="study-name" id="study-name" data-slug="overflow-acetate-vs-growth" title="overflow-acetate-vs-growth">Does v2ecoli reproduce the aerobic acetate-overflow curve (acetate-carbon yield vs growth rate) — Vemuri 2006 / Basan 2015?</span>
     
     
     
-    <span class="status-pill gate-status gate-status-pending" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: pending</span>
+    <span class="status-pill gate-status gate-status-planned" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: planned</span>
     
     
     
@@ -37,7 +35,7 @@
 
 
 
-<div id="readiness-panel" data-slug="colonies-04-device-phenotype-harness"></div>
+<div id="readiness-panel" data-slug="overflow-acetate-vs-growth"></div>
 
 
 
@@ -80,7 +78,7 @@
     <span class="status-stepper">
       
       <span class="status-step axis-design_status set">
-        <span class="dot"></span>Design<span class="step-val">approved</span>
+        <span class="dot"></span>Design<span class="step-val">in_progress</span>
       </span>
       
       <span class="status-step axis-implementation_status set">
@@ -88,19 +86,19 @@
       </span>
       
       <span class="status-step axis-simulation_status set">
-        <span class="dot"></span>Simulation<span class="step-val">not_run</span>
+        <span class="dot"></span>Simulation<span class="step-val">ran</span>
       </span>
       
       <span class="status-step axis-evaluation_status set">
-        <span class="dot"></span>Evaluation<span class="step-val">not_evaluated</span>
+        <span class="dot"></span>Evaluation<span class="step-val">evaluated</span>
       </span>
       
-      <span class="status-step axis-gate_status set gate-status-pending">
-        <span class="dot"></span>Gate<span class="step-val">pending</span>
+      <span class="status-step axis-gate_status set gate-status-planned">
+        <span class="dot"></span>Gate<span class="step-val">planned</span>
       </span>
       
       <span class="status-step axis-expert_review_status set">
-        <span class="dot"></span>Expert review<span class="step-val">not_requested</span>
+        <span class="dot"></span>Expert review<span class="step-val">pending</span>
       </span>
       
     </span>
@@ -111,7 +109,7 @@
     
     <div class="status-detail-row">
       <span class="status-detail-axis">Design</span>
-      <span class="status-chip ">approved</span>
+      <span class="status-chip ">in_progress</span>
     </div>
     
     
@@ -125,28 +123,28 @@
     
     <div class="status-detail-row">
       <span class="status-detail-axis">Simulation</span>
-      <span class="status-chip ">not_run</span>
+      <span class="status-chip ">ran</span>
     </div>
     
     
     
     <div class="status-detail-row">
       <span class="status-detail-axis">Evaluation</span>
-      <span class="status-chip ">not_evaluated</span>
+      <span class="status-chip ">evaluated</span>
     </div>
     
     
     
     <div class="status-detail-row">
       <span class="status-detail-axis">Gate</span>
-      <span class="status-chip gate-status-pending">pending</span>
+      <span class="status-chip gate-status-planned">planned</span>
     </div>
     
     
     
     <div class="status-detail-row">
       <span class="status-detail-axis">Expert review</span>
-      <span class="status-chip ">not_requested</span>
+      <span class="status-chip ">pending</span>
     </div>
     
     
@@ -172,7 +170,7 @@
 .spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
 .spine-div{font-weight:600;color:#92400e}
 </style>
-<div id="spine-summary" class="spine-summary" data-slug="colonies-04-device-phenotype-harness"></div>
+<div id="spine-summary" class="spine-summary" data-slug="overflow-acetate-vs-growth"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
@@ -330,33 +328,15 @@
     <div class="overview-section">
       
       <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Does the shared harness — cell-tier factory, geometry builders, and
-tier-agnostic phenotype extractor — recover a correct, uniform single-cell
-phenotype panel (growth rate, size-at-division, added length, inter-division
-time, adder size-homeostasis) across the three device geometries, validated
-first with cheap simple viva-munk agents before spending WCM compute?
+        <strong>Question.</strong> Across a glucose-uptake-rate titration, does v2ecoli reproduce the aerobic
+acetate-overflow response — the acetate-carbon yield rising ~linearly with
+growth rate above a critical threshold (Vemuri 2006 primary, Basan 2015
+context) — and how do the FBA baseline, the Millard kinetic ODE, and the
+v2ecoli+Millard FBA-bridge arms compare?
 
       </div>
       
       
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Hypothesis / Expected outcome.</strong> The factory yields a runnable cell per tier, the geometry builders run
-simple agents in all three devices, the extractor recovers known division
-statistics, and the harness emits the common phenotype panel — the shared
-measurement substrate the WCM-tier device studies (colonies-08/09) reuse.
-No biological conclusion is drawn at this enabling tier.
-
-      </div>
-      
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> The factory instantiates any cell tier (simple / surrogate / wcm) into a
-device built by the geometry builders; the tier-agnostic extractor reads the
-same phenotype panel regardless of tier, and the ColonyPhenotypeRecorder
-process streams that panel per cell to zarr as a bounded stream (a cheap
-view of the cells map rather than an emitter deep-copy).
-
-      </div>
       
     </div>
     
@@ -366,6 +346,66 @@ view of the cells map rather than an emitter deep-copy).
       <h2 class="biology-glance-label">Biology — what this study is about</h2>
       
       
+      <div class="biology-derived-preview muted small" style="margin-top:2px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+        <em>Derived from findings (shown until you write an override):</em>
+        <p style="margin:4px 0 0">The v2ecoli baseline FBA exhibits NO aerobic acetate overflow anywhere in a
+glucose-uptake titration: acetate is identically 0.0 mmol/gDCW/h at all six
+caps, so the acetate-carbon yield stays flat at 0 while the Vemuri 2006
+reference rises to ~0.25 above an onset of 0.408 /h. This confirms the
+pre-registered prediction (and the ketchup-baseline-comparison prior that
+v2ecoli secretes 0.0 acetate per 100 glucose where the KETCHUP cores secrete
+~+71): overflow is a constraint phenomenon, and unconstrained growth-max FBA
+respires fully rather than spilling carbon.
+</p><p style="margin:4px 0 0">THIS FINDING REFUTES THIS STUDY&#39;S OWN SECOND DESIGN ASSUMPTION — that a
+glucose-uptake titration moves the model along a growth-rate axis comparable to
+the references&#39;. It is FALSE for v2ecoli. This is a refutation of our premise,
+not a disagreement with a reference.
+
+Across a 5.6x uptake range the emergent growth rate moves only 0.954 -&gt; 0.925 /h,
+non-monotonically. The cause is by design, not a bug: division runs with
+d_period=True (the vEcoli default), so it fires on the D-period replication
+clock and the dry-mass threshold is deliberately ignored (the `threshold=nan fg`
+in every DIVISION log line; see v2ecoli/steps/division.py:181-190). Mean division
+time — and hence the mu this study reads out — is therefore set by replication
+timing, not carbon supply, and cells divide on schedule at ~695 fg regardless of
+how tightly glucose is capped.
+
+Consequence for the instrument: an acetate-vs-growth-rate card cannot be driven
+by a carbon knob in this model. All six sweep points land in a ~0.03 /h band,
+entirely above the reference onset, so the `overflow-absent-across-titration`
+verdict is graded on a degenerate x-range. Adding seeds or generations will not
+help — the axis is structurally pinned, not noisy.
+</p><p style="margin:4px 0 0">Under a binding glucose cap the model creates carbon. At cap=1 it takes up
+6.0 mmolC/gDCW/h as glucose and secretes 11.83 mmolC/gDCW/h of carbon — 11.62 of
+it as CO2 — while still growing at 0.954 /h and therefore also building biomass
+carbon. This trips the assumption-free `violation_C_created` flag, which compares
+secreted C-exchange against C uptake and needs no biomass C-content assumption.
+
+The effect is inverted with respect to carbon supply: CO2 output RISES as glucose
+is restricted (11.62 / 5.00 / 1.82 mmol/gDCW/h at caps 1 / 2 / 6), and the carbon
+closure fraction degrades monotonically as the cap tightens (1.11 -&gt; 7.93 across
+caps 6 -&gt; 1). At the slack cap the books nearly close; the tighter the constraint,
+the more carbon appears from nowhere. Undiagnosed here. Candidate mechanisms: FBA
+infeasibility handling under a binding bound, non-FBA replenishment of metabolite
+pools, or per-gDCW flux normalisation against a stale mass.
+</p><p style="margin:4px 0 0">Emergent biomass yield exceeds the stoichiometric ceiling at every cap, and the
+excess grows as carbon is restricted: Yxs = 0.92 / 1.04 / 1.29 / 1.71 / 2.59 /
+5.30 gDW per g glucose at caps 6 -&gt; 1, against a measured literature band of
+0.355-0.444 (Varma 1994, Kavvas 2022, LaCroix 2015, Long 2017 — the four
+`kind: measured` rows of the ecoli-sources basal__biomass_yield slot) and a
+stoichiometric ceiling of 0.538 (Varma 1993, the slot&#39;s single
+`kind: theoretical_max` row). Even at the slack cap, where the FBA runs at its
+unconstrained optimum and the carbon books nearly close, the yield is ~1.7x the
+ceiling; at cap=1 it is ~10x.
+
+This is the same defect the basal vs_literature card already reports (biomass
+yield over the limit), but the titration shows it is not a fixed offset — it is
+a function of how hard the carbon constraint binds, which points at the same
+bookkeeping problem as `carbon-created-under-binding-uptake-cap` rather than at
+a mis-parameterised biomass composition.
+</p>
+      </div>
+      
       <button type="button" class="add-field-btn" data-reveal-field="biological_summary" style="margin-top:8px">+ Add biology narrative</button>
       <textarea class="biology-prose narrative-input narrative-textarea is-hidden" rows="4"
                 data-narrative-path="biological_summary" data-field-editor="biological_summary"
@@ -374,6 +414,245 @@ view of the cells map rather than an emitter deep-copy).
     </div>
 
     
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">overflow-absent-across-titration</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">The v2ecoli baseline FBA exhibits NO aerobic acetate overflow anywhere in a
+glucose-uptake titration: acetate is identically 0.0 mmol/gDCW/h at all six
+caps, so the acetate-carbon yield stays flat at 0 while the Vemuri 2006
+reference rises to ~0.25 above an onset of 0.408 /h. This confirms the
+pre-registered prediction (and the ketchup-baseline-comparison prior that
+v2ecoli secretes 0.0 acetate per 100 glucose where the KETCHUP cores secrete
+~+71): overflow is a constraint phenomenon, and unconstrained growth-max FBA
+respires fully rather than spilling carbon.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> acetate 0.0 mmol/gDCW/h at caps 1,2,3,4,5,6; card verdict mismatch — &#39;no overflow (yield &lt;= 0.005 through x=0.954; ref overflows)&#39;; reference onset mu=0.408 /h, reference yield slope 1.31 · 
+          via test <a href="#bt-v2ecoli-reproduces-acetate-overflow-onset"><code>v2ecoli-reproduces-acetate-overflow-onset</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-gur-titration-light-6cap"><code>gur-titration-light-6cap</code></a>
+        </div>
+        
+        
+        
+        <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: {"op": "report_card_group_within_tol"}</code></div>
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> Y_ac rising from ~0 to ~linear above the reference onset (Vemuri 2006 MG1655 chemostat, primary graded curve)</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Build the Millard kinetic-ODE and FBA-bridge arms to test whether a kinetic central-carbon core induces the overflow the baseline FBA misses.</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-methodological finding-status-contradicts">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✗</span>
+          <span class="finding-id">gur-knob-does-not-titrate-growth</span>
+          <span class="finding-kind">methodological</span>
+          <span class="finding-status-text">contradicts literature</span>
+        </div>
+        <div class="finding-statement">THIS FINDING REFUTES THIS STUDY&#39;S OWN SECOND DESIGN ASSUMPTION — that a
+glucose-uptake titration moves the model along a growth-rate axis comparable to
+the references&#39;. It is FALSE for v2ecoli. This is a refutation of our premise,
+not a disagreement with a reference.
+
+Across a 5.6x uptake range the emergent growth rate moves only 0.954 -&gt; 0.925 /h,
+non-monotonically. The cause is by design, not a bug: division runs with
+d_period=True (the vEcoli default), so it fires on the D-period replication
+clock and the dry-mass threshold is deliberately ignored (the `threshold=nan fg`
+in every DIVISION log line; see v2ecoli/steps/division.py:181-190). Mean division
+time — and hence the mu this study reads out — is therefore set by replication
+timing, not carbon supply, and cells divide on schedule at ~695 fg regardless of
+how tightly glucose is capped.
+
+Consequence for the instrument: an acetate-vs-growth-rate card cannot be driven
+by a carbon knob in this model. All six sweep points land in a ~0.03 /h band,
+entirely above the reference onset, so the `overflow-absent-across-titration`
+verdict is graded on a degenerate x-range. Adding seeds or generations will not
+help — the axis is structurally pinned, not noisy.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> growth rate 0.954 / 0.933 / 0.924 / 0.931 / 0.927 / 0.925 per h at caps 1-6 while glucose uptake spans -1.0 to -5.59 mmol/gDCW/h (5.6x); x-range 0.030 /h vs a reference onset at 0.408 /h · 
+          
+          in run <a href="#run-gur-titration-light-6cap"><code>gur-titration-light-6cap</code></a>
+          
+          <details style="display:inline-block;margin-left:4px"><summary>smoking gun</summary><pre style="white-space:pre-wrap;margin:4px 0 0 0;padding:6px 8px;background:#fff;border-radius:3px;font-size:0.85em;font-family:inherit">division.py runs d_period=True, which sets threshold=float(&#39;nan&#39;) and gates division on the replication clock rather than dry mass</pre></details>
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-gur-titration-light-6cap"><code>gur-titration-light-6cap</code></a>
+        </div>
+        
+        
+        
+        
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Decide how mu should be made carbon-responsive for perturbation cards — mass-gated division (d_period=False, accepting the early-division regression the code comment describes, and noting `division` is absent from _CACHE_CONFIG_NAMES so this is a code change not a config flip), or re-axis the card onto the knob (Y_ac vs GUR) instead of emergent growth rate.</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-novel">
+        <div class="finding-header">
+          <span class="finding-status-glyph">◆</span>
+          <span class="finding-id">carbon-created-under-binding-uptake-cap</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">novel literature</span>
+        </div>
+        <div class="finding-statement">Under a binding glucose cap the model creates carbon. At cap=1 it takes up
+6.0 mmolC/gDCW/h as glucose and secretes 11.83 mmolC/gDCW/h of carbon — 11.62 of
+it as CO2 — while still growing at 0.954 /h and therefore also building biomass
+carbon. This trips the assumption-free `violation_C_created` flag, which compares
+secreted C-exchange against C uptake and needs no biomass C-content assumption.
+
+The effect is inverted with respect to carbon supply: CO2 output RISES as glucose
+is restricted (11.62 / 5.00 / 1.82 mmol/gDCW/h at caps 1 / 2 / 6), and the carbon
+closure fraction degrades monotonically as the cap tightens (1.11 -&gt; 7.93 across
+caps 6 -&gt; 1). At the slack cap the books nearly close; the tighter the constraint,
+the more carbon appears from nowhere. Undiagnosed here. Candidate mechanisms: FBA
+infeasibility handling under a binding bound, non-FBA replenishment of metabolite
+pools, or per-gDCW flux normalisation against a stale mass.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> cap=1: C_in 6.0 vs C_out 11.83 mmolC/gDCW/h (violation_C_created=true); closure fraction 7.93 / 3.59 / 2.31 / 1.53 / 1.26 / 1.11 at caps 1 -&gt; 6; CO2 11.62 / 5.00 / 1.82 at caps 1 / 2 / 6 · 
+          via test <a href="#bt-carbon-balance-closes-under-titration"><code>carbon-balance-closes-under-titration</code></a> · 
+          in run <a href="#run-gur-titration-light-6cap"><code>gur-titration-light-6cap</code></a>
+          
+          <details style="display:inline-block;margin-left:4px"><summary>smoking gun</summary><pre style="white-space:pre-wrap;margin:4px 0 0 0;padding:6px 8px;background:#fff;border-radius:3px;font-size:0.85em;font-family:inherit">secreted carbon exceeds carbon taken up while the cell is simultaneously accumulating biomass — a mass-balance violation independent of any biomass composition assumption</pre></details>
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-gur-titration-light-6cap"><code>gur-titration-light-6cap</code></a>
+        </div>
+        
+        
+        
+        <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: {"op": "eq", "value": false}</code></div>
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> C_out &lt;= C_in at every cap (no carbon creation); violation_C_created false throughout</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Diagnosis moved OUT of this investigation 2026-07-28 — it seeds the sibling investigation `metabolism-biomass-yield` (v2ecoli#421). A model that creates carbon cannot be meaningfully asked a carbon-partitioning question, so this gates the overflow study rather than the other way round.</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-contradicts">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✗</span>
+          <span class="finding-id">biomass-yield-exceeds-thermodynamic-limit</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">contradicts literature</span>
+        </div>
+        <div class="finding-statement">Emergent biomass yield exceeds the stoichiometric ceiling at every cap, and the
+excess grows as carbon is restricted: Yxs = 0.92 / 1.04 / 1.29 / 1.71 / 2.59 /
+5.30 gDW per g glucose at caps 6 -&gt; 1, against a measured literature band of
+0.355-0.444 (Varma 1994, Kavvas 2022, LaCroix 2015, Long 2017 — the four
+`kind: measured` rows of the ecoli-sources basal__biomass_yield slot) and a
+stoichiometric ceiling of 0.538 (Varma 1993, the slot&#39;s single
+`kind: theoretical_max` row). Even at the slack cap, where the FBA runs at its
+unconstrained optimum and the carbon books nearly close, the yield is ~1.7x the
+ceiling; at cap=1 it is ~10x.
+
+This is the same defect the basal vs_literature card already reports (biomass
+yield over the limit), but the titration shows it is not a fixed offset — it is
+a function of how hard the carbon constraint binds, which points at the same
+bookkeeping problem as `carbon-created-under-binding-uptake-cap` rather than at
+a mis-parameterised biomass composition.
+</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> Yxs 0.92 / 1.04 / 1.29 / 1.71 / 2.59 / 5.30 gDW/g_glucose at caps 6 -&gt; 1 gDW/g_glucose · 
+          via test <a href="#bt-biomass-yield-within-stoichiometric-ceiling"><code>biomass-yield-within-stoichiometric-ceiling</code></a> · 
+          in run <a href="#run-gur-titration-light-6cap"><code>gur-titration-light-6cap</code></a>
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          
+          
+          runs: <a href="#run-gur-titration-light-6cap"><code>gur-titration-light-6cap</code></a>
+        </div>
+        
+        
+        
+        <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: {"op": "\u003c=", "value": 0.538}</code></div>
+        
+        
+        
+        <div class="finding-expected">
+          <strong>expected:</strong> [0.355, 0.444] · 
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> measured aerobic glucose biomass yield, ecoli-sources basal__biomass_yield slot (4 `kind: measured` sources); stoichiometric ceiling 0.538 (Varma 1993, the slot&#39;s `kind: theoretical_max` row)</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> SUPERSEDED 2026-07-29. The former next_action — &#39;check whether the basal card&#39;s yield violation moves with the same knob; the two cards are likely reporting one underlying defect&#39; — has been PERFORMED and its premise DISCONFIRMED by v2ecoli#421&#39;s S1 diagnostic (two distinct defects, not one). The live follow-up is #421&#39;s S3, scoped to maintenance-ATP / NGAM-GAM and respiratory capacity — NOT mass accounting. Nothing further is owed by this study.</div>
+      </div>
+      
+    </div>
     
 
     
@@ -414,9 +693,9 @@ view of the cells map rather than an emitter deep-copy).
         <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
           <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
           <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
+            <strong style="color:#1e293b">control-absent</strong>
+            <code style="font-size:0.82em">negative_control</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
           </div>
         </div>
         
@@ -424,11 +703,11 @@ view of the cells map rather than an emitter deep-copy).
         
         
         <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
           <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">replication</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">only 2 replicates — add seeds for a robustness claim</div>
           </div>
         </div>
         
@@ -440,6 +719,16 @@ view of the cells map rather than an emitter deep-copy).
     
     <div class="overview-section conclusion-block">
       <h2 class="overview-label">Conclusion</h2>
+      
+      <p class="conclusion-insight">The v2ecoli baseline FBA exhibits NO aerobic acetate overflow anywhere in a
+glucose-uptake titration: acetate is identically 0.0 mmol/gDCW/h at all six
+caps, so the acetate-carbon yield stays flat at 0 while the Vemuri 2006
+reference rises to ~0.25 above an onset of 0.408 /h. This confirms the
+pre-registered prediction (and the ketchup-baseline-comparison prior that
+v2ecoli secretes 0.0 acetate per 100 glucose where the KETCHUP cores secrete
+~+71): overflow is a constraint phenomenon, and unconstrained growth-max FBA
+respires fully rather than spilling carbon.
+<span class="computed-tag">computed from findings</span></p>
       
       
     <div class="narrative-field">
@@ -453,11 +742,40 @@ view of the cells map rather than an emitter deep-copy).
     
       
     <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.caveat">+ Add caveat</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.caveat">
+      <button type="button" class="add-field-btn is-hidden" data-reveal-field="report.caveat">+ Add caveat</button>
+      <label class="narrative-row narrative-row-wide" data-field-editor="report.caveat">
         <span class="narrative-label">Caveat</span>
         <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know."></textarea>
+                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know.">Two findings from the 2026-07-22 run limit how much this verdict carries
+(recorded as findings[] `gur-knob-does-not-titrate-growth` and
+`carbon-created-under-binding-uptake-cap`).
+
+1. THE TITRATION DOES NOT TITRATE GROWTH. Across a 5.6x glucose-uptake range
+   (caps 1-6; the cap binds exactly at 1-4, goes slack above ~5.6) the emergent
+   growth rate moves only 0.954 -&gt; 0.925 /h, non-monotonically. Division runs on
+   the D-period replication clock (`d_period=True`, the vEcoli default), where the
+   dry-mass threshold is deliberately ignored (v2ecoli/steps/division.py:181-190),
+   so mean division time — and hence the mu this study reads out — is set by
+   replication timing, not carbon supply. The acetate-vs-growth-rate framing
+   assumes carbon uptake drives mu; in this model it does not. The graded x-range
+   is therefore ~0.03 /h wide, all of it above the reference onset (mu 0.408).
+
+2. CARBON BALANCE FAILS UNDER A BINDING CAP. At cap=1 the model takes up
+   6.0 mmolC/gDCW/h as glucose and secretes 11.6 mmolC/gDCW/h as CO2 — about 2x
+   the carbon in, while still growing — tripping the assumption-free
+   `violation_C_created` flag. CO2 output RISES as glucose is restricted
+   (11.62 / 5.00 / 1.82 at caps 1 / 2 / 6). Biomass yield tracks the same
+   non-physicality: 5.30 / 2.59 / 0.92 gDW/g glucose at caps 1 / 2 / 6, against a
+   measured literature band of 0.355-0.444 and a stoichiometric ceiling of 0.538.
+   DIAGNOSIS IS OUT OF SCOPE HERE — it belongs to the sibling investigation
+   `metabolism-biomass-yield` (v2ecoli#421), which has since resolved it to two
+   distinct defects. This study records the observation and points there.
+
+The verdict below (acetate = 0.0 at every cap, so &#34;no overflow&#34;) is the PREDICTED
+baseline-FBA outcome and is consistent with the basal card, but it is graded on a
+degenerate sweep. Read it as &#34;overflow physiology is absent&#34;, not as a quantitative
+curve comparison.
+</textarea>
       </label>
     </div>
     
@@ -467,11 +785,11 @@ view of the cells map rather than an emitter deep-copy).
             <option value="">—</option>
             <option value="high" >high</option>
             <option value="medium" >medium</option>
-            <option value="low" >low</option>
+            <option value="low" selected>low</option>
           </select></label>
         <label class="tag-control"><span class="tag-k">evidence</span>
           <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="" placeholder="calibrated | literature-matched | …"></label>
+                 value="preliminary" placeholder="calibrated | literature-matched | …"></label>
       </div>
     </div>
 
@@ -480,30 +798,42 @@ view of the cells map rather than an emitter deep-copy).
       <summary class="overview-label">Plan &amp; provenance</summary>
 
       
+
+      
       <div class="overview-section">
-        <h3 class="overview-label">Pipeline gate</h3>
-        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-        </p>
-        
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
-        
-        
-        
-        <div><strong>Proceed when:</strong> <span class="muted">Part B builds on the Part A enabling infrastructure. The colonies-03 RSS
-growth is now a characterised, Linux-bounded, mitigated footnote (localized
-to the inner WCM&#39;s elongation + mass-listener; ~0.017 MB/tick on Linux/glibc,
-0.000 with periodic malloc_trim), not an HPC blocker. WCM-tier device runs
-(colonies-08/09) are length-bounded on the dev mini (a macOS allocator
-artifact) but unbounded on the Linux HPC target; the simple-agent tier here
-runs freely.
-</span></div>
-        
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">The acetate exchange flux (ACET[p], listeners.fba_results.external_exchange_fluxes)
+is the model observable for overflow; growth rate is read from the mass listener.
+</li><li style="margin:2px 0">A glucose-uptake-rate titration moves the model along a growth-rate axis
+comparable to the references&#39;, on the existing glucose ParCa cache — no new data
+bundle needed for this condition. (Mirrors Basan&#39;s transporter-titration causal
+direction: set uptake -&gt; growth emerges.)
+</li><li style="margin:2px 0">The OD600-&gt;gDCW factor used to convert Basan&#39;s reported Jac (mM/OD600/h) to the
+model&#39;s acetate exchange flux (mmol/gDCW/h) is an EXTERNAL assumption (not in
+Basan 2015) — either import a sourced NCM3722 factor or grade in per-OD units
+by converting the model side. See inputs/notes/basan2015.md.
+</li>
+        </ul>
       </div>
       
 
       
-
+      
+      <div class="overview-section">
+        <h2 class="overview-label">Behavioral tests</h2>
+        
+        
+        
+        
+        
+        <p style="margin:0">
+          <strong>3</strong> tests defined —
+            <span class="classification-pill classification-primary">1 primary</span>
+            <span class="classification-pill classification-diagnostic">2 diagnostic</span>
+          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
+        </p>
+      </div>
       
 
       
@@ -522,13 +852,11 @@ runs freely.
         
 
         
-        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Build</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-        
       </div>
 
       <div class="study-counts-strip">
         <div class="count-cell">
-          <strong>1</strong>
+          <strong>2</strong>
           <span class="count-label">simulations</span>
         </div>
         <div class="count-cell">
@@ -540,7 +868,7 @@ runs freely.
           <span class="count-label">requirements</span>
         </div>
         <div class="count-cell">
-          <strong>0</strong>
+          <strong>2</strong>
           <span class="count-label">runs</span>
         </div>
       </div>
@@ -567,29 +895,36 @@ runs freely.
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"env_size": 30, "n_cells": 2, "seed": 0}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"cache_dir": "out/cache"}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>colonies-04-device-phenotype-harness</strong>
+        <strong>overflow-acetate-vs-growth</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_colony.ecoli_colony</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_colony.ecoli_colony')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_baseline.ecoli_baseline')">🧬 explore &amp; run ↗</button>
         
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <input type="text" class="baseline-composite-input" data-baseline-name="colonies-04-device-phenotype-harness"
-               value="v2ecoli.composites.ecoli_colony.ecoli_colony" placeholder="pkg.composites.name"
+        <input type="text" class="baseline-composite-input" data-baseline-name="overflow-acetate-vs-growth"
+               value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
                style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
         <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
-                data-baseline-name="colonies-04-device-phenotype-harness">Set composite</button>
+                data-baseline-name="overflow-acetate-vs-growth">Set composite</button>
       </div>
-      <div class="baseline-composite-status muted" data-baseline-name="colonies-04-device-phenotype-harness" style="font-size:0.8em;margin-top:2px"></div>
+      <div class="baseline-composite-status muted" data-baseline-name="overflow-acetate-vs-growth" style="font-size:0.8em;margin-top:2px"></div>
       
       <div class="model-config-mount" style="margin-top:8px">
         <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
       
       
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
+        
+        
+        
+        <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
+      </div>
       
     </div>
     
@@ -608,15 +943,11 @@ runs freely.
     
     <div class="cond-block">
       <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></div>
+      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code></div>
       
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         
-        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>2</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span>
+        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
         
       </div>
       
@@ -624,7 +955,170 @@ runs freely.
     
 
     
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td><code>fba-bridge</code></td>
+            <td>
+              <code>v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness</code>
+              
+            </td>
+            <td>
+              
+              
+                
+                <div><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></div>
+                
+                <div><span class="cond-pill-k">seed</span>=<code>0</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
 
+    
+    <div class="cond-block">
+      
+      <div class="cond-block-title">
+        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(4)</span>
+        <span class="cond-ei-required-badge" title="3 required-before-run">3 required</span>
+      </div>
+      <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
+      <table class="cond-table cond-expert-table" data-study="overflow-acetate-vs-growth">
+        <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Current</th><th>Range</th><th>Gate</th><th></th></tr></thead>
+        <tbody>
+          
+          
+          
+          
+          <tr data-ei-name="glucose-uptake-titration">
+            <td title=""><code>glucose-uptake-titration</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-req">required</span>
+              
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('overflow-acetate-vs-growth', 'glucose-uptake-titration', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="millard-arm">
+            <td title=""><code>millard-arm</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('overflow-acetate-vs-growth', 'millard-arm', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="overflow-reference-curves">
+            <td title=""><code>overflow-reference-curves</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-req">required</span>
+              
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('overflow-acetate-vs-growth', 'overflow-reference-curves', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+          
+          
+          
+          <tr data-ei-name="threshold-linear-criterion">
+            <td title=""><code>threshold-linear-criterion</code></td>
+            <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-req">required</span>
+              
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('overflow-acetate-vs-growth', 'threshold-linear-criterion', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
     
   </div>
   
@@ -668,19 +1162,19 @@ runs freely.
 
   
   
-  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(1 runs planned)</span></h3>
+  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(2 runs planned)</span></h3>
   <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
   
   
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">colonies-04-device-phenotype-harness-baseline</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
+      <strong style="font-size:1.05em">overflow-acetate-vs-growth-baseline</strong>
+      <span class="sim-status-pill sim-status-completed">completed</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
@@ -691,7 +1185,36 @@ runs freely.
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
+      <strong>Tests applied:</strong> 3 · 
+      <strong>Runs recorded:</strong> 2
+    </p>
+    
+    
+    
+  </div>
+  
+  
+  
+  
+  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
+    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <strong style="font-size:1.05em">fba-bridge</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
       
+    </header>
+    <div style="font-size:0.9em;margin-bottom:6px">
+      <strong>Base model:</strong> <code>v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness</code>
+    </div>
+    
+    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
+    
+    <p style="margin:6px 0;font-size:0.9em">
+      <strong>Simulation time:</strong> ?
+      · <strong>Seeds:</strong> <em>not set</em>
+    </p>
+    <p style="margin:4px 0;font-size:0.86em" class="muted">
+      
+      <strong>Tests applied:</strong> 3 · 
       
     </p>
     
@@ -730,7 +1253,7 @@ runs freely.
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
-    <div id="readouts-table" data-study="colonies-04-device-phenotype-harness">
+    <div id="readouts-table" data-study="overflow-acetate-vs-growth">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -775,14 +1298,14 @@ runs freely.
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
       <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=colonies-04-device-phenotype-harness">Download all (.zip)</a>
+         href="/api/study-analysis-zip?study=overflow-acetate-vs-growth">Download all (.zip)</a>
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
       Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
-    <div id="data-files" data-study="colonies-04-device-phenotype-harness">
+    <div id="data-files" data-study="overflow-acetate-vs-growth">
       <p class="empty-message">Loading result files…</p>
     </div>
 
@@ -820,11 +1343,137 @@ runs freely.
   
   
   
-  <ul class="tests-list" id="tests-list" style="margin-top: 12px;">
-    <li class="placeholder">No <code>expected_behavior:</code> entries declared in study.yaml yet.
-      Add some to see them appear here as test rows. Click "Run tests" to discover and
-      execute additional <code>studies/&lt;slug&gt;/tests/test_*.py</code> files alongside
-      the auto-generated assertions.</li>
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-v2ecoli-reproduces-acetate-overflow-onset"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="v2ecoli-reproduces-acetate-overflow-onset"
+        data-classification="primary"
+        data-result="FAIL"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">v2ecoli-reproduces-acetate-overflow-onset</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli&#39;s acetate response show the overflow rise (acetate-carbon yield rising above a critical growth rate)?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: Card verdict mismatch — &#39;no overflow (yield &lt;= 0.005 through x=0.954; ref overflows)&#39;. Acetate 0.0 at all 6 caps. This is the PREDICTED baseline-FBA outcome, but see the caveat: graded on a ~0.03/h wide x-range.</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "workspace/studies/overflow-acetate-vs-growth/viz/report_card", "card_name": "acetate_overflow", "detail": "Overflow group graded by the threshold_linear criterion (shape-first on the dimensionless acetate-carbon yield Y_ac vs growth rate; threshold reported but non-gating) vs Vemuri 2006 primary / Basan 2015 context. Group verdict = worst axis. Baseline-FBA arm only so far; Millard / FBA-bridge arms unbuilt.", "group": "overflow", "kind": "report_card_axis"}
+expect:  {"op": "report_card_group_within_tol"}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-carbon-balance-closes-under-titration"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="carbon-balance-closes-under-titration"
+        data-classification="diagnostic"
+        data-result="FAIL"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
+        <strong style="font-size: 0.9em;">carbon-balance-closes-under-titration</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Across the uptake titration, does the model&#39;s carbon bookkeeping close — i.e. is secreted carbon never greater than carbon taken up?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: cap=1 trips violation_C_created: C_out 11.83 &gt; C_in 6.0 mmolC/gDCW/h. Closure degrades monotonically as the cap tightens (1.11 / 1.26 / 1.53 / 2.31 / 3.59 / 7.93 at caps 6 -&gt; 1).</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Assumption-free check computed per cap by the titration runner: sum of secreted C-exchange fluxes vs glucose-C uptake. Needs no biomass C-content assumption; if C_out \u003e C_in, carbon was created.", "field": "carbon.violation_C_created", "kind": "runner_diagnostic", "runner": "sims/run_gur_titration.py"}
+expect:  {"op": "eq", "value": false}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-biomass-yield-within-stoichiometric-ceiling"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="biomass-yield-within-stoichiometric-ceiling"
+        data-classification="diagnostic"
+        data-result="FAIL"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
+        <strong style="font-size: 0.9em;">biomass-yield-within-stoichiometric-ceiling</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Is the emergent biomass yield Yxs at or below the stoichiometric ceiling for aerobic glucose growth?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: Yxs = 0.92 / 1.04 / 1.29 / 1.71 / 2.59 / 5.30 gDW/g glucose at caps 6 -&gt; 1; measured band 0.355-0.444, stoichiometric ceiling 0.538. Even the slack-cap value (0.92) is ~1.7x the ceiling.</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Yxs = mu / (|q_glc| * M_glc). Ceiling 0.538 gDW/g_glucose = Varma 1993, the ecoli-sources basal__biomass_yield slot\u0027s single `kind: theoretical_max` row (FBA, fully aerobic, no maintenance energy). For context the four `kind: measured` rows in the same slot span 0.355-0.444 (Varma 1994, Kavvas 2022, LaCroix 2015, Long 2017).", "field": "yield_gDW_per_g_glc", "kind": "runner_diagnostic", "runner": "sims/run_gur_titration.py"}
+expect:  {"op": "\u003c=", "value": 0.538}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
   </ul>
   
 </section>
@@ -920,6 +1569,27 @@ runs freely.
     
     
     
+    <div class="decide-section">
+      <h3 class="overview-label">Latest run outcomes</h3>
+      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
+        baseline · seed ? ·
+        ?s simulated ·
+        ? history rows ·
+        started 2026-07-22
+      </div>
+      
+      
+      
+      <p class="muted" style="margin:0;font-size:0.9em">
+        <strong>4</strong> test outcomes
+        — <span style="color:#065f46;font-weight:600">1 PASS</span> ·
+        <span style="color:#991b1b;font-weight:600">3 FAIL</span>.
+        Per-test outcomes (measured value · evaluator · band) are canonical on the
+        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
+      </p>
+      
+    </div>
+    
     
 
   </div>
@@ -946,7 +1616,7 @@ runs freely.
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "d4963932a035fe739e979ddabfcc99aa9d31bda4", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/d4963932a035fe739e979ddabfcc99aa9d31bda4", "branch": "main", "lockfile": "uv.lock@ce4a60092aaa", "generated_at": "2026-07-31 01:28 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
-window._studyName = "colonies-04-device-phenotype-harness";
+window._studyName = "overflow-acetate-vs-growth";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.
@@ -1075,9 +1745,9 @@ window._seedFollowupProposal = _seedFollowupProposal;
   var el = document.getElementById("study-configure-run");
   if (!el || !window.ConfigureRun) return;
   
-  var compositeRef = "v2ecoli.composites.ecoli_colony.ecoli_colony";
+  var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
-  var slug = window._studyName || "colonies-04-device-phenotype-harness";
+  var slug = window._studyName || "overflow-acetate-vs-growth";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
   // Read-only bundle: there's no live backend to run on — hide the remote-run
   // launcher (the Configure & Run widget already renders a disabled preview).

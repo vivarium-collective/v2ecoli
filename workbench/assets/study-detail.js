@@ -140,7 +140,7 @@
           return;
         }
         var links = withData.map(function (s) {
-          var url = '/api/simulation-run-download?run_id=' + encodeURIComponent(s.run_id);
+          var url = (window.__BASE_PATH__ || "") + '/api/simulation-run-download?run_id=' + encodeURIComponent(s.run_id);
           return '<li style="margin:2px 0"><a class="action-btn" download href="' + url + '">⬇ '
             + e(s.sim_name || s.label || s.run_id) + '</a></li>';
         }).join('');
@@ -347,7 +347,7 @@
           var label = row.sim_name || row.label || runId;
           var loc = window.SimTable ? window.SimTable.location(row) : esc(row.store_path || row.db_path || '');
           var dl = hasData
-            ? '<a class="action-btn" download href="/api/simulation-run-download?run_id=' + encodeURIComponent(runId) + '">⬇ Data</a>'
+            ? '<a class="action-btn" download href="' + (window.__BASE_PATH__ || "") + '/api/simulation-run-download?run_id=' + encodeURIComponent(runId) + '">⬇ Data</a>'
             : '<span class="muted" style="font-size:0.82em">no store</span>';
           return '<tr style="border-bottom:1px solid #f3f4f6"><td style="padding:5px 8px"><code style="font-size:0.85em">' + esc(label) + '</code></td>' +
             '<td style="padding:5px 8px">' + loc + '</td>' +
@@ -452,11 +452,12 @@
     var runId = row.run_id || '';
     var hasData = !!(row.store_path || row.db_path);
     var slug = studyName();
+    var BP = window.__BASE_PATH__ || "";
     var dl = hasData
-      ? '<a class="action-btn" download href="/api/simulation-run-download?run_id=' + encodeURIComponent(runId) + '">⬇ Data (raw emitter)</a>'
+      ? '<a class="action-btn" download href="' + BP + '/api/simulation-run-download?run_id=' + encodeURIComponent(runId) + '">⬇ Data (raw emitter)</a>'
       : '<span class="muted" style="font-size:0.85em">no persisted store</span>';
     var an = slug
-      ? '<a class="action-btn" download href="/api/study-analysis-zip?study=' + encodeURIComponent(slug) + '">⬇ Analysis (figures / cards)</a>'
+      ? '<a class="action-btn" download href="' + BP + '/api/study-analysis-zip?study=' + encodeURIComponent(slug) + '">⬇ Analysis (figures / cards)</a>'
       : '';
     // Enforcement: the run opens in the Composite Explorer only when its
     // composite is a registered composite; otherwise we surface the gap.
@@ -788,6 +789,29 @@
 
   function studyName() { return window._studyName; }
 
+  // --- Analyses (Model tab) ---
+  // Reuses /api/study-set-analyses (lib.metadata_mutations.set_investigation_analyses,
+  // which despite its name resolves any study by name via study_dir() — flat
+  // studies/<name>/ preferred over legacy investigations/<name>/, so this works
+  // for an ungrouped study exactly like a grouped one).
+  function _saveStudyAnalyses() {
+    var el = document.getElementById('study-analyses-list');
+    var status = document.getElementById('study-analyses-status');
+    if (!el) return;
+    var names = el.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    var analyses = names.map(function (n) { return {name: n, params: {}}; });
+    if (status) status.textContent = 'Saving…';
+    api('POST', '/api/study-set-analyses', {investigation: studyName(), analyses: analyses})
+      .then(function (r) {
+        if (status) {
+          status.textContent = (r.status === 200)
+            ? 'Saved.'
+            : 'Error: ' + (r.body && r.body.error || r.status);
+        }
+      });
+  }
+  window._saveStudyAnalyses = _saveStudyAnalyses;
+
   // Fetch the param schema for a composite and render an input form.
   // currentOverrides: {} or existing overrides (for edit flow).
   // Returns a Promise<{collect, ok}>: collect() reads back the current input
@@ -879,7 +903,8 @@
   });
 
   bindAll('.btn-export', function() {
-    window.location = '/api/study-export?study=' + encodeURIComponent(studyName());
+    // A location assignment bypasses the fetch/XHR/EventSource base-path shim.
+    window.location = (window.__BASE_PATH__ || "") + '/api/study-export?study=' + encodeURIComponent(studyName());
   });
 
   // "Run current spec" — force-relaunch this study's baseline as a brand-new
@@ -975,6 +1000,39 @@
       if (r.status === 200) location.reload();
       else alert('Run failed: ' + (r.body && r.body.error || r.status));
     });
+  });
+
+  // Replace a baseline entry's composite ref: add-then-remove against the
+  // existing (previously orphaned) endpoints, since there's no single
+  // "replace" route. Order matters — study_baseline_remove refuses to leave
+  // baseline[] empty (400), which a single-entry study (e.g. a fresh "+
+  // Study" blank scaffold) always is; adding the replacement under a new
+  // name FIRST means baseline[] never goes empty, then the old entry is
+  // removed. The replacement keeps the original name only when it wasn't
+  // already used (i.e. removal isn't blocked); otherwise it's suffixed to
+  // avoid the add's own "already exists" 409. Params are dropped on
+  // replace — a fresh composite ref starts from its own defaults, matching
+  // what "+ Study" itself does.
+  bindAll('.baseline-composite-set', function(btn) {
+    var name = btn.dataset.baselineName;
+    var input = document.querySelector('.baseline-composite-input[data-baseline-name="' + name + '"]');
+    var status = document.querySelector('.baseline-composite-status[data-baseline-name="' + name + '"]');
+    var composite = input ? input.value.trim() : '';
+    if (!composite) { if (status) status.textContent = 'Enter a composite ref first.'; return; }
+    if (status) status.textContent = 'Setting…';
+    var newName = name + '-' + Date.now().toString(36);
+    api('POST', '/api/study-baseline-add', {study: studyName(), name: newName, composite: composite, params: {}})
+      .then(function (addResult) {
+        if (addResult.status !== 200) throw addResult;
+        return api('POST', '/api/study-baseline-remove', {study: studyName(), name: name});
+      })
+      .then(function (r) {
+        if (r.status === 200) location.reload();
+        else if (status) status.textContent = 'Error: ' + (r.body && r.body.error || r.status);
+      })
+      .catch(function (addResult) {
+        if (status) status.textContent = 'Error: ' + (addResult.body && addResult.body.error || addResult.status);
+      });
   });
 
   bindAll('.btn-baseline-remove', function(btn) {

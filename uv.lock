@@ -313,8 +313,8 @@ wheels = [
 
 [[package]]
 name = "bigraph-schema"
-version = "1.4.3"
-source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#4b208e13620e09e877af52ea07273bc9429a3a17" }
+version = "1.4.5"
+source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#ab6777ed9c4b4a4b32a1ec23cba0531f641a2edc" }
 dependencies = [
     { name = "fire" },
     { name = "numpy" },
@@ -3133,7 +3133,7 @@ wheels = [
 [[package]]
 name = "process-bigraph"
 version = "1.5.0"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#305ea826191e9f897f0c6e207bc303bbc44a9eef" }
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#ebea120f44d4285f7a69291060fd7615f829a09b" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },

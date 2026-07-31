@@ -67,7 +67,11 @@ class ColonyGrowthGif(Visualization):
 
     def inputs(self) -> dict[str, Any]:
         return {
-            "cells": "map[node]",
+            # map[pymunk_agent] gives the engine's leak-free SHALLOW per-cell view
+            # (x/y/angle/length/radius/mass) — NEVER a deep copy of the embedded
+            # whole-cell state (same type ColonyPhenotypeRecorder uses to avoid
+            # the colony RAM leak). map[node] would deep-copy ~1.6 MB/cell/tick.
+            "cells": "map[pymunk_agent]",
             "global_time": "float",
         }
 

@@ -29,10 +29,14 @@ def _register_colony_core(core=None):
     from viva_munk import core_import
     from v2ecoli.bridge import EcoliWCM
     from v2ecoli.types import ECOLI_TYPES
+    from v2ecoli.visualizations.colony_growth_gif import ColonyGrowthGif
 
     core = core_import()
     core.register_types(ECOLI_TYPES)
     core.register_link("EcoliWCM", EcoliWCM)
+    # The colony-growth GIF viz Step is wired into make_colony_document; register
+    # its link so the fresh viva_munk core can resolve local:ColonyGrowthGif.
+    core.register_link("ColonyGrowthGif", ColonyGrowthGif)
     return core
 
 

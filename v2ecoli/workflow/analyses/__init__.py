@@ -45,3 +45,4 @@ from v2ecoli.workflow.analyses import proteome_delta  # noqa: F401
 from v2ecoli.workflow.analyses import fba_flux_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import regulation_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import scorecard  # noqa: F401
+from v2ecoli.workflow.analyses import chromosome_state_view  # noqa: F401

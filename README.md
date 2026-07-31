@@ -386,6 +386,45 @@ Aggregate across the grid with the companion analysis CLI:
 v2ecoli-analyze out/workflow            # runs the config's analysis_options
 ```
 
+Or read the Parquet directly — the layout is standard hive-partitioned Parquet,
+so [DuckDB](https://duckdb.org) and [Polars](https://pola.rs) work out of the box.
+Column names are the flattened store paths (`listeners__mass__cell_mass`, …), and
+`hive_partitioning=true` surfaces the `experiment_id` / `variant` / `lineage_seed` /
+`generation` / `agent_id` path keys as ordinary columns:
+
+```python
+import duckdb
+
+con = duckdb.connect()
+glob = "out/workflow/parquet/**/*.pq"
+read = f"read_parquet('{glob}', hive_partitioning=true, union_by_name=true)"
+
+# 1. Schema / column metadata — name + type for every column.
+con.sql(f"DESCRIBE SELECT * FROM {read}").pl()          # -> Polars DataFrame
+
+# 2. Retrieve a few columns for one branch of the sweep, filtered + ordered.
+ts = con.sql(f"""
+    SELECT variant, lineage_seed, generation, global_time,
+           listeners__mass__cell_mass AS cell_mass,
+           listeners__mass__dry_mass  AS dry_mass
+    FROM {read}
+    WHERE lineage_seed = 0 AND generation = 0
+    ORDER BY global_time
+""").pl()                                                # .df() for a pandas DataFrame
+
+# 3. Summarize across the grid — e.g. final dry mass per seed.
+con.sql(f"""
+    SELECT lineage_seed, max(listeners__mass__dry_mass) AS final_dry_mass
+    FROM {read}
+    GROUP BY lineage_seed ORDER BY lineage_seed
+""").df()                                                # -> pandas DataFrame
+```
+
+`union_by_name=true` tolerates columns that differ across generations/variants;
+list-valued listeners (e.g. `listeners__replication_data__fork_coordinates`) come
+back as list columns. `.pl()` returns a Polars DataFrame and `.df()` a pandas one —
+or keep chaining SQL on the lazy DuckDB relation before materializing either.
+
 These mirror vEcoli's own workflow grammar (`lineage_seed` + `n_init_sims`,
 `single_daughters`, variant `target`/`value`/`op`), so configs translate
 directly.

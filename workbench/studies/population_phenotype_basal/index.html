@@ -239,7 +239,7 @@ experimental + theoretical reference values rather than a pinned run?
       
       <div class="biology-derived-preview muted small" style="margin-top:2px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
         <em>Derived from findings (shown until you write an override):</em>
-        <p style="margin:4px 0 0">Basal-condition physiology — v2ecoli vs experimental literature: mismatch (3 ✓ 3 ≈ 7 ✗)</p>
+        <p style="margin:4px 0 0">The baseline ensemble makes 0.826 gDW of biomass per gram of glucose consumed — 1.86× the top of the measured band (0.355–0.444) and 1.54× the first-principles ceiling of 0.538. No carbon- and energy-balanced cell can exceed that ceiling, so this is a model defect, not a calibration mismatch. The dispersion is tight (CV 1.55% across 20 cells), so it is a systematic property of the model rather than noise. Carbon is nonetheless conserved at baseline — implied biomass carbon ≈ 0.457 gC/gDW is physically plausible — which locates the defect on the energetic side: the ensemble barely respires (O₂:glucose ≈ 0.09, CO₂:glucose ≈ 0.33, RQ ≈ 3.6 against ~1 for full oxidation), so almost no glucose carbon is burned for maintenance and ATP, and nearly all of it is retained as biomass.</p>
       </div>
       
       <button type="button" class="add-field-btn" data-reveal-field="biological_summary" style="margin-top:8px">+ Add biology narrative</button>
@@ -259,19 +259,26 @@ experimental + theoretical reference values rather than a pinned run?
       <div class="finding-card finding-kind-computational finding-status-contradicts">
         <div class="finding-header">
           <span class="finding-status-glyph">✗</span>
-          <span class="finding-id">report-card-vs-literature</span>
+          <span class="finding-id">biomass-yield-exceeds-thermodynamic-limit</span>
           <span class="finding-kind">computational</span>
           <span class="finding-status-text">contradicts literature</span>
         </div>
-        <div class="finding-statement">Basal-condition physiology — v2ecoli vs experimental literature: mismatch (3 ✓ 3 ≈ 7 ✗)</div>
+        <div class="finding-statement">The baseline ensemble makes 0.826 gDW of biomass per gram of glucose consumed — 1.86× the top of the measured band (0.355–0.444) and 1.54× the first-principles ceiling of 0.538. No carbon- and energy-balanced cell can exceed that ceiling, so this is a model defect, not a calibration mismatch. The dispersion is tight (CV 1.55% across 20 cells), so it is a systematic property of the model rather than noise. Carbon is nonetheless conserved at baseline — implied biomass carbon ≈ 0.457 gC/gDW is physically plausible — which locates the defect on the energetic side: the ensemble barely respires (O₂:glucose ≈ 0.09, CO₂:glucose ≈ 0.33, RQ ≈ 3.6 against ~1 for full oxidation), so almost no glucose carbon is burned for maintenance and ATP, and nearly all of it is retained as biomass.</div>
         
         
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> 3 ✓ 3 ≈ 7 ✗ · 
+          <strong>observed:</strong> 0.825746175353658 gDW/g glucose · 
           
           
+          
+          
+        </div>
+        
+        
+        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+          <span class="finding-divergence" style="font-weight:600">×0.8598 vs expected</span>
           
           
         </div>
@@ -280,10 +287,16 @@ experimental + theoretical reference values rather than a pinned run?
         
         
         
+        <div class="finding-expected">
+          <strong>expected:</strong> [0.355, 0.444] · 
+          <strong>threshold:</strong> 0.538 · 
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> Measured band 0.355–0.444 gDW/g glucose from four aerobic glucose-minimal determinations — varma_1994 (0.355, W3110 aerobic batch), kavvas_2022 (0.42, ¹³C-MFA MG1655), lacroix_2015 (0.44, MG1655 M9), long_2017 (0.444, ¹³C-MFA MG1655). The threshold is the first-principles ceiling, varma_1993 = 0.538 (FBA, fully aerobic, no maintenance energy); a value above it is forbidden by carbon and energy balance rather than merely unusual.</div>
         
         
         
-        
+        <div class="finding-next"><strong>→ Next:</strong> Re-measure Yxs on a fresh basal run whose commit is recorded, and compute carbon closure and RQ on the same run, to establish whether the baseline defect is energetic and distinct from the carbon creation seen under a binding uptake cap. Tracked as study metabolism-biomass-yield-s1-diagnostic.</div>
       </div>
       
     </div>
@@ -354,7 +367,7 @@ experimental + theoretical reference values rather than a pinned run?
     <div class="overview-section conclusion-block">
       <h2 class="overview-label">Conclusion</h2>
       
-      <p class="conclusion-insight">Basal-condition physiology — v2ecoli vs experimental literature: mismatch (3 ✓ 3 ≈ 7 ✗)<span class="computed-tag">computed from findings</span></p>
+      <p class="conclusion-insight">The baseline ensemble makes 0.826 gDW of biomass per gram of glucose consumed — 1.86× the top of the measured band (0.355–0.444) and 1.54× the first-principles ceiling of 0.538. No carbon- and energy-balanced cell can exceed that ceiling, so this is a model defect, not a calibration mismatch. The dispersion is tight (CV 1.55% across 20 cells), so it is a systematic property of the model rather than noise. Carbon is nonetheless conserved at baseline — implied biomass carbon ≈ 0.457 gC/gDW is physically plausible — which locates the defect on the energetic side: the ensemble barely respires (O₂:glucose ≈ 0.09, CO₂:glucose ≈ 0.33, RQ ≈ 3.6 against ~1 for full oxidation), so almost no glucose carbon is burned for maintenance and ATP, and nearly all of it is retained as biomass.<span class="computed-tag">computed from findings</span></p>
       
       
     <div class="narrative-field">
@@ -1088,7 +1101,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "d4963932a035fe739e979ddabfcc99aa9d31bda4", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/d4963932a035fe739e979ddabfcc99aa9d31bda4", "branch": "main", "lockfile": "uv.lock@ce4a60092aaa", "generated_at": "2026-07-31 01:28 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8e17b54d3e21ded802c2ac2b29ad23cbdb72a775", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8e17b54d3e21ded802c2ac2b29ad23cbdb72a775", "branch": "main", "lockfile": "uv.lock@ce4a60092aaa", "generated_at": "2026-07-31 01:41 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "population_phenotype_basal";

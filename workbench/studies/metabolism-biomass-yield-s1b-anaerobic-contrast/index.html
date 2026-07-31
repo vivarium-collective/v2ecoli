@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: sm-04-through-division</title>
+<title>Study: metabolism-biomass-yield-s1b-anaerobic-contrast</title>
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/progress-track.css">
 <!-- Inherit the workbench light/dark theme (this page loads in an iframe;
@@ -14,11 +14,11 @@
 <header class="study-header">
   <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
   <h1 class="study-title">
-    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">sm-04</span><span class="study-name" id="study-name" data-slug="sm-04-through-division" title="sm-04-through-division">Through division — do the emulators hold across the cell-cycle discontinuity?</span>
+    <span class="study-name" id="study-name" data-slug="metabolism-biomass-yield-s1b-anaerobic-contrast" title="metabolism-biomass-yield-s1b-anaerobic-contrast">Does the model&#39;s own aerobic-to-anaerobic yield drop match biology?</span>
     
     
     
-    <span class="status-pill gate-status gate-status-passed" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: passed</span>
+    <span class="status-pill status-designed" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">designed</span>
     
     
     
@@ -35,121 +35,12 @@
 
 
 
-<div id="readiness-panel" data-slug="sm-04-through-division"></div>
+<div id="readiness-panel" data-slug="metabolism-biomass-yield-s1b-anaerobic-contrast"></div>
 
 
 
 
 
-
-<style>
-.status-detail-panel{margin:8px 0 12px 0;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
-.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
-.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
-.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
-/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
-.gate-status-blocked          { background:#e5e7eb; color:#374151 }
-.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
-.gate-status-passed           { background:#d1fae5; color:#065f46 }
-.gate-status-failed           { background:#fee2e2; color:#991b1b }
-.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
-.status-pill.gate-status{font-weight:500}
-/* Redesign: compact one-line lifecycle stepper; full per-axis rows behind the expander. */
-.status-detail-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.status-detail-panel > summary::-webkit-details-marker{display:none}
-.status-stepper{display:flex;gap:13px;flex-wrap:wrap;align-items:center;flex:1}
-.status-step{display:inline-flex;align-items:center;gap:5px;font-size:0.82em;color:#94a3b8;white-space:nowrap}
-.status-step .dot{width:9px;height:9px;border-radius:50%;background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
-.status-step.set{color:#334155}
-.status-step.set .dot{background:#10b981;box-shadow:none}
-.status-step .step-val{font-family:ui-monospace,monospace;font-size:0.92em;color:#64748b}
-.status-step.gate-status-blocked .dot{background:#9ca3af;box-shadow:none}
-.status-step.gate-status-needs_calibration .dot{background:#f59e0b;box-shadow:none}
-.status-step.gate-status-passed .dot{background:#10b981;box-shadow:none}
-.status-step.gate-status-failed .dot{background:#ef4444;box-shadow:none}
-.status-step.gate-status-stale .dot{background:#8b5cf6;box-shadow:none}
-.status-stepper-more{font-size:0.76em;color:#64748b;white-space:nowrap}
-.status-detail-panel[open] .status-stepper-more::after{content:" \25be"}
-.status-detail-panel:not([open]) .status-stepper-more::after{content:" \25b8"}
-.status-stepper-body{margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6}
-</style>
-<details class="status-detail-panel" aria-label="Multi-axis lifecycle status">
-  <summary>
-    <span class="status-stepper">
-      
-      <span class="status-step axis-design_status set">
-        <span class="dot"></span>Design<span class="step-val">complete</span>
-      </span>
-      
-      <span class="status-step axis-implementation_status set">
-        <span class="dot"></span>Implementation<span class="step-val">complete</span>
-      </span>
-      
-      <span class="status-step axis-simulation_status set">
-        <span class="dot"></span>Simulation<span class="step-val">complete</span>
-      </span>
-      
-      <span class="status-step axis-evaluation_status set">
-        <span class="dot"></span>Evaluation<span class="step-val">evaluated</span>
-      </span>
-      
-      <span class="status-step axis-gate_status set gate-status-passed">
-        <span class="dot"></span>Gate<span class="step-val">passed</span>
-      </span>
-      
-      <span class="status-step axis-expert_review_status set">
-        <span class="dot"></span>Expert review<span class="step-val">pending</span>
-      </span>
-      
-    </span>
-    <span class="status-stepper-more">details</span>
-  </summary>
-  <div class="status-stepper-body">
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Design</span>
-      <span class="status-chip ">complete</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Implementation</span>
-      <span class="status-chip ">complete</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Simulation</span>
-      <span class="status-chip ">complete</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Evaluation</span>
-      <span class="status-chip ">evaluated</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Gate</span>
-      <span class="status-chip gate-status-passed">passed</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Expert review</span>
-      <span class="status-chip ">pending</span>
-    </div>
-    
-    
-  </div>
-</details>
 
 
 
@@ -170,7 +61,7 @@
 .spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
 .spine-div{font-weight:600;color:#92400e}
 </style>
-<div id="spine-summary" class="spine-summary" data-slug="sm-04-through-division"></div>
+<div id="spine-summary" class="spine-summary" data-slug="metabolism-biomass-yield-s1b-anaerobic-contrast"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
@@ -328,12 +219,7 @@
     <div class="overview-section">
       
       <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Do the linear and neural (rollout-loss) emulators of coarse growth, which
-emulate a single generation well (sm-01/sm-03), continue to hold when a
-trajectory crosses a division event where cell_mass halves and the chromosome
-count resets — or is the cell-cycle discontinuity a hard boundary the
-observable-view emulator cannot represent?
-
+        <strong>Question.</strong> Real E. coli anaerobic biomass yield is several-fold below aerobic, because without a terminal electron acceptor the cell cannot extract ATP by respiration. A model that barely respires aerobically (O2:glucose ~0.09, RQ ~3.6) has little respiratory contribution to lose, so it should show a much smaller drop. Does it? This is a first-principles discriminator that needs no external reference data - the model is compared against its own aerobic result.
       </div>
       
       
@@ -373,6 +259,18 @@ observable-view emulator cannot represent?
             <strong style="color:#1e293b">alternative-not-excluded</strong>
             <code style="font-size:0.82em">alternatives</code>
             <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
           </div>
         </div>
         
@@ -433,13 +331,13 @@ observable-view emulator cannot represent?
         <label class="tag-control"><span class="tag-k">confidence</span>
           <select class="narrative-input tag-select" data-narrative-path="report.confidence">
             <option value="">—</option>
-            <option value="high" selected>high</option>
+            <option value="high" >high</option>
             <option value="medium" >medium</option>
             <option value="low" >low</option>
           </select></label>
         <label class="tag-control"><span class="tag-k">evidence</span>
           <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="6-seed lineages rolled to/through one division (tick 2526); 6-fold leave-one-lineage-out CV; teacher-forced one-step + autoregressive rollout" placeholder="calibrated | literature-matched | …"></label>
+                 value="" placeholder="calibrated | literature-matched | …"></label>
       </div>
     </div>
 
@@ -448,19 +346,14 @@ observable-view emulator cannot represent?
       <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      <div class="overview-section">
-        <h3 class="overview-label">Pipeline gate</h3>
-        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-        </p>
-        
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
-        
-        
-        
-      </div>
-      
 
+      
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">A minimal_minus_oxygen run is comparable to the aerobic baseline on yield once each is measured with the same estimator over the same burn-in window, so the ratio between them isolates the respiratory contribution.</li>
+        </ul>
+      </div>
       
 
       
@@ -512,7 +405,7 @@ observable-view emulator cannot represent?
           <span class="count-label">requirements</span>
         </div>
         <div class="count-cell">
-          <strong>1</strong>
+          <strong>0</strong>
           <span class="count-label">runs</span>
         </div>
       </div>
@@ -539,9 +432,9 @@ observable-view emulator cannot represent?
     <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"seed": 0}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"media": "minimal_minus_oxygen"}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>sm-04-through-division</strong>
+        <strong>metabolism-biomass-yield-s1b-anaerobic-contrast</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -550,25 +443,18 @@ observable-view emulator cannot represent?
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <input type="text" class="baseline-composite-input" data-baseline-name="sm-04-through-division"
+        <input type="text" class="baseline-composite-input" data-baseline-name="metabolism-biomass-yield-s1b-anaerobic-contrast"
                value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
                style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
         <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
-                data-baseline-name="sm-04-through-division">Set composite</button>
+                data-baseline-name="metabolism-biomass-yield-s1b-anaerobic-contrast">Set composite</button>
       </div>
-      <div class="baseline-composite-status muted" data-baseline-name="sm-04-through-division" style="font-size:0.8em;margin-top:2px"></div>
+      <div class="baseline-composite-status muted" data-baseline-name="metabolism-biomass-yield-s1b-anaerobic-contrast" style="font-size:0.8em;margin-top:2px"></div>
       
       <div class="model-config-mount" style="margin-top:8px">
         <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
       
       
-      
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
-        <span class="cond-pill"><span class="cond-pill-k">seeds</span>=6</span>
-        
-        
-        <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
-      </div>
       
     </div>
     
@@ -591,38 +477,13 @@ observable-view emulator cannot represent?
       
       <div style="display:flex;flex-wrap:wrap;gap:6px">
         
-        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
+        <span class="cond-pill"><span class="cond-pill-k">media</span>=<code>minimal_minus_oxygen</code></span>
         
       </div>
       
     </div>
     
 
-    
-    <div class="cond-block">
-      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></div>
-      <table class="cond-table">
-        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
-        <tbody>
-          
-          <tr>
-            <td><code>follow-one-daughter-through-division</code></td>
-            <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
-              
-            </td>
-            <td>
-              
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-        </tbody>
-      </table>
-    </div>
     
 
     
@@ -675,24 +536,24 @@ observable-view emulator cannot represent?
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">through-division-cv</strong>
-      <span class="sim-status-pill sim-status-ran">ran</span>
+      <strong style="font-size:1.05em">metabolism-biomass-yield-s1b-anaerobic-contrast-baseline</strong>
+      <span class="sim-status-pill sim-status-ready">ready</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <code>6</code>
+      · <strong>Seeds:</strong> <em>not set</em>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
       <strong>Tests applied:</strong> 1 · 
-      <strong>Runs recorded:</strong> 1
+      
     </p>
     
     
@@ -730,7 +591,7 @@ observable-view emulator cannot represent?
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
-    <div id="readouts-table" data-study="sm-04-through-division">
+    <div id="readouts-table" data-study="metabolism-biomass-yield-s1b-anaerobic-contrast">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -750,26 +611,6 @@ observable-view emulator cannot represent?
     </div>
 
     
-    
-    <div class="embed-viz-section" style="margin-bottom:22px">
-      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Through division — emulator rollout vs the cell_mass halving (interactive)</strong>
-          <a href="/v2ecoli/workbench/reports/figures/sm-04-through-division/through_division.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">One held-out lineage&#39;s true cell_mass across a division vs each emulator&#39;s autoregressive rollout (the rollout continues to ~2340 fg while the true mass halves to ~1221 fg), plus within-generation vs division-tick teacher-forced one-step error per emulator. Every emulator, trivial or neural, fails to represent the discontinuity; the best within-generation models fail worst at the boundary.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/sm-04-through-division/through_division.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Through division — emulator rollout vs the cell_mass halving (interactive)"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-    </div>
     
 
     <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
@@ -795,14 +636,14 @@ observable-view emulator cannot represent?
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
       <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=sm-04-through-division">Download all (.zip)</a>
+         href="/api/study-analysis-zip?study=metabolism-biomass-yield-s1b-anaerobic-contrast">Download all (.zip)</a>
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
       Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
-    <div id="data-files" data-study="sm-04-through-division">
+    <div id="data-files" data-study="metabolism-biomass-yield-s1b-anaerobic-contrast">
       <p class="empty-message">Loading result files…</p>
     </div>
 
@@ -849,39 +690,28 @@ observable-view emulator cannot represent?
     
     
     
-    <li class="expected-behavior-item" id="bt-emulators-hold-across-division"
+    <li class="expected-behavior-item" id="bt-anaerobic-yield-drop-matches-respiratory-contribution"
         data-test-kind="behavioral"
         
-        data-pytest-node="emulators-hold-across-division"
+        data-pytest-node="anaerobic-yield-drop-matches-respiratory-contribution"
         data-classification="primary"
-        data-result="FAIL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">emulators-hold-across-division</strong>
+        <strong style="font-size: 0.9em;">anaerobic-yield-drop-matches-respiratory-contribution</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does the best within-generation emulator (linear) represent the division
-discontinuity — i.e. is its teacher-forced one-step error at the division
-tick comparable to its within-generation one-step error (ratio near 1)?
-The emulator &#34;holds&#34; only if the ratio stays small (&lt; 2).
-</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Linear boundary/within one-step ratio 6204x (NN one-step 13100x); every emulator predicts continued growth at the halving. Informative negative.</code>
-        
-      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Is the aerobic-to-anaerobic yield ratio several-fold, as in real E. coli, or close to 1 as a barely-respiring model would predict?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "6-fold leave-one-lineage-out CV (dt=8 s, cell_mass). Linear emulator\nboundary_over_within_onestep_ratio = median(division-tick one-step nRMSE)\n/ median(within-generation one-step nRMSE) = 3.59 / 0.00058 = 6204.\nA value near 1 would mean the emulator holds across division; 6204 means\nit fails completely to follow the cell_mass halving.\n", "kind": "authored", "measured_value": 6204.0}
-expect:  {"low": 2.0, "op": "lt"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Yxs by direct mass balance under minimal_minus_oxygen, divided by the aerobic Yxs from metabolism-biomass-yield-s1-diagnostic measured the same way.", "kind": "derived"}
+expect:  null</pre>
       </details>
       
       
@@ -984,27 +814,6 @@ expect:  {"low": 2.0, "op": "lt"}</pre>
     
     
     
-    <div class="decide-section">
-      <h3 class="overview-label">Latest run outcomes</h3>
-      <div style="font-size:0.88em;color:#64748b;margin-bottom:8px">
-        baseline · seed ? ·
-        ?s simulated ·
-        ? history rows ·
-        started ?
-      </div>
-      
-      
-      
-      <p class="muted" style="margin:0;font-size:0.9em">
-        <strong>1</strong> test outcome
-        — <span style="color:#065f46;font-weight:600">0 PASS</span> ·
-        <span style="color:#991b1b;font-weight:600">1 FAIL</span>.
-        Per-test outcomes (measured value · evaluator · band) are canonical on the
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
-      </p>
-      
-    </div>
-    
     
 
   </div>
@@ -1031,7 +840,7 @@ expect:  {"low": 2.0, "op": "lt"}</pre>
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8e17b54d3e21ded802c2ac2b29ad23cbdb72a775", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8e17b54d3e21ded802c2ac2b29ad23cbdb72a775", "branch": "main", "lockfile": "uv.lock@ce4a60092aaa", "generated_at": "2026-07-31 01:41 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
-window._studyName = "sm-04-through-division";
+window._studyName = "metabolism-biomass-yield-s1b-anaerobic-contrast";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.
@@ -1162,7 +971,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   
   var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
-  var slug = window._studyName || "sm-04-through-division";
+  var slug = window._studyName || "metabolism-biomass-yield-s1b-anaerobic-contrast";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
   // Read-only bundle: there's no live backend to run on — hide the remote-run
   // launcher (the Configure & Run widget already renders a disabled preview).

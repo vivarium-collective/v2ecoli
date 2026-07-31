@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: sm-04-through-division</title>
+<title>Study: metabolism-biomass-yield-s1-diagnostic</title>
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/progress-track.css">
 <!-- Inherit the workbench light/dark theme (this page loads in an iframe;
@@ -14,11 +14,11 @@
 <header class="study-header">
   <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
   <h1 class="study-title">
-    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">sm-04</span><span class="study-name" id="study-name" data-slug="sm-04-through-division" title="sm-04-through-division">Through division — do the emulators hold across the cell-cycle discontinuity?</span>
+    <span class="study-name" id="study-name" data-slug="metabolism-biomass-yield-s1-diagnostic" title="metabolism-biomass-yield-s1-diagnostic">Re-measure biomass yield on a recorded commit, and discriminate one defect from two</span>
     
     
     
-    <span class="status-pill gate-status gate-status-passed" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: passed</span>
+    <span class="status-pill status-evaluated" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">evaluated</span>
     
     
     
@@ -35,121 +35,12 @@
 
 
 
-<div id="readiness-panel" data-slug="sm-04-through-division"></div>
+<div id="readiness-panel" data-slug="metabolism-biomass-yield-s1-diagnostic"></div>
 
 
 
 
 
-
-<style>
-.status-detail-panel{margin:8px 0 12px 0;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
-.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
-.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
-.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
-/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
-.gate-status-blocked          { background:#e5e7eb; color:#374151 }
-.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
-.gate-status-passed           { background:#d1fae5; color:#065f46 }
-.gate-status-failed           { background:#fee2e2; color:#991b1b }
-.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
-.status-pill.gate-status{font-weight:500}
-/* Redesign: compact one-line lifecycle stepper; full per-axis rows behind the expander. */
-.status-detail-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.status-detail-panel > summary::-webkit-details-marker{display:none}
-.status-stepper{display:flex;gap:13px;flex-wrap:wrap;align-items:center;flex:1}
-.status-step{display:inline-flex;align-items:center;gap:5px;font-size:0.82em;color:#94a3b8;white-space:nowrap}
-.status-step .dot{width:9px;height:9px;border-radius:50%;background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
-.status-step.set{color:#334155}
-.status-step.set .dot{background:#10b981;box-shadow:none}
-.status-step .step-val{font-family:ui-monospace,monospace;font-size:0.92em;color:#64748b}
-.status-step.gate-status-blocked .dot{background:#9ca3af;box-shadow:none}
-.status-step.gate-status-needs_calibration .dot{background:#f59e0b;box-shadow:none}
-.status-step.gate-status-passed .dot{background:#10b981;box-shadow:none}
-.status-step.gate-status-failed .dot{background:#ef4444;box-shadow:none}
-.status-step.gate-status-stale .dot{background:#8b5cf6;box-shadow:none}
-.status-stepper-more{font-size:0.76em;color:#64748b;white-space:nowrap}
-.status-detail-panel[open] .status-stepper-more::after{content:" \25be"}
-.status-detail-panel:not([open]) .status-stepper-more::after{content:" \25b8"}
-.status-stepper-body{margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6}
-</style>
-<details class="status-detail-panel" aria-label="Multi-axis lifecycle status">
-  <summary>
-    <span class="status-stepper">
-      
-      <span class="status-step axis-design_status set">
-        <span class="dot"></span>Design<span class="step-val">complete</span>
-      </span>
-      
-      <span class="status-step axis-implementation_status set">
-        <span class="dot"></span>Implementation<span class="step-val">complete</span>
-      </span>
-      
-      <span class="status-step axis-simulation_status set">
-        <span class="dot"></span>Simulation<span class="step-val">complete</span>
-      </span>
-      
-      <span class="status-step axis-evaluation_status set">
-        <span class="dot"></span>Evaluation<span class="step-val">evaluated</span>
-      </span>
-      
-      <span class="status-step axis-gate_status set gate-status-passed">
-        <span class="dot"></span>Gate<span class="step-val">passed</span>
-      </span>
-      
-      <span class="status-step axis-expert_review_status set">
-        <span class="dot"></span>Expert review<span class="step-val">pending</span>
-      </span>
-      
-    </span>
-    <span class="status-stepper-more">details</span>
-  </summary>
-  <div class="status-stepper-body">
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Design</span>
-      <span class="status-chip ">complete</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Implementation</span>
-      <span class="status-chip ">complete</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Simulation</span>
-      <span class="status-chip ">complete</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Evaluation</span>
-      <span class="status-chip ">evaluated</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Gate</span>
-      <span class="status-chip gate-status-passed">passed</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Expert review</span>
-      <span class="status-chip ">pending</span>
-    </div>
-    
-    
-  </div>
-</details>
 
 
 
@@ -170,7 +61,7 @@
 .spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
 .spine-div{font-weight:600;color:#92400e}
 </style>
-<div id="spine-summary" class="spine-summary" data-slug="sm-04-through-division"></div>
+<div id="spine-summary" class="spine-summary" data-slug="metabolism-biomass-yield-s1-diagnostic"></div>
 
 <nav class="study-tabs" aria-label="Study sections">
   <div class="study-pillars">
@@ -328,12 +219,7 @@
     <div class="overview-section">
       
       <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Do the linear and neural (rollout-loss) emulators of coarse growth, which
-emulate a single generation well (sm-01/sm-03), continue to hold when a
-trajectory crosses a division event where cell_mass halves and the chromosome
-count resets — or is the cell-cycle discontinuity a hard boundary the
-observable-view emulator cannot represent?
-
+        <strong>Question.</strong> On a fresh basal run whose code revision is recorded, what is the biomass yield - and does carbon close at the same time? The first half removes the provenance ambiguity in the committed fixtures; the second half is the discriminator, because if carbon closes at baseline while yield sits above the first-principles ceiling, the baseline defect is energetic and therefore distinct from the carbon creation seen under a binding uptake cap.
       </div>
       
       
@@ -346,6 +232,11 @@ observable-view emulator cannot represent?
       <h2 class="biology-glance-label">Biology — what this study is about</h2>
       
       
+      <div class="biology-derived-preview muted small" style="margin-top:2px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
+        <em>Derived from findings (shown until you write an override):</em>
+        <p style="margin:4px 0 0">On a run whose commit is recorded, the baseline makes 0.831 gDW per gram of glucose - 1.87x the top of the measured band and 1.55x the first-principles ceiling - and the run shows no sign of the gross carbon imbalance that appears under a binding uptake cap. Implied biomass carbon comes out at 0.455 gC/gDW, an ordinary value, against a binding-cap condition where closure degrades to 7.93. The comparison that carries this is RELATIVE: two conditions of the same model behaving qualitatively differently. A single mass-bookkeeping defect would break conservation in both. What the baseline fails to do is respire: O2:glucose is 0.096 and RQ is 3.43 against ~1 for full oxidation, so 94.5% of glucose carbon is retained as biomass and almost none is burned for maintenance and ATP. The violation is therefore energetic in origin - the cell builds biomass it never pays the ATP cost for - and is a different failure from the carbon creation the binding cap triggers. Two defects, not one.</p><p style="margin:4px 0 0">The fresh run gives Yxs 0.8313 against the committed fixture&#39;s 0.8257, a difference of 0.67% - well inside the ensemble CV of 1.44%. Growth rate 0.851 vs 0.814 and glucose uptake 4.81 vs 5.14 are likewise close. So the fixture&#39;s headline number is reproducible on current main even though its provenance was never recorded, and the first_principles_violation verdict standing since 2026-06-17 is not an artefact of a stale or unattributable bake.</p>
+      </div>
+      
       <button type="button" class="add-field-btn" data-reveal-field="biological_summary" style="margin-top:8px">+ Add biology narrative</button>
       <textarea class="biology-prose narrative-input narrative-textarea is-hidden" rows="4"
                 data-narrative-path="biological_summary" data-field-editor="biological_summary"
@@ -354,6 +245,89 @@ observable-view emulator cannot represent?
     </div>
 
     
+    
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-contradicts">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✗</span>
+          <span class="finding-id">baseline-yield-violation-is-energetic-not-mass-creation</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">contradicts literature</span>
+        </div>
+        <div class="finding-statement">On a run whose commit is recorded, the baseline makes 0.831 gDW per gram of glucose - 1.87x the top of the measured band and 1.55x the first-principles ceiling - and the run shows no sign of the gross carbon imbalance that appears under a binding uptake cap. Implied biomass carbon comes out at 0.455 gC/gDW, an ordinary value, against a binding-cap condition where closure degrades to 7.93. The comparison that carries this is RELATIVE: two conditions of the same model behaving qualitatively differently. A single mass-bookkeeping defect would break conservation in both. What the baseline fails to do is respire: O2:glucose is 0.096 and RQ is 3.43 against ~1 for full oxidation, so 94.5% of glucose carbon is retained as biomass and almost none is burned for maintenance and ATP. The violation is therefore energetic in origin - the cell builds biomass it never pays the ATP cost for - and is a different failure from the carbon creation the binding cap triggers. Two defects, not one.</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> 0.45485802028104627 gC/gDW · 
+          via test <a href="#bt-carbon-closure-discriminates-one-defect-from-two"><code>carbon-closure-discriminates-one-defect-from-two</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> A pure mass-bookkeeping defect should break carbon conservation everywhere it is exercised. The overflow titration shows closure of 1.11 at a slack cap and 7.93 under a binding cap, so if one bug drove both, baseline carbon accounting should also be visibly broken. It is not.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> Scope the fix around the energetic side - maintenance-ATP / NGAM-GAM parameterization and respiratory capacity - rather than around mass bookkeeping. Enzyme-capacity constraints remain downstream of this: they bite when a cell pushes respiration to its ceiling, and this model barely respires.</div>
+      </div>
+      
+      
+      
+      <div class="finding-card finding-kind-computational finding-status-confirms">
+        <div class="finding-header">
+          <span class="finding-status-glyph">✓</span>
+          <span class="finding-id">committed-basal-fixture-reproduces-on-current-main</span>
+          <span class="finding-kind">computational</span>
+          <span class="finding-status-text">confirms literature</span>
+        </div>
+        <div class="finding-statement">The fresh run gives Yxs 0.8313 against the committed fixture&#39;s 0.8257, a difference of 0.67% - well inside the ensemble CV of 1.44%. Growth rate 0.851 vs 0.814 and glucose uptake 4.81 vs 5.14 are likewise close. So the fixture&#39;s headline number is reproducible on current main even though its provenance was never recorded, and the first_principles_violation verdict standing since 2026-06-17 is not an artefact of a stale or unattributable bake.</div>
+        
+        
+        
+        
+        <div class="finding-evidence">
+          <strong>observed:</strong> 0.8312577059063886 gDW/g glucose · 
+          via test <a href="#bt-biomass-yield-remeasured-on-recorded-commit"><code>biomass-yield-remeasured-on-recorded-commit</code></a> · 
+          
+          
+          
+        </div>
+        
+        
+        
+        
+        
+        
+        <div class="finding-expected">
+          
+          
+          
+        </div>
+        <div class="finding-exp-summary"><em>Reference says:</em> The committed fixtures stamp reconstructed: True, commit: None, sweep_dir: None, baked: unknown, so agreement was not guaranteed and a material divergence would itself have been the finding.</div>
+        
+        
+        
+        <div class="finding-next"><strong>→ Next:</strong> No re-bake. The fixtures are the reference everything else is graded against and moving them mid-investigation shifts that reference; this run is evidence for #296 (auto re-bake / re-grade), not a reason to pre-empt it.</div>
+      </div>
+      
+    </div>
     
 
     
@@ -373,6 +347,18 @@ observable-view emulator cannot represent?
             <strong style="color:#1e293b">alternative-not-excluded</strong>
             <code style="font-size:0.82em">alternatives</code>
             <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
+          </div>
+        </div>
+        
+        
+        
+        
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
+          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
+          <div>
+            <strong style="color:#1e293b">claim-untested</strong>
+            <code style="font-size:0.82em">falsifiability</code>
+            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
           </div>
         </div>
         
@@ -409,6 +395,8 @@ observable-view emulator cannot represent?
     <div class="overview-section conclusion-block">
       <h2 class="overview-label">Conclusion</h2>
       
+      <p class="conclusion-insight">On a run whose commit is recorded, the baseline makes 0.831 gDW per gram of glucose - 1.87x the top of the measured band and 1.55x the first-principles ceiling - and the run shows no sign of the gross carbon imbalance that appears under a binding uptake cap. Implied biomass carbon comes out at 0.455 gC/gDW, an ordinary value, against a binding-cap condition where closure degrades to 7.93. The comparison that carries this is RELATIVE: two conditions of the same model behaving qualitatively differently. A single mass-bookkeeping defect would break conservation in both. What the baseline fails to do is respire: O2:glucose is 0.096 and RQ is 3.43 against ~1 for full oxidation, so 94.5% of glucose carbon is retained as biomass and almost none is burned for maintenance and ATP. The violation is therefore energetic in origin - the cell builds biomass it never pays the ATP cost for - and is a different failure from the carbon creation the binding cap triggers. Two defects, not one.<span class="computed-tag">computed from findings</span></p>
+      
       
     <div class="narrative-field">
       <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
@@ -433,13 +421,13 @@ observable-view emulator cannot represent?
         <label class="tag-control"><span class="tag-k">confidence</span>
           <select class="narrative-input tag-select" data-narrative-path="report.confidence">
             <option value="">—</option>
-            <option value="high" selected>high</option>
+            <option value="high" >high</option>
             <option value="medium" >medium</option>
             <option value="low" >low</option>
           </select></label>
         <label class="tag-control"><span class="tag-k">evidence</span>
           <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="6-seed lineages rolled to/through one division (tick 2526); 6-fold leave-one-lineage-out CV; teacher-forced one-step + autoregressive rollout" placeholder="calibrated | literature-matched | …"></label>
+                 value="" placeholder="calibrated | literature-matched | …"></label>
       </div>
     </div>
 
@@ -448,19 +436,14 @@ observable-view emulator cannot represent?
       <summary class="overview-label">Plan &amp; provenance</summary>
 
       
-      <div class="overview-section">
-        <h3 class="overview-label">Pipeline gate</h3>
-        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-        </p>
-        
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
-        
-        
-        
-      </div>
-      
 
+      
+      <div class="overview-section">
+        <h3 class="overview-label">Key assumptions</h3>
+        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+          <li style="margin:2px 0">A single 4-seed x 8-generation run with generation_lower_bound 3 (the 20 post-burn-in cells the committed fixtures record) is a like-for-like re-measurement of the blessed ensemble - same config, same cache, same burn-in window - so a divergence in Yxs is attributable to code or to the unrecorded provenance of the fixtures rather than to a different experimental design.</li><li style="margin:2px 0">★ No absolute plausibility band is claimed for the implied biomass carbon content, on purpose. The only in-repo range for it (~0.45-0.50 gC/gDW, scripts/render_basal_vs_ literature.py:77) is an uncited constant, its units may be a slip from biomass YIELD (gDW/g glucose), whose curated band happens to overlap the same numbers, and the repo contradicts itself elsewhere (tests/test_basal_vs_literature.py:122 uses 0.40-0.55). So this study makes no absolute claim and rests only on the relative contrast against the binding-cap condition. Grading the content absolutely needs the model&#39;s OWN composition-derived carbon content as the reference - an internal consistency check requiring no literature - which is left to a later study (see the investigation&#39;s decisions_needed).</li><li style="margin:2px 0">★ The carbon-closure evidence here is NOT the same statistic as the overflow titration&#39;s 1.11 / 7.93. Those are closure ratios computed against an independent estimate of biomass carbon. This study instead computes biomass carbon BY DIFFERENCE (glucose_C - CO2_C - 2*acetate_C), which makes the closure ratio 1.0 by construction and moves all the information into the implied carbon CONTENT - 0.4549 gC/gDW here. That number is the real test: if the model were creating carbon at baseline the by-difference content would come out implausible or negative, and it does not. So this is strong positive evidence for two distinct defects, but it is not a like-for-like comparison against the overflow numbers. Making it like-for-like needs the overflow runner&#39;s closure estimator, which lives only on the overflow branch and is deliberately out of scope here.</li>
+        </ul>
+      </div>
       
 
       
@@ -473,8 +456,8 @@ observable-view emulator cannot represent?
         
         
         <p style="margin:0">
-          <strong>1</strong> tests defined —
-            <span class="classification-pill classification-primary">1 primary</span>
+          <strong>2</strong> tests defined —
+            <span class="classification-pill classification-primary">2 primary</span>
           <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
         </p>
       </div>
@@ -541,7 +524,7 @@ observable-view emulator cannot represent?
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>sm-04-through-division</strong>
+        <strong>metabolism-biomass-yield-s1-diagnostic</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -550,13 +533,13 @@ observable-view emulator cannot represent?
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <input type="text" class="baseline-composite-input" data-baseline-name="sm-04-through-division"
+        <input type="text" class="baseline-composite-input" data-baseline-name="metabolism-biomass-yield-s1-diagnostic"
                value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
                style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
         <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
-                data-baseline-name="sm-04-through-division">Set composite</button>
+                data-baseline-name="metabolism-biomass-yield-s1-diagnostic">Set composite</button>
       </div>
-      <div class="baseline-composite-status muted" data-baseline-name="sm-04-through-division" style="font-size:0.8em;margin-top:2px"></div>
+      <div class="baseline-composite-status muted" data-baseline-name="metabolism-biomass-yield-s1-diagnostic" style="font-size:0.8em;margin-top:2px"></div>
       
       <div class="model-config-mount" style="margin-top:8px">
         <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
@@ -564,7 +547,7 @@ observable-view emulator cannot represent?
       
       
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
-        <span class="cond-pill"><span class="cond-pill-k">seeds</span>=6</span>
+        
         
         
         <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
@@ -599,32 +582,51 @@ observable-view emulator cannot represent?
     
 
     
+
+    
     <div class="cond-block">
-      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></div>
-      <table class="cond-table">
-        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+      
+      <div class="cond-block-title">
+        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span>
+        
+      </div>
+      <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
+      <table class="cond-table cond-expert-table" data-study="metabolism-biomass-yield-s1-diagnostic">
+        <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Current</th><th>Range</th><th>Gate</th><th></th></tr></thead>
         <tbody>
           
-          <tr>
-            <td><code>follow-one-daughter-through-division</code></td>
-            <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
-              
-            </td>
-            <td>
-              
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
+          
+          
+          
+          <tr data-ei-name="no-model-change">
+            <td title=""><code>no-model-change</code></td>
             <td></td>
+            <td><code></code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value=""
+                     placeholder="(awaiting expert)"
+                     
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+            </td>
+            <td>
+              <em class="muted">—</em>
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('metabolism-biomass-yield-s1-diagnostic', 'no-model-change', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
           </tr>
           
         </tbody>
       </table>
     </div>
-    
-
     
   </div>
   
@@ -675,23 +677,23 @@ observable-view emulator cannot represent?
   
   <div class="panel" style="padding:14px 18px;margin-bottom:12px">
     <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">through-division-cv</strong>
-      <span class="sim-status-pill sim-status-ran">ran</span>
+      <strong style="font-size:1.05em">metabolism-biomass-yield-s1-diagnostic-baseline</strong>
+      <span class="sim-status-pill sim-status-completed">completed</span>
       
     </header>
     <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline</code>
+      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
     </div>
     
     <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
     
     <p style="margin:6px 0;font-size:0.9em">
       <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <code>6</code>
+      · <strong>Seeds:</strong> <em>not set</em>
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 1 · 
+      <strong>Tests applied:</strong> 2 · 
       <strong>Runs recorded:</strong> 1
     </p>
     
@@ -730,7 +732,7 @@ observable-view emulator cannot represent?
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
-    <div id="readouts-table" data-study="sm-04-through-division">
+    <div id="readouts-table" data-study="metabolism-biomass-yield-s1-diagnostic">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -750,26 +752,6 @@ observable-view emulator cannot represent?
     </div>
 
     
-    
-    <div class="embed-viz-section" style="margin-bottom:22px">
-      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Through division — emulator rollout vs the cell_mass halving (interactive)</strong>
-          <a href="/v2ecoli/workbench/reports/figures/sm-04-through-division/through_division.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">One held-out lineage&#39;s true cell_mass across a division vs each emulator&#39;s autoregressive rollout (the rollout continues to ~2340 fg while the true mass halves to ~1221 fg), plus within-generation vs division-tick teacher-forced one-step error per emulator. Every emulator, trivial or neural, fails to represent the discontinuity; the best within-generation models fail worst at the boundary.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/sm-04-through-division/through_division.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Through division — emulator rollout vs the cell_mass halving (interactive)"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-    </div>
     
 
     <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
@@ -795,14 +777,14 @@ observable-view emulator cannot represent?
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
       <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=sm-04-through-division">Download all (.zip)</a>
+         href="/api/study-analysis-zip?study=metabolism-biomass-yield-s1-diagnostic">Download all (.zip)</a>
     </div>
     <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
       Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
       Analysis steps — e.g. per-run analysis tables and exports. Click a file to
       download it.
     </p>
-    <div id="data-files" data-study="sm-04-through-division">
+    <div id="data-files" data-study="metabolism-biomass-yield-s1-diagnostic">
       <p class="empty-message">Loading result files…</p>
     </div>
 
@@ -849,39 +831,64 @@ observable-view emulator cannot represent?
     
     
     
-    <li class="expected-behavior-item" id="bt-emulators-hold-across-division"
+    <li class="expected-behavior-item" id="bt-biomass-yield-remeasured-on-recorded-commit"
         data-test-kind="behavioral"
         
-        data-pytest-node="emulators-hold-across-division"
+        data-pytest-node="biomass-yield-remeasured-on-recorded-commit"
         data-classification="primary"
-        data-result="FAIL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">emulators-hold-across-division</strong>
+        <strong style="font-size: 0.9em;">biomass-yield-remeasured-on-recorded-commit</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does the best within-generation emulator (linear) represent the division
-discontinuity — i.e. is its teacher-forced one-step error at the division
-tick comparable to its within-generation one-step error (ratio near 1)?
-The emulator &#34;holds&#34; only if the ratio stays small (&lt; 2).
-</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Linear boundary/within one-step ratio 6204x (NN one-step 13100x); every emulator predicts continued growth at the halving. Informative negative.</code>
-        
-      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does a fresh run on a recorded commit reproduce the committed fixture&#39;s Yxs of 0.826 gDW/g glucose, and does it still exceed the 0.538 first-principles ceiling?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "6-fold leave-one-lineage-out CV (dt=8 s, cell_mass). Linear emulator\nboundary_over_within_onestep_ratio = median(division-tick one-step nRMSE)\n/ median(within-generation one-step nRMSE) = 3.59 / 0.00058 = 6204.\nA value near 1 would mean the emulator holds across division; 6204 means\nit fails completely to follow the cell_mass halving.\n", "kind": "authored", "measured_value": 6204.0}
-expect:  {"low": 2.0, "op": "lt"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Yxs = dDW / integral(q_glc * DW) dt by direct mass balance over post-burn-in cells, via the canonical estimator (physiology_from_sweep / render_basal_vs_literature.py --from-sweep). Graded on the same physiology.biomass_yield axis the basal card uses - literature criterion, measured band 0.355-0.444, theoretical_max 0.538.", "kind": "derived"}
+expect:  null</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-carbon-closure-discriminates-one-defect-from-two"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="carbon-closure-discriminates-one-defect-from-two"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">carbon-closure-discriminates-one-defect-from-two</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does carbon close at baseline while yield exceeds the ceiling - the signature of an energetic defect distinct from the binding-cap carbon creation?</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Carbon closure = (CO2 + 2*acetate + biomass carbon) / (6 * glucose), plus RQ = CO2/O2, computed from the same sweep parquet via the exchange fluxes in bake_model_metabolism.py. Reference points from the overflow titration: closure 1.11 at a slack cap, 7.93 under a binding cap.", "kind": "derived"}
+expect:  null</pre>
       </details>
       
       
@@ -995,14 +1002,6 @@ expect:  {"low": 2.0, "op": "lt"}</pre>
       
       
       
-      <p class="muted" style="margin:0;font-size:0.9em">
-        <strong>1</strong> test outcome
-        — <span style="color:#065f46;font-weight:600">0 PASS</span> ·
-        <span style="color:#991b1b;font-weight:600">1 FAIL</span>.
-        Per-test outcomes (measured value · evaluator · band) are canonical on the
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
-      </p>
-      
     </div>
     
     
@@ -1031,7 +1030,7 @@ expect:  {"low": 2.0, "op": "lt"}</pre>
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8e17b54d3e21ded802c2ac2b29ad23cbdb72a775", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8e17b54d3e21ded802c2ac2b29ad23cbdb72a775", "branch": "main", "lockfile": "uv.lock@ce4a60092aaa", "generated_at": "2026-07-31 01:41 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
-window._studyName = "sm-04-through-division";
+window._studyName = "metabolism-biomass-yield-s1-diagnostic";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.
@@ -1162,7 +1161,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
   
   var compositeRef = "v2ecoli.composites.ecoli_baseline.ecoli_baseline";
   
-  var slug = window._studyName || "sm-04-through-division";
+  var slug = window._studyName || "metabolism-biomass-yield-s1-diagnostic";
   ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
   // Read-only bundle: there's no live backend to run on — hide the remote-run
   // launcher (the Configure & Run widget already renders a disabled preview).

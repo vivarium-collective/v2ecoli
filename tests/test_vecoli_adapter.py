@@ -66,7 +66,7 @@ def test_the_adapter_declares_the_whole_cell_face():
 
     assert face['inputs'] == {}
     assert set(face['outputs']) == {
-        'cell_mass', 'dry_mass', 'protein_mass', 'rna_mass', 'growth_rate'}
+        'cell_mass', 'dry_mass', 'protein_mass', 'rna_mass', 'growth'}
     assert all(kind == 'float' for kind in face['outputs'].values())
 
 

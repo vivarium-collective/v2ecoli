@@ -35,16 +35,27 @@ WHOLE_CELL_FACE: Dict[str, Dict[str, str]] = {
         'dry_mass': 'float',
         'protein_mass': 'float',
         'rna_mass': 'float',
-        'growth_rate': 'float'}}
+        'growth': 'float'}}
 
 #: Where each observable lives in vEcoli's mass listener.
+#:
+#: These are the names the listener *emits*, which are snake_case
+#: (``protein_mass``), not the camelCase attribute names on the listener
+#: object (``proteinMassInitial``) — those are its initial values, and reading
+#: them as emitted keys yields 0.0 silently.
+#:
+#: ``growth`` is deliberately not called ``growth_rate``: vEcoli computes it as
+#: ``dry_mass - old_dry_mass``, a per-timestep mass *increment* in fg, not a
+#: normalised rate. v2ecoli's listener emits the same quantity under the same
+#: name, so the face matches both sides verbatim. (v2ecoli additionally emits
+#: ``instantaneous_growth_rate``; vEcoli does not, so it is not in the face.)
 MASS_LISTENER = ('listeners', 'mass')
 OBSERVABLE_PATHS = {
     'cell_mass': 'cell_mass',
     'dry_mass': 'dry_mass',
     'protein_mass': 'protein_mass',
     'rna_mass': 'rna_mass',
-    'growth_rate': 'growth'}
+    'growth': 'growth'}
 
 
 def _mass_listener(state: Any) -> dict:

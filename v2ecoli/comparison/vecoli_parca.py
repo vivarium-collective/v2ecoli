@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import os
 import pathlib
+import sys
 import time
 from typing import Any, Dict
 
@@ -163,7 +164,10 @@ class VEcoliParcaBuild:
             # this is what makes the stale-pickle class of failure impossible.
             'context': {
                 'built_in_venv': True,
-                'python': os.environ.get('VIRTUAL_ENV', ''),
+                # `sys.prefix`, not `$VIRTUAL_ENV`: the worker inherits the
+                # host's environment, so the env var names the *caller's*
+                # venv, not the per-SHA one this actually ran in.
+                'python': sys.prefix,
                 'scipy': _module_version('scipy'),
                 'numpy': _module_version('numpy')}}
 

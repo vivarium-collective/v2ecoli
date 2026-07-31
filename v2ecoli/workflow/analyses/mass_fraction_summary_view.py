@@ -32,7 +32,9 @@ COLORS = ["#%02x%02x%02x" % tuple(c) for c in COLORS_256]
 
 
 class MassFractionSummaryView(Analysis):
-    """Biomass-component fold-change line plot over a single cell's timeseries."""
+    """Biomass-component fold-change line plot (each submass normalized to its
+    t=0 value → every series starts at 1). Works for a single cell and for
+    colony/batch runs (submasses summed across cells per timestep)."""
 
     name = "mass_fraction_summary_view"
     scale = "single"
@@ -48,22 +50,32 @@ class MassFractionSummaryView(Analysis):
     ) -> dict:
         import altair as alt
 
-        assert num_cells(conn, history_sql) == 1, (
-            "Mass fraction summary plot requires single-cell data."
-        )
-
+        # Biomass components, in the canonical order; each is normalized to its
+        # own t=0 value below (so every series starts at 1.0). "Metabolites" is
+        # the small-molecule submass. "Dry" (total dry mass) is kept as a
+        # reference line for overall growth.
         mass_columns = {
-            "Protein": "listeners__mass__protein_mass",
-            "tRNA": "listeners__mass__tRna_mass",
-            "rRNA": "listeners__mass__rRna_mass",
-            "mRNA": "listeners__mass__mRna_mass",
             "DNA": "listeners__mass__dna_mass",
-            "Small Mol": "listeners__mass__smallMolecule_mass",
+            "Protein": "listeners__mass__protein_mass",
+            "rRNA": "listeners__mass__rRna_mass",
+            "tRNA": "listeners__mass__tRna_mass",
+            "mRNA": "listeners__mass__mRna_mass",
+            "Metabolites": "listeners__mass__smallMolecule_mass",
             "Dry": "listeners__mass__dry_mass",
         }
-        mass_data = read_stacked_columns(
-            history_sql, list(mass_columns.values()), conn=conn
-        )
+        value_cols = list(mass_columns.values())
+        mass_data = read_stacked_columns(history_sql, value_cols, conn=conn)
+
+        # Colony / batch runs have MANY cells (one row per cell per tick). Sum
+        # each submass across all cells per timestep so the plot shows the
+        # colony-total component growth; single-cell runs are unchanged (sum of
+        # one row per time == that row).
+        if num_cells(conn, history_sql) != 1:
+            mass_data = (
+                mass_data.group_by("time")
+                .agg([pl.col(c).sum().alias(c) for c in value_cols])
+                .sort("time")
+            )
 
         fractions = {
             k: cast(

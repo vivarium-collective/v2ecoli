@@ -1,14 +1,16 @@
-"""End-to-end: a study executes, and its results drive a figure and a card.
+"""End-to-end: a study executes, and its results drive a figure, a card, and
+an analysis.
 
 The study is the higher-order DAG:
 
-    sim    : SimulationStep(inner = a v2ecoli sim + XArrayEmitter)  -> results
-    figure : ResultsVisualization   <- results   -> a real HTML figure
-    card   : GrowthCard             <- results   -> a verdict JSON
+    sim      : SimulationStep(inner = a v2ecoli sim + XArrayEmitter) -> results
+    figure   : ResultsVisualization <- results   -> a real HTML figure
+    card     : GrowthCard           <- results   -> a verdict JSON
+    analysis : ResultsAnalysis      <- results   -> a data artifact (CSV)
 
-``figure`` and ``card`` wire to ``['..', 'results']`` and each fire ONCE after
-the simulation completes, because the simulation is a single node of the outer
-network rather than a sibling of these steps.
+``figure``, ``card`` and ``analysis`` wire to ``['..', 'results']`` and each
+fire ONCE after the simulation completes, because the simulation is a single
+node of the outer network rather than a sibling of these steps.
 
 Everything here executes live: the inner simulation ticks through the engine
 and writes a real zarr store; the handle resolves by reading that store back.
@@ -101,14 +103,25 @@ def study_document(store_path: Path, runtime: float, rate: float,
                 'address': 'local:GrowthCard',
                 'config': {'variable': 'dry_mass', 'title': 'Growth'},
                 'inputs': {'results': ['..', 'results']},
-                'outputs': {'view': ['view'], 'data': ['data']}}}}
+                'outputs': {'view': ['view'], 'data': ['data']}}},
+        'analysis': {
+            'artifact': {},
+            'analyze': {
+                '_type': 'step',
+                'address': 'local:ResultsAnalysis',
+                'config': {'variable': 'dry_mass',
+                           'filename': 'growth_summary.csv'},
+                'inputs': {'results': ['..', 'results']},
+                'outputs': {'artifact': ['artifact']}}}}
 
 
 def build_core():
-    from v2ecoli.workflow.results_flush import ResultsVisualization, GrowthCard
+    from v2ecoli.workflow.results_flush import (
+        ResultsVisualization, GrowthCard, ResultsAnalysis)
     core = allocate_core()
     core.register_link('ResultsVisualization', ResultsVisualization)
     core.register_link('GrowthCard', GrowthCard)
+    core.register_link('ResultsAnalysis', ResultsAnalysis)
     return core
 
 
@@ -129,11 +142,15 @@ def run_slice(out_dir: Path, runtime: float = 5.0, rate: float = 0.1,
     html = study.state['figure']['html']
     verdict = study.state['card']['data']
     card_html = study.state['card']['view']
+    artifact = study.state['analysis']['artifact']
 
     (out_dir / 'figure.html').write_text(html, encoding='utf-8')
     (out_dir / 'growth.verdict.json').write_text(
         json.dumps(verdict, indent=1), encoding='utf-8')
     (out_dir / 'growth.html').write_text(card_html, encoding='utf-8')
+    if artifact.get('csv'):
+        (out_dir / artifact.get('filename', 'analysis.csv')).write_text(
+            artifact['csv'], encoding='utf-8')
 
     return {
         'study': study,
@@ -141,6 +158,7 @@ def run_slice(out_dir: Path, runtime: float = 5.0, rate: float = 0.1,
         'handle': handle,
         'html': html,
         'verdict': verdict,
+        'artifact': artifact,
         'out_dir': out_dir}
 
 
@@ -188,14 +206,25 @@ def main() -> int:
     print(f'  card artifacts               : '
           f'{result["out_dir"] / "growth.verdict.json"}')
 
+    artifact = result['artifact']
+    assert artifact.get('csv'), f'analysis produced no data artifact: {artifact}'
+    assert artifact['summary'], 'analysis summary is empty'
+    assert artifact['csv'].splitlines()[0] == (
+        'generation,variable,n,first,last,min,max,mean')
+    print(f'  analysis artifact            : {len(artifact["summary"])} '
+          f'generation row(s) -> '
+          f'{result["out_dir"] / artifact["filename"]}')
+
     # The higher-order-DAG signature: the flush entities are downstream of a
     # single simulation node, so how long the simulation runs cannot change
     # how many times they fire.
-    from v2ecoli.workflow.results_flush import ResultsVisualization, GrowthCard
+    from v2ecoli.workflow.results_flush import (
+        ResultsVisualization, GrowthCard, ResultsAnalysis)
 
-    firings = {'figure': 0, 'card': 0}
+    firings = {'figure': 0, 'card': 0, 'analysis': 0}
     original_figure = ResultsVisualization.update
     original_card = GrowthCard.update
+    original_analysis = ResultsAnalysis.update
 
     def count_figure(self, state):
         firings['figure'] += 1
@@ -205,8 +234,13 @@ def main() -> int:
         firings['card'] += 1
         return original_card(self, state)
 
+    def count_analysis(self, state):
+        firings['analysis'] += 1
+        return original_analysis(self, state)
+
     ResultsVisualization.update = count_figure
     GrowthCard.update = count_card
+    ResultsAnalysis.update = count_analysis
     try:
         counts = {}
         # NOTE: buffer-aligned lengths. XArrayEmitter.query() flushes on
@@ -215,23 +249,29 @@ def main() -> int:
         # is a pbg-emitters defect, not a property of this slice — see the
         # branch report.
         for runtime in (5.0, 11.0):
-            firings['figure'] = firings['card'] = 0
+            firings['figure'] = firings['card'] = firings['analysis'] = 0
             probe = run_slice(out_dir / f'len{int(runtime)}', runtime=runtime)
             rows = datatree_to_history(probe['handle'].resolve())
-            counts[runtime] = (firings['figure'], firings['card'], len(rows))
+            counts[runtime] = (firings['figure'], firings['card'],
+                               firings['analysis'], len(rows))
     finally:
         ResultsVisualization.update = original_figure
         GrowthCard.update = original_card
+        ResultsAnalysis.update = original_analysis
 
-    for runtime, (n_figure, n_card, n_rows) in counts.items():
+    for runtime, (n_figure, n_card, n_analysis, n_rows) in counts.items():
         assert n_figure == 1, f'figure fired {n_figure}x at runtime={runtime}'
         assert n_card == 1, f'card fired {n_card}x at runtime={runtime}'
-    lengths = {runtime: n_rows for runtime, (_, _, n_rows) in counts.items()}
+        assert n_analysis == 1, (
+            f'analysis fired {n_analysis}x at runtime={runtime}')
+    lengths = {runtime: n_rows for runtime, (*_, n_rows) in counts.items()}
     assert len(set(lengths.values())) == len(lengths), (
         f'runs did not differ in length: {lengths}')
     print(f'  firing counts                : '
-          + ', '.join(f'runtime={r} -> {n_rows} rows, figure x{f}, card x{c}'
-                      for r, (f, c, n_rows) in counts.items()))
+          + ', '.join(
+              f'runtime={r} -> {n_rows} rows, figure x{f}, card x{c}, '
+              f'analysis x{a}'
+              for r, (f, c, a, n_rows) in counts.items()))
 
     print('  ALL ASSERTIONS PASSED')
     return 0

@@ -4379,6 +4379,8 @@
     },
     "bake_script": "scripts/bake_model_omics.py --transcriptome",
     "baked": "2026-07-30",
-    "reconstructed": false
+    "reconstructed": false,
+    "blessed_model_ref": "b162243",
+    "blessed_model_ref_source": "population_phenotype_basal_reference.json stimulus.blessed_model_ref (4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided)"
   }
 }
